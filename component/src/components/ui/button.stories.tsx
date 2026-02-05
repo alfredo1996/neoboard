@@ -11,27 +11,38 @@ const meta = {
     variant: {
       control: 'select',
       options: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'],
+      description: 'The visual style variant of the button',
     },
     size: {
       control: 'select',
       options: ['default', 'sm', 'lg', 'icon'],
+      description: 'The size of the button',
     },
+    disabled: {
+      control: 'boolean',
+      description: 'Whether the button is disabled',
+    },
+    asChild: {
+      control: 'boolean',
+      description: 'Render as a child element using Radix Slot',
+    },
+    children: {
+      control: 'text',
+      description: 'Button content',
+    },
+  },
+  args: {
+    variant: 'default',
+    size: 'default',
+    disabled: false,
+    children: 'Button',
   },
 } satisfies Meta<typeof Button>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {
-  render: () => (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button variant="outline">Button</Button>
-      <Button variant="outline" size="icon" aria-label="Submit">
-        <ArrowUpIcon />
-      </Button>
-    </div>
-  ),
-};
+export const Default: Story = {};
 
 export const AllVariants: Story = {
   render: () => (
@@ -79,6 +90,19 @@ export const Loading: Story = {
     <Button disabled>
       <Loader2Icon className="animate-spin" />
       Please wait
+    </Button>
+  ),
+};
+
+export const IconButton: Story = {
+  args: {
+    variant: 'outline',
+    size: 'icon',
+    children: undefined,
+  },
+  render: (args) => (
+    <Button {...args} aria-label="Submit">
+      <ArrowUpIcon />
     </Button>
   ),
 };
