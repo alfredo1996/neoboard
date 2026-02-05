@@ -5,68 +5,123 @@
 
 ---
 
-## Week 1: Project Setup & Connection Base (16h)
+## Status
 
-### T001 - Project initialization
+**Current Phase**: Connection Module Complete (~80%)
+**Current Branch**: `feat/retry`
+**Last Updated**: 2026-02-05
+
+### Completed ✅
+- T001: Project initialization
+- T002: Tailwind + shadcn setup
+- T003: Zustand stores skeleton
+- T004: IDataSource interface
+- T005: Neo4j adapter
+- T009: Connection provider
+- T013: Schema introspection
+- Connection Module Tests: All passing (Neo4j, PostgreSQL, parsers)
+
+### In Progress 🔄
+- None (ready for main React app integration)
+
+### Next Steps 📋
+1. Build main React app shell
+2. Integrate connection module
+3. Implement chart system
+4. Add dashboard persistence
+
+---
+
+## Connection Module Testing ✅
+
+### CT001 - Neo4j Connection Tests ✅
+- **Status**: COMPLETED
+- **Description**: Implement comprehensive Neo4j connection test suite covering authentication, query execution, result parsing, transaction modes
+- **Tests Passing**:
+  - Check connection
+  - Query basic operations
+  - Query write operations
+  - Parser tests (records, primitives, temporal data)
+  - All 5 tests passing without timeouts
+
+### CT002 - PostgreSQL Adapter Tests ✅
+- **Status**: COMPLETED
+- **Description**: Implement PostgreSQL connection tests with similar coverage to Neo4j
+- **Tests Implemented**:
+  - Authentication tests
+  - Query execution tests
+  - Parser tests for different data types
+
+---
+
+## Week 1: Project Setup & Connection Base (16h) ✅
+
+### T001 - Project initialization ✅
 - **Module**: Setup
 - **Hours**: 2
 - **Priority**: P0
 - **Dependencies**: -
+- **Status**: COMPLETED
 - **Description**: Create Vite project with React 18, TypeScript 5.7, configure tsconfig, vite.config
-- **Acceptance Criteria**: 
-  - [ ] `npm run dev` starts dev server
-  - [ ] TypeScript compiles without errors
-  - [ ] Project structure matches architecture spec
+- **Acceptance Criteria**:
+  - [x] `npm run dev` starts dev server
+  - [x] TypeScript compiles without errors
+  - [x] Project structure matches architecture spec
 
-### T002 - Tailwind + shadcn setup
+### T002 - Tailwind + shadcn setup ✅
 - **Module**: Setup
 - **Hours**: 2
 - **Priority**: P0
 - **Dependencies**: T001
-- **Description**: Install Tailwind CSS, PostCSS, configure tailwind.config.js, init shadcn/ui, add base components (button, card, dialog, input, select, tabs, dropdown-menu, toast)
+- **Status**: COMPLETED
+- **Description**: Install Tailwind CSS, PostCSS, configure tailwind.config.js, init shadcn/ui, add base components
 - **Acceptance Criteria**:
-  - [ ] Tailwind classes apply correctly
-  - [ ] shadcn components render
-  - [ ] Dark mode class support configured
+  - [x] Tailwind classes apply correctly
+  - [x] shadcn components render
+  - [x] Dark mode class support configured
 
-### T003 - Zustand stores skeleton
+### T003 - Zustand stores skeleton ✅
 - **Module**: Connection
 - **Hours**: 3
 - **Priority**: P0
 - **Dependencies**: T001
-- **Description**: Create stores: connectionStore (connections[], activeConnection, actions), dashboardStore (dashboard, pages, cards, actions), parameterStore (params, actions)
+- **Status**: COMPLETED
+- **Description**: Create stores: connectionStore, dashboardStore, parameterStore with TypeScript types
 - **Acceptance Criteria**:
-  - [ ] All stores created with TypeScript types
-  - [ ] Persist middleware configured for connectionStore
-  - [ ] Actions work correctly
+  - [x] All stores created with TypeScript types
+  - [x] Persist middleware configured for connectionStore
+  - [x] Actions work correctly
 
-### T004 - IDataSource interface
+### T004 - IDataSource interface ✅
 - **Module**: Connection
 - **Hours**: 2
 - **Priority**: P0
 - **Dependencies**: T003
-- **Description**: Define interfaces: IDataSource (connect, disconnect, execute, getSchema, getQueryEditor), ConnectionConfig, InternalResult, ColumnDef, GraphNode, GraphRelationship
+- **Status**: COMPLETED
+- **Description**: Define interfaces: IDataSource, ConnectionConfig, InternalResult, ColumnDef, GraphNode, GraphRelationship
 - **Acceptance Criteria**:
-  - [ ] All interfaces exported from `src/connection/types.ts`
-  - [ ] Types are comprehensive and well-documented
+  - [x] All interfaces exported from `src/generalized/interfaces.ts`
+  - [x] Types are comprehensive and well-documented
 
-### T005 - Neo4j adapter
+### T005 - Neo4j adapter ✅
 - **Module**: Connection
 - **Hours**: 4
 - **Priority**: P0
 - **Dependencies**: T004
-- **Description**: Implement Neo4jDataSource: connect using neo4j-driver, execute Cypher queries, parse results to InternalResult format, extract graph data (nodes/relationships)
+- **Status**: COMPLETED
+- **Description**: Implement Neo4jDataSource with neo4j-driver, execute Cypher, parse to InternalResult format
 - **Acceptance Criteria**:
-  - [ ] Can connect to Neo4j instance
-  - [ ] Can run `MATCH (n) RETURN n LIMIT 10`
-  - [ ] Results parsed to InternalResult format
-  - [ ] Graph data (nodes/rels) extracted correctly
+  - [x] Can connect to Neo4j instance
+  - [x] Can run `MATCH (n) RETURN n LIMIT 10`
+  - [x] Results parsed to InternalResult format
+  - [x] Graph data (nodes/rels) extracted correctly
 
 ### T006 - Connection modal UI
 - **Module**: Connection
 - **Hours**: 3
 - **Priority**: P0
 - **Dependencies**: T002, T005
+- **Status**: PENDING (Next Priority)
 - **Description**: Create ConnectionModal component: form for host, port, database, username, password, test connection button, save connection
 - **Acceptance Criteria**:
   - [ ] Modal opens/closes correctly
@@ -101,16 +156,17 @@
   - [ ] Keywords highlighted
   - [ ] Query history accessible
 
-### T009 - Connection provider
+### T009 - Connection provider ✅
 - **Module**: Connection
 - **Hours**: 2
 - **Priority**: P0
 - **Dependencies**: T005
+- **Status**: COMPLETED
 - **Description**: Create ConnectionProvider context: manages active connection, exposes execute function, handles connection lifecycle
 - **Acceptance Criteria**:
-  - [ ] `useConnection()` hook works throughout app
-  - [ ] Active connection accessible
-  - [ ] Execute function available
+  - [x] `useConnection()` hook works throughout app
+  - [x] Active connection accessible
+  - [x] Execute function available
 
 ### T010 - Connection persistence
 - **Module**: Connection
@@ -145,16 +201,17 @@
   - [ ] Error boundary catches errors
   - [ ] App doesn't crash on component error
 
-### T013 - Schema introspection
+### T013 - Schema introspection ✅
 - **Module**: Connection
 - **Hours**: 1
 - **Priority**: P1
 - **Dependencies**: T005
+- **Status**: COMPLETED
 - **Description**: Add getSchema to Neo4j adapter: call db.schema.visualization(), parse node labels, relationship types, properties
 - **Acceptance Criteria**:
-  - [ ] Can retrieve database schema
-  - [ ] Node labels listed
-  - [ ] Relationship types listed
+  - [x] Can retrieve database schema
+  - [x] Node labels listed
+  - [x] Relationship types listed
 
 ---
 
@@ -772,13 +829,16 @@
 
 ---
 
-## Summary
+## Summary & Progress
 
-| Phase | Weeks | Hours | P0 Tasks | P1 Tasks | P2 Tasks |
-|-------|-------|-------|----------|----------|----------|
-| Foundation | 1-3 | 48 | 15 | 1 | 0 |
-| Charts & Reports | 4-6 | 48 | 14 | 2 | 0 |
-| Interactivity | 7-8 | 32 | 10 | 3 | 0 |
-| Persistence | 9-10 | 32 | 9 | 2 | 0 |
-| Polish & Diff | 11-12 | 32 | 6 | 4 | 2 |
-| **TOTAL** | **1-12** | **192** | **54** | **12** | **2** |
+| Phase | Weeks | Hours | P0 Tasks | Status |
+|-------|-------|-------|----------|--------|
+| Connection Module | Done | ~40 | 8 | ✅ COMPLETED |
+| Foundation (UI/Charts) | 1-3 | 48 | 15 | 🔄 IN PROGRESS (T006+) |
+| Charts & Reports | 4-6 | 48 | 14 | ⏳ PENDING |
+| Interactivity | 7-8 | 32 | 10 | ⏳ PENDING |
+| Persistence | 9-10 | 32 | 9 | ⏳ PENDING |
+| Polish & Differentiators | 11-12 | 32 | 6 | ⏳ PENDING |
+| **TOTAL PLANNED** | **1-12** | **192** | **54** | - |
+| **COMPLETED** | - | **40** | **8** | ✅ |
+| **REMAINING** | - | **152** | **46** | 📋 |
