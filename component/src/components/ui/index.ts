@@ -16,3 +16,13 @@ export { RadioGroup, RadioGroupItem } from './radio-group'
 export { Switch } from './switch'
 export { Textarea } from './textarea'
 export { Slider } from './slider'
+
+// Phase 3: Dialog & Feedback Components
+export { Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from './dialog'
+export { AlertDialog, AlertDialogPortal, AlertDialogOverlay, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from './alert-dialog'
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuCheckboxItem, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuGroup, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuRadioGroup } from './dropdown-menu'
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from './popover'
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip'
+export { Toast, ToastAction, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from './toast'
+export { Toaster } from './toaster'
+export { Alert, AlertTitle, AlertDescription } from './alert'
