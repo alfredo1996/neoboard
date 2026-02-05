@@ -7,8 +7,8 @@
 
 ## Status
 
-**Current Phase**: Connection Module Complete (~80%)
-**Current Branch**: `feat/retry`
+**Current Phase**: Component Library Build (Phase 6: Core Composed)
+**Current Branch**: `main`
 **Last Updated**: 2026-02-05
 
 ### Completed ✅
@@ -20,15 +20,578 @@
 - T009: Connection provider
 - T013: Schema introspection
 - Connection Module Tests: All passing (Neo4j, PostgreSQL, parsers)
+- CP001: shadcn Base Components Part 1 (Button, Input, Label, Card, Badge, Avatar, Separator, Skeleton)
+- CP002: shadcn Form Components (Form, Select, Checkbox, Radio Group, Switch, Textarea, Slider)
+- CP003: shadcn Dialog & Feedback Components (Dialog, Alert Dialog, Dropdown Menu, Popover, Tooltip, Toast, Alert)
+- CP004: shadcn Layout & Navigation Components (Tabs, Accordion, Navigation Menu, Breadcrumb, Pagination, Sheet)
+- CP005: shadcn Data & Picker Components (Table, Calendar, Command)
+- Storybook: 31 story files covering all Phase 1-5 components, matching shadcn docs
 
 ### In Progress 🔄
-- None (ready for main React app integration)
+- Phase 6: Core Composed Components
 
 ### Next Steps 📋
-1. Build main React app shell
-2. Integrate connection module
-3. Implement chart system
-4. Add dashboard persistence
+1. Build composed components (Phase 6)
+2. Implement widget cards (Phase 7)
+3. Create dashboard layout (Phase 8)
+4. Build filters (Phase 9)
+
+---
+
+## Component Library Build (Phases 1-13)
+
+This section maps the Component Library checklist to actionable tasks with dependencies and acceptance criteria.
+
+### Phase 1-5: shadcn Base Components (8h)
+
+#### CP001 - Add shadcn Base Components Part 1
+- **Status**: COMPLETED ✅
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: T002
+- **Description**: Use shadcn MCP to add Button, Input, Label, Card, Badge, Avatar, Separator, Skeleton
+- **Acceptance Criteria**:
+  - [ ] All 8 components added to `src/components/ui/`
+  - [ ] Components render correctly in Storybook
+  - [ ] Tailwind styling applied
+
+#### CP002 - Add shadcn Form Components
+- **Status**: COMPLETED ✅
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: T002
+- **Description**: Add Form, Select, Checkbox, Radio Group, Switch, Textarea, Slider
+- **Acceptance Criteria**:
+  - [ ] All 7 form components available
+  - [ ] react-hook-form integration working
+  - [ ] Form validation examples in Storybook
+
+#### CP003 - Add shadcn Dialog & Feedback Components
+- **Status**: COMPLETED ✅
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: T002
+- **Description**: Add Dialog, Alert Dialog, Dropdown Menu, Popover, Tooltip, Toast, Alert
+- **Acceptance Criteria**:
+  - [ ] All 7 components added
+  - [ ] Toast notifications functional
+  - [ ] Dialog animations working
+
+#### CP004 - Add shadcn Layout & Navigation Components
+- **Status**: COMPLETED ✅
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: T002
+- **Description**: Add Tabs, Accordion, Navigation Menu, Breadcrumb, Pagination, Sheet
+- **Acceptance Criteria**:
+  - [ ] All 6 components added
+  - [ ] Navigation patterns tested
+  - [ ] Pagination functional
+
+#### CP005 - Add shadcn Data & Picker Components
+- **Status**: COMPLETED ✅
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: T002
+- **Description**: Add Table, Calendar, Date Picker, Command, Combobox
+- **Acceptance Criteria**:
+  - [ ] All 5 components added
+  - [ ] Date picker functional
+  - [ ] Table rendering correctly
+
+---
+
+### Phase 6: Core Composed Components (12h)
+
+#### CP006 - Create SearchInput & PasswordInput
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001, CP002
+- **Description**: Build SearchInput (input + icon + clear) and PasswordInput (show/hide toggle) composed components
+- **Acceptance Criteria**:
+  - [ ] SearchInput clears on button click
+  - [ ] PasswordInput toggles visibility
+  - [ ] Both components in `src/components/composed/`
+  - [ ] Storybook stories created
+
+#### CP007 - Create FormField & ConfirmDialog
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP002, CP003
+- **Description**: Build FormField (label + input + error) and ConfirmDialog (pre-configured alert dialog)
+- **Acceptance Criteria**:
+  - [ ] FormField displays errors correctly
+  - [ ] ConfirmDialog confirm/cancel actions work
+  - [ ] Both tested in Storybook
+
+#### CP008 - Create EmptyState & PageHeader
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001, CP004
+- **Description**: Build EmptyState (illustration + title + description + action) and PageHeader (title + breadcrumb + actions)
+- **Acceptance Criteria**:
+  - [ ] EmptyState displays all elements
+  - [ ] PageHeader layout responsive
+  - [ ] Breadcrumb navigation working
+
+#### CP009 - Create LoadingButton & AvatarGroup
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build LoadingButton (button + spinner) and AvatarGroup (stacked avatars + overflow)
+- **Acceptance Criteria**:
+  - [ ] LoadingButton shows spinner during loading
+  - [ ] AvatarGroup stacks correctly
+  - [ ] Overflow badge displays
+
+#### CP010 - Create Utility Composed Components
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001, CP003
+- **Description**: Build TruncatedText (ellipsis + tooltip), CopyButton (copy + confirmation), StatusDot (colored indicator)
+- **Acceptance Criteria**:
+  - [ ] All 3 components functional
+  - [ ] Copy button shows confirmation
+  - [ ] Status indicators render correctly
+
+#### CP011 - Create Code & Data Display Components
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build CodeBlock (syntax highlight + copy), JsonViewer (collapsible JSON tree), KeyValueList, TimeAgo (relative time + tooltip)
+- **Acceptance Criteria**:
+  - [ ] CodeBlock syntax highlighting works
+  - [ ] JsonViewer collapses/expands
+  - [ ] TimeAgo displays relative times
+
+---
+
+### Phase 7: Widget Cards (10h)
+
+#### CP012 - Create WidgetCard Base Component
+- **Status**: PENDING
+- **Hours**: 3
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build WidgetCard: draggable container, resizable edges, drag handle, title, action menu, loading/error states
+- **Acceptance Criteria**:
+  - [ ] Card renders with header
+  - [ ] CSS for drag handle visible
+  - [ ] Action menu available
+  - [ ] Loading and error states display
+
+#### CP013 - Create WidgetCard Body & Footer
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP012
+- **Description**: Build WidgetCardBody (responsive container with ResizeObserver + context) and WidgetCardFooter
+- **Acceptance Criteria**:
+  - [ ] WidgetSizeProvider passes size via context
+  - [ ] useWidgetSize hook works
+  - [ ] Footer renders optionally
+
+#### CP014 - Create StatCard & MetricTile
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build StatCard (KPI display with value + trend + sparkline) and MetricTile (compact metric)
+- **Acceptance Criteria**:
+  - [ ] StatCard displays trend indicator
+  - [ ] Sparkline renders
+  - [ ] MetricTile layout compact
+
+#### CP015 - Create Chart Loading & Empty States
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build ChartSkeleton (loading animation), NoDataState (empty chart), ErrorState (error + retry button)
+- **Acceptance Criteria**:
+  - [ ] ChartSkeleton no layout shift
+  - [ ] NoDataState displays helpful message
+  - [ ] ErrorState retry button functional
+
+#### CP016 - Create Responsive Size Hooks
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP013
+- **Description**: Implement useContainerSize and useWidgetSize hooks for responsive widget sizing
+- **Acceptance Criteria**:
+  - [ ] useContainerSize returns ref and size
+  - [ ] Size updates on window resize
+  - [ ] Works with ResizeObserver
+
+---
+
+### Phase 8: Dashboard Layout (8h)
+
+#### CP017 - Create DashboardGrid Component
+- **Status**: PENDING
+- **Hours**: 3
+- **Priority**: P0
+- **Dependencies**: CP012, T017
+- **Description**: Build DashboardGrid: react-grid-layout wrapper with drag/resize, breakpoints (lg/md/sm), layout sync to store
+- **Acceptance Criteria**:
+  - [ ] Grid renders items
+  - [ ] Items draggable
+  - [ ] Items resizable
+  - [ ] Layout syncs to dashboardStore
+
+#### CP018 - Create GridItem Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP017, CP012
+- **Description**: Build GridItem: connects WidgetCard to grid, handles size/position, manages resize state
+- **Acceptance Criteria**:
+  - [ ] GridItem renders card inside
+  - [ ] Position/size sync correct
+  - [ ] Responsive layout works
+
+#### CP019 - Create Sidebar & SidebarItem Components
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP004
+- **Description**: Build Sidebar (collapsible navigation) and SidebarItem (nav item with icon + badge)
+- **Acceptance Criteria**:
+  - [ ] Sidebar toggles open/closed
+  - [ ] Items with icons display
+  - [ ] Badge shows counts
+  - [ ] Responsive on mobile
+
+#### CP020 - Create Toolbar Component
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build Toolbar: filter/action bar for dashboard top
+- **Acceptance Criteria**:
+  - [ ] Toolbar renders
+  - [ ] Actions/filters displayable
+  - [ ] Responsive layout
+
+---
+
+### Phase 9: Filters (8h)
+
+#### CP021 - Create FilterBar & FilterChip Components
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build FilterBar (horizontal filter container) and FilterChip (removable active filter)
+- **Acceptance Criteria**:
+  - [ ] FilterBar displays chips
+  - [ ] Chips removable on click
+  - [ ] Layout responsive
+
+#### CP022 - Create FilterDropdown Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP002
+- **Description**: Build FilterDropdown: field selector + operator + value input
+- **Acceptance Criteria**:
+  - [ ] Dropdown shows field options
+  - [ ] Operator selector works
+  - [ ] Value input functional
+
+#### CP023 - Create DateRangePicker & RefreshControl
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP005
+- **Description**: Build DateRangePicker (dual calendar + presets) and RefreshControl (auto-refresh toggle)
+- **Acceptance Criteria**:
+  - [ ] DateRangePicker selects date range
+  - [ ] Presets available
+  - [ ] RefreshControl toggle works
+
+#### CP024 - Create QueryEditor Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: T007, T008
+- **Description**: Build QueryEditor: Monaco editor for Cypher with syntax highlighting and run button
+- **Acceptance Criteria**:
+  - [ ] Editor renders
+  - [ ] Syntax highlighting active
+  - [ ] Run button executes query
+
+---
+
+### Phase 10: Data Connection (6h)
+
+#### CP025 - Create ConnectionCard & ConnectionStatus Components
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001, T005
+- **Description**: Build ConnectionCard (db connection + status) and ConnectionStatus (connected/error badge)
+- **Acceptance Criteria**:
+  - [ ] Card displays connection info
+  - [ ] Status badge shows connection state
+  - [ ] Connect/disconnect buttons work
+
+#### CP026 - Create ConnectionForm Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP006, CP007, T005
+- **Description**: Build ConnectionForm: credentials form with validation, test connection button, password input
+- **Acceptance Criteria**:
+  - [ ] Form has all required fields
+  - [ ] Validation works
+  - [ ] Test button shows result
+  - [ ] Submit saves connection
+
+#### CP027 - Create DataSourcePicker Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP002
+- **Description**: Build DataSourcePicker: source selector dropdown with connection list
+- **Acceptance Criteria**:
+  - [ ] Dropdown shows available sources
+  - [ ] Selection updates context
+  - [ ] Multiple sources selectable
+
+---
+
+### Phase 11: Data Grid (10h)
+
+#### CP028 - Create DataGrid Component
+- **Status**: PENDING
+- **Hours**: 4
+- **Priority**: P0
+- **Dependencies**: CP005
+- **Description**: Build DataGrid: sorting, filtering, pagination, resizable columns (ag-grid or custom)
+- **Acceptance Criteria**:
+  - [ ] DataGrid renders data
+  - [ ] Column sorting works
+  - [ ] Filtering functional
+  - [ ] Pagination controls present
+  - [ ] Columns resizable
+
+#### CP029 - Create DataGrid Column & Row Features
+- **Status**: PENDING
+- **Hours**: 3
+- **Priority**: P0
+- **Dependencies**: CP028
+- **Description**: Build ColumnHeader (sort + filter + resize), CellRenderer (smart formatting), RowActions (hover actions), BulkActions
+- **Acceptance Criteria**:
+  - [ ] Column headers interactive
+  - [ ] Cell formatting works
+  - [ ] Row actions appear on hover
+  - [ ] Bulk actions toolbar displays
+
+#### CP030 - Create DataGrid Toolbar & Export
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP028
+- **Description**: Build PaginationBar (page nav + size control) and ExportButton (CSV/Excel/JSON export)
+- **Acceptance Criteria**:
+  - [ ] Pagination controls functional
+  - [ ] CSV export downloads
+  - [ ] Excel export works
+  - [ ] JSON export available
+
+#### CP031 - Create DataGrid Tests & Stories
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP028
+- **Description**: Add comprehensive Storybook stories and Vitest tests for DataGrid components
+- **Acceptance Criteria**:
+  - [ ] Stories show all variants
+  - [ ] Tests cover sort/filter/pagination
+  - [ ] Accessibility tested
+
+---
+
+### Phase 12: Chart Config (6h)
+
+#### CP032 - Create ChartTypePicker Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build ChartTypePicker: visual chart selector with icons for BarChart, LineChart, PieChart, TableChart, etc.
+- **Acceptance Criteria**:
+  - [ ] Grid of chart type icons
+  - [ ] Selection shows preview
+  - [ ] Current type highlighted
+  - [ ] All chart types available
+
+#### CP033 - Create AxisConfigurator & FieldPicker
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP002
+- **Description**: Build AxisConfigurator (X/Y field dropzones) and FieldPicker (draggable field list)
+- **Acceptance Criteria**:
+  - [ ] Dropzones accept fields
+  - [ ] Drag-and-drop works
+  - [ ] Field list shows available fields
+  - [ ] Config updates on change
+
+#### CP034 - Create ColorPicker Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build ColorPicker: palette selector + custom color input
+- **Acceptance Criteria**:
+  - [ ] Palette colors selectable
+  - [ ] Custom color picker works
+  - [ ] Color applied to preview
+  - [ ] Hex/RGB input supported
+
+---
+
+### Phase 13: Utility Components (6h)
+
+#### CP035 - Create LoadingOverlay Component
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build LoadingOverlay: full-screen overlay with centered spinner
+- **Acceptance Criteria**:
+  - [ ] Overlay renders fullscreen
+  - [ ] Spinner centered
+  - [ ] Semi-transparent background
+
+#### CP036 - Create StatusDot & TruncatedText Utils
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP001, CP003
+- **Description**: Build StatusDot (colored status indicator) and TruncatedText (ellipsis + tooltip)
+- **Acceptance Criteria**:
+  - [ ] StatusDot renders with color
+  - [ ] TruncatedText shows full text in tooltip
+  - [ ] Both styled correctly
+
+#### CP037 - Create CopyButton & CodeBlock Utils
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP001, CP003
+- **Description**: Build CopyButton (copy + confirmation) and CodeBlock (syntax highlight + copy)
+- **Acceptance Criteria**:
+  - [ ] Copy button confirms copy
+  - [ ] CodeBlock highlights syntax
+  - [ ] Both copy to clipboard
+
+#### CP038 - Create JsonViewer & KeyValueList Utils
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP001
+- **Description**: Build JsonViewer (collapsible JSON tree) and KeyValueList (key-value pairs display)
+- **Acceptance Criteria**:
+  - [ ] JsonViewer collapses/expands
+  - [ ] KeyValueList renders pairs
+  - [ ] Both support deep nesting
+
+#### CP039 - Create TimeAgo Component
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP001, CP003
+- **Description**: Build TimeAgo: relative time display with tooltip
+- **Acceptance Criteria**:
+  - [ ] Shows relative time (e.g., "2 hours ago")
+  - [ ] Tooltip shows absolute time
+  - [ ] Updates periodically
+
+---
+
+### Charts Core & Types (12h)
+
+#### CP040 - Create BaseChart & Chart Hooks
+- **Status**: PENDING
+- **Hours**: 3
+- **Priority**: P0
+- **Dependencies**: T024
+- **Description**: Build BaseChart wrapper, useChart hook for instance management, useChartResize hook, light/dark themes
+- **Acceptance Criteria**:
+  - [ ] BaseChart wraps ECharts instance
+  - [ ] useChart manages lifecycle
+  - [ ] useChartResize auto-resizes
+  - [ ] Both themes functional
+
+#### CP041 - Create TableChart Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP028, T024
+- **Description**: Build TableChart: renders records as table, configurable columns, sorting, pageSize
+- **Acceptance Criteria**:
+  - [ ] Renders neodashRecords correctly
+  - [ ] Columns auto-configured
+  - [ ] Sorting works
+  - [ ] Pagination configurable
+
+#### CP042 - Create BarChart Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP040, T025
+- **Description**: Build BarChart: bar visualization, orientation (h/v), stacked option, custom options override
+- **Acceptance Criteria**:
+  - [ ] Renders bar chart from records
+  - [ ] X/Y field configuration works
+  - [ ] Stacking option functional
+  - [ ] Colors customizable
+
+#### CP043 - Create LineChart Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP040, T026
+- **Description**: Build LineChart: line visualization, time series support, area fill, smooth curves
+- **Acceptance Criteria**:
+  - [ ] Renders line chart
+  - [ ] Multiple series supported
+  - [ ] Area fill option works
+  - [ ] Date formatting correct
+
+#### CP044 - Create GraphChart Component
+- **Status**: PENDING
+- **Hours**: 2
+- **Priority**: P0
+- **Dependencies**: CP040, T029
+- **Description**: Build GraphChart: graph visualization, node/edge styling, nodeField, edgeSourceField, edgeTargetField
+- **Acceptance Criteria**:
+  - [ ] Graph renders from records
+  - [ ] Nodes display
+  - [ ] Edges display
+  - [ ] Styling rules apply
+
+#### CP045 - Create Chart Tests & Stories
+- **Status**: PENDING
+- **Hours**: 1
+- **Priority**: P0
+- **Dependencies**: CP041, CP042, CP043, CP044
+- **Description**: Add comprehensive Storybook stories and Vitest tests for all chart components
+- **Acceptance Criteria**:
+  - [ ] Stories show all variants
+  - [ ] Mock data provided
+  - [ ] Tests cover rendering and config
+  - [ ] Accessibility tested
 
 ---
 
@@ -831,14 +1394,40 @@
 
 ## Summary & Progress
 
+### Component Library Phases
+
+| Phase | Components | Hours | P0 Tasks | Status |
+|-------|-----------|-------|----------|--------|
+| CP001-CP005: shadcn Base | Button, Input, Form, Dialog, Table, etc. | 8 | 5 | ✅ COMPLETED |
+| CP006-CP011: Core Composed | SearchInput, FormField, PageHeader, etc. | 12 | 6 | ⏳ PENDING |
+| CP012-CP016: Widget Cards | WidgetCard, StatCard, Loading/Error States | 10 | 5 | ⏳ PENDING |
+| CP017-CP020: Dashboard Layout | DashboardGrid, Sidebar, Toolbar | 8 | 4 | ⏳ PENDING |
+| CP021-CP024: Filters | FilterBar, DateRangePicker, QueryEditor | 8 | 4 | ⏳ PENDING |
+| CP025-CP027: Data Connection | ConnectionCard, ConnectionForm | 6 | 3 | ⏳ PENDING |
+| CP028-CP031: Data Grid | DataGrid, ColumnHeader, Export | 10 | 4 | ⏳ PENDING |
+| CP032-CP034: Chart Config | ChartTypePicker, AxisConfigurator | 6 | 3 | ⏳ PENDING |
+| CP035-CP039: Utilities | LoadingOverlay, TimeAgo, JsonViewer | 6 | 5 | ⏳ PENDING |
+| CP040-CP045: Charts Core & Types | BaseChart, BarChart, LineChart, GraphChart | 12 | 6 | ⏳ PENDING |
+| **COMPONENT LIBRARY TOTAL** | **45 Components** | **86** | **45** | 📋 |
+
+### Feature Development Timeline
+
 | Phase | Weeks | Hours | P0 Tasks | Status |
 |-------|-------|-------|----------|--------|
 | Connection Module | Done | ~40 | 8 | ✅ COMPLETED |
-| Foundation (UI/Charts) | 1-3 | 48 | 15 | 🔄 IN PROGRESS (T006+) |
+| Foundation (UI/Charts) | 1-3 | 48 | 15 | ⏳ PENDING (T006+) |
 | Charts & Reports | 4-6 | 48 | 14 | ⏳ PENDING |
 | Interactivity | 7-8 | 32 | 10 | ⏳ PENDING |
 | Persistence | 9-10 | 32 | 9 | ⏳ PENDING |
 | Polish & Differentiators | 11-12 | 32 | 6 | ⏳ PENDING |
-| **TOTAL PLANNED** | **1-12** | **192** | **54** | - |
-| **COMPLETED** | - | **40** | **8** | ✅ |
-| **REMAINING** | - | **152** | **46** | 📋 |
+
+### Overall Project Progress
+
+| Metric | Total | Completed | Remaining | % |
+|--------|-------|-----------|-----------|---|
+| Hours (Feature Tasks) | 192 | 40 | 152 | 21% |
+| P0 Tasks (Feature) | 54 | 8 | 46 | 15% |
+| Hours (Component Library) | 86 | 8 | 78 | 9% |
+| P0 Tasks (Components) | 45 | 5 | 40 | 11% |
+| **TOTAL HOURS** | **278** | **48** | **230** | **17%** |
+| **TOTAL P0 TASKS** | **99** | **13** | **86** | **13%** |
