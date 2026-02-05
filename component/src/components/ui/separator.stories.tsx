@@ -4,10 +4,23 @@ import { Separator } from './separator';
 const meta = {
   title: 'UI/Separator',
   component: Separator,
-  parameters: {
-    layout: 'centered',
-  },
+  parameters: { layout: 'centered' },
   tags: ['autodocs'],
+  argTypes: {
+    orientation: {
+      control: 'radio',
+      options: ['horizontal', 'vertical'],
+      description: 'The orientation of the separator',
+    },
+    decorative: {
+      control: 'boolean',
+      description: 'When true, signifies the separator is purely visual and has no semantic meaning (affects accessibility)',
+    },
+  },
+  args: {
+    orientation: 'horizontal',
+    decorative: true,
+  },
 } satisfies Meta<typeof Separator>;
 
 export default meta;
@@ -35,6 +48,7 @@ export const Horizontal: Story = {
 };
 
 export const Vertical: Story = {
+  args: { orientation: 'vertical' },
   render: () => (
     <div className="flex h-20 items-center space-x-4">
       <div>Item 1</div>

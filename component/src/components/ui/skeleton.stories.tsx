@@ -4,18 +4,23 @@ import { Skeleton } from './skeleton';
 const meta = {
   title: 'UI/Skeleton',
   component: Skeleton,
-  parameters: {
-    layout: 'centered',
-  },
+  parameters: { layout: 'centered' },
   tags: ['autodocs'],
+  argTypes: {
+    className: {
+      control: 'text',
+      description: 'CSS classes to control size and shape (e.g., w-[100px] h-[20px] rounded-full)',
+    },
+  },
+  args: {
+    className: 'w-[100px] h-[20px] rounded-full',
+  },
 } satisfies Meta<typeof Skeleton>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {
-  render: () => <Skeleton className="w-[100px] h-[20px] rounded-full" />,
-};
+export const Default: Story = {};
 
 export const Card: Story = {
   render: () => (
