@@ -1,16 +1,12 @@
 name: Connection Module Tests
 
 on:
-  push:
-    branches: [ main, develop, feat/*, fix/* ]
-    paths:
-      - 'connection/**'
-      - '.github/workflows/connection-tests.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'connection/**'
       - '.github/workflows/connection-tests.yml'
+  workflow_dispatch:
 
 jobs:
   lint:
