@@ -20,6 +20,9 @@
       "@/*": ["./src/*"]
     },
 
+    /* Types */
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
@@ -29,6 +32,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src"],
+  "include": ["src", "stories", "vitest.setup.ts"],
   "exclude": ["node_modules", "dist"]
 }
