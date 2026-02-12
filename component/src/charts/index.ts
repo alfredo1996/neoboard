@@ -1,4 +1,4 @@
-export { BaseChart, CHART_COLORS } from "./base-chart";
+export { BaseChart, CHART_COLORS, resolveChartColors } from "./base-chart";
 export { LineChart } from "./line-chart";
 export type { LineChartProps } from "./line-chart";
 export { BarChart } from "./bar-chart";

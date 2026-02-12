@@ -69,7 +69,7 @@ function LineChart({
         data: data.map((d) => d[key] as number),
         smooth,
         areaStyle: area ? {} : undefined,
-        emphasis: { focus: "series" as const },
+        emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
       })),
     };
   }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend]);
