@@ -123,7 +123,7 @@ describe("BaseChart", () => {
     render(<BaseChart options={{ title: { text: "Test" } }} />);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(var(--chart-1))"]),
+        color: expect.arrayContaining(["hsl(12, 76%, 61%)"]),
       }),
       { notMerge: true },
     );

@@ -66,7 +66,7 @@ function BarChart({
         label: showValues
           ? { show: true, position: isHorizontal ? ("right" as const) : ("top" as const) }
           : undefined,
-        emphasis: { focus: "series" as const },
+        emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
       })),
     };
   }, [data, orientation, stacked, showValues, showLegend]);
