@@ -32,6 +32,14 @@ export { PropertyPanel, type PropertyPanelProps, type PropertySection, type Prop
 export { PageHeader, type PageHeaderProps } from "./page-header";
 export { AvatarGroup, type AvatarGroupProps, type AvatarGroupItem } from "./avatar-group";
 export { WidgetCard, type WidgetCardProps, type WidgetCardAction } from "./widget-card";
+export { AppShell, type AppShellProps } from "./app-shell";
+export { Sidebar, type SidebarProps } from "./sidebar";
+export { SidebarItem, type SidebarItemProps } from "./sidebar-item";
+export { Toolbar, ToolbarSection, ToolbarSeparator, type ToolbarProps, type ToolbarSectionProps } from "./toolbar";
+export { GridItem, type GridItemProps } from "./grid-item";
+
+// Dashboard
+export { DashboardGrid, type DashboardGridProps, type LayoutItem } from "./dashboard-grid";
 
 // Navigation
 export { VerticalTabs, type VerticalTabsProps, type VerticalTabItem } from "./vertical-tabs";
@@ -43,6 +51,30 @@ export { FilterBar, type FilterBarProps, type FilterDef } from "./filter-bar";
 
 // Tables & Data
 export { DataGrid, type DataGridProps, type DataGridColumn } from "./data-grid";
+export { DataGridToolbar, type DataGridToolbarProps } from "./data-grid-toolbar";
+export { DataGridColumnHeader, type DataGridColumnHeaderProps } from "./data-grid-column-header";
+export { DataGridPagination, type DataGridPaginationProps } from "./data-grid-pagination";
+export { DataGridFacetedFilter, type DataGridFacetedFilterProps } from "./data-grid-faceted-filter";
+export { DataGridRowActions, type DataGridRowActionsProps, type DataGridRowAction } from "./data-grid-row-actions";
+export { DataGridViewOptions, type DataGridViewOptionsProps } from "./data-grid-view-options";
+
+// Chart Config
+export { ChartTypePicker, type ChartTypePickerProps, type ChartTypeOption } from "./chart-type-picker";
+export { ColorPicker, type ColorPickerProps } from "./color-picker";
+export { FieldPicker, type FieldPickerProps, type FieldOption } from "./field-picker";
+export { ChartSettingsPanel, type ChartSettingsPanelProps } from "./chart-settings-panel";
+
+// Connection
+export { ConnectionStatus, type ConnectionStatusProps, type ConnectionState } from "./connection-status";
+export { ConnectionForm, neo4jConnectionFields, postgresConnectionFields, type ConnectionFormProps, type ConnectionFieldConfig } from "./connection-form";
+export { ConnectionCard, type ConnectionCardProps } from "./connection-card";
+export { DataSourcePicker, type DataSourcePickerProps, type DataSourceOption } from "./data-source-picker";
+
+// Interactivity
+export { ChartContextMenu, type ChartContextMenuProps, type ChartContextMenuItem, type ChartContextMenuGroup } from "./chart-context-menu";
+export { ParameterBar, type ParameterBarProps } from "./parameter-bar";
+export { RefreshControl, type RefreshControlProps, type RefreshInterval } from "./refresh-control";
+export { CrossFilterTag, type CrossFilterTagProps } from "./cross-filter-tag";
 
 // Graph Visualization
 export { GraphLegend, type GraphLegendProps, type GraphLegendItem } from "./graph-legend";

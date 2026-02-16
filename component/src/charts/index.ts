@@ -8,7 +8,10 @@ export type { PieChartProps } from "./pie-chart";
 export { SingleValueChart } from "./single-value-chart";
 export type { SingleValueChartProps } from "./single-value-chart";
 export { GraphChart } from "./graph-chart";
-export type { GraphChartProps } from "./graph-chart";
+export type { GraphChartProps, GraphChartRef } from "./graph-chart";
+
+export { MapChart } from "./map-chart";
+export type { MapChartProps, MapMarker, TileLayerPreset } from "./map-chart";
 
 export type {
   BaseChartProps,
@@ -19,4 +22,5 @@ export type {
   PieChartDataPoint,
   GraphNode,
   GraphEdge,
+  GraphNodeEvent,
 } from "./types";

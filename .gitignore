@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Next.js
+.next
+out
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -25,3 +29,13 @@ dist-ssr
 .claude
 *storybook.log
 storybook-static
+
+# Environment
+.env*.local
+.env.test
+!.env.example
+
+# Playwright
+playwright-report/
+test-results/
+app/e2e/.containers-state.json

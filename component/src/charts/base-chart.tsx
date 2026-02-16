@@ -149,7 +149,7 @@ function BaseChart({
     return (
       <div
         className={cn(
-          "flex min-h-[300px] items-center justify-center rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive",
+          "flex h-full w-full items-center justify-center rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive",
           className,
         )}
         role="alert"
@@ -162,7 +162,7 @@ function BaseChart({
   return (
     <div
       ref={containerRef}
-      className={cn("h-full w-full min-h-[300px]", className)}
+      className={cn("h-full w-full", className)}
       data-testid="base-chart"
     />
   );

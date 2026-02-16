@@ -32,6 +32,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src", "stories", "vitest.setup.ts"],
+  "include": ["src", "stories", ".storybook", "vitest.setup.ts"],
   "exclude": ["node_modules", "dist"]
 }
