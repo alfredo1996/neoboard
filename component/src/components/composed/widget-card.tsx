@@ -101,7 +101,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
           </CardHeader>
         )}
         <CardContent
-          className={cn("flex-1 p-4 pt-2 overflow-auto", contentClassName)}
+          className={cn("flex-1 min-h-0 p-4 pt-2 overflow-hidden", contentClassName)}
         >
           {children}
         </CardContent>

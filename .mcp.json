@@ -10,8 +10,8 @@
     "context7": {
       "command": "npx",
       "args": [
-        "@context7/mcp",
-        "start"
+        "-y",
+        "@upstash/context7-mcp"
       ]
     }
   }
