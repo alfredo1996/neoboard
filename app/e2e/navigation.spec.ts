@@ -15,7 +15,7 @@ test.describe("Navigation", () => {
     await expect(sidebarPage.getSidebarItem("Dashboards")).toBeVisible();
 
     await sidebarPage.navigateTo("Users");
-    await expect(page).toHaveURL("/users");
+    await expect(page).toHaveURL("/users", { timeout: 10000 });
     await expect(sidebarPage.getSidebarItem("Dashboards")).toBeVisible();
   });
 

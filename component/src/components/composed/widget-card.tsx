@@ -27,6 +27,8 @@ export interface WidgetCardProps {
   contentClassName?: string;
   children: React.ReactNode;
   onDragHandleMouseDown?: React.MouseEventHandler;
+  /** Extra elements rendered in the header before the actions dropdown */
+  headerExtra?: React.ReactNode;
 }
 
 const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
@@ -41,12 +43,13 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       contentClassName,
       children,
       onDragHandleMouseDown,
+      headerExtra,
     },
     ref
   ) => {
     return (
       <Card ref={ref} className={cn("flex flex-col h-full", className)}>
-        {(title || actions || draggable) && (
+        {(title || actions || draggable || headerExtra) && (
           <CardHeader
             className={cn(
               "flex flex-row items-center justify-between space-y-0 p-4 pb-2",
@@ -73,7 +76,9 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                 )}
               </div>
             </div>
-            {actions && actions.length > 0 && (
+            <div className="flex items-center gap-1">
+              {headerExtra}
+              {actions && actions.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -97,7 +102,8 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
+              )}
+            </div>
           </CardHeader>
         )}
         <CardContent

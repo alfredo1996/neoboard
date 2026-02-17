@@ -4,18 +4,7 @@ import type { FieldDef } from 'pg';
  * PostgreSQL Utility Functions
  */
 
-/**
- * Type guard that checks whether a given value is an object
- * containing a `message` property of type string.
- *
- * This is typically used to safely handle and inspect thrown errors.
- *
- * @param {unknown} err - The value to check.
- * @returns {boolean} True if the value is an object with a string `message` property.
- */
-export function errorHasMessage(err: unknown): err is { message: string } {
-  return typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string';
-}
+export { errorHasMessage } from '../generalized/utils';
 
 /**
  * Extracts schema information from PostgreSQL field metadata.

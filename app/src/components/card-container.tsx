@@ -1,10 +1,10 @@
 "use client";
 
-import { useQueryExecution } from "@/hooks/use-query-execution";
+import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
 import type { DashboardWidget } from "@/lib/db/schema";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { AlertCircle } from "lucide-react";
 import {
   Skeleton,
@@ -39,25 +39,59 @@ interface CardContainerProps {
   previewData?: unknown;
 }
 
+interface ChartRendererProps {
+  type: ChartType;
+  data: unknown;
+  settings?: Record<string, unknown>;
+}
+
 /**
  * Renders the appropriate chart component based on widget type and data.
+ * Forwards chart-specific settings as props to the underlying chart component.
  */
-function ChartRenderer({ type, data }: { type: ChartType; data: unknown }) {
+function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
   switch (type) {
     case "bar":
-      return <BarChart data={(data as BarChartDataPoint[]) ?? []} />;
+      return (
+        <BarChart
+          data={(data as BarChartDataPoint[]) ?? []}
+          orientation={settings.orientation as "vertical" | "horizontal" | undefined}
+          stacked={settings.stacked as boolean | undefined}
+          showValues={settings.showValues as boolean | undefined}
+          showLegend={settings.showLegend as boolean | undefined}
+        />
+      );
 
     case "line":
-      return <LineChart data={(data as LineChartDataPoint[]) ?? []} />;
+      return (
+        <LineChart
+          data={(data as LineChartDataPoint[]) ?? []}
+          smooth={settings.smooth as boolean | undefined}
+          area={settings.area as boolean | undefined}
+          xAxisLabel={settings.xAxisLabel as string | undefined}
+          yAxisLabel={settings.yAxisLabel as string | undefined}
+          showLegend={settings.showLegend as boolean | undefined}
+        />
+      );
 
     case "pie":
-      return <PieChart data={(data as PieChartDataPoint[]) ?? []} />;
+      return (
+        <PieChart
+          data={(data as PieChartDataPoint[]) ?? []}
+          donut={settings.donut as boolean | undefined}
+          showLabel={settings.showLabel as boolean | undefined}
+          showLegend={settings.showLegend as boolean | undefined}
+        />
+      );
 
     case "single-value": {
       const val = data ?? 0;
       return (
         <SingleValueChart
           value={typeof val === "number" || typeof val === "string" ? val : String(val)}
+          title={settings.title as string | undefined}
+          prefix={settings.prefix as string | undefined}
+          suffix={settings.suffix as string | undefined}
         />
       );
     }
@@ -71,22 +105,36 @@ function ChartRenderer({ type, data }: { type: ChartType; data: unknown }) {
         <GraphChart
           nodes={graphData.nodes ?? []}
           edges={graphData.edges ?? []}
+          layout={settings.layout as "force" | "circular" | undefined}
+          showLabels={settings.showLabels as boolean | undefined}
         />
       );
     }
 
     case "map": {
       const markers = (data ?? []) as MapMarker[];
-      return <MapChart markers={markers} autoFitBounds />;
+      return (
+        <MapChart
+          markers={markers}
+          tileLayer={settings.tileLayer as string | undefined}
+          zoom={settings.zoom as number | undefined}
+          minZoom={settings.minZoom as number | undefined}
+          maxZoom={settings.maxZoom as number | undefined}
+          autoFitBounds={settings.autoFitBounds !== false}
+        />
+      );
     }
 
     case "table":
-      return <TableRenderer data={data} />;
+      return <TableRenderer data={data} settings={settings} />;
 
     case "json":
       return (
         <div className="h-full overflow-auto">
-          <JsonViewer data={data} initialExpanded={2} />
+          <JsonViewer
+            data={data}
+            initialExpanded={(settings.initialExpanded as number) ?? 2}
+          />
         </div>
       );
 
@@ -105,7 +153,7 @@ function ChartRenderer({ type, data }: { type: ChartType; data: unknown }) {
 /**
  * Auto-generates columns and renders DataGrid from query result records.
  */
-function TableRenderer({ data }: { data: unknown }) {
+function TableRenderer({ data, settings = {} }: { data: unknown; settings?: Record<string, unknown> }) {
   const records = Array.isArray(data) ? data : [];
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
@@ -131,8 +179,11 @@ function TableRenderer({ data }: { data: unknown }) {
       <DataGrid
         columns={columns}
         data={records as Record<string, unknown>[]}
-        enableSorting
-        pageSize={20}
+        enableSorting={settings.enableSorting !== false}
+        enableSelection={settings.enableSelection as boolean | undefined}
+        enableGlobalFilter={settings.enableGlobalFilter !== false}
+        enableColumnFilters={settings.enableColumnFilters !== false}
+        pageSize={(settings.pageSize as number) ?? 20}
       />
     </div>
   );
@@ -140,22 +191,19 @@ function TableRenderer({ data }: { data: unknown }) {
 
 /**
  * CardContainer: Fetches query results and renders the appropriate chart.
+ * Uses React Query caching so queries are deduplicated across view→edit navigation.
  */
 export function CardContainer({ widget, previewData }: CardContainerProps) {
-  const queryExecution = useQueryExecution();
   const chartConfig = getChartConfig(widget.chartType);
 
-  useEffect(() => {
-    if (previewData !== undefined) return; // Skip query when preview data is provided
-    if (widget.connectionId && widget.query) {
-      queryExecution.mutate({
-        connectionId: widget.connectionId,
-        query: widget.query,
-        params: widget.params as Record<string, unknown> | undefined,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widget.connectionId, widget.query, previewData]);
+  // Only fire the query when there's no previewData — useWidgetQuery handles
+  // caching so navigating view→edit won't re-run the same query.
+  const queryInput = previewData !== undefined ? null : {
+    connectionId: widget.connectionId,
+    query: widget.query,
+    params: widget.params as Record<string, unknown> | undefined,
+  };
+  const widgetQuery = useWidgetQuery(queryInput);
 
   if (!chartConfig) {
     return (
@@ -168,17 +216,19 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     );
   }
 
+  const chartOptions = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
+
   // Use preview data directly if provided
   if (previewData !== undefined) {
     const transformedData = chartConfig.transform(previewData);
     return (
       <div className="h-full w-full">
-        <ChartRenderer type={chartConfig.type} data={transformedData} />
+        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} />
       </div>
     );
   }
 
-  if (queryExecution.isPending) {
+  if (widgetQuery.isPending) {
     return (
       <div className="space-y-3 p-4">
         <Skeleton className="h-4 w-3/4" />
@@ -188,21 +238,24 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     );
   }
 
-  if (queryExecution.isError) {
+  if (widgetQuery.isError) {
     return (
       <div className="p-4">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {queryExecution.error.message}
+          <AlertTitle>Query Failed</AlertTitle>
+          <AlertDescription className="space-y-1">
+            <p>{widgetQuery.error.message}</p>
+            <p className="text-xs font-mono opacity-70 truncate" title={widget.query}>
+              {widget.query}
+            </p>
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  if (!queryExecution.data) {
+  if (!widgetQuery.data) {
     return (
       <EmptyState
         title="No data"
@@ -212,11 +265,11 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     );
   }
 
-  const transformedData = chartConfig.transform(queryExecution.data.data);
+  const transformedData = chartConfig.transform(widgetQuery.data.data);
 
   return (
     <div className="h-full w-full">
-      <ChartRenderer type={chartConfig.type} data={transformedData} />
+      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} />
     </div>
   );
 }

@@ -12,7 +12,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param _record - A single row from PostgreSQL query results
    * @returns A NeodashRecord instance
    */
-  _parse(_record: Record<any, any>): NeodashRecord {
+  _parse(_record: Record<string, unknown>): NeodashRecord {
     // If already a NeodashRecord, return as is
     if (_record instanceof NeodashRecord) {
       return _record;
@@ -59,7 +59,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - The value to check
    * @returns True if the value is a primitive type
    */
-  isPrimitive(value: any): boolean {
+  isPrimitive(value: unknown): boolean {
     const type = typeof value;
     return type === 'boolean' || type === 'string' || type === 'number' || type === 'bigint';
   }
@@ -69,7 +69,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - The primitive value to convert
    * @returns The JavaScript representation of the value
    */
-  parsePrimitive(value: any): number | string | boolean | bigint {
+  parsePrimitive(value: unknown): number | string | boolean | bigint {
     // PostgreSQL driver already converts most primitives correctly
     return value;
   }
@@ -79,7 +79,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - The value to check
    * @returns True if the value is a Date
    */
-  isTemporal(value: any): boolean {
+  isTemporal(value: unknown): boolean {
     return value instanceof Date;
   }
 
@@ -88,7 +88,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - A temporal value from PostgreSQL
    * @returns A native JS Date or ISO string
    */
-  parseTemporal(value: any): Date | string {
+  parseTemporal(value: unknown): Date | string {
     if (value instanceof Date) {
       return value;
     }
@@ -101,7 +101,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - The value to check
    * @returns Always false for PostgreSQL
    */
-  isGraphObject(value: any): boolean {
+  isGraphObject(value: unknown): boolean {
     // PostgreSQL doesn't have native graph objects like nodes/relationships
     return false;
   }
@@ -111,7 +111,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - The value to parse
    * @returns The value as is
    */
-  parseGraphObject(value: any): any {
+  parseGraphObject(value: unknown): unknown {
     // PostgreSQL doesn't have graph objects, return as is
     return value;
   }
@@ -133,13 +133,12 @@ export class PostgresRecordParser extends NeodashRecordParser {
 
   /**
    * Parses PostgreSQL query results with metadata.
-   * This is a helper method that provides additional metadata alongside NeodashRecords.
    * @param fields - PostgreSQL field metadata
    * @param rows - Query result rows
    * @param totalCount - Total number of rows
    * @returns Parsed result with fields, records, and summary
    */
-  parseWithMetadata(fields: FieldDef[] | undefined, rows: any[], totalCount: number): any {
+  parseWithMetadata(fields: FieldDef[] | undefined, rows: Record<string, unknown>[], totalCount: number) {
     const parsedRecords = this.bulkParse(rows);
 
     return {
@@ -160,15 +159,13 @@ export class PostgresRecordParser extends NeodashRecordParser {
   }
 
   /**
-   * Legacy parse method for backward compatibility.
    * Parses PostgreSQL query results into a format with fields, records, and summary.
    * @param fields - PostgreSQL field metadata
    * @param rows - Query result rows
    * @param totalCount - Total number of rows
-   * @returns Parsed result in legacy format
-   * @deprecated Use parseWithMetadata instead
+   * @returns Parsed result with fields, records, and summary
    */
-  parse(fields: FieldDef[] | undefined, rows: any[], totalCount: number): any {
+  parse(fields: FieldDef[] | undefined, rows: Record<string, unknown>[], totalCount: number) {
     if (!fields) {
       return {
         fields: [],

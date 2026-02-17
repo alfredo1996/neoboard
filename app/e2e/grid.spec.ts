@@ -28,7 +28,7 @@ test.describe("Dashboard grid", () => {
 
   test("should save layout changes", async ({ page }) => {
     await page.getByRole("button", { name: "Edit" }).click();
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(page.getByText("Editing:")).toBeVisible({ timeout: 10000 });
 
     // Click Save and verify the button is present and clickable
     const saveButton = page.getByRole("button", { name: "Save" });

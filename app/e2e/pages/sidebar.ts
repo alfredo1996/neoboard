@@ -5,6 +5,7 @@ export class SidebarPage {
 
   async navigateTo(tab: "Dashboards" | "Connections" | "Users") {
     await this.page.getByRole("button", { name: tab }).click();
+    await this.page.waitForLoadState("networkidle");
   }
 
   getSidebarItem(label: string) {

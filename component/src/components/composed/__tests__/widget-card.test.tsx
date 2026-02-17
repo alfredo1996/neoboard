@@ -58,4 +58,37 @@ describe("WidgetCard", () => {
     const { container } = render(<WidgetCard className="my-widget">Content</WidgetCard>);
     expect(container.firstChild).toHaveClass("my-widget");
   });
+
+  it("renders headerExtra content in the header", () => {
+    render(
+      <WidgetCard title="Sales" headerExtra={<button>Fullscreen</button>}>
+        Content
+      </WidgetCard>
+    );
+    expect(screen.getByText("Fullscreen")).toBeInTheDocument();
+  });
+
+  it("renders header when only headerExtra is provided", () => {
+    render(
+      <WidgetCard headerExtra={<span data-testid="extra">Extra</span>}>
+        Content
+      </WidgetCard>
+    );
+    expect(screen.getByTestId("extra")).toBeInTheDocument();
+  });
+
+  it("renders headerExtra alongside actions", () => {
+    const actions = [{ label: "Remove", onClick: vi.fn(), destructive: true }];
+    render(
+      <WidgetCard
+        title="Sales"
+        actions={actions}
+        headerExtra={<button>Expand</button>}
+      >
+        Content
+      </WidgetCard>
+    );
+    expect(screen.getByText("Expand")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Widget actions" })).toBeInTheDocument();
+  });
 });

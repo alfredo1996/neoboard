@@ -4,11 +4,11 @@ export class AuthPage {
   constructor(private page: Page) {}
 
   async login(email: string, password: string) {
-    await this.page.goto("/login");
+    await this.page.goto("/login", { waitUntil: "networkidle" });
     await this.page.getByLabel("Email").fill(email);
     await this.page.getByLabel("Password").fill(password);
     await this.page.getByRole("button", { name: "Sign in" }).click();
-    await this.page.waitForURL("/", { timeout: 15_000 });
+    await this.page.waitForURL("/", { timeout: 15_000, waitUntil: "networkidle" });
   }
 
   async signup(name: string, email: string, password: string) {
