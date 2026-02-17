@@ -33,7 +33,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param _record - A single Neo4j record to parse.
    * @returns A parsed JavaScript object representing the record.
    */
-  _parse(_record: NeodashRecord | Neo4jRecord<any, any>): NeodashRecord {
+  _parse(_record: Record<string, unknown> | NeodashRecord | Neo4jRecord<any, any>): NeodashRecord {
     // Parsing the record twice should return the same record
     if (_record instanceof NeodashRecord) {
       return _record;
@@ -84,7 +84,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {any} value - The value to check.
    * @returns {boolean} True if the value is a Neo4j Integer or a JS primitive type used in Neo4j responses.
    */
-  isPrimitive(value: any): boolean {
+  isPrimitive(value: unknown): boolean {
     return isInt(value) || typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number';
   }
 
@@ -97,7 +97,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @returns {number|string|boolean|bigint} The JavaScript representation of the value.
    */
 
-  parsePrimitive(value: any): number | string | boolean | bigint {
+  parsePrimitive(value: unknown): number | string | boolean | bigint {
     if (isInt(value)) {
       return value.inSafeRange() ? value.toNumber() : value.toBigInt();
     }
@@ -116,7 +116,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {any} value - The value to check.
    * @returns {boolean} True if the value is a known Neo4j temporal type.
    */
-  isTemporal(value: any): boolean {
+  isTemporal(value: unknown): boolean {
     return (
       value instanceof Neo4jDate ||
       value instanceof Time ||
@@ -211,7 +211,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {any} value - The value to check.
    * @returns {boolean} True if the value is a known Neo4j object type.
    */
-  isGraphObject(value) {
+  isGraphObject(value: unknown) {
     return (
       value instanceof Node ||
       value instanceof Relationship ||
@@ -229,7 +229,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {any} value - The Neo4j object to convert.
    * @returns {object} A plain JavaScript object representing the structure.
    */
-  parseGraphObject(value) {
+  parseGraphObject(value: unknown) {
     if (value instanceof Node) {
       return value;
     }

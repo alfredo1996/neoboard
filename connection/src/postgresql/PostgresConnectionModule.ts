@@ -155,26 +155,9 @@ export class PostgresConnectionModule extends ConnectionModule {
         }
       }
 
-      // Create result with metadata for compatibility
-      const resultWithMetadata = config.parseToNeodashRecord
-        ? {
-            fields: result.fields
-              ? result.fields.map((field) => ({
-                  name: field.name,
-                  type: (this.parser as any).pgTypeToColumnType(field.dataTypeID),
-                }))
-              : [],
-            records: parsedRecords,
-            summary: {
-              rowCount,
-              executionTime,
-              queryType: isReadOnly ? 'read' : 'write',
-              database: 'postgresql',
-            },
-          }
-        : parsedRecords;
-
-      callbacks.onSuccess?.(resultWithMetadata as T);
+      // Pass parsed records directly — same shape as Neo4j (flat array).
+      // Fields and schema are already delivered via setFields/setSchema callbacks.
+      callbacks.onSuccess?.(parsedRecords as T);
     } catch (error: unknown) {
       // Rollback transaction on error
       try {

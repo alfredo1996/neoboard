@@ -2,11 +2,11 @@
  * Chart registry — maps chart type strings to configuration
  * including data transformation functions.
  *
- * Data from the query API comes in two formats:
- * - Neo4j: array of NeodashRecord objects (flat key-value)
- * - PostgreSQL: { fields, records, summary } where records is an array
+ * After normalization in query-executor.ts, data from the query API
+ * is always a flat array of plain { key: value } objects, regardless
+ * of whether the source is Neo4j or PostgreSQL.
  *
- * Transforms normalize both formats into what each chart component expects.
+ * The toRecords helper is kept as a safety net for backward compatibility.
  */
 
 export type ChartType =
@@ -187,10 +187,13 @@ function transformToMapData(data: unknown): unknown {
 }
 
 /**
- * Identity — pass data through for JSON viewer.
+ * Pass data through for JSON viewer.
+ * Uses toRecords as a safety net to ensure the viewer always
+ * receives the records array, not a metadata wrapper.
  */
-function identity(data: unknown) {
-  return data;
+function transformToJsonData(data: unknown): unknown {
+  const records = toRecords(data);
+  return records.length > 0 ? records : data;
 }
 
 export const chartRegistry: Record<ChartType, ChartConfig> = {
@@ -201,7 +204,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData },
   graph: { type: "graph", label: "Graph", transform: transformToGraphData },
   map: { type: "map", label: "Map", transform: transformToMapData },
-  json: { type: "json", label: "JSON Viewer", transform: identity },
+  json: { type: "json", label: "JSON Viewer", transform: transformToJsonData },
 };
 
 export function getChartConfig(type: string): ChartConfig | undefined {

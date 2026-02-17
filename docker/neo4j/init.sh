@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Set the initial password (NEO4J_AUTH is not processed since we override the entrypoint)
+neo4j-admin dbms set-initial-password neoboard123 2>/dev/null || true
+
 # Start Neo4j in the background
 neo4j start
 

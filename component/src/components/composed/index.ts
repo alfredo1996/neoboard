@@ -63,6 +63,8 @@ export { ChartTypePicker, type ChartTypePickerProps, type ChartTypeOption } from
 export { ColorPicker, type ColorPickerProps } from "./color-picker";
 export { FieldPicker, type FieldPickerProps, type FieldOption } from "./field-picker";
 export { ChartSettingsPanel, type ChartSettingsPanelProps } from "./chart-settings-panel";
+export { ChartOptionsPanel, type ChartOptionsPanelProps } from "./chart-options-panel";
+export { getChartOptions, getDefaultChartSettings, type ChartOptionDef } from "./chart-options-schema";
 
 // Connection
 export { ConnectionStatus, type ConnectionStatusProps, type ConnectionState } from "./connection-status";

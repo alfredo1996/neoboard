@@ -2,31 +2,16 @@
 
 import { use, useEffect, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Save, LayoutDashboard, Play, ChevronLeft } from "lucide-react";
+import { ArrowLeft, Plus, Save, LayoutDashboard } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
-import { useQueryExecution } from "@/hooks/use-query-execution";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { DashboardContainer } from "@/components/dashboard-container";
-import { CardContainer } from "@/components/card-container";
+import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
 import {
   Button,
-  Label,
   Skeleton,
-  Textarea,
-  Alert,
-  AlertDescription,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -34,7 +19,6 @@ import {
   Toolbar,
   ToolbarSection,
   ToolbarSeparator,
-  ChartTypePicker,
 } from "@neoboard/components";
 
 export default function DashboardEditorPage({
@@ -47,16 +31,12 @@ export default function DashboardEditorPage({
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
-  const { layout, setLayout, addWidget, removeWidget, updateGridLayout } =
+  const { layout, setLayout, addWidget, removeWidget, updateWidget, updateGridLayout } =
     useDashboardStore();
 
-  const [showAddWidget, setShowAddWidget] = useState(false);
-  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
-  const [newWidgetType, setNewWidgetType] = useState<string>("bar");
-  const [newWidgetQuery, setNewWidgetQuery] = useState("");
-  const [newWidgetConnection, setNewWidgetConnection] = useState("");
-
-  const previewQuery = useQueryExecution();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
+  const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
 
   // Load dashboard layout into store
   useEffect(() => {
@@ -69,43 +49,31 @@ export default function DashboardEditorPage({
     await updateDashboard.mutateAsync({ id, layoutJson: layout });
   }, [id, layout, updateDashboard]);
 
-  function resetWizard() {
-    setWizardStep(1);
-    setNewWidgetType("bar");
-    setNewWidgetQuery("");
-    setNewWidgetConnection("");
-    previewQuery.reset();
-  }
-
   function openAddWidget() {
-    resetWizard();
-    setShowAddWidget(true);
+    setEditorMode("add");
+    setEditingWidget(undefined);
+    setEditorOpen(true);
   }
 
-  function handleAddWidget() {
-    const widgetId = crypto.randomUUID();
-    const widget: DashboardWidget = {
-      id: widgetId,
-      chartType: newWidgetType,
-      connectionId: newWidgetConnection,
-      query: newWidgetQuery,
-    };
-    const gridItem: GridLayoutItem = {
-      i: widgetId,
-      x: (layout.gridLayout.length * 4) % 12,
-      y: Infinity,
-      w: 4,
-      h: 3,
-    };
-    addWidget(widget, gridItem);
-    setShowAddWidget(false);
+  function openEditWidget(widget: DashboardWidget) {
+    setEditorMode("edit");
+    setEditingWidget(widget);
+    setEditorOpen(true);
   }
 
-  function handlePreview() {
-    previewQuery.mutate({
-      connectionId: newWidgetConnection,
-      query: newWidgetQuery,
-    });
+  function handleEditorSave(widget: DashboardWidget) {
+    if (editorMode === "add") {
+      const gridItem: GridLayoutItem = {
+        i: widget.id,
+        x: (layout.gridLayout.length * 4) % 12,
+        y: Infinity,
+        w: 4,
+        h: 3,
+      };
+      addWidget(widget, gridItem);
+    } else {
+      updateWidget(widget.id, widget);
+    }
   }
 
   if (isLoading) {
@@ -175,140 +143,14 @@ export default function DashboardEditorPage({
         </ToolbarSection>
       </Toolbar>
 
-      {/* Two-step Add Widget dialog */}
-      <Dialog open={showAddWidget} onOpenChange={(open) => {
-        if (!open) setShowAddWidget(false);
-      }}>
-        <DialogContent className={wizardStep === 2 ? "sm:max-w-2xl" : "sm:max-w-md"}>
-          {wizardStep === 1 ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Add Widget — Select Type</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Chart Type</Label>
-                  <ChartTypePicker
-                    value={newWidgetType}
-                    onValueChange={setNewWidgetType}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Connection</Label>
-                  <Select
-                    value={newWidgetConnection}
-                    onValueChange={setNewWidgetConnection}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a connection..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {connections?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} ({c.type})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAddWidget(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={!newWidgetConnection}
-                  onClick={() => setWizardStep(2)}
-                >
-                  Next
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Add Widget — Write Query</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="widget-query">Query</Label>
-                  <Textarea
-                    id="widget-query"
-                    value={newWidgetQuery}
-                    onChange={(e) => setNewWidgetQuery(e.target.value)}
-                    placeholder="MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-                    className="font-mono min-h-[120px]"
-                    rows={5}
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <LoadingButton
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    loading={previewQuery.isPending}
-                    loadingText="Running..."
-                    disabled={!newWidgetQuery.trim()}
-                    onClick={handlePreview}
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    Show Preview
-                  </LoadingButton>
-                </div>
-
-                {previewQuery.isError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      {previewQuery.error.message}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {previewQuery.data && (
-                  <div className="border rounded-lg overflow-hidden h-[250px]">
-                    <CardContainer
-                      widget={{
-                        id: "preview",
-                        chartType: newWidgetType,
-                        connectionId: newWidgetConnection,
-                        query: newWidgetQuery,
-                      }}
-                      previewData={previewQuery.data.data}
-                    />
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setWizardStep(1);
-                    previewQuery.reset();
-                  }}
-                >
-                  <ChevronLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-                <Button
-                  type="button"
-                  disabled={!newWidgetQuery.trim()}
-                  onClick={handleAddWidget}
-                >
-                  Add Widget
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <WidgetEditorModal
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        mode={editorMode}
+        widget={editingWidget}
+        connections={connections ?? []}
+        onSave={handleEditorSave}
+      />
 
       <div className="flex-1 p-6">
         {layout.widgets.length === 0 ? (
@@ -328,6 +170,7 @@ export default function DashboardEditorPage({
             layout={layout}
             editable
             onRemoveWidget={removeWidget}
+            onEditWidget={openEditWidget}
             onLayoutChange={updateGridLayout}
           />
         )}

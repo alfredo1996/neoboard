@@ -23,10 +23,8 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").click();
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog
-      .getByRole("textbox")
-      .fill("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
-    await dialog.getByRole("button", { name: "Show Preview" }).click();
+    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
+    await dialog.getByRole("button", { name: "Run Query" }).click();
 
     // DataGrid should render a table element
     await expect(dialog.locator("table").first()).toBeVisible({ timeout: 15000 });
@@ -40,8 +38,8 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").click();
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog.getByRole("textbox").fill("MATCH (m:Movie) RETURN count(m) AS count");
-    await dialog.getByRole("button", { name: "Show Preview" }).click();
+    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN count(m) AS count");
+    await dialog.getByRole("button", { name: "Run Query" }).click();
 
     // SingleValueChart renders with data-testid
     await expect(dialog.locator("[data-testid='single-value-chart']").first()).toBeVisible({
@@ -57,8 +55,8 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").click();
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog.getByRole("textbox").fill("MATCH (m:Movie) RETURN m LIMIT 2");
-    await dialog.getByRole("button", { name: "Show Preview" }).click();
+    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m LIMIT 2");
+    await dialog.getByRole("button", { name: "Run Query" }).click();
 
     // JsonViewer renders with font-mono class
     await expect(

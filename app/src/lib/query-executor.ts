@@ -21,6 +21,30 @@ function toConnectionType(type: DbType): number {
     : connectionConfig.ConnectionTypes.POSTGRESQL;
 }
 
+/** Cache of connection modules keyed by type+uri+username+database. */
+const moduleCache = new Map<string, unknown>();
+
+function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
+  return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}`;
+}
+
+function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): unknown {
+  const key = getCacheKey(type, credentials);
+  let module = moduleCache.get(key);
+  if (!module) {
+    const connectionType = toConnectionType(type);
+    const authConfig = {
+      uri: credentials.uri,
+      username: credentials.username,
+      password: credentials.password,
+      authType: 1, // NATIVE
+    };
+    module = connectionModule.createConnectionModule(connectionType, authConfig);
+    moduleCache.set(key, module);
+  }
+  return module;
+}
+
 /**
  * Execute a query against a database connection.
  */
@@ -29,19 +53,17 @@ export async function executeQuery(
   credentials: ConnectionCredentials,
   queryParams: { query: string; params?: Record<string, unknown> },
 ): Promise<{ data: unknown; fields?: unknown }> {
-  const connectionType = toConnectionType(type);
-  const authConfig = {
-    uri: credentials.uri,
-    username: credentials.username,
-    password: credentials.password,
-    authType: 1, // NATIVE
+  const module = getOrCreateModule(type, credentials) as {
+    runQuery: (
+      params: unknown,
+      callbacks: Record<string, unknown>,
+      config: unknown,
+    ) => void;
   };
-
-  const module = connectionModule.createConnectionModule(connectionType, authConfig);
 
   const config = {
     ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
-    connectionType,
+    connectionType: toConnectionType(type),
     database: credentials.database,
   };
 
@@ -66,19 +88,13 @@ export async function testConnection(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<boolean> {
-  const connectionType = toConnectionType(type);
-  const authConfig = {
-    uri: credentials.uri,
-    username: credentials.username,
-    password: credentials.password,
-    authType: 1,
+  const module = getOrCreateModule(type, credentials) as {
+    checkConnection: (config: unknown) => Promise<boolean>;
   };
-
-  const module = connectionModule.createConnectionModule(connectionType, authConfig);
 
   const config = {
     ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
-    connectionType,
+    connectionType: toConnectionType(type),
     database: credentials.database,
   };
 

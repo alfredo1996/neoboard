@@ -1,6 +1,7 @@
 # NeoBoard - Testing Approach
 
-Testing strategy across unit tests, integration tests, and E2E tests.
+Testing strategy: component-level unit tests (Vitest) + full-app E2E tests (Playwright).
+No additional test runners in the `app/` project — Playwright E2E covers stores, API routes, and chart rendering end-to-end.
 
 ---
 
@@ -64,18 +65,15 @@ component/vite.config.ts → test.projects:
 ### Setup
 
 ```bash
-# Install
 cd app
-npm install -D @playwright/test
-npx playwright install chromium
-
-# Start test infrastructure
-docker compose up -d   # Starts PG + Neo4j with seed data
-
-# Run tests
-npx playwright test
-npx playwright test --ui  # Interactive UI mode
+npm run test:e2e       # Runs all E2E tests (auto-starts testcontainers)
+npm run test:e2e:ui    # Interactive Playwright UI mode
 ```
+
+**Infrastructure**: Uses `testcontainers` to automatically spin up PostgreSQL and Neo4j containers per test run. No manual `docker compose up` needed.
+
+- `e2e/global-setup.ts` — starts containers, seeds data, encrypts connection configs, writes `.env.test`
+- `e2e/global-teardown.ts` — stops containers, restores `.env.local`
 
 ### Test Suites
 
@@ -111,23 +109,12 @@ export class SidebarPage {
 
 ### Playwright Config
 
-```typescript
-// app/playwright.config.ts
-export default defineConfig({
-  testDir: './e2e',
-  use: {
-    baseURL: 'http://localhost:3000',
-  },
-  webServer: {
-    command: 'npm run dev',
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
-  },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-  ],
-});
-```
+Key settings in `app/playwright.config.ts`:
+- **Global setup/teardown**: `e2e/global-setup.ts` / `e2e/global-teardown.ts` (testcontainers)
+- **Web server**: `npx next dev --port 3000` (auto-started)
+- **Timeouts**: 60s per test, 10s for expects, 15s for navigation
+- **Retries**: 1 locally, 2 in CI
+- **Traces**: on first retry (for debugging failures)
 
 ---
 
@@ -153,7 +140,7 @@ export default defineConfig({
 ```yaml
 # .github/workflows/test.yml
 jobs:
-  unit-tests:
+  component-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -161,12 +148,16 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
-    services:
-      postgres: ...
-      neo4j: ...
     steps:
       - uses: actions/checkout@v4
       - run: cd app && npm ci
       - run: npx playwright install chromium
-      - run: npx playwright test
+      - run: npm run test:e2e
+      # testcontainers handles DB setup automatically — no services block needed
 ```
+
+## Design Decisions
+
+- **No unit tests in `app/`** — Playwright E2E already tests the full stack (API routes → query executor → connection module → chart rendering). Adding vitest to `app/` would be a redundant test layer with extra maintenance.
+- **Component library is the unit test boundary** — pure UI logic and chart components are tested in isolation with Vitest. App-level integration (stores, hooks, API wiring) is tested via E2E.
+- **Testcontainers over docker-compose** — E2E tests are fully self-contained. No manual setup or persistent state between runs.

@@ -21,13 +21,13 @@ test.describe("Widget creation", () => {
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Write query and preview
-    await expect(dialog.getByText("Write Query")).toBeVisible();
+    // Step 2: Configure query and preview
+    await expect(dialog.getByText("Configure")).toBeVisible();
     await dialog
-      .getByRole("textbox")
+      .getByLabel("Query")
       .fill("MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
 
-    await dialog.getByRole("button", { name: "Show Preview" }).click();
+    await dialog.getByRole("button", { name: "Run Query" }).click();
     // Wait for preview to render
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
       timeout: 15000,
@@ -46,7 +46,7 @@ test.describe("Widget creation", () => {
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByRole("textbox").fill("MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
+    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
     await dialog.getByRole("button", { name: "Add Widget" }).click();
   });
 
@@ -58,7 +58,7 @@ test.describe("Widget creation", () => {
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByRole("textbox").fill("MATCH (m:Movie) RETURN m LIMIT 3");
+    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m LIMIT 3");
     await dialog.getByRole("button", { name: "Add Widget" }).click();
   });
 
@@ -69,7 +69,7 @@ test.describe("Widget creation", () => {
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
 
-    await expect(dialog.getByText("Write Query")).toBeVisible();
+    await expect(dialog.getByText("Configure")).toBeVisible();
     await dialog.getByRole("button", { name: /Back/ }).click();
     await expect(dialog.getByText("Select Type")).toBeVisible();
   });
