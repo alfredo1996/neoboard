@@ -10,6 +10,7 @@ export type { SingleValueChartProps } from "./single-value-chart";
 export { GraphChart } from "./graph-chart";
 export type { GraphChartProps, GraphChartRef } from "./graph-chart";
 
+// MapChart must be imported dynamically to avoid SSR issues with Leaflet
 export { MapChart } from "./map-chart";
 export type { MapChartProps, MapMarker, TileLayerPreset } from "./map-chart";
 

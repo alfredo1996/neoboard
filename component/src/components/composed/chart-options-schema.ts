@@ -91,6 +91,10 @@ const jsonOptions: ChartOptionDef[] = [
   { key: "initialExpanded", label: "Initial Expand Depth", type: "number", default: 2, category: "Display" },
 ];
 
+const parameterSelectOptions: ChartOptionDef[] = [
+  { key: "parameterName", label: "Parameter Name", type: "text", default: "", category: "Parameter" },
+];
+
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   bar: barOptions,
   line: lineOptions,
@@ -100,6 +104,7 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   map: mapOptions,
   table: tableOptions,
   json: jsonOptions,
+  "parameter-select": parameterSelectOptions,
 };
 
 export function getChartOptions(chartType: string): ChartOptionDef[] {

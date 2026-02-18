@@ -17,6 +17,7 @@ export interface ConnectionCardProps {
   host: string;
   database?: string;
   status: ConnectionState;
+  statusText?: string;
   active?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -30,6 +31,7 @@ function ConnectionCard({
   host,
   database,
   status,
+  statusText,
   active = false,
   onEdit,
   onDelete,
@@ -60,6 +62,11 @@ function ConnectionCard({
             {host}
             {database && ` / ${database}`}
           </p>
+          {status === "error" && statusText && (
+            <p className="text-xs text-destructive truncate" title={statusText}>
+              {statusText}
+            </p>
+          )}
         </div>
         {(onEdit || onDelete || onTest) && (
           <DropdownMenu>

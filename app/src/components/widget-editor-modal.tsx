@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import type { DashboardWidget } from "@/lib/db/schema";
+import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { Play, ChevronLeft, AlertCircle } from "lucide-react";
 import {
@@ -26,6 +26,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Checkbox,
 } from "@neoboard/components";
 import {
   LoadingButton,
@@ -68,6 +69,16 @@ export function WidgetEditorModal({
     }
   );
 
+  // Click action state
+  const existingClickAction = widget?.settings?.clickAction as ClickAction | undefined;
+  const [clickActionEnabled, setClickActionEnabled] = useState(!!existingClickAction);
+  const [parameterName, setParameterName] = useState(
+    existingClickAction?.parameterMapping.parameterName ?? ""
+  );
+  const [sourceField, setSourceField] = useState(
+    existingClickAction?.parameterMapping.sourceField ?? ""
+  );
+
   const previewQuery = useQueryExecution();
 
   // Reset state when opening
@@ -80,6 +91,9 @@ export function WidgetEditorModal({
         setQuery("");
         setTitle("");
         setChartOptions(getDefaultChartSettings("bar"));
+        setClickActionEnabled(false);
+        setParameterName("");
+        setSourceField("");
         previewQuery.reset();
       } else if (widget) {
         setStep(2);
@@ -91,6 +105,10 @@ export function WidgetEditorModal({
           (widget.settings?.chartOptions as Record<string, unknown>) ??
             getDefaultChartSettings(widget.chartType)
         );
+        const ca = widget.settings?.clickAction as ClickAction | undefined;
+        setClickActionEnabled(!!ca);
+        setParameterName(ca?.parameterMapping.parameterName ?? "");
+        setSourceField(ca?.parameterMapping.sourceField ?? "");
         previewQuery.reset();
       }
     }
@@ -110,8 +128,25 @@ export function WidgetEditorModal({
     }
   }, [connectionId, query, previewQuery]);
 
+  // Derive available fields from preview query results
+  const availableFields = useMemo(() => {
+    if (!previewQuery.data?.data) return [];
+    const data = previewQuery.data.data;
+    if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object" && data[0] !== null) {
+      return Object.keys(data[0] as Record<string, unknown>);
+    }
+    return [];
+  }, [previewQuery.data]);
+
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
+    const clickAction: ClickAction | undefined =
+      clickActionEnabled && parameterName && sourceField
+        ? {
+            type: "set-parameter",
+            parameterMapping: { parameterName, sourceField },
+          }
+        : undefined;
     onSave({
       id,
       chartType,
@@ -122,6 +157,7 @@ export function WidgetEditorModal({
         ...(widget?.settings ?? {}),
         title: title || undefined,
         chartOptions,
+        clickAction,
       },
     });
     onOpenChange(false);
@@ -233,6 +269,62 @@ export function WidgetEditorModal({
                     settings={chartOptions}
                     onSettingsChange={setChartOptions}
                   />
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Checkbox
+                      id="click-action-enabled"
+                      checked={clickActionEnabled}
+                      onCheckedChange={(checked) => setClickActionEnabled(!!checked)}
+                    />
+                    <Label htmlFor="click-action-enabled" className="text-sm font-medium">
+                      Enable click action
+                    </Label>
+                  </div>
+                  {clickActionEnabled && (
+                    <div className="space-y-3 pl-6">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="param-name">Parameter Name</Label>
+                        <Input
+                          id="param-name"
+                          value={parameterName}
+                          onChange={(e) => setParameterName(e.target.value)}
+                          placeholder={`param_${(title || chartType).toLowerCase().replace(/\s+/g, "_")}`}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Other widgets can reference this as <code>$param_{parameterName || "name"}</code> in their queries.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="source-field">Source Field</Label>
+                        {availableFields.length > 0 ? (
+                          <Select value={sourceField} onValueChange={setSourceField}>
+                            <SelectTrigger id="source-field">
+                              <SelectValue placeholder="Select a field..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableFields.map((f) => (
+                                <SelectItem key={f} value={f}>
+                                  {f}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id="source-field"
+                            value={sourceField}
+                            onChange={(e) => setSourceField(e.target.value)}
+                            placeholder="name"
+                          />
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          The data field whose value is sent when a chart element is clicked.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

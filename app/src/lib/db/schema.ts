@@ -153,6 +153,14 @@ export interface GridLayoutItem {
   h: number;
 }
 
+export interface ClickAction {
+  type: "set-parameter";
+  parameterMapping: {
+    parameterName: string;
+    sourceField: string;
+  };
+}
+
 // ─── Inferred types ──────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;

@@ -1,0 +1,76 @@
+name: E2E Tests (Playwright)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'app/**'
+      - 'component/**'
+      - 'connection/**'
+      - '.github/workflows/e2e-tests.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'app/**'
+      - 'component/**'
+      - 'connection/**'
+      - '.github/workflows/e2e-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: |
+            app/package-lock.json
+            component/package-lock.json
+            connection/package-lock.json
+
+      # Install dependencies for all three packages.
+      # The app depends on component and connection via file: references,
+      # so they must be installed first.
+      - name: Install connection dependencies
+        working-directory: connection
+        run: npm ci
+
+      - name: Install component dependencies
+        working-directory: component
+        run: npm ci
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+
+      # Playwright needs browser binaries; install only Chromium since
+      # the playwright.config.ts only defines a chromium project.
+      - name: Install Playwright browsers
+        working-directory: app
+        run: npx playwright install --with-deps chromium
+
+      # The global-setup.ts uses testcontainers to spin up PostgreSQL
+      # and Neo4j via Docker, which is available by default on ubuntu-latest.
+      - name: Run E2E tests
+        working-directory: app
+        run: npx playwright test
+        env:
+          CI: true
+
+      # Upload traces and screenshots on failure for debugging.
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: app/test-results/
+          retention-days: 14

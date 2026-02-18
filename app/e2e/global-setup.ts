@@ -32,7 +32,7 @@ export default async function globalSetup() {
   console.log("\n⏳ Starting test containers...\n");
 
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
-  const pgInitSql = path.join(dockerRoot, "postgres", "init.sql");
+  const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
   const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
 
   // ── PostgreSQL ──────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ export default async function globalSetup() {
     .withCopyFilesToContainer([
       {
         source: pgInitSql,
-        target: "/docker-entrypoint-initdb.d/init.sql",
+        target: "/docker-entrypoint-initdb.d/init-test.sql",
       },
     ])
     .withWaitStrategy(
@@ -142,8 +142,14 @@ export default async function globalSetup() {
   fs.writeFileSync(ENV_FILE, envContent);
   console.log(`✅ Wrote ${ENV_FILE}`);
 
-  // Back up existing .env.local and replace with test env so Next.js picks it up
-  if (fs.existsSync(ENV_LOCAL)) {
+  // Back up existing .env.local and replace with test env so Next.js picks it up.
+  // Always use .env (version-controlled) as the canonical backup source to avoid
+  // backing up a stale test .env.local left over from a previous crashed run.
+  const ENV_BASE = path.join(__dirname, "..", ".env");
+  if (fs.existsSync(ENV_BASE)) {
+    fs.copyFileSync(ENV_BASE, ENV_LOCAL_BAK);
+    console.log("📦 Backed up .env → .env.local.bak");
+  } else if (fs.existsSync(ENV_LOCAL)) {
     fs.copyFileSync(ENV_LOCAL, ENV_LOCAL_BAK);
     console.log("📦 Backed up .env.local → .env.local.bak");
   }

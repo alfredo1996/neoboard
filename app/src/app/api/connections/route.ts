@@ -70,7 +70,12 @@ export async function POST(request: Request) {
       });
 
     return NextResponse.json(connection, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to create connection";
+    if (message.includes("Unauthorized") || message.includes("session")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

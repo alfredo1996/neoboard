@@ -74,7 +74,7 @@ Each package is **fully independent** — no npm workspaces. Packages reference 
 ### 1. Start PostgreSQL
 
 ```bash
-docker compose up -d
+cd docker && docker compose up -d;
 ```
 
 This starts a PostgreSQL 16 container on port 5432 with the database `neoboard`.

@@ -42,7 +42,10 @@ export function useCreateConnection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) throw new Error("Failed to create connection");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to create connection");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -71,6 +74,29 @@ export function useTestConnection() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/connections/${id}/test`, {
         method: "POST",
+      });
+      return res.json() as Promise<{ success: boolean; error?: string }>;
+    },
+  });
+}
+
+export interface TestInlineInput {
+  type: "neo4j" | "postgresql";
+  config: {
+    uri: string;
+    username: string;
+    password: string;
+    database?: string;
+  };
+}
+
+export function useTestInlineConnection() {
+  return useMutation({
+    mutationFn: async (input: TestInlineInput) => {
+      const res = await fetch("/api/connections/test-inline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
       });
       return res.json() as Promise<{ success: boolean; error?: string }>;
     },
