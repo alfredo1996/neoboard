@@ -6,7 +6,7 @@ export abstract class NeodashRecordParser {
    * @param _records The records to parse.
    * @returns The parsed records.
    */
-  bulkParse(_records: Record<any, any>[]): NeodashRecord[] {
+  bulkParse(_records: Record<string, unknown>[]): NeodashRecord[] {
     return _records.map((record) => this._parse(record));
   }
 
@@ -15,7 +15,7 @@ export abstract class NeodashRecordParser {
    * @param _record The record to parse.
    * @returns The parsed record.
    */
-  abstract _parse(_record: Record<any, any>): NeodashRecord;
+  abstract _parse(_record: Record<string, unknown>): NeodashRecord;
 
   /**
    * Checks if the given value is a primitive type (e.g., string, number, boolean).
@@ -23,7 +23,7 @@ export abstract class NeodashRecordParser {
    * @param value - The value to check.
    * @returns True if the value is a primitive type, false otherwise.
    */
-  abstract isPrimitive(value): boolean;
+  abstract isPrimitive(value: unknown): boolean;
 
   /**
    * Checks if the given value is a temporal type (e.g., Date, DateTime).
@@ -31,7 +31,7 @@ export abstract class NeodashRecordParser {
    * @param value - The value to check.
    * @returns True if the value is a temporal type, false otherwise.
    */
-  abstract isTemporal(value): boolean;
+  abstract isTemporal(value: unknown): boolean;
 
   /**
    * Checks if the given value is an object (excluding null and primitive types).
@@ -39,7 +39,7 @@ export abstract class NeodashRecordParser {
    * @param value - The value to check.
    * @returns True if the value is an object, false otherwise.
    */
-  abstract isGraphObject(value): boolean;
+  abstract isGraphObject(value: unknown): boolean;
 
   /**
    * Parses a primitive value (e.g., string, number, boolean).
@@ -47,7 +47,7 @@ export abstract class NeodashRecordParser {
    * @param value - The value to parse.
    * @returns The parsed value (in the case of primitives, it may just return the value as is).
    */
-  abstract parsePrimitive(value): any;
+  abstract parsePrimitive(value: unknown): unknown;
 
   /**
    * Parses a temporal value (e.g., Date, DateTime).
@@ -55,7 +55,7 @@ export abstract class NeodashRecordParser {
    * @param value - The temporal value to parse.
    * @returns The parsed temporal value, typically in a standardized format.
    */
-  abstract parseTemporal(value): any;
+  abstract parseTemporal(value: unknown): unknown;
 
   /**
    * Parses an object, typically extracting its properties or transforming it in some way.
@@ -63,5 +63,5 @@ export abstract class NeodashRecordParser {
    * @param value - The object to parse.
    * @returns The parsed object.
    */
-  abstract parseGraphObject(value): any;
+  abstract parseGraphObject(value: unknown): unknown;
 }

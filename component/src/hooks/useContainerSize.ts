@@ -1,39 +1,46 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from "react";
 
-interface Size {
-  width: number
-  height: number
+interface ContainerSize {
+  width: number;
+  height: number;
 }
 
 /**
- * Hook to measure container size using ResizeObserver
- * Returns a ref to attach to the container and the current size
+ * Hook to measure container size using ResizeObserver.
+ * Returns `{ width, height, containerRef }` where `containerRef` is a
+ * callback ref to attach to the element you want to measure.
  */
 export function useContainerSize() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState<Size>({ width: 0, height: 0 })
+  const [size, setSize] = useState<ContainerSize>({ width: 0, height: 0 });
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const containerRef = useCallback((node: HTMLElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+
+    if (node) {
+      setSize({ width: node.offsetWidth, height: node.offsetHeight });
+
+      observerRef.current = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry) {
+          const { width, height } = entry.contentRect;
+          setSize({ width, height });
+        }
+      });
+      observerRef.current.observe(node);
+    }
+  }, []);
 
   useEffect(() => {
-    const element = ref.current
-    if (!element) return
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
 
-    const resizeObserver = new ResizeObserver(() => {
-      setSize({
-        width: element.clientWidth,
-        height: element.clientHeight,
-      })
-    })
-
-    resizeObserver.observe(element)
-
-    // Set initial size
-    setSize({
-      width: element.clientWidth,
-      height: element.clientHeight,
-    })
-
-    return () => resizeObserver.disconnect()
-  }, [])
-
-  return [ref, size] as const
+  return { width: size.width, height: size.height, containerRef };
 }

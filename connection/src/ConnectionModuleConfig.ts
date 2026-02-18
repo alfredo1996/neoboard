@@ -9,8 +9,3 @@ export enum ConnectionTypes {
   POSTGRESQL = 2,
 }
 
-/**
- * Legacy - kept for backwards compatibility but not used.
- * Use createConnectionModule() from src/adapters/factory.ts instead.
- */
-export const TYPE_TO_CONNECTION_CLASSES = {};

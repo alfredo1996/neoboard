@@ -1,6 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Badge } from "@/components/ui/badge";
 import { DataGrid } from "@/components/composed/data-grid";
+import { DataGridToolbar } from "@/components/composed/data-grid-toolbar";
+import { DataGridColumnHeader } from "@/components/composed/data-grid-column-header";
+import { DataGridPagination } from "@/components/composed/data-grid-pagination";
+import { DataGridFacetedFilter } from "@/components/composed/data-grid-faceted-filter";
+import { DataGridRowActions } from "@/components/composed/data-grid-row-actions";
 import type { DataGridProps } from "@/components/composed/data-grid";
 
 interface Payment {
@@ -21,7 +27,7 @@ const data: Payment[] = [
   { id: "e5f6g7h8", amount: 432, status: "processing", email: "mark@example.com" },
 ];
 
-const columns: ColumnDef<Payment, unknown>[] = [
+const basicColumns: ColumnDef<Payment, unknown>[] = [
   { accessorKey: "id", header: "ID" },
   { accessorKey: "status", header: "Status" },
   { accessorKey: "email", header: "Email" },
@@ -39,6 +45,68 @@ const columns: ColumnDef<Payment, unknown>[] = [
   },
 ];
 
+// Columns using the composable DataGridColumnHeader for sort/hide dropdown
+const enhancedColumns: ColumnDef<Payment, unknown>[] = [
+  { accessorKey: "id", header: "ID", enableHiding: false },
+  {
+    accessorKey: "status",
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Status" />
+    ),
+    cell: ({ row }) => {
+      const status = row.getValue("status") as string;
+      const variant = status === "success" ? "default" : status === "failed" ? "destructive" : "secondary";
+      return <Badge variant={variant}>{status}</Badge>;
+    },
+    filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
+  },
+  {
+    accessorKey: "email",
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Email" />
+    ),
+  },
+  {
+    accessorKey: "amount",
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Amount" />
+    ),
+    cell: ({ row }) => {
+      const amount = parseFloat(row.getValue("amount"));
+      const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(amount);
+      return <div className="text-right font-medium">{formatted}</div>;
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => (
+      <DataGridRowActions
+        actions={[
+          { label: "Edit", onClick: () => console.log("Edit", row.original) },
+          { label: "Copy ID", onClick: () => navigator.clipboard.writeText(row.original.id) },
+          { label: "Delete", onClick: () => console.log("Delete", row.original), destructive: true },
+        ]}
+      />
+    ),
+  },
+];
+
+const statusOptions = [
+  { label: "Pending", value: "pending" },
+  { label: "Processing", value: "processing" },
+  { label: "Success", value: "success" },
+  { label: "Failed", value: "failed" },
+];
+
+const moreData: Payment[] = [
+  ...data,
+  ...data.map((d, i) => ({ ...d, id: `extra-${i}`, email: `extra${i}@example.com` })),
+  ...data.map((d, i) => ({ ...d, id: `more-${i}`, email: `more${i}@example.com` })),
+];
+
 const meta = {
   title: "Composed/DataGrid",
   component: DataGrid,
@@ -51,14 +119,14 @@ type Story = StoryObj<DataGridProps<Payment>>;
 
 export const Default: Story = {
   args: {
-    columns,
+    columns: basicColumns,
     data,
   },
 };
 
 export const WithSorting: Story = {
   args: {
-    columns,
+    columns: basicColumns,
     data,
     enableSorting: true,
   },
@@ -66,48 +134,47 @@ export const WithSorting: Story = {
 
 export const WithSelection: Story = {
   args: {
-    columns,
+    columns: basicColumns,
     data,
     enableSelection: true,
-  },
-};
-
-export const WithColumnVisibility: Story = {
-  args: {
-    columns,
-    data,
-    enableColumnVisibility: true,
   },
 };
 
 export const WithPagination: Story = {
   args: {
-    columns,
-    data: [
-      ...data,
-      ...data.map((d, i) => ({ ...d, id: `extra-${i}`, email: `extra${i}@example.com` })),
-    ],
+    columns: basicColumns,
+    data: moreData,
     pageSize: 5,
   },
 };
 
-export const FullFeatured: Story = {
+export const WithToolbarAndFilters: Story = {
   args: {
-    columns,
-    data: [
-      ...data,
-      ...data.map((d, i) => ({ ...d, id: `extra-${i}`, email: `extra${i}@example.com` })),
-    ],
+    columns: enhancedColumns,
+    data: moreData,
     enableSorting: true,
     enableSelection: true,
-    enableColumnVisibility: true,
-    pageSize: 5,
+    enableColumnFilters: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    toolbar: (table) => (
+      <DataGridToolbar table={table} searchKey="email" searchPlaceholder="Filter emails...">
+        {table.getColumn("status") && (
+          <DataGridFacetedFilter
+            column={table.getColumn("status")}
+            title="Status"
+            options={statusOptions}
+          />
+        )}
+      </DataGridToolbar>
+    ),
+    pagination: (table) => <DataGridPagination table={table} />,
   },
 };
 
 export const EmptyState: Story = {
   args: {
-    columns,
+    columns: basicColumns,
     data: [],
   },
 };

@@ -4,6 +4,9 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getPaginationRowModel,
+  getFilteredRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   useReactTable,
 } from "@tanstack/react-table";
 import type {
@@ -11,24 +14,18 @@ import type {
   SortingState,
   VisibilityState,
   RowSelectionState,
-} from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown } from "lucide-react";
-import {
+  ColumnFiltersState,
   Table,
+} from "@tanstack/react-table";
+import {
+  Table as UITable,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
@@ -38,10 +35,13 @@ export interface DataGridProps<TData> {
   data: TData[];
   enableSorting?: boolean;
   enableSelection?: boolean;
-  enableColumnVisibility?: boolean;
+  enableGlobalFilter?: boolean;
+  enableColumnFilters?: boolean;
   pageSize?: number;
   onRowClick?: (row: TData) => void;
   onSelectionChange?: (selectedRows: TData[]) => void;
+  toolbar?: (table: Table<TData>) => React.ReactNode;
+  pagination?: (table: Table<TData>) => React.ReactNode;
   className?: string;
 }
 
@@ -50,15 +50,20 @@ function DataGrid<TData>({
   data,
   enableSorting = false,
   enableSelection = false,
-  enableColumnVisibility = false,
+  enableGlobalFilter = false,
+  enableColumnFilters = false,
   pageSize = 10,
   onRowClick,
   onSelectionChange,
+  toolbar,
+  pagination,
   className,
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState("");
 
   const allColumns = React.useMemo(() => {
     if (!enableSelection) return columns;
@@ -87,23 +92,26 @@ function DataGrid<TData>({
     return [selectColumn, ...columns];
   }, [columns, enableSelection]);
 
-  const table = useReactTable({
+  const table = useReactTable<TData>({
     data,
     columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
-    ...(enableSorting && {
-      onSortingChange: setSorting,
-      getSortedRowModel: getSortedRowModel(),
-    }),
-    ...(pageSize && {
-      getPaginationRowModel: getPaginationRowModel(),
-    }),
+    getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
+    getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,
+    getFacetedRowModel: enableColumnFilters ? getFacetedRowModel() : undefined,
+    getFacetedUniqueValues: enableColumnFilters ? getFacetedUniqueValues() : undefined,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnVisibility,
       rowSelection,
+      columnFilters,
+      globalFilter,
     },
     initialState: {
       pagination: {
@@ -123,52 +131,20 @@ function DataGrid<TData>({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {enableColumnVisibility && (
-        <div className="flex items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Columns <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
+      {toolbar?.(table)}
       <div className="rounded-md border">
-        <Table>
+        <UITable>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder ? null : enableSorting && header.column.getCanSort() ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8"
-                        onClick={() => header.column.toggleSorting()}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    ) : (
-                      flexRender(header.column.columnDef.header, header.getContext())
-                    )}
+                  <TableHead key={header.id} colSpan={header.colSpan}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -198,38 +174,42 @@ function DataGrid<TData>({
               </TableRow>
             )}
           </TableBody>
-        </Table>
+        </UITable>
       </div>
-      {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between px-2">
-          {enableSelection && (
-            <div className="text-sm text-muted-foreground">
-              {table.getFilteredSelectedRowModel().rows.length} of{" "}
-              {table.getFilteredRowModel().rows.length} row(s) selected.
+      {pagination ? (
+        pagination(table)
+      ) : (
+        table.getPageCount() > 1 && (
+          <div className="flex items-center justify-end space-x-2">
+            <div className="flex-1 text-sm text-muted-foreground">
+              {enableSelection &&
+                table.getFilteredSelectedRowModel().rows.length > 0 && (
+                  <>
+                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                  </>
+                )}
             </div>
-          )}
-          <div className="flex items-center space-x-2 ml-auto">
-            <Button
-              variant="outline"
-              size="sm"
+            <div className="text-sm text-muted-foreground">
+              Page {table.getState().pagination.pageIndex + 1} of{" "}
+              {table.getPageCount()}
+            </div>
+            <button
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background h-8 px-3 hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
               Previous
-            </Button>
-            <div className="text-sm text-muted-foreground">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
+            </button>
+            <button
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background h-8 px-3 hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
               Next
-            </Button>
+            </button>
           </div>
-        </div>
+        )
       )}
     </div>
   );

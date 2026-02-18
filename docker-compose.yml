@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: neoboard-postgres
+    environment:
+      POSTGRES_USER: neoboard
+      POSTGRES_PASSWORD: neoboard
+      POSTGRES_DB: neoboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - neoboard_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neoboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: neoboard-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/neoboard123
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neoboard_neo4jdata:/data
+      - ./docker/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher:ro
+      - ./docker/neo4j/init.sh:/startup/init.sh:ro
+    entrypoint: ["/bin/bash", "/startup/init.sh"]
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "neoboard123", "RETURN 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  neoboard_pgdata:
+  neoboard_neo4jdata:
