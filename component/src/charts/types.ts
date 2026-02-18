@@ -53,6 +53,11 @@ export interface GraphNode {
   label?: string;
   value?: number;
   category?: number;
+  properties?: Record<string, unknown>;
+  color?: string;
+  fixed?: boolean;
+  x?: number;
+  y?: number;
 }
 
 export interface GraphEdge {
@@ -60,4 +65,11 @@ export interface GraphEdge {
   target: string;
   label?: string;
   value?: number;
+  properties?: Record<string, unknown>;
+  color?: string;
+}
+
+export interface GraphNodeEvent {
+  node: GraphNode;
+  position: { x: number; y: number };
 }

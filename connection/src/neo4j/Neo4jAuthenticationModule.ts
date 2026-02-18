@@ -7,7 +7,7 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
   private _authConfig: AuthConfig;
   private driver: Driver;
 
-  constructor(authConfig: any) {
+  constructor(authConfig: AuthConfig) {
     super();
     this._authConfig = DEFAULT_AUTHENTICATION_CONFIG;
     this._checkConfigurationConsistency(authConfig);
