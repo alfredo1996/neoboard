@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - neoboard_pgdata:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U neoboard"]
       interval: 5s
@@ -27,9 +27,7 @@ services:
       - "7687:7687"
     volumes:
       - neoboard_neo4jdata:/data
-      - ./docker/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher:ro
-      - ./docker/neo4j/init.sh:/startup/init.sh:ro
-    entrypoint: ["/bin/bash", "/startup/init.sh"]
+      - ./neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
     healthcheck:
       test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "neoboard123", "RETURN 1"]
       interval: 10s

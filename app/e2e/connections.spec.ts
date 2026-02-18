@@ -53,6 +53,57 @@ test.describe("Connections", () => {
     });
   });
 
+  test("should test inline connection before creating — success", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.locator("#conn-name").fill("Inline Test OK");
+    await dialog.locator("#conn-uri").fill(TEST_NEO4J_BOLT_URL);
+    await dialog.locator("#conn-username").fill("neo4j");
+    await dialog.locator("#conn-password").fill("neoboard123");
+
+    await dialog.getByRole("button", { name: "Test Connection" }).click();
+    await expect(dialog.getByText("Connection successful!")).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("should test inline connection before creating — failure shows error", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.locator("#conn-name").fill("Inline Test Fail");
+    await dialog.locator("#conn-uri").fill("bolt://localhost:1");
+    await dialog.locator("#conn-username").fill("wrong");
+    await dialog.locator("#conn-password").fill("wrong");
+
+    await dialog.getByRole("button", { name: "Test Connection" }).click();
+    // Should NOT show success
+    await expect(dialog.getByText("Connection successful!")).not.toBeVisible({
+      timeout: 15_000,
+    });
+    // Should show a destructive alert with error text
+    await expect(dialog.getByText(/failed|error|refused|ECONNREFUSED/i)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("should show error status text on failed connection test", async ({ page }) => {
+    // Create a connection with bad credentials
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.locator("#conn-name").fill("Bad Creds");
+    await dialog.locator("#conn-uri").fill("bolt://localhost:1");
+    await dialog.locator("#conn-username").fill("wrong");
+    await dialog.locator("#conn-password").fill("wrong");
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // Wait for auto-test to complete — should show "Error" badge
+    await expect(page.getByText("Bad Creds")).toBeVisible();
+    // The auto-test will run, resulting in an error status with error text visible
+    const card = page.locator("div").filter({ hasText: "Bad Creds" }).first();
+    await expect(card.getByText("Error")).toBeVisible({ timeout: 30_000 });
+  });
+
   test("should delete a connection with confirmation", async ({ page }) => {
     // Create one first
     await page.getByRole("button", { name: "Add Connection" }).click();

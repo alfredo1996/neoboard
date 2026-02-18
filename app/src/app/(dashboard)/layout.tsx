@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { LayoutDashboard, Database, Users, LogOut } from "lucide-react";
 import {
   AppShell,
@@ -18,6 +18,21 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.push("/login");
+    },
+  });
+
+  // Don't render anything until we know the user is authenticated
+  if (status === "loading") {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <AppShell

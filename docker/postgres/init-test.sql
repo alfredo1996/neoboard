@@ -1,11 +1,151 @@
 -- =============================================================================
 -- Neoboard PostgreSQL Init Script
--- Only creates the separate "movies" database for PG query demos.
--- The main neoboard schema is managed by Drizzle migrations.
+-- Runs on first container startup via /docker-entrypoint-initdb.d/
 -- =============================================================================
 
 -- -------------------------------------------------------
--- Movies database — relational version for PG queries
+-- 1. App schema (neoboard database) — tables + seed data
+-- -------------------------------------------------------
+
+-- Enums
+CREATE TYPE "public"."connection_type" AS ENUM('neo4j', 'postgresql');
+CREATE TYPE "public"."share_role" AS ENUM('viewer', 'editor');
+
+-- Tables
+CREATE TABLE "user" (
+                        "id" text PRIMARY KEY NOT NULL,
+                        "name" text,
+                        "email" text,
+                        "emailVerified" timestamp,
+                        "image" text,
+                        "passwordHash" text,
+                        "createdAt" timestamp DEFAULT now(),
+                        CONSTRAINT "user_email_unique" UNIQUE("email")
+);
+
+CREATE TABLE "account" (
+                           "userId" text NOT NULL,
+                           "type" text NOT NULL,
+                           "provider" text NOT NULL,
+                           "providerAccountId" text NOT NULL,
+                           "refresh_token" text,
+                           "access_token" text,
+                           "expires_at" integer,
+                           "token_type" text,
+                           "scope" text,
+                           "id_token" text,
+                           "session_state" text,
+                           PRIMARY KEY ("provider", "providerAccountId")
+);
+
+CREATE TABLE "session" (
+                           "sessionToken" text PRIMARY KEY NOT NULL,
+                           "userId" text NOT NULL,
+                           "expires" timestamp NOT NULL
+);
+
+CREATE TABLE "verificationToken" (
+                                     "identifier" text NOT NULL,
+                                     "token" text NOT NULL,
+                                     "expires" timestamp NOT NULL,
+                                     PRIMARY KEY ("identifier", "token")
+);
+
+CREATE TABLE "connection" (
+                              "id" text PRIMARY KEY NOT NULL,
+                              "userId" text NOT NULL,
+                              "name" text NOT NULL,
+                              "type" "connection_type" NOT NULL,
+                              "configEncrypted" text NOT NULL,
+                              "createdAt" timestamp DEFAULT now(),
+                              "updatedAt" timestamp DEFAULT now()
+);
+
+CREATE TABLE "dashboard" (
+                             "id" text PRIMARY KEY NOT NULL,
+                             "userId" text NOT NULL,
+                             "name" text NOT NULL,
+                             "description" text,
+                             "layoutJson" jsonb DEFAULT '{"widgets":[],"gridLayout":[]}'::jsonb,
+                             "isPublic" boolean DEFAULT false,
+                             "createdAt" timestamp DEFAULT now(),
+                             "updatedAt" timestamp DEFAULT now()
+);
+
+CREATE TABLE "dashboard_share" (
+                                   "id" text PRIMARY KEY NOT NULL,
+                                   "dashboardId" text NOT NULL,
+                                   "userId" text NOT NULL,
+                                   "role" "share_role" NOT NULL,
+                                   "createdAt" timestamp DEFAULT now()
+);
+
+-- Foreign keys
+ALTER TABLE "account" ADD CONSTRAINT "account_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "connection" ADD CONSTRAINT "connection_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "dashboard_share" ADD CONSTRAINT "dashboard_share_dashboardId_dashboard_id_fk" FOREIGN KEY ("dashboardId") REFERENCES "public"."dashboard"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "dashboard_share" ADD CONSTRAINT "dashboard_share_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "dashboard" ADD CONSTRAINT "dashboard_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+
+-- Seed users
+-- Both use password: password123 (bcrypt hash)
+INSERT INTO "user" ("id", "name", "email", "passwordHash") VALUES
+                                                               ('user-alice-001', 'Alice Demo', 'alice@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6'),
+                                                               ('user-bob-002', 'Bob Demo', 'bob@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6');
+
+-- Seed connections
+-- configEncrypted values are placeholders — the app encrypts these at runtime
+INSERT INTO "connection" ("id", "userId", "name", "type", "configEncrypted") VALUES
+                                                                                 ('conn-neo4j-001', 'user-alice-001', 'Movies Graph (Neo4j)', 'neo4j', '{"host":"bolt://neo4j:7687","username":"neo4j","password":"neoboard123"}'),
+                                                                                 ('conn-pg-001', 'user-alice-001', 'Movies DB (PostgreSQL)', 'postgresql', '{"host":"postgres","port":5432,"database":"movies","username":"neoboard","password":"neoboard"}');
+
+-- Seed dashboards
+INSERT INTO "dashboard" ("id", "userId", "name", "description", "isPublic", "layoutJson") VALUES
+                                                                                              ('dash-001', 'user-alice-001', 'Movie Analytics', 'Explore the movies dataset across Neo4j and PostgreSQL', true, '{
+                                                                                                "widgets": [
+                                                                                                  {
+                                                                                                    "id": "w1",
+                                                                                                    "chartType": "bar",
+                                                                                                    "connectionId": "conn-neo4j-001",
+                                                                                                    "query": "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 10",
+                                                                                                    "settings": {"title": "Top 10 Movies by Cast Size"}
+                                                                                                  },
+                                                                                                  {
+                                                                                                    "id": "w2",
+                                                                                                    "chartType": "line",
+                                                                                                    "connectionId": "conn-pg-001",
+                                                                                                    "query": "SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released",
+                                                                                                    "settings": {"title": "Movies Released per Year"}
+                                                                                                  }
+                                                                                                ],
+                                                                                                "gridLayout": [
+                                                                                                  {"i": "w1", "x": 0, "y": 0, "w": 6, "h": 4},
+                                                                                                  {"i": "w2", "x": 6, "y": 0, "w": 6, "h": 4}
+                                                                                                ]
+                                                                                              }'::jsonb),
+                                                                                              ('dash-002', 'user-bob-002', 'Actor Network', 'Graph-based actor collaboration insights', false, '{
+                                                                                                "widgets": [
+                                                                                                  {
+                                                                                                    "id": "w1",
+                                                                                                    "chartType": "table",
+                                                                                                    "connectionId": "conn-neo4j-001",
+                                                                                                    "query": "MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10",
+                                                                                                    "settings": {"title": "Most Prolific Directors"}
+                                                                                                  }
+                                                                                                ],
+                                                                                                "gridLayout": [
+                                                                                                  {"i": "w1", "x": 0, "y": 0, "w": 12, "h": 5}
+                                                                                                ]
+                                                                                              }'::jsonb);
+
+-- Seed dashboard share (Alice shares her dashboard with Bob as viewer)
+INSERT INTO "dashboard_share" ("id", "dashboardId", "userId", "role") VALUES
+    ('share-001', 'dash-001', 'user-bob-002', 'viewer');
+
+
+-- -------------------------------------------------------
+-- 2. Movies database — relational version for PG queries
 -- -------------------------------------------------------
 
 CREATE DATABASE movies;
@@ -29,8 +169,8 @@ CREATE TABLE roles (
                        id SERIAL PRIMARY KEY,
                        person_id INTEGER NOT NULL REFERENCES people(id),
                        movie_id INTEGER NOT NULL REFERENCES movies(id),
-                       relationship TEXT NOT NULL,
-                       roles TEXT[]
+                       relationship TEXT NOT NULL, -- ACTED_IN, DIRECTED, PRODUCED, WROTE
+                       roles TEXT[] -- only for ACTED_IN
 );
 
 CREATE INDEX idx_roles_person ON roles(person_id);
@@ -210,7 +350,8 @@ INSERT INTO people (name, born) VALUES
                                     ('Lori Petty', 1963),
                                     ('Penny Marshall', 1943);
 
--- Roles
+-- Roles (ACTED_IN, DIRECTED, PRODUCED, WROTE)
+-- Using subqueries to reference by name for readability
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Neo'] FROM people p, movies m WHERE p.name='Keanu Reeves' AND m.title='The Matrix';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Trinity'] FROM people p, movies m WHERE p.name='Carrie-Anne Moss' AND m.title='The Matrix';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Morpheus'] FROM people p, movies m WHERE p.name='Laurence Fishburne' AND m.title='The Matrix';
@@ -219,6 +360,8 @@ INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lana Wachowski' AND m.title='The Matrix';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'PRODUCED', NULL FROM people p, movies m WHERE p.name='Joel Silver' AND m.title='The Matrix';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Emil'] FROM people p, movies m WHERE p.name='Emil Eifrem' AND m.title='The Matrix';
+
+-- Matrix Reloaded
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Neo'] FROM people p, movies m WHERE p.name='Keanu Reeves' AND m.title='The Matrix Reloaded';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Trinity'] FROM people p, movies m WHERE p.name='Carrie-Anne Moss' AND m.title='The Matrix Reloaded';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Morpheus'] FROM people p, movies m WHERE p.name='Laurence Fishburne' AND m.title='The Matrix Reloaded';
@@ -226,6 +369,8 @@ INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lilly Wachowski' AND m.title='The Matrix Reloaded';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lana Wachowski' AND m.title='The Matrix Reloaded';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'PRODUCED', NULL FROM people p, movies m WHERE p.name='Joel Silver' AND m.title='The Matrix Reloaded';
+
+-- Matrix Revolutions
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Neo'] FROM people p, movies m WHERE p.name='Keanu Reeves' AND m.title='The Matrix Revolutions';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Trinity'] FROM people p, movies m WHERE p.name='Carrie-Anne Moss' AND m.title='The Matrix Revolutions';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Morpheus'] FROM people p, movies m WHERE p.name='Laurence Fishburne' AND m.title='The Matrix Revolutions';
@@ -233,27 +378,37 @@ INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lilly Wachowski' AND m.title='The Matrix Revolutions';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lana Wachowski' AND m.title='The Matrix Revolutions';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'PRODUCED', NULL FROM people p, movies m WHERE p.name='Joel Silver' AND m.title='The Matrix Revolutions';
+
+-- The Devil's Advocate
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Kevin Lomax'] FROM people p, movies m WHERE p.name='Keanu Reeves' AND m.title='The Devil''s Advocate';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Mary Ann Lomax'] FROM people p, movies m WHERE p.name='Charlize Theron' AND m.title='The Devil''s Advocate';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['John Milton'] FROM people p, movies m WHERE p.name='Al Pacino' AND m.title='The Devil''s Advocate';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Taylor Hackford' AND m.title='The Devil''s Advocate';
+
+-- A Few Good Men
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Lt. Daniel Kaffee'] FROM people p, movies m WHERE p.name='Tom Cruise' AND m.title='A Few Good Men';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Col. Nathan R. Jessup'] FROM people p, movies m WHERE p.name='Jack Nicholson' AND m.title='A Few Good Men';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Lt. Cdr. JoAnne Galloway'] FROM people p, movies m WHERE p.name='Demi Moore' AND m.title='A Few Good Men';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Capt. Jack Ross'] FROM people p, movies m WHERE p.name='Kevin Bacon' AND m.title='A Few Good Men';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Rob Reiner' AND m.title='A Few Good Men';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'WROTE', NULL FROM people p, movies m WHERE p.name='Aaron Sorkin' AND m.title='A Few Good Men';
+
+-- Top Gun
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Maverick'] FROM people p, movies m WHERE p.name='Tom Cruise' AND m.title='Top Gun';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Charlie'] FROM people p, movies m WHERE p.name='Kelly McGillis' AND m.title='Top Gun';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Iceman'] FROM people p, movies m WHERE p.name='Val Kilmer' AND m.title='Top Gun';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Tony Scott' AND m.title='Top Gun';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'WROTE', NULL FROM people p, movies m WHERE p.name='Jim Cash' AND m.title='Top Gun';
+
+-- Jerry Maguire
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Jerry Maguire'] FROM people p, movies m WHERE p.name='Tom Cruise' AND m.title='Jerry Maguire';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Rod Tidwell'] FROM people p, movies m WHERE p.name='Cuba Gooding Jr.' AND m.title='Jerry Maguire';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Dorothy Boyd'] FROM people p, movies m WHERE p.name='Renee Zellweger' AND m.title='Jerry Maguire';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Cameron Crowe' AND m.title='Jerry Maguire';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'PRODUCED', NULL FROM people p, movies m WHERE p.name='Cameron Crowe' AND m.title='Jerry Maguire';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'WROTE', NULL FROM people p, movies m WHERE p.name='Cameron Crowe' AND m.title='Jerry Maguire';
+
+-- Tom Hanks movies (selected key roles)
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Joe Fox'] FROM people p, movies m WHERE p.name='Tom Hanks' AND m.title='You''ve Got Mail';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Sam Baldwin'] FROM people p, movies m WHERE p.name='Tom Hanks' AND m.title='Sleepless in Seattle';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Joe Banks'] FROM people p, movies m WHERE p.name='Tom Hanks' AND m.title='Joe Versus the Volcano';
@@ -267,6 +422,8 @@ INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Rep. Charlie Wilson'] FROM people p, movies m WHERE p.name='Tom Hanks' AND m.title='Charlie Wilson''s War';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Hero Boy','Father','Conductor','Hobo','Scrooge','Santa Claus'] FROM people p, movies m WHERE p.name='Tom Hanks' AND m.title='The Polar Express';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'ACTED_IN', ARRAY['Jimmy Dugan'] FROM people p, movies m WHERE p.name='Tom Hanks' AND m.title='A League of Their Own';
+
+-- Directors for remaining movies
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Nora Ephron' AND m.title='You''ve Got Mail';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Nora Ephron' AND m.title='Sleepless in Seattle';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Rob Reiner' AND m.title='When Harry Met Sally';
@@ -295,16 +452,21 @@ INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Mike Nichols' AND m.title='Charlie Wilson''s War';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Penny Marshall' AND m.title='A League of Their Own';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='John Patrick Stanley' AND m.title='Joe Versus the Volcano';
+
+-- Cloud Atlas directors/writers/producers
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Tom Tykwer' AND m.title='Cloud Atlas';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lilly Wachowski' AND m.title='Cloud Atlas';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lana Wachowski' AND m.title='Cloud Atlas';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'WROTE', NULL FROM people p, movies m WHERE p.name='David Mitchell' AND m.title='Cloud Atlas';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'PRODUCED', NULL FROM people p, movies m WHERE p.name='Stefan Arndt' AND m.title='Cloud Atlas';
+
+-- Speed Racer
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lilly Wachowski' AND m.title='Speed Racer';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'DIRECTED', NULL FROM people p, movies m WHERE p.name='Lana Wachowski' AND m.title='Speed Racer';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'WROTE', NULL FROM people p, movies m WHERE p.name='Lilly Wachowski' AND m.title='Speed Racer';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'WROTE', NULL FROM people p, movies m WHERE p.name='Lana Wachowski' AND m.title='Speed Racer';
 INSERT INTO roles (person_id, movie_id, relationship, roles) SELECT p.id, m.id, 'PRODUCED', NULL FROM people p, movies m WHERE p.name='Joel Silver' AND m.title='Speed Racer';
 
+-- Grant read access to the neoboard user on the movies database
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO neoboard;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO neoboard;

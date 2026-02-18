@@ -7,6 +7,7 @@ import {
   useCreateConnection,
   useDeleteConnection,
   useTestConnection,
+  useTestInlineConnection,
 } from "@/hooks/use-connections";
 import {
   Button,
@@ -31,6 +32,8 @@ import {
   ConfirmDialog,
   ConnectionCard,
   PasswordInput,
+  Alert,
+  AlertDescription,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 
@@ -40,6 +43,11 @@ export default function ConnectionsPage() {
   const deleteConnection = useDeleteConnection();
   const testConnection = useTestConnection();
 
+  const testInline = useTestInlineConnection();
+  const [inlineTestResult, setInlineTestResult] = useState<{
+    success: boolean;
+    error?: string;
+  } | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -63,36 +71,74 @@ export default function ConnectionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connections]);
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    await createConnection.mutateAsync({
-      name: form.name,
-      type: form.type,
-      config: {
-        uri: form.uri,
-        username: form.username,
-        password: form.password,
-        database: form.database || undefined,
-      },
-    });
-    setForm({
-      name: "",
-      type: "neo4j",
-      uri: "",
-      username: "",
-      password: "",
-      database: "",
-    });
-    setShowCreate(false);
+    setCreateError(null);
+    try {
+      await createConnection.mutateAsync({
+        name: form.name,
+        type: form.type,
+        config: {
+          uri: form.uri,
+          username: form.username,
+          password: form.password,
+          database: form.database || undefined,
+        },
+      });
+      setForm({
+        name: "",
+        type: "neo4j",
+        uri: "",
+        username: "",
+        password: "",
+        database: "",
+      });
+      setShowCreate(false);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Failed to create connection"
+      );
+    }
   }
+
+  async function handleTestInline() {
+    setInlineTestResult(null);
+    try {
+      const result = await testInline.mutateAsync({
+        type: form.type,
+        config: {
+          uri: form.uri,
+          username: form.username,
+          password: form.password,
+          database: form.database || undefined,
+        },
+      });
+      setInlineTestResult(result);
+    } catch {
+      setInlineTestResult({ success: false, error: "Connection test failed" });
+    }
+  }
+
+  const [testErrors, setTestErrors] = useState<Record<string, string>>({});
 
   async function handleTest(id: string) {
     setTestResults((prev) => ({ ...prev, [id]: "connecting" }));
-    const result = await testConnection.mutateAsync(id);
-    setTestResults((prev) => ({
-      ...prev,
-      [id]: result.success ? "connected" : "error",
-    }));
+    setTestErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    try {
+      const result = await testConnection.mutateAsync(id);
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: result.success ? "connected" : "error",
+      }));
+      if (!result.success && result.error) {
+        setTestErrors((prev) => ({ ...prev, [id]: result.error! }));
+      }
+    } catch {
+      setTestResults((prev) => ({ ...prev, [id]: "error" }));
+      setTestErrors((prev) => ({ ...prev, [id]: "Connection test failed" }));
+    }
   }
 
   function getConnectionStatus(id: string): ConnectionState {
@@ -116,7 +162,10 @@ export default function ConnectionsPage() {
         }
       />
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        setShowCreate(open);
+        if (!open) { setCreateError(null); setInlineTestResult(null); }
+      }}>
         <DialogContent>
           <form onSubmit={handleCreate}>
             <DialogHeader>
@@ -216,6 +265,20 @@ export default function ConnectionsPage() {
                 />
               </div>
             </div>
+            {createError && (
+              <Alert variant="destructive">
+                <AlertDescription>{createError}</AlertDescription>
+              </Alert>
+            )}
+            {inlineTestResult && (
+              <Alert variant={inlineTestResult.success ? "default" : "destructive"}>
+                <AlertDescription>
+                  {inlineTestResult.success
+                    ? "Connection successful!"
+                    : inlineTestResult.error || "Connection failed"}
+                </AlertDescription>
+              </Alert>
+            )}
             <DialogFooter>
               <Button
                 type="button"
@@ -224,6 +287,16 @@ export default function ConnectionsPage() {
               >
                 Cancel
               </Button>
+              <LoadingButton
+                type="button"
+                variant="secondary"
+                loading={testInline.isPending}
+                loadingText="Testing..."
+                disabled={!form.uri || !form.username || !form.password}
+                onClick={handleTestInline}
+              >
+                Test Connection
+              </LoadingButton>
               <LoadingButton
                 type="submit"
                 loading={createConnection.isPending}
@@ -275,6 +348,7 @@ export default function ConnectionsPage() {
                   name={c.name}
                   host={c.type}
                   status={getConnectionStatus(c.id)}
+                  statusText={testErrors[c.id]}
                   onTest={() => handleTest(c.id)}
                   onDelete={() => setDeleteTarget(c.id)}
                 />

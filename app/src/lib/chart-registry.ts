@@ -17,7 +17,8 @@ export type ChartType =
   | "single-value"
   | "graph"
   | "map"
-  | "json";
+  | "json"
+  | "parameter-select";
 
 export interface ChartConfig {
   type: ChartType;
@@ -196,6 +197,17 @@ function transformToJsonData(data: unknown): unknown {
   return records.length > 0 ? records : data;
 }
 
+/**
+ * Transform to select data: extract first column values as options array.
+ */
+function transformToSelectData(data: unknown): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const firstKey = Object.keys(records[0])[0];
+  if (!firstKey) return [];
+  return records.map((r) => r[firstKey]).filter((v) => v !== null && v !== undefined);
+}
+
 export const chartRegistry: Record<ChartType, ChartConfig> = {
   bar: { type: "bar", label: "Bar Chart", transform: transformToBarData },
   line: { type: "line", label: "Line Chart", transform: transformToLineData },
@@ -205,6 +217,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   graph: { type: "graph", label: "Graph", transform: transformToGraphData },
   map: { type: "map", label: "Map", transform: transformToMapData },
   json: { type: "json", label: "JSON Viewer", transform: transformToJsonData },
+  "parameter-select": { type: "parameter-select", label: "Parameter Selector", transform: transformToSelectData },
 };
 
 export function getChartConfig(type: string): ChartConfig | undefined {

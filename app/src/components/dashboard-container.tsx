@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { DashboardLayout, DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
+import { useParameterStore } from "@/stores/parameter-store";
 import { LayoutDashboard, Maximize2 } from "lucide-react";
 import {
   WidgetCard,
@@ -12,6 +13,8 @@ import {
   Dialog,
   DialogContent,
   Button,
+  ParameterBar,
+  CrossFilterTag,
 } from "@neoboard/components";
 
 interface DashboardContainerProps {
@@ -37,6 +40,11 @@ export function DashboardContainer({
   onLayoutChange,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] = useState<DashboardWidget | null>(null);
+  const parameters = useParameterStore((s) => s.parameters);
+  const clearParameter = useParameterStore((s) => s.clearParameter);
+  const clearAll = useParameterStore((s) => s.clearAll);
+  const paramEntries = Object.entries(parameters);
+  const hasParameters = paramEntries.length > 0;
 
   if (layout.widgets.length === 0) {
     return (
@@ -69,6 +77,19 @@ export function DashboardContainer({
 
   return (
     <>
+      {hasParameters && (
+        <ParameterBar onReset={clearAll}>
+          {paramEntries.map(([name, entry]) => (
+            <CrossFilterTag
+              key={name}
+              source={entry.source}
+              field={entry.field}
+              value={String(entry.value)}
+              onRemove={() => clearParameter(name)}
+            />
+          ))}
+        </ParameterBar>
+      )}
       <DashboardGrid
         layout={layout.gridLayout as GridLayoutItem[]}
         onLayoutChange={(items) => onLayoutChange?.(items as GridLayoutItem[])}
