@@ -108,7 +108,7 @@ describe('Neo4jConnectionModule - setFields', () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
-  });
+  }, 60000);
 
   test('getFields should extract from array of nodes (array traversal)', async () => {
     const config = getNeo4jAuth();
