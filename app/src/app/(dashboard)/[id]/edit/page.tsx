@@ -12,6 +12,8 @@ import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
 import {
   Button,
   Skeleton,
+  Alert,
+  AlertDescription,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -37,6 +39,7 @@ export default function DashboardEditorPage({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Load dashboard layout into store
   useEffect(() => {
@@ -46,7 +49,14 @@ export default function DashboardEditorPage({
   }, [dashboard, setLayout]);
 
   const handleSave = useCallback(async () => {
-    await updateDashboard.mutateAsync({ id, layoutJson: layout });
+    setSaveError(null);
+    try {
+      await updateDashboard.mutateAsync({ id, layoutJson: layout });
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Failed to save dashboard"
+      );
+    }
   }, [id, layout, updateDashboard]);
 
   function openAddWidget() {
@@ -142,6 +152,14 @@ export default function DashboardEditorPage({
           </LoadingButton>
         </ToolbarSection>
       </Toolbar>
+
+      {saveError && (
+        <div className="px-6 pt-2">
+          <Alert variant="destructive">
+            <AlertDescription>{saveError}</AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <WidgetEditorModal
         open={editorOpen}

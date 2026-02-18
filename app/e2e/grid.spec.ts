@@ -14,7 +14,7 @@ test.describe("Dashboard grid", () => {
   });
 
   test("edit mode should allow drag and resize", async ({ page }) => {
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.getByText("Editing:")).toBeVisible();
 
     // In edit mode, grid items should have draggable class
@@ -27,7 +27,7 @@ test.describe("Dashboard grid", () => {
   });
 
   test("should save layout changes", async ({ page }) => {
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.getByText("Editing:")).toBeVisible({ timeout: 10000 });
 
     // Click Save and verify the button is present and clickable

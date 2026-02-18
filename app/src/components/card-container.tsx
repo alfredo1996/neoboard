@@ -3,9 +3,11 @@
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
-import type { DashboardWidget } from "@/lib/db/schema";
+import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
+import { useParameterStore } from "@/stores/parameter-store";
 import { useMemo } from "react";
 import { AlertCircle } from "lucide-react";
+import dynamic from "next/dynamic";
 import {
   Skeleton,
   Alert,
@@ -19,10 +21,28 @@ import {
   PieChart,
   SingleValueChart,
   GraphChart,
-  MapChart,
   JsonViewer,
   DataGrid,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Label,
 } from "@neoboard/components";
+
+// Dynamically import MapChart to avoid SSR issues with Leaflet
+const MapChart = dynamic(
+  () => import("@neoboard/components").then((mod) => ({ default: mod.MapChart })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    ),
+  }
+);
 import type {
   BarChartDataPoint,
   LineChartDataPoint,
@@ -30,6 +50,7 @@ import type {
   GraphNode,
   GraphEdge,
   MapMarker,
+  EChartsClickEvent,
 } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -43,13 +64,20 @@ interface ChartRendererProps {
   type: ChartType;
   data: unknown;
   settings?: Record<string, unknown>;
+  onChartClick?: (point: Record<string, unknown>) => void;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
+function ChartRenderer({ type, data, settings = {}, onChartClick }: ChartRendererProps) {
+  const handleEChartsClick = useMemo(() => {
+    if (!onChartClick) return undefined;
+    return (e: EChartsClickEvent) =>
+      onChartClick({ name: e.name, value: e.value, seriesName: e.seriesName, dataIndex: e.dataIndex });
+  }, [onChartClick]);
+
   switch (type) {
     case "bar":
       return (
@@ -59,6 +87,7 @@ function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
           stacked={settings.stacked as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
+          onClick={handleEChartsClick}
         />
       );
 
@@ -71,6 +100,7 @@ function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
           xAxisLabel={settings.xAxisLabel as string | undefined}
           yAxisLabel={settings.yAxisLabel as string | undefined}
           showLegend={settings.showLegend as boolean | undefined}
+          onClick={handleEChartsClick}
         />
       );
 
@@ -81,6 +111,7 @@ function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
           donut={settings.donut as boolean | undefined}
           showLabel={settings.showLabel as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
+          onClick={handleEChartsClick}
         />
       );
 
@@ -107,6 +138,7 @@ function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
           edges={graphData.edges ?? []}
           layout={settings.layout as "force" | "circular" | undefined}
           showLabels={settings.showLabels as boolean | undefined}
+          onNodeSelect={onChartClick ? (ids) => { if (ids.length) onChartClick({ nodeId: ids[0] }); } : undefined}
         />
       );
     }
@@ -121,12 +153,21 @@ function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
           minZoom={settings.minZoom as number | undefined}
           maxZoom={settings.maxZoom as number | undefined}
           autoFitBounds={settings.autoFitBounds !== false}
+          onMarkerClick={onChartClick ? (m) => onChartClick({ id: m.id, label: m.label, lat: m.lat, lng: m.lng }) : undefined}
         />
       );
     }
 
     case "table":
-      return <TableRenderer data={data} settings={settings} />;
+      return <TableRenderer data={data} settings={settings} onRowClick={onChartClick} />;
+
+    case "parameter-select":
+      return (
+        <ParameterSelectRenderer
+          data={data}
+          parameterName={settings.parameterName as string | undefined}
+        />
+      );
 
     case "json":
       return (
@@ -153,13 +194,14 @@ function ChartRenderer({ type, data, settings = {} }: ChartRendererProps) {
 /**
  * Auto-generates columns and renders DataGrid from query result records.
  */
-function TableRenderer({ data, settings = {} }: { data: unknown; settings?: Record<string, unknown> }) {
-  const records = Array.isArray(data) ? data : [];
+function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; settings?: Record<string, unknown>; onRowClick?: (row: Record<string, unknown>) => void }) {
+  const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
     return Object.keys(records[0]).map((key) => ({
-      accessorKey: key,
+      id: key,
+      accessorFn: (row: Record<string, unknown>) => row[key],
       header: key,
       cell: ({ getValue }) => {
         const v = getValue();
@@ -184,7 +226,59 @@ function TableRenderer({ data, settings = {} }: { data: unknown; settings?: Reco
         enableGlobalFilter={settings.enableGlobalFilter !== false}
         enableColumnFilters={settings.enableColumnFilters !== false}
         pageSize={(settings.pageSize as number) ?? 20}
+        onRowClick={onRowClick}
       />
+    </div>
+  );
+}
+
+/**
+ * Renders a dropdown select that sets a parameter value from query results.
+ */
+function ParameterSelectRenderer({
+  data,
+  parameterName,
+}: {
+  data: unknown;
+  parameterName?: string;
+}) {
+  const options = Array.isArray(data) ? data : [];
+  const setParameter = useParameterStore((s) => s.setParameter);
+  const currentValue = useParameterStore((s) => {
+    if (!parameterName) return undefined;
+    return s.parameters[parameterName]?.value;
+  });
+
+  if (!parameterName) {
+    return (
+      <EmptyState
+        title="No parameter name"
+        description="Configure a parameter name in the widget settings."
+        className="py-6"
+      />
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-2">
+      <Label>{parameterName}</Label>
+      <Select
+        value={currentValue !== undefined ? String(currentValue) : ""}
+        onValueChange={(val) =>
+          setParameter(parameterName, val, "Parameter Selector", parameterName)
+        }
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select a value..." />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt, i) => (
+            <SelectItem key={`${opt}-${i}`} value={String(opt)}>
+              {String(opt)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -195,6 +289,20 @@ function TableRenderer({ data, settings = {} }: { data: unknown; settings?: Reco
  */
 export function CardContainer({ widget, previewData }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
+
+  function handleChartClick(point: Record<string, unknown>) {
+    const clickAction = widget.settings?.clickAction as ClickAction | undefined;
+    if (!clickAction || clickAction.type !== "set-parameter") return;
+    const { parameterName, sourceField } = clickAction.parameterMapping;
+    const value = point[sourceField];
+    if (value !== undefined) {
+      const title = (widget.settings?.title as string) || chartConfig?.label || widget.chartType;
+      useParameterStore
+        .getState()
+        .setParameter(parameterName, value, title, sourceField);
+    }
+  }
+  const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);
 
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view→edit won't re-run the same query.
@@ -223,7 +331,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     const transformedData = chartConfig.transform(previewData);
     return (
       <div className="h-full w-full">
-        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} />
+        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} />
       </div>
     );
   }
@@ -269,7 +377,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
 
   return (
     <div className="h-full w-full">
-      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} />
+      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} />
     </div>
   );
 }

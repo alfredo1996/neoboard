@@ -10,11 +10,17 @@ const ENV_LOCAL_BAK = path.join(__dirname, "..", ".env.local.bak");
 export default async function globalTeardown() {
   console.log("\n🧹 Stopping test containers...\n");
 
-  // Restore original .env.local
+  // Restore original .env.local from backup.
+  // Fallback: if no backup exists (e.g. previous crash deleted it), copy from
+  // .env (version-controlled source of truth) so the dev server always works.
+  const ENV_BASE = path.join(__dirname, "..", ".env");
   if (fs.existsSync(ENV_LOCAL_BAK)) {
     fs.copyFileSync(ENV_LOCAL_BAK, ENV_LOCAL);
     fs.unlinkSync(ENV_LOCAL_BAK);
     console.log("📦 Restored .env.local from backup");
+  } else if (fs.existsSync(ENV_BASE)) {
+    fs.copyFileSync(ENV_BASE, ENV_LOCAL);
+    console.log("📦 Restored .env.local from .env (no backup found)");
   }
 
   if (!fs.existsSync(STATE_FILE)) {
