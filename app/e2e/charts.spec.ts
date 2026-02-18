@@ -177,7 +177,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     // Should render an HTML table with actual seed data
     await expect(preview.locator("table")).toBeVisible({ timeout: 10_000 });
     await expect(
-      preview.getByText("The Matrix").or(preview.getByText("Top Gun"))
+      preview.getByText("The Matrix", { exact: true }).or(preview.getByText("Top Gun"))
     ).toBeVisible({ timeout: 10_000 });
     await expect(dialog.getByText("Query Failed")).not.toBeVisible();
   });
@@ -308,7 +308,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await expect(
       preview.getByText("One Flew Over the Cuckoo's Nest").or(
         preview.getByText("Top Gun")
-      )
+      ).first()
     ).toBeVisible({ timeout: 10_000 });
     await expect(dialog.getByText("Query Failed")).not.toBeVisible();
   });

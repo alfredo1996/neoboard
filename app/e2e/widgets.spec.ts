@@ -103,7 +103,7 @@ test.describe("Widget creation", () => {
     });
     // Should contain a movie title from the seed data
     await expect(
-      dialog.getByText("The Matrix").or(dialog.getByText("Top Gun"))
+      dialog.getByText("The Matrix", { exact: true }).or(dialog.getByText("Top Gun"))
     ).toBeVisible({ timeout: 10_000 });
   });
 
