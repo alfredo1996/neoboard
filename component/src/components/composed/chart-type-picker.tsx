@@ -8,6 +8,7 @@ import {
   Map,
   Table2,
   Braces,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const defaultOptions: ChartTypeOption[] = [
   { type: "map", label: "Map", icon: <Map className="h-5 w-5" />, description: "Geographic data" },
   { type: "table", label: "Table", icon: <Table2 className="h-5 w-5" />, description: "Data table" },
   { type: "json", label: "JSON", icon: <Braces className="h-5 w-5" />, description: "Raw data view" },
+  { type: "parameter-select", label: "Param", icon: <SlidersHorizontal className="h-5 w-5" />, description: "Filter control" },
 ];
 
 function ChartTypePicker({
