@@ -6,7 +6,7 @@ test.describe("Widget creation", () => {
     // Navigate to a dashboard in edit mode
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
@@ -60,6 +60,51 @@ test.describe("Widget creation", () => {
 
     await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m LIMIT 3");
     await dialog.getByRole("button", { name: "Add Widget" }).click();
+  });
+
+  test("should render table with dot-notation fields (n.name)", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Widget" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByText("Table", { exact: true }).click();
+    await dialog.getByRole("combobox").click();
+    // Select Neo4j connection
+    await page.getByRole("option").first().click();
+    await dialog.getByRole("button", { name: "Next" }).click();
+
+    // Use a Cypher query that returns dotted field names
+    await dialog.getByLabel("Query").fill("MATCH (n:Person) RETURN n.name, n.born LIMIT 5");
+    await dialog.getByRole("button", { name: "Run Query" }).click();
+
+    // Wait for the preview to render — should show table data (not empty)
+    await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // The table header should contain the dotted key as-is
+    await expect(dialog.getByText("n.name")).toBeVisible({ timeout: 10_000 });
+    // And the table should contain actual data values
+    await expect(dialog.getByText("Keanu Reeves").or(dialog.getByText("Tom Cruise"))).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("should add a PostgreSQL widget and preview data", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Widget" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByText("Table", { exact: true }).click();
+    await dialog.getByRole("combobox").click();
+    // Select the PG connection (2nd option, "Movies DB (PostgreSQL)")
+    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await dialog.getByRole("button", { name: "Next" }).click();
+
+    await dialog.getByLabel("Query").fill("SELECT title, released FROM movies LIMIT 5");
+    await dialog.getByRole("button", { name: "Run Query" }).click();
+
+    // Wait for preview
+    await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // Should contain a movie title from the seed data
+    await expect(
+      dialog.getByText("The Matrix").or(dialog.getByText("Top Gun"))
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("should navigate back from step 2 to step 1", async ({ page }) => {

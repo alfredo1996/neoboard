@@ -19,13 +19,13 @@ test.describe("Dashboard CRUD", () => {
     // Wait for navigation to the dashboard view page
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
     await expect(page.getByText("Movie Analytics")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
   });
 
   test("should open dashboard in edit mode", async ({ page }) => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.getByText("Editing:")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add Widget" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
