@@ -77,7 +77,7 @@ export default function ConnectionsPage() {
     e.preventDefault();
     setCreateError(null);
     try {
-      await createConnection.mutateAsync({
+      const newConn = await createConnection.mutateAsync({
         name: form.name,
         type: form.type,
         config: {
@@ -96,6 +96,8 @@ export default function ConnectionsPage() {
         database: "",
       });
       setShowCreate(false);
+      // Auto-test the new connection immediately after creation
+      handleTest(newConn.id);
     } catch (error) {
       setCreateError(
         error instanceof Error ? error.message : "Failed to create connection"
