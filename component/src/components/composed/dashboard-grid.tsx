@@ -60,7 +60,7 @@ function DashboardGrid({
         breakpoints={defaultBreakpoints}
         cols={{ ...defaultCols, lg: cols }}
         rowHeight={rowHeight}
-        dragConfig={{ enabled: isDraggable, bounded: false, threshold: 3 }}
+        dragConfig={{ enabled: isDraggable, bounded: false, threshold: 3, handle: ".drag-handle" }}
         resizeConfig={{ enabled: isResizable, handles: ["se"] }}
         compactor={getCompactorByType(compactType)}
         onLayoutChange={(currentLayout: Layout) => {
