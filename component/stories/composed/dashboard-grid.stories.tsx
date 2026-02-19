@@ -168,6 +168,54 @@ export const WithCharts: Story = {
   ),
 };
 
+const handleLayout = [
+  { i: 'revenue', x: 0, y: 0, w: 4, h: 3 },
+  { i: 'users', x: 4, y: 0, w: 4, h: 3 },
+  { i: 'orders', x: 8, y: 0, w: 4, h: 3 },
+  { i: 'chart', x: 0, y: 3, w: 12, h: 4, minH: 3 },
+];
+
+export const WithDragHandle: Story = {
+  args: { layout: handleLayout, children: null },
+  render: () => (
+    <div style={{ padding: 16 }}>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Only the <strong>grip icon</strong> in each card header triggers dragging — clicking anywhere else on the card does not move it.
+      </p>
+      <DashboardGrid layout={handleLayout}>
+        <div key="revenue">
+          <WidgetCard title="Revenue" subtitle="Last 30 days" draggable actions={[{ label: 'Edit', onClick: () => {} }]}>
+            <div className="flex items-center justify-center h-full text-2xl font-bold">$45,231</div>
+          </WidgetCard>
+        </div>
+        <div key="users">
+          <WidgetCard title="Active Users" subtitle="This week" draggable actions={[{ label: 'Edit', onClick: () => {} }]}>
+            <div className="flex items-center justify-center h-full text-2xl font-bold">2,350</div>
+          </WidgetCard>
+        </div>
+        <div key="orders">
+          <WidgetCard title="Orders" subtitle="Pending" draggable actions={[{ label: 'Edit', onClick: () => {} }]}>
+            <div className="flex items-center justify-center h-full text-2xl font-bold">128</div>
+          </WidgetCard>
+        </div>
+        <div key="chart">
+          <WidgetCard
+            title="Revenue Over Time"
+            subtitle="Monthly trend"
+            draggable
+            actions={[
+              { label: 'Export CSV', onClick: () => {} },
+              { label: 'Remove', onClick: () => {}, destructive: true },
+            ]}
+          >
+            <LineChart data={revenueData} smooth area />
+          </WidgetCard>
+        </div>
+      </DashboardGrid>
+    </div>
+  ),
+};
+
 export const StaticLayout: Story = {
   args: {
     layout: simpleLayout,

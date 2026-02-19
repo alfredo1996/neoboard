@@ -30,6 +30,7 @@ import {
   SelectValue,
   Label,
 } from "@neoboard/components";
+import { GraphExplorationWrapper } from "./graph-exploration-wrapper";
 
 // Dynamically import MapChart to avoid SSR issues with Leaflet
 const MapChart = dynamic(
@@ -65,13 +66,14 @@ interface ChartRendererProps {
   data: unknown;
   settings?: Record<string, unknown>;
   onChartClick?: (point: Record<string, unknown>) => void;
+  connectionId?: string;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-function ChartRenderer({ type, data, settings = {}, onChartClick }: ChartRendererProps) {
+function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId }: ChartRendererProps) {
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
     return (e: EChartsClickEvent) =>
@@ -132,6 +134,17 @@ function ChartRenderer({ type, data, settings = {}, onChartClick }: ChartRendere
         nodes: GraphNode[];
         edges: GraphEdge[];
       };
+      if (connectionId) {
+        return (
+          <GraphExplorationWrapper
+            nodes={graphData.nodes ?? []}
+            edges={graphData.edges ?? []}
+            connectionId={connectionId}
+            settings={settings}
+            onChartClick={onChartClick}
+          />
+        );
+      }
       return (
         <GraphChart
           nodes={graphData.nodes ?? []}
@@ -331,7 +344,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     const transformedData = chartConfig.transform(previewData);
     return (
       <div className="h-full w-full">
-        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} />
+        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} />
       </div>
     );
   }
@@ -377,7 +390,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
 
   return (
     <div className="h-full w-full">
-      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} />
+      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} />
     </div>
   );
 }

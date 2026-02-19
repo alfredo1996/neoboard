@@ -8,7 +8,7 @@
  *   - Click callback wiring
  *   - Layout mapping
  */
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphChart } from "../graph-chart";
 import type { Node as NvlNode, Relationship as NvlRelationship } from "@neo4j-nvl/base";
@@ -131,11 +131,66 @@ describe("GraphChart", () => {
 
   // --- Node color ---
 
-  it("passes node color to NVL node", () => {
+  it("passes explicit node color to NVL node", () => {
     const coloredNodes = [{ id: "1", label: "Red", color: "#ff0000" }];
     render(<GraphChart nodes={coloredNodes} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
     expect(nvlNodes[0].color).toBe("#ff0000");
+  });
+
+  it("assigns palette colors to nodes based on their labels", () => {
+    const mixedNodes = [
+      { id: "p1", labels: ["Person"], properties: { name: "Alice" } },
+      { id: "m1", labels: ["Movie"], properties: { title: "Inception" } },
+    ];
+    render(<GraphChart nodes={mixedNodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    const personColor = nvlNodes.find((n) => n.id === "p1")?.color;
+    const movieColor = nvlNodes.find((n) => n.id === "m1")?.color;
+    // Both should have a color assigned
+    expect(personColor).toBeTruthy();
+    expect(movieColor).toBeTruthy();
+    // Different labels get different colors
+    expect(personColor).not.toBe(movieColor);
+  });
+
+  it("assigns the same color to nodes sharing the same label", () => {
+    const nodes = [
+      { id: "p1", labels: ["Person"], properties: { name: "Alice" } },
+      { id: "p2", labels: ["Person"], properties: { name: "Bob" } },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].color).toBe(nvlNodes[1].color);
+  });
+
+  it("uses the last label to determine color when a node has multiple labels", () => {
+    const nodes = [
+      { id: "a1", labels: ["Actor", "Person"], properties: { name: "Keanu" } },
+      { id: "p1", labels: ["Person"], properties: { name: "Bob" } },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    const actorPersonColor = nvlNodes.find((n) => n.id === "a1")?.color;
+    const personOnlyColor = nvlNodes.find((n) => n.id === "p1")?.color;
+    // "Actor|Person" node uses "Person" (last label) — same color as a plain Person
+    expect(actorPersonColor).toBe(personOnlyColor);
+  });
+
+  it("explicit node.color takes precedence over label-derived color", () => {
+    const nodes = [
+      { id: "p1", labels: ["Person"], properties: { name: "Alice" }, color: "#custom" },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].color).toBe("#custom");
+  });
+
+  it("nodes without labels have no color assigned from palette", () => {
+    const nodes = [{ id: "x1", label: "Unlabeled" }];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].color).toBeUndefined();
   });
 
   // --- Node size ---
@@ -218,5 +273,95 @@ describe("GraphChart", () => {
       <GraphChart nodes={[]} edges={[]} className="my-empty-graph" />,
     );
     expect(container.firstChild).toHaveClass("my-empty-graph");
+  });
+
+  // --- Label property selector ---
+
+  const labeledNodes = [
+    { id: "p1", label: "Tom Hanks", labels: ["Person"], properties: { name: "Tom Hanks", born: 1956 } },
+    { id: "p2", label: "Keanu Reeves", labels: ["Person"], properties: { name: "Keanu Reeves", born: 1964 } },
+    { id: "m1", label: "The Matrix", labels: ["Movie"], properties: { title: "The Matrix", released: 1999, tagline: "Welcome to the Real World" } },
+  ];
+  const labeledEdges = [
+    { source: "p2", target: "m1", label: "ACTED_IN" },
+  ];
+
+  it("shows label settings button when nodes have labels", () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    expect(screen.getByTestId("label-settings-button")).toBeInTheDocument();
+  });
+
+  it("does not show label settings button when nodes have no labels", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+    expect(screen.queryByTestId("label-settings-button")).not.toBeInTheDocument();
+  });
+
+  it("opens label settings panel when button is clicked", async () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    fireEvent.click(screen.getByTestId("label-settings-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("label-settings-panel")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a caption selector for each Neo4j label", async () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    fireEvent.click(screen.getByTestId("label-settings-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("caption-select-Person")).toBeInTheDocument();
+      expect(screen.getByTestId("caption-select-Movie")).toBeInTheDocument();
+    });
+  });
+
+  it("lists property keys as options in the caption selector", async () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    fireEvent.click(screen.getByTestId("label-settings-button"));
+    await waitFor(() => {
+      const personSelect = screen.getByTestId("caption-select-Person") as HTMLSelectElement;
+      const options = Array.from(personSelect.options).map((o) => o.value);
+      expect(options).toContain("name");
+      expect(options).toContain("born");
+    });
+  });
+
+  it("defaults caption to 'name' for Person and 'title' for Movie", () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    const personNode = nvlNodes.find((n) => n.id === "p1");
+    const movieNode = nvlNodes.find((n) => n.id === "m1");
+    expect(personNode?.caption).toBe("Tom Hanks");
+    expect(movieNode?.caption).toBe("The Matrix");
+  });
+
+  it("updates node captions when caption property is changed", async () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    fireEvent.click(screen.getByTestId("label-settings-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("caption-select-Person")).toBeInTheDocument();
+    });
+    // Change Person caption to 'born'
+    fireEvent.change(screen.getByTestId("caption-select-Person"), { target: { value: "born" } });
+    // Check that NVL nodes now show born year for Person nodes
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    const personNode = nvlNodes.find((n) => n.id === "p1");
+    expect(personNode?.caption).toBe("1956");
+  });
+
+  it("resolves caption from properties even without label settings interaction", () => {
+    // Nodes with labels + properties should auto-resolve via default captionMap
+    const nodesWithProps = [
+      { id: "x1", labels: ["City"], properties: { name: "Berlin", population: 3600000 } },
+    ];
+    render(<GraphChart nodes={nodesWithProps} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].caption).toBe("Berlin");
+  });
+
+  it("falls back to node.label when no captionMap match", () => {
+    // Nodes without labels array use the fallback label field
+    const fallbackNodes = [{ id: "z1", label: "Fallback Label" }];
+    render(<GraphChart nodes={fallbackNodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].caption).toBe("Fallback Label");
   });
 });
