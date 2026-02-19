@@ -113,46 +113,103 @@ function transformToTableData(data: unknown): unknown {
 }
 
 /**
+ * Safely extract a usable string ID from a value that may be a string,
+ * number, or a serialized Neo4j Integer ({low, high} plain object).
+ */
+function safeId(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  if (v && typeof v === "object" && "low" in v)
+    return String((v as { low: number }).low);
+  return String(v);
+}
+
+/**
  * Transform to graph format: { nodes, edges }
  * Extracts Neo4j graph structures from query results.
+ * Handles Node, Relationship, and Path objects (including nested segments).
  */
 function transformToGraphData(data: unknown): unknown {
   const records = toRecords(data);
   const nodesMap = new Map<string, Record<string, unknown>>();
-  const edges: Record<string, unknown>[] = [];
+  const edgesMap = new Map<string, Record<string, unknown>>();
 
-  for (const record of records) {
-    for (const value of Object.values(record)) {
-      if (value && typeof value === "object") {
-        const v = value as Record<string, unknown>;
-        // Neo4j Node: has identity + labels + properties
-        if ("labels" in v && "properties" in v) {
-          const id = String(v.identity ?? v.elementId ?? Math.random());
-          if (!nodesMap.has(id)) {
-            const labels = v.labels as string[];
-            const props = v.properties as Record<string, unknown>;
-            nodesMap.set(id, {
-              id,
-              label: props.name ?? props.title ?? labels?.[0] ?? id,
-              category: labels?.[0] ? 0 : undefined,
-              properties: props,
-            });
-          }
-        }
-        // Neo4j Relationship: has type + start + end
-        if ("type" in v && "start" in v && "end" in v) {
-          edges.push({
-            source: String(v.start ?? v.startNodeElementId),
-            target: String(v.end ?? v.endNodeElementId),
-            label: String(v.type),
-            properties: (v.properties ?? {}) as Record<string, unknown>,
-          });
-        }
-      }
+  function addNode(v: Record<string, unknown>) {
+    const id = safeId(v.elementId ?? v.identity ?? Math.random());
+    if (!nodesMap.has(id)) {
+      const labels = (v.labels as string[]) ?? [];
+      const props = (v.properties as Record<string, unknown>) ?? {};
+      nodesMap.set(id, {
+        id,
+        label: props.name ?? props.title ?? labels[0] ?? id,
+        labels,
+        category: labels[0],
+        properties: props,
+      });
     }
   }
 
-  return { nodes: Array.from(nodesMap.values()), edges };
+  function addEdge(v: Record<string, unknown>) {
+    const edgeId = safeId(
+      v.elementId ?? v.identity ?? `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`
+    );
+    if (!edgesMap.has(edgeId)) {
+      edgesMap.set(edgeId, {
+        source: safeId(v.startNodeElementId ?? v.start),
+        target: safeId(v.endNodeElementId ?? v.end),
+        label: String(v.type),
+        properties: (v.properties ?? {}) as Record<string, unknown>,
+      });
+    }
+  }
+
+  function isNode(v: Record<string, unknown>): boolean {
+    return "labels" in v && "properties" in v;
+  }
+
+  function isRelationship(v: Record<string, unknown>): boolean {
+    return "type" in v && "start" in v && "end" in v;
+  }
+
+  function isPath(v: Record<string, unknown>): boolean {
+    return "segments" in v && Array.isArray(v.segments) && "start" in v && "end" in v && !("type" in v);
+  }
+
+  function extractGraphValue(value: unknown) {
+    if (!value || typeof value !== "object") return;
+    const v = value as Record<string, unknown>;
+
+    if (isNode(v)) {
+      addNode(v);
+    } else if (isRelationship(v)) {
+      addEdge(v);
+    } else if (isPath(v)) {
+      // Unpack Path: extract nodes and relationships from each segment
+      const segments = v.segments as Record<string, unknown>[];
+      for (const seg of segments) {
+        if (seg.start && typeof seg.start === "object") {
+          extractGraphValue(seg.start);
+        }
+        if (seg.relationship && typeof seg.relationship === "object") {
+          extractGraphValue(seg.relationship);
+        }
+        if (seg.end && typeof seg.end === "object") {
+          extractGraphValue(seg.end);
+        }
+      }
+      // Also extract the top-level start/end nodes of the path
+      if (v.start && typeof v.start === "object") extractGraphValue(v.start);
+      if (v.end && typeof v.end === "object") extractGraphValue(v.end);
+    }
+  }
+
+  for (const record of records) {
+    for (const value of Object.values(record)) {
+      extractGraphValue(value);
+    }
+  }
+
+  return { nodes: Array.from(nodesMap.values()), edges: Array.from(edgesMap.values()) };
 }
 
 /**

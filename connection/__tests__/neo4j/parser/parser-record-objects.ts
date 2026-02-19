@@ -93,7 +93,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
-  }, 60000);
+  });
 
   test('should correctly parse complex array structures from Movie DB', async () => {
     const config = getNeo4jAuth();
