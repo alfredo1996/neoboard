@@ -345,7 +345,12 @@ export function WidgetEditorModal({
                   </Alert>
                 )}
 
-                <div className="flex-1 border rounded-lg overflow-hidden min-h-[300px]">
+                <div className="flex-1 border rounded-lg overflow-hidden min-h-[300px] relative">
+                  {previewQuery.isPending && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  )}
                   {previewQuery.data ? (
                     <CardContainer
                       widget={{

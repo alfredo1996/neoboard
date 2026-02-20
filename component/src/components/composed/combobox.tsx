@@ -64,7 +64,10 @@ function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent
+        className="p-0"
+        style={{ width: "var(--radix-popover-trigger-width)" }}
+      >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
@@ -73,10 +76,12 @@ function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
+                  // Use label as the cmdk filter value so typing the connection
+                  // name (not the UUID) finds the right item.
+                  value={option.label}
                   disabled={option.disabled}
-                  onSelect={(currentValue) => {
-                    onChange?.(currentValue === value ? "" : currentValue);
+                  onSelect={() => {
+                    onChange?.(option.value === value ? "" : option.value);
                     setOpen(false);
                   }}
                 >
