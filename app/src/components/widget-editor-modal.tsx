@@ -287,7 +287,7 @@ export function WidgetEditorModal({
                         onCheckedChange={(checked) => setEnableCache(!!checked)}
                       />
                       <Label htmlFor="enable-cache" className="text-sm">
-                        Cache query results
+                        Cache results
                       </Label>
                     </div>
                     {enableCache && (
