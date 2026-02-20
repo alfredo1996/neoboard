@@ -1,5 +1,7 @@
 name: E2E Tests (Playwright)
 
+# Trigger only on PRs/pushes to main or develop.
+# Pushing to a feature branch that has an open PR fires pull_request; no duplicate push run.
 on:
   push:
     branches: [main, develop]
@@ -17,6 +19,7 @@ on:
       - '.github/workflows/e2e-tests.yml'
   workflow_dispatch:
 
+# Cancel any in-progress run for the same PR / branch when a new commit is pushed.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -25,7 +28,38 @@ jobs:
   e2e:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+
+    # Start databases in parallel with the Node.js setup steps.
+    # By the time npm ci finishes, both containers are already healthy.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: neoboard
+          POSTGRES_PASSWORD: neoboard
+          POSTGRES_DB: neoboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      neo4j:
+        image: neo4j:5-community
+        env:
+          NEO4J_AUTH: neo4j/neoboard123
+        ports:
+          - 7474:7474
+          - 7687:7687
+        options: >-
+          --health-cmd "wget -q --spider http://localhost:7474 || exit 1"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 12
+          --health-start-period 60s
 
     steps:
       - name: Checkout code
@@ -41,9 +75,6 @@ jobs:
             component/package-lock.json
             connection/package-lock.json
 
-      # Install dependencies for all three packages.
-      # The app depends on component and connection via file: references,
-      # so they must be installed first.
       - name: Install connection dependencies
         working-directory: connection
         run: npm ci
@@ -56,21 +87,53 @@ jobs:
         working-directory: app
         run: npm ci
 
-      # Playwright needs browser binaries; install only Chromium since
-      # the playwright.config.ts only defines a chromium project.
+      # Cache Playwright browser binaries between runs.
+      # The cache key includes the Playwright version so it refreshes on upgrades.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}
+
       - name: Install Playwright browsers
         working-directory: app
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # The global-setup.ts uses testcontainers to spin up PostgreSQL
-      # and Neo4j via Docker, which is available by default on ubuntu-latest.
+      - name: Install Playwright system deps (cached browsers)
+        working-directory: app
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # ── Seed databases ──────────────────────────────────────────────────
+      # Services are guaranteed healthy by this point (health checks passed).
+
+      - name: Seed PostgreSQL
+        run: psql -h localhost -U neoboard -d neoboard -f docker/postgres/init-test.sql
+        env:
+          PGPASSWORD: neoboard
+
+      - name: Seed Neo4j
+        run: |
+          docker cp docker/neo4j/init.cypher ${{ job.services.neo4j.id }}:/var/lib/neo4j/import/init.cypher
+          docker exec ${{ job.services.neo4j.id }} cypher-shell \
+            -u neo4j -p neoboard123 \
+            -f /var/lib/neo4j/import/init.cypher
+
+      # ── Run tests ────────────────────────────────────────────────────────
       - name: Run E2E tests
         working-directory: app
         run: npx playwright test
         env:
           CI: true
+          # Tell global-setup.ts to skip Testcontainers (services already running).
+          CI_SERVICE_CONTAINERS: 'true'
+          CI_PG_HOST: localhost
+          CI_PG_PORT: '5432'
+          CI_NEO4J_BOLT_PORT: '7687'
+          CI_NEO4J_HTTP_PORT: '7474'
 
-      # Upload traces and screenshots on failure for debugging.
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

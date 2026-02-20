@@ -5,6 +5,7 @@ import {
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
+import postgres from "postgres";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
@@ -28,77 +29,12 @@ function encryptJson(data: unknown): string {
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
 }
 
-export default async function globalSetup() {
-  console.log("\n⏳ Starting test containers...\n");
-
-  const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
-  const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
-  const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
-
-  // ── PostgreSQL ──────────────────────────────────────────────────────
-  const pgContainer = await new GenericContainer("postgres:16-alpine")
-    .withEnvironment({
-      POSTGRES_USER: "neoboard",
-      POSTGRES_PASSWORD: "neoboard",
-      POSTGRES_DB: "neoboard",
-    })
-    .withExposedPorts(5432)
-    .withCopyFilesToContainer([
-      {
-        source: pgInitSql,
-        target: "/docker-entrypoint-initdb.d/init-test.sql",
-      },
-    ])
-    .withWaitStrategy(
-      Wait.forLogMessage(/database system is ready to accept connections/, 2)
-    )
-    .withStartupTimeout(60_000)
-    .start();
-
-  const pgHost = pgContainer.getHost();
-  const pgPort = pgContainer.getMappedPort(5432);
-  const databaseUrl = `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`;
-  console.log(`✅ PostgreSQL ready at port ${pgPort}`);
-
-  // ── Neo4j ───────────────────────────────────────────────────────────
-  const neo4jContainer = await new GenericContainer("neo4j:5-community")
-    .withEnvironment({
-      NEO4J_AUTH: "neo4j/neoboard123",
-      NEO4J_PLUGINS: '[""]',
-    })
-    .withExposedPorts(7474, 7687)
-    .withCopyFilesToContainer([
-      {
-        source: neo4jInitCypher,
-        target: "/var/lib/neo4j/import/init.cypher",
-      },
-    ])
-    .withWaitStrategy(Wait.forLogMessage(/Started\./, 1))
-    .withStartupTimeout(120_000)
-    .start();
-
-  const neo4jBoltPort = neo4jContainer.getMappedPort(7687);
-  const neo4jHttpPort = neo4jContainer.getMappedPort(7474);
-  console.log(`✅ Neo4j ready at bolt port ${neo4jBoltPort}, http port ${neo4jHttpPort}`);
-
-  // Seed Neo4j with the init.cypher via cypher-shell inside the container
-  console.log("⏳ Seeding Neo4j with movies dataset...");
-  const seedResult = await neo4jContainer.exec([
-    "cypher-shell",
-    "-u", "neo4j",
-    "-p", "neoboard123",
-    "-f", "/var/lib/neo4j/import/init.cypher",
-  ]);
-  if (seedResult.exitCode !== 0) {
-    console.error("❌ Neo4j seed failed:", seedResult.output);
-    throw new Error(`Neo4j seed failed with exit code ${seedResult.exitCode}`);
-  }
-  console.log("✅ Neo4j seeded successfully");
-
-  // ── Fix seeded connection configs with proper encryption ────────────
-  // The init.sql seeds connections with placeholder configs.
-  // Now that we know the actual container ports, encrypt the real configs
-  // and UPDATE them in the database.
+/** Update seeded connection rows with properly encrypted configs using the real ports. */
+async function updateConnectionConfigs(
+  pgHost: string,
+  pgPort: number,
+  neo4jBoltPort: number,
+) {
   const neo4jConfig = encryptJson({
     uri: `bolt://localhost:${neo4jBoltPort}`,
     username: "neo4j",
@@ -111,22 +47,118 @@ export default async function globalSetup() {
     database: "movies",
   });
 
-  const updateSql = `
-    UPDATE "connection" SET "configEncrypted" = '${neo4jConfig}' WHERE "id" = 'conn-neo4j-001';
-    UPDATE "connection" SET "configEncrypted" = '${pgConfig}' WHERE "id" = 'conn-pg-001';
-  `;
-
-  console.log("⏳ Updating seeded connection configs with encrypted values...");
-  const updateResult = await pgContainer.exec([
-    "psql", "-U", "neoboard", "-d", "neoboard", "-c", updateSql,
-  ]);
-  if (updateResult.exitCode !== 0) {
-    console.error("⚠️ Connection config update failed:", updateResult.output);
-  } else {
+  const sql = postgres(
+    `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`,
+    { max: 1, idle_timeout: 5 },
+  );
+  try {
+    await sql`UPDATE "connection" SET "configEncrypted" = ${neo4jConfig} WHERE "id" = 'conn-neo4j-001'`;
+    await sql`UPDATE "connection" SET "configEncrypted" = ${pgConfig} WHERE "id" = 'conn-pg-001'`;
     console.log("✅ Seeded connections updated with test container ports");
+  } finally {
+    await sql.end();
+  }
+}
+
+export default async function globalSetup() {
+  const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
+  const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
+  const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
+
+  let pgHost: string;
+  let pgPort: number;
+  let neo4jBoltPort: number;
+  let neo4jHttpPort: number;
+
+  // ── CI mode: databases already running as GitHub Actions service containers ──
+  if (process.env.CI_SERVICE_CONTAINERS === "true") {
+    pgHost = process.env.CI_PG_HOST ?? "localhost";
+    pgPort = parseInt(process.env.CI_PG_PORT ?? "5432", 10);
+    neo4jBoltPort = parseInt(process.env.CI_NEO4J_BOLT_PORT ?? "7687", 10);
+    neo4jHttpPort = parseInt(process.env.CI_NEO4J_HTTP_PORT ?? "7474", 10);
+
+    console.log("\n✅ CI mode: using pre-started service containers\n");
+  } else {
+    // ── Local mode: spin up Testcontainers in parallel ────────────────────
+    console.log("\n⏳ Starting test containers...\n");
+
+    const [pgContainer, neo4jContainer] = await Promise.all([
+      new GenericContainer("postgres:16-alpine")
+        .withEnvironment({
+          POSTGRES_USER: "neoboard",
+          POSTGRES_PASSWORD: "neoboard",
+          POSTGRES_DB: "neoboard",
+        })
+        .withExposedPorts(5432)
+        .withCopyFilesToContainer([
+          {
+            source: pgInitSql,
+            target: "/docker-entrypoint-initdb.d/init-test.sql",
+          },
+        ])
+        .withWaitStrategy(
+          Wait.forLogMessage(/database system is ready to accept connections/, 2),
+        )
+        .withStartupTimeout(60_000)
+        .start(),
+
+      new GenericContainer("neo4j:5-community")
+        .withEnvironment({
+          NEO4J_AUTH: "neo4j/neoboard123",
+          NEO4J_PLUGINS: '[""]',
+        })
+        .withExposedPorts(7474, 7687)
+        .withCopyFilesToContainer([
+          {
+            source: neo4jInitCypher,
+            target: "/var/lib/neo4j/import/init.cypher",
+          },
+        ])
+        .withWaitStrategy(Wait.forLogMessage(/Started\./, 1))
+        .withStartupTimeout(120_000)
+        .start(),
+    ]);
+
+    pgHost = pgContainer.getHost();
+    pgPort = pgContainer.getMappedPort(5432);
+    neo4jBoltPort = neo4jContainer.getMappedPort(7687);
+    neo4jHttpPort = neo4jContainer.getMappedPort(7474);
+
+    console.log(`✅ PostgreSQL ready at port ${pgPort}`);
+    console.log(
+      `✅ Neo4j ready at bolt port ${neo4jBoltPort}, http port ${neo4jHttpPort}`,
+    );
+
+    // Seed Neo4j with the init.cypher via cypher-shell inside the container
+    console.log("⏳ Seeding Neo4j with movies dataset...");
+    const seedResult = await neo4jContainer.exec([
+      "cypher-shell",
+      "-u", "neo4j",
+      "-p", "neoboard123",
+      "-f", "/var/lib/neo4j/import/init.cypher",
+    ]);
+    if (seedResult.exitCode !== 0) {
+      console.error("❌ Neo4j seed failed:", seedResult.output);
+      throw new Error(`Neo4j seed failed with exit code ${seedResult.exitCode}`);
+    }
+    console.log("✅ Neo4j seeded successfully");
+
+    // Save container IDs so teardown can remove them
+    fs.writeFileSync(
+      STATE_FILE,
+      JSON.stringify({
+        pgContainerId: pgContainer.getId(),
+        neo4jContainerId: neo4jContainer.getId(),
+      }),
+    );
   }
 
-  // ── Write .env.test for the Next.js dev server ──────────────────────
+  // ── Encrypt real connection configs and update the seeded rows ──────────
+  console.log("⏳ Updating seeded connection configs with encrypted values...");
+  await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
+
+  // ── Write .env.test for the Next.js dev server ──────────────────────────
+  const databaseUrl = `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`;
   const envContent = [
     `DATABASE_URL=${databaseUrl}`,
     `ENCRYPTION_KEY=${TEST_ENCRYPTION_KEY}`,
@@ -142,9 +174,7 @@ export default async function globalSetup() {
   fs.writeFileSync(ENV_FILE, envContent);
   console.log(`✅ Wrote ${ENV_FILE}`);
 
-  // Back up existing .env.local and replace with test env so Next.js picks it up.
-  // Always use .env (version-controlled) as the canonical backup source to avoid
-  // backing up a stale test .env.local left over from a previous crashed run.
+  // Back up existing .env.local (or .env) and replace with test env.
   const ENV_BASE = path.join(__dirname, "..", ".env");
   if (fs.existsSync(ENV_BASE)) {
     fs.copyFileSync(ENV_BASE, ENV_LOCAL_BAK);
@@ -156,14 +186,7 @@ export default async function globalSetup() {
   fs.copyFileSync(ENV_FILE, ENV_LOCAL);
   console.log("✅ Copied .env.test → .env.local for Next.js");
 
-  // ── Save container IDs for teardown ─────────────────────────────────
-  const state = {
-    pgContainerId: pgContainer.getId(),
-    neo4jContainerId: neo4jContainer.getId(),
-  };
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state));
-
-  // Set env vars for the current process (picked up by webServer)
+  // Expose env vars to the current process (picked up by the webServer).
   process.env.DATABASE_URL = databaseUrl;
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
   process.env.NEXTAUTH_SECRET = TEST_NEXTAUTH_SECRET;
