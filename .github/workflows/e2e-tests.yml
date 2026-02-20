@@ -24,17 +24,11 @@ concurrency:
 
 jobs:
   e2e:
-    name: E2E Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    name: Playwright E2E Tests
     runs-on: ubuntu-latest
-    # Each shard starts its own Testcontainers (postgres + neo4j) via global-setup.ts.
-    # Neo4j needs ~90 s to boot; 30 min covers startup + the shard's test slice.
+    # global-setup.ts pulls and starts Testcontainers (postgres + neo4j).
+    # Neo4j needs ~90 s to start; allow enough headroom for the full suite.
     timeout-minutes: 30
-
-    strategy:
-      fail-fast: false   # let all shards finish so we see all failures
-      matrix:
-        shardIndex: [1, 2, 3]
-        shardTotal: [3]
 
     steps:
       - name: Checkout code
@@ -81,17 +75,16 @@ jobs:
 
       # global-setup.ts starts postgres + neo4j via Testcontainers,
       # seeds both databases, and writes .env.local for the Next.js dev server.
-      # Each shard job gets its own isolated containers — no cross-shard conflicts.
-      - name: Run E2E tests (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+      - name: Run E2E tests
         working-directory: app
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: npx playwright test
         env:
           CI: true
 
-      - name: Upload Playwright report (shard ${{ matrix.shardIndex }})
+      - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report-shard-${{ matrix.shardIndex }}
+          name: playwright-report
           path: app/test-results/
           retention-days: 14
