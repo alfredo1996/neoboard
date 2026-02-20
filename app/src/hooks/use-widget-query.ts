@@ -13,6 +13,9 @@ interface WidgetQueryInput {
 interface QueryResult {
   data: unknown;
   fields?: unknown;
+  /** Unique ID for this execution, generated server-side. Can be used as a
+   *  stable cache/state key (e.g. to detect when graph data changed). */
+  resultId: string;
 }
 
 /**

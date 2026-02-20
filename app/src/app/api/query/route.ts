@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
@@ -55,7 +56,22 @@ export async function POST(request: Request) {
       { query, params },
     );
 
-    return NextResponse.json(result);
+    // Deterministic query hash: same connection + normalized query + params
+    // → same resultId. Clients can use this to preserve state (e.g. graph
+    // exploration) across re-executions of the same query, and as a future
+    // cache key. Normalization: trim + collapse whitespace + lowercase so
+    // minor formatting differences don't invalidate the hash.
+    const normalizedQuery = query.trim().replace(/\s+/g, " ").toLowerCase();
+    const resultId = createHash("sha256")
+      .update(connectionId)
+      .update("\x00")
+      .update(normalizedQuery)
+      .update("\x00")
+      .update(JSON.stringify(params ?? null))
+      .digest("hex")
+      .slice(0, 16);
+
+    return NextResponse.json({ ...result, resultId });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";

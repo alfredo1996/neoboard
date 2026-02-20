@@ -8,11 +8,11 @@ interface GraphWidgetState {
   layout?: GraphLayout;
   captionMap?: Record<string, string>;
   /**
-   * Sorted, joined IDs of the nodes that came directly from the widget query.
-   * Used to detect when the query result changed so stale exploration state
-   * can be discarded instead of being shown on top of new data.
+   * Server-generated resultId (SHA-256 of query result data) from the last
+   * query execution. Used to detect when the underlying data changed so stale
+   * exploration state is discarded instead of being shown on top of new data.
    */
-  queryNodeSignature?: string;
+  resultId?: string;
 }
 
 interface GraphWidgetStore {

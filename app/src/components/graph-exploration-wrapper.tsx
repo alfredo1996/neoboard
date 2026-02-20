@@ -22,6 +22,10 @@ interface GraphExplorationWrapperProps {
   connectionId: string;
   settings: Record<string, unknown>;
   onChartClick?: (point: Record<string, unknown>) => void;
+  /** Server-generated hash of the query that produced this data.
+   *  Used to detect when the query changed so stale exploration state
+   *  can be discarded. */
+  resultId?: string;
 }
 
 interface NodeMenu {
@@ -102,23 +106,18 @@ export function GraphExplorationWrapper({
   connectionId,
   settings,
   onChartClick,
+  resultId,
 }: GraphExplorationWrapperProps) {
   const [menu, setMenu] = useState<NodeMenu | null>(null);
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
 
-  // Compute a signature from the query result so we can detect when the
-  // underlying data changes (e.g. LIMIT 10 → LIMIT 100). The signature is
-  // the sorted node IDs joined into a single string — cheap and stable.
-  const incomingSignature = initialNodes
-    .map((n) => n.id)
-    .sort()
-    .join(",");
-
-  // If the stored state was built from different query results, ignore it so
-  // the graph resets to the new data instead of showing the stale exploration.
+  // If the stored state was built from a different query (different resultId),
+  // discard it so the graph resets to the new data instead of showing stale
+  // exploration state. When resultId is undefined (e.g. preview mode without
+  // a full query run), always use the incoming data.
   const storedIsValid =
-    stored != null && stored.queryNodeSignature === incomingSignature;
+    stored != null && resultId != null && stored.resultId === resultId;
 
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
@@ -162,12 +161,12 @@ export function GraphExplorationWrapper({
   });
 
   // Persist exploration state to the store whenever it changes, always
-  // recording the current query signature so we can invalidate stale state.
+  // recording the current resultId so we can detect stale state next render.
   useEffect(() => {
     storeSetState(widgetId, {
       nodes: exploration.nodes,
       edges: exploration.edges,
-      queryNodeSignature: incomingSignature,
+      resultId,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploration.nodes, exploration.edges]);

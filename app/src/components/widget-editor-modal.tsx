@@ -361,6 +361,7 @@ export function WidgetEditorModal({
                         settings: { chartOptions },
                       }}
                       previewData={previewQuery.data.data}
+                      previewResultId={previewQuery.data.resultId}
                     />
                   ) : (
                     <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
