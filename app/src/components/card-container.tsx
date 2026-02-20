@@ -324,6 +324,11 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
   }
   const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);
 
+  // Cache settings from widget config. Default: cache enabled, 5-min TTL.
+  const enableCache = widget.settings?.enableCache !== false;
+  const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
+  const staleTime = enableCache ? cacheTtlMinutes * 60_000 : 0;
+
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view→edit won't re-run the same query.
   const queryInput = previewData !== undefined ? null : {
@@ -331,7 +336,7 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const widgetQuery = useWidgetQuery(queryInput);
+  const widgetQuery = useWidgetQuery(queryInput, { staleTime });
 
   if (!chartConfig) {
     return (

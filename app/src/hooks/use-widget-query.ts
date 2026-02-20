@@ -47,8 +47,14 @@ function extractReferencedParams(
  * references `$param_xxx` placeholders.
  *
  * For user-triggered preview queries in the editor, use useQueryExecution (mutation) instead.
+ *
+ * @param options.staleTime - How long (ms) cached data is considered fresh.
+ *   Defaults to 0 (always refetch on mount). Pass `Infinity` to never refetch.
  */
-export function useWidgetQuery(input: WidgetQueryInput | null) {
+export function useWidgetQuery(
+  input: WidgetQueryInput | null,
+  options?: { staleTime?: number }
+) {
   // Get parameters from store - using selector that returns stable value
   const parameters = useParameterStore((s) => s.parameters);
 
@@ -95,8 +101,10 @@ export function useWidgetQuery(input: WidgetQueryInput | null) {
       return res.json();
     },
     enabled: !!mergedInput?.connectionId && !!mergedInput?.query,
-    // staleTime: 0 (default) — always refetch on mount so charts stay current.
-    // We still benefit from deduplication within the same render cycle.
+    // staleTime controls how long cached data is considered fresh.
+    // When enableCache is false on the widget, callers pass 0 (always refetch).
+    // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
+    staleTime: options?.staleTime ?? 0,
     retry: false,
   });
 }
