@@ -60,7 +60,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
               {draggable && (
                 <button
                   type="button"
-                  className="cursor-grab active:cursor-grabbing touch-none"
+                  className="drag-handle cursor-grab active:cursor-grabbing touch-none"
                   onMouseDown={onDragHandleMouseDown}
                 >
                   <GripVertical className="h-4 w-4 text-muted-foreground" />

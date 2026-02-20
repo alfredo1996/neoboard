@@ -155,9 +155,16 @@ export class PostgresConnectionModule extends ConnectionModule {
         }
       }
 
-      // Pass parsed records directly — same shape as Neo4j (flat array).
-      // Fields and schema are already delivered via setFields/setSchema callbacks.
-      callbacks.onSuccess?.(parsedRecords as T);
+      // Return a structured result with records and execution summary.
+      // chart-registry.ts handles this format via toRecords({ records, summary }).
+      callbacks.onSuccess?.({
+        records: parsedRecords,
+        summary: {
+          executionTime,
+          queryType: config.accessMode === 'WRITE' ? 'write' : 'read',
+          rowCount,
+        },
+      } as T);
     } catch (error: unknown) {
       // Rollback transaction on error
       try {

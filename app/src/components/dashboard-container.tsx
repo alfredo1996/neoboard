@@ -102,6 +102,7 @@ export function DashboardContainer({
               title={getWidgetTitle(widget)}
               subtitle={undefined}
               className="h-full"
+              draggable={editable}
               actions={buildActions(widget)}
               headerExtra={
                 <Button
