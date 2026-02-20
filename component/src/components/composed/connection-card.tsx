@@ -1,4 +1,4 @@
-import { Database, MoreVertical, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Database, MoreVertical, Pencil, Trash2, RefreshCw, Copy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ export interface ConnectionCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onTest?: () => void;
+  onDuplicate?: () => void;
   onClick?: () => void;
   className?: string;
 }
@@ -36,6 +37,7 @@ function ConnectionCard({
   onEdit,
   onDelete,
   onTest,
+  onDuplicate,
   onClick,
   className,
 }: ConnectionCardProps) {
@@ -56,19 +58,17 @@ function ConnectionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium truncate">{name}</p>
-            <ConnectionStatus status={status} />
+            <ConnectionStatus
+              status={status}
+              errorMessage={status === "error" ? statusText : undefined}
+            />
           </div>
           <p className="text-xs text-muted-foreground truncate">
             {host}
             {database && ` / ${database}`}
           </p>
-          {status === "error" && statusText && (
-            <p className="text-xs text-destructive truncate" title={statusText}>
-              {statusText}
-            </p>
-          )}
         </div>
-        {(onEdit || onDelete || onTest) && (
+        {(onEdit || onDelete || onTest || onDuplicate) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -86,6 +86,12 @@ function ConnectionCard({
                 <DropdownMenuItem onClick={onTest}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Test Connection
+                </DropdownMenuItem>
+              )}
+              {onDuplicate && (
+                <DropdownMenuItem onClick={onDuplicate}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate
                 </DropdownMenuItem>
               )}
               {onEdit && (
