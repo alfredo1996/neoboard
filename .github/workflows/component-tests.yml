@@ -2,16 +2,20 @@ name: Component Library Tests
 
 on:
   push:
-    branches: [ main, develop, feat/**, fix/** ]
+    branches: [main, develop]
     paths:
       - 'component/**'
       - '.github/workflows/component-tests.yml'
   pull_request:
-    branches: [ main, develop, feat/**, fix/** ]
+    branches: [main, develop]
     paths:
       - 'component/**'
       - '.github/workflows/component-tests.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   typecheck:

@@ -2,11 +2,15 @@ name: Connection Module Tests
 
 on:
   pull_request:
-    branches: [ main, develop, feat/**, fix/** ]
+    branches: [main, develop]
     paths:
       - 'connection/**'
       - '.github/workflows/connection-tests.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
