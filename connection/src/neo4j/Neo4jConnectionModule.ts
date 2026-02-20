@@ -132,7 +132,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
       await session.run('RETURN 1 AS connected');
       return true;
     } catch (error) {
-      console.error('Connection check failed:', error);
+      console.warn('Connection check failed:', error);
       throw error;
     } finally {
       await session.close();
