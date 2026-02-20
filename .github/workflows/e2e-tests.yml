@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     # global-setup.ts pulls and starts Testcontainers (postgres + neo4j).
     # Neo4j needs ~90 s to start; allow enough headroom for the full suite.
+    # Docker is pre-installed on ubuntu-latest runners.
     timeout-minutes: 30
 
     steps:
@@ -44,18 +45,19 @@ jobs:
             component/package-lock.json
             connection/package-lock.json
 
-      - name: Install connection dependencies
-        working-directory: connection
-        run: npm ci
+      # ── Parallelise slow setup steps ────────────────────────────────────────
+      # All five operations are independent and network-bound; running them
+      # together cuts wall-clock time roughly in half.
+      - name: Install dependencies + pre-pull container images
+        run: |
+          npm ci --prefix connection &
+          npm ci --prefix component  &
+          npm ci --prefix app        &
+          docker pull postgres:16-alpine  &
+          docker pull neo4j:5-community   &
+          wait
 
-      - name: Install component dependencies
-        working-directory: component
-        run: npm ci
-
-      - name: Install app dependencies
-        working-directory: app
-        run: npm ci
-
+      # ── Playwright browser cache ─────────────────────────────────────────────
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v4
@@ -73,18 +75,37 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      # global-setup.ts starts postgres + neo4j via Testcontainers,
-      # seeds both databases, and writes .env.local for the Next.js dev server.
+      # ── Next.js build cache ──────────────────────────────────────────────────
+      # Caches webpack compilation artifacts across runs so the dev server
+      # compiles routes much faster on first hit (reduces cold-start flakiness).
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: app/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'app/package-lock.json') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-
+
+      # ── Run tests ────────────────────────────────────────────────────────────
+      # global-setup.ts starts postgres + neo4j via Testcontainers (images are
+      # already pulled above), seeds both databases, and writes .env.local for
+      # the Next.js dev server. retries=2 and navigationTimeout=30s (set in
+      # playwright.config.ts) absorb any remaining cold-start noise.
       - name: Run E2E tests
         working-directory: app
         run: npx playwright test
         env:
           CI: true
 
+      # ── Upload artifacts ─────────────────────────────────────────────────────
+      # playwright-report/ — HTML report (full test run summary, useful on failure)
+      # test-results/      — per-test traces, screenshots, error contexts
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: app/test-results/
+          path: |
+            app/playwright-report/
+            app/test-results/
           retention-days: 14

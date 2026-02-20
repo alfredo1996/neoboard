@@ -11,7 +11,11 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   // "github" adds PR annotations; "list" streams each test result to the log
   // so you can follow progress in real time during a CI run.
-  reporter: process.env.CI ? [["github"], ["list"]] : "html",
+  // CI: github (PR annotations) + list (real-time stream) + html (artifact for debugging).
+  // Local: interactive HTML report.
+  reporter: process.env.CI
+    ? [["github"], ["list"], ["html", { open: "never" }]]
+    : "html",
   timeout: 60_000,
   expect: { timeout: 10_000 },
 
