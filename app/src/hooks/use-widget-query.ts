@@ -92,7 +92,8 @@ export function useWidgetQuery(input: WidgetQueryInput | null) {
       return res.json();
     },
     enabled: !!mergedInput?.connectionId && !!mergedInput?.query,
-    staleTime: 5 * 60 * 1000, // 5 minutes — don't refetch on mount if fresh
+    // staleTime: 0 (default) — always refetch on mount so charts stay current.
+    // We still benefit from deduplication within the same render cycle.
     retry: false,
   });
 }

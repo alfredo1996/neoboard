@@ -146,53 +146,46 @@ test.describe("Widget edit – query cache invalidation", () => {
   });
 
   test("re-fetches query data after editing widget with changed query", async ({ page }) => {
-    // Track POST /api/query calls so we can assert a re-fetch happens after save
-    const queryRequests: string[] = [];
-    page.on("request", (req) => {
-      if (req.url().includes("/api/query") && req.method() === "POST") {
-        queryRequests.push(req.url());
-      }
-    });
+    // Set up response waiter BEFORE the action that triggers the request to
+    // avoid a race condition where the response arrives before waitForResponse
+    // starts listening.
+    const firstQuery = "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 3";
+    const secondQuery = "MATCH (p:Person) RETURN p.name AS label, p.born AS value LIMIT 3";
 
-    // Add a widget
+    // Step 1: add a widget and wait for its initial fetch
+    const initialFetch = page.waitForResponse(
+      (res) => res.url().includes("/api/query") && res.status() === 200,
+      { timeout: 15_000 }
+    );
+
     await page.getByRole("button", { name: "Add Widget" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("combobox").click();
     await page.getByRole("option").first().click();
     await dialog.getByRole("button", { name: "Next" }).click();
-    const firstQuery = "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 3";
     await dialog.getByLabel("Query").fill(firstQuery);
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // Wait for the card to finish fetching the initial query
-    await page.waitForResponse(
+    // Confirm the card fetched its initial data
+    await initialFetch;
+
+    // Step 2: open edit modal and save with a different query
+    const refetch = page.waitForResponse(
       (res) => res.url().includes("/api/query") && res.status() === 200,
       { timeout: 15_000 }
     );
-    const requestsAfterAdd = queryRequests.length;
 
-    // Open the widget's action menu and click "Edit"
-    await page
-      .getByRole("button", { name: "Widget actions" })
-      .last()
-      .click();
+    await page.getByRole("button", { name: "Widget actions" }).last().click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
 
     const editDialog = page.getByRole("dialog");
     await expect(editDialog).toBeVisible();
-
-    // Change the query to something different so the cache key would differ
-    const secondQuery = "MATCH (p:Person) RETURN p.name AS label, p.born AS value LIMIT 3";
     await editDialog.getByLabel("Query").fill(secondQuery);
     await editDialog.getByRole("button", { name: "Save Changes" }).click();
     await expect(editDialog).not.toBeVisible();
 
-    // Cache was invalidated on save → the card must re-fetch regardless of staleTime
-    await page.waitForResponse(
-      (res) => res.url().includes("/api/query") && res.status() === 200,
-      { timeout: 15_000 }
-    );
-    expect(queryRequests.length).toBeGreaterThan(requestsAfterAdd);
+    // staleTime is 0, so the card must re-fetch immediately on save
+    await refetch;
   });
 });
