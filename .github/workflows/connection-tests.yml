@@ -2,7 +2,7 @@ name: Connection Module Tests
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, feat/**, fix/** ]
     paths:
       - 'connection/**'
       - '.github/workflows/connection-tests.yml'

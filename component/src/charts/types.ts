@@ -51,6 +51,8 @@ export interface PieChartDataPoint {
 export interface GraphNode {
   id: string;
   label?: string;
+  /** Neo4j node labels (e.g. ["Person", "Actor"]) */
+  labels?: string[];
   value?: number;
   category?: number;
   properties?: Record<string, unknown>;

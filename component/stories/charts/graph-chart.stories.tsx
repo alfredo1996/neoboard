@@ -1,8 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { GraphChart } from "@/charts/graph-chart";
-import type { GraphChartRef } from "@/charts/graph-chart";
-import type { GraphNode, GraphEdge, GraphNodeEvent } from "@/charts/types";
+import type { GraphNode, GraphEdge } from "@/charts/types";
 import { useGraphExploration } from "@/hooks/useGraphExploration";
 
 const meta = {
@@ -57,11 +56,11 @@ export const CircularLayout: Story = {
 export const WithCategories: Story = {
   args: {
     nodes: [
-      { id: "alice", label: "Alice", value: 40, category: 0 },
-      { id: "bob", label: "Bob", value: 30, category: 0 },
-      { id: "acme", label: "Acme Corp", value: 50, category: 1 },
-      { id: "globex", label: "Globex", value: 45, category: 1 },
-      { id: "charlie", label: "Charlie", value: 35, category: 0 },
+      { id: "alice", label: "Alice", value: 40, color: "#3b82f6" },
+      { id: "bob", label: "Bob", value: 30, color: "#3b82f6" },
+      { id: "acme", label: "Acme Corp", value: 50, color: "#a855f7" },
+      { id: "globex", label: "Globex", value: 45, color: "#a855f7" },
+      { id: "charlie", label: "Charlie", value: 35, color: "#3b82f6" },
     ],
     edges: [
       { source: "alice", target: "acme", label: "works_at" },
@@ -69,7 +68,6 @@ export const WithCategories: Story = {
       { source: "charlie", target: "acme", label: "works_at" },
       { source: "alice", target: "bob", label: "knows" },
     ],
-    categories: ["Person", "Company"],
   },
 };
 
@@ -111,65 +109,19 @@ export const WithSelection: Story = {
   },
 };
 
-export const CustomEdgeStyle: Story = {
+export const ColoredEdges: Story = {
   args: {
     nodes: socialNodes,
-    edges: socialEdges,
-    edgeStyle: { curveness: 0.3, width: 2, opacity: 0.6 },
+    edges: [
+      { source: "alice", target: "bob", label: "friends", color: "#3b82f6" },
+      { source: "alice", target: "charlie", label: "colleagues", color: "#22c55e" },
+      { source: "bob", target: "diana", label: "friends", color: "#3b82f6" },
+      { source: "charlie", target: "diana", label: "manages", color: "#f59e0b" },
+      { source: "diana", target: "eve", label: "mentors", color: "#a855f7" },
+      { source: "eve", target: "alice", label: "reports_to", color: "#ef4444" },
+    ],
   },
 };
-
-function InteractiveExplorationStory() {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [lastEvent, setLastEvent] = useState<string>("Click on nodes to select, double-click to expand, right-click for context menu");
-  const chartRef = useRef<GraphChartRef>(null);
-
-  return (
-    <div style={{ height: 500 }}>
-      <div style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "center" }}>
-        <button onClick={() => chartRef.current?.zoomToFit()} style={{ padding: "4px 12px", border: "1px solid #ccc", borderRadius: 4 }}>
-          Zoom to Fit
-        </button>
-        <button onClick={() => setSelectedIds([])} style={{ padding: "4px 12px", border: "1px solid #ccc", borderRadius: 4 }}>
-          Clear Selection
-        </button>
-        <span style={{ fontSize: 12, color: "#666" }}>{lastEvent}</span>
-      </div>
-      <GraphChart
-        ref={chartRef}
-        nodes={socialNodes.map((n) => ({
-          ...n,
-          properties: { role: "Person", connections: Math.floor(Math.random() * 10) },
-        }))}
-        edges={socialEdges}
-        selectedNodeIds={selectedIds}
-        onNodeSelect={(ids) => {
-          setSelectedIds(ids);
-          setLastEvent(`Selected: ${ids.join(", ") || "none"}`);
-        }}
-        onNodeDoubleClick={(e: GraphNodeEvent) => {
-          setLastEvent(`Double-clicked: ${e.node.label} at (${e.position.x}, ${e.position.y})`);
-        }}
-        onNodeRightClick={(e: GraphNodeEvent) => {
-          setLastEvent(`Right-clicked: ${e.node.label} at (${e.position.x}, ${e.position.y})`);
-        }}
-        onExpandRequest={(node: GraphNode) => {
-          setLastEvent(`Expand requested for: ${node.label}`);
-        }}
-      />
-    </div>
-  );
-}
-
-export const InteractiveExploration: Story = {
-  args: {
-    nodes: socialNodes,
-    edges: socialEdges,
-  },
-  render: () => <InteractiveExplorationStory />,
-};
-
-// --- Path Expansion Story ---
 
 // Simulated graph database: nodes and their neighbors
 const graphDb: Record<string, { nodes: GraphNode[]; edges: GraphEdge[] }> = {
@@ -207,77 +159,62 @@ const graphDb: Record<string, { nodes: GraphNode[]; edges: GraphEdge[] }> = {
   },
 };
 
-// --- Floating Node Context Menu ---
+// --- Path Expansion Story ---
 
-interface NodeMenuState {
+interface NodeMenu {
   node: GraphNode;
   x: number;
   y: number;
 }
 
-interface NodeContextMenuProps {
-  menu: NodeMenuState;
+function NodeContextMenu({ menu, onClose, onExpand, onCollapse }: {
+  menu: NodeMenu;
   onClose: () => void;
-  items: { label: string; onClick: () => void; disabled?: boolean }[];
-}
-
-function NodeContextMenu({ menu, onClose, items }: NodeContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
+  onExpand?: () => void;
+  onCollapse?: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", handleClick);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", handleOutside);
     document.addEventListener("keydown", handleKey);
     return () => {
-      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("keydown", handleKey);
     };
   }, [onClose]);
 
+  const items = [
+    onExpand && { label: "Expand neighbors", action: onExpand },
+    onCollapse && { label: "Collapse", action: onCollapse },
+  ].filter(Boolean) as { label: string; action: () => void }[];
+
   return (
     <div
-      ref={menuRef}
+      ref={ref}
       style={{
-        position: "fixed",
-        left: menu.x,
-        top: menu.y,
-        zIndex: 9999,
-        minWidth: 160,
-        background: "white",
-        border: "1px solid #e5e7eb",
-        borderRadius: 6,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        padding: "4px 0",
-        fontSize: 13,
+        position: "fixed", left: menu.x, top: menu.y, zIndex: 9999,
+        background: "white", border: "1px solid #e5e7eb", borderRadius: 6,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: "4px 0", minWidth: 160, fontSize: 13,
       }}
     >
-      <div style={{ padding: "4px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 500 }}>
+      <div style={{ padding: "4px 12px 6px", fontSize: 11, color: "#9ca3af", fontWeight: 500, borderBottom: "1px solid #f3f4f6" }}>
         {menu.node.label ?? menu.node.id}
       </div>
+      {items.length === 0 && (
+        <div style={{ padding: "6px 12px", color: "#9ca3af", fontSize: 12 }}>No actions</div>
+      )}
       {items.map((item) => (
         <button
           key={item.label}
-          disabled={item.disabled}
-          onClick={() => { item.onClick(); onClose(); }}
-          style={{
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            padding: "6px 12px",
-            background: "none",
-            border: "none",
-            cursor: item.disabled ? "default" : "pointer",
-            color: item.disabled ? "#d1d5db" : "#111827",
-          }}
-          onMouseEnter={(e) => { if (!item.disabled) (e.target as HTMLElement).style.background = "#f3f4f6"; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "none"; }}
+          onClick={() => { item.action(); onClose(); }}
+          style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 12px", background: "none", border: "none", cursor: "pointer", color: "#111827" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f3f4f6"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
         >
           {item.label}
         </button>
@@ -286,12 +223,9 @@ function NodeContextMenu({ menu, onClose, items }: NodeContextMenuProps) {
   );
 }
 
-// --- Path Expansion Story ---
-
 function PathExpansionStory() {
-  const chartRef = useRef<GraphChartRef>(null);
-  const [menu, setMenu] = useState<NodeMenuState | null>(null);
   const [log, setLog] = useState("Right-click a node to expand or collapse");
+  const [menu, setMenu] = useState<NodeMenu | null>(null);
 
   const startNodes: GraphNode[] = [
     { id: "alice", label: "Alice", value: 40, color: "#3b82f6", properties: { role: "Engineer", team: "Platform" } },
@@ -315,35 +249,9 @@ function PathExpansionStory() {
     maxDepth: 2,
   });
 
-  const handleRightClick = useCallback((e: GraphNodeEvent) => {
-    setMenu({ node: e.node, x: e.position.x, y: e.position.y });
-  }, []);
-
-  const closeMenu = useCallback(() => setMenu(null), []);
-
-  const menuItems = menu
-    ? [
-        ...(exploration.canExpand(menu.node.id)
-          ? [{ label: "Expand Neighbors", onClick: () => exploration.onExpandRequest(menu.node) }]
-          : []),
-        ...(exploration.canCollapse(menu.node.id)
-          ? [{ label: "Collapse", onClick: () => exploration.collapse(menu.node.id) }]
-          : []),
-        ...((menu.node.properties && Object.keys(menu.node.properties).length > 0)
-          ? [{ label: "View Properties", onClick: () => setLog(`Properties: ${JSON.stringify(menu.node.properties)}`) }]
-          : []),
-      ]
-    : [];
-
   return (
     <div style={{ height: 500 }}>
       <div style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <button
-          onClick={() => chartRef.current?.zoomToFit()}
-          style={{ padding: "4px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 12 }}
-        >
-          Zoom to Fit
-        </button>
         <button
           onClick={() => exploration.reset()}
           style={{ padding: "4px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 12 }}
@@ -357,16 +265,23 @@ function PathExpansionStory() {
         </span>
       </div>
       <GraphChart
-        ref={chartRef}
         nodes={exploration.nodes}
         edges={exploration.edges}
         selectedNodeIds={exploration.selectedNodeIds}
         onNodeSelect={exploration.onNodeSelect}
-        onNodeRightClick={handleRightClick}
-        loading={exploration.expandingNodeId != null}
+        onNodeRightClick={(e) => setMenu({ node: e.node, x: e.position.x, y: e.position.y })}
       />
-      {menu && menuItems.length > 0 && (
-        <NodeContextMenu menu={menu} onClose={closeMenu} items={menuItems} />
+      {menu && (
+        <NodeContextMenu
+          menu={menu}
+          onClose={() => setMenu(null)}
+          onExpand={exploration.canExpand(menu.node.id)
+            ? () => exploration.onExpandRequest(menu.node)
+            : undefined}
+          onCollapse={exploration.canCollapse(menu.node.id)
+            ? () => exploration.collapse(menu.node.id)
+            : undefined}
+        />
       )}
     </div>
   );
@@ -378,6 +293,23 @@ export const PathExpansion: Story = {
     edges: socialEdges,
   },
   render: () => <PathExpansionStory />,
+};
+
+export const WithLabelSelector: Story = {
+  args: {
+    nodes: [
+      { id: "p1", label: "Tom Hanks", labels: ["Person"], value: 40, color: "#3b82f6", properties: { name: "Tom Hanks", born: 1956, role: "Actor" } },
+      { id: "p2", label: "Keanu Reeves", labels: ["Person"], value: 35, color: "#3b82f6", properties: { name: "Keanu Reeves", born: 1964, role: "Actor" } },
+      { id: "p3", label: "Carrie-Anne Moss", labels: ["Person"], value: 30, color: "#3b82f6", properties: { name: "Carrie-Anne Moss", born: 1967, role: "Actress" } },
+      { id: "m1", label: "The Matrix", labels: ["Movie"], value: 50, color: "#a855f7", properties: { title: "The Matrix", released: 1999, tagline: "Welcome to the Real World" } },
+      { id: "m2", label: "Forrest Gump", labels: ["Movie"], value: 45, color: "#a855f7", properties: { title: "Forrest Gump", released: 1994, tagline: "Life is like a box of chocolates" } },
+    ],
+    edges: [
+      { source: "p2", target: "m1", label: "ACTED_IN" },
+      { source: "p3", target: "m1", label: "ACTED_IN" },
+      { source: "p1", target: "m2", label: "ACTED_IN" },
+    ],
+  },
 };
 
 export const NoLabels: Story = {

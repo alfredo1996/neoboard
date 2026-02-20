@@ -5,6 +5,32 @@ import path from 'path';
 import neo4j from 'neo4j-driver';
 
 /**
+ * Polls the Neo4j Bolt port until a simple query succeeds, or throws after timeoutMs.
+ * Runs after container startup so tests never hit the "not yet ready" window.
+ */
+async function waitForBoltReady(uri: string, username: string, password: string, timeoutMs = 60_000): Promise<void> {
+  const driver = neo4j.driver(uri, neo4j.auth.basic(username, password));
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+
+  while (Date.now() < deadline) {
+    try {
+      const session = driver.session();
+      await session.run('RETURN 1 AS ready');
+      await session.close();
+      await driver.close();
+      return;
+    } catch (err) {
+      lastError = err;
+      await new Promise<void>((r) => setTimeout(r, 500));
+    }
+  }
+
+  await driver.close();
+  throw new Error(`Neo4j Bolt not ready after ${timeoutMs}ms: ${lastError}`);
+}
+
+/**
  * Loads and executes the movies.cypher dataset into the given Neo4j session.
  */
 export async function loadMoviesDataset(uri: string, username: string, password: string) {
@@ -61,6 +87,10 @@ export default async () => {
 
   createNeo4jRuntimeFile(container); // Create the runtime file
   const uri = `bolt://${container.getHost()}:${container.getMappedPort(7687)}`;
+
+  // Block until Bolt is accepting connections — prevents test workers from
+  // hitting the "not yet ready" window and triggering spurious timeouts.
+  await waitForBoltReady(uri, 'neo4j', 'test');
 
   await loadMoviesDataset(uri, 'neo4j', 'test');
 };

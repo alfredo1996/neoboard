@@ -2,12 +2,12 @@ name: Component Library Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, feat/**, fix/** ]
     paths:
       - 'component/**'
       - '.github/workflows/component-tests.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, feat/**, fix/** ]
     paths:
       - 'component/**'
       - '.github/workflows/component-tests.yml'

@@ -98,7 +98,7 @@ test.describe("Connections", () => {
     await expect(dialog).not.toBeVisible();
 
     // Wait for auto-test to complete — should show "Error" badge
-    await expect(page.getByText("Bad Creds")).toBeVisible();
+    await expect(page.getByText("Bad Creds").first()).toBeVisible();
     // The auto-test will run, resulting in an error status with error text visible
     const card = page.locator("div").filter({ hasText: "Bad Creds" }).first();
     await expect(card.getByText("Error")).toBeVisible({ timeout: 30_000 });
