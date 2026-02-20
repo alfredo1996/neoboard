@@ -3,6 +3,7 @@
 import { use, useEffect, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Save, LayoutDashboard } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useDashboardStore } from "@/stores/dashboard-store";
@@ -30,6 +31,7 @@ export default function DashboardEditorPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
@@ -84,6 +86,11 @@ export default function DashboardEditorPage({
     } else {
       updateWidget(widget.id, widget);
     }
+    // Invalidate the cached query result so the card re-fetches with the
+    // latest query text and connection after every save (add or edit).
+    queryClient.invalidateQueries({
+      queryKey: ["widget-query", widget.connectionId, widget.query],
+    });
   }
 
   if (isLoading) {
