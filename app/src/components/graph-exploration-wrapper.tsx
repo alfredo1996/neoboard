@@ -13,8 +13,10 @@ import type {
   FetchNeighborsResult,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/chart-registry";
+import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 
 interface GraphExplorationWrapperProps {
+  widgetId: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
   connectionId: string;
@@ -94,6 +96,7 @@ function NodeContextMenu({
 }
 
 export function GraphExplorationWrapper({
+  widgetId,
   nodes: initialNodes,
   edges: initialEdges,
   connectionId,
@@ -101,6 +104,8 @@ export function GraphExplorationWrapper({
   onChartClick,
 }: GraphExplorationWrapperProps) {
   const [menu, setMenu] = useState<NodeMenu | null>(null);
+  const storeSetState = useGraphWidgetStore((s) => s.setState);
+  const stored = useGraphWidgetStore((s) => s.states[widgetId]);
 
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
@@ -137,11 +142,20 @@ export function GraphExplorationWrapper({
   );
 
   const exploration = useGraphExploration({
-    initialNodes,
-    initialEdges,
+    initialNodes: stored?.nodes ?? initialNodes,
+    initialEdges: stored?.edges ?? initialEdges,
     fetchNeighbors,
     maxDepth: 3,
   });
+
+  // Persist exploration state to the store whenever it changes
+  useEffect(() => {
+    storeSetState(widgetId, {
+      nodes: exploration.nodes,
+      edges: exploration.edges,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exploration.nodes, exploration.edges]);
 
   const handleNodeRightClick = useCallback(
     (e: GraphNodeEvent) => {
@@ -164,7 +178,11 @@ export function GraphExplorationWrapper({
         }}
         onNodeRightClick={handleNodeRightClick}
         layout={settings.layout as "force" | "circular" | undefined}
+        initialLayout={stored?.layout}
+        initialCaptionMap={stored?.captionMap}
         showLabels={settings.showLabels as boolean | undefined}
+        onLayoutChange={(layout) => storeSetState(widgetId, { layout })}
+        onCaptionMapChange={(captionMap) => storeSetState(widgetId, { captionMap })}
       />
 
       {/* Status bar */}

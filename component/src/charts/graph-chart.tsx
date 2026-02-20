@@ -49,8 +49,12 @@ export interface GraphChartProps {
    * The toolbar lets the user switch layouts at runtime.
    */
   layout?: GraphLayout;
+  /** Seed the layout state (takes precedence over layout prop when provided) */
+  initialLayout?: GraphLayout;
   /** Show node labels (captions) */
   showLabels?: boolean;
+  /** Seed the caption map state */
+  initialCaptionMap?: Record<string, string>;
   /** Controlled selection — IDs of selected nodes */
   selectedNodeIds?: string[];
   /** Toggle selection on click */
@@ -61,6 +65,10 @@ export interface GraphChartProps {
   onNodeDoubleClick?: (event: GraphNodeEvent) => void;
   /** Context-menu trigger — fired on right-click */
   onNodeRightClick?: (event: GraphNodeEvent) => void;
+  /** Called whenever the user changes the layout */
+  onLayoutChange?: (layout: GraphLayout) => void;
+  /** Called whenever the user changes a caption mapping */
+  onCaptionMapChange?: (captionMap: Record<string, string>) => void;
   /** Additional CSS classes */
   className?: string;
 }
@@ -193,16 +201,20 @@ export function GraphChart({
   nodes,
   edges,
   layout: layoutProp = "force",
+  initialLayout,
   showLabels = true,
+  initialCaptionMap,
   selectedNodeIds,
   onNodeSelect,
   onExpandRequest,
   onNodeDoubleClick,
   onNodeRightClick,
+  onLayoutChange,
+  onCaptionMapChange,
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
-  const [layout, setLayout] = useState<GraphLayout>(layoutProp);
+  const [layout, setLayout] = useState<GraphLayout>(initialLayout ?? layoutProp);
 
   // Build the label → property keys map from current nodes
   const labelPropertyMap = useMemo(() => buildLabelPropertyMap(nodes), [nodes]);
@@ -211,7 +223,7 @@ export function GraphChart({
   const labelColorMap = useMemo(() => buildLabelColorMap(nodes), [nodes]);
 
   // Caption map: Neo4j label → chosen property key for display
-  const [captionMap, setCaptionMap] = useState<Record<string, string>>({});
+  const [captionMap, setCaptionMap] = useState<Record<string, string>>(initialCaptionMap ?? {});
 
   // Initialize caption map with defaults when new labels appear
   useEffect(() => {
@@ -322,7 +334,11 @@ export function GraphChart({
         <div className="h-4 w-px bg-border/60" />
         <select
           value={layout}
-          onChange={(e) => setLayout(e.target.value as GraphLayout)}
+          onChange={(e) => {
+            const next = e.target.value as GraphLayout;
+            setLayout(next);
+            onLayoutChange?.(next);
+          }}
           className="h-6 cursor-pointer rounded border-0 bg-transparent pr-4 text-xs text-muted-foreground outline-none transition-colors hover:text-foreground"
           aria-label="Graph layout"
         >
@@ -360,9 +376,14 @@ export function GraphChart({
                     <select
                       id={`caption-${lbl}`}
                       value={captionMap[lbl] ?? ""}
-                      onChange={(e) =>
-                        setCaptionMap((prev) => ({ ...prev, [lbl]: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCaptionMap((prev) => {
+                          const next = { ...prev, [lbl]: val };
+                          onCaptionMapChange?.(next);
+                          return next;
+                        });
+                      }}
                       className="mt-0.5 w-full h-7 cursor-pointer rounded border bg-background px-2 text-xs outline-none"
                       aria-label={`Caption property for ${lbl}`}
                       data-testid={`caption-select-${lbl}`}
