@@ -75,6 +75,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.waitForURL(/\/edit$/, { timeout: 15_000 });
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
@@ -209,6 +210,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.waitForURL(/\/edit$/, { timeout: 15_000 });
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 

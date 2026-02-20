@@ -59,4 +59,26 @@ describe("ConnectionStatus", () => {
       unmount();
     });
   });
+
+  it("does not render tooltip when errorMessage is not provided", () => {
+    render(<ConnectionStatus status="error" />);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("renders tooltip trigger when errorMessage is provided", () => {
+    render(<ConnectionStatus status="error" errorMessage="Connection refused" />);
+    // Badge is still present
+    expect(screen.getByText("Error")).toBeInTheDocument();
+  });
+
+  it("shows tooltip content on hover when errorMessage is provided", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    render(<ConnectionStatus status="error" errorMessage="Connection refused at port 7687" />);
+    const badge = screen.getByText("Error");
+    await user.hover(badge);
+    // Tooltip content is rendered in a portal — check for the message text
+    const tooltip = await screen.findByTestId("connection-error-tooltip");
+    expect(tooltip).toHaveTextContent("Connection refused at port 7687");
+  });
 });
