@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
+import { prefetchSchema } from "@/lib/schema-prefetch";
 
 const createConnectionSchema = z.object({
   name: z.string().min(1),
@@ -68,6 +69,9 @@ export async function POST(request: Request) {
         type: connections.type,
         createdAt: connections.createdAt,
       });
+
+    // Fire-and-forget: pre-warm the schema cache for the new connection
+    prefetchSchema(type, parsed.data.config);
 
     return NextResponse.json(connection, { status: 201 });
   } catch (error) {
