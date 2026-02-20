@@ -16,6 +16,9 @@ test.describe("Connections", () => {
   test("should create a new Neo4j connection", async ({ page }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
+    // Step 1: type picker — choose Neo4j
+    await dialog.getByTestId("pick-neo4j").click();
+    // Step 2: fill the form
     await dialog.locator("#conn-name").fill("Test Neo4j");
     await dialog.locator("#conn-uri").fill(TEST_NEO4J_BOLT_URL);
     await dialog.locator("#conn-username").fill("neo4j");
@@ -28,10 +31,10 @@ test.describe("Connections", () => {
   test("should create a PostgreSQL connection", async ({ page }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
+    // Step 1: type picker — choose PostgreSQL
+    await dialog.getByTestId("pick-postgresql").click();
+    // Step 2: fill the form
     await dialog.locator("#conn-name").fill("Test PG");
-    // Switch type to postgresql
-    await dialog.getByRole("combobox").click();
-    await page.getByRole("option", { name: "PostgreSQL" }).click();
     await dialog.locator("#conn-uri").fill(`postgresql://localhost:${TEST_PG_PORT}`);
     await dialog.locator("#conn-username").fill("neoboard");
     await dialog.locator("#conn-password").fill("neoboard");
@@ -56,6 +59,9 @@ test.describe("Connections", () => {
   test("should test inline connection before creating — success", async ({ page }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
+    // Step 1: type picker
+    await dialog.getByTestId("pick-neo4j").click();
+    // Step 2: fill form
     await dialog.locator("#conn-name").fill("Inline Test OK");
     await dialog.locator("#conn-uri").fill(TEST_NEO4J_BOLT_URL);
     await dialog.locator("#conn-username").fill("neo4j");
@@ -70,6 +76,9 @@ test.describe("Connections", () => {
   test("should test inline connection before creating — failure shows error", async ({ page }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
+    // Step 1: type picker
+    await dialog.getByTestId("pick-neo4j").click();
+    // Step 2: fill form with bad credentials
     await dialog.locator("#conn-name").fill("Inline Test Fail");
     await dialog.locator("#conn-uri").fill("bolt://localhost:1");
     await dialog.locator("#conn-username").fill("wrong");
@@ -90,6 +99,9 @@ test.describe("Connections", () => {
     // Create a connection with bad credentials
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
+    // Step 1: type picker
+    await dialog.getByTestId("pick-neo4j").click();
+    // Step 2: fill form
     await dialog.locator("#conn-name").fill("Bad Creds");
     await dialog.locator("#conn-uri").fill("bolt://localhost:1");
     await dialog.locator("#conn-username").fill("wrong");
@@ -108,6 +120,9 @@ test.describe("Connections", () => {
     // Create one first
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
+    // Step 1: type picker
+    await dialog.getByTestId("pick-neo4j").click();
+    // Step 2: fill form
     await dialog.locator("#conn-name").fill("To Delete");
     await dialog.locator("#conn-uri").fill(TEST_NEO4J_BOLT_URL);
     await dialog.locator("#conn-username").fill("neo4j");
