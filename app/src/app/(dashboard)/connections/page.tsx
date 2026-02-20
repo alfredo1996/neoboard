@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Database, Plus, Server } from "lucide-react";
+import { Database, Plus } from "lucide-react";
+import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
   useConnections,
   useCreateConnection,
@@ -201,7 +202,7 @@ export default function ConnectionsPage() {
                   onClick={() => handlePickType("neo4j")}
                   className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer"
                 >
-                  <Database className="h-10 w-10 text-muted-foreground" />
+                  <Neo4jLogo className="h-10 w-10" />
                   <div>
                     <p className="font-semibold">Neo4j</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Graph database</p>
@@ -212,7 +213,7 @@ export default function ConnectionsPage() {
                   onClick={() => handlePickType("postgresql")}
                   className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer"
                 >
-                  <Server className="h-10 w-10 text-muted-foreground" />
+                  <PostgreSQLLogo className="h-10 w-10" />
                   <div>
                     <p className="font-semibold">PostgreSQL</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Relational database</p>

@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
+  Combobox,
 } from "@neoboard/components";
 import {
   LoadingButton,
@@ -183,18 +184,18 @@ export function WidgetEditorModal({
               </div>
               <div className="space-y-2">
                 <Label>Connection</Label>
-                <Select value={connectionId} onValueChange={setConnectionId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a connection..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {connections.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name} ({c.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  value={connectionId}
+                  onChange={setConnectionId}
+                  options={connections.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${c.type})`,
+                  }))}
+                  placeholder="Select a connection..."
+                  searchPlaceholder="Search connections..."
+                  emptyText="No connections found."
+                  className="w-full"
+                />
               </div>
             </div>
             <DialogFooter>
