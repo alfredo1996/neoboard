@@ -113,6 +113,22 @@ describe("GraphChart", () => {
     expect(capturedProps.layout).toBe("circular");
   });
 
+  it("seeds layout state from initialLayout prop", () => {
+    render(
+      <GraphChart nodes={sampleNodes} edges={sampleEdges} layout="force" initialLayout="circular" />,
+    );
+    expect(capturedProps.layout).toBe("circular");
+  });
+
+  it("fires onLayoutChange when layout is changed", async () => {
+    const onLayoutChange = vi.fn();
+    render(
+      <GraphChart nodes={sampleNodes} edges={sampleEdges} onLayoutChange={onLayoutChange} />,
+    );
+    fireEvent.change(screen.getByLabelText("Graph layout"), { target: { value: "circular" } });
+    expect(onLayoutChange).toHaveBeenCalledWith("circular");
+  });
+
   // --- Labels ---
 
   it("includes caption on nodes when showLabels is true (default)", () => {
@@ -344,6 +360,31 @@ describe("GraphChart", () => {
     // Check that NVL nodes now show born year for Person nodes
     const nvlNodes = capturedProps.nodes as NvlNode[];
     const personNode = nvlNodes.find((n) => n.id === "p1");
+    expect(personNode?.caption).toBe("1956");
+  });
+
+  it("fires onCaptionMapChange when caption property is changed", async () => {
+    const onCaptionMapChange = vi.fn();
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} onCaptionMapChange={onCaptionMapChange} />);
+    fireEvent.click(screen.getByTestId("label-settings-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("caption-select-Person")).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByTestId("caption-select-Person"), { target: { value: "born" } });
+    expect(onCaptionMapChange).toHaveBeenCalledWith(expect.objectContaining({ Person: "born" }));
+  });
+
+  it("seeds captionMap from initialCaptionMap prop", () => {
+    render(
+      <GraphChart
+        nodes={labeledNodes}
+        edges={labeledEdges}
+        initialCaptionMap={{ Person: "born", Movie: "title" }}
+      />,
+    );
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    const personNode = nvlNodes.find((n) => n.id === "p1");
+    // Should use 'born' (1956) instead of default 'name'
     expect(personNode?.caption).toBe("1956");
   });
 
