@@ -107,6 +107,19 @@ export function GraphExplorationWrapper({
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
 
+  // Compute a signature from the query result so we can detect when the
+  // underlying data changes (e.g. LIMIT 10 → LIMIT 100). The signature is
+  // the sorted node IDs joined into a single string — cheap and stable.
+  const incomingSignature = initialNodes
+    .map((n) => n.id)
+    .sort()
+    .join(",");
+
+  // If the stored state was built from different query results, ignore it so
+  // the graph resets to the new data instead of showing the stale exploration.
+  const storedIsValid =
+    stored != null && stored.queryNodeSignature === incomingSignature;
+
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
       const query =
@@ -142,17 +155,19 @@ export function GraphExplorationWrapper({
   );
 
   const exploration = useGraphExploration({
-    initialNodes: stored?.nodes ?? initialNodes,
-    initialEdges: stored?.edges ?? initialEdges,
+    initialNodes: storedIsValid ? stored.nodes : initialNodes,
+    initialEdges: storedIsValid ? stored.edges : initialEdges,
     fetchNeighbors,
     maxDepth: 3,
   });
 
-  // Persist exploration state to the store whenever it changes
+  // Persist exploration state to the store whenever it changes, always
+  // recording the current query signature so we can invalidate stale state.
   useEffect(() => {
     storeSetState(widgetId, {
       nodes: exploration.nodes,
       edges: exploration.edges,
+      queryNodeSignature: incomingSignature,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploration.nodes, exploration.edges]);
@@ -178,8 +193,8 @@ export function GraphExplorationWrapper({
         }}
         onNodeRightClick={handleNodeRightClick}
         layout={settings.layout as "force" | "circular" | undefined}
-        initialLayout={stored?.layout}
-        initialCaptionMap={stored?.captionMap}
+        initialLayout={storedIsValid ? stored.layout : undefined}
+        initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
         showLabels={settings.showLabels as boolean | undefined}
         onLayoutChange={(layout) => storeSetState(widgetId, { layout })}
         onCaptionMapChange={(captionMap) => storeSetState(widgetId, { captionMap })}

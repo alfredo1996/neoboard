@@ -7,6 +7,12 @@ interface GraphWidgetState {
   edges: GraphEdge[];
   layout?: GraphLayout;
   captionMap?: Record<string, string>;
+  /**
+   * Sorted, joined IDs of the nodes that came directly from the widget query.
+   * Used to detect when the query result changed so stale exploration state
+   * can be discarded instead of being shown on top of new data.
+   */
+  queryNodeSignature?: string;
 }
 
 interface GraphWidgetStore {
