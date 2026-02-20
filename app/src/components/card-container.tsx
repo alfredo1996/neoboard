@@ -67,13 +67,14 @@ interface ChartRendererProps {
   settings?: Record<string, unknown>;
   onChartClick?: (point: Record<string, unknown>) => void;
   connectionId?: string;
+  widgetId?: string;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId }: ChartRendererProps) {
+function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, widgetId }: ChartRendererProps) {
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
     return (e: EChartsClickEvent) =>
@@ -137,6 +138,7 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId }
       if (connectionId) {
         return (
           <GraphExplorationWrapper
+            widgetId={widgetId ?? connectionId}
             nodes={graphData.nodes ?? []}
             edges={graphData.edges ?? []}
             connectionId={connectionId}
@@ -344,7 +346,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     const transformedData = chartConfig.transform(previewData);
     return (
       <div className="h-full w-full">
-        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} />
+        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} />
       </div>
     );
   }
@@ -390,7 +392,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
 
   return (
     <div className="h-full w-full">
-      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} />
+      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} />
     </div>
   );
 }
