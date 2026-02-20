@@ -4,8 +4,8 @@ import * as path from "node:path";
 import { AuthPage } from "./pages/auth";
 import { SidebarPage } from "./pages/sidebar";
 
-// Load test container env vars
-dotenv.config({ path: path.resolve(__dirname, "..", ".env.test") });
+// Load test container env vars (quiet suppresses dotenvx tip banners).
+dotenv.config({ path: path.resolve(__dirname, "..", ".env.test"), quiet: true });
 
 /** Seed user credentials (from docker/postgres/init.sql). */
 export const ALICE = { email: "alice@example.com", password: "password123" };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Database, Plus } from "lucide-react";
+import { Database, Plus, Server } from "lucide-react";
 import {
   useConnections,
   useCreateConnection,
@@ -18,11 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -37,6 +32,17 @@ import {
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 
+type DialogStep = "pick-type" | "fill-form";
+
+const DEFAULT_FORM = {
+  name: "",
+  type: "neo4j" as "neo4j" | "postgresql",
+  uri: "",
+  username: "",
+  password: "",
+  database: "",
+};
+
 export default function ConnectionsPage() {
   const { data: connections, isLoading } = useConnections();
   const createConnection = useCreateConnection();
@@ -48,15 +54,11 @@ export default function ConnectionsPage() {
     success: boolean;
     error?: string;
   } | null>(null);
+
+  // Dialog state
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    type: "neo4j" as "neo4j" | "postgresql",
-    uri: "",
-    username: "",
-    password: "",
-    database: "",
-  });
+  const [dialogStep, setDialogStep] = useState<DialogStep>("pick-type");
+  const [form, setForm] = useState(DEFAULT_FORM);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const autoTestedRef = useRef(false);
@@ -72,6 +74,27 @@ export default function ConnectionsPage() {
   }, [connections]);
 
   const [createError, setCreateError] = useState<string | null>(null);
+  const [testErrors, setTestErrors] = useState<Record<string, string>>({});
+
+  function openCreateDialog(type?: "neo4j" | "postgresql") {
+    setForm({ ...DEFAULT_FORM, ...(type ? { type } : {}) });
+    setDialogStep(type ? "fill-form" : "pick-type");
+    setCreateError(null);
+    setInlineTestResult(null);
+    setShowCreate(true);
+  }
+
+  function closeCreateDialog() {
+    setShowCreate(false);
+    setDialogStep("pick-type");
+    setCreateError(null);
+    setInlineTestResult(null);
+  }
+
+  function handlePickType(type: "neo4j" | "postgresql") {
+    setForm((f) => ({ ...f, type }));
+    setDialogStep("fill-form");
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -87,16 +110,7 @@ export default function ConnectionsPage() {
           database: form.database || undefined,
         },
       });
-      setForm({
-        name: "",
-        type: "neo4j",
-        uri: "",
-        username: "",
-        password: "",
-        database: "",
-      });
-      setShowCreate(false);
-      // Auto-test the new connection immediately after creation
+      closeCreateDialog();
       handleTest(newConn.id);
     } catch (error) {
       setCreateError(
@@ -123,8 +137,6 @@ export default function ConnectionsPage() {
     }
   }
 
-  const [testErrors, setTestErrors] = useState<Record<string, string>>({});
-
   async function handleTest(id: string) {
     setTestResults((prev) => ({ ...prev, [id]: "connecting" }));
     setTestErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
@@ -143,6 +155,18 @@ export default function ConnectionsPage() {
     }
   }
 
+  function handleDuplicate(conn: { name: string; type: "neo4j" | "postgresql" }) {
+    setForm({
+      ...DEFAULT_FORM,
+      type: conn.type,
+      name: `${conn.name} (copy)`,
+    });
+    setDialogStep("fill-form");
+    setCreateError(null);
+    setInlineTestResult(null);
+    setShowCreate(true);
+  }
+
   function getConnectionStatus(id: string): ConnectionState {
     const result = testResults[id];
     if (result === "connecting") return "connecting";
@@ -157,24 +181,65 @@ export default function ConnectionsPage() {
         title="Connections"
         description="Manage your database connections"
         actions={
-          <Button onClick={() => setShowCreate(true)}>
+          <Button onClick={() => openCreateDialog()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Connection
           </Button>
         }
       />
 
-      <Dialog open={showCreate} onOpenChange={(open) => {
-        setShowCreate(open);
-        if (!open) { setCreateError(null); setInlineTestResult(null); }
-      }}>
+      <Dialog open={showCreate} onOpenChange={(open) => { if (!open) closeCreateDialog(); }}>
         <DialogContent>
-          <form onSubmit={handleCreate}>
-            <DialogHeader>
-              <DialogTitle>New Connection</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+          {dialogStep === "pick-type" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Choose Database Type</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <button
+                  data-testid="pick-neo4j"
+                  onClick={() => handlePickType("neo4j")}
+                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer"
+                >
+                  <Database className="h-10 w-10 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">Neo4j</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Graph database</p>
+                  </div>
+                </button>
+                <button
+                  data-testid="pick-postgresql"
+                  onClick={() => handlePickType("postgresql")}
+                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer"
+                >
+                  <Server className="h-10 w-10 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">PostgreSQL</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Relational database</p>
+                  </div>
+                </button>
+              </div>
+            </>
+          ) : (
+            <form onSubmit={handleCreate}>
+              <DialogHeader>
+                <DialogTitle>
+                  New {form.type === "neo4j" ? "Neo4j" : "PostgreSQL"} Connection
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={() => setDialogStep("pick-type")}
+                  >
+                    ← Change type
+                  </Button>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="conn-name">Name</Label>
                   <Input
@@ -189,125 +254,104 @@ export default function ConnectionsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select
-                    value={form.type}
-                    onValueChange={(v) =>
-                      setForm((f) => ({
-                        ...f,
-                        type: v as "neo4j" | "postgresql",
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="neo4j">Neo4j</SelectItem>
-                      <SelectItem value="postgresql">PostgreSQL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="conn-uri">URI</Label>
-                <Input
-                  id="conn-uri"
-                  value={form.uri}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, uri: e.target.value }))
-                  }
-                  required
-                  placeholder={
-                    form.type === "neo4j"
-                      ? "bolt://localhost:7687"
-                      : "postgresql://localhost:5432"
-                  }
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="conn-username">Username</Label>
+                  <Label htmlFor="conn-uri">URI</Label>
                   <Input
-                    id="conn-username"
-                    value={form.username}
+                    id="conn-uri"
+                    value={form.uri}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, username: e.target.value }))
+                      setForm((f) => ({ ...f, uri: e.target.value }))
                     }
                     required
+                    placeholder={
+                      form.type === "neo4j"
+                        ? "bolt://localhost:7687"
+                        : "postgresql://localhost:5432"
+                    }
                   />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="conn-username">Username</Label>
+                    <Input
+                      id="conn-username"
+                      value={form.username}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, username: e.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="conn-password">Password</Label>
+                    <PasswordInput
+                      id="conn-password"
+                      value={form.password}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, password: e.target.value }))
+                      }
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="conn-password">Password</Label>
-                  <PasswordInput
-                    id="conn-password"
-                    value={form.password}
+                  <Label htmlFor="conn-database">
+                    Database{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="conn-database"
+                    value={form.database}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, password: e.target.value }))
+                      setForm((f) => ({ ...f, database: e.target.value }))
                     }
-                    required
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="conn-database">
-                  Database{" "}
-                  <span className="text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="conn-database"
-                  value={form.database}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, database: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            {createError && (
-              <Alert variant="destructive">
-                <AlertDescription>{createError}</AlertDescription>
-              </Alert>
-            )}
-            {inlineTestResult && (
-              <Alert variant={inlineTestResult.success ? "default" : "destructive"}>
-                <AlertDescription>
-                  {inlineTestResult.success
-                    ? "Connection successful!"
-                    : inlineTestResult.error || "Connection failed"}
-                </AlertDescription>
-              </Alert>
-            )}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowCreate(false)}
-              >
-                Cancel
-              </Button>
-              <LoadingButton
-                type="button"
-                variant="secondary"
-                loading={testInline.isPending}
-                loadingText="Testing..."
-                disabled={!form.uri || !form.username || !form.password}
-                onClick={handleTestInline}
-              >
-                Test Connection
-              </LoadingButton>
-              <LoadingButton
-                type="submit"
-                loading={createConnection.isPending}
-                loadingText="Creating..."
-              >
-                Create
-              </LoadingButton>
-            </DialogFooter>
-          </form>
+              {createError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{createError}</AlertDescription>
+                </Alert>
+              )}
+              {inlineTestResult && (
+                <Alert variant={inlineTestResult.success ? "default" : "destructive"}>
+                  <AlertDescription>
+                    {inlineTestResult.success
+                      ? "Connection successful!"
+                      : inlineTestResult.error || "Connection failed"}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeCreateDialog}
+                >
+                  Cancel
+                </Button>
+                <LoadingButton
+                  type="button"
+                  variant="secondary"
+                  loading={testInline.isPending}
+                  loadingText="Testing..."
+                  disabled={!form.uri || !form.username || !form.password}
+                  onClick={handleTestInline}
+                >
+                  Test Connection
+                </LoadingButton>
+                <LoadingButton
+                  type="submit"
+                  loading={createConnection.isPending}
+                  loadingText="Creating..."
+                >
+                  Create
+                </LoadingButton>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -336,7 +380,7 @@ export default function ConnectionsPage() {
               title="No connections yet"
               description="Add your first database connection to start querying data."
               action={
-                <Button onClick={() => setShowCreate(true)}>
+                <Button onClick={() => openCreateDialog()}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add your first connection
                 </Button>
@@ -353,6 +397,7 @@ export default function ConnectionsPage() {
                   statusText={testErrors[c.id]}
                   onTest={() => handleTest(c.id)}
                   onDelete={() => setDeleteTarget(c.id)}
+                  onDuplicate={() => handleDuplicate(c)}
                 />
               ))}
             </div>
