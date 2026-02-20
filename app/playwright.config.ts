@@ -9,7 +9,9 @@ export default defineConfig({
   // while the Next.js dev server compiles routes on demand.
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? "github" : "html",
+  // "github" adds PR annotations; "list" streams each test result to the log
+  // so you can follow progress in real time during a CI run.
+  reporter: process.env.CI ? [["github"], ["list"]] : "html",
   timeout: 60_000,
   expect: { timeout: 10_000 },
 
@@ -39,6 +41,7 @@ export default defineConfig({
     command: "npx next dev --port 3000",
     port: 3000,
     reuseExistingServer: false,
-    timeout: 30_000,
+    // 60 s in CI: gives the dev server more compile time before the first test fires.
+    timeout: process.env.CI ? 60_000 : 30_000,
   },
 });
