@@ -8,6 +8,10 @@ const ENV_LOCAL = path.join(__dirname, "..", ".env.local");
 const ENV_LOCAL_BAK = path.join(__dirname, "..", ".env.local.bak");
 
 export default async function globalTeardown() {
+  // In CI the databases are GitHub Actions service containers — GitHub stops
+  // them automatically after the job; we must not try to remove them ourselves.
+  const isServiceContainerMode = process.env.CI_SERVICE_CONTAINERS === "true";
+
   console.log("\n🧹 Stopping test containers...\n");
 
   // Restore original .env.local from backup.
@@ -23,23 +27,26 @@ export default async function globalTeardown() {
     console.log("📦 Restored .env.local from .env (no backup found)");
   }
 
-  if (!fs.existsSync(STATE_FILE)) {
-    console.log("No container state file found, nothing to clean up.");
-    return;
-  }
+  if (isServiceContainerMode) {
+    console.log("CI service containers — skipping docker rm (GitHub manages them).");
+  } else {
+    if (!fs.existsSync(STATE_FILE)) {
+      console.log("No container state file found, nothing to clean up.");
+    } else {
+      const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
+        pgContainerId: string;
+        neo4jContainerId: string;
+      };
 
-  const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
-    pgContainerId: string;
-    neo4jContainerId: string;
-  };
-
-  for (const [name, id] of Object.entries(state)) {
-    try {
-      execSync(`docker rm -f ${id}`, { stdio: "pipe" });
-      console.log(`✅ Removed ${name}: ${id.slice(0, 12)}`);
-    } catch {
-      // Container may already be gone
-      console.log(`⚠️ ${name} (${id.slice(0, 12)}) already removed`);
+      for (const [name, id] of Object.entries(state)) {
+        try {
+          execSync(`docker rm -f ${id}`, { stdio: "pipe" });
+          console.log(`✅ Removed ${name}: ${id.slice(0, 12)}`);
+        } catch {
+          // Container may already be gone
+          console.log(`⚠️ ${name} (${id.slice(0, 12)}) already removed`);
+        }
+      }
     }
   }
 
