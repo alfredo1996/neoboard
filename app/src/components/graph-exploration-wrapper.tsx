@@ -22,6 +22,10 @@ interface GraphExplorationWrapperProps {
   connectionId: string;
   settings: Record<string, unknown>;
   onChartClick?: (point: Record<string, unknown>) => void;
+  /** Server-generated hash of the query that produced this data.
+   *  Used to detect when the query changed so stale exploration state
+   *  can be discarded. */
+  resultId?: string;
 }
 
 interface NodeMenu {
@@ -102,10 +106,18 @@ export function GraphExplorationWrapper({
   connectionId,
   settings,
   onChartClick,
+  resultId,
 }: GraphExplorationWrapperProps) {
   const [menu, setMenu] = useState<NodeMenu | null>(null);
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
+
+  // If the stored state was built from a different query (different resultId),
+  // discard it so the graph resets to the new data instead of showing stale
+  // exploration state. When resultId is undefined (e.g. preview mode without
+  // a full query run), always use the incoming data.
+  const storedIsValid =
+    stored != null && resultId != null && stored.resultId === resultId;
 
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
@@ -142,17 +154,19 @@ export function GraphExplorationWrapper({
   );
 
   const exploration = useGraphExploration({
-    initialNodes: stored?.nodes ?? initialNodes,
-    initialEdges: stored?.edges ?? initialEdges,
+    initialNodes: storedIsValid ? stored.nodes : initialNodes,
+    initialEdges: storedIsValid ? stored.edges : initialEdges,
     fetchNeighbors,
     maxDepth: 3,
   });
 
-  // Persist exploration state to the store whenever it changes
+  // Persist exploration state to the store whenever it changes, always
+  // recording the current resultId so we can detect stale state next render.
   useEffect(() => {
     storeSetState(widgetId, {
       nodes: exploration.nodes,
       edges: exploration.edges,
+      resultId,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploration.nodes, exploration.edges]);
@@ -178,8 +192,8 @@ export function GraphExplorationWrapper({
         }}
         onNodeRightClick={handleNodeRightClick}
         layout={settings.layout as "force" | "circular" | undefined}
-        initialLayout={stored?.layout}
-        initialCaptionMap={stored?.captionMap}
+        initialLayout={storedIsValid ? stored.layout : undefined}
+        initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
         showLabels={settings.showLabels as boolean | undefined}
         onLayoutChange={(layout) => storeSetState(widgetId, { layout })}
         onCaptionMapChange={(captionMap) => storeSetState(widgetId, { captionMap })}

@@ -7,6 +7,12 @@ interface GraphWidgetState {
   edges: GraphEdge[];
   layout?: GraphLayout;
   captionMap?: Record<string, string>;
+  /**
+   * Server-generated resultId (SHA-256 of query result data) from the last
+   * query execution. Used to detect when the underlying data changed so stale
+   * exploration state is discarded instead of being shown on top of new data.
+   */
+  resultId?: string;
 }
 
 interface GraphWidgetStore {

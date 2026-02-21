@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
+  Combobox,
 } from "@neoboard/components";
 import {
   LoadingButton,
@@ -79,6 +80,14 @@ export function WidgetEditorModal({
     existingClickAction?.parameterMapping.sourceField ?? ""
   );
 
+  // Cache settings
+  const [enableCache, setEnableCache] = useState(
+    widget?.settings?.enableCache !== false
+  );
+  const [cacheTtlMinutes, setCacheTtlMinutes] = useState(
+    (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5
+  );
+
   const previewQuery = useQueryExecution();
 
   // Reset state when opening
@@ -94,6 +103,8 @@ export function WidgetEditorModal({
         setClickActionEnabled(false);
         setParameterName("");
         setSourceField("");
+        setEnableCache(true);
+        setCacheTtlMinutes(5);
         previewQuery.reset();
       } else if (widget) {
         setStep(2);
@@ -109,6 +120,8 @@ export function WidgetEditorModal({
         setClickActionEnabled(!!ca);
         setParameterName(ca?.parameterMapping.parameterName ?? "");
         setSourceField(ca?.parameterMapping.sourceField ?? "");
+        setEnableCache(widget.settings?.enableCache !== false);
+        setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
         previewQuery.reset();
       }
     }
@@ -158,6 +171,8 @@ export function WidgetEditorModal({
         title: title || undefined,
         chartOptions,
         clickAction,
+        enableCache,
+        cacheTtlMinutes,
       },
     });
     onOpenChange(false);
@@ -183,18 +198,18 @@ export function WidgetEditorModal({
               </div>
               <div className="space-y-2">
                 <Label>Connection</Label>
-                <Select value={connectionId} onValueChange={setConnectionId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a connection..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {connections.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name} ({c.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  value={connectionId}
+                  onChange={setConnectionId}
+                  options={connections.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${c.type})`,
+                  }))}
+                  placeholder="Select a connection..."
+                  searchPlaceholder="Search connections..."
+                  emptyText="No connections found."
+                  className="w-full"
+                />
               </div>
             </div>
             <DialogFooter>
@@ -260,6 +275,43 @@ export function WidgetEditorModal({
                     <Play className="mr-2 h-4 w-4" />
                     Run Query
                   </LoadingButton>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-medium mb-3">Data Settings</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="enable-cache"
+                        checked={enableCache}
+                        onCheckedChange={(checked) => setEnableCache(!!checked)}
+                      />
+                      <Label htmlFor="enable-cache" className="text-sm">
+                        Cache results
+                      </Label>
+                    </div>
+                    {enableCache && (
+                      <div className="pl-6 space-y-1.5">
+                        <Label htmlFor="cache-ttl" className="text-sm">
+                          Cache timeout (minutes)
+                        </Label>
+                        <Input
+                          id="cache-ttl"
+                          type="number"
+                          min={1}
+                          max={1440}
+                          value={cacheTtlMinutes}
+                          onChange={(e) =>
+                            setCacheTtlMinutes(Math.max(1, Number(e.target.value)))
+                          }
+                          className="w-24"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Results are reused for up to {cacheTtlMinutes} minute{cacheTtlMinutes !== 1 ? "s" : ""} before re-querying.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="border-t pt-4">
@@ -344,7 +396,12 @@ export function WidgetEditorModal({
                   </Alert>
                 )}
 
-                <div className="flex-1 border rounded-lg overflow-hidden min-h-[300px]">
+                <div className="flex-1 border rounded-lg overflow-hidden min-h-[300px] relative">
+                  {previewQuery.isPending && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  )}
                   {previewQuery.data ? (
                     <CardContainer
                       widget={{
@@ -355,6 +412,7 @@ export function WidgetEditorModal({
                         settings: { chartOptions },
                       }}
                       previewData={previewQuery.data.data}
+                      previewResultId={previewQuery.data.resultId}
                     />
                   ) : (
                     <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
