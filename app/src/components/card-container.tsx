@@ -59,6 +59,9 @@ interface CardContainerProps {
   widget: DashboardWidget;
   /** When provided, renders the chart from this data without executing a query. */
   previewData?: unknown;
+  /** resultId from the query execution — passed through to chart components
+   *  that need to detect when the underlying data changed (e.g. graph widget). */
+  previewResultId?: string;
 }
 
 interface ChartRendererProps {
@@ -68,13 +71,14 @@ interface ChartRendererProps {
   onChartClick?: (point: Record<string, unknown>) => void;
   connectionId?: string;
   widgetId?: string;
+  resultId?: string;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, widgetId }: ChartRendererProps) {
+function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, widgetId, resultId }: ChartRendererProps) {
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
     return (e: EChartsClickEvent) =>
@@ -144,6 +148,7 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
             connectionId={connectionId}
             settings={settings}
             onChartClick={onChartClick}
+            resultId={resultId}
           />
         );
       }
@@ -302,7 +307,7 @@ function ParameterSelectRenderer({
  * CardContainer: Fetches query results and renders the appropriate chart.
  * Uses React Query caching so queries are deduplicated across view→edit navigation.
  */
-export function CardContainer({ widget, previewData }: CardContainerProps) {
+export function CardContainer({ widget, previewData, previewResultId }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
   function handleChartClick(point: Record<string, unknown>) {
@@ -319,6 +324,11 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
   }
   const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);
 
+  // Cache settings from widget config. Default: cache enabled, 5-min TTL.
+  const enableCache = widget.settings?.enableCache !== false;
+  const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
+  const staleTime = enableCache ? cacheTtlMinutes * 60_000 : 0;
+
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view→edit won't re-run the same query.
   const queryInput = previewData !== undefined ? null : {
@@ -326,7 +336,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const widgetQuery = useWidgetQuery(queryInput);
+  const widgetQuery = useWidgetQuery(queryInput, { staleTime });
 
   if (!chartConfig) {
     return (
@@ -346,7 +356,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
     const transformedData = chartConfig.transform(previewData);
     return (
       <div className="h-full w-full">
-        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} />
+        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} resultId={previewResultId} />
       </div>
     );
   }
@@ -392,7 +402,7 @@ export function CardContainer({ widget, previewData }: CardContainerProps) {
 
   return (
     <div className="h-full w-full">
-      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} />
+      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} resultId={widgetQuery.data.resultId} />
     </div>
   );
 }

@@ -11,6 +11,8 @@ interface QueryInput {
 interface QueryResult {
   data: unknown;
   fields?: unknown;
+  /** Unique ID for this execution, generated server-side. */
+  resultId: string;
 }
 
 export function useQueryExecution() {

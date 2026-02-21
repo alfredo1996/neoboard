@@ -118,4 +118,74 @@ test.describe("Widget creation", () => {
     await dialog.getByRole("button", { name: /Back/ }).click();
     await expect(dialog.getByText("Select Type")).toBeVisible();
   });
+
+  test("connector combobox filters results by typed text", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Widget" }).click();
+    const dialog = page.getByRole("dialog");
+
+    // Open the searchable combobox
+    await dialog.getByRole("combobox").click();
+    // Type a partial name that exists (e.g. "neo" matches the Neo4j connection)
+    await page.getByPlaceholder("Search connections...").fill("neo");
+    // At least one matching option should be visible
+    await expect(page.getByRole("option").first()).toBeVisible({ timeout: 5_000 });
+    // Non-matching connections should not appear; pick the first visible option
+    await page.getByRole("option").first().click();
+    // Next button should now be enabled
+    await expect(dialog.getByRole("button", { name: "Next" })).toBeEnabled();
+  });
+});
+
+test.describe("Widget edit – query cache invalidation", () => {
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.getByText("Movie Analytics").click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test("re-fetches query data after editing widget with changed query", async ({ page }) => {
+    // Set up response waiter BEFORE the action that triggers the request to
+    // avoid a race condition where the response arrives before waitForResponse
+    // starts listening.
+    const firstQuery = "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 3";
+    const secondQuery = "MATCH (p:Person) RETURN p.name AS label, p.born AS value LIMIT 3";
+
+    // Step 1: add a widget and wait for its initial fetch
+    const initialFetch = page.waitForResponse(
+      (res) => res.url().includes("/api/query") && res.status() === 200,
+      { timeout: 15_000 }
+    );
+
+    await page.getByRole("button", { name: "Add Widget" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("combobox").click();
+    await page.getByRole("option").first().click();
+    await dialog.getByRole("button", { name: "Next" }).click();
+    await dialog.getByLabel("Query").fill(firstQuery);
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // Confirm the card fetched its initial data
+    await initialFetch;
+
+    // Step 2: open edit modal and save with a different query
+    const refetch = page.waitForResponse(
+      (res) => res.url().includes("/api/query") && res.status() === 200,
+      { timeout: 15_000 }
+    );
+
+    await page.getByRole("button", { name: "Widget actions" }).last().click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
+
+    const editDialog = page.getByRole("dialog");
+    await expect(editDialog).toBeVisible();
+    await editDialog.getByLabel("Query").fill(secondQuery);
+    await editDialog.getByRole("button", { name: "Save Changes" }).click();
+    await expect(editDialog).not.toBeVisible();
+
+    // staleTime is 0, so the card must re-fetch immediately on save
+    await refetch;
+  });
 });
