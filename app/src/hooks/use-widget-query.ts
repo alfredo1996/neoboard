@@ -21,8 +21,10 @@ interface QueryResult {
 /**
  * Extracts referenced `$param_xxx` names from a query string and returns
  * only the matching parameter values.
+ *
+ * @visibleForTesting
  */
-function extractReferencedParams(
+export function extractReferencedParams(
   query: string,
   allParams: Record<string, unknown>
 ): Record<string, unknown> {
