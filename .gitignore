@@ -42,3 +42,7 @@ storybook-static
 playwright-report/
 test-results/
 app/e2e/.containers-state.json
+
+# Coverage reports (generated — never commit)
+coverage/
+*.lcov

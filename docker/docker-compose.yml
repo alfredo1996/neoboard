@@ -35,6 +35,53 @@ services:
       retries: 10
       start_period: 30s
 
+  # ---------------------------------------------------------------------------
+  # SonarQube — local code quality & coverage analysis
+  # Start with: docker compose --profile sonar up
+  # UI available at: http://localhost:9000 (admin / admin on first run)
+  # ---------------------------------------------------------------------------
+  sonarqube:
+    image: sonarqube:community
+    container_name: neoboard-sonarqube
+    profiles: ["sonar"]
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  sonarqube-db:
+    image: postgres:15-alpine
+    container_name: neoboard-sonarqube-db
+    profiles: ["sonar"]
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonarqube_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   neoboard_pgdata:
   neoboard_neo4jdata:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonarqube_pgdata:
