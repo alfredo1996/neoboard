@@ -33,6 +33,13 @@ export default defineConfig({
     }
   },
   test: {
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: './coverage',
+      reporter: ['text', 'lcov', 'json'],
+      include: ['src/**/*.ts', 'src/**/*.tsx'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.stories.*', 'src/**/*.d.ts'],
+    },
     projects: [
       {
         extends: true,

@@ -1,0 +1,65 @@
+language: "en-US"
+tone_instructions: "Be concise and direct. Focus on correctness, security, and NeoBoard conventions."
+early_access: false
+enable_free_tier: true
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+  path_instructions:
+    - path: "app/src/**"
+      instructions: |
+        This is the Next.js application package. Check for:
+        - Multi-tenancy: every DB query must include tenant_id filter
+        - Parameterized queries only — never interpolate user input into query strings
+        - can_write permission must be enforced server-side in API routes, not just UI
+        - No credentials logged or stored in DB (AES-256-GCM envelope scheme in use)
+        - Chart components must use next/dynamic with ssr: false
+        - ECharts must import from echarts/core + specific modules, never import *
+    - path: "component/src/**"
+      instructions: |
+        This is a pure React UI library. Enforce strict package boundaries:
+        - NO business logic
+        - NO API calls
+        - NO Zustand stores
+        - NO imports from app/ or connection/ packages
+        - ECharts must import from echarts/core + specific modules, never import *
+        - Heavy deps (NVL, Leaflet) must only load when the relevant widget type is on the dashboard
+    - path: "connection/src/**"
+      instructions: |
+        This is the DB connector library. Enforce strict package boundaries:
+        - NO UI code
+        - NO React imports
+        - NO imports from app/ or component/ packages
+        - Parameterized queries always — never string interpolation
+        - PostgreSQL: BEGIN READ ONLY transactions for non-Form widgets
+        - Neo4j: session access modes must be set
+        - Row limits: MAX_ROWS+1 pattern, never add LIMIT to user queries
+        - Timeouts enforced at driver level (default 30s)
+        - Concurrency: per-connector p-queue
+    - path: "app/src/app/api/**"
+      instructions: |
+        API routes require extra scrutiny:
+        - Validate tenantId from JWT before any DB access
+        - can_write enforced before any mutation
+        - Never log decrypted credentials
+        - Parameterized queries only
+    - path: ".github/workflows/**"
+      instructions: |
+        CI workflows: check for secret exposure, unnecessary permissions, and
+        that coverage is generated before any SonarQube scan step.
+  finishing_touches:
+    docstrings:
+      enabled: false
+
+chat:
+  auto_reply: true
