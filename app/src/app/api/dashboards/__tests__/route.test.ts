@@ -106,6 +106,36 @@ describe("GET /api/dashboards", () => {
     expect(body.find((d) => d.id === "d2")?.role).toBe("viewer");
   });
 
+  it("returns all tenant dashboards for admin role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
+    const ownedRow = {
+      id: "d1",
+      name: "My Dashboard",
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ownerId: "admin-1",
+    };
+    const otherRow = {
+      id: "d2",
+      name: "Other Dashboard",
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ownerId: "user-1",
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ id: string; role: string }>;
+    expect(body).toHaveLength(2);
+    expect(body.find((d) => d.id === "d1")?.role).toBe("owner");
+    expect(body.find((d) => d.id === "d2")?.role).toBe("admin");
+  });
+
   it("returns only assigned dashboards for reader role", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const assignedRow = { id: "d1", name: "Assigned", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };

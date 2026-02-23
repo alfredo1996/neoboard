@@ -18,14 +18,14 @@ import {
   SelectValue,
   Alert,
   AlertDescription,
+  LoadingButton,
 } from "@neoboard/components";
-import { LoadingButton } from "@neoboard/components";
 
 interface DashboardAssignPanelProps {
-  dashboardId: string;
+  readonly dashboardId: string;
 }
 
-export function DashboardAssignPanel({ dashboardId }: DashboardAssignPanelProps) {
+export function DashboardAssignPanel({ dashboardId }: Readonly<DashboardAssignPanelProps>) {
   const { data: shares, isLoading } = useDashboardShares(dashboardId);
   const assign = useAssignDashboard(dashboardId);
   const removeShare = useRemoveDashboardShare(dashboardId);
@@ -34,7 +34,7 @@ export function DashboardAssignPanel({ dashboardId }: DashboardAssignPanelProps)
   const [role, setRole] = useState<"viewer" | "editor">("viewer");
   const [error, setError] = useState<string | null>(null);
 
-  async function handleAssign(e: React.FormEvent) {
+  async function handleAssign(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     try {
