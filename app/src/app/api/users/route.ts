@@ -4,23 +4,25 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
+  role: z.enum(["admin", "creator", "reader"]).optional(),
 });
 
 export async function GET() {
   try {
-    await requireUserId();
+    await requireSession();
 
     const result = await db
       .select({
         id: users.id,
         name: users.name,
         email: users.email,
+        role: users.role,
         createdAt: users.createdAt,
       })
       .from(users);
@@ -33,7 +35,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireUserId();
+    const { role: callerRole } = await requireSession();
+
+    // Only admins may specify a role; others get the default
     const body = await request.json();
     const parsed = createUserSchema.safeParse(body);
 
@@ -44,7 +48,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password } = parsed.data;
+    const { name, email, password, role } = parsed.data;
 
     const existing = await db
       .select({ id: users.id })
@@ -63,11 +67,18 @@ export async function POST(request: Request) {
 
     const [user] = await db
       .insert(users)
-      .values({ name, email, passwordHash })
+      .values({
+        name,
+        email,
+        passwordHash,
+        // Admin may set any role; non-admin creates default creator role
+        role: callerRole === "admin" ? role : undefined,
+      })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
+        role: users.role,
         createdAt: users.createdAt,
       });
 
