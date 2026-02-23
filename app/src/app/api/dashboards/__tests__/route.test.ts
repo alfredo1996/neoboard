@@ -4,15 +4,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireUserId = vi.fn<() => Promise<string>>();
+const mockRequireSession = vi.fn<
+  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
+>();
 
 function makeSelectChain(rows: unknown[]) {
-  const c: Record<string, unknown> = {};
-  c.from = () => c;
-  c.where = () => c;
-  c.innerJoin = () => c;
-  c.limit = () => Promise.resolve(rows);
-  c.then = (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve);
+  const resolved = Promise.resolve(rows);
+  const c = Object.assign(resolved, {
+    from: () => c,
+    where: () => c,
+    innerJoin: () => c,
+    limit: () => Promise.resolve(rows),
+  });
   return c;
 }
 
@@ -29,7 +32,10 @@ const mockDb = {
   insert: vi.fn(),
 };
 
-vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
+vi.mock("@/lib/auth/session", () => ({
+  requireSession: mockRequireSession,
+  requireUserId: vi.fn(),
+}));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => ({
   NextResponse: {
@@ -57,13 +63,13 @@ describe("GET /api/dashboards", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await GET();
     expect(res.status).toBe(401);
   });
 
-  it("returns owned dashboards with role=owner", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+  it("returns owned dashboards with role=owner (creator role)", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const ownedRow = {
       id: "d1",
       name: "My Dashboard",
@@ -71,7 +77,6 @@ describe("GET /api/dashboards", () => {
       isPublic: false,
       createdAt: new Date(),
       updatedAt: new Date(),
-      role: "user-1",
     };
     // First call = owned dashboards, second = shared dashboards (empty)
     mockDb.select
@@ -85,9 +90,9 @@ describe("GET /api/dashboards", () => {
     expect(body[0].role).toBe("owner");
   });
 
-  it("merges owned and shared dashboards", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
-    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "user-1" };
+  it("merges owned and shared dashboards (creator role)", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date() };
     const sharedRow = { id: "d2", name: "Shared", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([ownedRow]))
@@ -99,6 +104,51 @@ describe("GET /api/dashboards", () => {
     expect(body).toHaveLength(2);
     expect(body.find((d) => d.id === "d1")?.role).toBe("owner");
     expect(body.find((d) => d.id === "d2")?.role).toBe("viewer");
+  });
+
+  it("returns all tenant dashboards for admin role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
+    const ownedRow = {
+      id: "d1",
+      name: "My Dashboard",
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ownerId: "admin-1",
+    };
+    const otherRow = {
+      id: "d2",
+      name: "Other Dashboard",
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ownerId: "user-1",
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ id: string; role: string }>;
+    expect(body).toHaveLength(2);
+    expect(body.find((d) => d.id === "d1")?.role).toBe("owner");
+    expect(body.find((d) => d.id === "d2")?.role).toBe("admin");
+  });
+
+  it("returns only assigned dashboards for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
+    const assignedRow = { id: "d1", name: "Assigned", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
+    // Reader: both owned and shared queries execute, but only shared is returned
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([]))          // owned query (result discarded for reader)
+      .mockReturnValueOnce(makeSelectChain([assignedRow])); // shared/assigned query
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ id: string; role: string }>;
+    expect(body).toHaveLength(1);
+    expect(body[0].id).toBe("d1");
   });
 });
 
@@ -118,19 +168,25 @@ describe("POST /api/dashboards", () => {
   }
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({ name: "DB" }));
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
+    const res = await POST(makeRequest({ name: "DB" }));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 400 when name is missing", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(400);
   });
 
   it("creates a dashboard and returns 201", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const created = { id: "d1", name: "My Dashboard", userId: "user-1", createdAt: new Date() };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 

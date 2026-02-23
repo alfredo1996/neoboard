@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireUserId = vi.fn<() => Promise<string>>();
+const mockRequireSession = vi.fn<() => Promise<{ userId: string; tenantId: string; canWrite: boolean; role: string }>>();
 
 function makeSelectChain(rows: unknown[]) {
   const c: Record<string, unknown> = {};
@@ -38,7 +38,7 @@ const mockDb = {
   delete: vi.fn(),
 };
 
-vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
+vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => ({
   NextResponse: {
@@ -62,10 +62,13 @@ function makeParams(id: string) {
   return { params: Promise.resolve({ id }) };
 }
 
+const SESSION = { userId: "user-1", tenantId: "tenant-1", canWrite: true, role: "creator" };
+
 const OWNER_DASHBOARD = {
   id: "d1",
   name: "Dashboard",
   userId: "user-1",
+  tenantId: "tenant-1",
   description: null,
   isPublic: false,
   layoutJson: null,
@@ -89,22 +92,20 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when dashboard not found", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
-    // canAccess: dashboard not found → empty
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("returns dashboard for owner", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
-    // canAccess: dashboard found, userId matches → owner
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
@@ -114,9 +115,9 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns dashboard for shared viewer", async () => {
-    mockRequireUserId.mockResolvedValue("user-2");
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
     const sharedDashboard = { ...OWNER_DASHBOARD, userId: "user-1" };
-    const share = { dashboardId: "d1", userId: "user-2", role: "viewer" };
+    const share = { dashboardId: "d1", userId: "user-2", tenantId: "tenant-1", role: "viewer" };
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
       .mockReturnValueOnce(makeSelectChain([share]));
@@ -127,11 +128,19 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns 404 when user has no access", async () => {
-    mockRequireUserId.mockResolvedValue("user-2");
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
     const otherDashboard = { ...OWNER_DASHBOARD, userId: "user-1" };
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([otherDashboard]))
       .mockReturnValueOnce(makeSelectChain([]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when dashboard belongs to different tenant", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, tenantId: "tenant-other" });
+    // canAccess filters by tenantId — no rows returned
+    mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
   });
@@ -149,21 +158,26 @@ describe("PUT /api/dashboards/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 when reader role", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "reader" });
+    const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when not owner/editor", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("updates dashboard and returns 200", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
-    // canAccess: dashboard found
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const updated = { ...OWNER_DASHBOARD, name: "New name" };
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
@@ -174,15 +188,14 @@ describe("PUT /api/dashboards/[id]", () => {
   });
 
   it("returns 400 when request body is invalid", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
-    // name must be min(1) — empty string should fail validation
     const res = await PUT(makeRequest({ name: "" }), makeParams("d1"));
     expect(res.status).toBe(400);
   });
 
   it("updates layout with v2 pages schema", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const layout = {
       version: 2,
@@ -221,24 +234,31 @@ describe("DELETE /api/dashboards/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when not owner", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("deletes dashboard and returns success", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     expect((res._body as { success: boolean }).success).toBe(true);
+  });
+
+  it("returns 404 when dashboard belongs to different tenant", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, tenantId: "tenant-other" });
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(404);
   });
 });

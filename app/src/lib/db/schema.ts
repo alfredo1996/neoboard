@@ -12,6 +12,8 @@ import type { AdapterAccountType } from "@auth/core/adapters";
 
 // ─── Auth.js tables ──────────────────────────────────────────────────
 
+export const userRoleEnum = pgEnum("user_role", ["admin", "creator", "reader"]);
+
 export const users = pgTable("user", {
   id: text("id")
     .primaryKey()
@@ -21,6 +23,7 @@ export const users = pgTable("user", {
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
   passwordHash: text("passwordHash"),
+  role: userRoleEnum("role").default("creator").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
 });
 
@@ -102,6 +105,7 @@ export const dashboards = pgTable("dashboard", {
   userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
   name: text("name").notNull(),
   description: text("description"),
   layoutJson: jsonb("layoutJson").$type<DashboardLayoutV2>().default({
@@ -125,11 +129,14 @@ export const dashboardShares = pgTable("dashboard_share", {
   userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
   role: shareRoleEnum("role").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
 });
 
 // ─── Types ───────────────────────────────────────────────────────────
+
+export type UserRole = "admin" | "creator" | "reader";
 
 /** V2 layout — the canonical format stored and used at runtime. */
 export interface DashboardPage {
