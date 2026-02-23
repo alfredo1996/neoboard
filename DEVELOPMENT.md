@@ -68,6 +68,11 @@ DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
 ENCRYPTION_KEY=<your-32-byte-hex-key>
 NEXTAUTH_SECRET=<your-32-byte-hex-key>
 NEXTAUTH_URL=http://localhost:3000
+
+# One-time token for bootstrapping the first admin account.
+# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# After the first admin is created, this token is no longer needed.
+ADMIN_BOOTSTRAP_TOKEN=<your-32-byte-hex-key>
 ```
 
 ---
@@ -89,6 +94,24 @@ npm run dev
 ```
 
 The app is available at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## First Admin Bootstrap
+
+On a fresh deployment (empty database), the `/signup` page enters **bootstrap mode**:
+
+1. `setup.sh` generates an `ADMIN_BOOTSTRAP_TOKEN` and writes it to `app/.env.local`.
+2. The token is printed prominently in the setup output.
+3. Visit `http://localhost:3000/signup` — you will see a "First Admin Setup" banner.
+4. Fill in your name, email, password, and paste the bootstrap token.
+5. Your account is created with the `admin` role.
+6. All subsequent `/signup` calls create `creator` accounts; the token is no longer required.
+
+If you ever need to find the token again, read it from `app/.env.local`:
+```bash
+grep ADMIN_BOOTSTRAP_TOKEN app/.env.local
+```
 
 ---
 

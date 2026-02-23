@@ -43,6 +43,46 @@ describe("requireUserId", () => {
   });
 });
 
+describe("requireAdmin", () => {
+  let requireAdmin: () => Promise<{ userId: string; tenantId: string }>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.doMock("../config", () => ({ auth: mockAuth }));
+    const mod = await import("../session");
+    requireAdmin = mod.requireAdmin;
+  });
+
+  it("returns userId and tenantId when caller is admin", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "admin-1", role: "admin", tenantId: "tenant-x" },
+    });
+    const result = await requireAdmin();
+    expect(result.userId).toBe("admin-1");
+    expect(result.tenantId).toBe("tenant-x");
+  });
+
+  it("throws Forbidden when caller is creator", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", role: "creator", tenantId: "t1" },
+    });
+    await expect(requireAdmin()).rejects.toThrow("Forbidden");
+  });
+
+  it("throws Forbidden when caller is reader", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-2", role: "reader", tenantId: "t1" },
+    });
+    await expect(requireAdmin()).rejects.toThrow("Forbidden");
+  });
+
+  it("throws Unauthorized when session is null", async () => {
+    mockAuth.mockResolvedValue(null);
+    await expect(requireAdmin()).rejects.toThrow("Unauthorized");
+  });
+});
+
 describe("requireSession", () => {
   let requireSession: () => Promise<{
     userId: string;

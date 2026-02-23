@@ -2,6 +2,21 @@ import { auth } from "./config";
 import type { UserRole } from "@/lib/db/schema";
 
 /**
+ * Require the current user to be an admin.
+ * Throws if not authenticated or not admin.
+ */
+export async function requireAdmin(): Promise<{
+  userId: string;
+  tenantId: string;
+}> {
+  const { userId, role, tenantId } = await requireSession();
+  if (role !== "admin") {
+    throw new Error("Forbidden");
+  }
+  return { userId, tenantId };
+}
+
+/**
  * Get the current authenticated user's session.
  * Returns null if not authenticated.
  */

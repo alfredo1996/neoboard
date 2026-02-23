@@ -4,18 +4,18 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { requireSession } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(["admin", "creator", "reader"]).optional(),
+  role: z.enum(["admin", "creator", "reader"]).optional().default("creator"),
 });
 
 export async function GET() {
   try {
-    await requireSession();
+    await requireAdmin();
 
     const result = await db
       .select({
@@ -28,16 +28,16 @@ export async function GET() {
       .from(users);
 
     return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (e) {
+    const status = e instanceof Error && e.message === "Forbidden" ? 403 : 401;
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unauthorized" }, { status });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const { role: callerRole } = await requireSession();
+    await requireAdmin();
 
-    // Only admins may specify a role; others get the default
     const body = await request.json();
     const parsed = createUserSchema.safeParse(body);
 
@@ -67,13 +67,7 @@ export async function POST(request: Request) {
 
     const [user] = await db
       .insert(users)
-      .values({
-        name,
-        email,
-        passwordHash,
-        // Admin may set any role; non-admin creates default creator role
-        role: callerRole === "admin" ? role : undefined,
-      })
+      .values({ name, email, passwordHash, role })
       .returning({
         id: users.id,
         name: users.name,
@@ -83,7 +77,8 @@ export async function POST(request: Request) {
       });
 
     return NextResponse.json(user, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (e) {
+    const status = e instanceof Error && e.message === "Forbidden" ? 403 : 401;
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unauthorized" }, { status });
   }
 }
