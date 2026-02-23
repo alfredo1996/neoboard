@@ -131,8 +131,8 @@ test.describe("Performance — large dashboard", () => {
 
     // ── 3. Navigate and measure ──────────────────────────────────────────────
     try {
-      // Attach a PerformanceObserver for long tasks before navigating.
-      // Long tasks (>50ms) on the main thread indicate rendering jank.
+      // Register the PerformanceObserver BEFORE navigating so it runs as an
+      // init script on the next page load (page.goto below).
       await page.addInitScript(() => {
         (window as Window & { __longTaskCount?: number }).__longTaskCount = 0;
         try {
@@ -142,38 +142,64 @@ test.describe("Performance — large dashboard", () => {
               list.getEntries().length;
           }).observe({ type: "longtask", buffered: true });
         } catch {
-          // longtask observer not available in this browser
+          // longtask observer not supported in this browser
         }
       });
 
-      const t0 = await page.evaluate(() => performance.now());
+      // BUG FIX 1: use Date.now() (Node.js process clock) instead of
+      // page.evaluate(performance.now).  The browser's performance.now()
+      // timeline resets to ~0 on every page navigation, so t0 captured on the
+      // list page and t1 captured on the new dashboard page would produce a
+      // large negative number (e.g. −12 039 ms).
+      const t0 = Date.now();
 
       await page.goto(`/${dashboardId}`);
 
-      // Wait for React to render and at least one loading widget to appear.
-      // This confirms the dashboard loaded and widget queries are in flight.
-      await page.waitForSelector('[data-loading="true"]', {
-        state: "attached",
-        timeout: 10_000,
-      });
+      // BUG FIX 2: wait for ALL widget-card containers to appear in the DOM
+      // before checking the loading state.  Without this gate,
+      // waitForFunction('[data-loading="true"] === 0') returns immediately
+      // (0 === 0) before React has rendered any widget — giving identical
+      // pre/post DOM counts and a falsely-closed measurement window.
+      await page.waitForFunction(
+        (count) =>
+          document.querySelectorAll('[data-testid="widget-card"]').length >=
+          count,
+        WIDGET_COUNT,
+        { timeout: 30_000 }
+      );
 
-      // ── Capture pre-resolution rendering snapshot ──────────────────────
+      // ── Capture pre-resolution snapshot (cards in DOM, queries still in flight)
       const preResolutionMetrics = await page.evaluate(() => {
-        const mem = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
+        const mem = (
+          performance as Performance & {
+            memory?: {
+              usedJSHeapSize: number;
+              totalJSHeapSize: number;
+            };
+          }
+        ).memory;
         return {
           domNodeCount: document.querySelectorAll("*").length,
-          jsHeapUsedMb: mem ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1) : null,
-          jsHeapTotalMb: mem ? +(mem.totalJSHeapSize / 1_048_576).toFixed(1) : null,
+          jsHeapUsedMb: mem
+            ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1)
+            : null,
+          jsHeapTotalMb: mem
+            ? +(mem.totalJSHeapSize / 1_048_576).toFixed(1)
+            : null,
         };
       });
 
-      // Wait until every widget loading skeleton is resolved (success or error).
+      // Wait until every widget loading skeleton has resolved (success or error).
       await page.waitForFunction(
         () => document.querySelectorAll('[data-loading="true"]').length === 0,
         { timeout: 60_000 }
       );
 
-      const t1 = await page.evaluate(() => performance.now());
+      // Brief pause for any remaining paint microtasks (e.g. ECharts canvas).
+      await page.waitForTimeout(500);
+
+      // BUG FIX 1 (continued): t1 also uses Date.now() for the same reason.
+      const t1 = Date.now();
       const ms = t1 - t0;
 
       // ── Capture post-resolution rendering snapshot ─────────────────────

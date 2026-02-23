@@ -103,7 +103,7 @@ export function DashboardContainer({
         isResizable={editable}
       >
         {page.widgets.map((widget) => (
-          <div key={widget.id}>
+          <div key={widget.id} data-testid="widget-card">
             <WidgetCard
               title={getWidgetTitle(widget)}
               subtitle={undefined}
