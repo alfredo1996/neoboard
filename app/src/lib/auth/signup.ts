@@ -48,24 +48,28 @@ export async function signup(formData: FormData): Promise<SignupResult> {
     role = "admin";
   }
 
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-
-  if (existing.length > 0) {
-    return { success: false, error: "An account with this email already exists" };
-  }
-
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await db.insert(users).values({
-    name,
-    email,
-    passwordHash,
-    role,
-  });
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
-  return { success: true };
+    if (existing.length > 0) {
+      return { success: false as const, error: "An account with this email already exists" };
+    }
+
+    // Re-check inside the transaction to close the TOCTOU window for admin bootstrap
+    if (role === "admin") {
+      const anyUser = await tx.select({ id: users.id }).from(users).limit(1);
+      if (anyUser.length > 0) {
+        return { success: false as const, error: "Admin already bootstrapped" };
+      }
+    }
+
+    await tx.insert(users).values({ name, email, passwordHash, role });
+    return { success: true as const };
+  });
 }

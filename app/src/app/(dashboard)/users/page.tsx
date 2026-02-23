@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import type { Session } from "next-auth";
 import { Users as UsersIcon, Plus } from "lucide-react";
 import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from "@/hooks/use-users";
 import type { UserListItem } from "@/hooks/use-users";
@@ -45,8 +46,8 @@ const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | 
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessionUser = session?.user as any;
+  type SessionUser = NonNullable<Session["user"]> & { id?: string; role?: UserRole; tenantId?: string };
+  const sessionUser = session?.user as SessionUser | undefined;
   const systemRole = (sessionUser?.role ?? "creator") as UserRole;
   const isAdmin = systemRole === "admin";
   const currentUserId: string | undefined = sessionUser?.id;

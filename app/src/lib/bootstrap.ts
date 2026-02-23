@@ -38,5 +38,5 @@ export async function bootstrapAdmin({
     });
 
     console.info(`[bootstrap] Created admin user: ${email}`);
-  });
+  }, { isolationLevel: "serializable" });
 }

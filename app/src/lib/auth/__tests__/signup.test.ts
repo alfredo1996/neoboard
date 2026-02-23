@@ -16,6 +16,7 @@ function makeSelectChain(rows: unknown[]) {
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
+  transaction: vi.fn(),
 };
 
 vi.mock("@/lib/db", () => ({ db: mockDb }));
@@ -29,6 +30,20 @@ function makeForm(fields: Record<string, string>): FormData {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.append(k, v);
   return fd;
+}
+
+/** Mocks db.transaction to execute the callback with a fake tx. */
+function setupTx(selectResults: unknown[][]) {
+  let callCount = 0;
+  const txInsert = vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) });
+  const txSelect = vi.fn(() => {
+    const rows = selectResults[callCount++] ?? [];
+    const c = { from: () => c, where: () => c, limit: () => Promise.resolve(rows) };
+    return c;
+  });
+  const tx = { select: txSelect, insert: txInsert };
+  mockDb.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
+  return { txInsert, txSelect };
 }
 
 // ---------------------------------------------------------------------------
@@ -108,10 +123,8 @@ describe("signup", () => {
 
   it("creates first admin when bootstrap token matches", async () => {
     process.env.ADMIN_BOOTSTRAP_TOKEN = "correct-secret";
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))   // areUsersEmpty → true
-      .mockReturnValueOnce(makeSelectChain([]));  // email not taken
-    mockDb.insert.mockReturnValue({ values: () => Promise.resolve() });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([])); // areUsersEmpty → true
+    setupTx([[], []]); // tx: email not taken, admin re-check → still empty
     const form = makeForm({ name: "Admin", email: "admin@b.com", password: "adminpass" });
     form.append("bootstrapToken", "correct-secret");
     const res = await signup(form);
@@ -120,18 +133,15 @@ describe("signup", () => {
   });
 
   it("creates creator when DB is non-empty", async () => {
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ id: "u1" }])) // areUsersEmpty → false
-      .mockReturnValueOnce(makeSelectChain([]));             // email not taken
-    mockDb.insert.mockReturnValue({ values: () => Promise.resolve() });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+    setupTx([[]]); // tx: email not taken (no admin re-check for creator)
     const res = await signup(makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass" }));
     expect(res.success).toBe(true);
   });
 
   it("returns error when email is already taken", async () => {
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ id: "u1" }])) // areUsersEmpty → false
-      .mockReturnValueOnce(makeSelectChain([{ id: "u2" }])); // email taken
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+    setupTx([[{ id: "u2" }]]); // tx: email already taken
     const res = await signup(makeForm({ name: "Bob", email: "existing@b.com", password: "bobpass" }));
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/already exists/i);

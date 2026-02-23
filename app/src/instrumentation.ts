@@ -23,6 +23,7 @@ export async function register() {
     await bootstrapAdmin({ email, password });
   } catch (err) {
     // Log but never crash the server — a missing DB at startup is recoverable
-    console.error("[bootstrap] Failed to bootstrap admin user:", err);
+    const errorKind = err instanceof Error ? err.name : "UnknownError";
+    console.error("[bootstrap] Failed to bootstrap admin user:", errorKind);
   }
 }
