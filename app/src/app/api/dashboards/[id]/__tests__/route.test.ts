@@ -112,6 +112,29 @@ describe("GET /api/dashboards/[id]", () => {
     expect(body.id).toBe("d1");
     expect(body.role).toBe("owner");
   });
+
+  it("returns dashboard for shared viewer", async () => {
+    mockRequireUserId.mockResolvedValue("user-2");
+    const sharedDashboard = { ...OWNER_DASHBOARD, userId: "user-1" };
+    const share = { dashboardId: "d1", userId: "user-2", role: "viewer" };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
+      .mockReturnValueOnce(makeSelectChain([share]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { id: string; role: string };
+    expect(body.role).toBe("viewer");
+  });
+
+  it("returns 404 when user has no access", async () => {
+    mockRequireUserId.mockResolvedValue("user-2");
+    const otherDashboard = { ...OWNER_DASHBOARD, userId: "user-1" };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([otherDashboard]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("PUT /api/dashboards/[id]", () => {
@@ -148,6 +171,41 @@ describe("PUT /api/dashboards/[id]", () => {
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(200);
     expect((res._body as { name: string }).name).toBe("New name");
+  });
+
+  it("returns 400 when request body is invalid", async () => {
+    mockRequireUserId.mockResolvedValue("user-1");
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // name must be min(1) — empty string should fail validation
+    const res = await PUT(makeRequest({ name: "" }), makeParams("d1"));
+    expect(res.status).toBe(400);
+  });
+
+  it("updates layout with v2 pages schema", async () => {
+    mockRequireUserId.mockResolvedValue("user-1");
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const layout = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [
+            {
+              id: "w1",
+              chartType: "bar",
+              connectionId: "c1",
+              query: "MATCH (n) RETURN n",
+            },
+          ],
+          gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+        },
+      ],
+    };
+    const updated = { ...OWNER_DASHBOARD, layoutJson: layout };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const res = await PUT(makeRequest({ layoutJson: layout }), makeParams("d1"));
+    expect(res.status).toBe(200);
   });
 });
 
