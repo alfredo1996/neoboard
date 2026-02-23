@@ -81,7 +81,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await requireSession();
+    const { userId, role } = await requireSession();
+
+    if (role === "reader") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = createDashboardSchema.safeParse(body);
 

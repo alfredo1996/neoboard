@@ -7,12 +7,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireSession = vi.fn<() => Promise<{ userId: string; role: string }>>();
 
 function makeSelectChain(rows: unknown[]) {
-  const c: Record<string, unknown> = {};
-  c.from = () => c;
-  c.where = () => c;
-  c.innerJoin = () => c;
-  c.limit = () => Promise.resolve(rows);
-  c.then = (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve);
+  const resolved = Promise.resolve(rows);
+  const c = Object.assign(resolved, {
+    from: () => c,
+    where: () => c,
+    innerJoin: () => c,
+    limit: () => Promise.resolve(rows),
+  });
   return c;
 }
 
@@ -138,6 +139,12 @@ describe("POST /api/dashboards", () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({ name: "DB" }));
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader" });
+    const res = await POST(makeRequest({ name: "DB" }));
+    expect(res.status).toBe(403);
   });
 
   it("returns 400 when name is missing", async () => {
