@@ -5,13 +5,37 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 
+const gridLayoutItemSchema = z.object({
+  i: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+});
+
+const widgetSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  title: z.string(),
+  connectionId: z.string().nullable().optional(),
+  query: z.string().nullable().optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+const pageSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1),
+  widgets: z.array(widgetSchema),
+  gridLayout: z.array(gridLayoutItemSchema),
+});
+
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   layoutJson: z
     .object({
       version: z.literal(2),
-      pages: z.array(z.any()),
+      pages: z.array(pageSchema).min(1),
     })
     .optional(),
   isPublic: z.boolean().optional(),
