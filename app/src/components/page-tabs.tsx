@@ -57,7 +57,7 @@ export function PageTabs({
   return (
     <div className="flex items-center gap-1 px-4 border-b bg-background overflow-x-auto">
       {pages.map((page, index) => (
-        <div key={page.id} className="flex items-center shrink-0">
+        <div key={page.id} className="group flex items-center shrink-0">
           {renamingIndex === index ? (
             <Input
               ref={inputRef}
