@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 
 const createDashboardSchema = z.object({
   name: z.string().min(1),
@@ -12,9 +12,32 @@ const createDashboardSchema = z.object({
 
 export async function GET() {
   try {
-    const userId = await requireUserId();
+    const { userId, role, tenantId } = await requireSession();
 
-    // Get owned dashboards
+    if (role === "admin") {
+      // Admin sees every dashboard in the tenant
+      const all = await db
+        .select({
+          id: dashboards.id,
+          name: dashboards.name,
+          description: dashboards.description,
+          isPublic: dashboards.isPublic,
+          createdAt: dashboards.createdAt,
+          updatedAt: dashboards.updatedAt,
+          ownerId: dashboards.userId,
+        })
+        .from(dashboards)
+        .where(eq(dashboards.tenantId, tenantId));
+
+      return NextResponse.json(
+        all.map((d) => ({
+          ...d,
+          role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
+        }))
+      );
+    }
+
+    // Creator & Reader: owned dashboards + explicitly assigned/shared
     const owned = await db
       .select({
         id: dashboards.id,
@@ -23,12 +46,10 @@ export async function GET() {
         isPublic: dashboards.isPublic,
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
-        role: dashboards.userId, // placeholder, mapped below
       })
       .from(dashboards)
-      .where(eq(dashboards.userId, userId));
+      .where(and(eq(dashboards.userId, userId), eq(dashboards.tenantId, tenantId)));
 
-    // Get shared dashboards
     const shared = await db
       .select({
         id: dashboards.id,
@@ -41,12 +62,22 @@ export async function GET() {
       })
       .from(dashboardShares)
       .innerJoin(dashboards, eq(dashboardShares.dashboardId, dashboards.id))
-      .where(eq(dashboardShares.userId, userId));
+      .where(
+        and(
+          eq(dashboardShares.userId, userId),
+          eq(dashboards.tenantId, tenantId)
+        )
+      );
 
-    const result = [
-      ...owned.map((d) => ({ ...d, role: "owner" as const })),
-      ...shared,
-    ];
+    // For Readers: only show explicitly assigned dashboards (not owned, since
+    // Readers cannot create dashboards). For Creators: show owned + shared.
+    const result =
+      role === "reader"
+        ? shared
+        : [
+            ...owned.map((d) => ({ ...d, role: "owner" as const })),
+            ...shared,
+          ];
 
     return NextResponse.json(result);
   } catch {
@@ -56,7 +87,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const userId = await requireUserId();
+    const { userId, canWrite, tenantId } = await requireSession();
+
+    if (!canWrite) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = createDashboardSchema.safeParse(body);
 
@@ -71,6 +107,7 @@ export async function POST(request: Request) {
       .insert(dashboards)
       .values({
         userId,
+        tenantId,
         name: parsed.data.name,
         description: parsed.data.description,
       })

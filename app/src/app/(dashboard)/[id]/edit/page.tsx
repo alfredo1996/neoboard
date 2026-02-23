@@ -2,7 +2,8 @@
 
 import { use, useEffect, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Save, LayoutDashboard } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { ArrowLeft, Plus, Save, LayoutDashboard, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
@@ -10,6 +11,7 @@ import { useDashboardStore } from "@/stores/dashboard-store";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
+import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { migrateLayout } from "@/lib/migrate-layout";
 import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
 import {
@@ -17,6 +19,11 @@ import {
   Skeleton,
   Alert,
   AlertDescription,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -34,6 +41,10 @@ export default function DashboardEditorPage({
   const { id } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isAdmin = (session?.user as any)?.role === "admin";
+
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
@@ -148,6 +159,27 @@ export default function DashboardEditorPage({
           <h1 className="text-lg font-bold">Editing: {dashboard.name}</h1>
         </ToolbarSection>
         <ToolbarSection>
+          {isAdmin && (
+            <>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Users className="mr-2 h-4 w-4" />
+                    Assignments
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>User Assignments</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4">
+                    <DashboardAssignPanel dashboardId={id} />
+                  </div>
+                </SheetContent>
+              </Sheet>
+              <ToolbarSeparator />
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={openAddWidget}>
             <Plus className="mr-2 h-4 w-4" />
             Add Widget
