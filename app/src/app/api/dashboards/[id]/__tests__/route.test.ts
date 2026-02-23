@@ -9,13 +9,13 @@ const mockRequireSession = vi.fn<
 >();
 
 function makeSelectChain(rows: unknown[]) {
-  const c: Record<string, unknown> = {};
-  c.from = () => c;
-  c.where = () => c;
-  c.innerJoin = () => c;
-  c.limit = () => Promise.resolve(rows);
-  c.then = (resolve: (v: unknown[]) => unknown) =>
-    Promise.resolve(rows).then(resolve);
+  const resolved = Promise.resolve(rows);
+  const c = Object.assign(resolved, {
+    from: () => c,
+    where: () => c,
+    innerJoin: () => c,
+    limit: () => Promise.resolve(rows),
+  });
   return c;
 }
 
