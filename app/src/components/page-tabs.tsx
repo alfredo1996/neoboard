@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { DashboardPage } from "@/lib/db/schema";
 import {
