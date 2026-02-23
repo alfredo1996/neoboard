@@ -105,6 +105,7 @@ export const dashboards = pgTable("dashboard", {
   userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
   name: text("name").notNull(),
   description: text("description"),
   layoutJson: jsonb("layoutJson").$type<DashboardLayout>().default({
@@ -128,6 +129,7 @@ export const dashboardShares = pgTable("dashboard_share", {
   userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
   role: shareRoleEnum("role").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
 });

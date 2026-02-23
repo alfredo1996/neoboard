@@ -12,18 +12,19 @@ const shareSchema = z.object({
 
 /**
  * Verify the caller has permission to manage shares for this dashboard.
- * Admin can manage any dashboard; others must own it.
+ * Admin can manage any dashboard in the tenant; others must own it.
  */
 async function requireShareAccess(
   dashboardId: string,
   userId: string,
-  isAdmin: boolean
+  isAdmin: boolean,
+  tenantId: string
 ) {
   if (isAdmin) {
     const [dashboard] = await db
       .select()
       .from(dashboards)
-      .where(eq(dashboards.id, dashboardId))
+      .where(and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)))
       .limit(1);
     return dashboard ?? null;
   }
@@ -31,7 +32,13 @@ async function requireShareAccess(
   const [dashboard] = await db
     .select()
     .from(dashboards)
-    .where(and(eq(dashboards.id, dashboardId), eq(dashboards.userId, userId)))
+    .where(
+      and(
+        eq(dashboards.id, dashboardId),
+        eq(dashboards.userId, userId),
+        eq(dashboards.tenantId, tenantId)
+      )
+    )
     .limit(1);
 
   return dashboard ?? null;
@@ -42,10 +49,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
 
-    const dashboard = await requireShareAccess(id, userId, role === "admin");
+    const dashboard = await requireShareAccess(id, userId, role === "admin", tenantId);
     if (!dashboard) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -73,10 +80,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
 
-    const dashboard = await requireShareAccess(id, userId, role === "admin");
+    const dashboard = await requireShareAccess(id, userId, role === "admin", tenantId);
     if (!dashboard) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -130,6 +137,7 @@ export async function POST(
       await db.insert(dashboardShares).values({
         dashboardId: id,
         userId: targetUser.id,
+        tenantId,
         role: parsed.data.role,
       });
     }
@@ -145,10 +153,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
 
-    const dashboard = await requireShareAccess(id, userId, role === "admin");
+    const dashboard = await requireShareAccess(id, userId, role === "admin", tenantId);
     if (!dashboard) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

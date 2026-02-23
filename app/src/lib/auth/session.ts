@@ -28,6 +28,8 @@ export async function requireUserId(): Promise<string> {
 export async function requireSession(): Promise<{
   userId: string;
   role: UserRole;
+  canWrite: boolean;
+  tenantId: string;
 }> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -35,5 +37,10 @@ export async function requireSession(): Promise<{
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const role = ((session.user as any).role as UserRole) ?? "creator";
-  return { userId: session.user.id, role };
+  return {
+    userId: session.user.id,
+    role,
+    canWrite: role !== "reader",
+    tenantId: process.env.TENANT_ID ?? "default",
+  };
 }

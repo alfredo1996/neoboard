@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession = vi.fn<() => Promise<{ userId: string; role: string }>>();
+const mockRequireSession = vi.fn<
+  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
+>();
 
 function makeSelectChain(rows: unknown[]) {
   const resolved = Promise.resolve(rows);
@@ -67,7 +69,7 @@ describe("GET /api/dashboards", () => {
   });
 
   it("returns owned dashboards with role=owner (creator role)", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const ownedRow = {
       id: "d1",
       name: "My Dashboard",
@@ -89,7 +91,7 @@ describe("GET /api/dashboards", () => {
   });
 
   it("merges owned and shared dashboards (creator role)", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const ownedRow = { id: "d1", name: "Own", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date() };
     const sharedRow = { id: "d2", name: "Shared", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
     mockDb.select
@@ -105,7 +107,7 @@ describe("GET /api/dashboards", () => {
   });
 
   it("returns only assigned dashboards for reader role", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader" });
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const assignedRow = { id: "d1", name: "Assigned", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
     // Reader: only shared query is used
     mockDb.select
@@ -142,19 +144,19 @@ describe("POST /api/dashboards", () => {
   });
 
   it("returns 403 for reader role", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader" });
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const res = await POST(makeRequest({ name: "DB" }));
     expect(res.status).toBe(403);
   });
 
   it("returns 400 when name is missing", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(400);
   });
 
   it("creates a dashboard and returns 201", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const created = { id: "d1", name: "My Dashboard", userId: "user-1", createdAt: new Date() };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 

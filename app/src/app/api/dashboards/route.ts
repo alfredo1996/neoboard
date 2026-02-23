@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -12,10 +12,10 @@ const createDashboardSchema = z.object({
 
 export async function GET() {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, role, tenantId } = await requireSession();
 
     if (role === "admin") {
-      // Admin sees every dashboard
+      // Admin sees every dashboard in the tenant
       const all = await db
         .select({
           id: dashboards.id,
@@ -26,7 +26,8 @@ export async function GET() {
           updatedAt: dashboards.updatedAt,
           ownerId: dashboards.userId,
         })
-        .from(dashboards);
+        .from(dashboards)
+        .where(eq(dashboards.tenantId, tenantId));
 
       return NextResponse.json(
         all.map((d) => ({
@@ -47,7 +48,7 @@ export async function GET() {
         updatedAt: dashboards.updatedAt,
       })
       .from(dashboards)
-      .where(eq(dashboards.userId, userId));
+      .where(and(eq(dashboards.userId, userId), eq(dashboards.tenantId, tenantId)));
 
     const shared = await db
       .select({
@@ -61,7 +62,12 @@ export async function GET() {
       })
       .from(dashboardShares)
       .innerJoin(dashboards, eq(dashboardShares.dashboardId, dashboards.id))
-      .where(eq(dashboardShares.userId, userId));
+      .where(
+        and(
+          eq(dashboardShares.userId, userId),
+          eq(dashboards.tenantId, tenantId)
+        )
+      );
 
     // For Readers: only show explicitly assigned dashboards (not owned, since
     // Readers cannot create dashboards). For Creators: show owned + shared.
@@ -81,9 +87,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, canWrite, tenantId } = await requireSession();
 
-    if (role === "reader") {
+    if (!canWrite) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -101,6 +107,7 @@ export async function POST(request: Request) {
       .insert(dashboards)
       .values({
         userId,
+        tenantId,
         name: parsed.data.name,
         description: parsed.data.description,
       })

@@ -15,6 +15,13 @@
       "when": 1771200000000,
       "tag": "0001_user_role",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771286400000,
+      "tag": "0002_tenant_id",
+      "breakpoints": true
     }
   ]
 }
