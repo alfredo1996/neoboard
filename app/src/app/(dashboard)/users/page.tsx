@@ -45,7 +45,7 @@ export default function UsersPage() {
   const systemRole = ((session?.user as any)?.role ?? "creator") as UserRole;
   const isAdmin = systemRole === "admin";
 
-  const { data: users, isLoading } = useUsers();
+  const { data: users, isLoading, error } = useUsers();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
@@ -242,7 +242,13 @@ export default function UsersPage() {
 
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading users...">
-          {!users?.length ? (
+          {error instanceof Error && error.message === "Forbidden" ? (
+            <EmptyState
+              icon={<UsersIcon className="h-12 w-12" />}
+              title="Admin access required"
+              description="Only administrators can manage users."
+            />
+          ) : !users?.length ? (
             <EmptyState
               icon={<UsersIcon className="h-12 w-12" />}
               title="No users found"

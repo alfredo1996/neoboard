@@ -16,6 +16,11 @@ export type SignupResult =
   | { success: true }
   | { success: false; error: string };
 
+export async function areUsersEmpty(): Promise<boolean> {
+  const result = await db.select({ id: users.id }).from(users).limit(1);
+  return result.length === 0;
+}
+
 export async function signup(formData: FormData): Promise<SignupResult> {
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
@@ -28,6 +33,20 @@ export async function signup(formData: FormData): Promise<SignupResult> {
   }
 
   const { name, email, password } = parsed.data;
+
+  const isEmpty = await areUsersEmpty();
+  let role: "admin" | "creator" = "creator";
+
+  if (isEmpty) {
+    const token = formData.get("bootstrapToken") as string | null;
+    if (!token || token !== process.env.ADMIN_BOOTSTRAP_TOKEN) {
+      return {
+        success: false,
+        error: "Bootstrap token required to create the first admin account.",
+      };
+    }
+    role = "admin";
+  }
 
   const existing = await db
     .select({ id: users.id })
@@ -45,6 +64,7 @@ export async function signup(formData: FormData): Promise<SignupResult> {
     name,
     email,
     passwordHash,
+    role,
   });
 
   return { success: true };
