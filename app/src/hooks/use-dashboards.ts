@@ -115,6 +115,23 @@ export function useDeleteDashboard() {
   });
 }
 
+export function useDuplicateDashboard() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/dashboards/${id}/duplicate`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to duplicate dashboard");
+      return res.json() as Promise<DashboardDetail>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+  });
+}
+
 // ── Assignment / sharing hooks ────────────────────────────────────────
 
 export function useDashboardShares(dashboardId: string) {

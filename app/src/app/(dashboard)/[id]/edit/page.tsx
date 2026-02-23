@@ -43,7 +43,9 @@ export default function DashboardEditorPage({
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isAdmin = (session?.user as any)?.role === "admin";
+  const sessionUser = session?.user as any;
+  const systemRole = sessionUser?.role ?? "creator";
+  const isAdmin = systemRole === "admin";
 
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
@@ -64,6 +66,13 @@ export default function DashboardEditorPage({
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Redirect Readers away from edit mode
+  useEffect(() => {
+    if (systemRole === "reader") {
+      router.replace(`/${id}`);
+    }
+  }, [systemRole, id, router]);
 
   // Load dashboard layout into store (migrates v1 → v2 if needed)
   useEffect(() => {

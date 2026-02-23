@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import type { UserRole } from "@/lib/db/schema";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -41,12 +42,18 @@ const updateDashboardSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
+type DashboardAccessRole = "owner" | "editor" | "viewer" | "admin";
+
 async function canAccess(
   dashboardId: string,
   userId: string,
   tenantId: string,
+  userRole: UserRole,
   requiredRole: "viewer" | "editor" | "owner"
-) {
+): Promise<{
+  dashboard: typeof dashboards.$inferSelect;
+  role: DashboardAccessRole;
+} | null> {
   const [dashboard] = await db
     .select()
     .from(dashboards)
@@ -55,7 +62,10 @@ async function canAccess(
 
   if (!dashboard) return null;
 
-  if (dashboard.userId === userId) return { dashboard, role: "owner" as const };
+  // Admins bypass per-dashboard ACL
+  if (userRole === "admin") return { dashboard, role: "admin" };
+
+  if (dashboard.userId === userId) return { dashboard, role: "owner" };
 
   const [share] = await db
     .select()
@@ -82,10 +92,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, role: userRole } = await requireSession();
     const { id } = await params;
 
-    const access = await canAccess(id, userId, tenantId, "viewer");
+    const access = await canAccess(id, userId, tenantId, userRole, "viewer");
     if (!access) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -101,14 +111,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId, canWrite } = await requireSession();
+    const { userId, tenantId, role: userRole } = await requireSession();
     const { id } = await params;
 
-    if (!canWrite) {
+    if (userRole === "reader") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const access = await canAccess(id, userId, tenantId, "editor");
+    const access = await canAccess(id, userId, tenantId, userRole, "editor");
     if (!access) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -140,12 +150,29 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, role: userRole } = await requireSession();
     const { id } = await params;
 
-    const access = await canAccess(id, userId, tenantId, "owner");
-    if (!access) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (userRole === "reader") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Admin can delete any dashboard in the tenant; Creator only their own
+    if (userRole === "admin") {
+      const [dashboard] = await db
+        .select({ id: dashboards.id })
+        .from(dashboards)
+        .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
+        .limit(1);
+
+      if (!dashboard) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    } else {
+      const access = await canAccess(id, userId, tenantId, userRole, "owner");
+      if (!access) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
     }
 
     await db
