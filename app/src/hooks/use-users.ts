@@ -23,6 +23,7 @@ export function useUsers() {
     queryKey: ["users"],
     queryFn: async () => {
       const res = await fetch("/api/users");
+      if (res.status === 403) throw new Error("Forbidden");
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
