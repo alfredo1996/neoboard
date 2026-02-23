@@ -1,8 +1,11 @@
-# SonarQube & Code Coverage
+# SonarCloud & Code Coverage
 
-Local SonarQube for code quality, coverage analysis, and issues tracking.
+SonarCloud (cloud) for code quality, coverage, and issues on PRs and main.
+Local SonarQube (Docker) for offline analysis during development.
 CodeRabbit for automated AI code review on PRs.
 Codecov for coverage trend tracking on GitHub.
+
+**SonarCloud dashboard:** https://sonarcloud.io/project/overview?id=alfredo1996_neoboard
 
 ---
 
@@ -93,30 +96,51 @@ After the first successful scan the project auto-populates in the UI.
 Located at **repo root** (`sonar-project.properties`). Key settings:
 
 ```properties
+sonar.projectKey=alfredo1996_neoboard
+sonar.organization=alfredo1996
 sonar.sources=app/src,component/src,connection/src
 sonar.javascript.lcov.reportPaths=app/coverage/lcov.info,component/coverage/lcov.info,connection/coverage/lcov.info
 sonar.exclusions=**/node_modules/**,**/__tests__/**,**/*.test.ts,...
 ```
 
+> Note: the local Docker SonarQube uses `projectKey=neoboard` (created manually). The cloud project uses `alfredo1996_neoboard`. Both read the same `sonar-project.properties` but the local scanner overrides `projectKey` via `-D` flag if needed.
+
 ---
 
-## SonarQube CI (GitHub Actions)
+## SonarCloud CI (GitHub Actions)
 
 Workflow: `.github/workflows/sonarqube.yml`
+SonarCloud project: **alfredo1996_neoboard** / org: **alfredo1996**
 
 Triggers on push to `main` and all PRs. Steps:
-1. Checks out with `fetch-depth: 0` (needed for blame info)
-2. Runs `test:coverage` for all three packages (serially)
-3. Runs `sonarqube-scan-action@v4`
+1. Checks out with `fetch-depth: 0` (needed for new code detection and blame)
+2. Starts Postgres + Neo4j service containers for connection integration tests
+3. Runs `test:coverage` for all three packages (serially)
+4. Runs `SonarSource/sonarcloud-github-action@v3`
 
-### Required GitHub secrets
+`GITHUB_TOKEN` is automatic — PR decoration (inline issues, Quality Gate badge) works out of the box.
 
-| Secret | Value |
+### Required GitHub secret
+
+| Secret | How to get it |
 |---|---|
-| `SONAR_HOST_URL` | Your SonarQube server URL (e.g. `https://sonarqube.example.com`) |
-| `SONAR_TOKEN` | Token from SonarQube → My Account → Security |
+| `SONAR_TOKEN` | SonarCloud → My Account → Security → Generate Token |
 
-For self-hosted SonarQube the server must be reachable from GitHub Actions runners.
+Add it at: `https://github.com/alfredo1996/neoboard/settings/secrets/actions`
+
+### Local scanner against SonarCloud
+
+```bash
+# Generate coverage first (see above), then:
+TOKEN="your-sonarcloud-token"
+
+docker run --rm \
+  --network host \
+  -v "$(pwd):/usr/src" \
+  sonarsource/sonar-scanner-cli:latest \
+  -Dsonar.host.url=https://sonarcloud.io \
+  -Dsonar.token="$TOKEN"
+```
 
 ---
 
