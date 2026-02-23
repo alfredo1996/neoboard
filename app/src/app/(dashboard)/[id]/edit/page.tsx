@@ -8,7 +8,9 @@ import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { DashboardContainer } from "@/components/dashboard-container";
+import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
+import { migrateLayout } from "@/lib/migrate-layout";
 import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
 import {
   Button,
@@ -35,20 +37,31 @@ export default function DashboardEditorPage({
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
-  const { layout, setLayout, addWidget, removeWidget, updateWidget, updateGridLayout } =
-    useDashboardStore();
+  const layout = useDashboardStore((s) => s.layout);
+  const activePageIndex = useDashboardStore((s) => s.activePageIndex);
+  const setLayout = useDashboardStore((s) => s.setLayout);
+  const setActivePage = useDashboardStore((s) => s.setActivePage);
+  const addPage = useDashboardStore((s) => s.addPage);
+  const removePage = useDashboardStore((s) => s.removePage);
+  const renamePage = useDashboardStore((s) => s.renamePage);
+  const addWidget = useDashboardStore((s) => s.addWidget);
+  const removeWidget = useDashboardStore((s) => s.removeWidget);
+  const updateWidget = useDashboardStore((s) => s.updateWidget);
+  const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Load dashboard layout into store
+  // Load dashboard layout into store (migrates v1 → v2 if needed)
   useEffect(() => {
     if (dashboard?.layoutJson) {
-      setLayout(dashboard.layoutJson);
+      setLayout(migrateLayout(dashboard.layoutJson));
     }
   }, [dashboard, setLayout]);
+
+  const activePage = layout.pages[activePageIndex] ?? layout.pages[0];
 
   const handleSave = useCallback(async () => {
     setSaveError(null);
@@ -77,7 +90,7 @@ export default function DashboardEditorPage({
     if (editorMode === "add") {
       const gridItem: GridLayoutItem = {
         i: widget.id,
-        x: (layout.gridLayout.length * 4) % 12,
+        x: (activePage.gridLayout.length * 4) % 12,
         y: Infinity,
         w: 4,
         h: 3,
@@ -86,8 +99,6 @@ export default function DashboardEditorPage({
     } else {
       updateWidget(widget.id, widget);
     }
-    // Invalidate the cached query result so the card re-fetches with the
-    // latest query text and connection after every save (add or edit).
     queryClient.invalidateQueries({
       queryKey: ["widget-query", widget.connectionId, widget.query],
     });
@@ -134,16 +145,10 @@ export default function DashboardEditorPage({
           </Button>
         </ToolbarSection>
         <ToolbarSection className="flex-1">
-          <h1 className="text-lg font-bold">
-            Editing: {dashboard.name}
-          </h1>
+          <h1 className="text-lg font-bold">Editing: {dashboard.name}</h1>
         </ToolbarSection>
         <ToolbarSection>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openAddWidget}
-          >
+          <Button variant="outline" size="sm" onClick={openAddWidget}>
             <Plus className="mr-2 h-4 w-4" />
             Add Widget
           </Button>
@@ -168,6 +173,16 @@ export default function DashboardEditorPage({
         </div>
       )}
 
+      <PageTabs
+        pages={layout.pages}
+        activeIndex={activePageIndex}
+        editable
+        onSelect={setActivePage}
+        onAdd={addPage}
+        onRemove={removePage}
+        onRename={renamePage}
+      />
+
       <WidgetEditorModal
         open={editorOpen}
         onOpenChange={setEditorOpen}
@@ -177,28 +192,42 @@ export default function DashboardEditorPage({
         onSave={handleEditorSave}
       />
 
-      <div className="flex-1 p-6">
-        {layout.widgets.length === 0 ? (
-          <EmptyState
-            icon={<LayoutDashboard className="h-12 w-12" />}
-            title="No widgets yet"
-            description='Click "Add Widget" to get started.'
-            action={
-              <Button onClick={openAddWidget}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Widget
-              </Button>
-            }
-          />
-        ) : (
-          <DashboardContainer
-            layout={layout}
-            editable
-            onRemoveWidget={removeWidget}
-            onEditWidget={openEditWidget}
-            onLayoutChange={updateGridLayout}
-          />
-        )}
+      <div className="flex-1 p-6 relative">
+        {layout.pages.map((page, index) => {
+          const isActive = index === activePageIndex;
+          if (page.widgets.length === 0 && isActive) {
+            return (
+              <EmptyState
+                key={page.id}
+                icon={<LayoutDashboard className="h-12 w-12" />}
+                title="No widgets yet"
+                description='Click "Add Widget" to get started.'
+                action={
+                  <Button onClick={openAddWidget}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Widget
+                  </Button>
+                }
+              />
+            );
+          }
+          if (page.widgets.length === 0) return null;
+          return (
+            <div
+              key={page.id}
+              className={isActive ? undefined : "hidden"}
+              aria-hidden={!isActive}
+            >
+              <DashboardContainer
+                page={page}
+                editable
+                onRemoveWidget={removeWidget}
+                onEditWidget={openEditWidget}
+                onLayoutChange={isActive ? updateGridLayout : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

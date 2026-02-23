@@ -20,7 +20,6 @@ import {
   LineChart,
   PieChart,
   SingleValueChart,
-  GraphChart,
   JsonViewer,
   DataGrid,
   Select,
@@ -30,6 +29,12 @@ import {
   SelectValue,
   Label,
 } from "@neoboard/components";
+
+// Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
+const GraphChart = dynamic(
+  () => import("@neoboard/components").then((mod) => ({ default: mod.GraphChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
 import { GraphExplorationWrapper } from "./graph-exploration-wrapper";
 
 // Dynamically import MapChart to avoid SSR issues with Leaflet
