@@ -16,13 +16,15 @@ Before editing any file, check which package it belongs to and respect its bound
 
 ## Commands
 
+All commands run from `app/` unless noted.
+
 ```bash
 npm run dev          # Dev server
-npm run build        # Production build (also type-checks)
-npm run test         # Vitest
-npm run test:e2e     # Playwright
-npm run lint         # Check
-npm run lint:fix     # Auto-fix
+npm run build        # Production build + type-check
+cd app && npm test   # Vitest unit tests (fast, no containers)
+npm run test:e2e     # Playwright E2E (requires Docker)
+npm run lint         # ESLint — run from repo root
+cd app && npx next lint --fix  # Auto-fix lint errors in app/
 npm run storybook    # Component library viewer
 npm run db:migrate   # Drizzle migrations
 npm run db:generate  # Generate migration from schema
@@ -31,14 +33,16 @@ docker compose up    # Start Neo4j + PostgreSQL dev containers
 
 ## Working Rules
 
-- Run `npm run lint:fix` after every change.
+- Run `cd app && npx next lint --fix` after every change.
 - Run `npm run build` before committing to catch type errors.
 - New behavior = new tests. No exceptions.
+- Always check if you need to write tests for the code you're working on.
 - Use Conventional Commits: `type(scope): description`.
 - Branch naming: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `security/`.
 - PRs need labels: type + package + area. See `/github` skill.
 - TypeScript strict. No `any` without a comment explaining why.
 - Use `npm`, not `pnpm` or `yarn`.
+- Always run the tests of the related code you're writing before pushing to GitHub.
 
 ## Query Safety — DO NOT VIOLATE
 
@@ -87,5 +91,10 @@ Test version-skip paths. `--skip-migrations` flag exists for emergency debugging
 
 ## Git strategy
 
-Always branch from main, keep branch separated, don't push if the tests are failing. 
-After finishing with a branch, create the right PR, adding the right milestone and labels.
+There is no `dev` branch — branch directly from `main`. Keep branches separated; do not push if tests are failing.
+
+Branch naming: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
+
+For a release: create `release/vX.Y.Z` from `main`, then open a PR into it from the feature branches.
+
+After finishing a branch: create a PR, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.

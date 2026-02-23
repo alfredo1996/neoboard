@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)", "Bash(npx *)", "Bash(gh *)", "Bash(git *)",
+      "Bash(node *)", "Bash(cat *)", "Bash(ls *)", "Bash(find *)",
+      "Bash(grep *)", "Bash(head *)", "Bash(tail *)", "Bash(wc *)",
+      "Bash(echo *)", "Bash(mkdir *)", "Bash(cp *)", "Bash(mv *)",
+      "Bash(docker compose *)",
+      "Read(*)", "Edit(*)", "Write(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)", "Bash(rm -rf ~)",
+      "Edit(.env*)", "Write(.env*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$(git branch --show-current)\" != \"main\" ] || { echo 'Cannot edit on main. Create a feature branch first.' >&2; exit 2; }",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE_PATH=$(echo \"$CLAUDE_FILE_PATHS\" | head -1); if echo \"$FILE_PATH\" | grep -qE '\\.(ts|tsx)$'; then npx prettier --write \"$FILE_PATH\" 2>/dev/null; fi",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
