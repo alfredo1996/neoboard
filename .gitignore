@@ -26,7 +26,10 @@ out
 *.njsproj
 *.sln
 *.sw?
-.claude
+.claude/projects
+.claude/todos
+.claude/settings.local.json
+.claude/worktrees
 *storybook.log
 storybook-static
 
@@ -39,3 +42,7 @@ storybook-static
 playwright-report/
 test-results/
 app/e2e/.containers-state.json
+
+# Coverage reports (generated — never commit)
+coverage/
+*.lcov
