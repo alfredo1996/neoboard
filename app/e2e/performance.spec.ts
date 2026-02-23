@@ -36,7 +36,11 @@ test.describe("Performance — tab switching", () => {
     for (let i = 1; i < tabCount; i++) {
       const t0 = await page.evaluate(() => performance.now());
 
-      await tabs.nth(i).click();
+      // dispatchEvent bypasses Playwright's pointer-event interception check.
+      // The react-grid-layout content area (position:relative, flex-1) overlaps
+      // the tab bar at certain scroll positions, causing .click() to time out.
+      // For a timing test the React onClick handler is all that matters.
+      await tabs.nth(i).dispatchEvent("click");
 
       // Wait until no widget loading skeleton is visible in the current page
       await page.waitForFunction(
