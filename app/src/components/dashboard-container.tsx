@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
-import type { DashboardLayout, DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
+import type {
+  DashboardPage,
+  DashboardWidget,
+  GridLayoutItem,
+} from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
 import { LayoutDashboard, Maximize2 } from "lucide-react";
 import {
@@ -18,7 +22,8 @@ import {
 } from "@neoboard/components";
 
 interface DashboardContainerProps {
-  layout: DashboardLayout;
+  /** The active page to render. */
+  page: DashboardPage;
   editable?: boolean;
   onRemoveWidget?: (widgetId: string) => void;
   onEditWidget?: (widget: DashboardWidget) => void;
@@ -33,20 +38,21 @@ function getWidgetTitle(widget: DashboardWidget): string {
 }
 
 export function DashboardContainer({
-  layout,
+  page,
   editable = false,
   onRemoveWidget,
   onEditWidget,
   onLayoutChange,
 }: DashboardContainerProps) {
-  const [fullscreenWidget, setFullscreenWidget] = useState<DashboardWidget | null>(null);
+  const [fullscreenWidget, setFullscreenWidget] =
+    useState<DashboardWidget | null>(null);
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
   const paramEntries = Object.entries(parameters);
   const hasParameters = paramEntries.length > 0;
 
-  if (layout.widgets.length === 0) {
+  if (page.widgets.length === 0) {
     return (
       <EmptyState
         icon={<LayoutDashboard className="h-12 w-12" />}
@@ -91,12 +97,12 @@ export function DashboardContainer({
         </ParameterBar>
       )}
       <DashboardGrid
-        layout={layout.gridLayout as GridLayoutItem[]}
+        layout={page.gridLayout as GridLayoutItem[]}
         onLayoutChange={(items) => onLayoutChange?.(items as GridLayoutItem[])}
         isDraggable={editable}
         isResizable={editable}
       >
-        {layout.widgets.map((widget) => (
+        {page.widgets.map((widget) => (
           <div key={widget.id}>
             <WidgetCard
               title={getWidgetTitle(widget)}
@@ -124,7 +130,9 @@ export function DashboardContainer({
 
       <Dialog
         open={fullscreenWidget !== null}
-        onOpenChange={(open) => { if (!open) setFullscreenWidget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setFullscreenWidget(null);
+        }}
       >
         <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
           {fullscreenWidget && (

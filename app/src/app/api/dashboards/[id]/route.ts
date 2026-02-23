@@ -3,15 +3,39 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
+
+const gridLayoutItemSchema = z.object({
+  i: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+});
+
+const widgetSchema = z.object({
+  id: z.string(),
+  chartType: z.string(),
+  connectionId: z.string(),
+  query: z.string(),
+  params: z.record(z.unknown()).optional(),
+  settings: z.record(z.unknown()).optional(),
+});
+
+const pageSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1),
+  widgets: z.array(widgetSchema),
+  gridLayout: z.array(gridLayoutItemSchema),
+});
 
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   layoutJson: z
     .object({
-      widgets: z.array(z.any()),
-      gridLayout: z.array(z.any()),
+      version: z.literal(2),
+      pages: z.array(pageSchema).min(1),
     })
     .optional(),
   isPublic: z.boolean().optional(),
@@ -20,12 +44,13 @@ const updateDashboardSchema = z.object({
 async function canAccess(
   dashboardId: string,
   userId: string,
+  tenantId: string,
   requiredRole: "viewer" | "editor" | "owner"
 ) {
   const [dashboard] = await db
     .select()
     .from(dashboards)
-    .where(eq(dashboards.id, dashboardId))
+    .where(and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)))
     .limit(1);
 
   if (!dashboard) return null;
@@ -38,7 +63,8 @@ async function canAccess(
     .where(
       and(
         eq(dashboardShares.dashboardId, dashboardId),
-        eq(dashboardShares.userId, userId)
+        eq(dashboardShares.userId, userId),
+        eq(dashboardShares.tenantId, tenantId)
       )
     )
     .limit(1);
@@ -56,10 +82,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await requireUserId();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
 
-    const access = await canAccess(id, userId, "viewer");
+    const access = await canAccess(id, userId, tenantId, "viewer");
     if (!access) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -75,10 +101,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await requireUserId();
+    const { userId, tenantId, canWrite } = await requireSession();
     const { id } = await params;
 
-    const access = await canAccess(id, userId, "editor");
+    if (!canWrite) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const access = await canAccess(id, userId, tenantId, "editor");
     if (!access) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -96,7 +126,7 @@ export async function PUT(
     const [updated] = await db
       .update(dashboards)
       .set({ ...parsed.data, updatedAt: new Date() })
-      .where(eq(dashboards.id, id))
+      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .returning();
 
     return NextResponse.json(updated);
@@ -110,15 +140,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await requireUserId();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
 
-    const access = await canAccess(id, userId, "owner");
+    const access = await canAccess(id, userId, tenantId, "owner");
     if (!access) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    await db.delete(dashboards).where(eq(dashboards.id, id));
+    await db
+      .delete(dashboards)
+      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)));
 
     return NextResponse.json({ success: true });
   } catch {
