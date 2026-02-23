@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { Users as UsersIcon, Plus } from "lucide-react";
-import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users";
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from "@/hooks/use-users";
+import type { UserListItem } from "@/hooks/use-users";
+import type { UserRole } from "@/lib/db/schema";
 import {
   Button,
   Input,
@@ -12,6 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Badge,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -23,15 +32,31 @@ import {
   PasswordInput,
 } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { UserListItem } from "@/hooks/use-users";
+
+const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | "outline"> = {
+  admin: "destructive",
+  creator: "default",
+  reader: "secondary",
+};
 
 export default function UsersPage() {
+  const { data: session } = useSession();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const systemRole = ((session?.user as any)?.role ?? "creator") as UserRole;
+  const isAdmin = systemRole === "admin";
+
   const { data: users, isLoading } = useUsers();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
+  const updateRole = useUpdateUserRole();
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState<{
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+  }>({ name: "", email: "", password: "", role: "creator" });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -39,6 +64,37 @@ export default function UsersPage() {
     (): ColumnDef<UserListItem, unknown>[] => [
       { accessorKey: "name", header: "Name" },
       { accessorKey: "email", header: "Email" },
+      {
+        accessorKey: "role",
+        header: "Role",
+        cell: ({ row }) => {
+          const r = row.original.role;
+          if (!isAdmin) {
+            return (
+              <Badge variant={ROLE_VARIANTS[r]} className="capitalize">
+                {r}
+              </Badge>
+            );
+          }
+          return (
+            <Select
+              value={r}
+              onValueChange={(val) =>
+                updateRole.mutate({ id: row.original.id, role: val as UserRole })
+              }
+            >
+              <SelectTrigger className="h-7 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="creator">Creator</SelectItem>
+                <SelectItem value="reader">Reader</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        },
+      },
       {
         accessorKey: "createdAt",
         header: "Created",
@@ -62,7 +118,7 @@ export default function UsersPage() {
         ),
       },
     ],
-    []
+    [isAdmin, updateRole]
   );
 
   async function handleCreate(e: React.FormEvent) {
@@ -70,7 +126,7 @@ export default function UsersPage() {
     setCreateError(null);
     try {
       await createUser.mutateAsync(form);
-      setForm({ name: "", email: "", password: "" });
+      setForm({ name: "", email: "", password: "", role: "creator" });
       setShowCreate(false);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create user");
@@ -125,6 +181,24 @@ export default function UsersPage() {
                   required
                 />
               </div>
+              {isAdmin && (
+                <div className="space-y-2">
+                  <Label htmlFor="user-role">Role</Label>
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => setForm((f) => ({ ...f, role: v as UserRole }))}
+                  >
+                    <SelectTrigger id="user-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="creator">Creator</SelectItem>
+                      <SelectItem value="reader">Reader</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {createError && (
                 <p className="text-sm text-destructive">{createError}</p>
               )}

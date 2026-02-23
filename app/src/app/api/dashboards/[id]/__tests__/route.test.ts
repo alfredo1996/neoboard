@@ -4,15 +4,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession = vi.fn<() => Promise<{ userId: string; tenantId: string; canWrite: boolean; role: string }>>();
+const mockRequireSession = vi.fn<
+  () => Promise<{ userId: string; tenantId: string; canWrite: boolean; role: string }>
+>();
 
 function makeSelectChain(rows: unknown[]) {
-  const c: Record<string, unknown> = {};
-  c.from = () => c;
-  c.where = () => c;
-  c.innerJoin = () => c;
-  c.limit = () => Promise.resolve(rows);
-  c.then = (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve);
+  const resolved = Promise.resolve(rows);
+  const c = Object.assign(resolved, {
+    from: () => c,
+    where: () => c,
+    innerJoin: () => c,
+    limit: () => Promise.resolve(rows),
+  });
   return c;
 }
 
@@ -38,7 +41,10 @@ const mockDb = {
   delete: vi.fn(),
 };
 
-vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
+vi.mock("@/lib/auth/session", () => ({
+  requireSession: mockRequireSession,
+  requireUserId: vi.fn(),
+}));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => ({
   NextResponse: {
@@ -139,10 +145,18 @@ describe("GET /api/dashboards/[id]", () => {
 
   it("returns 404 when dashboard belongs to different tenant", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, tenantId: "tenant-other" });
-    // canAccess filters by tenantId — no rows returned
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
+  });
+
+  it("returns dashboard for admin (bypasses per-dashboard ACL)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "admin-1", role: "admin" });
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { role: string };
+    expect(body.role).toBe("admin");
   });
 });
 
@@ -163,7 +177,7 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when reader role", async () => {
+  it("returns 403 for reader role", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "reader" });
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(403);
@@ -239,7 +253,13 @@ describe("DELETE /api/dashboards/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 when not owner", async () => {
+  it("returns 403 for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "reader" });
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 when not owner (creator role)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await DELETE({} as Request, makeParams("d1"));
@@ -260,5 +280,13 @@ describe("DELETE /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
+  });
+
+  it("allows admin to delete any dashboard in the tenant", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "admin-1", role: "admin" });
+    mockDb.select.mockReturnValue(makeSelectChain([{ id: "d1" }]));
+    mockDb.delete.mockReturnValue(makeDeleteChain());
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
   });
 });
