@@ -12,6 +12,8 @@ import type { AdapterAccountType } from "@auth/core/adapters";
 
 // ─── Auth.js tables ──────────────────────────────────────────────────
 
+export const userRoleEnum = pgEnum("user_role", ["admin", "creator", "reader"]);
+
 export const users = pgTable("user", {
   id: text("id")
     .primaryKey()
@@ -21,6 +23,7 @@ export const users = pgTable("user", {
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
   passwordHash: text("passwordHash"),
+  role: userRoleEnum("role").default("creator").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
 });
 
@@ -130,6 +133,8 @@ export const dashboardShares = pgTable("dashboard_share", {
 });
 
 // ─── Types ───────────────────────────────────────────────────────────
+
+export type UserRole = "admin" | "creator" | "reader";
 
 export interface DashboardLayout {
   widgets: DashboardWidget[];

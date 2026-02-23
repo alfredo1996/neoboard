@@ -10,12 +10,20 @@ export interface DashboardListItem {
   isPublic: boolean | null;
   createdAt: string;
   updatedAt: string;
-  role: "owner" | "viewer" | "editor";
+  role: "owner" | "viewer" | "editor" | "admin";
 }
 
 export interface DashboardDetail extends DashboardListItem {
   layoutJson: DashboardLayout | null;
   userId: string;
+}
+
+export interface DashboardShareItem {
+  id: string;
+  role: "viewer" | "editor";
+  createdAt: string;
+  userName: string | null;
+  userEmail: string | null;
 }
 
 export function useDashboards() {
@@ -102,6 +110,64 @@ export function useDeleteDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+  });
+}
+
+// ── Assignment / sharing hooks ────────────────────────────────────────
+
+export function useDashboardShares(dashboardId: string) {
+  return useQuery<DashboardShareItem[]>({
+    queryKey: ["dashboard-shares", dashboardId],
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboards/${dashboardId}/share`);
+      if (!res.ok) throw new Error("Failed to fetch shares");
+      return res.json();
+    },
+    enabled: !!dashboardId,
+  });
+}
+
+export function useAssignDashboard(dashboardId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { email: string; role: "viewer" | "editor" }) => {
+      const res = await fetch(`/api/dashboards/${dashboardId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to assign user");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard-shares", dashboardId],
+      });
+    },
+  });
+}
+
+export function useRemoveDashboardShare(dashboardId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (shareId: string) => {
+      const res = await fetch(
+        `/api/dashboards/${dashboardId}/share?shareId=${shareId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Failed to remove assignment");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard-shares", dashboardId],
+      });
     },
   });
 }
