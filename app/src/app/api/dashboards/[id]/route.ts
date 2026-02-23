@@ -15,11 +15,11 @@ const gridLayoutItemSchema = z.object({
 
 const widgetSchema = z.object({
   id: z.string(),
-  type: z.string(),
-  title: z.string(),
-  connectionId: z.string().nullable().optional(),
-  query: z.string().nullable().optional(),
-  config: z.record(z.unknown()).optional(),
+  chartType: z.string(),
+  connectionId: z.string(),
+  query: z.string(),
+  params: z.record(z.unknown()).optional(),
+  settings: z.record(z.unknown()).optional(),
 });
 
 const pageSchema = z.object({
