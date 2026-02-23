@@ -97,7 +97,8 @@ export default function () {
       "has data array": (r) => {
         try {
           const body = JSON.parse(r.body);
-          return Array.isArray(body.data);
+          // Neo4j returns data as an array; PostgreSQL wraps it in {records, summary}
+          return Array.isArray(body.data) || Array.isArray(body.data?.records);
         } catch {
           return false;
         }

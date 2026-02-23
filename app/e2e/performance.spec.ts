@@ -67,6 +67,142 @@ test.describe("Performance — tab switching", () => {
   });
 });
 
+test.describe("Performance — concurrent multi-connector queries", () => {
+  /**
+   * Creates a dashboard with 30 Neo4j + 30 PostgreSQL single-value widgets,
+   * interleaved in the grid layout, then navigates to it and measures:
+   *   - Full load time (navigation start → all 60 queries resolved)
+   *   - Grid items rendered count
+   *   - Loading widget delta (60 → 0)
+   *
+   * This exercises the per-connector concurrency queues simultaneously,
+   * revealing saturation differences between the two connectors.
+   * Cleans up the dashboard regardless of test outcome.
+   */
+  test("60 interleaved widgets (30 Neo4j + 30 PostgreSQL) — concurrent resolution", async ({
+    page,
+    authPage,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const NEO4J_COUNT = 30;
+    const PG_COUNT = 30;
+    const TOTAL = NEO4J_COUNT + PG_COUNT;
+
+    // ── 1. Build interleaved widget list ────────────────────────────────────
+    // Alternating Neo4j / PostgreSQL so both queues are hit simultaneously
+    const widgets = Array.from({ length: TOTAL }, (_, i) => {
+      const isNeo4j = i % 2 === 0;
+      return {
+        id: `perf-mc-w${i + 1}`,
+        chartType: "single-value",
+        connectionId: isNeo4j ? "conn-neo4j-001" : "conn-pg-001",
+        query: isNeo4j ? "RETURN 1 AS value" : "SELECT 1 AS value",
+        params: {},
+        settings: {
+          title: `${isNeo4j ? "Neo4j" : "PG"} Widget ${Math.floor(i / 2) + 1}`,
+        },
+      };
+    });
+
+    // 6 widgets per row (w=2 in a 12-column grid)
+    const gridLayout = widgets.map((w, i) => ({
+      i: w.id,
+      x: (i % 6) * 2,
+      y: Math.floor(i / 6) * 2,
+      w: 2,
+      h: 2,
+    }));
+
+    // ── 2. Create the test dashboard ─────────────────────────────────────────
+    const createRes = await page.request.post("/api/dashboards", {
+      data: { name: "Perf: Multi-Connector Concurrent (auto-cleanup)" },
+    });
+    expect(createRes.status()).toBe(201);
+    const { id: dashboardId } = (await createRes.json()) as { id: string };
+
+    const updateRes = await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [{ id: "page-1", title: "Page 1", widgets, gridLayout }],
+        },
+      },
+    });
+    expect(updateRes.status()).toBe(200);
+
+    // ── 3. Navigate and measure ──────────────────────────────────────────────
+    try {
+      const t0 = Date.now();
+      await page.goto(`/${dashboardId}`);
+
+      // Gate: wait for all TOTAL card containers to mount before checking
+      // loading state — without this, 0 === 0 passes immediately
+      await page.waitForFunction(
+        (count) =>
+          document.querySelectorAll('[data-testid="widget-card"]').length >=
+          count,
+        TOTAL,
+        { timeout: 30_000 }
+      );
+
+      // Pre-resolution snapshot: all cards mounted, queries still in flight
+      const preResolution = await page.evaluate(() => ({
+        totalLoading: document.querySelectorAll('[data-loading="true"]').length,
+        gridItemsRendered: document.querySelectorAll(".react-grid-item").length,
+      }));
+
+      // Wait for every widget (both connectors) to resolve
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-loading="true"]').length === 0,
+        { timeout: 60_000 }
+      );
+
+      await page.waitForTimeout(300);
+      const t1 = Date.now();
+      const ms = t1 - t0;
+
+      // Post-resolution snapshot
+      const postResolution = await page.evaluate(() => ({
+        totalLoading: document.querySelectorAll('[data-loading="true"]').length,
+        gridItemsRendered: document.querySelectorAll(".react-grid-item").length,
+      }));
+
+      // ── Report ────────────────────────────────────────────────────────
+      console.log(`\n=== Multi-Connector Concurrent (${TOTAL} widgets) ===`);
+      console.log(`  Neo4j widgets      : ${NEO4J_COUNT}`);
+      console.log(`  PostgreSQL widgets  : ${PG_COUNT}`);
+      console.log(`  Full load time      : ${ms.toFixed(1)} ms`);
+      console.log(
+        `  Loading widgets (pre): ${preResolution.totalLoading} → (post) ${postResolution.totalLoading}`
+      );
+      console.log(
+        `  Grid items rendered  : ${postResolution.gridItemsRendered}`
+      );
+      console.log("");
+
+      // ── Thresholds ────────────────────────────────────────────────────
+      expect(
+        ms,
+        `${TOTAL}-widget mixed-connector dashboard exceeded 30 000 ms`
+      ).toBeLessThan(30_000);
+
+      expect(
+        postResolution.gridItemsRendered,
+        `Expected ${TOTAL} grid items, got ${postResolution.gridItemsRendered}`
+      ).toBe(TOTAL);
+
+      expect(
+        postResolution.totalLoading,
+        "Some widgets still in loading state after timeout"
+      ).toBe(0);
+    } finally {
+      // ── 4. Cleanup ───────────────────────────────────────────────────────
+      await page.request.delete(`/api/dashboards/${dashboardId}`);
+    }
+  });
+});
+
 test.describe("Performance — large dashboard", () => {
   /**
    * Creates a dashboard with 100 widgets via the REST API, navigates to it,

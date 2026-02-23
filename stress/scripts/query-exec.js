@@ -33,16 +33,17 @@ export const options = {
 const BASE = __ENV.BASE_URL || "http://localhost:3000";
 const COOKIE = __ENV.SESSION_COOKIE;
 const CONNECTION_ID = __ENV.CONNECTION_ID || "";
+// Pass QUERY env var to override the default (e.g. SQL for PG, Cypher for Neo4j)
+const QUERY = __ENV.QUERY || "RETURN 1 AS value";
 
-// Simple read query that works against both Neo4j and PostgreSQL
-const NEO4J_PAYLOAD = JSON.stringify({
+const PAYLOAD = JSON.stringify({
   connectionId: CONNECTION_ID,
-  query: "MATCH (n) RETURN n LIMIT 5",
+  query: QUERY,
   params: {},
 });
 
 export default function () {
-  const res = http.post(`${BASE}/api/query`, NEO4J_PAYLOAD, {
+  const res = http.post(`${BASE}/api/query`, PAYLOAD, {
     headers: {
       Cookie: COOKIE,
       "Content-Type": "application/json",
@@ -54,7 +55,8 @@ export default function () {
     "has rows": (r) => {
       try {
         const body = JSON.parse(r.body);
-        return Array.isArray(body.data);
+        // Neo4j returns data as an array; PostgreSQL wraps it in {records, summary}
+        return Array.isArray(body.data) || Array.isArray(body.data?.records);
       } catch {
         return false;
       }
