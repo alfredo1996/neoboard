@@ -104,9 +104,9 @@ export const dashboards = pgTable("dashboard", {
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
-  layoutJson: jsonb("layoutJson").$type<DashboardLayout>().default({
-    widgets: [],
-    gridLayout: [],
+  layoutJson: jsonb("layoutJson").$type<DashboardLayoutV2>().default({
+    version: 2,
+    pages: [{ id: "page-1", title: "Page 1", widgets: [], gridLayout: [] }],
   }),
   isPublic: boolean("isPublic").default(false),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
@@ -131,10 +131,30 @@ export const dashboardShares = pgTable("dashboard_share", {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-export interface DashboardLayout {
+/** V2 layout — the canonical format stored and used at runtime. */
+export interface DashboardPage {
+  id: string;
+  title: string;
   widgets: DashboardWidget[];
   gridLayout: GridLayoutItem[];
 }
+
+export interface DashboardLayoutV2 {
+  version: 2;
+  pages: DashboardPage[];
+}
+
+/**
+ * Legacy v1 layout (flat widgets/gridLayout). Only used for migration;
+ * never written back to the DB in this form.
+ */
+export interface DashboardLayoutV1 {
+  widgets: DashboardWidget[];
+  gridLayout: GridLayoutItem[];
+}
+
+/** Union accepted on load; always normalised to V2 before use. */
+export type DashboardLayout = DashboardLayoutV2 | DashboardLayoutV1;
 
 export interface DashboardWidget {
   id: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DashboardLayout } from "@/lib/db/schema";
+import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
 export interface DashboardListItem {
   id: string;
@@ -14,6 +14,7 @@ export interface DashboardListItem {
 }
 
 export interface DashboardDetail extends DashboardListItem {
+  /** Stored as-is from the DB; call migrateLayout() before use. */
   layoutJson: DashboardLayout | null;
   userId: string;
 }
@@ -71,7 +72,7 @@ export function useUpdateDashboard() {
       id: string;
       name?: string;
       description?: string;
-      layoutJson?: DashboardLayout;
+      layoutJson?: DashboardLayoutV2;
       isPublic?: boolean;
     }) => {
       const res = await fetch(`/api/dashboards/${id}`, {

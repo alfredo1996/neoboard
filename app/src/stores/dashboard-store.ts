@@ -1,61 +1,164 @@
 import { create } from "zustand";
 import type {
-  DashboardLayout,
+  DashboardLayoutV2,
+  DashboardPage,
   DashboardWidget,
   GridLayoutItem,
 } from "@/lib/db/schema";
 
 interface DashboardState {
-  layout: DashboardLayout;
+  layout: DashboardLayoutV2;
+  activePageIndex: number;
   editMode: boolean;
-  setLayout: (layout: DashboardLayout) => void;
+
+  // Layout
+  setLayout: (layout: DashboardLayoutV2) => void;
   setEditMode: (editMode: boolean) => void;
+  reset: () => void;
+
+  // Page management
+  setActivePage: (index: number) => void;
+  addPage: () => void;
+  removePage: (index: number) => void;
+  renamePage: (index: number, title: string) => void;
+
+  // Widget management (operate on active page)
   addWidget: (widget: DashboardWidget, gridItem: GridLayoutItem) => void;
   removeWidget: (widgetId: string) => void;
   updateWidget: (widgetId: string, updates: Partial<DashboardWidget>) => void;
   updateGridLayout: (gridLayout: GridLayoutItem[]) => void;
-  reset: () => void;
 }
 
-const emptyLayout: DashboardLayout = { widgets: [], gridLayout: [] };
+const defaultPage = (): DashboardPage => ({
+  id: crypto.randomUUID(),
+  title: "Page 1",
+  widgets: [],
+  gridLayout: [],
+});
+
+const emptyLayout: DashboardLayoutV2 = {
+  version: 2,
+  pages: [defaultPage()],
+};
+
+function updatePage(
+  pages: DashboardPage[],
+  index: number,
+  updater: (page: DashboardPage) => DashboardPage
+): DashboardPage[] {
+  return pages.map((p, i) => (i === index ? updater(p) : p));
+}
 
 export const useDashboardStore = create<DashboardState>((set) => ({
   layout: emptyLayout,
+  activePageIndex: 0,
   editMode: false,
 
-  setLayout: (layout) => set({ layout }),
+  setLayout: (layout) => set({ layout, activePageIndex: 0 }),
   setEditMode: (editMode) => set({ editMode }),
+  reset: () =>
+    set({ layout: emptyLayout, activePageIndex: 0, editMode: false }),
 
-  addWidget: (widget, gridItem) =>
-    set((state) => ({
-      layout: {
-        widgets: [...state.layout.widgets, widget],
-        gridLayout: [...state.layout.gridLayout, gridItem],
-      },
-    })),
+  // ── Page management ──────────────────────────────────────────────
 
-  removeWidget: (widgetId) =>
-    set((state) => ({
-      layout: {
-        widgets: state.layout.widgets.filter((w) => w.id !== widgetId),
-        gridLayout: state.layout.gridLayout.filter((g) => g.i !== widgetId),
-      },
-    })),
+  setActivePage: (index) => set({ activePageIndex: index }),
 
-  updateWidget: (widgetId, updates) =>
+  addPage: () =>
+    set((state) => {
+      const n = state.layout.pages.length + 1;
+      const newPage: DashboardPage = {
+        id: crypto.randomUUID(),
+        title: `Page ${n}`,
+        widgets: [],
+        gridLayout: [],
+      };
+      return {
+        layout: { ...state.layout, pages: [...state.layout.pages, newPage] },
+        activePageIndex: state.layout.pages.length,
+      };
+    }),
+
+  removePage: (index) =>
+    set((state) => {
+      if (state.layout.pages.length <= 1) return state;
+      const pages = state.layout.pages.filter((_, i) => i !== index);
+      const activePageIndex = Math.min(
+        state.activePageIndex,
+        pages.length - 1
+      );
+      return { layout: { ...state.layout, pages }, activePageIndex };
+    }),
+
+  renamePage: (index, title) =>
     set((state) => ({
       layout: {
         ...state.layout,
-        widgets: state.layout.widgets.map((w) =>
-          w.id === widgetId ? { ...w, ...updates } : w
-        ),
+        pages: updatePage(state.layout.pages, index, (p) => ({
+          ...p,
+          title,
+        })),
       },
     })),
 
-  updateGridLayout: (gridLayout) =>
-    set((state) => ({
-      layout: { ...state.layout, gridLayout },
-    })),
+  // ── Widget management (active page) ──────────────────────────────
 
-  reset: () => set({ layout: emptyLayout, editMode: false }),
+  addWidget: (widget, gridItem) =>
+    set((state) => {
+      const idx = state.activePageIndex;
+      return {
+        layout: {
+          ...state.layout,
+          pages: updatePage(state.layout.pages, idx, (p) => ({
+            ...p,
+            widgets: [...p.widgets, widget],
+            gridLayout: [...p.gridLayout, gridItem],
+          })),
+        },
+      };
+    }),
+
+  removeWidget: (widgetId) =>
+    set((state) => {
+      const idx = state.activePageIndex;
+      return {
+        layout: {
+          ...state.layout,
+          pages: updatePage(state.layout.pages, idx, (p) => ({
+            ...p,
+            widgets: p.widgets.filter((w) => w.id !== widgetId),
+            gridLayout: p.gridLayout.filter((g) => g.i !== widgetId),
+          })),
+        },
+      };
+    }),
+
+  updateWidget: (widgetId, updates) =>
+    set((state) => {
+      const idx = state.activePageIndex;
+      return {
+        layout: {
+          ...state.layout,
+          pages: updatePage(state.layout.pages, idx, (p) => ({
+            ...p,
+            widgets: p.widgets.map((w) =>
+              w.id === widgetId ? { ...w, ...updates } : w
+            ),
+          })),
+        },
+      };
+    }),
+
+  updateGridLayout: (gridLayout) =>
+    set((state) => {
+      const idx = state.activePageIndex;
+      return {
+        layout: {
+          ...state.layout,
+          pages: updatePage(state.layout.pages, idx, (p) => ({
+            ...p,
+            gridLayout,
+          })),
+        },
+      };
+    }),
 }));

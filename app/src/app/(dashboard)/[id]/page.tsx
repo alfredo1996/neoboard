@@ -1,10 +1,12 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, LayoutDashboard } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboards";
 import { DashboardContainer } from "@/components/dashboard-container";
+import { PageTabs } from "@/components/page-tabs";
+import { migrateLayout } from "@/lib/migrate-layout";
 import {
   Button,
   Badge,
@@ -24,6 +26,11 @@ export default function DashboardViewerPage({
   const { id } = use(params);
   const router = useRouter();
   const { data: dashboard, isLoading } = useDashboard(id);
+  const [activePageIndex, setActivePageIndex] = useState(0);
+  const layout = useMemo(
+    () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
+    [dashboard]
+  );
 
   if (isLoading) {
     return (
@@ -57,7 +64,10 @@ export default function DashboardViewerPage({
     );
   }
 
-  const layout = dashboard.layoutJson ?? { widgets: [], gridLayout: [] };
+  // layout is non-null here because dashboard is defined (guarded above)
+  const resolvedLayout = layout!;
+  const safeIndex = Math.min(activePageIndex, resolvedLayout.pages.length - 1);
+  const canEdit = dashboard.role === "owner" || dashboard.role === "editor";
 
   return (
     <div className="flex flex-col h-full">
@@ -77,7 +87,7 @@ export default function DashboardViewerPage({
           <Badge variant="secondary">{dashboard.role}</Badge>
         </ToolbarSection>
         <ToolbarSection>
-          {(dashboard.role === "owner" || dashboard.role === "editor") && (
+          {canEdit && (
             <Button
               size="sm"
               onClick={() => router.push(`/${id}/edit`)}
@@ -89,24 +99,47 @@ export default function DashboardViewerPage({
         </ToolbarSection>
       </Toolbar>
 
-      <div className="flex-1 p-6">
-        {layout.widgets.length === 0 ? (
-          <EmptyState
-            icon={<LayoutDashboard className="h-12 w-12" />}
-            title="No widgets yet"
-            description="This dashboard has no widgets."
-            action={
-              (dashboard.role === "owner" || dashboard.role === "editor") ? (
-                <Button onClick={() => router.push(`/${id}/edit`)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Add widgets in the editor
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <DashboardContainer layout={layout} />
-        )}
+      {resolvedLayout.pages.length > 1 && (
+        <PageTabs
+          pages={resolvedLayout.pages}
+          activeIndex={safeIndex}
+          editable={false}
+          onSelect={setActivePageIndex}
+        />
+      )}
+
+      <div className="flex-1 p-6 relative">
+        {resolvedLayout.pages.map((page, index) => {
+          const isActive = index === safeIndex;
+          if (page.widgets.length === 0 && isActive) {
+            return (
+              <EmptyState
+                key={page.id}
+                icon={<LayoutDashboard className="h-12 w-12" />}
+                title="No widgets yet"
+                description="This page has no widgets."
+                action={
+                  canEdit ? (
+                    <Button onClick={() => router.push(`/${id}/edit`)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Add widgets in the editor
+                    </Button>
+                  ) : undefined
+                }
+              />
+            );
+          }
+          if (page.widgets.length === 0) return null;
+          return (
+            <div
+              key={page.id}
+              className={isActive ? undefined : "hidden"}
+              aria-hidden={!isActive}
+            >
+              <DashboardContainer page={page} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
