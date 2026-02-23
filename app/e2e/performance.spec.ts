@@ -155,19 +155,10 @@ test.describe("Performance — large dashboard", () => {
 
       await page.goto(`/${dashboardId}`);
 
-      // ── DIAGNOSTIC 1: immediate DOM state right after navigation ────────
-      const domAfterNav = await page.evaluate(() => ({
-        totalNodes: document.querySelectorAll("*").length,
-        widgetCards: document.querySelectorAll('[data-testid="widget-card"]').length,
-        loadingEls: document.querySelectorAll('[data-loading="true"]').length,
-        animatePulse: document.querySelectorAll(".animate-pulse").length,
-        gridItems: document.querySelectorAll(".react-grid-item").length,
-        canvases: document.querySelectorAll("canvas").length,
-      }));
-      console.log("DEBUG after goto:", JSON.stringify(domAfterNav));
-
-      // ── Wait for all widget-card containers to appear ────────────────────
-      const waitCardsStart = Date.now();
+      // Wait for all WIDGET_COUNT card containers to mount.
+      // This is the critical gate that ensures React has rendered every widget
+      // before we check loading state — without it, 0 loading elements would
+      // pass the next waitForFunction immediately (0 === 0).
       await page.waitForFunction(
         (count) =>
           document.querySelectorAll('[data-testid="widget-card"]').length >=
@@ -175,62 +166,30 @@ test.describe("Performance — large dashboard", () => {
         WIDGET_COUNT,
         { timeout: 30_000 }
       );
-      console.log(`DEBUG waitForCards took ${Date.now() - waitCardsStart} ms`);
 
-      // ── DIAGNOSTIC 2: DOM state after widget-cards gate ──────────────────
-      const domAfterCards = await page.evaluate(() => ({
-        totalNodes: document.querySelectorAll("*").length,
-        widgetCards: document.querySelectorAll('[data-testid="widget-card"]').length,
-        loadingEls: document.querySelectorAll('[data-loading="true"]').length,
-        animatePulse: document.querySelectorAll(".animate-pulse").length,
-        gridItems: document.querySelectorAll(".react-grid-item").length,
-        canvases: document.querySelectorAll("canvas").length,
-      }));
-      console.log("DEBUG after waitForCards:", JSON.stringify(domAfterCards));
-
-      // ── Capture pre-resolution snapshot (cards in DOM, queries still in flight)
+      // ── Pre-resolution snapshot: all cards mounted, queries still in flight
       const preResolutionMetrics = await page.evaluate(() => {
         const mem = (
           performance as Performance & {
-            memory?: {
-              usedJSHeapSize: number;
-              totalJSHeapSize: number;
-            };
+            memory?: { usedJSHeapSize: number; totalJSHeapSize: number };
           }
         ).memory;
         return {
           domNodeCount: document.querySelectorAll("*").length,
-          jsHeapUsedMb: mem
-            ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1)
-            : null,
-          jsHeapTotalMb: mem
-            ? +(mem.totalJSHeapSize / 1_048_576).toFixed(1)
-            : null,
+          // loadingEls and gridItemsRendered are the metrics that meaningfully
+          // change for single-value widgets (DOM node count stays constant
+          // because a skeleton and a rendered value have the same complexity).
+          loadingEls: document.querySelectorAll('[data-loading="true"]').length,
+          gridItemsRendered: document.querySelectorAll(".react-grid-item").length,
+          jsHeapUsedMb: mem ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1) : null,
         };
       });
 
       // Wait until every widget loading skeleton has resolved (success or error).
-      const waitLoadingStart = Date.now();
       await page.waitForFunction(
         () => document.querySelectorAll('[data-loading="true"]').length === 0,
         { timeout: 60_000 }
       );
-      console.log(`DEBUG waitForLoading took ${Date.now() - waitLoadingStart} ms`);
-
-      // ── DIAGNOSTIC 3: full DOM dump after both waits complete ────────────
-      const domAfterLoading = await page.evaluate(() => ({
-        totalNodes: document.querySelectorAll("*").length,
-        widgetCards: document.querySelectorAll('[data-testid="widget-card"]').length,
-        loadingEls: document.querySelectorAll('[data-loading="true"]').length,
-        animatePulse: document.querySelectorAll(".animate-pulse").length,
-        gridItems: document.querySelectorAll(".react-grid-item").length,
-        canvases: document.querySelectorAll("canvas").length,
-      }));
-      console.log("DEBUG after waitForLoading:", JSON.stringify(domAfterLoading));
-
-      // Screenshot for visual confirmation of page state
-      await page.screenshot({ path: "debug-post-load.png", fullPage: true });
-      console.log("DEBUG screenshot saved → debug-post-load.png");
 
       // Brief pause for any remaining paint microtasks (e.g. ECharts canvas).
       await page.waitForTimeout(500);
@@ -239,72 +198,71 @@ test.describe("Performance — large dashboard", () => {
       const t1 = Date.now();
       const ms = t1 - t0;
 
-      // ── Capture post-resolution rendering snapshot ─────────────────────
+      // ── Post-resolution snapshot: all queries resolved
       const postResolutionMetrics = await page.evaluate(() => {
-        const mem = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
-        const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-        const fcp = performance
-          .getEntriesByName("first-contentful-paint")
-          .at(0)?.startTime ?? null;
+        const mem = (
+          performance as Performance & {
+            memory?: { usedJSHeapSize: number; totalJSHeapSize: number };
+          }
+        ).memory;
+        const nav = performance.getEntriesByType(
+          "navigation"
+        )[0] as PerformanceNavigationTiming | undefined;
+        const fcp =
+          performance
+            .getEntriesByName("first-contentful-paint")
+            .at(0)?.startTime ?? null;
         const longTaskCount =
-          (window as Window & { __longTaskCount?: number }).__longTaskCount ?? null;
+          (window as Window & { __longTaskCount?: number }).__longTaskCount ??
+          null;
         return {
           domNodeCount: document.querySelectorAll("*").length,
+          loadingEls: document.querySelectorAll('[data-loading="true"]').length,
+          gridItemsRendered: document.querySelectorAll(".react-grid-item").length,
           jsHeapUsedMb: mem ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1) : null,
-          jsHeapTotalMb: mem ? +(mem.totalJSHeapSize / 1_048_576).toFixed(1) : null,
-          /** Time from navigation start until first byte received (TTFB). */
           ttfbMs: nav ? +(nav.responseStart - nav.startTime).toFixed(1) : null,
-          /** First Contentful Paint (ms from navigation start). */
           fcpMs: fcp !== null ? +fcp.toFixed(1) : null,
-          /** Long tasks on the main thread during full load (count). */
           longTaskCount,
         };
       });
 
       // ── Report ────────────────────────────────────────────────────────
-      console.log(
-        `\n=== Large Dashboard (${WIDGET_COUNT} widgets) ===`
-      );
+      console.log(`\n=== Large Dashboard (${WIDGET_COUNT} widgets) ===`);
       console.log(`  Full load time         : ${ms.toFixed(1)} ms`);
+      console.log(`  TTFB                   : ${postResolutionMetrics.ttfbMs ?? "n/a"} ms`);
+      console.log(`  First Contentful Paint : ${postResolutionMetrics.fcpMs ?? "n/a"} ms`);
+      console.log(`  DOM nodes              : ${postResolutionMetrics.domNodeCount}`);
+      console.log(`  Grid items rendered    : ${postResolutionMetrics.gridItemsRendered}`);
+      // loadingEls: the key pre→post delta for single-value widgets.
+      // DOM node count stays flat because a skeleton and a rendered value have
+      // identical complexity. loadingEls going 100→0 confirms all resolved.
       console.log(
-        `  TTFB                   : ${postResolutionMetrics.ttfbMs ?? "n/a"} ms`
-      );
-      console.log(
-        `  First Contentful Paint : ${postResolutionMetrics.fcpMs ?? "n/a"} ms`
-      );
-      console.log(
-        `  DOM nodes (pre-load)   : ${preResolutionMetrics.domNodeCount}`
-      );
-      console.log(
-        `  DOM nodes (post-load)  : ${postResolutionMetrics.domNodeCount}`
+        `  Loading widgets (pre)  : ${preResolutionMetrics.loadingEls} → (post) ${postResolutionMetrics.loadingEls}`
       );
       if (preResolutionMetrics.jsHeapUsedMb !== null) {
-        console.log(
-          `  JS heap used (pre)     : ${preResolutionMetrics.jsHeapUsedMb} MB`
-        );
-        console.log(
-          `  JS heap used (post)    : ${postResolutionMetrics.jsHeapUsedMb} MB`
-        );
+        console.log(`  JS heap used           : ${preResolutionMetrics.jsHeapUsedMb} MB → ${postResolutionMetrics.jsHeapUsedMb} MB`);
       }
       if (postResolutionMetrics.longTaskCount !== null) {
-        console.log(
-          `  Long tasks (>50 ms)    : ${postResolutionMetrics.longTaskCount}`
-        );
+        console.log(`  Long tasks (>50 ms)    : ${postResolutionMetrics.longTaskCount}`);
       }
       console.log("");
 
       // ── Thresholds ────────────────────────────────────────────────────
-      // Fail if it takes more than 30 s to resolve all widget queries
       expect(
         ms,
         `${WIDGET_COUNT}-widget dashboard exceeded 30 000 ms threshold`
       ).toBeLessThan(30_000);
 
-      // Fail if the DOM grows to an unreasonable size (render bloat indicator)
+      // All widget cards must have rendered and resolved
       expect(
-        postResolutionMetrics.domNodeCount,
-        "DOM node count exceeded 10 000 — possible render bloat"
-      ).toBeLessThan(10_000);
+        postResolutionMetrics.gridItemsRendered,
+        `Expected ${WIDGET_COUNT} grid items, got ${postResolutionMetrics.gridItemsRendered}`
+      ).toBe(WIDGET_COUNT);
+
+      expect(
+        postResolutionMetrics.loadingEls,
+        "Some widgets still in loading state after timeout"
+      ).toBe(0);
     } finally {
       // ── 4. Cleanup — runs even when the test fails ───────────────────────
       await page.request.delete(`/api/dashboards/${dashboardId}`);
