@@ -36,11 +36,15 @@ export async function requireSession(): Promise<{
     throw new Error("Unauthorized");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const role = ((session.user as any).role as UserRole) ?? "creator";
+  const user = session.user as any;
+  const role = (user.role as UserRole) ?? "creator";
+  // tenantId is stamped into the JWT at sign-in time from TENANT_ID env var.
+  // Fall back to env var as a safety net (e.g. tokens issued before this field existed).
+  const tenantId: string = user.tenantId ?? process.env.TENANT_ID ?? "default";
   return {
     userId: session.user.id,
     role,
     canWrite: role !== "reader",
-    tenantId: process.env.TENANT_ID ?? "default",
+    tenantId,
   };
 }

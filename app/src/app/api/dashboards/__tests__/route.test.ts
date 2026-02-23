@@ -139,10 +139,10 @@ describe("GET /api/dashboards", () => {
   it("returns only assigned dashboards for reader role", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const assignedRow = { id: "d1", name: "Assigned", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
-    // Reader: only shared query is used
+    // Reader: both owned and shared queries execute, but only shared is returned
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))   // owned (skipped for reader)
-      .mockReturnValueOnce(makeSelectChain([assignedRow]));
+      .mockReturnValueOnce(makeSelectChain([]))          // owned query (result discarded for reader)
+      .mockReturnValueOnce(makeSelectChain([assignedRow])); // shared/assigned query
 
     const res = await GET();
     expect(res.status).toBe(200);

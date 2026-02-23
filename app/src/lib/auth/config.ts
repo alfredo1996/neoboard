@@ -66,6 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.role = (user as any).role as UserRole;
+        token.tenantId = process.env.TENANT_ID ?? "default";
       }
       // Re-fetch role on token refresh so admin role changes propagate
       if (token.id && !token.role) {
@@ -83,6 +84,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).role = token.role as UserRole;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).tenantId = (token.tenantId as string) ?? process.env.TENANT_ID ?? "default";
       }
       return session;
     },
