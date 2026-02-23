@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireUserId = vi.fn<() => Promise<string>>();
+const mockRequireSession = vi.fn<
+  () => Promise<{ userId: string; role: string }>
+>();
 
 function makeSelectChain(rows: unknown[]) {
   const c: Record<string, unknown> = {};
@@ -12,7 +14,8 @@ function makeSelectChain(rows: unknown[]) {
   c.where = () => c;
   c.innerJoin = () => c;
   c.limit = () => Promise.resolve(rows);
-  c.then = (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve);
+  c.then = (resolve: (v: unknown[]) => unknown) =>
+    Promise.resolve(rows).then(resolve);
   return c;
 }
 
@@ -38,7 +41,10 @@ const mockDb = {
   delete: vi.fn(),
 };
 
-vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
+vi.mock("@/lib/auth/session", () => ({
+  requireSession: mockRequireSession,
+  requireUserId: vi.fn(),
+}));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => ({
   NextResponse: {
@@ -89,13 +95,13 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when dashboard not found", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
     // canAccess: dashboard not found → empty
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
@@ -103,7 +109,7 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns dashboard for owner", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
     // canAccess: dashboard found, userId matches → owner
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
@@ -111,6 +117,15 @@ describe("GET /api/dashboards/[id]", () => {
     const body = res._body as { id: string; role: string };
     expect(body.id).toBe("d1");
     expect(body.role).toBe("owner");
+  });
+
+  it("returns dashboard for admin (bypasses per-dashboard ACL)", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin" });
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { role: string };
+    expect(body.role).toBe("admin");
   });
 });
 
@@ -126,20 +141,26 @@ describe("PUT /api/dashboards/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader" });
+    const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when not owner/editor", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("updates dashboard and returns 200", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
     // canAccess: dashboard found
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const updated = { ...OWNER_DASHBOARD, name: "New name" };
@@ -163,24 +184,39 @@ describe("DELETE /api/dashboards/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 when not owner", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+  it("returns 403 for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader" });
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 when not owner (creator role)", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("deletes dashboard and returns success", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator" });
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     expect((res._body as { success: boolean }).success).toBe(true);
+  });
+
+  it("allows admin to delete any dashboard", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin" });
+    // Admin path uses a separate select to just verify the dashboard exists
+    mockDb.select.mockReturnValue(makeSelectChain([{ id: "d1" }]));
+    mockDb.delete.mockReturnValue(makeDeleteChain());
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
   });
 });
