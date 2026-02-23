@@ -37,19 +37,17 @@ export default function DashboardEditorPage({
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
-  const {
-    layout,
-    activePageIndex,
-    setLayout,
-    setActivePage,
-    addPage,
-    removePage,
-    renamePage,
-    addWidget,
-    removeWidget,
-    updateWidget,
-    updateGridLayout,
-  } = useDashboardStore();
+  const layout = useDashboardStore((s) => s.layout);
+  const activePageIndex = useDashboardStore((s) => s.activePageIndex);
+  const setLayout = useDashboardStore((s) => s.setLayout);
+  const setActivePage = useDashboardStore((s) => s.setActivePage);
+  const addPage = useDashboardStore((s) => s.addPage);
+  const removePage = useDashboardStore((s) => s.removePage);
+  const renamePage = useDashboardStore((s) => s.renamePage);
+  const addWidget = useDashboardStore((s) => s.addWidget);
+  const removeWidget = useDashboardStore((s) => s.removeWidget);
+  const updateWidget = useDashboardStore((s) => s.updateWidget);
+  const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
@@ -194,28 +192,42 @@ export default function DashboardEditorPage({
         onSave={handleEditorSave}
       />
 
-      <div className="flex-1 p-6">
-        {activePage.widgets.length === 0 ? (
-          <EmptyState
-            icon={<LayoutDashboard className="h-12 w-12" />}
-            title="No widgets yet"
-            description='Click "Add Widget" to get started.'
-            action={
-              <Button onClick={openAddWidget}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Widget
-              </Button>
-            }
-          />
-        ) : (
-          <DashboardContainer
-            page={activePage}
-            editable
-            onRemoveWidget={removeWidget}
-            onEditWidget={openEditWidget}
-            onLayoutChange={updateGridLayout}
-          />
-        )}
+      <div className="flex-1 p-6 relative">
+        {layout.pages.map((page, index) => {
+          const isActive = index === activePageIndex;
+          if (page.widgets.length === 0 && isActive) {
+            return (
+              <EmptyState
+                key={page.id}
+                icon={<LayoutDashboard className="h-12 w-12" />}
+                title="No widgets yet"
+                description='Click "Add Widget" to get started.'
+                action={
+                  <Button onClick={openAddWidget}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Widget
+                  </Button>
+                }
+              />
+            );
+          }
+          if (page.widgets.length === 0) return null;
+          return (
+            <div
+              key={page.id}
+              className={isActive ? undefined : "hidden"}
+              aria-hidden={!isActive}
+            >
+              <DashboardContainer
+                page={page}
+                editable
+                onRemoveWidget={removeWidget}
+                onEditWidget={openEditWidget}
+                onLayoutChange={isActive ? updateGridLayout : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
