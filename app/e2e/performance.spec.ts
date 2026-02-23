@@ -155,11 +155,19 @@ test.describe("Performance — large dashboard", () => {
 
       await page.goto(`/${dashboardId}`);
 
-      // BUG FIX 2: wait for ALL widget-card containers to appear in the DOM
-      // before checking the loading state.  Without this gate,
-      // waitForFunction('[data-loading="true"] === 0') returns immediately
-      // (0 === 0) before React has rendered any widget — giving identical
-      // pre/post DOM counts and a falsely-closed measurement window.
+      // ── DIAGNOSTIC 1: immediate DOM state right after navigation ────────
+      const domAfterNav = await page.evaluate(() => ({
+        totalNodes: document.querySelectorAll("*").length,
+        widgetCards: document.querySelectorAll('[data-testid="widget-card"]').length,
+        loadingEls: document.querySelectorAll('[data-loading="true"]').length,
+        animatePulse: document.querySelectorAll(".animate-pulse").length,
+        gridItems: document.querySelectorAll(".react-grid-item").length,
+        canvases: document.querySelectorAll("canvas").length,
+      }));
+      console.log("DEBUG after goto:", JSON.stringify(domAfterNav));
+
+      // ── Wait for all widget-card containers to appear ────────────────────
+      const waitCardsStart = Date.now();
       await page.waitForFunction(
         (count) =>
           document.querySelectorAll('[data-testid="widget-card"]').length >=
@@ -167,6 +175,18 @@ test.describe("Performance — large dashboard", () => {
         WIDGET_COUNT,
         { timeout: 30_000 }
       );
+      console.log(`DEBUG waitForCards took ${Date.now() - waitCardsStart} ms`);
+
+      // ── DIAGNOSTIC 2: DOM state after widget-cards gate ──────────────────
+      const domAfterCards = await page.evaluate(() => ({
+        totalNodes: document.querySelectorAll("*").length,
+        widgetCards: document.querySelectorAll('[data-testid="widget-card"]').length,
+        loadingEls: document.querySelectorAll('[data-loading="true"]').length,
+        animatePulse: document.querySelectorAll(".animate-pulse").length,
+        gridItems: document.querySelectorAll(".react-grid-item").length,
+        canvases: document.querySelectorAll("canvas").length,
+      }));
+      console.log("DEBUG after waitForCards:", JSON.stringify(domAfterCards));
 
       // ── Capture pre-resolution snapshot (cards in DOM, queries still in flight)
       const preResolutionMetrics = await page.evaluate(() => {
@@ -190,10 +210,27 @@ test.describe("Performance — large dashboard", () => {
       });
 
       // Wait until every widget loading skeleton has resolved (success or error).
+      const waitLoadingStart = Date.now();
       await page.waitForFunction(
         () => document.querySelectorAll('[data-loading="true"]').length === 0,
         { timeout: 60_000 }
       );
+      console.log(`DEBUG waitForLoading took ${Date.now() - waitLoadingStart} ms`);
+
+      // ── DIAGNOSTIC 3: full DOM dump after both waits complete ────────────
+      const domAfterLoading = await page.evaluate(() => ({
+        totalNodes: document.querySelectorAll("*").length,
+        widgetCards: document.querySelectorAll('[data-testid="widget-card"]').length,
+        loadingEls: document.querySelectorAll('[data-loading="true"]').length,
+        animatePulse: document.querySelectorAll(".animate-pulse").length,
+        gridItems: document.querySelectorAll(".react-grid-item").length,
+        canvases: document.querySelectorAll("canvas").length,
+      }));
+      console.log("DEBUG after waitForLoading:", JSON.stringify(domAfterLoading));
+
+      // Screenshot for visual confirmation of page state
+      await page.screenshot({ path: "debug-post-load.png", fullPage: true });
+      console.log("DEBUG screenshot saved → debug-post-load.png");
 
       // Brief pause for any remaining paint microtasks (e.g. ECharts canvas).
       await page.waitForTimeout(500);
