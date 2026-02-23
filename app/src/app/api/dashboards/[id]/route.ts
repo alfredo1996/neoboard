@@ -10,8 +10,8 @@ const updateDashboardSchema = z.object({
   description: z.string().optional(),
   layoutJson: z
     .object({
-      widgets: z.array(z.any()),
-      gridLayout: z.array(z.any()),
+      version: z.literal(2),
+      pages: z.array(z.any()),
     })
     .optional(),
   isPublic: z.boolean().optional(),
