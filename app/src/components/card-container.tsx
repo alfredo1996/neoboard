@@ -5,7 +5,7 @@ import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { AlertCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
@@ -218,9 +218,31 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
 
 /**
  * Auto-generates columns and renders DataGrid from query result records.
+ * Uses a ResizeObserver on the wrapper div to pass a live containerHeight so
+ * DataGrid can calculate the dynamic page size automatically.
  */
 function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; settings?: Record<string, unknown>; onRowClick?: (row: Record<string, unknown>) => void }) {
   const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
+
+  // Track the container's height so DataGrid can compute the page size.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    // Capture the initial height before the first ResizeObserver callback.
+    setContainerHeight(el.getBoundingClientRect().height);
+
+    return () => observer.disconnect();
+  }, []);
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
@@ -241,8 +263,11 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
     return <EmptyState title="No rows" description="Query returned no data." className="py-6" />;
   }
 
+  // enablePagination defaults to true per chart-options-schema.
+  const enablePagination = settings.enablePagination !== false;
+
   return (
-    <div className="h-full overflow-auto">
+    <div ref={containerRef} className="h-full overflow-hidden">
       <DataGrid
         columns={columns}
         data={records as Record<string, unknown>[]}
@@ -250,7 +275,9 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
         enableSelection={settings.enableSelection as boolean | undefined}
         enableGlobalFilter={settings.enableGlobalFilter !== false}
         enableColumnFilters={settings.enableColumnFilters !== false}
+        enablePagination={enablePagination}
         pageSize={(settings.pageSize as number) ?? 20}
+        containerHeight={enablePagination ? containerHeight : undefined}
         onRowClick={onRowClick}
       />
     </div>
