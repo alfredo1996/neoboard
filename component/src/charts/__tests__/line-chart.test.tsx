@@ -129,4 +129,54 @@ describe("LineChart", () => {
     render(<LineChart data={sampleData} error={new Error("Oops")} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Oops");
   });
+
+  // --- New options ---
+
+  it("shows data point markers when showPoints is true", () => {
+    render(<LineChart data={sampleData} showPoints />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].showSymbol).toBe(true);
+  });
+
+  it("hides data point markers by default", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].showSymbol).toBe(false);
+  });
+
+  it("sets line width on series", () => {
+    render(<LineChart data={sampleData} lineWidth={4} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].lineStyle.width).toBe(4);
+  });
+
+  it("defaults line width to 2", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].lineStyle.width).toBe(2);
+  });
+
+  it("shows grid lines by default", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.yAxis.splitLine.show).toBe(true);
+  });
+
+  it("hides grid lines when showGridLines is false", () => {
+    render(<LineChart data={sampleData} showGridLines={false} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.yAxis.splitLine.show).toBe(false);
+  });
+
+  it("enables stepped line style", () => {
+    render(<LineChart data={sampleData} stepped />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].step).toBe("start");
+  });
+
+  it("does not set step property when stepped is false", () => {
+    render(<LineChart data={sampleData} stepped={false} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].step).toBeUndefined();
+  });
 });

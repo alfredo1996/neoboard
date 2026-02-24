@@ -405,4 +405,54 @@ describe("GraphChart", () => {
     const nvlNodes = capturedProps.nodes as NvlNode[];
     expect(nvlNodes[0].caption).toBe("Fallback Label");
   });
+
+  // --- New options ---
+
+  it("scales node size down when nodeSize is small", () => {
+    const sizedNodes = [{ id: "1", label: "A", value: 40 }];
+    render(<GraphChart nodes={sizedNodes} edges={[]} nodeSize="small" />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // small scale = 0.6 → 40 * 0.6 = 24
+    expect(nvlNodes[0].size).toBe(24);
+  });
+
+  it("keeps default scale when nodeSize is medium", () => {
+    const sizedNodes = [{ id: "1", label: "A", value: 40 }];
+    render(<GraphChart nodes={sizedNodes} edges={[]} nodeSize="medium" />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // medium scale = 1.0 → 40 * 1.0 = 40
+    expect(nvlNodes[0].size).toBe(40);
+  });
+
+  it("scales node size up when nodeSize is large", () => {
+    const sizedNodes = [{ id: "1", label: "A", value: 40 }];
+    render(<GraphChart nodes={sizedNodes} edges={[]} nodeSize="large" />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // large scale = 1.6 → 40 * 1.6 = 64
+    expect(nvlNodes[0].size).toBe(64);
+  });
+
+  it("includes relationship caption when showRelationshipLabels is true (default)", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} showRelationshipLabels />);
+    const nvlRels = capturedProps.rels as NvlRelationship[];
+    expect(nvlRels[0].caption).toBe("knows");
+  });
+
+  it("omits relationship caption when showRelationshipLabels is false", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} showRelationshipLabels={false} />);
+    const nvlRels = capturedProps.rels as NvlRelationship[];
+    expect(nvlRels[0].caption).toBeUndefined();
+  });
+
+  it("passes useStaticLayout false to NVL when physics is enabled (default)", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} physics />);
+    const opts = capturedProps.nvlOptions as Record<string, unknown>;
+    expect(opts.useStaticLayout).toBe(false);
+  });
+
+  it("passes useStaticLayout true to NVL when physics is disabled", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} physics={false} />);
+    const opts = capturedProps.nvlOptions as Record<string, unknown>;
+    expect(opts.useStaticLayout).toBe(true);
+  });
 });

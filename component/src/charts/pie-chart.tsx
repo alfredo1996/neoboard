@@ -13,6 +13,14 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   showLabel?: boolean;
   /** Show legend */
   showLegend?: boolean;
+  /** Use nightingale/rose mode (radii vary by value) */
+  roseMode?: boolean;
+  /** Label position */
+  labelPosition?: "outside" | "inside" | "center";
+  /** Show percentage in labels */
+  showPercentage?: boolean;
+  /** Sort slices by value descending */
+  sortSlices?: boolean;
 }
 
 /**
@@ -28,6 +36,10 @@ function PieChart({
   donut = false,
   showLabel = true,
   showLegend = true,
+  roseMode = false,
+  labelPosition = "outside",
+  showPercentage = true,
+  sortSlices = false,
   ...rest
 }: PieChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -42,6 +54,13 @@ function PieChart({
     const effectiveShowLabel = compact ? false : showLabel;
     const effectiveShowLegend = hideLegend ? false : showLegend;
 
+    const sortedData = sortSlices
+      ? [...data].sort((a, b) => b.value - a.value)
+      : data;
+
+    // Build label formatter based on showPercentage option
+    const labelFormatter = showPercentage ? "{b}: {d}%" : "{b}: {c}";
+
     return {
       tooltip: {
         trigger: "item",
@@ -51,12 +70,14 @@ function PieChart({
       series: [
         {
           type: "pie",
+          roseType: roseMode ? ("radius" as const) : undefined,
           radius: donut ? ["40%", "70%"] : "70%",
           center: ["50%", effectiveShowLegend ? "45%" : "50%"],
-          data,
+          data: sortedData,
           label: {
             show: effectiveShowLabel,
-            formatter: "{b}: {d}%",
+            position: labelPosition,
+            formatter: labelFormatter,
           },
           emphasis: {
             label: {
@@ -73,7 +94,7 @@ function PieChart({
         },
       ],
     };
-  }, [data, donut, showLabel, showLegend, compact, hideLegend]);
+  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

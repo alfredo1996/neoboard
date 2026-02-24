@@ -98,4 +98,57 @@ describe("PieChart", () => {
     render(<PieChart data={sampleData} error={new Error("Broken")} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Broken");
   });
+
+  // --- New options ---
+
+  it("enables rose mode", () => {
+    render(<PieChart data={sampleData} roseMode />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].roseType).toBe("radius");
+  });
+
+  it("does not set roseType when roseMode is false", () => {
+    render(<PieChart data={sampleData} roseMode={false} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].roseType).toBeUndefined();
+  });
+
+  it("sets label position to inside", () => {
+    render(<PieChart data={sampleData} labelPosition="inside" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].label.position).toBe("inside");
+  });
+
+  it("defaults label position to outside", () => {
+    render(<PieChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].label.position).toBe("outside");
+  });
+
+  it("shows percentage in labels when showPercentage is true (default)", () => {
+    render(<PieChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].label.formatter).toContain("{d}%");
+  });
+
+  it("shows value instead of percentage when showPercentage is false", () => {
+    render(<PieChart data={sampleData} showPercentage={false} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].label.formatter).toContain("{c}");
+    expect(optionsCall.series[0].label.formatter).not.toContain("{d}%");
+  });
+
+  it("sorts slices by value descending when sortSlices is true", () => {
+    render(<PieChart data={sampleData} sortSlices />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const values = (optionsCall.series[0].data as Array<{ value: number }>).map((d) => d.value);
+    expect(values).toEqual([60, 30, 10]);
+  });
+
+  it("preserves original order when sortSlices is false (default)", () => {
+    render(<PieChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const names = (optionsCall.series[0].data as Array<{ name: string }>).map((d) => d.name);
+    expect(names).toEqual(["Desktop", "Mobile", "Tablet"]);
+  });
 });

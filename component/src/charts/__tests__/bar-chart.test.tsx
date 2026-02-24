@@ -117,4 +117,56 @@ describe("BarChart", () => {
     render(<BarChart data={sampleData} error={new Error("Fail")} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Fail");
   });
+
+  // --- New options ---
+
+  it("sets barWidth on series when provided and > 0", () => {
+    render(<BarChart data={sampleData} barWidth={20} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].barWidth).toBe(20);
+  });
+
+  it("sets barWidth to undefined when barWidth is 0 (auto)", () => {
+    render(<BarChart data={sampleData} barWidth={0} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].barWidth).toBeUndefined();
+  });
+
+  it("passes barGap to series", () => {
+    render(<BarChart data={sampleData} barGap="10%" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].barGap).toBe("10%");
+  });
+
+  it("shows grid lines by default", () => {
+    render(<BarChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.yAxis.splitLine.show).toBe(true);
+  });
+
+  it("hides grid lines when showGridLines is false", () => {
+    render(<BarChart data={sampleData} showGridLines={false} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.yAxis.splitLine.show).toBe(false);
+  });
+
+  it("sets xAxisLabel on the category axis for vertical orientation", () => {
+    render(<BarChart data={sampleData} xAxisLabel="Product" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.xAxis.name).toBe("Product");
+  });
+
+  it("sets yAxisLabel on the value axis for vertical orientation", () => {
+    render(<BarChart data={sampleData} yAxisLabel="Revenue" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.yAxis.name).toBe("Revenue");
+  });
+
+  it("swaps axis label targets for horizontal orientation", () => {
+    render(<BarChart data={sampleData} orientation="horizontal" xAxisLabel="Revenue" yAxisLabel="Product" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    // xAxisLabel goes to the value axis (xAxis in horizontal), yAxisLabel to category (yAxis)
+    expect(optionsCall.xAxis.name).toBe("Revenue");
+    expect(optionsCall.yAxis.name).toBe("Product");
+  });
 });

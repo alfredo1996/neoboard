@@ -17,6 +17,14 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   area?: boolean;
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
+  /** Show data point markers */
+  showPoints?: boolean;
+  /** Line stroke width in pixels */
+  lineWidth?: number;
+  /** Show grid lines */
+  showGridLines?: boolean;
+  /** Use stepped line style */
+  stepped?: boolean;
 }
 
 /**
@@ -35,6 +43,10 @@ function LineChart({
   smooth = false,
   area = false,
   showLegend,
+  showPoints = false,
+  lineWidth = 2,
+  showGridLines = true,
+  stepped = false,
   ...rest
 }: LineChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -74,17 +86,21 @@ function LineChart({
         nameLocation: "middle",
         nameGap: 50,
         axisLabel: { show: !compact },
+        splitLine: { show: showGridLines },
       },
       series: seriesKeys.map((key) => ({
         name: key,
         type: "line" as const,
         data: data.map((d) => d[key] as number),
         smooth,
+        step: stepped ? ("start" as const) : undefined,
+        lineStyle: { width: lineWidth },
+        showSymbol: showPoints,
         areaStyle: area ? {} : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
       })),
     };
-  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, compact, hideLegend]);
+  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
