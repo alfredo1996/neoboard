@@ -113,8 +113,8 @@ describe("ParamSelector", () => {
         loading
       />
     );
-    // Loading state renders skeleton elements (no select trigger)
-    expect(container.querySelectorAll('[class*="skeleton"], [class*="Skeleton"]').length).toBeGreaterThanOrEqual(0);
+    // Loading state renders skeleton elements (animate-pulse class from Skeleton component)
+    expect(container.querySelectorAll('[class*="animate-pulse"]').length).toBeGreaterThan(0);
     // The select trigger should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
   });

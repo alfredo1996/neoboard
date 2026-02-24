@@ -118,6 +118,7 @@ function ParamMultiSelector({
                     type="button"
                     className="ml-1 rounded-full outline-none ring-offset-background focus:ring-1 focus:ring-ring"
                     onClick={(e) => handleRemoveBadge(opt.value, e)}
+                    aria-label={`Remove ${opt.label}`}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
