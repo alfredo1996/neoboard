@@ -12,8 +12,9 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash(npm *), Bash(npx *), Bash(git 
 
 ## Before coding
 1. If issue number: `gh issue view <number>`
-2. Identify package: component/ (UI only), connection/ (DB only), app/ (orchestration)
-3. Read relevant docs in `claude_code_docs/` if needed
+2. If existing PR: `gh pr view <number> --comments` — check CodeRabbit & SonarQube feedback
+3. Identify package: component/ (UI only), connection/ (DB only), app/ (orchestration)
+4. Read relevant docs in `claude_code_docs/` (especially `v04-widget-power.md` for v0.4 issues)
 
 ## Standards
 - TypeScript strict. No `any`.

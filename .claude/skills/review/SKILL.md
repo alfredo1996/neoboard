@@ -25,5 +25,10 @@ Use ultrathink.
 ### 🔵 Suggestion
 - Tests for new behavior? JSDoc on complex functions?
 
+### 🤖 External Reviews
+- Check CodeRabbit comments: `gh pr view <number> --comments | grep -A5 'coderabbitai'`
+- Check SonarQube status: `gh pr checks <number>`
+- Address or explicitly dismiss all automated feedback
+
 Output: `[SEVERITY] file:line — Issue → Fix`
 End with: ✅ APPROVE, ⚠️ REQUEST CHANGES, or 💬 NEEDS DISCUSSION
