@@ -1,19 +1,14 @@
 import { test, expect, ALICE } from "./fixtures";
 
-test.describe("Empty states", () => {
+test.describe("Dashboard list & role badges", () => {
   test.beforeEach(async ({ authPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
-  test("dashboard list empty state for creator should show create CTA", async ({
+  test("creator/admin should see New Dashboard button on dashboard list", async ({
     page,
   }) => {
-    // We can verify the empty state text exists by checking the component.
-    // Note: can't easily delete all dashboards in E2E without cleanup issues,
-    // but we can verify the EmptyState component renders correctly when data is empty.
-    // For this test, we verify the create button always exists for creators.
     await expect(page).toHaveURL("/");
-    // Creator/admin should see New Dashboard button
     await expect(
       page.getByRole("button", { name: /New Dashboard/i })
     ).toBeVisible({ timeout: 10_000 });
@@ -29,7 +24,6 @@ test.describe("Empty states", () => {
     });
 
     // Alice is admin — her role badge should be visible
-    // The badge variant for admin is "destructive" (red)
     const aliceRow = page.getByRole("row").filter({ hasText: "alice@example.com" });
     await expect(aliceRow).toBeVisible();
 
@@ -65,13 +59,11 @@ test.describe("Empty states", () => {
     await expect(readerRow).toBeVisible();
   });
 
-  test("connections empty state text is correct", async ({ page }) => {
-    // Navigate to connections and verify the Add Connection button is present
+  test("connections page header and Add Connection button are visible", async ({ page }) => {
     await page.goto("/connections");
     await expect(
       page.getByRole("heading", { level: 1, name: "Connections" })
     ).toBeVisible({ timeout: 10_000 });
-    // With seeded data, we'll see connections. Verify the page header
     await expect(
       page.getByRole("button", { name: "Add Connection" })
     ).toBeVisible();
@@ -85,37 +77,36 @@ test.describe("Confirm dialog — destructive", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
 
-    // Create a dashboard to trigger delete dialog
+    // Create a uniquely-named dashboard to avoid collision with retries
+    const dashName = `Delete Test ${Date.now()}`;
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const createDialog = page.getByRole("dialog");
-    await createDialog.locator("#dashboard-name").fill("Delete Confirm Test");
+    await createDialog.locator("#dashboard-name").fill(dashName);
     await createDialog.getByRole("button", { name: "Create" }).click();
     await page.waitForURL(/\/edit/, { timeout: 10_000 });
     await page.goto("/");
-    await expect(page.getByText("Delete Confirm Test")).toBeVisible({
+    await expect(page.getByText(dashName)).toBeVisible({
       timeout: 10_000,
     });
 
-    // Click delete
-    const card = page
-      .locator("div[class*='border']")
-      .filter({ hasText: "Delete Confirm Test" })
-      .filter({ has: page.getByRole("button", { name: /delete/i }) });
-    await card.getByRole("button", { name: /delete/i }).click();
+    // Find the dashboard card that contains our name and its Delete button
+    // Each card is a div with both the name text and action buttons
+    const card = page.locator("[class*='cursor-pointer']").filter({ hasText: dashName });
+    await card.getByRole("button", { name: "Delete" }).click();
 
     // Confirm dialog should be visible with destructive warning
-    await expect(page.getByText("Delete Dashboard")).toBeVisible();
-    await expect(page.getByText("This action cannot be undone")).toBeVisible();
+    const confirmDialog = page.getByRole("alertdialog");
+    await expect(confirmDialog.getByText("Delete Dashboard")).toBeVisible();
+    await expect(confirmDialog.getByText("This action cannot be undone")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Delete" })
+      confirmDialog.getByRole("button", { name: "Delete" })
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Cancel/i })
+      confirmDialog.getByRole("button", { name: /Cancel/i })
     ).toBeVisible();
 
-    // Cancel to not actually delete
-    await page.getByRole("button", { name: /Cancel/i }).click();
-    // Dashboard should still be there
-    await expect(page.getByText("Delete Confirm Test")).toBeVisible();
+    // Actually delete to clean up (avoid test pollution)
+    await confirmDialog.getByRole("button", { name: "Delete" }).click();
+    await expect(confirmDialog).not.toBeVisible({ timeout: 10_000 });
   });
 });

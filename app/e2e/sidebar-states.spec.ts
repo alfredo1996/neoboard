@@ -9,20 +9,22 @@ test.describe("Sidebar — uncovered states", () => {
     sidebarPage,
     page,
   }) => {
-    // On dashboards page, the Dashboards button should be visually distinct
+    // On dashboards page, the Dashboards button should be active
     const dashboardsBtn = sidebarPage.getSidebarItem("Dashboards");
     await expect(dashboardsBtn).toBeVisible();
+    // Active sidebar items get font-medium class
+    await expect(dashboardsBtn).toHaveClass(/font-medium/);
 
-    // Navigate to Connections
+    // Navigate to Connections — it should become active
     await sidebarPage.navigateTo("Connections");
     await expect(page).toHaveURL("/connections");
     const connectionsBtn = sidebarPage.getSidebarItem("Connections");
-    await expect(connectionsBtn).toBeVisible();
+    await expect(connectionsBtn).toHaveClass(/font-medium/);
 
-    // Navigate to Users
+    // Navigate to Users — it should become active
     await sidebarPage.navigateTo("Users");
     await expect(page).toHaveURL("/users");
     const usersBtn = sidebarPage.getSidebarItem("Users");
-    await expect(usersBtn).toBeVisible();
+    await expect(usersBtn).toHaveClass(/font-medium/);
   });
 });

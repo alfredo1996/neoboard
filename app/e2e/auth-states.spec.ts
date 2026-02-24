@@ -82,9 +82,10 @@ test.describe("Role-based dashboard visibility", () => {
     await expect(page.getByText("Movie Analytics")).toBeVisible({
       timeout: 10_000,
     });
-    // Admin should see at least one badge (admin/owner)
-    const badges = page.locator(".inline-flex").filter({ hasText: /admin|owner/ });
-    await expect(badges.first()).toBeVisible({ timeout: 5_000 });
+    // Admin should see at least one role badge (admin/owner) on dashboard cards
+    await expect(page.getByText(/admin|owner/).first()).toBeVisible({
+      timeout: 5_000,
+    });
   });
 });
 

@@ -13,10 +13,19 @@ test.describe("Responsive — mobile viewport", () => {
     await expect(page.getByText("Movie Analytics")).toBeVisible({
       timeout: 15_000,
     });
-    // Page should render (grid goes to single column at mobile)
-    const cards = page.locator("[class*='border']").filter({ hasText: "Movie Analytics" });
-    await expect(cards.first()).toBeVisible();
+    // Verify grid renders single column at mobile width
+    const grid = page.locator(".grid").first();
+    await expect(grid).toBeVisible();
+    const columns = await grid.evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns
+    );
+    // Single column = one value (no spaces)
+    expect(columns.trim().split(/\s+/).length).toBe(1);
   });
+});
+
+test.describe("Responsive — mobile login (unauthenticated)", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
 
   test("login page should render correctly on mobile", async ({ page }) => {
     await page.goto("/login");
@@ -40,8 +49,13 @@ test.describe("Responsive — tablet viewport", () => {
     await expect(page.getByText("Movie Analytics")).toBeVisible({
       timeout: 15_000,
     });
-    const cards = page.locator("[class*='border']").filter({ hasText: "Movie Analytics" });
-    await expect(cards.first()).toBeVisible();
+    const grid = page.locator(".grid").first();
+    await expect(grid).toBeVisible();
+    const columns = await grid.evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns
+    );
+    // Tablet (768px) hits sm breakpoint (640px) → 2 columns
+    expect(columns.trim().split(/\s+/).length).toBe(2);
   });
 
   test("connections page should render on tablet", async ({
@@ -71,7 +85,12 @@ test.describe("Responsive — wide desktop viewport", () => {
     await expect(page.getByText("Movie Analytics")).toBeVisible({
       timeout: 15_000,
     });
-    const cards = page.locator("[class*='border']").filter({ hasText: "Movie Analytics" });
-    await expect(cards.first()).toBeVisible();
+    const grid = page.locator(".grid").first();
+    await expect(grid).toBeVisible();
+    const columns = await grid.evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns
+    );
+    // Wide desktop (1920px) hits lg breakpoint (1024px) → 3 columns
+    expect(columns.trim().split(/\s+/).length).toBe(3);
   });
 });

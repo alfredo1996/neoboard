@@ -13,7 +13,7 @@ Defines how to capture, compare, and manage UI screenshots for NeoBoard design r
 
 ## 1. Directory Structure
 
-```
+```text
 .screenshots/
   baseline-YYYY-MM-DD/         # Full baseline suite (one per audit)
     01-login-default.png
@@ -33,7 +33,7 @@ Defines how to capture, compare, and manage UI screenshots for NeoBoard design r
 
 Screenshots follow the user story numbering from the inventory:
 
-```
+```text
 {NN}-{page}-{state}.png
 ```
 
@@ -60,13 +60,13 @@ Examples:
 ### Before/After Workflow
 
 1. **Before starting UI work:**
-   ```
+   ```bash
    mkdir -p .screenshots/before
    ```
    Capture screenshots of all pages/states your change will affect.
 
 2. **After completing UI work:**
-   ```
+   ```bash
    mkdir -p .screenshots/after
    ```
    Capture the same pages/states.
@@ -99,6 +99,7 @@ test('capture baseline', async ({ page, authPage }) => {
 ```
 
 ### Viewport Sizes for Responsive Shots
+
 ```typescript
 // Mobile
 await page.setViewportSize({ width: 375, height: 812 });
@@ -146,7 +147,8 @@ Some states may not be programmatically reachable:
 - States requiring specific data distributions
 
 For these, add to the inventory with status `[UNREACHABLE]` and explain why. Example:
-```
+
+```text
 17-dashboard-viewer-loading.png  [UNREACHABLE] — skeleton only visible during real network latency, Playwright tests too fast
 ```
 
@@ -169,7 +171,8 @@ After capturing, produce a table:
 - `.screenshots/diff/`: gitignored (generated artifacts)
 
 Add to `.gitignore`:
-```
+
+```text
 .screenshots/before/
 .screenshots/after/
 .screenshots/diff/

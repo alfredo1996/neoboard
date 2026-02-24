@@ -91,13 +91,15 @@ Test version-skip paths. `--skip-migrations` flag exists for emergency debugging
 
 ## Git strategy
 
-There is no `dev` branch — branch directly from `main`. Keep branches separated; do not push if tests are failing.
+Two long-lived branches: `main` (stable) and `dev` (integration). Branch from `main` for new work; PRs target `dev` for integration testing before merging to `main`.
 
 Branch naming: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
 
-For a release: create `release/vX.Y.Z` from `main`, then open a PR into it from the feature branches.
+Keep branches separated; do not push if tests are failing.
 
-After finishing a branch: create a PR, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.
+For a release: create `release/vX.Y.Z` from `dev`, verify, then merge to `main`.
+
+After finishing a branch: create a PR targeting `dev`, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.
 
 ## Design Review
 

@@ -55,6 +55,7 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 ## 3. Color Usage
 
 ### Semantic Color Map (CSS Variables, HSL)
+
 | Token | Light | Usage |
 |-------|-------|-------|
 | `--background` | `0 0% 100%` (white) | Page backgrounds |
@@ -70,13 +71,15 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 | `--ring` | `0 0% 3.9%` (near-black) | Focus rings |
 
 ### Chart Colors (5-color palette)
+
+```css
+--chart-1: hsl(12, 76%, 61%)   /* orange */
+--chart-2: hsl(173, 58%, 39%)  /* teal */
+--chart-3: hsl(197, 37%, 24%)  /* dark blue */
+--chart-4: hsl(43, 74%, 66%)   /* yellow */
+--chart-5: hsl(27, 87%, 67%)   /* warm orange */
 ```
---chart-1: hsl(12, 76%, 61%)   // orange
---chart-2: hsl(173, 58%, 39%)  // teal
---chart-3: hsl(197, 37%, 24%)  // dark blue
---chart-4: hsl(43, 74%, 66%)   // yellow
---chart-5: hsl(27, 87%, 67%)   // warm orange
-```
+
 Dark mode uses different chart colors (blues, greens, purples).
 
 ### Color Rules
@@ -96,6 +99,7 @@ Dark mode uses different chart colors (blues, greens, purples).
 - NO custom ECharts theme registered — all styling via option merging.
 
 ### Chart Defaults
+
 ```typescript
 // Bar/Line chart grid (standard)
 grid: { left: 16, right: 16, top: 16, bottom: 24, containLabel: true }
@@ -129,6 +133,7 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 ## 5. Typography Scale
 
 ### The Actual Scale Used
+
 | Class | Size | Weight | Where Used |
 |-------|------|--------|------------|
 | `text-xs` | 12px | `font-medium` | Labels, badges, captions, metadata timestamps |
@@ -153,6 +158,7 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 ## 6. Border & Radius Patterns
 
 ### Border Radius Hierarchy
+
 | Class | Computed | Where Used |
 |-------|----------|------------|
 | `rounded-xl` | 12px | Card base ONLY |
@@ -169,6 +175,7 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 - NEVER use `border-4` — only 1 occurrence exists and it's anomalous.
 
 ### Shadow Scale
+
 | Class | Where Used |
 |-------|------------|
 | `shadow-sm` | Buttons (outline, secondary, destructive), inputs — subtle elevation |
@@ -181,13 +188,15 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 ## 7. Component Patterns
 
 ### Dialog Sizing Progression
-```
+
+```text
 sm   → max-w-[425px]  — Simple confirmations
 md   → max-w-lg       — Standard forms (DEFAULT)
 lg   → max-w-[700px]  — Multi-section forms
 xl   → max-w-[900px]  — Complex editors
 full → max-w-[calc(100vw-2rem)] — Fullscreen views
 ```
+
 Widget editor uses: `sm:max-w-md` (step 1) → `sm:max-w-6xl` (step 2).
 
 ### Button Usage Patterns
@@ -217,24 +226,29 @@ Always use the `EmptyState` component from component lib:
 ## 8. Responsive Grid
 
 ### Dashboard Card Grid
-```
+
+```text
 grid gap-4 sm:grid-cols-2 lg:grid-cols-3
 ```
+
 - Mobile (< 640px): 1 column
 - Tablet (640-1023px): 2 columns
 - Desktop (1024px+): 3 columns
 
 ### Dashboard Widget Grid (react-grid-layout)
-```
+
+```text
 lg: 1200px → 12 columns
 md: 996px  → 10 columns
 sm: 768px  → 6 columns
 xs: 480px  → 4 columns
 ```
+
 Resize handle: southeast corner only.
 
 ### Form Grids
-```
+
+```text
 grid gap-4 sm:grid-cols-2  // Connection form: stacked on mobile, 2-col on tablet+
 grid grid-cols-2 gap-4     // Type picker: always 2-col
 ```

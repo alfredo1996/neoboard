@@ -43,7 +43,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
     });
   });
 
-  test("should show loading skeleton while fetching dashboard", async ({
+  test("should navigate to dashboard and display content", async ({
     page,
   }) => {
     await page.getByText("Movie Analytics", { exact: true }).click();
