@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { WidgetCard } from "../widget-card";
 
@@ -90,5 +91,50 @@ describe("WidgetCard", () => {
     );
     expect(screen.getByText("Expand")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Widget actions" })).toBeInTheDocument();
+  });
+
+  // ── disabled action ───────────────────────────────────────────────────────
+
+  it("renders a disabled action item with disabled attribute", async () => {
+    const user = userEvent.setup();
+    const actions = [
+      { label: "Save to Lab", onClick: vi.fn(), disabled: true },
+    ];
+    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    await user.click(screen.getByRole("button", { name: "Widget actions" }));
+    const item = screen.getByRole("menuitem", { name: "Save to Lab" });
+    expect(item).toBeInTheDocument();
+    expect(item).toHaveAttribute("data-disabled");
+  });
+
+  it("does not call onClick when a disabled action is clicked", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const actions = [{ label: "Save to Lab", onClick, disabled: true }];
+    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    await user.click(screen.getByRole("button", { name: "Widget actions" }));
+    const item = screen.getByRole("menuitem", { name: "Save to Lab" });
+    await user.click(item);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("applies opacity and cursor-not-allowed class to disabled action", async () => {
+    const user = userEvent.setup();
+    const actions = [{ label: "Locked", onClick: vi.fn(), disabled: true }];
+    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    await user.click(screen.getByRole("button", { name: "Widget actions" }));
+    const item = screen.getByRole("menuitem", { name: "Locked" });
+    expect(item.className).toContain("opacity-50");
+    expect(item.className).toContain("cursor-not-allowed");
+  });
+
+  it("calls onClick normally for a non-disabled action", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const actions = [{ label: "Edit", onClick }];
+    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    await user.click(screen.getByRole("button", { name: "Widget actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    expect(onClick).toHaveBeenCalledOnce();
   });
 });

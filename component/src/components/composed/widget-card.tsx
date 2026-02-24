@@ -15,6 +15,8 @@ export interface WidgetCardAction {
   label: string;
   onClick: () => void;
   destructive?: boolean;
+  /** When true the item is rendered but non-interactive (feature not yet available). */
+  disabled?: boolean;
 }
 
 export interface WidgetCardProps {
@@ -91,9 +93,11 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                     <React.Fragment key={index}>
                       {action.destructive && index > 0 && <DropdownMenuSeparator />}
                       <DropdownMenuItem
-                        onClick={action.onClick}
+                        onClick={action.disabled ? undefined : action.onClick}
+                        disabled={action.disabled}
                         className={cn(
-                          action.destructive && "text-destructive focus:text-destructive"
+                          action.destructive && "text-destructive focus:text-destructive",
+                          action.disabled && "opacity-50 cursor-not-allowed"
                         )}
                       >
                         {action.label}
