@@ -1,4 +1,19 @@
+import type { Page } from "@playwright/test";
 import { test, expect, ALICE } from "./fixtures";
+
+/**
+ * Wait for the browser to complete two animation frames.
+ * More reliable than an arbitrary sleep for "paint microtask" settling —
+ * works correctly under CI load and doesn't add unnecessary wall-clock time.
+ */
+async function waitForNextPaint(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      })
+  );
+}
 
 test.describe("Performance — tab switching", () => {
   test("tab switch — time to visible + data-loaded state", async ({
@@ -11,8 +26,10 @@ test.describe("Performance — tab switching", () => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    // Wait for the initial page load to fully settle
-    await page.waitForLoadState("networkidle");
+    // Wait for the initial page load to fully settle.
+    // domcontentloaded is preferred over networkidle — networkidle is flaky
+    // on apps with long-polling or periodic fetches.
+    await page.waitForLoadState("domcontentloaded");
 
     // Ensure all loading indicators from the first page are gone before timing starts
     await page.waitForFunction(
@@ -158,7 +175,7 @@ test.describe("Performance — concurrent multi-connector queries", () => {
         { timeout: 60_000 }
       );
 
-      await page.waitForTimeout(300);
+      await waitForNextPaint(page);
       const t1 = Date.now();
       const ms = t1 - t0;
 
@@ -327,8 +344,8 @@ test.describe("Performance — large dashboard", () => {
         { timeout: 60_000 }
       );
 
-      // Brief pause for any remaining paint microtasks (e.g. ECharts canvas).
-      await page.waitForTimeout(500);
+      // Wait for remaining paint microtasks (e.g. ECharts canvas) to settle.
+      await waitForNextPaint(page);
 
       // BUG FIX 1 (continued): t1 also uses Date.now() for the same reason.
       const t1 = Date.now();

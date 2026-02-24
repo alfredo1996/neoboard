@@ -148,7 +148,7 @@ k6 run \
 
 After a run the terminal shows a summary table. The most important rows:
 
-```
+```text
 http_req_duration ..... avg=142ms  p(90)=280ms  p(95)=340ms  p(99)=680ms
 http_req_failed ....... 0.00%
 checks ................ 100.00%
@@ -156,7 +156,7 @@ checks ................ 100.00%
 
 Per-connector metrics appear when running `concurrent-queries.js`:
 
-```
+```text
 neo4j_query_duration_ms .. p(95)=1.2s   p(99)=2.8s
 pg_query_duration_ms ..... p(95)=0.9s   p(99)=1.6s
 neo4j_error_rate ......... 0.00%
@@ -175,7 +175,7 @@ jq '.metrics.http_req_duration.values["p(95)"]' \
 
 ## Results Directory Layout
 
-```
+```text
 stress/results/
 └── 20260223_233732/         # timestamp = run start
     ├── dashboard-list.json           # k6 JSON output

@@ -32,9 +32,16 @@ export const options = {
 
 const BASE = __ENV.BASE_URL || "http://localhost:3000";
 const COOKIE = __ENV.SESSION_COOKIE;
-const CONNECTION_ID = __ENV.CONNECTION_ID || "";
+const CONNECTION_ID = __ENV.CONNECTION_ID;
 // Pass QUERY env var to override the default (e.g. SQL for PG, Cypher for Neo4j)
 const QUERY = __ENV.QUERY || "RETURN 1 AS value";
+
+if (!COOKIE) {
+  throw new Error("SESSION_COOKIE env var is required (-e SESSION_COOKIE=<value>)");
+}
+if (!CONNECTION_ID) {
+  throw new Error("CONNECTION_ID env var is required (-e CONNECTION_ID=<uuid>)");
+}
 
 const PAYLOAD = JSON.stringify({
   connectionId: CONNECTION_ID,

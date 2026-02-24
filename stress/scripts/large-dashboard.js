@@ -35,6 +35,10 @@ export const options = {
 
 const BASE = __ENV.BASE_URL || "http://localhost:3000";
 const COOKIE = __ENV.SESSION_COOKIE;
+if (!COOKIE) {
+  throw new Error("SESSION_COOKIE env var is required (-e SESSION_COOKIE=<value>)");
+}
+const CONNECTION_ID = __ENV.CONNECTION_ID || "conn-neo4j-001";
 
 const WIDGET_COUNT = 100;
 
@@ -43,7 +47,7 @@ function buildLargeLayout(n) {
   const widgets = Array.from({ length: n }, (_, i) => ({
     id: `perf-k6-w${i + 1}`,
     chartType: "single-value",
-    connectionId: "conn-neo4j-001",
+    connectionId: CONNECTION_ID,
     query: "RETURN 1 AS value",
     params: {},
     settings: { title: `Widget ${i + 1}` },

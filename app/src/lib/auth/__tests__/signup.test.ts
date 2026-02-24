@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -18,9 +18,6 @@ const mockDb = {
   insert: vi.fn(),
   transaction: vi.fn(),
 };
-
-vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("bcryptjs", () => ({ default: { hash: vi.fn().mockResolvedValue("hashed") } }));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -85,6 +82,12 @@ describe("signup", () => {
     signup = mod.signup;
   });
 
+  // Always clean up the bootstrap token env var so a throwing assertion
+  // can't leak it to subsequent tests.
+  afterEach(() => {
+    delete process.env.ADMIN_BOOTSTRAP_TOKEN;
+  });
+
   it("returns error when name is missing", async () => {
     const res = await signup(makeForm({ name: "", email: "a@b.com", password: "password" }));
     expect(res.success).toBe(false);
@@ -118,7 +121,6 @@ describe("signup", () => {
     const res = await signup(form);
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/bootstrap token/i);
-    delete process.env.ADMIN_BOOTSTRAP_TOKEN;
   });
 
   it("creates first admin when bootstrap token matches", async () => {
@@ -129,7 +131,6 @@ describe("signup", () => {
     form.append("bootstrapToken", "correct-secret");
     const res = await signup(form);
     expect(res.success).toBe(true);
-    delete process.env.ADMIN_BOOTSTRAP_TOKEN;
   });
 
   it("creates creator when DB is non-empty", async () => {

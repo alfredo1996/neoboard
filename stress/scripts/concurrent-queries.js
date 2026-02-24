@@ -7,10 +7,18 @@
  *   - Connector-specific error rates and queue saturation behaviour
  *   - Throughput fairness: does one connector starve the other?
  *
+ * Prerequisites (seed data must exist before running):
+ *   Neo4j: :Movie, :Person, :ACTED_IN labels/relationships (from docker/neo4j/init.cypher)
+ *   PostgreSQL: movies and roles tables (from docker/postgres/init.sql)
+ *   If seed data is missing, 3 of 4 Neo4j query shapes and 3 of 4 PG query
+ *   shapes will fail, inflating the error rate beyond the 1% threshold.
+ *
  * Usage:
  *   k6 run \
  *     -e SESSION_COOKIE="next-auth.session-token=<value>" \
  *     -e BASE_URL="http://localhost:3000" \
+ *     -e NEO4J_CONN_ID="<uuid>" \
+ *     -e PG_CONN_ID="<uuid>" \
  *     stress/scripts/concurrent-queries.js
  *
  * Scenarios (run in parallel):
@@ -71,8 +79,18 @@ export const options = {
 
 const BASE = __ENV.BASE_URL || "http://localhost:3000";
 const COOKIE = __ENV.SESSION_COOKIE;
-const NEO4J_CONN_ID = __ENV.NEO4J_CONN_ID || "conn-neo4j-001";
-const PG_CONN_ID = __ENV.PG_CONN_ID || "conn-pg-001";
+const NEO4J_CONN_ID = __ENV.NEO4J_CONN_ID;
+const PG_CONN_ID = __ENV.PG_CONN_ID;
+
+if (!COOKIE) {
+  throw new Error("SESSION_COOKIE env var is required (-e SESSION_COOKIE=<value>)");
+}
+if (!NEO4J_CONN_ID) {
+  throw new Error("NEO4J_CONN_ID env var is required (-e NEO4J_CONN_ID=<uuid>)");
+}
+if (!PG_CONN_ID) {
+  throw new Error("PG_CONN_ID env var is required (-e PG_CONN_ID=<uuid>)");
+}
 
 const authHeaders = {
   Cookie: COOKIE,

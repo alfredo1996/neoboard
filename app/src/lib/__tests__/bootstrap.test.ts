@@ -14,7 +14,7 @@ vi.mock("bcryptjs", () => ({ default: { hash: vi.fn().mockResolvedValue("hashed-
 // Helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function setupTransaction(existingUsers: unknown[]): { txInsert: ReturnType<typeof vi.fn> } {
   const txInsert = vi.fn().mockReturnValue({
     values: vi.fn().mockResolvedValue(undefined),
@@ -70,6 +70,11 @@ describe("bootstrapAdmin", () => {
     const valuesMock = txInsert.mock.results[0].value as { values: ReturnType<typeof vi.fn> };
     expect(valuesMock.values).toHaveBeenCalledWith(
       expect.objectContaining({ email: "admin@example.com", role: "admin" })
+    );
+    // Verify the transaction uses serializable isolation to prevent TOCTOU races
+    expect(mockTransaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ isolationLevel: "serializable" }),
     );
   });
 });

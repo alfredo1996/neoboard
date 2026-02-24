@@ -37,6 +37,6 @@ export async function bootstrapAdmin({
       role: "admin",
     });
 
-    console.info(`[bootstrap] Created admin user: ${email}`);
+    console.info("[bootstrap] Created initial admin user");
   }, { isolationLevel: "serializable" });
 }

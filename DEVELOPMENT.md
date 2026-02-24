@@ -69,10 +69,16 @@ ENCRYPTION_KEY=<your-32-byte-hex-key>
 NEXTAUTH_SECRET=<your-32-byte-hex-key>
 NEXTAUTH_URL=http://localhost:3000
 
-# One-time token for bootstrapping the first admin account.
+# One-time token for bootstrapping the first admin account via the /signup UI.
 # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 # After the first admin is created, this token is no longer needed.
 ADMIN_BOOTSTRAP_TOKEN=<your-32-byte-hex-key>
+
+# Alternative: auto-create the first admin at server startup (instrumentation.ts).
+# Both vars must be set; BOOTSTRAP_ADMIN_PASSWORD must be at least 6 characters.
+# Remove these after the first admin is created — do not keep them in version control.
+# BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+# BOOTSTRAP_ADMIN_PASSWORD=<your-secure-password>
 ```
 
 ---

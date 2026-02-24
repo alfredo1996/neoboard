@@ -1,23 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Mocks — defined at module level so vi.doMock closures can reference them,
+// but registered only inside beforeEach (after vi.resetModules) to avoid the
+// redundant top-level vi.mock calls that are ignored when resetModules is used.
 // ---------------------------------------------------------------------------
 
 const mockAreUsersEmpty = vi.fn<() => Promise<boolean>>();
-
-vi.mock("@/lib/auth/signup", () => ({
-  areUsersEmpty: mockAreUsersEmpty,
-}));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
 
 // ---------------------------------------------------------------------------
 // Tests

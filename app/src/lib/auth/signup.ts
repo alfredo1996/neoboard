@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
@@ -39,7 +40,13 @@ export async function signup(formData: FormData): Promise<SignupResult> {
 
   if (isEmpty) {
     const token = formData.get("bootstrapToken") as string | null;
-    if (!token || token !== process.env.ADMIN_BOOTSTRAP_TOKEN) {
+    const expected = process.env.ADMIN_BOOTSTRAP_TOKEN;
+    const tokenValid =
+      token &&
+      expected &&
+      Buffer.byteLength(token, "utf8") === Buffer.byteLength(expected, "utf8") &&
+      crypto.timingSafeEqual(Buffer.from(token, "utf8"), Buffer.from(expected, "utf8"));
+    if (!tokenValid) {
       return {
         success: false,
         error: "Bootstrap token required to create the first admin account.",

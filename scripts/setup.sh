@@ -57,10 +57,10 @@ ADMIN_BOOTSTRAP_TOKEN=$ADMIN_BOOTSTRAP_TOKEN
 EOF
   echo "    Created $ENV_FILE with generated secrets."
   echo ""
-  echo "  ╔══════════════════════════════════════════════════════════════╗"
-  echo "  ║  ADMIN BOOTSTRAP TOKEN (keep this safe):                    ║"
+  echo "  ╔════════════════════════════════════════════════════════════════════╗"
+  echo "  ║  ADMIN BOOTSTRAP TOKEN (keep this safe):                           ║"
   echo "  ║  $ADMIN_BOOTSTRAP_TOKEN  ║"
-  echo "  ╚══════════════════════════════════════════════════════════════╝"
+  echo "  ╚════════════════════════════════════════════════════════════════════╝"
   echo ""
   echo "  Visit /signup to create the first admin account using this token."
   echo "  After the first admin is created, this token is no longer needed."

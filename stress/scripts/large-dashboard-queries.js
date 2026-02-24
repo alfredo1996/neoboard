@@ -66,6 +66,9 @@ export const options = {
 
 const BASE = __ENV.BASE_URL || "http://localhost:3000";
 const COOKIE = __ENV.SESSION_COOKIE;
+if (!COOKIE) {
+  throw new Error("SESSION_COOKIE env var is required (-e SESSION_COOKIE=<value>)");
+}
 const CONNECTION_ID = __ENV.CONNECTION_ID || "conn-neo4j-001";
 
 const authHeaders = {
@@ -108,6 +111,8 @@ export default function () {
     queryErrorRate.add(!ok);
   });
 
-  // No sleep in burst scenario — immediate fire simulates browser widget init
+  // Brief pause between iterations (applies to both burst and ramp scenarios).
+  // In burst the 100 VUs each run once so this minimal sleep has no material
+  // impact; in ramp it throttles individual VUs to ~10 RPS each.
   sleep(0.1);
 }

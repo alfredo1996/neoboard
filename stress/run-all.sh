@@ -241,7 +241,7 @@ if [[ -z "$SESSION_COOKIE" ]]; then
   ok "Logged in — cookie: ${COOKIE_NAME}"
 fi
 
-log "Cookie: ${SESSION_COOKIE:0:50}..."
+log "Cookie: <redacted>"
 
 AUTH_HEADER="Cookie: ${SESSION_COOKIE}"
 
@@ -295,14 +295,16 @@ if [[ -z "$PG_CONN_ID" ]]; then
 fi
 
 # ── Suite definitions ─────────────────────────────────────────────────────────
-# Format: "name|script|extra_env"   (extra_env = space-separated KEY=VALUE)
+# Format: "name|script|extra_env"   (extra_env = ^-separated KEY=VALUE pairs)
+# Use ^ as delimiter so values that contain spaces (e.g. QUERY=RETURN 1 AS value)
+# are not broken by word-splitting in the parser loop below.
 SUITES=(
   "dashboard-list|scripts/dashboard-list.js|"
-  "query-exec-neo4j|scripts/query-exec.js|CONNECTION_ID=${NEO4J_CONN_ID} QUERY=RETURN 1 AS value"
-  "query-exec-pg|scripts/query-exec.js|CONNECTION_ID=${PG_CONN_ID} QUERY=SELECT 1 AS value"
+  "query-exec-neo4j|scripts/query-exec.js|CONNECTION_ID=${NEO4J_CONN_ID}^QUERY=RETURN 1 AS value"
+  "query-exec-pg|scripts/query-exec.js|CONNECTION_ID=${PG_CONN_ID}^QUERY=SELECT 1 AS value"
   "large-dashboard|scripts/large-dashboard.js|"
   "large-dashboard-queries|scripts/large-dashboard-queries.js|CONNECTION_ID=${NEO4J_CONN_ID}"
-  "concurrent-queries|scripts/concurrent-queries.js|NEO4J_CONN_ID=${NEO4J_CONN_ID} PG_CONN_ID=${PG_CONN_ID}"
+  "concurrent-queries|scripts/concurrent-queries.js|NEO4J_CONN_ID=${NEO4J_CONN_ID}^PG_CONN_ID=${PG_CONN_ID}"
 )
 
 # ── Run loop ──────────────────────────────────────────────────────────────────
@@ -334,7 +336,9 @@ for entry in "${SUITES[@]}"; do
 
   ENV_FLAGS=("-e" "SESSION_COOKIE=${SESSION_COOKIE}" "-e" "BASE_URL=${BASE_URL}")
   if [[ -n "$extra_env" ]]; then
-    for kv in $extra_env; do
+    # Split on ^ so KEY=VALUE pairs whose values contain spaces are preserved
+    IFS='^' read -ra ENV_PAIRS <<< "$extra_env"
+    for kv in "${ENV_PAIRS[@]}"; do
       ENV_FLAGS+=("-e" "$kv")
     done
   fi
