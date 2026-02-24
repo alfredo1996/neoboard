@@ -22,6 +22,10 @@ services:
     container_name: neoboard-neo4j
     environment:
       NEO4J_AUTH: neo4j/neoboard123
+      # Log all queries to query.log for stress-test verification.
+      # View with: docker exec neoboard-neo4j tail -f /logs/query.log
+      NEO4J_dbms_logs_query_enabled: "INFO"
+      NEO4J_dbms_logs_query_threshold: "0ms"
     ports:
       - "7474:7474"
       - "7687:7687"
