@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
+import { useConnectionSchema } from "@/hooks/use-schema";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { Play, ChevronLeft, AlertCircle } from "lucide-react";
@@ -12,7 +14,6 @@ import {
   Button,
   Input,
   Label,
-  Textarea,
   Alert,
   AlertTitle,
   AlertDescription,
@@ -28,11 +29,25 @@ import {
   SelectValue,
   Checkbox,
   Combobox,
+  type DatabaseSchema,
 } from "@neoboard/components";
 import {
   LoadingButton,
   ChartTypePicker,
 } from "@neoboard/components";
+
+// CodeMirror accesses real DOM APIs — load it only client-side.
+const QueryEditor = dynamic(
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.QueryEditor })),
+  { ssr: false }
+);
+
+const SchemaBrowser = dynamic(
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.SchemaBrowser })),
+  { ssr: false }
+);
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -87,6 +102,27 @@ export function WidgetEditorModal({
   const [cacheTtlMinutes, setCacheTtlMinutes] = useState(
     (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5
   );
+
+  // Schema browser collapse state
+  const [schemaBrowserCollapsed, setSchemaBrowserCollapsed] = useState(false);
+
+  // Ref used to pass insert-at-cursor from SchemaBrowser to QueryEditor.
+  // We keep the query in React state and append at cursor position via a
+  // simple string concatenation when there is no cursor API available.
+  const insertAtCursorRef = useRef<((text: string) => void) | null>(null);
+
+  // Derive connection type and fetch schema
+  const selectedConnection = useMemo(
+    () => connections.find((c) => c.id === connectionId) ?? null,
+    [connections, connectionId]
+  );
+  const editorLanguage: "cypher" | "sql" =
+    selectedConnection?.type === "postgresql" ? "sql" : "cypher";
+
+  const { data: rawSchema } = useConnectionSchema(connectionId || null);
+  // Cast the raw schema from the API (which is typed as Record<string, any>)
+  // to our DatabaseSchema shape. The shape is identical at runtime.
+  const editorSchema: DatabaseSchema | undefined = rawSchema as DatabaseSchema | undefined;
 
   const previewQuery = useQueryExecution();
 
@@ -252,14 +288,38 @@ export function WidgetEditorModal({
 
                 <div className="space-y-1.5">
                   <Label htmlFor="editor-query">Query</Label>
-                  <Textarea
-                    id="editor-query"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-                    className="font-mono min-h-[100px]"
-                    rows={4}
-                  />
+                  {/* Schema browser + CodeMirror editor side-by-side */}
+                  <div className="flex border rounded-lg overflow-hidden min-h-[160px]">
+                    {editorSchema && (
+                      <SchemaBrowser
+                        schema={editorSchema}
+                        onInsert={(text) => {
+                          // Append text at the current cursor position if the
+                          // QueryEditor exposes a handler, otherwise append.
+                          if (insertAtCursorRef.current) {
+                            insertAtCursorRef.current(text);
+                          } else {
+                            setQuery((prev) => prev + text);
+                          }
+                        }}
+                        collapsed={schemaBrowserCollapsed}
+                        onCollapsedChange={setSchemaBrowserCollapsed}
+                      />
+                    )}
+                    <QueryEditor
+                      value={query}
+                      onChange={setQuery}
+                      onRun={handlePreview}
+                      language={editorLanguage}
+                      schema={editorSchema}
+                      placeholder={
+                        editorLanguage === "sql"
+                          ? "SELECT * FROM users LIMIT 10"
+                          : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
+                      }
+                      className="flex-1 rounded-none border-0"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
