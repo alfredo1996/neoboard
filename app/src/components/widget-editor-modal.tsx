@@ -5,7 +5,7 @@ import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
-import { Play, ChevronLeft, AlertCircle } from "lucide-react";
+import { Play, ChevronLeft, AlertCircle, AlertTriangle } from "lucide-react";
 import {
   ChartOptionsPanel,
   getDefaultChartSettings,
@@ -33,6 +33,11 @@ import {
   LoadingButton,
   ChartTypePicker,
 } from "@neoboard/components";
+import {
+  getCompatibleChartTypes,
+  chartRegistry,
+} from "@/lib/chart-registry";
+import type { ChartTypeOption } from "@neoboard/components";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -44,6 +49,21 @@ export interface WidgetEditorModalProps {
   connections: ConnectionListItem[];
   /** Called with the final widget data on save */
   onSave: (widget: DashboardWidget) => void;
+}
+
+/**
+ * Build the ChartTypeOption list for the picker, constrained to types
+ * that are compatible with the currently selected connector type.
+ */
+function buildPickerOptions(connectorType: string | undefined): ChartTypeOption[] {
+  const compatibleTypes = connectorType
+    ? getCompatibleChartTypes(connectorType)
+    : (Object.keys(chartRegistry) as string[]);
+
+  return compatibleTypes.map((type) => {
+    const cfg = chartRegistry[type as keyof typeof chartRegistry];
+    return { type: cfg.type, label: cfg.label };
+  });
 }
 
 export function WidgetEditorModal({
@@ -88,7 +108,59 @@ export function WidgetEditorModal({
     (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5
   );
 
+  // Track whether the connector was changed in edit mode so we can warn
+  // the user that their query may no longer be valid.
+  const [connectorChanged, setConnectorChanged] = useState(false);
+
   const previewQuery = useQueryExecution();
+
+  // Derive the selected connection object so we can read its type
+  const selectedConnection = useMemo(
+    () => connections.find((c) => c.id === connectionId) ?? null,
+    [connections, connectionId]
+  );
+
+  // Chart type options filtered to those compatible with the selected connector
+  const compatiblePickerOptions = useMemo(
+    () => buildPickerOptions(selectedConnection?.type),
+    [selectedConnection?.type]
+  );
+
+  // When the connection changes in step 1 (add mode), if the currently
+  // selected chart type is not compatible with the new connector, fall
+  // back to the first compatible type so the user never advances with an
+  // invalid combination.
+  const handleConnectionChange = useCallback(
+    (newId: string) => {
+      setConnectionId(newId);
+      const newConnection = connections.find((c) => c.id === newId);
+      if (newConnection) {
+        const compatible = getCompatibleChartTypes(newConnection.type);
+        if (!compatible.includes(chartType as ReturnType<typeof getCompatibleChartTypes>[number])) {
+          setChartType(compatible[0] ?? "bar");
+          setChartOptions(getDefaultChartSettings(compatible[0] ?? "bar"));
+        }
+      }
+    },
+    [connections, chartType]
+  );
+
+  // Edit mode: connection change — warn and reset if chart type is now incompatible
+  const handleEditConnectionChange = useCallback(
+    (newId: string) => {
+      setConnectionId(newId);
+      setConnectorChanged(newId !== (widget?.connectionId ?? ""));
+      const newConnection = connections.find((c) => c.id === newId);
+      if (newConnection) {
+        const compatible = getCompatibleChartTypes(newConnection.type);
+        if (!compatible.includes(chartType as ReturnType<typeof getCompatibleChartTypes>[number])) {
+          setChartType(compatible[0] ?? "bar");
+          setChartOptions(getDefaultChartSettings(compatible[0] ?? "bar"));
+        }
+      }
+    },
+    [connections, chartType, widget?.connectionId]
+  );
 
   // Reset state when opening
   useEffect(() => {
@@ -105,6 +177,7 @@ export function WidgetEditorModal({
         setSourceField("");
         setEnableCache(true);
         setCacheTtlMinutes(5);
+        setConnectorChanged(false);
         previewQuery.reset();
       } else if (widget) {
         setStep(2);
@@ -122,6 +195,7 @@ export function WidgetEditorModal({
         setSourceField(ca?.parameterMapping.sourceField ?? "");
         setEnableCache(widget.settings?.enableCache !== false);
         setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
+        setConnectorChanged(false);
         previewQuery.reset();
       }
     }
@@ -186,21 +260,15 @@ export function WidgetEditorModal({
         {step === 1 ? (
           <>
             <DialogHeader>
-              <DialogTitle>Add Widget — Select Type</DialogTitle>
+              <DialogTitle>Add Widget — Select Connection</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Chart Type</Label>
-                <ChartTypePicker
-                  value={chartType}
-                  onValueChange={setChartType}
-                />
-              </div>
+              {/* Step 1a: choose connector first */}
               <div className="space-y-2">
                 <Label>Connection</Label>
                 <Combobox
                   value={connectionId}
-                  onChange={setConnectionId}
+                  onChange={handleConnectionChange}
                   options={connections.map((c) => ({
                     value: c.id,
                     label: `${c.name} (${c.type})`,
@@ -211,6 +279,18 @@ export function WidgetEditorModal({
                   className="w-full"
                 />
               </div>
+
+              {/* Step 1b: chart type filtered by selected connector */}
+              {connectionId && (
+                <div className="space-y-2">
+                  <Label>Chart Type</Label>
+                  <ChartTypePicker
+                    value={chartType}
+                    onValueChange={setChartType}
+                    options={compatiblePickerOptions}
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -249,6 +329,50 @@ export function WidgetEditorModal({
                     placeholder="Optional custom title"
                   />
                 </div>
+
+                {/* Connection selector — only visible in edit mode */}
+                {mode === "edit" && (
+                  <div className="space-y-1.5">
+                    <Label>Connection</Label>
+                    <Combobox
+                      value={connectionId}
+                      onChange={handleEditConnectionChange}
+                      options={connections.map((c) => ({
+                        value: c.id,
+                        label: `${c.name} (${c.type})`,
+                      }))}
+                      placeholder="Select a connection..."
+                      searchPlaceholder="Search connections..."
+                      emptyText="No connections found."
+                      className="w-full"
+                    />
+                    {connectorChanged && (
+                      <Alert variant="default" className="mt-1 py-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle className="text-sm">Connector changed</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          Switching connectors may make the existing query invalid.
+                          Review the query before saving.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
+
+                {/* Chart type picker (edit mode) */}
+                {mode === "edit" && (
+                  <div className="space-y-1.5">
+                    <Label>Chart Type</Label>
+                    <ChartTypePicker
+                      value={chartType}
+                      onValueChange={(t) => {
+                        setChartType(t);
+                        setChartOptions(getDefaultChartSettings(t));
+                      }}
+                      options={compatiblePickerOptions}
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label htmlFor="editor-query">Query</Label>
