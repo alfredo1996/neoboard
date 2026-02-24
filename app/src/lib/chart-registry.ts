@@ -304,19 +304,3 @@ export function getCompatibleChartTypes(connectorType: string): ChartType[] {
     .map((cfg) => cfg.type);
 }
 
-/**
- * Build the picker option list (type + label pairs) for a given connector type.
- * When connectorType is undefined, returns all registered chart types.
- */
-export function buildPickerOptions(
-  connectorType: string | undefined
-): { type: string; label: string }[] {
-  const compatibleTypes = connectorType
-    ? getCompatibleChartTypes(connectorType)
-    : (Object.keys(chartRegistry) as string[]);
-
-  return compatibleTypes.map((type) => {
-    const cfg = chartRegistry[type as keyof typeof chartRegistry];
-    return { type: cfg.type, label: cfg.label };
-  });
-}
