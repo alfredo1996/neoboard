@@ -27,6 +27,7 @@ interface DashboardState {
   removeWidget: (widgetId: string) => void;
   updateWidget: (widgetId: string, updates: Partial<DashboardWidget>) => void;
   updateGridLayout: (gridLayout: GridLayoutItem[]) => void;
+  duplicateWidget: (widgetId: string) => void;
 }
 
 const defaultPage = (): DashboardPage => ({
@@ -157,6 +158,45 @@ export const useDashboardStore = create<DashboardState>((set) => ({
           pages: updatePage(state.layout.pages, idx, (p) => ({
             ...p,
             gridLayout,
+          })),
+        },
+      };
+    }),
+
+  duplicateWidget: (widgetId) =>
+    set((state) => {
+      const idx = state.activePageIndex;
+      const page = state.layout.pages[idx];
+      const source = page.widgets.find((w) => w.id === widgetId);
+      const sourceGrid = page.gridLayout.find((g) => g.i === widgetId);
+      if (!source || !sourceGrid) return state;
+
+      const newId = crypto.randomUUID();
+      const clonedWidget: DashboardWidget = {
+        ...structuredClone(source),
+        id: newId,
+        settings: {
+          ...structuredClone(source.settings ?? {}),
+          title:
+            typeof source.settings?.title === "string"
+              ? `${source.settings.title} (Copy)`
+              : undefined,
+        },
+      };
+      const clonedGrid: GridLayoutItem = {
+        ...sourceGrid,
+        i: newId,
+        x: sourceGrid.x + 1,
+        y: sourceGrid.y + 1,
+      };
+
+      return {
+        layout: {
+          ...state.layout,
+          pages: updatePage(state.layout.pages, idx, (p) => ({
+            ...p,
+            widgets: [...p.widgets, clonedWidget],
+            gridLayout: [...p.gridLayout, clonedGrid],
           })),
         },
       };
