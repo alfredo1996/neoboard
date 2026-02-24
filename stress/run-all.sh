@@ -117,7 +117,12 @@ cleanup() {
   # Remove cookie jar
   [[ -n "$COOKIE_JAR" && -f "$COOKIE_JAR" ]] && rm -f "${COOKIE_JAR}"
 }
-trap cleanup EXIT INT TERM
+# On EXIT the cleanup always runs.
+# On INT/TERM we also exit (triggering the EXIT trap) so subsequent suites
+# don't start with a dead server after Ctrl-C.
+trap cleanup EXIT
+trap 'echo; fail "Interrupted — aborting remaining suites."; exit 130' INT
+trap 'fail "Terminated — aborting remaining suites."; exit 143' TERM
 
 # ── Dependency check ──────────────────────────────────────────────────────────
 if ! command -v k6 &>/dev/null; then
@@ -302,7 +307,7 @@ SUITES=(
   "dashboard-list|scripts/dashboard-list.js|"
   "query-exec-neo4j|scripts/query-exec.js|CONNECTION_ID=${NEO4J_CONN_ID}^QUERY=RETURN 1 AS value"
   "query-exec-pg|scripts/query-exec.js|CONNECTION_ID=${PG_CONN_ID}^QUERY=SELECT 1 AS value"
-  "large-dashboard|scripts/large-dashboard.js|"
+  "large-dashboard|scripts/large-dashboard.js|CONNECTION_ID=${NEO4J_CONN_ID}"
   "large-dashboard-queries|scripts/large-dashboard-queries.js|CONNECTION_ID=${NEO4J_CONN_ID}"
   "concurrent-queries|scripts/concurrent-queries.js|NEO4J_CONN_ID=${NEO4J_CONN_ID}^PG_CONN_ID=${PG_CONN_ID}"
 )
@@ -332,6 +337,12 @@ for entry in "${SUITES[@]}"; do
     SKIP_LIST+=("$name")
     echo ""
     continue
+  fi
+
+  # Abort early if the app is no longer reachable (e.g. dev server crashed)
+  if ! app_is_up; then
+    fail "App is not reachable at ${BASE_URL} — aborting remaining suites."
+    exit 1
   fi
 
   ENV_FLAGS=("-e" "SESSION_COOKIE=${SESSION_COOKIE}" "-e" "BASE_URL=${BASE_URL}")

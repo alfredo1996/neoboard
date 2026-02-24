@@ -67,7 +67,7 @@ export default function DashboardViewerPage({
   // layout is non-null here because dashboard is defined (guarded above)
   const resolvedLayout = layout!;
   const safeIndex = Math.min(activePageIndex, resolvedLayout.pages.length - 1);
-  const canEdit = dashboard.role === "owner" || dashboard.role === "editor";
+  const canEdit = dashboard.role === "owner" || dashboard.role === "editor" || dashboard.role === "admin";
 
   return (
     <div className="flex flex-col h-full">

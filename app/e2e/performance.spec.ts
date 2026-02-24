@@ -1,5 +1,58 @@
-import type { Page } from "@playwright/test";
-import { test, expect, ALICE } from "./fixtures";
+import type { Page, APIRequestContext } from "@playwright/test";
+import { test, expect, ALICE, TEST_NEO4J_BOLT_URL, TEST_PG_PORT } from "./fixtures";
+
+/**
+ * Creates temporary Neo4j and PostgreSQL connections for a performance test,
+ * using the testcontainer ports supplied by global-setup.ts via env vars.
+ * Returns the connection IDs and a cleanup function to delete them.
+ */
+async function createTestConnections(request: APIRequestContext): Promise<{
+  neo4jConnId: string;
+  pgConnId: string;
+  cleanup: () => Promise<void>;
+}> {
+  const [neo4jRes, pgRes] = await Promise.all([
+    request.post("/api/connections", {
+      data: {
+        name: "Perf: Neo4j (auto-cleanup)",
+        type: "neo4j",
+        config: {
+          uri: TEST_NEO4J_BOLT_URL,
+          username: "neo4j",
+          password: "neoboard123",
+        },
+      },
+    }),
+    request.post("/api/connections", {
+      data: {
+        name: "Perf: PostgreSQL (auto-cleanup)",
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+        },
+      },
+    }),
+  ]);
+
+  if (!neo4jRes.ok()) throw new Error(`Failed to create Neo4j connection: ${await neo4jRes.text()}`);
+  if (!pgRes.ok()) throw new Error(`Failed to create PostgreSQL connection: ${await pgRes.text()}`);
+
+  const { id: neo4jConnId } = (await neo4jRes.json()) as { id: string };
+  const { id: pgConnId } = (await pgRes.json()) as { id: string };
+
+  return {
+    neo4jConnId,
+    pgConnId,
+    cleanup: () =>
+      Promise.all([
+        request.delete(`/api/connections/${neo4jConnId}`),
+        request.delete(`/api/connections/${pgConnId}`),
+      ]).then(() => undefined),
+  };
+}
 
 /**
  * Wait for the browser to complete two animation frames.
