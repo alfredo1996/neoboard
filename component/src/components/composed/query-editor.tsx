@@ -9,8 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { DatabaseSchema } from "./schema-browser";
-
 // ---------------------------------------------------------------------------
 // CodeMirror type aliases (dynamic imports — never imported at module level
 // so the heavy editor code is only loaded in the browser).
@@ -32,7 +30,6 @@ export interface QueryEditorProps {
   placeholder?: string;
   /** "cypher" | "sql" selects the language extension */
   language?: "cypher" | "sql" | string;
-  schema?: DatabaseSchema;
   readOnly?: boolean;
   className?: string;
 }
@@ -41,35 +38,8 @@ export interface QueryEditorProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildSchemaWords(schema: DatabaseSchema | undefined): string[] {
-  if (!schema) return [];
-  const words: string[] = [];
-
-  if (schema.labels) words.push(...schema.labels);
-  if (schema.relationshipTypes) words.push(...schema.relationshipTypes);
-  if (schema.nodeProperties) {
-    Object.values(schema.nodeProperties).forEach((props) =>
-      props.forEach((p) => words.push(p.name))
-    );
-  }
-  if (schema.relProperties) {
-    Object.values(schema.relProperties).forEach((props) =>
-      props.forEach((p) => words.push(p.name))
-    );
-  }
-  if (schema.tables) {
-    schema.tables.forEach((t) => {
-      words.push(t.name);
-      t.columns.forEach((c) => words.push(c.name));
-    });
-  }
-
-  return [...new Set(words)];
-}
-
 async function buildExtensions(
   language: string,
-  schema: DatabaseSchema | undefined,
   placeholder: string,
   readOnly: boolean,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM extension type is complex
@@ -99,27 +69,7 @@ async function buildExtensions(
     const { sql } = await import("@codemirror/lang-sql");
     langExts.push(sql());
   }
-  // Cypher: no first-party CM6 package on npm — plain text with schema autocompletion.
-
-  // Schema autocompletion
-  const schemaWords = buildSchemaWords(schema);
-  const autocompleteExt =
-    schemaWords.length > 0
-      ? autocompletion({
-          override: [
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM context type
-            (ctx: any) => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM matchBefore return
-              const word: any = ctx.matchBefore(/\w*/);
-              if (!word || (word.from === word.to && !ctx.explicit)) return null;
-              return {
-                from: word.from,
-                options: schemaWords.map((label) => ({ label, type: "keyword" })),
-              };
-            },
-          ],
-        })
-      : autocompletion();
+  // Cypher: no first-party CM6 package on npm — plain text for now.
 
   // Cmd/Ctrl+Enter → run
   const runKeymap = keymap.of([
@@ -158,7 +108,7 @@ async function buildExtensions(
     keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
     runKeymap,
     ...langExts,
-    autocompleteExt,
+    autocompletion(),
     cmPlaceholder(placeholder),
     oneDark,
     baseTheme,
@@ -180,7 +130,6 @@ function QueryEditor({
   history,
   placeholder = "Enter your query...",
   language = "cypher",
-  schema,
   readOnly = false,
   className,
 }: QueryEditorProps) {
@@ -245,7 +194,6 @@ function QueryEditor({
 
       const extensions = await buildExtensions(
         language,
-        schema,
         placeholder,
         readOnly,
         onUpdate,
@@ -260,7 +208,7 @@ function QueryEditor({
     },
     // Recreate when these change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [language, readOnly, schema, placeholder]
+    [language, readOnly, placeholder]
   );
 
   // Initial mount
@@ -291,7 +239,7 @@ function QueryEditor({
       abortSignal.aborted = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, readOnly, schema]);
+  }, [language, readOnly]);
 
   // -------------------------------------------------------------------------
   // Sync controlled `value` into the editor when it changes externally

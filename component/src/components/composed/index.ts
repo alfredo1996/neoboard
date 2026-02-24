@@ -83,14 +83,6 @@ export { GraphLegend, type GraphLegendProps, type GraphLegendItem } from "./grap
 
 // Query
 export { QueryEditor, type QueryEditorProps } from "./query-editor";
-export {
-  SchemaBrowser,
-  type SchemaBrowserProps,
-  type DatabaseSchema,
-  type TableDef,
-  type ColumnDef,
-  type PropertyDef,
-} from "./schema-browser";
 
 // Utility
 export { CopyButton, type CopyButtonProps } from "./copy-button";
