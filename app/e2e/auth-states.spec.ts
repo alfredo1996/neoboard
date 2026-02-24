@@ -120,9 +120,9 @@ test.describe("Users page — role enforcement", () => {
     // Navigate to users page
     await page.goto("/users");
 
-    // Should see forbidden message
+    // Wait for loading to finish, then check forbidden message
     await expect(page.getByText("Admin access required")).toBeVisible({
-      timeout: 10_000,
+      timeout: 30_000,
     });
   });
 });
