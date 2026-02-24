@@ -114,29 +114,32 @@ function TableTree({ table, onInsert }: TableTreeProps) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`Toggle ${table.name} columns`}
-        data-testid={`table-toggle-${table.name}`}
-        className="flex w-full items-center gap-1 px-2 py-0.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors text-left"
-      >
-        {open ? (
-          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-        )}
-        <Columns3 className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span
-          className="truncate font-mono cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            onInsert(table.name);
-          }}
+      {/* Row: insert button + toggle button side-by-side to avoid nested interactives */}
+      <div className="flex items-center gap-1 px-2 py-0.5">
+        <button
+          type="button"
+          onClick={() => onInsert(table.name)}
+          title={`Insert: ${table.name}`}
+          aria-label={`Insert ${table.name}`}
+          className="truncate font-mono text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors text-left flex-1 py-0.5"
         >
-          {table.name}
-        </span>
-      </button>
+          <Columns3 className="h-3 w-3 shrink-0 text-muted-foreground inline-block mr-1 align-middle" />
+          <span className="align-middle">{table.name}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`Toggle ${table.name} columns`}
+          data-testid={`table-toggle-${table.name}`}
+          className="shrink-0 rounded hover:bg-accent hover:text-accent-foreground transition-colors p-0.5"
+        >
+          {open ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          )}
+        </button>
+      </div>
       {open && table.columns.length > 0 && (
         <div className="pl-6">
           {table.columns.map((col) => (
@@ -288,10 +291,12 @@ function SchemaBrowser({
           </>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — shown only when the schema type has no data at all */}
         {((schema.type === "neo4j" &&
           !schema.labels?.length &&
-          !schema.relationshipTypes?.length) ||
+          !schema.relationshipTypes?.length &&
+          !Object.keys(schema.nodeProperties ?? {}).length &&
+          !Object.keys(schema.relProperties ?? {}).length) ||
           (schema.type === "postgresql" && !schema.tables?.length)) && (
           <p className="px-3 py-4 text-xs text-muted-foreground text-center">
             No schema data available

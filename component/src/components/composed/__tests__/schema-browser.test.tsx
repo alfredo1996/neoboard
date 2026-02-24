@@ -39,6 +39,8 @@ const pgSchema: DatabaseSchema = {
 
 const emptyNeo4j: DatabaseSchema = { type: "neo4j" };
 
+const emptyPg: DatabaseSchema = { type: "postgresql", tables: [] };
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -79,6 +81,51 @@ describe("SchemaBrowser — Neo4j", () => {
     render(<SchemaBrowser schema={emptyNeo4j} onInsert={vi.fn()} />);
     expect(screen.getByText(/no schema data/i)).toBeInTheDocument();
   });
+
+  it("does NOT show empty state when only nodeProperties are present", () => {
+    const propertiesOnly: DatabaseSchema = {
+      type: "neo4j",
+      nodeProperties: {
+        Person: [{ name: "name", type: "STRING" }],
+      },
+    };
+    render(<SchemaBrowser schema={propertiesOnly} onInsert={vi.fn()} />);
+    expect(screen.queryByText(/no schema data/i)).not.toBeInTheDocument();
+  });
+
+  it("does NOT show empty state when only relProperties are present", () => {
+    const relPropsOnly: DatabaseSchema = {
+      type: "neo4j",
+      relProperties: {
+        ACTED_IN: [{ name: "roles", type: "LIST" }],
+      },
+    };
+    render(<SchemaBrowser schema={relPropsOnly} onInsert={vi.fn()} />);
+    expect(screen.queryByText(/no schema data/i)).not.toBeInTheDocument();
+  });
+
+  it("renders nodeProperties section when present", () => {
+    render(<SchemaBrowser schema={neo4jSchema} onInsert={vi.fn()} />);
+    // Node Properties section header is rendered
+    expect(screen.getByText("Node Properties")).toBeInTheDocument();
+  });
+
+  it("shows property names inside nodeProperties section", () => {
+    render(<SchemaBrowser schema={neo4jSchema} onInsert={vi.fn()} />);
+    // The node properties section is collapsed by default; expand it
+    fireEvent.click(screen.getByText("Node Properties"));
+    expect(screen.getByText("name")).toBeInTheDocument();
+    expect(screen.getByText("born")).toBeInTheDocument();
+  });
+
+  it("calls onInsert with property name when property is clicked", () => {
+    const onInsert = vi.fn();
+    render(<SchemaBrowser schema={neo4jSchema} onInsert={onInsert} />);
+    // Expand node properties
+    fireEvent.click(screen.getByText("Node Properties"));
+    fireEvent.click(screen.getByText("born"));
+    expect(onInsert).toHaveBeenCalledWith("born");
+  });
 });
 
 describe("SchemaBrowser — PostgreSQL", () => {
@@ -88,11 +135,10 @@ describe("SchemaBrowser — PostgreSQL", () => {
     expect(screen.getByText("orders")).toBeInTheDocument();
   });
 
-  it("calls onInsert when table name span is clicked", () => {
+  it("calls onInsert when table name button is clicked", () => {
     const onInsert = vi.fn();
     render(<SchemaBrowser schema={pgSchema} onInsert={onInsert} />);
-    // The table name is rendered inside a <span> with its own onClick handler
-    // that calls onInsert (the outer button toggles expand/collapse).
+    // The table name is now a standalone insert button; clicking the text triggers onInsert.
     fireEvent.click(screen.getByText("users"));
     expect(onInsert).toHaveBeenCalledWith("users");
   });
@@ -113,6 +159,44 @@ describe("SchemaBrowser — PostgreSQL", () => {
     fireEvent.click(screen.getByTestId("table-toggle-users"));
     fireEvent.click(screen.getByText("id"));
     expect(onInsert).toHaveBeenCalledWith("id");
+  });
+
+  it("shows empty state for postgresql with no tables", () => {
+    render(<SchemaBrowser schema={emptyPg} onInsert={vi.fn()} />);
+    expect(screen.getByText(/no schema data/i)).toBeInTheDocument();
+  });
+
+  it("insert button and toggle button are separate focusable elements", () => {
+    render(<SchemaBrowser schema={pgSchema} onInsert={vi.fn()} />);
+    // The insert button has aria-label "Insert users"
+    expect(screen.getByLabelText("Insert users")).toBeInTheDocument();
+    // The toggle button has aria-label "Toggle users columns"
+    expect(screen.getByLabelText("Toggle users columns")).toBeInTheDocument();
+  });
+
+  it("insert button does not expand columns", () => {
+    render(<SchemaBrowser schema={pgSchema} onInsert={vi.fn()} />);
+    // Clicking the insert button should NOT show columns
+    fireEvent.click(screen.getByLabelText("Insert users"));
+    expect(screen.queryByText("id")).not.toBeInTheDocument();
+  });
+
+  it("toggle button does not call onInsert", () => {
+    const onInsert = vi.fn();
+    render(<SchemaBrowser schema={pgSchema} onInsert={onInsert} />);
+    fireEvent.click(screen.getByLabelText("Toggle users columns"));
+    expect(onInsert).not.toHaveBeenCalled();
+  });
+
+  it("collapse/expand table works toggle toggle-toggle", () => {
+    render(<SchemaBrowser schema={pgSchema} onInsert={vi.fn()} />);
+    const toggle = screen.getByTestId("table-toggle-users");
+    // Expand
+    fireEvent.click(toggle);
+    expect(screen.getByText("id")).toBeInTheDocument();
+    // Collapse
+    fireEvent.click(toggle);
+    expect(screen.queryByText("id")).not.toBeInTheDocument();
   });
 });
 
@@ -156,5 +240,18 @@ describe("SchemaBrowser — collapse/expand", () => {
     );
     fireEvent.click(screen.getByLabelText("Collapse schema browser"));
     expect(onCollapsedChange).toHaveBeenCalledWith(true);
+  });
+
+  it("collapsed state hides schema content", () => {
+    render(
+      <SchemaBrowser
+        schema={neo4jSchema}
+        onInsert={vi.fn()}
+        collapsed
+        onCollapsedChange={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("schema-browser")).not.toBeInTheDocument();
+    expect(screen.queryByText("Person")).not.toBeInTheDocument();
   });
 });

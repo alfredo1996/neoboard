@@ -211,7 +211,7 @@ function QueryEditor({
   // Create / recreate the CodeMirror editor
   // -------------------------------------------------------------------------
   const initEditor = React.useCallback(
-    async (docValue: string) => {
+    async (docValue: string, abortSignal: { aborted: boolean }) => {
       if (typeof window === "undefined" || !containerRef.current) return;
 
       // Tear down any existing view
@@ -226,6 +226,9 @@ function QueryEditor({
 
       const { EditorView } = await import("@codemirror/view");
       const { EditorState } = await import("@codemirror/state");
+
+      // Guard: a newer initEditor call may have superseded this one.
+      if (abortSignal.aborted) return;
 
       const onUpdate = (newValue: string) => {
         if (suppressUpdate.current) return;
@@ -249,7 +252,8 @@ function QueryEditor({
         onRunCallback
       );
 
-      if (!containerRef.current) return;
+      // Guard again after the second batch of dynamic imports.
+      if (abortSignal.aborted || !containerRef.current) return;
 
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
@@ -261,8 +265,10 @@ function QueryEditor({
 
   // Initial mount
   React.useEffect(() => {
-    initEditor(currentValue);
+    const abortSignal = { aborted: false };
+    initEditor(currentValue, abortSignal);
     return () => {
+      abortSignal.aborted = true;
       viewRef.current?.destroy();
       viewRef.current = null;
     };
@@ -279,9 +285,13 @@ function QueryEditor({
     }
     // Preserve current document content across reinit
     const doc = viewRef.current?.state.doc.toString() ?? currentValueRef.current;
-    initEditor(doc);
+    const abortSignal = { aborted: false };
+    initEditor(doc, abortSignal);
+    return () => {
+      abortSignal.aborted = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, readOnly]);
+  }, [language, readOnly, schema]);
 
   // -------------------------------------------------------------------------
   // Sync controlled `value` into the editor when it changes externally

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
@@ -105,11 +105,6 @@ export function WidgetEditorModal({
 
   // Schema browser collapse state
   const [schemaBrowserCollapsed, setSchemaBrowserCollapsed] = useState(false);
-
-  // Ref used to pass insert-at-cursor from SchemaBrowser to QueryEditor.
-  // We keep the query in React state and append at cursor position via a
-  // simple string concatenation when there is no cursor API available.
-  const insertAtCursorRef = useRef<((text: string) => void) | null>(null);
 
   // Derive connection type and fetch schema
   const selectedConnection = useMemo(
@@ -293,15 +288,7 @@ export function WidgetEditorModal({
                     {editorSchema && (
                       <SchemaBrowser
                         schema={editorSchema}
-                        onInsert={(text) => {
-                          // Append text at the current cursor position if the
-                          // QueryEditor exposes a handler, otherwise append.
-                          if (insertAtCursorRef.current) {
-                            insertAtCursorRef.current(text);
-                          } else {
-                            setQuery((prev) => prev + text);
-                          }
-                        }}
+                        onInsert={(text) => setQuery((prev) => prev + text)}
                         collapsed={schemaBrowserCollapsed}
                         onCollapsedChange={setSchemaBrowserCollapsed}
                       />
