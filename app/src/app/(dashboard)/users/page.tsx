@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import type { Session } from "next-auth";
 import { Users as UsersIcon, Plus } from "lucide-react";
 import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from "@/hooks/use-users";
 import type { UserListItem } from "@/hooks/use-users";
@@ -21,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
   Badge,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -31,6 +35,7 @@ import {
   DataGrid,
   PasswordInput,
 } from "@neoboard/components";
+import { useToast } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 
 const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | "outline"> = {
@@ -41,11 +46,14 @@ const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | 
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const systemRole = ((session?.user as any)?.role ?? "creator") as UserRole;
+  type SessionUser = NonNullable<Session["user"]> & { id?: string; role?: UserRole; tenantId?: string };
+  const sessionUser = session?.user as SessionUser | undefined;
+  const systemRole = (sessionUser?.role ?? "creator") as UserRole;
   const isAdmin = systemRole === "admin";
+  const currentUserId: string | undefined = sessionUser?.id;
 
-  const { data: users, isLoading } = useUsers();
+  const { toast } = useToast();
+  const { data: users, isLoading, error } = useUsers();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
@@ -69,6 +77,8 @@ export default function UsersPage() {
         header: "Role",
         cell: ({ row }) => {
           const r = row.original.role;
+          const isSelf = row.original.id === currentUserId;
+
           if (!isAdmin) {
             return (
               <Badge variant={ROLE_VARIANTS[r]} className="capitalize">
@@ -76,11 +86,42 @@ export default function UsersPage() {
               </Badge>
             );
           }
+
+          if (isSelf) {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex cursor-not-allowed">
+                    <Badge variant={ROLE_VARIANTS[r]} className="capitalize opacity-60">
+                      {r}
+                    </Badge>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>You cannot change your own role</TooltipContent>
+              </Tooltip>
+            );
+          }
+
           return (
             <Select
               value={r}
               onValueChange={(val) =>
-                updateRole.mutate({ id: row.original.id, role: val as UserRole })
+                updateRole.mutate(
+                  { id: row.original.id, role: val as UserRole },
+                  {
+                    onSuccess: () =>
+                      toast({
+                        title: "Role updated",
+                        description: `${row.original.name ?? row.original.email} is now a${val === "admin" ? "n" : ""} ${val}.`,
+                      }),
+                    onError: (err) =>
+                      toast({
+                        title: "Failed to update role",
+                        description: err instanceof Error ? err.message : "Something went wrong.",
+                        variant: "destructive",
+                      }),
+                  }
+                )
               }
             >
               <SelectTrigger className="h-7 w-28 text-xs">
@@ -106,28 +147,45 @@ export default function UsersPage() {
       {
         id: "actions",
         header: "",
-        cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-destructive"
-            onClick={() => setDeleteTarget(row.original.id)}
-          >
-            Delete
-          </Button>
-        ),
+        cell: ({ row }) => {
+          const isSelf = row.original.id === currentUserId;
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={isSelf ? "inline-flex cursor-not-allowed" : "inline-flex"}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    disabled={isSelf}
+                    onClick={() => !isSelf && setDeleteTarget(row.original.id)}
+                  >
+                    Delete
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {isSelf && (
+                <TooltipContent>You cannot delete your own account</TooltipContent>
+              )}
+            </Tooltip>
+          );
+        },
       },
     ],
-    [isAdmin, updateRole]
+    [isAdmin, currentUserId, updateRole, toast]
   );
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreateError(null);
     try {
-      await createUser.mutateAsync(form);
+      const created = await createUser.mutateAsync(form);
       setForm({ name: "", email: "", password: "", role: "creator" });
       setShowCreate(false);
+      toast({
+        title: "User created",
+        description: `${created.name ?? created.email} has been added as a ${created.role}.`,
+      });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create user");
     }
@@ -234,7 +292,16 @@ export default function UsersPage() {
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) {
-            deleteUser.mutate(deleteTarget);
+            deleteUser.mutate(deleteTarget, {
+              onSuccess: () =>
+                toast({ title: "User deleted", description: "The user has been removed." }),
+              onError: (err) =>
+                toast({
+                  title: "Failed to delete user",
+                  description: err instanceof Error ? err.message : "Something went wrong.",
+                  variant: "destructive",
+                }),
+            });
             setDeleteTarget(null);
           }
         }}
@@ -242,7 +309,13 @@ export default function UsersPage() {
 
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading users...">
-          {!users?.length ? (
+          {error instanceof Error && error.message === "Forbidden" ? (
+            <EmptyState
+              icon={<UsersIcon className="h-12 w-12" />}
+              title="Admin access required"
+              description="Only administrators can manage users."
+            />
+          ) : !users?.length ? (
             <EmptyState
               icon={<UsersIcon className="h-12 w-12" />}
               title="No users found"

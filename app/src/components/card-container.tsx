@@ -368,7 +368,7 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
 
   if (widgetQuery.isPending) {
     return (
-      <div className="space-y-3 p-4">
+      <div data-loading="true" className="space-y-3 p-4">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-24 w-full" />

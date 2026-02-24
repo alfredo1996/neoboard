@@ -71,6 +71,7 @@ export function PageTabs({
           ) : (
             <button
               type="button"
+              data-testid="page-tab"
               onClick={() => onSelect(index)}
               className={cn(
                 "h-9 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",

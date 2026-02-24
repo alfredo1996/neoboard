@@ -3,9 +3,9 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { requireSession } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 
-const updateRoleSchema = z.object({
+const updateUserSchema = z.object({
   role: z.enum(["admin", "creator", "reader"]),
 });
 
@@ -14,14 +14,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId: currentUserId, role: callerRole } = await requireSession();
+    const { userId } = await requireAdmin();
     const { id } = await params;
 
-    if (callerRole !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    if (id === currentUserId) {
+    if (id === userId) {
       return NextResponse.json(
         { error: "You cannot change your own role" },
         { status: 400 }
@@ -29,7 +25,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const parsed = updateRoleSchema.safeParse(body);
+    const parsed = updateUserSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -42,15 +38,22 @@ export async function PATCH(
       .update(users)
       .set({ role: parsed.data.role })
       .where(eq(users.id, id))
-      .returning({ id: users.id, role: users.role });
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+      });
 
     if (!updated) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(updated);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (e) {
+    const status = e instanceof Error && e.message === "Forbidden" ? 403 : 401;
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unauthorized" }, { status });
   }
 }
 
@@ -59,10 +62,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId: currentUserId } = await requireSession();
+    const { userId } = await requireAdmin();
     const { id } = await params;
 
-    if (id === currentUserId) {
+    if (id === userId) {
       return NextResponse.json(
         { error: "You cannot delete your own account" },
         { status: 400 }
@@ -79,7 +82,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (e) {
+    const status = e instanceof Error && e.message === "Forbidden" ? 403 : 401;
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unauthorized" }, { status });
   }
 }
