@@ -107,10 +107,27 @@ Test version-skip paths. `--skip-migrations` flag exists for emergency debugging
 
 ## Git strategy
 
-There is no `dev` branch — branch directly from `main`. Keep branches separated; do not push if tests are failing.
+Two long-lived branches: `main` (stable) and `dev` (integration). Branch from `main` for new work; PRs target `dev` for integration testing before merging to `main`.
 
 Branch naming: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
 
-For a release: create `release/vX.Y.Z` from `main`, then open a PR into it from the feature branches.
+Keep branches separated; do not push if tests are failing.
 
-After finishing a branch: create a PR, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.
+For a release: create `release/vX.Y.Z` from `dev`, verify, then merge to `main`.
+
+After finishing a branch: create a PR targeting `dev`, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.
+
+## Design Review
+
+Before touching any UI code, read the design skill files:
+
+- `.claude/skills/design-review/skill.md` — Design taste document with actual tokens, spacing, typography, color, and chart patterns extracted from this codebase. Treat as source of truth for visual consistency.
+- `.claude/skills/screenshot-review/skill.md` — Screenshot workflow for capturing before/after states and maintaining the baseline suite.
+
+### Rules for UI Changes
+
+- Always read `design-review/skill.md` before modifying any page, component, or layout.
+- Screenshot before AND after any visual change. Store in `.screenshots/before/` and `.screenshots/after/`.
+- Keep the baseline screenshot suite (`.screenshots/baseline-*/`) up to date when adding new pages or flows.
+- Reference baseline screenshots for comparison during code review.
+- New pages/flows must be added to the user story inventory and screenshot suite.
