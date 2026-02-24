@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
@@ -80,6 +80,10 @@ export function WidgetEditorModal({
     existingClickAction?.parameterMapping.sourceField ?? ""
   );
 
+  // Save status for visual feedback after CMD+Shift+Enter
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Cache settings
   const [enableCache, setEnableCache] = useState(
     widget?.settings?.enableCache !== false
@@ -140,6 +144,96 @@ export function WidgetEditorModal({
       previewQuery.mutate({ connectionId, query });
     }
   }, [connectionId, query, previewQuery]);
+
+  // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
+  const handleRunAndSave = useCallback(() => {
+    if (step !== 2 || !query.trim() || saveStatus === "saving") return;
+    setSaveStatus("saving");
+    previewQuery.mutate(
+      { connectionId, query },
+      {
+        onSuccess: () => {
+          // Clear any pending "saved" reset timer before triggering save
+          if (savedTimerRef.current !== null) {
+            clearTimeout(savedTimerRef.current);
+          }
+          setSaveStatus("saved");
+          savedTimerRef.current = setTimeout(() => {
+            setSaveStatus("idle");
+            savedTimerRef.current = null;
+          }, 1500);
+          const id = widget?.id ?? crypto.randomUUID();
+          const clickAction: ClickAction | undefined =
+            clickActionEnabled && parameterName && sourceField
+              ? {
+                  type: "set-parameter",
+                  parameterMapping: { parameterName, sourceField },
+                }
+              : undefined;
+          onSave({
+            id,
+            chartType,
+            connectionId,
+            query,
+            params: widget?.params,
+            settings: {
+              ...(widget?.settings ?? {}),
+              title: title || undefined,
+              chartOptions,
+              clickAction,
+              enableCache,
+              cacheTtlMinutes,
+            },
+          });
+          onOpenChange(false);
+        },
+        onError: () => {
+          setSaveStatus("idle");
+        },
+      }
+    );
+  }, [
+    step,
+    query,
+    saveStatus,
+    connectionId,
+    widget,
+    clickActionEnabled,
+    parameterName,
+    sourceField,
+    chartType,
+    title,
+    chartOptions,
+    enableCache,
+    cacheTtlMinutes,
+    previewQuery,
+    onSave,
+    onOpenChange,
+  ]);
+
+  // Register CMD+Shift+Enter / Ctrl+Shift+Enter on the dialog when it is open and on step 2.
+  useEffect(() => {
+    if (!open || step !== 2) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "Enter") {
+        e.preventDefault();
+        handleRunAndSave();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("keydown", handler);
+    };
+  }, [open, step, handleRunAndSave]);
+
+  // Clean up the "saved" feedback timer when the modal is closed.
+  useEffect(() => {
+    if (!open && savedTimerRef.current !== null) {
+      clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = null;
+      setSaveStatus("idle");
+    }
+  }, [open]);
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
@@ -446,13 +540,19 @@ export function WidgetEditorModal({
                   Cancel
                 </Button>
               )}
-              <Button
+              <LoadingButton
                 type="button"
                 disabled={!query.trim()}
+                loading={saveStatus === "saving"}
+                loadingText="Saving..."
                 onClick={handleSave}
               >
-                {mode === "edit" ? "Save Changes" : "Add Widget"}
-              </Button>
+                {saveStatus === "saved"
+                  ? "Saved!"
+                  : mode === "edit"
+                    ? "Save Changes"
+                    : "Add Widget"}
+              </LoadingButton>
             </DialogFooter>
           </>
         )}

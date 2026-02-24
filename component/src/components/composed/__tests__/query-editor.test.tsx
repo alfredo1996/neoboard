@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { QueryEditor } from "../query-editor";
@@ -76,5 +76,44 @@ describe("QueryEditor", () => {
   it("applies custom className", () => {
     const { container } = render(<QueryEditor className="my-editor" />);
     expect(container.firstChild).toHaveClass("my-editor");
+  });
+
+  // CMD+Enter / Ctrl+Enter should NOT call onRun when Shift is also held down — the
+  // run-and-save shortcut (CMD+Shift+Enter) is handled at the modal level and must not
+  // be intercepted by the textarea's keydown handler.
+  it("does NOT call onRun on CMD+Shift+Enter (reserved for run-and-save)", () => {
+    const onRun = vi.fn();
+    render(<QueryEditor defaultValue="MATCH (n) RETURN n" onRun={onRun} />);
+    const textarea = screen.getByPlaceholderText("Enter your query...");
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true, shiftKey: true });
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call onRun on Ctrl+Shift+Enter (reserved for run-and-save)", () => {
+    const onRun = vi.fn();
+    render(<QueryEditor defaultValue="MATCH (n) RETURN n" onRun={onRun} />);
+    const textarea = screen.getByPlaceholderText("Enter your query...");
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true, shiftKey: true });
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it("DOES call onRun on CMD+Enter without Shift", () => {
+    const onRun = vi.fn();
+    render(<QueryEditor defaultValue="MATCH (n) RETURN n" onRun={onRun} />);
+    const textarea = screen.getByPlaceholderText("Enter your query...");
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true, shiftKey: false });
+    expect(onRun).toHaveBeenCalledWith("MATCH (n) RETURN n");
+  });
+
+  it("does not render the run-and-save hint by default", () => {
+    render(<QueryEditor />);
+    expect(screen.queryByLabelText(/run and save shortcut/i)).toBeNull();
+  });
+
+  it("renders the run-and-save hint when runAndSaveHint=true", () => {
+    render(<QueryEditor runAndSaveHint />);
+    expect(
+      screen.getByLabelText("Run and save shortcut: Command Shift Enter")
+    ).toBeInTheDocument();
   });
 });
