@@ -2,10 +2,10 @@
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { getChartConfig } from "@/lib/chart-registry";
-import type { ChartType } from "@/lib/chart-registry";
+import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
   Label,
+  ColumnMappingOverlay,
 } from "@neoboard/components";
 
 // Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
@@ -60,6 +61,9 @@ import type {
 } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 
+/** Chart types that support column mapping. */
+const MAPPING_SUPPORTED_TYPES = new Set<ChartType>(["bar", "line", "pie"]);
+
 interface CardContainerProps {
   widget: DashboardWidget;
   /** When provided, renders the chart from this data without executing a query. */
@@ -67,6 +71,16 @@ interface CardContainerProps {
   /** resultId from the query execution — passed through to chart components
    *  that need to detect when the underlying data changed (e.g. graph widget). */
   previewResultId?: string;
+  /**
+   * When true, the column mapping overlay is rendered for supported chart types.
+   * The overlay allows in-place axis reassignment without re-running the query.
+   */
+  isEditMode?: boolean;
+  /**
+   * Called when the user changes the column mapping via the overlay.
+   * The caller is responsible for persisting the updated settings.
+   */
+  onWidgetSettingsChange?: (settings: Record<string, unknown>) => void;
 }
 
 interface ChartRendererProps {
@@ -309,10 +323,37 @@ function ParameterSelectRenderer({
 }
 
 /**
- * CardContainer: Fetches query results and renders the appropriate chart.
- * Uses React Query caching so queries are deduplicated across view→edit navigation.
+ * Extracts column names from raw query result data.
+ * Works with both the Neo4j array format and PostgreSQL { records } format.
  */
-export function CardContainer({ widget, previewData, previewResultId }: CardContainerProps) {
+function extractColumnNames(data: unknown): string[] {
+  let records: Record<string, unknown>[] = [];
+  if (Array.isArray(data)) {
+    records = data as Record<string, unknown>[];
+  } else if (data && typeof data === "object" && "records" in data) {
+    records = (data as { records: Record<string, unknown>[] }).records;
+  }
+  if (!records.length) return [];
+  const first = records[0];
+  if (!first || typeof first !== "object") return [];
+  return Object.keys(first);
+}
+
+/**
+ * CardContainer: Fetches query results and renders the appropriate chart.
+ * Uses React Query caching so queries are deduplicated across view->edit navigation.
+ *
+ * When `isEditMode` is true and the chart type is bar/line/pie, a lightweight
+ * column mapping overlay is rendered at the bottom of the card, letting users
+ * reassign axis columns without re-running the query.
+ */
+export function CardContainer({
+  widget,
+  previewData,
+  previewResultId,
+  isEditMode = false,
+  onWidgetSettingsChange,
+}: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
   function handleChartClick(point: Record<string, unknown>) {
@@ -335,13 +376,39 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
   const staleTime = enableCache ? cacheTtlMinutes * 60_000 : 0;
 
   // Only fire the query when there's no previewData — useWidgetQuery handles
-  // caching so navigating view→edit won't re-run the same query.
+  // caching so navigating view->edit won't re-run the same query.
   const queryInput = previewData !== undefined ? null : {
     connectionId: widget.connectionId,
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
   const widgetQuery = useWidgetQuery(queryInput, { staleTime });
+
+  // Resolve the current column mapping from widget settings.
+  const columnMapping = useMemo<ColumnMapping>(() => {
+    const raw = widget.settings?.columnMapping;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      return raw as ColumnMapping;
+    }
+    return {};
+  }, [widget.settings?.columnMapping]);
+
+  // Determine whether to show the overlay.
+  const showOverlay =
+    isEditMode &&
+    MAPPING_SUPPORTED_TYPES.has(widget.chartType as ChartType) &&
+    !!onWidgetSettingsChange;
+
+  const handleMappingChange = useCallback(
+    (newMapping: ColumnMapping) => {
+      if (!onWidgetSettingsChange) return;
+      onWidgetSettingsChange({
+        ...(widget.settings ?? {}),
+        columnMapping: newMapping,
+      });
+    },
+    [onWidgetSettingsChange, widget.settings]
+  );
 
   if (!chartConfig) {
     return (
@@ -358,10 +425,29 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
 
   // Use preview data directly if provided
   if (previewData !== undefined) {
-    const transformedData = chartConfig.transform(previewData);
+    const transformedData = chartConfig.transformWithMapping(previewData, columnMapping);
+    const availableColumns = extractColumnNames(previewData);
     return (
-      <div className="h-full w-full">
-        <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} resultId={previewResultId} />
+      <div className="h-full w-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <ChartRenderer
+            type={chartConfig.type}
+            data={transformedData}
+            settings={chartOptions}
+            onChartClick={hasClickAction ? handleChartClick : undefined}
+            connectionId={widget.connectionId}
+            widgetId={widget.id}
+            resultId={previewResultId}
+          />
+        </div>
+        {showOverlay && (
+          <ColumnMappingOverlay
+            chartType={chartConfig.type as "bar" | "line" | "pie"}
+            availableColumns={availableColumns}
+            mapping={columnMapping}
+            onMappingChange={handleMappingChange}
+          />
+        )}
       </div>
     );
   }
@@ -403,11 +489,31 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
     );
   }
 
-  const transformedData = chartConfig.transform(widgetQuery.data.data);
+  const rawData = widgetQuery.data.data;
+  const transformedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const availableColumns = extractColumnNames(rawData);
 
   return (
-    <div className="h-full w-full">
-      <ChartRenderer type={chartConfig.type} data={transformedData} settings={chartOptions} onChartClick={hasClickAction ? handleChartClick : undefined} connectionId={widget.connectionId} widgetId={widget.id} resultId={widgetQuery.data.resultId} />
+    <div className="h-full w-full flex flex-col">
+      <div className="flex-1 min-h-0">
+        <ChartRenderer
+          type={chartConfig.type}
+          data={transformedData}
+          settings={chartOptions}
+          onChartClick={hasClickAction ? handleChartClick : undefined}
+          connectionId={widget.connectionId}
+          widgetId={widget.id}
+          resultId={widgetQuery.data.resultId}
+        />
+      </div>
+      {showOverlay && (
+        <ColumnMappingOverlay
+          chartType={chartConfig.type as "bar" | "line" | "pie"}
+          availableColumns={availableColumns}
+          mapping={columnMapping}
+          onMappingChange={handleMappingChange}
+        />
+      )}
     </div>
   );
 }

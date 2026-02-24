@@ -265,6 +265,12 @@ export default function DashboardEditorPage({
                 onRemoveWidget={removeWidget}
                 onEditWidget={openEditWidget}
                 onLayoutChange={isActive ? updateGridLayout : undefined}
+                onWidgetSettingsChange={(widgetId, settings) => {
+                  const target = page.widgets.find((w) => w.id === widgetId);
+                  if (target) {
+                    updateWidget(widgetId, { ...target, settings });
+                  }
+                }}
               />
             </div>
           );
