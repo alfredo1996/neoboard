@@ -18,7 +18,12 @@ function parseColorThresholds(raw: string): ColorThreshold[] {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
       (t): t is ColorThreshold =>
-        typeof t === "object" && t !== null && "value" in t && "color" in t,
+        typeof t === "object" &&
+        t !== null &&
+        "value" in t &&
+        "color" in t &&
+        typeof (t as ColorThreshold).value === "number" &&
+        typeof (t as ColorThreshold).color === "string",
     );
   } catch {
     return [];
