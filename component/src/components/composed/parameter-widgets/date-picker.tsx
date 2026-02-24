@@ -35,13 +35,15 @@ function DatePickerParameter({
   const [open, setOpen] = React.useState(false);
   const labelId = `param-date-label-${parameterName}`;
 
-  // Parse "YYYY-MM-DD" in local time to avoid UTC midnight shift in west-of-UTC timezones
-  const selected = value
-    ? (() => {
-        const [y, m, d] = value.split("-").map(Number);
-        return new Date(y, m - 1, d);
-      })()
-    : undefined;
+  // Parse "YYYY-MM-DD" in local time to avoid UTC midnight shift in west-of-UTC timezones.
+  // Guard against malformed strings to prevent format() errors.
+  const selected = (() => {
+    if (!value) return undefined;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return undefined;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  })();
 
   const handleSelect = (date: Date | undefined) => {
     if (date) {

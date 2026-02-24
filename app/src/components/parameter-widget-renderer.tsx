@@ -38,10 +38,11 @@ function useSeedQuery(
 ): { options: ParamSelectorOption[]; loading: boolean } {
   const { data, isLoading } = useQuery<SeedQueryResult>({
     queryKey: ["param-seed", connectionId, query, extraParams],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
           connectionId,
           query,
@@ -264,8 +265,16 @@ export function ParameterWidgetRenderer({
           return;
         }
         set({ from, to });
-        setParameter(`${parameterName}_from`, from, "Parameter Selector", `${parameterName}_from`, "date", "selector-widget");
-        setParameter(`${parameterName}_to`, to, "Parameter Selector", `${parameterName}_to`, "date", "selector-widget");
+        if (from) {
+          setParameter(`${parameterName}_from`, from, "Parameter Selector", `${parameterName}_from`, "date", "selector-widget");
+        } else {
+          clearParameter(`${parameterName}_from`);
+        }
+        if (to) {
+          setParameter(`${parameterName}_to`, to, "Parameter Selector", `${parameterName}_to`, "date", "selector-widget");
+        } else {
+          clearParameter(`${parameterName}_to`);
+        }
       };
 
       return (
