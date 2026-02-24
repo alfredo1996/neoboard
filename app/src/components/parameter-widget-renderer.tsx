@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
@@ -169,6 +169,19 @@ export function ParameterWidgetRenderer({
     () => clearParameter(parameterName),
     [parameterName, clearParameter]
   );
+
+  // ── Clear cascading child when parent value changes ─────────────────────
+  const prevParentValue = useRef(parentValue);
+  useEffect(() => {
+    if (
+      parameterType === "cascading-select" &&
+      parentParameterName &&
+      prevParentValue.current !== parentValue
+    ) {
+      prevParentValue.current = parentValue;
+      clearParameter(parameterName);
+    }
+  }, [parameterType, parentParameterName, parentValue, parameterName, clearParameter]);
 
   // ── Read current value from store ─────────────────────────────────────────
   const currentEntry = parameters[parameterName];

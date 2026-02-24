@@ -74,8 +74,13 @@ function DateRangeParameter({
   const [open, setOpen] = React.useState(false);
   const labelId = `param-daterange-label-${parameterName}`;
 
-  const fromDate = from ? new Date(from) : undefined;
-  const toDate = to ? new Date(to) : undefined;
+  // Parse "YYYY-MM-DD" in local time to avoid UTC midnight shift in west-of-UTC timezones
+  const fromDate = from
+    ? (() => { const [y, m, d] = from.split("-").map(Number); return new Date(y, m - 1, d); })()
+    : undefined;
+  const toDate = to
+    ? (() => { const [y, m, d] = to.split("-").map(Number); return new Date(y, m - 1, d); })()
+    : undefined;
   const rangeValue: DateRange | undefined =
     fromDate || toDate ? { from: fromDate, to: toDate } : undefined;
 
