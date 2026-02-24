@@ -22,13 +22,9 @@ import {
   SingleValueChart,
   JsonViewer,
   DataGrid,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Label,
 } from "@neoboard/components";
+import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
+import type { ParameterType } from "@/stores/parameter-store";
 
 // Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
 const GraphChart = dynamic(
@@ -186,13 +182,33 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
     case "table":
       return <TableRenderer data={data} settings={settings} onRowClick={onChartClick} />;
 
-    case "parameter-select":
+    case "parameter-select": {
+      const pName = settings.parameterName as string | undefined;
+      if (!pName) {
+        return (
+          <EmptyState
+            title="No parameter name"
+            description="Configure a parameter name in the widget settings."
+            className="py-6"
+          />
+        );
+      }
       return (
-        <ParameterSelectRenderer
-          data={data}
-          parameterName={settings.parameterName as string | undefined}
-        />
+        <div className="p-4">
+          <ParameterWidgetRenderer
+            parameterName={pName}
+            parameterType={(settings.parameterType as ParameterType | undefined) ?? "select"}
+            connectionId={connectionId}
+            seedQuery={(settings.seedQuery as string | undefined)}
+            parentParameterName={(settings.parentParameterName as string | undefined) || undefined}
+            rangeMin={(settings.rangeMin as number | undefined) ?? 0}
+            rangeMax={(settings.rangeMax as number | undefined) ?? 100}
+            rangeStep={(settings.rangeStep as number | undefined) ?? 1}
+            placeholder={(settings.placeholder as string | undefined) || undefined}
+          />
+        </div>
       );
+    }
 
     case "json":
       return (
@@ -257,56 +273,6 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
   );
 }
 
-/**
- * Renders a dropdown select that sets a parameter value from query results.
- */
-function ParameterSelectRenderer({
-  data,
-  parameterName,
-}: {
-  data: unknown;
-  parameterName?: string;
-}) {
-  const options = Array.isArray(data) ? data : [];
-  const setParameter = useParameterStore((s) => s.setParameter);
-  const currentValue = useParameterStore((s) => {
-    if (!parameterName) return undefined;
-    return s.parameters[parameterName]?.value;
-  });
-
-  if (!parameterName) {
-    return (
-      <EmptyState
-        title="No parameter name"
-        description="Configure a parameter name in the widget settings."
-        className="py-6"
-      />
-    );
-  }
-
-  return (
-    <div className="p-4 space-y-2">
-      <Label>{parameterName}</Label>
-      <Select
-        value={currentValue !== undefined ? String(currentValue) : ""}
-        onValueChange={(val) =>
-          setParameter(parameterName, val, "Parameter Selector", parameterName)
-        }
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Select a value..." />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((opt, i) => (
-            <SelectItem key={`${opt}-${i}`} value={String(opt)}>
-              {String(opt)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
 
 /**
  * CardContainer: Fetches query results and renders the appropriate chart.
@@ -324,7 +290,7 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
       const title = (widget.settings?.title as string) || chartConfig?.label || widget.chartType;
       useParameterStore
         .getState()
-        .setParameter(parameterName, value, title, sourceField);
+        .setParameter(parameterName, value, title, sourceField, "text", "click-action");
     }
   }
   const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);

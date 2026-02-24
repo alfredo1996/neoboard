@@ -93,6 +93,28 @@ const jsonOptions: ChartOptionDef[] = [
 
 const parameterSelectOptions: ChartOptionDef[] = [
   { key: "parameterName", label: "Parameter Name", type: "text", default: "", category: "Parameter" },
+  {
+    key: "parameterType",
+    label: "Selector Type",
+    type: "select",
+    default: "select",
+    category: "Parameter",
+    options: [
+      { label: "Text Input", value: "text" },
+      { label: "Single Select", value: "select" },
+      { label: "Multi Select", value: "multi-select" },
+      { label: "Date Picker", value: "date" },
+      { label: "Date Range", value: "date-range" },
+      { label: "Relative Date", value: "date-relative" },
+      { label: "Number Range", value: "number-range" },
+      { label: "Cascading Select", value: "cascading-select" },
+    ],
+  },
+  { key: "parentParameterName", label: "Parent Parameter (cascading only)", type: "text", default: "", category: "Parameter" },
+  { key: "rangeMin", label: "Range Min (number-range only)", type: "number", default: 0, category: "Parameter" },
+  { key: "rangeMax", label: "Range Max (number-range only)", type: "number", default: 100, category: "Parameter" },
+  { key: "rangeStep", label: "Range Step (number-range only)", type: "number", default: 1, category: "Parameter" },
+  { key: "placeholder", label: "Placeholder", type: "text", default: "", category: "Parameter" },
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {

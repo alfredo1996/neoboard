@@ -323,6 +323,32 @@ export function WidgetEditorModal({
                   />
                 </div>
 
+                {chartType === "parameter-select" && (() => {
+                  const pType = (chartOptions.parameterType as string) ?? "select";
+                  const needsSeedQuery = pType === "select" || pType === "multi-select" || pType === "cascading-select";
+                  if (!needsSeedQuery) return null;
+                  return (
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-medium mb-3">Seed Query</h4>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Query that populates the dropdown options. Must return at least one column (used as value); the second column (if present) is used as the display label.
+                      </p>
+                      <Textarea
+                        id="seed-query"
+                        value={(chartOptions.seedQuery as string) ?? ""}
+                        onChange={(e) =>
+                          setChartOptions((prev) => ({ ...prev, seedQuery: e.target.value }))
+                        }
+                        placeholder={pType === "cascading-select"
+                          ? "SELECT value, label FROM table WHERE parent_id = $param_parent"
+                          : "SELECT DISTINCT value FROM table ORDER BY value"}
+                        className="font-mono min-h-[80px]"
+                        rows={3}
+                      />
+                    </div>
+                  );
+                })()}
+
                 <div className="border-t pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Checkbox
