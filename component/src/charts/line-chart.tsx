@@ -3,6 +3,12 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, LineChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import {
+  EMPTY_DATA_OPTION,
+  getCompactState,
+  resolveShowLegend,
+  buildCompactGrid,
+} from "./chart-utils";
 
 export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has an `x` key and one or more numeric series keys. */
@@ -50,27 +56,20 @@ function LineChart({
   ...rest
 }: LineChartProps) {
   const { width, height, containerRef } = useContainerSize();
-  const compact = width > 0 && width < 300;
-  const hideLegend = width > 0 && height < 200;
+  const { compact, hideLegend } = getCompactState(width, height);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) {
-      return { title: { text: "No data", left: "center", top: "center", textStyle: { color: "#999", fontSize: 14 } } };
-    }
+    if (!data.length) return EMPTY_DATA_OPTION;
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
-    const autoShowLegend = showLegend ?? seriesKeys.length > 1;
-    const effectiveShowLegend = hideLegend ? false : autoShowLegend;
+    const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
 
     return {
       tooltip: { trigger: "axis" },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
       grid: {
+        ...buildCompactGrid(compact, effectiveShowLegend),
         left: compact ? 8 : 48,
-        right: compact ? 8 : 16,
-        top: compact ? 8 : 16,
-        bottom: effectiveShowLegend ? 40 : compact ? 8 : 24,
-        containLabel: true,
       },
       xAxis: {
         type: "category",

@@ -3,6 +3,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import { EMPTY_DATA_OPTION, getCompactState } from "./chart-utils";
 
 export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of `{ name, value }` slices */
@@ -44,12 +45,10 @@ function PieChart({
 }: PieChartProps) {
   const { width, height, containerRef } = useContainerSize();
   const compact = width > 0 && (width < 300 || height < 200);
-  const hideLegend = width > 0 && height < 200;
+  const { hideLegend } = getCompactState(width, height);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) {
-      return { title: { text: "No data", left: "center", top: "center", textStyle: { color: "#999", fontSize: 14 } } };
-    }
+    if (!data.length) return EMPTY_DATA_OPTION;
 
     const effectiveShowLabel = compact ? false : showLabel;
     const effectiveShowLegend = hideLegend ? false : showLegend;

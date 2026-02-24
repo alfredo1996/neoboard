@@ -3,6 +3,12 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, BarChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import {
+  EMPTY_DATA_OPTION,
+  getCompactState,
+  resolveShowLegend,
+  buildCompactGrid,
+} from "./chart-utils";
 
 export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has a `label` key and one or more numeric series keys. */
@@ -50,17 +56,13 @@ function BarChart({
   ...rest
 }: BarChartProps) {
   const { width, height, containerRef } = useContainerSize();
-  const compact = width > 0 && width < 300;
-  const hideLegend = width > 0 && height < 200;
+  const { compact, hideLegend } = getCompactState(width, height);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) {
-      return { title: { text: "No data", left: "center", top: "center", textStyle: { color: "#999", fontSize: 14 } } };
-    }
+    if (!data.length) return EMPTY_DATA_OPTION;
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "label");
-    const autoShowLegend = showLegend ?? seriesKeys.length > 1;
-    const effectiveShowLegend = hideLegend ? false : autoShowLegend;
+    const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
@@ -85,13 +87,7 @@ function BarChart({
     return {
       tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const } },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
-      grid: {
-        left: compact ? 8 : 16,
-        right: compact ? 8 : 16,
-        top: compact ? 8 : 16,
-        bottom: effectiveShowLegend ? 40 : compact ? 8 : 24,
-        containLabel: true,
-      },
+      grid: buildCompactGrid(compact, effectiveShowLegend),
       xAxis: isHorizontal ? valueAxis : categoryAxis,
       yAxis: isHorizontal ? categoryAxis : valueAxis,
       series: seriesKeys.map((key) => ({
