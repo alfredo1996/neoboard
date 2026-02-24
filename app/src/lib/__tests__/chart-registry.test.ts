@@ -3,6 +3,7 @@ import {
   getCompatibleChartTypes,
   getChartConfig,
   chartRegistry,
+  buildPickerOptions,
 } from "../chart-registry";
 import type { ChartType, ConnectorType } from "../chart-registry";
 
@@ -57,14 +58,19 @@ describe("getCompatibleChartTypes", () => {
     expect(getCompatibleChartTypes("PostgreSQL")).toEqual([]);
   });
 
-  it("postgresql result has 8 types (all except graph)", () => {
+  it("postgresql result excludes only neo4j-only chart types", () => {
+    const allTypes = Object.keys(chartRegistry) as ChartType[];
+    const neo4jOnlyCount = allTypes.filter(
+      (t) => !chartRegistry[t].compatibleWith?.includes("postgresql")
+    ).length;
     const result = getCompatibleChartTypes("postgresql");
-    expect(result).toHaveLength(8);
+    expect(result).toHaveLength(allTypes.length - neo4jOnlyCount);
   });
 
-  it("neo4j result has all 9 types", () => {
+  it("neo4j result includes all registered chart types", () => {
+    const allTypes = Object.keys(chartRegistry) as ChartType[];
     const result = getCompatibleChartTypes("neo4j");
-    expect(result).toHaveLength(9);
+    expect(result).toHaveLength(allTypes.length);
   });
 
   it("returned types are valid ChartType values", () => {
@@ -685,5 +691,48 @@ describe("graph transform", () => {
     const data = [{ r: rel }, { r: rel }];
     const result = transform(data) as { nodes: unknown[]; edges: unknown[] };
     expect(result.edges).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPickerOptions
+// ---------------------------------------------------------------------------
+describe("buildPickerOptions", () => {
+  it("returns all chart types when connectorType is undefined", () => {
+    const options = buildPickerOptions(undefined);
+    const allTypes = Object.keys(chartRegistry);
+    expect(options).toHaveLength(allTypes.length);
+    for (const opt of options) {
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("label");
+    }
+  });
+
+  it("returns filtered options for postgresql (no graph)", () => {
+    const options = buildPickerOptions("postgresql");
+    const types = options.map((o) => o.type);
+    expect(types).not.toContain("graph");
+    expect(types).toContain("bar");
+    expect(types).toContain("table");
+  });
+
+  it("returns all options for neo4j (includes graph)", () => {
+    const options = buildPickerOptions("neo4j");
+    const types = options.map((o) => o.type);
+    expect(types).toContain("graph");
+    expect(types).toContain("bar");
+  });
+
+  it("returns empty array for unknown connector type", () => {
+    const options = buildPickerOptions("mysql");
+    expect(options).toEqual([]);
+  });
+
+  it("each option has a matching label from the registry", () => {
+    const options = buildPickerOptions("neo4j");
+    for (const opt of options) {
+      const cfg = chartRegistry[opt.type as ChartType];
+      expect(opt.label).toBe(cfg.label);
+    }
   });
 });

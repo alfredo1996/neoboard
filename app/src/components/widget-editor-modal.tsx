@@ -35,9 +35,8 @@ import {
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
-  chartRegistry,
+  buildPickerOptions,
 } from "@/lib/chart-registry";
-import type { ChartTypeOption } from "@neoboard/components";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -49,21 +48,6 @@ export interface WidgetEditorModalProps {
   connections: ConnectionListItem[];
   /** Called with the final widget data on save */
   onSave: (widget: DashboardWidget) => void;
-}
-
-/**
- * Build the ChartTypeOption list for the picker, constrained to types
- * that are compatible with the currently selected connector type.
- */
-function buildPickerOptions(connectorType: string | undefined): ChartTypeOption[] {
-  const compatibleTypes = connectorType
-    ? getCompatibleChartTypes(connectorType)
-    : (Object.keys(chartRegistry) as string[]);
-
-  return compatibleTypes.map((type) => {
-    const cfg = chartRegistry[type as keyof typeof chartRegistry];
-    return { type: cfg.type, label: cfg.label };
-  });
 }
 
 export function WidgetEditorModal({
@@ -572,7 +556,7 @@ export function WidgetEditorModal({
               )}
               <Button
                 type="button"
-                disabled={!query.trim()}
+                disabled={!connectionId || !query.trim()}
                 onClick={handleSave}
               >
                 {mode === "edit" ? "Save Changes" : "Add Widget"}
