@@ -14,7 +14,8 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *)
 1. `git fetch origin && git rebase origin/main`
 2. `npm run lint`
 3. `npm run build`
-4. `npm run test`
+4. Run tests for affected packages (`cd app && npm test`, `cd component && npm test`)
+5. If updating existing PR: `gh pr view <number> --comments` — address CodeRabbit/SonarQube feedback
 
 ## Labels (required: type + package)
 - Type: bug, enhancement, security, documentation, breaking-change, performance
