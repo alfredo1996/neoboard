@@ -285,4 +285,52 @@ describe("useDashboardStore", () => {
     expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(2);
     expect(useDashboardStore.getState().layout.pages[1].widgets).toHaveLength(0);
   });
+
+  it("duplicateWidget sets title to undefined when source widget has no settings", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.title).toBeUndefined();
+  });
+
+  it("duplicateWidget sets title to undefined when settings.title is not a string", () => {
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      settings: { title: 42 },
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.title).toBeUndefined();
+  });
+
+  it("duplicateWidget preserves all non-title settings from source", () => {
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      settings: { title: "My Widget", color: "red", limit: 100 },
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.color).toBe("red");
+    expect(copy.settings?.limit).toBe(100);
+    expect(copy.settings?.title).toBe("My Widget (Copy)");
+  });
+
+  it("duplicateWidget assigns a grid item with the new widget's ID", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 6, h: 2 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const page = useDashboardStore.getState().layout.pages[0];
+    const copyWidget = page.widgets[1];
+    const copyGrid = page.gridLayout[1];
+    expect(copyGrid.i).toBe(copyWidget.id);
+  });
 });
