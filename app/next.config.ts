@@ -6,8 +6,21 @@ const componentSrc = resolve(import.meta.dirname, "..", "component", "src");
 const nextConfig: NextConfig = {
   outputFileTracingRoot: resolve(import.meta.dirname, ".."),
   transpilePackages: ["@neoboard/components"],
-  serverExternalPackages: ["connection", "neo4j-driver", "pg"],
-  webpack: (config) => {
+  serverExternalPackages: ["connection", "neo4j-driver", "pg", "postgres"],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // The instrumentation file is compiled in a separate webpack pass that does
+      // not always honour serverExternalPackages. Explicitly mark postgres as an
+      // external so webpack never tries to bundle its Node.js built-in imports
+      // (net, tls, stream, crypto) in that compilation.
+      const prev = config.externals;
+      config.externals = Array.isArray(prev)
+        ? [...prev, "postgres"]
+        : prev
+          ? [prev, "postgres"]
+          : ["postgres"];
+    }
+
     // The component library uses @/ as a path alias pointing to its own src/.
     // The app also uses @/ (via tsconfig paths) pointing to app/src/.
     // We need to resolve @/ differently based on which package the import originates from.

@@ -8,76 +8,86 @@
 -- -------------------------------------------------------
 
 -- Enums
+-- migration 0000
 CREATE TYPE "public"."connection_type" AS ENUM('neo4j', 'postgresql');
 CREATE TYPE "public"."share_role" AS ENUM('viewer', 'editor');
+-- migration 0001
+CREATE TYPE "public"."user_role" AS ENUM('admin', 'creator', 'reader');
 
 -- Tables
 CREATE TABLE "user" (
-                        "id" text PRIMARY KEY NOT NULL,
-                        "name" text,
-                        "email" text,
-                        "emailVerified" timestamp,
-                        "image" text,
-                        "passwordHash" text,
-                        "createdAt" timestamp DEFAULT now(),
-                        CONSTRAINT "user_email_unique" UNIQUE("email")
+    "id" text PRIMARY KEY NOT NULL,
+    "name" text,
+    "email" text,
+    "emailVerified" timestamp,
+    "image" text,
+    "passwordHash" text,
+    -- migration 0001: role column
+    "role" "user_role" DEFAULT 'creator' NOT NULL,
+    "createdAt" timestamp DEFAULT now(),
+    CONSTRAINT "user_email_unique" UNIQUE("email")
 );
 
 CREATE TABLE "account" (
-                           "userId" text NOT NULL,
-                           "type" text NOT NULL,
-                           "provider" text NOT NULL,
-                           "providerAccountId" text NOT NULL,
-                           "refresh_token" text,
-                           "access_token" text,
-                           "expires_at" integer,
-                           "token_type" text,
-                           "scope" text,
-                           "id_token" text,
-                           "session_state" text,
-                           PRIMARY KEY ("provider", "providerAccountId")
+    "userId" text NOT NULL,
+    "type" text NOT NULL,
+    "provider" text NOT NULL,
+    "providerAccountId" text NOT NULL,
+    "refresh_token" text,
+    "access_token" text,
+    "expires_at" integer,
+    "token_type" text,
+    "scope" text,
+    "id_token" text,
+    "session_state" text,
+    PRIMARY KEY ("provider", "providerAccountId")
 );
 
 CREATE TABLE "session" (
-                           "sessionToken" text PRIMARY KEY NOT NULL,
-                           "userId" text NOT NULL,
-                           "expires" timestamp NOT NULL
+    "sessionToken" text PRIMARY KEY NOT NULL,
+    "userId" text NOT NULL,
+    "expires" timestamp NOT NULL
 );
 
 CREATE TABLE "verificationToken" (
-                                     "identifier" text NOT NULL,
-                                     "token" text NOT NULL,
-                                     "expires" timestamp NOT NULL,
-                                     PRIMARY KEY ("identifier", "token")
+    "identifier" text NOT NULL,
+    "token" text NOT NULL,
+    "expires" timestamp NOT NULL,
+    PRIMARY KEY ("identifier", "token")
 );
 
 CREATE TABLE "connection" (
-                              "id" text PRIMARY KEY NOT NULL,
-                              "userId" text NOT NULL,
-                              "name" text NOT NULL,
-                              "type" "connection_type" NOT NULL,
-                              "configEncrypted" text NOT NULL,
-                              "createdAt" timestamp DEFAULT now(),
-                              "updatedAt" timestamp DEFAULT now()
+    "id" text PRIMARY KEY NOT NULL,
+    "userId" text NOT NULL,
+    "name" text NOT NULL,
+    "type" "connection_type" NOT NULL,
+    "configEncrypted" text NOT NULL,
+    "createdAt" timestamp DEFAULT now(),
+    "updatedAt" timestamp DEFAULT now()
 );
 
 CREATE TABLE "dashboard" (
-                             "id" text PRIMARY KEY NOT NULL,
-                             "userId" text NOT NULL,
-                             "name" text NOT NULL,
-                             "description" text,
-                             "layoutJson" jsonb DEFAULT '{"widgets":[],"gridLayout":[]}'::jsonb,
-                             "isPublic" boolean DEFAULT false,
-                             "createdAt" timestamp DEFAULT now(),
-                             "updatedAt" timestamp DEFAULT now()
+    "id" text PRIMARY KEY NOT NULL,
+    "userId" text NOT NULL,
+    -- migration 0002: tenant_id column
+    "tenant_id" text NOT NULL DEFAULT 'default',
+    "name" text NOT NULL,
+    "description" text,
+    -- migration 0003: v2 layout default
+    "layoutJson" jsonb DEFAULT '{"version":2,"pages":[{"id":"page-1","title":"Page 1","widgets":[],"gridLayout":[]}]}'::jsonb,
+    "isPublic" boolean DEFAULT false,
+    "createdAt" timestamp DEFAULT now(),
+    "updatedAt" timestamp DEFAULT now()
 );
 
 CREATE TABLE "dashboard_share" (
-                                   "id" text PRIMARY KEY NOT NULL,
-                                   "dashboardId" text NOT NULL,
-                                   "userId" text NOT NULL,
-                                   "role" "share_role" NOT NULL,
-                                   "createdAt" timestamp DEFAULT now()
+    "id" text PRIMARY KEY NOT NULL,
+    "dashboardId" text NOT NULL,
+    "userId" text NOT NULL,
+    -- migration 0002: tenant_id column
+    "tenant_id" text NOT NULL DEFAULT 'default',
+    "role" "share_role" NOT NULL,
+    "createdAt" timestamp DEFAULT now()
 );
 
 -- Foreign keys
@@ -88,60 +98,48 @@ ALTER TABLE "dashboard_share" ADD CONSTRAINT "dashboard_share_userId_user_id_fk"
 ALTER TABLE "dashboard" ADD CONSTRAINT "dashboard_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 
--- Seed users
--- Both use password: password123 (bcrypt hash)
-INSERT INTO "user" ("id", "name", "email", "passwordHash") VALUES
-                                                               ('user-alice-001', 'Alice Demo', 'alice@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6'),
-                                                               ('user-bob-002', 'Bob Demo', 'bob@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6');
+-- Seed users (password: password123, bcrypt hash)
+-- Alice is admin so she can manage connections and all dashboards
+-- Bob is creator so he can create his own dashboards
+INSERT INTO "user" ("id", "name", "email", "passwordHash", "role") VALUES
+    ('user-alice-001', 'Alice Demo', 'alice@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'admin'),
+    ('user-bob-002',   'Bob Demo',   'bob@example.com',   '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'creator');
 
--- Seed connections
--- configEncrypted values are placeholders — the app encrypts these at runtime
+-- Seed connections (configEncrypted values are placeholders — global-setup.ts re-encrypts them with real ports)
 INSERT INTO "connection" ("id", "userId", "name", "type", "configEncrypted") VALUES
-                                                                                 ('conn-neo4j-001', 'user-alice-001', 'Movies Graph (Neo4j)', 'neo4j', '{"host":"bolt://neo4j:7687","username":"neo4j","password":"neoboard123"}'),
-                                                                                 ('conn-pg-001', 'user-alice-001', 'Movies DB (PostgreSQL)', 'postgresql', '{"host":"postgres","port":5432,"database":"movies","username":"neoboard","password":"neoboard"}');
+    ('conn-neo4j-001', 'user-alice-001', 'Movies Graph (Neo4j)',    'neo4j',      '{"host":"bolt://neo4j:7687","username":"neo4j","password":"neoboard123"}'),
+    ('conn-pg-001',    'user-alice-001', 'Movies DB (PostgreSQL)',  'postgresql', '{"host":"postgres","port":5432,"database":"movies","username":"neoboard","password":"neoboard"}');
 
--- Seed dashboards
-INSERT INTO "dashboard" ("id", "userId", "name", "description", "isPublic", "layoutJson") VALUES
-                                                                                              ('dash-001', 'user-alice-001', 'Movie Analytics', 'Explore the movies dataset across Neo4j and PostgreSQL', true, '{
-                                                                                                "widgets": [
-                                                                                                  {
-                                                                                                    "id": "w1",
-                                                                                                    "chartType": "bar",
-                                                                                                    "connectionId": "conn-neo4j-001",
-                                                                                                    "query": "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 10",
-                                                                                                    "settings": {"title": "Top 10 Movies by Cast Size"}
-                                                                                                  },
-                                                                                                  {
-                                                                                                    "id": "w2",
-                                                                                                    "chartType": "line",
-                                                                                                    "connectionId": "conn-pg-001",
-                                                                                                    "query": "SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released",
-                                                                                                    "settings": {"title": "Movies Released per Year"}
-                                                                                                  }
-                                                                                                ],
-                                                                                                "gridLayout": [
-                                                                                                  {"i": "w1", "x": 0, "y": 0, "w": 6, "h": 4},
-                                                                                                  {"i": "w2", "x": 6, "y": 0, "w": 6, "h": 4}
-                                                                                                ]
-                                                                                              }'::jsonb),
-                                                                                              ('dash-002', 'user-bob-002', 'Actor Network', 'Graph-based actor collaboration insights', false, '{
-                                                                                                "widgets": [
-                                                                                                  {
-                                                                                                    "id": "w1",
-                                                                                                    "chartType": "table",
-                                                                                                    "connectionId": "conn-neo4j-001",
-                                                                                                    "query": "MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10",
-                                                                                                    "settings": {"title": "Most Prolific Directors"}
-                                                                                                  }
-                                                                                                ],
-                                                                                                "gridLayout": [
-                                                                                                  {"i": "w1", "x": 0, "y": 0, "w": 12, "h": 5}
-                                                                                                ]
-                                                                                              }'::jsonb);
+-- Seed dashboards (v2 layout with pages — matches current schema)
+-- dash-001 has TWO pages so the tab-switch performance test can run
+INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "isPublic", "layoutJson") VALUES
+    ('dash-001', 'user-alice-001', 'default', 'Movie Analytics', 'Explore the movies dataset across Neo4j and PostgreSQL', true,
+     '{"version":2,"pages":[
+       {"id":"page-overview","title":"Overview","widgets":[
+         {"id":"w1","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 10","settings":{"title":"Top 10 Movies by Cast Size"}},
+         {"id":"w2","chartType":"line","connectionId":"conn-pg-001","query":"SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released","settings":{"title":"Movies Released per Year"}}
+       ],"gridLayout":[
+         {"i":"w1","x":0,"y":0,"w":6,"h":4},
+         {"i":"w2","x":6,"y":0,"w":6,"h":4}
+       ]},
+       {"id":"page-details","title":"Details","widgets":[
+         {"id":"w3","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10","settings":{"title":"Most Prolific Directors"}}
+       ],"gridLayout":[
+         {"i":"w3","x":0,"y":0,"w":12,"h":5}
+       ]}
+     ]}'::jsonb),
+    ('dash-002', 'user-bob-002', 'default', 'Actor Network', 'Graph-based actor collaboration insights', false,
+     '{"version":2,"pages":[
+       {"id":"page-1","title":"Page 1","widgets":[
+         {"id":"w1","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10","settings":{"title":"Most Prolific Directors"}}
+       ],"gridLayout":[
+         {"i":"w1","x":0,"y":0,"w":12,"h":5}
+       ]}
+     ]}'::jsonb);
 
 -- Seed dashboard share (Alice shares her dashboard with Bob as viewer)
-INSERT INTO "dashboard_share" ("id", "dashboardId", "userId", "role") VALUES
-    ('share-001', 'dash-001', 'user-bob-002', 'viewer');
+INSERT INTO "dashboard_share" ("id", "dashboardId", "userId", "tenant_id", "role") VALUES
+    ('share-001', 'dash-001', 'user-bob-002', 'default', 'viewer');
 
 
 -- -------------------------------------------------------

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -26,6 +26,14 @@ export default function SignupPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bootstrapRequired, setBootstrapRequired] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/bootstrap-status")
+      .then((r) => r.json())
+      .then((data) => setBootstrapRequired(data.bootstrapRequired === true))
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,9 +77,19 @@ export default function SignupPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">NeoBoard</CardTitle>
-          <CardDescription>Create your account</CardDescription>
+          <CardDescription>
+            {bootstrapRequired ? "First Admin Setup" : "Create your account"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {bootstrapRequired && (
+            <Alert className="mb-4">
+              <AlertDescription>
+                No users exist yet. You are setting up the first admin account.
+                Enter the bootstrap token from your <code>.env</code> file.
+              </AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -121,13 +139,27 @@ export default function SignupPage() {
               />
             </div>
 
+            {bootstrapRequired && (
+              <div className="space-y-2">
+                <Label htmlFor="bootstrapToken">Bootstrap Token</Label>
+                <PasswordInput
+                  id="bootstrapToken"
+                  name="bootstrapToken"
+                  required
+                  placeholder="Enter ADMIN_BOOTSTRAP_TOKEN from .env"
+                />
+              </div>
+            )}
+
             <LoadingButton
               type="submit"
               loading={loading}
-              loadingText="Creating account..."
+              loadingText={
+                bootstrapRequired ? "Creating admin..." : "Creating account..."
+              }
               className="w-full"
             >
-              Create account
+              {bootstrapRequired ? "Create Admin Account" : "Create account"}
             </LoadingButton>
           </form>
         </CardContent>
