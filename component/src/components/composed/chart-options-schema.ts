@@ -84,6 +84,7 @@ const tableOptions: ChartOptionDef[] = [
   { key: "enableSelection", label: "Row Selection", type: "boolean", default: false, category: "Features" },
   { key: "enableGlobalFilter", label: "Global Search", type: "boolean", default: true, category: "Features" },
   { key: "enableColumnFilters", label: "Column Filters", type: "boolean", default: true, category: "Features" },
+  { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination" },
   { key: "pageSize", label: "Page Size", type: "number", default: 20, category: "Pagination" },
 ];
 
