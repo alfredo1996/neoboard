@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
@@ -69,11 +69,13 @@ function useSeedQuery(
         const keys = Object.keys(r);
         const valueKey = keys[0] ?? "";
         const labelKey = keys[1] ?? valueKey;
-        const value = String(r[valueKey] ?? "");
+        const rawValue = r[valueKey];
+        // Store the raw value for type preservation; display uses String()
+        const value = String(rawValue ?? "");
         const label = String(r[labelKey] ?? value);
-        return { value, label };
+        return { value, label, rawValue };
       }
-      return { value: String(row), label: String(row) };
+      return { value: String(row), label: String(row), rawValue: row };
     });
   }, [data]);
 
@@ -100,6 +102,8 @@ export interface ParameterWidgetConfig {
   /** For number-range: the step increment */
   rangeStep?: number;
   placeholder?: string;
+  /** Enable search-as-you-type on select/multi-select (re-queries with $param_search) */
+  searchable?: boolean;
   className?: string;
 }
 
@@ -123,11 +127,21 @@ export function ParameterWidgetRenderer({
   rangeMax = 100,
   rangeStep = 1,
   placeholder,
+  searchable = false,
   className,
 }: ParameterWidgetConfig) {
   const parameters = useParameterStore((s) => s.parameters);
   const setParameter = useParameterStore((s) => s.setParameter);
   const clearParameter = useParameterStore((s) => s.clearParameter);
+
+  // ── Searchable: debounced search term ─────────────────────────────────────
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    if (!searchable) return;
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, searchable]);
 
   // ── Parent value (for cascading) ──────────────────────────────────────────
   const parentValue = parentParameterName
@@ -152,11 +166,19 @@ export function ParameterWidgetRenderer({
     parameterType !== "cascading-select" ||
     (parentParameterName !== undefined ? !!parentValue : true);
 
+  const seedExtraParams = useMemo(() => {
+    const base = parameterType === "cascading-select" ? parentParams : {};
+    if (searchable && debouncedSearch) {
+      return { ...base, param_search: debouncedSearch };
+    }
+    return Object.keys(base).length > 0 ? base : undefined;
+  }, [parameterType, parentParams, searchable, debouncedSearch]);
+
   const { options, loading } = useSeedQuery(
     connectionId,
     seedQuery,
     needsSeed && cascadingEnabled,
-    parameterType === "cascading-select" ? parentParams : undefined
+    seedExtraParams
   );
 
   // ── Convenience helpers ───────────────────────────────────────────────────
@@ -209,9 +231,16 @@ export function ParameterWidgetRenderer({
           parameterName={parameterName}
           options={options}
           value={selectValue}
-          onChange={(v) => (v ? set(v) : clear())}
+          onChange={(v) => {
+            if (!v) { clear(); return; }
+            // Store the raw typed value from the option, fall back to string
+            const opt = options.find((o) => o.value === v);
+            set(opt?.rawValue !== undefined ? opt.rawValue : v);
+          }}
           placeholder={placeholder}
           loading={loading}
+          searchable={searchable}
+          onSearch={searchable ? setSearchTerm : undefined}
           className={className}
         />
       );
@@ -229,9 +258,19 @@ export function ParameterWidgetRenderer({
           parameterName={parameterName}
           options={options}
           values={multiValues}
-          onChange={(vals) => (vals.length > 0 ? set(vals) : clear())}
+          onChange={(vals) => {
+            if (vals.length === 0) { clear(); return; }
+            // Preserve raw typed values from options
+            const rawVals = vals.map((v) => {
+              const opt = options.find((o) => o.value === v);
+              return opt?.rawValue !== undefined ? opt.rawValue : v;
+            });
+            set(rawVals);
+          }}
           placeholder={placeholder}
           loading={loading}
+          searchable={searchable}
+          onSearch={searchable ? setSearchTerm : undefined}
           className={className}
         />
       );
@@ -356,7 +395,11 @@ export function ParameterWidgetRenderer({
           parameterName={parameterName}
           options={options}
           value={cascadeValue}
-          onChange={(v) => (v ? set(v) : clear())}
+          onChange={(v) => {
+            if (!v) { clear(); return; }
+            const opt = options.find((o) => o.value === v);
+            set(opt?.rawValue !== undefined ? opt.rawValue : v);
+          }}
           parentValue={parentValue}
           parentParameterName={parentParameterName}
           loading={loading}

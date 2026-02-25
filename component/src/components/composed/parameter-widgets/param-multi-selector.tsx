@@ -34,6 +34,10 @@ export interface ParamMultiSelectorProps {
   placeholder?: string;
   loading?: boolean;
   maxDisplay?: number;
+  /** Enable search-as-you-type (triggers onSearch for server-side filtering). */
+  searchable?: boolean;
+  /** Called with the search term as the user types (for server-side filtering). */
+  onSearch?: (term: string) => void;
   className?: string;
 }
 
@@ -49,6 +53,8 @@ function ParamMultiSelector({
   placeholder = "Select values…",
   loading = false,
   maxDisplay = 3,
+  searchable = false,
+  onSearch,
   className,
 }: ParamMultiSelectorProps) {
   const [open, setOpen] = React.useState(false);
@@ -134,8 +140,11 @@ function ParamMultiSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search…" />
+          <Command shouldFilter={searchable ? false : undefined}>
+            <CommandInput
+              placeholder="Search…"
+              onValueChange={searchable ? (term) => onSearch?.(term) : undefined}
+            />
             <CommandList>
               <CommandEmpty>No options found.</CommandEmpty>
               <CommandGroup>

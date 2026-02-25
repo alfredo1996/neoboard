@@ -9,6 +9,8 @@
  * The toRecords helper is kept as a safety net for backward compatibility.
  */
 
+import { normalizeValue } from "./normalize-value";
+
 export type ChartType =
   | "bar"
   | "line"
@@ -26,6 +28,12 @@ export interface ChartConfig {
   type: ChartType;
   label: string;
   transform: (data: unknown) => unknown;
+  /**
+   * Validates raw data shape before transform. Returns an error string
+   * when data exists but has the wrong shape for this chart type.
+   * Returns null when data is valid OR empty (empty = separate "No data" state).
+   */
+  validate?: (data: unknown) => string | null;
   /**
    * Which connector types can produce data for this chart.
    * If omitted, the chart is compatible with all connector types.
@@ -56,7 +64,7 @@ function transformToBarData(data: unknown): unknown {
   if (keys.length < 2) return [];
   const [labelKey, ...valueKeys] = keys;
   return records.map((r) => {
-    const point: Record<string, unknown> = { label: String(r[labelKey] ?? "") };
+    const point: Record<string, unknown> = { label: String(normalizeValue(r[labelKey]) ?? "") };
     for (const k of valueKeys) {
       point[k] = Number(r[k]) || 0;
     }
@@ -75,7 +83,7 @@ function transformToLineData(data: unknown): unknown {
   if (keys.length < 2) return [];
   const [xKey, ...seriesKeys] = keys;
   return records.map((r) => {
-    const point: Record<string, unknown> = { x: r[xKey] };
+    const point: Record<string, unknown> = { x: normalizeValue(r[xKey]) };
     for (const k of seriesKeys) {
       point[k] = Number(r[k]) || 0;
     }
@@ -93,7 +101,7 @@ function transformToPieData(data: unknown): unknown {
   const keys = Object.keys(records[0]);
   if (keys.length < 2) return [];
   return records.map((r) => ({
-    name: String(r[keys[0]] ?? ""),
+    name: String(normalizeValue(r[keys[0]]) ?? ""),
     value: Number(r[keys[1]]) || 0,
   }));
 }
@@ -106,7 +114,7 @@ function transformToValueData(data: unknown): unknown {
   if (records.length > 0) {
     const first = records[0];
     const values = Object.values(first);
-    return values[0];
+    return normalizeValue(values[0]) ?? 0;
   }
   if (typeof data === "number" || typeof data === "string") return data;
   return 0;
@@ -272,15 +280,86 @@ function transformToSelectData(data: unknown): unknown {
   return records.map((r) => r[firstKey]).filter((v) => v !== null && v !== undefined);
 }
 
+// ─── Validators ────────────────────────────────────────────────────────────
+// Each returns null if valid or empty, error string if rows exist but shape is wrong.
+
+function validateBarData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2)
+    return `Bar chart requires at least 2 columns: first column for category labels (x-axis) and one or more columns for numeric values (y-axis). Your query returned only ${cols} column(s). Example: \`SELECT category, count FROM ...\``;
+  return null;
+}
+
+function validateLineData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2)
+    return `Line chart requires at least 2 columns: first column for x-axis values (dates, numbers, or labels) and one or more columns for numeric series. Your query returned only ${cols} column(s). Example: \`SELECT date, revenue FROM ...\``;
+  return null;
+}
+
+function validatePieData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2)
+    return `Pie chart requires exactly 2 columns: first column for slice names and second column for numeric values. Your query returned only ${cols} column(s). Example: \`SELECT category, total FROM ...\``;
+  return null;
+}
+
+function validateValueData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) {
+    if (typeof data === "number" || typeof data === "string") return null;
+    return null; // empty = "No data" state, not format error
+  }
+  const first = records[0];
+  const values = Object.values(first);
+  if (!values.length)
+    return "Single value chart requires at least 1 column with a scalar value (number or string). Your query returned no usable values.";
+  return null;
+}
+
+function validateGraphData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  // Check if any record value looks like a node or relationship
+  for (const record of records) {
+    for (const value of Object.values(record)) {
+      if (value && typeof value === "object") {
+        const v = value as Record<string, unknown>;
+        if ("labels" in v && "properties" in v) return null; // node found
+        if ("type" in v && "start" in v && "end" in v) return null; // relationship found
+        if ("segments" in v && "start" in v && "end" in v) return null; // path found
+      }
+    }
+  }
+  return "Graph chart requires Neo4j node and relationship data. Your query did not return any graph structures (nodes, relationships, or paths). Example: `MATCH (n)-[r]->(m) RETURN n, r, m`";
+}
+
+function validateMapData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const keys = Object.keys(records[0]);
+  const hasLat = keys.some((k) => /lat/i.test(k));
+  const hasLng = keys.some((k) => /lo?ng?/i.test(k));
+  if (!hasLat || !hasLng)
+    return "Map chart requires columns with latitude and longitude values. No columns matching lat/lng patterns were found. Use column names containing 'lat' and 'lng'/'lon'. Example: `SELECT name, latitude, longitude FROM ...`";
+  return null;
+}
+
 export const chartRegistry: Record<ChartType, ChartConfig> = {
-  bar: { type: "bar", label: "Bar Chart", transform: transformToBarData, compatibleWith: ["neo4j", "postgresql"] },
-  line: { type: "line", label: "Line Chart", transform: transformToLineData, compatibleWith: ["neo4j", "postgresql"] },
-  pie: { type: "pie", label: "Pie Chart", transform: transformToPieData, compatibleWith: ["neo4j", "postgresql"] },
+  bar: { type: "bar", label: "Bar Chart", transform: transformToBarData, validate: validateBarData, compatibleWith: ["neo4j", "postgresql"] },
+  line: { type: "line", label: "Line Chart", transform: transformToLineData, validate: validateLineData, compatibleWith: ["neo4j", "postgresql"] },
+  pie: { type: "pie", label: "Pie Chart", transform: transformToPieData, validate: validatePieData, compatibleWith: ["neo4j", "postgresql"] },
   table: { type: "table", label: "Data Table", transform: transformToTableData, compatibleWith: ["neo4j", "postgresql"] },
-  "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData, compatibleWith: ["neo4j", "postgresql"] },
+  "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData, validate: validateValueData, compatibleWith: ["neo4j", "postgresql"] },
   // Graph visualization requires Neo4j node/relationship structures — not available from PostgreSQL.
-  graph: { type: "graph", label: "Graph", transform: transformToGraphData, compatibleWith: ["neo4j"] },
-  map: { type: "map", label: "Map", transform: transformToMapData, compatibleWith: ["neo4j", "postgresql"] },
+  graph: { type: "graph", label: "Graph", transform: transformToGraphData, validate: validateGraphData, compatibleWith: ["neo4j"] },
+  map: { type: "map", label: "Map", transform: transformToMapData, validate: validateMapData, compatibleWith: ["neo4j", "postgresql"] },
   json: { type: "json", label: "JSON Viewer", transform: transformToJsonData, compatibleWith: ["neo4j", "postgresql"] },
   "parameter-select": { type: "parameter-select", label: "Parameter Selector", transform: transformToSelectData, compatibleWith: ["neo4j", "postgresql"] },
 };

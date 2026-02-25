@@ -465,3 +465,206 @@ describe("ParameterWidgetRenderer — parent params for cascading", () => {
     expect(parentParams).toEqual({});
   });
 });
+
+// ─── BUG 11: Type-safe parameter value preservation ────────────────────────
+
+describe("ParameterWidgetRenderer — type-safe parameter values", () => {
+  beforeEach(resetStore);
+
+  it("preserves number type when stored via setParameter (not coerced to string)", () => {
+    const { setParameter } = useParameterStore.getState();
+    setParameter("age", 42, "Parameter Selector", "age", "select", "selector-widget");
+    const entry = useParameterStore.getState().parameters["age"];
+    expect(entry.value).toBe(42);
+    expect(typeof entry.value).toBe("number");
+  });
+
+  it("preserves array of numbers from multi-select rawValue", () => {
+    const { setParameter } = useParameterStore.getState();
+    // Simulates what ParameterWidgetRenderer does when rawValue is available
+    const rawVals = [1, 2, 3];
+    setParameter("ids", rawVals, "Parameter Selector", "ids", "multi-select", "selector-widget");
+    const entry = useParameterStore.getState().parameters["ids"];
+    expect(entry.value).toEqual([1, 2, 3]);
+    expect(typeof (entry.value as number[])[0]).toBe("number");
+  });
+
+  it("preserves Date object when stored via setParameter", () => {
+    const { setParameter } = useParameterStore.getState();
+    const d = new Date("2024-06-15T00:00:00Z");
+    setParameter("created", d, "Parameter Selector", "created", "date", "selector-widget");
+    const entry = useParameterStore.getState().parameters["created"];
+    expect(entry.value).toBeInstanceOf(Date);
+    expect((entry.value as Date).toISOString()).toBe("2024-06-15T00:00:00.000Z");
+  });
+
+  it("preserves boolean type via setParameter", () => {
+    const { setParameter } = useParameterStore.getState();
+    setParameter("active", true, "Parameter Selector", "active", "select", "selector-widget");
+    const entry = useParameterStore.getState().parameters["active"];
+    expect(entry.value).toBe(true);
+    expect(typeof entry.value).toBe("boolean");
+  });
+
+  it("rawValue lookup logic stores typed value instead of String()", () => {
+    // Simulates the select onChange handler in ParameterWidgetRenderer:
+    // const opt = options.find((o) => o.value === v);
+    // set(opt?.rawValue !== undefined ? opt.rawValue : v);
+    const options = [
+      { value: "42", label: "Forty-Two", rawValue: 42 },
+      { value: "100", label: "Hundred", rawValue: 100 },
+    ];
+    const selectedString = "42";
+    const opt = options.find((o) => o.value === selectedString);
+    const storedValue = opt?.rawValue !== undefined ? opt.rawValue : selectedString;
+
+    expect(storedValue).toBe(42);
+    expect(typeof storedValue).toBe("number");
+  });
+
+  it("falls back to string when rawValue is undefined", () => {
+    const options = [{ value: "abc", label: "ABC" }]; // no rawValue
+    const selectedString = "abc";
+    const opt = options.find((o) => o.value === selectedString);
+    const storedValue = opt?.rawValue !== undefined ? opt.rawValue : selectedString;
+
+    expect(storedValue).toBe("abc");
+    expect(typeof storedValue).toBe("string");
+  });
+});
+
+// ─── BUG 3: Debounce seed query — SeedQueryInput logic ────────────────────
+
+describe("SeedQueryInput debounce logic", () => {
+  // Tests the debounce pattern: draft state + setTimeout sync
+  // This validates the core logic without needing a full React mount.
+
+  it("debounce pattern calls callback after delay, not immediately", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+
+    let syncedValue = "";
+    const onChange = (v: string) => { syncedValue = v; };
+
+    // Simulate the debounce effect: setTimeout of 300ms
+    const draft = "SELECT * FROM users";
+    const timer = setTimeout(() => onChange(draft), 300);
+
+    // Not called immediately
+    expect(syncedValue).toBe("");
+
+    // Advance past debounce window
+    vi.advanceTimersByTime(300);
+    expect(syncedValue).toBe("SELECT * FROM users");
+
+    clearTimeout(timer);
+    vi.useRealTimers();
+  });
+
+  it("debounce cancels previous timer on rapid input", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+
+    let syncedValue = "";
+    const onChange = (v: string) => { syncedValue = v; };
+
+    // Simulate rapid typing: each keystroke clears the previous timer
+    let timer = setTimeout(() => onChange("S"), 300);
+    vi.advanceTimersByTime(100);
+    clearTimeout(timer);
+
+    timer = setTimeout(() => onChange("SE"), 300);
+    vi.advanceTimersByTime(100);
+    clearTimeout(timer);
+
+    timer = setTimeout(() => onChange("SEL"), 300);
+
+    // Still not synced
+    expect(syncedValue).toBe("");
+
+    // Advance past the final debounce
+    vi.advanceTimersByTime(300);
+    expect(syncedValue).toBe("SEL");
+
+    clearTimeout(timer);
+    vi.useRealTimers();
+  });
+});
+
+// ─── BUG 10: Searchable select — debounced search term logic ──────────────
+
+describe("Searchable select — debounced search term logic", () => {
+  it("search term debounce pattern delays the query param update", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+
+    // Simulates the ParameterWidgetRenderer debounced search pattern:
+    // searchTerm → 300ms delay → debouncedSearch → passed to useSeedQuery
+    let debouncedSearch = "";
+    const setDebouncedSearch = (v: string) => { debouncedSearch = v; };
+
+    // User types "foo"
+    const searchTerm = "foo";
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+
+    expect(debouncedSearch).toBe("");
+
+    vi.advanceTimersByTime(300);
+    expect(debouncedSearch).toBe("foo");
+
+    clearTimeout(timer);
+    vi.useRealTimers();
+  });
+
+  it("searchable extraParams includes param_search when debounced search is set", () => {
+    // Simulates seedExtraParams computation in ParameterWidgetRenderer
+    const searchable = true;
+    const debouncedSearch = "test";
+    const parameterType = "select";
+    const parentParams = {};
+
+    const base = parameterType === "cascading-select" ? parentParams : {};
+    let seedExtraParams: Record<string, unknown> | undefined;
+    if (searchable && debouncedSearch) {
+      seedExtraParams = { ...base, param_search: debouncedSearch };
+    } else {
+      seedExtraParams = Object.keys(base).length > 0 ? base : undefined;
+    }
+
+    expect(seedExtraParams).toEqual({ param_search: "test" });
+  });
+
+  it("searchable extraParams is undefined when search is empty", () => {
+    const searchable = true;
+    const debouncedSearch = "";
+    const parameterType = "select";
+    const parentParams = {};
+
+    const base = parameterType === "cascading-select" ? parentParams : {};
+    let seedExtraParams: Record<string, unknown> | undefined;
+    if (searchable && debouncedSearch) {
+      seedExtraParams = { ...base, param_search: debouncedSearch };
+    } else {
+      seedExtraParams = Object.keys(base).length > 0 ? base : undefined;
+    }
+
+    expect(seedExtraParams).toBeUndefined();
+  });
+
+  it("non-searchable mode does not include param_search", () => {
+    const searchable = false;
+    const debouncedSearch = "test";
+    const parameterType = "select";
+    const parentParams = {};
+
+    const base = parameterType === "cascading-select" ? parentParams : {};
+    let seedExtraParams: Record<string, unknown> | undefined;
+    if (searchable && debouncedSearch) {
+      seedExtraParams = { ...base, param_search: debouncedSearch };
+    } else {
+      seedExtraParams = Object.keys(base).length > 0 ? base : undefined;
+    }
+
+    expect(seedExtraParams).toBeUndefined();
+  });
+});

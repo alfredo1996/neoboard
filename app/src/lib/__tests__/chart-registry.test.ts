@@ -693,3 +693,164 @@ describe("graph transform", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Validators
+// ---------------------------------------------------------------------------
+
+describe("bar validate", () => {
+  const { validate } = chartRegistry.bar;
+
+  it("returns null for empty data", () => {
+    expect(validate!([])).toBeNull();
+  });
+
+  it("returns null for correctly shaped data (≥2 columns)", () => {
+    expect(validate!([{ cat: "A", value: 10 }])).toBeNull();
+  });
+
+  it("returns error for 1-column data", () => {
+    const err = validate!([{ name: "A" }]);
+    expect(err).toBeTruthy();
+    expect(err).toContain("1 column");
+    expect(err).toContain("Bar chart");
+  });
+});
+
+describe("line validate", () => {
+  const { validate } = chartRegistry.line;
+
+  it("returns null for empty data", () => {
+    expect(validate!([])).toBeNull();
+  });
+
+  it("returns null for 2+ columns", () => {
+    expect(validate!([{ x: "Jan", y: 100 }])).toBeNull();
+  });
+
+  it("returns error for 1-column data", () => {
+    const err = validate!([{ x: 1 }]);
+    expect(err).toBeTruthy();
+    expect(err).toContain("1 column");
+    expect(err).toContain("Line chart");
+  });
+});
+
+describe("pie validate", () => {
+  const { validate } = chartRegistry.pie;
+
+  it("returns null for empty data", () => {
+    expect(validate!([])).toBeNull();
+  });
+
+  it("returns null for 2-column data", () => {
+    expect(validate!([{ name: "A", value: 10 }])).toBeNull();
+  });
+
+  it("returns error for 1-column data", () => {
+    const err = validate!([{ name: "A" }]);
+    expect(err).toBeTruthy();
+    expect(err).toContain("1 column");
+    expect(err).toContain("Pie chart");
+  });
+});
+
+describe("single-value validate", () => {
+  const { validate } = chartRegistry["single-value"];
+
+  it("returns null for empty data", () => {
+    expect(validate!([])).toBeNull();
+  });
+
+  it("returns null for data with at least one value column", () => {
+    expect(validate!([{ count: 42 }])).toBeNull();
+  });
+
+  it("returns error for record with no value columns", () => {
+    const err = validate!([{}]);
+    expect(err).toBeTruthy();
+    expect(err).toContain("Single value");
+  });
+});
+
+describe("graph validate", () => {
+  const { validate } = chartRegistry.graph;
+
+  it("returns null for empty data", () => {
+    expect(validate!([])).toBeNull();
+  });
+
+  it("returns null when nodes are present", () => {
+    const data = [{ n: { elementId: "1", labels: ["X"], properties: {} } }];
+    expect(validate!(data)).toBeNull();
+  });
+
+  it("returns error for tabular data with no graph structures", () => {
+    const data = [{ name: "Alice", age: 30 }];
+    const err = validate!(data);
+    expect(err).toBeTruthy();
+    expect(err).toContain("Graph chart");
+  });
+});
+
+describe("map validate", () => {
+  const { validate } = chartRegistry.map;
+
+  it("returns null for empty data", () => {
+    expect(validate!([])).toBeNull();
+  });
+
+  it("returns null when lat/lng columns exist", () => {
+    expect(validate!([{ name: "City", lat: 1, lng: 2 }])).toBeNull();
+  });
+
+  it("returns error when no lat/lng columns found", () => {
+    const data = [{ name: "City", value: 42 }];
+    const err = validate!(data);
+    expect(err).toBeTruthy();
+    expect(err).toContain("Map chart");
+    expect(err).toContain("lat");
+  });
+});
+
+describe("charts without validators", () => {
+  it("table has no validate function", () => {
+    expect(chartRegistry.table.validate).toBeUndefined();
+  });
+
+  it("json has no validate function", () => {
+    expect(chartRegistry.json.validate).toBeUndefined();
+  });
+
+  it("parameter-select has no validate function", () => {
+    expect(chartRegistry["parameter-select"].validate).toBeUndefined();
+  });
+});
+
+describe("bar transform normalizes date labels", () => {
+  const { transform } = chartRegistry.bar;
+
+  it("converts Date objects to formatted strings in labels", () => {
+    const data = [{ date: new Date("2024-01-15T10:30:00Z"), value: 42 }];
+    const result = transform(data) as Array<{ label: string }>;
+    expect(result[0].label).toContain("2024-01-15");
+    expect(result[0].label).not.toContain("[object Object]");
+  });
+
+  it("converts Neo4j Integer to number in labels", () => {
+    const data = [{ id: { low: 7, high: 0 }, value: 10 }];
+    const result = transform(data) as Array<{ label: string }>;
+    expect(result[0].label).toBe("7");
+  });
+});
+
+describe("line transform normalizes date x-axis", () => {
+  const { transform } = chartRegistry.line;
+
+  it("converts Date objects to formatted strings in x-axis", () => {
+    const data = [{ date: new Date("2024-06-01T00:00:00Z"), revenue: 100 }];
+    const result = transform(data) as Array<{ x: unknown }>;
+    expect(typeof result[0].x).toBe("string");
+    expect(String(result[0].x)).toContain("2024-06-01");
+  });
+});
+

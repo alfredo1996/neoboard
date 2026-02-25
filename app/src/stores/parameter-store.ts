@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 
 /**
  * The 8 parameter widget types supported by the parameter selector system.
@@ -85,11 +86,13 @@ export const useParameterStore = create<ParameterState>((set) => ({
 
 /** Returns just name→value for query substitution. */
 export function useParameterValues(): Record<string, unknown> {
-  return useParameterStore((s) => {
-    const result: Record<string, unknown> = {};
-    for (const [name, entry] of Object.entries(s.parameters)) {
-      result[name] = entry.value;
-    }
-    return result;
-  });
+  return useParameterStore(
+    useShallow((s) => {
+      const result: Record<string, unknown> = {};
+      for (const [name, entry] of Object.entries(s.parameters)) {
+        result[name] = entry.value;
+      }
+      return result;
+    })
+  );
 }

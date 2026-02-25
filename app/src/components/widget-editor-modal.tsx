@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
@@ -48,6 +48,8 @@ import {
   chartRegistry,
 } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
+import { useParameterValues } from "@/stores/parameter-store";
+import { extractReferencedParams } from "@/hooks/use-widget-query";
 
 /** Icon + label map for chart type dropdown (keeps chart-registry free of UI concerns) */
 const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon }> = {
@@ -79,6 +81,48 @@ export interface WidgetEditorModalProps {
   connections: ConnectionListItem[];
   /** Called with the final widget data on save */
   onSave: (widget: DashboardWidget) => void;
+}
+
+/**
+ * Debounced seed query input — local draft state + 300ms debounce before
+ * syncing to chartOptions to prevent excessive re-renders on every keystroke.
+ */
+function SeedQueryInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  // Sync external value changes (e.g. mode reset) into draft
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  // Debounce: sync draft → parent after 300ms idle
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onChangeRef.current(draft);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft]);
+
+  return (
+    <Textarea
+      id="seed-query"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      placeholder={placeholder}
+      className="font-mono min-h-[80px]"
+      rows={3}
+    />
+  );
 }
 
 export function WidgetEditorModal({
@@ -127,6 +171,7 @@ export function WidgetEditorModal({
   const [connectorChanged, setConnectorChanged] = useState(false);
 
   const previewQuery = useQueryExecution();
+  const allParamValues = useParameterValues();
 
   // Derive the selected connection object so we can read its type
   const selectedConnection = useMemo(
@@ -213,9 +258,11 @@ export function WidgetEditorModal({
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
-      previewQuery.mutate({ connectionId, query });
+      const referenced = extractReferencedParams(query, allParamValues);
+      const params = Object.keys(referenced).length > 0 ? referenced : undefined;
+      previewQuery.mutate({ connectionId, query, params });
     }
-  }, [connectionId, query, previewQuery]);
+  }, [connectionId, query, previewQuery, allParamValues]);
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
@@ -340,8 +387,11 @@ export function WidgetEditorModal({
                 onChange={setQuery}
                 onRun={handlePreview}
                 language={editorLanguage}
+                readOnly={!connectionId}
                 placeholder={
-                  editorLanguage === "sql"
+                  !connectionId
+                    ? "Select a connection first to write a query"
+                    : editorLanguage === "sql"
                     ? "SELECT * FROM users LIMIT 10"
                     : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
                 }
@@ -397,27 +447,53 @@ export function WidgetEditorModal({
 
             {chartType === "parameter-select" && (() => {
               const pType = (chartOptions.parameterType as string) ?? "select";
+              const pName = (chartOptions.parameterName as string) ?? "";
               const needsSeedQuery = pType === "select" || pType === "multi-select" || pType === "cascading-select";
-              if (!needsSeedQuery) return null;
               return (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-medium mb-3">Seed Query</h4>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Query that populates the dropdown options. Must return at least one column (used as value); the second column (if present) is used as the display label.
-                  </p>
-                  <Textarea
-                    id="seed-query"
-                    value={(chartOptions.seedQuery as string) ?? ""}
-                    onChange={(e) =>
-                      setChartOptions((prev) => ({ ...prev, seedQuery: e.target.value }))
-                    }
-                    placeholder={pType === "cascading-select"
-                      ? "SELECT value, label FROM table WHERE parent_id = $param_parent"
-                      : "SELECT DISTINCT value FROM table ORDER BY value"}
-                    className="font-mono min-h-[80px]"
-                    rows={3}
-                  />
-                </div>
+                <>
+                  {needsSeedQuery && (
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-medium mb-3">Seed Query</h4>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Query that populates the dropdown options. Must return at least one column (used as value); the second column (if present) is used as the display label.
+                      </p>
+                      <SeedQueryInput
+                        value={(chartOptions.seedQuery as string) ?? ""}
+                        onChange={(v) => setChartOptions((prev) => ({ ...prev, seedQuery: v }))}
+                        placeholder={pType === "cascading-select"
+                          ? "SELECT value, label FROM table WHERE parent_id = $param_parent"
+                          : "SELECT DISTINCT value FROM table ORDER BY value"}
+                      />
+                    </div>
+                  )}
+                  {pName && (
+                    <div className="border-t pt-4" data-testid="param-reference-hint">
+                      <h4 className="text-sm font-medium mb-2">Reference in queries</h4>
+                      <div className="space-y-1.5 text-xs text-muted-foreground">
+                        <p>
+                          Other widgets can use this parameter in their queries as:{" "}
+                          <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+                            $param_{pName}
+                          </code>
+                        </p>
+                        {(pType === "date-range" || pType === "date-relative") && (
+                          <p>
+                            Date range sub-parameters:{" "}
+                            <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{pName}_from</code>,{" "}
+                            <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{pName}_to</code>
+                          </p>
+                        )}
+                        {pType === "number-range" && (
+                          <p>
+                            Number range sub-parameters:{" "}
+                            <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{pName}_min</code>,{" "}
+                            <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{pName}_max</code>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               );
             })()}
 

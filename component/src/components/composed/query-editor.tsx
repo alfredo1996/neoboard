@@ -219,6 +219,13 @@ function QueryEditor({
       abortSignal.aborted = true;
       viewRef.current?.destroy();
       viewRef.current = null;
+      // Clear leftover DOM children to prevent duplicate editors
+      // in React 19 strict mode (double-mount).
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          containerRef.current.removeChild(containerRef.current.firstChild);
+        }
+      }
     };
     // Only runs once; language/schema changes are handled by the next effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,6 +244,12 @@ function QueryEditor({
     initEditor(doc, abortSignal);
     return () => {
       abortSignal.aborted = true;
+      // Clear leftover DOM children to prevent duplicate editors
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          containerRef.current.removeChild(containerRef.current.firstChild);
+        }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, readOnly]);

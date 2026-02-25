@@ -115,6 +115,7 @@ const parameterSelectOptions: ChartOptionDef[] = [
   { key: "rangeMax", label: "Range Max (number-range only)", type: "number", default: 100, category: "Parameter" },
   { key: "rangeStep", label: "Range Step (number-range only)", type: "number", default: 1, category: "Parameter" },
   { key: "placeholder", label: "Placeholder", type: "text", default: "", category: "Parameter" },
+  { key: "searchable", label: "Search-as-you-type (re-queries with $param_search)", type: "boolean", default: false, category: "Parameter" },
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
