@@ -206,6 +206,16 @@ function QueryEditor({
       // Guard again after the second batch of dynamic imports.
       if (abortSignal.aborted || !containerRef.current) return;
 
+      // Final cleanup right before creating the view — prevents duplicates
+      // when two initEditor calls race (e.g. React 19 strict mode remount).
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      }
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
+      }
+
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
     },
@@ -222,8 +232,10 @@ function QueryEditor({
       abortSignal.aborted = true;
       viewRef.current?.destroy();
       viewRef.current = null;
-      // Clear leftover DOM children to prevent duplicate editors
-      // in React 19 strict mode (double-mount).
+      // Reset so the reinit effect skips on the next mount (React 19
+      // strict mode: mount → cleanup → mount).
+      isFirstRender.current = true;
+      // Clear leftover DOM children to prevent duplicate editors.
       if (containerRef.current) {
         while (containerRef.current.firstChild) {
           containerRef.current.removeChild(containerRef.current.firstChild);
