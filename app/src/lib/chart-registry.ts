@@ -20,10 +20,17 @@ export type ChartType =
   | "json"
   | "parameter-select";
 
+export type ConnectorType = "neo4j" | "postgresql";
+
 export interface ChartConfig {
   type: ChartType;
   label: string;
   transform: (data: unknown) => unknown;
+  /**
+   * Which connector types can produce data for this chart.
+   * If omitted, the chart is compatible with all connector types.
+   */
+  compatibleWith?: ConnectorType[];
 }
 
 /**
@@ -266,17 +273,34 @@ function transformToSelectData(data: unknown): unknown {
 }
 
 export const chartRegistry: Record<ChartType, ChartConfig> = {
-  bar: { type: "bar", label: "Bar Chart", transform: transformToBarData },
-  line: { type: "line", label: "Line Chart", transform: transformToLineData },
-  pie: { type: "pie", label: "Pie Chart", transform: transformToPieData },
-  table: { type: "table", label: "Data Table", transform: transformToTableData },
-  "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData },
-  graph: { type: "graph", label: "Graph", transform: transformToGraphData },
-  map: { type: "map", label: "Map", transform: transformToMapData },
-  json: { type: "json", label: "JSON Viewer", transform: transformToJsonData },
-  "parameter-select": { type: "parameter-select", label: "Parameter Selector", transform: transformToSelectData },
+  bar: { type: "bar", label: "Bar Chart", transform: transformToBarData, compatibleWith: ["neo4j", "postgresql"] },
+  line: { type: "line", label: "Line Chart", transform: transformToLineData, compatibleWith: ["neo4j", "postgresql"] },
+  pie: { type: "pie", label: "Pie Chart", transform: transformToPieData, compatibleWith: ["neo4j", "postgresql"] },
+  table: { type: "table", label: "Data Table", transform: transformToTableData, compatibleWith: ["neo4j", "postgresql"] },
+  "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData, compatibleWith: ["neo4j", "postgresql"] },
+  // Graph visualization requires Neo4j node/relationship structures — not available from PostgreSQL.
+  graph: { type: "graph", label: "Graph", transform: transformToGraphData, compatibleWith: ["neo4j"] },
+  map: { type: "map", label: "Map", transform: transformToMapData, compatibleWith: ["neo4j", "postgresql"] },
+  json: { type: "json", label: "JSON Viewer", transform: transformToJsonData, compatibleWith: ["neo4j", "postgresql"] },
+  "parameter-select": { type: "parameter-select", label: "Parameter Selector", transform: transformToSelectData, compatibleWith: ["neo4j", "postgresql"] },
 };
 
 export function getChartConfig(type: string): ChartConfig | undefined {
   return chartRegistry[type as ChartType];
 }
+
+/**
+ * Returns all ChartTypes compatible with the given connector type.
+ *
+ * An unknown connectorType string returns an empty array so callers
+ * always receive a predictable result (no implicit "show everything").
+ */
+export function getCompatibleChartTypes(connectorType: string): ChartType[] {
+  const known: ConnectorType[] = ["neo4j", "postgresql"];
+  if (!known.includes(connectorType as ConnectorType)) return [];
+  const ct = connectorType as ConnectorType;
+  return (Object.values(chartRegistry) as ChartConfig[])
+    .filter((cfg) => !cfg.compatibleWith || cfg.compatibleWith.includes(ct))
+    .map((cfg) => cfg.type);
+}
+

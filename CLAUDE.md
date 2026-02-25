@@ -16,24 +16,27 @@ Before editing any file, check which package it belongs to and respect its bound
 
 ## Commands
 
-All commands run from `app/` unless noted.
+All commands run from the repo root unless noted.
 
 ```bash
-npm run dev          # Dev server
-npm run build        # Production build + type-check
-cd app && npm test   # Vitest unit tests (fast, no containers)
-npm run test:e2e     # Playwright E2E (requires Docker)
-npm run lint         # ESLint — run from repo root
-cd app && npx next lint --fix  # Auto-fix lint errors in app/
-npm run storybook    # Component library viewer
-npm run db:migrate   # Drizzle migrations
-npm run db:generate  # Generate migration from schema
-docker compose up    # Start Neo4j + PostgreSQL dev containers
+npm run dev                          # Dev server (proxies to app/)
+npm run build                        # Production build + type-check
+npm run lint                         # ESLint all packages (root config)
+cd app && npx next lint --fix        # Auto-fix lint errors in app/
+cd app && npm test                   # App Vitest unit tests (API routes, hooks, stores)
+cd component && npm test             # Component Vitest unit tests (826 tests)
+cd connection && npm test            # Connection integration tests (needs Docker)
+npm run test:e2e                     # Playwright E2E (requires Docker)
+npm run storybook                    # Component library viewer
+npm run db:migrate                   # Drizzle migrations
+npm run db:generate                  # Generate migration from schema
+docker compose up                    # Start Neo4j + PostgreSQL dev containers
 ```
 
 ## Working Rules
 
-- Run `cd app && npx next lint --fix` after every change.
+- Run `cd app && npx next lint --fix` after every change to app/.
+- Run `npm run lint` from the repo root to lint all packages.
 - Run `npm run build` before committing to catch type errors.
 - New behavior = new tests. No exceptions.
 - Always check if you need to write tests for the code you're working on.
@@ -43,6 +46,13 @@ docker compose up    # Start Neo4j + PostgreSQL dev containers
 - TypeScript strict. No `any` without a comment explaining why.
 - Use `npm`, not `pnpm` or `yarn`.
 - Always run the tests of the related code you're writing before pushing to GitHub.
+
+## PR Reviews
+
+- Always check CodeRabbit and SonarQube comments on PRs before merging.
+- Address all CodeRabbit suggestions or explicitly dismiss with justification.
+- SonarQube quality gate must pass (coverage, duplications, code smells).
+- When resuming work on an existing PR, read `gh pr view <number> --comments` first.
 
 ## Query Safety — DO NOT VIOLATE
 
@@ -82,7 +92,13 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 
 ## Detailed Docs
 
-Read `claude_code_docs/` before working on specific areas. These contain implementation details, patterns, and examples that don't belong in this file.
+Read `claude_code_docs/` before working on specific areas:
+
+- `TESTING_APPROACH.md` — Testing strategy, test commands, CI workflows
+- `v04-widget-power.md` — v0.4 chart/widget/parameter architecture and extension points
+- `sonarqube-and-coverage.md` — SonarCloud integration and coverage setup
+- `performance-testing.md` — Stress testing suite (Playwright + k6)
+- `plans/` — Feature implementation plans
 
 ## Migrations
 
