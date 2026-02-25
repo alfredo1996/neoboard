@@ -39,6 +39,15 @@ function buildLabelColorMap(nodes: GraphNode[]): Map<string, string> {
 }
 
 
+export type GraphNodeSize = "small" | "medium" | "large";
+
+/** Maps nodeSize option to a pixel multiplier for the base NVL node size. */
+const NODE_SIZE_SCALE: Record<GraphNodeSize, number> = {
+  small: 0.6,
+  medium: 1.0,
+  large: 1.6,
+};
+
 export interface GraphChartProps {
   /** Graph nodes */
   nodes: GraphNode[];
@@ -53,6 +62,12 @@ export interface GraphChartProps {
   initialLayout?: GraphLayout;
   /** Show node labels (captions) */
   showLabels?: boolean;
+  /** Show relationship/edge type labels */
+  showRelationshipLabels?: boolean;
+  /** Node size preset */
+  nodeSize?: GraphNodeSize;
+  /** Enable force physics simulation */
+  physics?: boolean;
   /** Seed the caption map state */
   initialCaptionMap?: Record<string, string>;
   /** Controlled selection — IDs of selected nodes */
@@ -151,6 +166,7 @@ function toNvlNode(
   showLabels: boolean,
   captionMap: Record<string, string>,
   labelColorMap: Map<string, string>,
+  nodeSizeScale: number,
 ): NvlNode {
   let x = node.x;
   let y = node.y;
@@ -164,11 +180,12 @@ function toNvlNode(
   const color = node.color ?? (node.labels?.length
     ? labelColorMap.get(node.labels[node.labels.length - 1])
     : undefined);
+  const baseSize = node.value ? Math.max(20, Math.min(60, node.value)) : undefined;
   return {
     id: node.id,
     caption: showLabels ? resolveCaption(node, captionMap) : undefined,
     color,
-    size: node.value ? Math.max(20, Math.min(60, node.value)) : undefined,
+    size: baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
     pinned: node.fixed,
     x,
     y,
@@ -178,12 +195,12 @@ function toNvlNode(
 /**
  * Maps our internal GraphEdge type to an NVL Relationship.
  */
-function toNvlRelationship(edge: GraphEdge, index: number): NvlRelationship {
+function toNvlRelationship(edge: GraphEdge, index: number, showRelationshipLabels: boolean): NvlRelationship {
   return {
     id: `rel-${edge.source}-${edge.target}-${index}`,
     from: edge.source,
     to: edge.target,
-    caption: edge.label,
+    caption: showRelationshipLabels ? edge.label : undefined,
     type: edge.label,
     color: edge.color,
   };
@@ -203,6 +220,9 @@ export function GraphChart({
   layout: layoutProp = "force",
   initialLayout,
   showLabels = true,
+  showRelationshipLabels = true,
+  nodeSize = "medium",
+  physics = true,
   initialCaptionMap,
   selectedNodeIds,
   onNodeSelect,
@@ -255,14 +275,16 @@ export function GraphChart({
   const selectedRef = useRef(selectedNodeIds);
   selectedRef.current = selectedNodeIds;
 
+  const nodeSizeScale = NODE_SIZE_SCALE[nodeSize] ?? 1.0;
+
   const nvlNodes = useMemo(
-    () => nodes.map((n, i) => toNvlNode(n, i, nodes.length, showLabels, captionMap, labelColorMap)),
-    [nodes, showLabels, captionMap, labelColorMap],
+    () => nodes.map((n, i) => toNvlNode(n, i, nodes.length, showLabels, captionMap, labelColorMap, nodeSizeScale)),
+    [nodes, showLabels, captionMap, labelColorMap, nodeSizeScale],
   );
 
   const nvlRels = useMemo(
-    () => edges.map((e, i) => toNvlRelationship(e, i)),
-    [edges],
+    () => edges.map((e, i) => toNvlRelationship(e, i, showRelationshipLabels)),
+    [edges, showRelationshipLabels],
   );
 
   const fitGraph = useCallback(() => {
@@ -300,7 +322,9 @@ export function GraphChart({
     allowDynamicMinZoom: true,
     initialZoom: 0.7,
     disableWebWorkers: true,
-  }), []);
+    // When physics is disabled, use a static layout (no force simulation)
+    useStaticLayout: !physics,
+  }), [physics]);
 
   const hasLabels = labelPropertyMap.size > 0;
 
