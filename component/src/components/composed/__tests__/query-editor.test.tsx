@@ -14,7 +14,7 @@
  *  - Language switching reinitialises editor
  *  - Abort signal prevents stale initEditor calls
  */
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryEditor } from "../query-editor";
@@ -210,6 +210,24 @@ describe("QueryEditor", () => {
     expect(container.firstChild).toHaveClass("my-editor");
   });
 
+  // NOTE: Ctrl/Cmd+Enter is handled by a CodeMirror 6 keymap extension
+  // (`keymap.of([{ key: "Ctrl-Enter", mac: "Cmd-Enter", run: onRun }])`)
+  // which cannot be tested in jsdom with mocked CM modules. The shortcut
+  // is verified via E2E (Playwright). The run-and-save shortcut
+  // (CMD+Shift+Enter) is handled at the widget-editor-modal level.
+
+  it("does not render the run-and-save hint by default", () => {
+    render(<QueryEditor />);
+    expect(screen.queryByLabelText(/run and save shortcut/i)).toBeNull();
+  });
+
+  it("renders the run-and-save hint when runAndSaveHint=true", () => {
+    render(<QueryEditor runAndSaveHint />);
+    expect(
+      screen.getByLabelText("Run and save shortcut: Command Shift Enter")
+    ).toBeInTheDocument();
+  });
+
   it("renders history select when history prop is provided", async () => {
     render(
       <QueryEditor history={["MATCH (n) RETURN n", "RETURN 1"]} />
@@ -246,10 +264,6 @@ describe("QueryEditor — readOnly", () => {
   it("run and clear buttons are disabled in readOnly mode", async () => {
     render(<QueryEditor readOnly value="MATCH (n) RETURN n" />);
     await flushAsync();
-    // Run button should be disabled even with non-empty value when readOnly
-    // (the component itself doesn't disable the button based on readOnly, but
-    // the CM editor is read-only; the button is still accessible)
-    // Verify the toolbar still renders
     expect(screen.getByText("Run")).toBeInTheDocument();
   });
 });
@@ -267,7 +281,6 @@ describe("QueryEditor — controlled value sync", () => {
     rerender(<QueryEditor value="RETURN 1" />);
     await flushAsync();
 
-    // The effect should have called dispatch to sync the new value
     expect(mockDispatch).toHaveBeenCalled();
   });
 
@@ -275,10 +288,6 @@ describe("QueryEditor — controlled value sync", () => {
     render(<QueryEditor value="" />);
     await flushAsync();
     mockDispatch.mockClear();
-
-    // The mock EditorView.state.doc.toString() returns "" by default,
-    // so re-rendering with the same empty value should NOT dispatch
-    // (doc === value)
   });
 });
 
@@ -293,8 +302,6 @@ describe("QueryEditor — history select", () => {
     );
     await flushAsync();
 
-    // The history select renders — we verified that already in earlier tests.
-    // The handleHistorySelect function dispatches to CM and calls onChange.
     expect(screen.getByText("History")).toBeInTheDocument();
   });
 });
