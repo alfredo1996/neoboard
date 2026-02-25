@@ -10,6 +10,9 @@
  */
 
 import { normalizeValue } from "./normalize-value";
+import type { ColumnMapping } from "@neoboard/components";
+
+export type { ColumnMapping };
 
 export type ChartType =
   | "bar"
@@ -28,6 +31,7 @@ export interface ChartConfig {
   type: ChartType;
   label: string;
   transform: (data: unknown) => unknown;
+  transformWithMapping: (data: unknown, mapping: ColumnMapping) => unknown;
   /**
    * Validates raw data shape before transform. Returns an error string
    * when data exists but has the wrong shape for this chart type.
@@ -103,6 +107,95 @@ function transformToPieData(data: unknown): unknown {
   return records.map((r) => ({
     name: String(normalizeValue(r[keys[0]]) ?? ""),
     value: Number(r[keys[1]]) || 0,
+  }));
+}
+
+/**
+ * Transform bar chart data respecting an optional column mapping.
+ * Falls back to default column selection when mapping fields are absent.
+ */
+function transformToBarDataWithMapping(
+  data: unknown,
+  mapping: ColumnMapping
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return [];
+
+  const labelKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+
+  let valueKeys: string[];
+  if (mapping.yAxis && mapping.yAxis.length > 0) {
+    valueKeys = mapping.yAxis.filter((k) => keys.includes(k));
+  } else {
+    valueKeys = keys.filter((k) => k !== labelKey);
+  }
+  if (valueKeys.length === 0) valueKeys = keys.filter((k) => k !== labelKey);
+
+  return records.map((r) => {
+    const point: Record<string, unknown> = { label: String(r[labelKey] ?? "") };
+    for (const k of valueKeys) {
+      point[k] = Number(r[k]) || 0;
+    }
+    return point;
+  });
+}
+
+/**
+ * Transform line chart data respecting an optional column mapping.
+ * Falls back to default column selection when mapping fields are absent.
+ */
+function transformToLineDataWithMapping(
+  data: unknown,
+  mapping: ColumnMapping
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return [];
+
+  const xKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+
+  let seriesKeys: string[];
+  if (mapping.yAxis && mapping.yAxis.length > 0) {
+    seriesKeys = mapping.yAxis.filter((k) => keys.includes(k));
+  } else {
+    seriesKeys = keys.filter((k) => k !== xKey);
+  }
+  if (seriesKeys.length === 0) seriesKeys = keys.filter((k) => k !== xKey);
+
+  return records.map((r) => {
+    const point: Record<string, unknown> = { x: r[xKey] };
+    for (const k of seriesKeys) {
+      point[k] = Number(r[k]) || 0;
+    }
+    return point;
+  });
+}
+
+/**
+ * Transform pie chart data respecting an optional column mapping.
+ * Falls back to default column selection when mapping fields are absent.
+ */
+function transformToPieDataWithMapping(
+  data: unknown,
+  mapping: ColumnMapping
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return [];
+
+  const nameKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+  const valueKey =
+    mapping.yAxis?.[0] && keys.includes(mapping.yAxis[0])
+      ? mapping.yAxis[0]
+      : keys.find((k) => k !== nameKey) ?? keys[1];
+
+  return records.map((r) => ({
+    name: String(r[nameKey] ?? ""),
+    value: Number(r[valueKey]) || 0,
   }));
 }
 
@@ -352,16 +445,76 @@ function validateMapData(data: unknown): string | null {
 }
 
 export const chartRegistry: Record<ChartType, ChartConfig> = {
-  bar: { type: "bar", label: "Bar Chart", transform: transformToBarData, validate: validateBarData, compatibleWith: ["neo4j", "postgresql"] },
-  line: { type: "line", label: "Line Chart", transform: transformToLineData, validate: validateLineData, compatibleWith: ["neo4j", "postgresql"] },
-  pie: { type: "pie", label: "Pie Chart", transform: transformToPieData, validate: validatePieData, compatibleWith: ["neo4j", "postgresql"] },
-  table: { type: "table", label: "Data Table", transform: transformToTableData, compatibleWith: ["neo4j", "postgresql"] },
-  "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData, validate: validateValueData, compatibleWith: ["neo4j", "postgresql"] },
+  bar: {
+    type: "bar",
+    label: "Bar Chart",
+    transform: transformToBarData,
+    transformWithMapping: transformToBarDataWithMapping,
+    validate: validateBarData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  line: {
+    type: "line",
+    label: "Line Chart",
+    transform: transformToLineData,
+    transformWithMapping: transformToLineDataWithMapping,
+    validate: validateLineData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  pie: {
+    type: "pie",
+    label: "Pie Chart",
+    transform: transformToPieData,
+    transformWithMapping: transformToPieDataWithMapping,
+    validate: validatePieData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  table: {
+    type: "table",
+    label: "Data Table",
+    transform: transformToTableData,
+    transformWithMapping: (data) => transformToTableData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  "single-value": {
+    type: "single-value",
+    label: "Single Value",
+    transform: transformToValueData,
+    transformWithMapping: (data) => transformToValueData(data),
+    validate: validateValueData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
   // Graph visualization requires Neo4j node/relationship structures — not available from PostgreSQL.
-  graph: { type: "graph", label: "Graph", transform: transformToGraphData, validate: validateGraphData, compatibleWith: ["neo4j"] },
-  map: { type: "map", label: "Map", transform: transformToMapData, validate: validateMapData, compatibleWith: ["neo4j", "postgresql"] },
-  json: { type: "json", label: "JSON Viewer", transform: transformToJsonData, compatibleWith: ["neo4j", "postgresql"] },
-  "parameter-select": { type: "parameter-select", label: "Parameter Selector", transform: transformToSelectData, compatibleWith: ["neo4j", "postgresql"] },
+  graph: {
+    type: "graph",
+    label: "Graph",
+    transform: transformToGraphData,
+    transformWithMapping: (data) => transformToGraphData(data),
+    validate: validateGraphData,
+    compatibleWith: ["neo4j"],
+  },
+  map: {
+    type: "map",
+    label: "Map",
+    transform: transformToMapData,
+    transformWithMapping: (data) => transformToMapData(data),
+    validate: validateMapData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  json: {
+    type: "json",
+    label: "JSON Viewer",
+    transform: transformToJsonData,
+    transformWithMapping: (data) => transformToJsonData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  "parameter-select": {
+    type: "parameter-select",
+    label: "Parameter Selector",
+    transform: transformToSelectData,
+    transformWithMapping: (data) => transformToSelectData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
 };
 
 export function getChartConfig(type: string): ChartConfig | undefined {
