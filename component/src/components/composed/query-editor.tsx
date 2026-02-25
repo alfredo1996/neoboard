@@ -327,7 +327,7 @@ function QueryEditor({
       : (language ?? "Cypher");
 
   return (
-    <div className={cn("rounded-lg border bg-muted/30 flex flex-col", className)}>
+    <div className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}>
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <div className="flex items-center gap-2">

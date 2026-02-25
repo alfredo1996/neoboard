@@ -22,7 +22,7 @@ describe("useDashboardStore", () => {
 
   // ── setLayout ─────────────────────────────────────────────────────
 
-  it("setLayout replaces the layout and resets activePageIndex to 0", () => {
+  it("setLayout replaces the layout and resets activePageIndex to 0 by default", () => {
     const newLayout = {
       version: 2 as const,
       pages: [
@@ -34,6 +34,43 @@ describe("useDashboardStore", () => {
     const state = useDashboardStore.getState();
     expect(state.layout).toEqual(newLayout);
     expect(state.activePageIndex).toBe(0);
+  });
+
+  it("setLayout with initialPageIndex=2 sets activePageIndex to 2", () => {
+    const newLayout = {
+      version: 2 as const,
+      pages: [
+        { id: "p1", title: "A", widgets: [], gridLayout: [] },
+        { id: "p2", title: "B", widgets: [], gridLayout: [] },
+        { id: "p3", title: "C", widgets: [], gridLayout: [] },
+      ],
+    };
+    useDashboardStore.getState().setLayout(newLayout, 2);
+    expect(useDashboardStore.getState().activePageIndex).toBe(2);
+  });
+
+  it("setLayout clamps initialPageIndex to last valid index when out of bounds", () => {
+    const newLayout = {
+      version: 2 as const,
+      pages: [
+        { id: "p1", title: "A", widgets: [], gridLayout: [] },
+        { id: "p2", title: "B", widgets: [], gridLayout: [] },
+      ],
+    };
+    useDashboardStore.getState().setLayout(newLayout, 99);
+    expect(useDashboardStore.getState().activePageIndex).toBe(1);
+  });
+
+  it("setLayout with initialPageIndex=0 behaves like the default (no-arg) case", () => {
+    const newLayout = {
+      version: 2 as const,
+      pages: [
+        { id: "p1", title: "A", widgets: [], gridLayout: [] },
+        { id: "p2", title: "B", widgets: [], gridLayout: [] },
+      ],
+    };
+    useDashboardStore.getState().setLayout(newLayout, 0);
+    expect(useDashboardStore.getState().activePageIndex).toBe(0);
   });
 
   // ── setEditMode ───────────────────────────────────────────────────

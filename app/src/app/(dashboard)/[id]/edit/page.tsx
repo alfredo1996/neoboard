@@ -35,10 +35,13 @@ import {
 
 export default function DashboardEditorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { id } = use(params);
+  const { page: pageParam } = use(searchParams);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
@@ -78,9 +81,11 @@ export default function DashboardEditorPage({
   // Load dashboard layout into store (migrates v1 → v2 if needed)
   useEffect(() => {
     if (dashboard?.layoutJson) {
-      setLayout(migrateLayout(dashboard.layoutJson));
+      const migrated = migrateLayout(dashboard.layoutJson);
+      const targetPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
+      setLayout(migrated, isNaN(targetPage) ? 0 : targetPage);
     }
-  }, [dashboard, setLayout]);
+  }, [dashboard, setLayout, pageParam]);
 
   const activePage = layout.pages[activePageIndex] ?? layout.pages[0];
 
@@ -125,33 +130,6 @@ export default function DashboardEditorPage({
     });
   }
 
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-[400px]" />
-      </div>
-    );
-  }
-
-  if (!dashboard) {
-    return (
-      <div className="p-6">
-        <EmptyState
-          icon={<LayoutDashboard className="h-12 w-12" />}
-          title="Dashboard not found"
-          description="The dashboard you're looking for doesn't exist or you don't have access."
-          action={
-            <Button onClick={() => router.push("/")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboards
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       <Toolbar>
@@ -166,10 +144,12 @@ export default function DashboardEditorPage({
           </Button>
         </ToolbarSection>
         <ToolbarSection className="flex-1">
-          <h1 className="text-lg font-bold">Editing: {dashboard.name}</h1>
+          <h1 className="text-lg font-bold">
+            {isLoading ? "Loading…" : `Editing: ${dashboard?.name ?? ""}`}
+          </h1>
         </ToolbarSection>
         <ToolbarSection>
-          {isAdmin && (
+          {isAdmin && !isLoading && dashboard && (
             <>
               <Sheet>
                 <SheetTrigger asChild>
@@ -190,94 +170,125 @@ export default function DashboardEditorPage({
               <ToolbarSeparator />
             </>
           )}
-          <Button variant="outline" size="sm" onClick={openAddWidget}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Widget
-          </Button>
-          <ToolbarSeparator />
-          <LoadingButton
-            size="sm"
-            loading={updateDashboard.isPending}
-            loadingText="Saving..."
-            onClick={handleSave}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save
-          </LoadingButton>
+          {!isLoading && dashboard && (
+            <>
+              <Button variant="outline" size="sm" onClick={openAddWidget}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Widget
+              </Button>
+              <ToolbarSeparator />
+              <LoadingButton
+                size="sm"
+                loading={updateDashboard.isPending}
+                loadingText="Saving..."
+                onClick={handleSave}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </LoadingButton>
+            </>
+          )}
         </ToolbarSection>
       </Toolbar>
 
-      {saveError && (
-        <div className="px-6 pt-2">
-          <Alert variant="destructive">
-            <AlertDescription>{saveError}</AlertDescription>
-          </Alert>
+      {isLoading && (
+        <div className="flex-1 p-6 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-[400px]" />
         </div>
       )}
 
-      <PageTabs
-        pages={layout.pages}
-        activeIndex={activePageIndex}
-        editable
-        onSelect={setActivePage}
-        onAdd={addPage}
-        onRemove={removePage}
-        onRename={renamePage}
-      />
+      {!isLoading && !dashboard && (
+        <div className="p-6">
+          <EmptyState
+            icon={<LayoutDashboard className="h-12 w-12" />}
+            title="Dashboard not found"
+            description="The dashboard you're looking for doesn't exist or you don't have access."
+            action={
+              <Button onClick={() => router.push("/")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Dashboards
+              </Button>
+            }
+          />
+        </div>
+      )}
 
-      <WidgetEditorModal
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        mode={editorMode}
-        widget={editingWidget}
-        connections={connections ?? []}
-        onSave={handleEditorSave}
-      />
-
-      <div className="flex-1 p-6 relative">
-        {layout.pages.map((page, index) => {
-          const isActive = index === activePageIndex;
-          if (page.widgets.length === 0 && isActive) {
-            return (
-              <EmptyState
-                key={page.id}
-                icon={<LayoutDashboard className="h-12 w-12" />}
-                title="No widgets yet"
-                description='Click "Add Widget" to get started.'
-                action={
-                  <Button onClick={openAddWidget}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Widget
-                  </Button>
-                }
-              />
-            );
-          }
-          if (page.widgets.length === 0) return null;
-          return (
-            <div
-              key={page.id}
-              className={isActive ? undefined : "hidden"}
-              aria-hidden={!isActive}
-            >
-              <DashboardContainer
-                page={page}
-                editable
-                onRemoveWidget={removeWidget}
-                onEditWidget={openEditWidget}
-                onDuplicateWidget={duplicateWidget}
-                onLayoutChange={isActive ? updateGridLayout : undefined}
-                onWidgetSettingsChange={(widgetId, settings) => {
-                  const target = page.widgets.find((w) => w.id === widgetId);
-                  if (target) {
-                    updateWidget(widgetId, { ...target, settings });
-                  }
-                }}
-              />
+      {!isLoading && dashboard && (
+        <>
+          {saveError && (
+            <div className="px-6 pt-2">
+              <Alert variant="destructive">
+                <AlertDescription>{saveError}</AlertDescription>
+              </Alert>
             </div>
-          );
-        })}
-      </div>
+          )}
+
+          <PageTabs
+            pages={layout.pages}
+            activeIndex={activePageIndex}
+            editable
+            onSelect={setActivePage}
+            onAdd={addPage}
+            onRemove={removePage}
+            onRename={renamePage}
+          />
+
+          <WidgetEditorModal
+            open={editorOpen}
+            onOpenChange={setEditorOpen}
+            mode={editorMode}
+            widget={editingWidget}
+            connections={connections ?? []}
+            onSave={handleEditorSave}
+          />
+
+          <div className="flex-1 p-6 relative">
+            {layout.pages.map((page, index) => {
+              const isActive = index === activePageIndex;
+              if (page.widgets.length === 0 && isActive) {
+                return (
+                  <EmptyState
+                    key={page.id}
+                    icon={<LayoutDashboard className="h-12 w-12" />}
+                    title="No widgets yet"
+                    description='Click "Add Widget" to get started.'
+                    action={
+                      <Button onClick={openAddWidget}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Widget
+                      </Button>
+                    }
+                  />
+                );
+              }
+              if (page.widgets.length === 0) return null;
+              return (
+                <div
+                  key={page.id}
+                  className={isActive ? undefined : "hidden"}
+                  aria-hidden={!isActive}
+                >
+                  <DashboardContainer
+                    page={page}
+                    editable
+                    onRemoveWidget={removeWidget}
+                    onEditWidget={openEditWidget}
+                    onDuplicateWidget={duplicateWidget}
+                    onLayoutChange={isActive ? updateGridLayout : undefined}
+                    onWidgetSettingsChange={(widgetId, settings) => {
+                      const target = page.widgets.find((w) => w.id === widgetId);
+                      if (target) {
+                        updateWidget(widgetId, { ...target, settings });
+                      }
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -90,7 +90,7 @@ export default function DashboardViewerPage({
           {canEdit && (
             <Button
               size="sm"
-              onClick={() => router.push(`/${id}/edit`)}
+              onClick={() => router.push(`/${id}/edit?page=${safeIndex}`)}
             >
               <Pencil className="mr-2 h-4 w-4" />
               Edit

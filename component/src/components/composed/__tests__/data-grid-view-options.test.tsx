@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataGrid } from "../data-grid";
-import { DataGridToolbar } from "../data-grid-toolbar";
+import { DataGridViewOptions } from "../data-grid-view-options";
+import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 
 interface TestRow {
   name: string;
@@ -17,14 +18,30 @@ const columns: ColumnDef<TestRow, unknown>[] = [
 const data: TestRow[] = [{ name: "Alice", email: "alice@example.com" }];
 
 describe("DataGridViewOptions", () => {
-  it("renders view button via toolbar", () => {
+  it("renders icon-only button with sr-only text and title", () => {
     render(
       <DataGrid
         columns={columns}
         data={data}
-        toolbar={(table) => <DataGridToolbar table={table} />}
+        pagination={(table) => <DataGridViewOptions table={table} />}
       />
     );
-    expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
+    // Button accessible via sr-only span
+    const button = screen.getByRole("button", { name: /toggle columns/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute("title", "Toggle columns");
+  });
+
+  it("does not render visible 'View' label text", () => {
+    render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        pagination={(table) => <DataGridViewOptions table={table} />}
+      />
+    );
+    // The word "View" should not appear as visible text (only sr-only is acceptable)
+    const buttons = screen.queryAllByRole("button", { name: /^view$/i });
+    expect(buttons).toHaveLength(0);
   });
 });

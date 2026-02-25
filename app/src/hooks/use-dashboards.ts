@@ -3,6 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
+export interface WidgetPreviewItem {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  chartType: string;
+}
+
 export interface DashboardListItem {
   id: string;
   name: string;
@@ -11,6 +19,8 @@ export interface DashboardListItem {
   createdAt: string;
   updatedAt: string;
   role: "owner" | "viewer" | "editor" | "admin";
+  preview: WidgetPreviewItem[];
+  widgetCount: number;
 }
 
 export interface DashboardDetail extends DashboardListItem {

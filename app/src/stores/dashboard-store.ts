@@ -12,7 +12,7 @@ interface DashboardState {
   editMode: boolean;
 
   // Layout
-  setLayout: (layout: DashboardLayoutV2) => void;
+  setLayout: (layout: DashboardLayoutV2, initialPageIndex?: number) => void;
   setEditMode: (editMode: boolean) => void;
   reset: () => void;
 
@@ -55,7 +55,14 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   activePageIndex: 0,
   editMode: false,
 
-  setLayout: (layout) => set({ layout, activePageIndex: 0 }),
+  setLayout: (layout, initialPageIndex = 0) =>
+    set({
+      layout,
+      activePageIndex: Math.min(
+        isNaN(initialPageIndex) ? 0 : initialPageIndex,
+        layout.pages.length - 1
+      ),
+    }),
   setEditMode: (editMode) => set({ editMode }),
   reset: () =>
     set({ layout: emptyLayout, activePageIndex: 0, editMode: false }),

@@ -92,6 +92,11 @@ function CascadingSelector({
             <SelectValue placeholder={resolvedPlaceholder} />
           </SelectTrigger>
           <SelectContent>
+            {!loading && options.length === 0 && (
+              <SelectItem value="__empty__" disabled className="text-muted-foreground text-sm">
+                No options available
+              </SelectItem>
+            )}
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
