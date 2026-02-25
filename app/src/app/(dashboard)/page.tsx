@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Plus, LayoutDashboard, Copy } from "lucide-react";
+import { Plus, LayoutDashboard, MoreVertical, Pencil, Copy, Trash2 } from "lucide-react";
 import {
   useDashboards,
   useCreateDashboard,
@@ -25,6 +25,11 @@ import {
   DialogTitle,
   DialogFooter,
   Label,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -176,46 +181,47 @@ export default function DashboardListPage() {
                       )}
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center gap-3">
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/${d.id}/edit`);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                        {canDuplicate && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              duplicateDashboard.mutate(d.id);
-                            }}
-                          >
-                            <Copy className="mr-1.5 h-3.5 w-3.5" />
-                            Duplicate
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteTarget(d.id);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        )}
-                      </div>
+                      {(canEdit || canDuplicate || canDelete) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Dashboard options</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => router.push(`/${d.id}/edit`)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {canDuplicate && (
+                              <DropdownMenuItem onClick={() => duplicateDashboard.mutate(d.id)}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteTarget(d.id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </CardContent>
                   </Card>
                 );

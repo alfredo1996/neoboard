@@ -183,11 +183,13 @@ export const useDashboardStore = create<DashboardState>((set) => ({
               : undefined,
         },
       };
+      // Place the clone at the next available slot using grid gravity
+      // (same strategy as addWidget) instead of x+1/y+1 which causes overlap.
       const clonedGrid: GridLayoutItem = {
         ...sourceGrid,
         i: newId,
-        x: sourceGrid.x + 1,
-        y: sourceGrid.y + 1,
+        x: (page.gridLayout.length * sourceGrid.w) % 12,
+        y: Infinity, // react-grid-layout compacts to the first available slot
       };
 
       return {

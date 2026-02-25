@@ -231,14 +231,16 @@ describe("useDashboardStore", () => {
     expect(copy.settings?.title).toBe("My Chart (Copy)");
   });
 
-  it("duplicateWidget offsets the grid position by (x+1, y+1)", () => {
+  it("duplicateWidget places clone at next available slot using grid gravity", () => {
     const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
     useDashboardStore.getState().addWidget(widget, { i: "w1", x: 2, y: 3, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const page = useDashboardStore.getState().layout.pages[0];
     const copyGrid = page.gridLayout[1];
-    expect(copyGrid.x).toBe(3);
-    expect(copyGrid.y).toBe(4);
+    // x = (gridLayout.length_before_clone * w) % 12 = (1 * 4) % 12 = 4
+    expect(copyGrid.x).toBe(4);
+    // y = Infinity — react-grid-layout will compact to the first available slot
+    expect(copyGrid.y).toBe(Infinity);
     expect(copyGrid.w).toBe(4);
     expect(copyGrid.h).toBe(3);
   });

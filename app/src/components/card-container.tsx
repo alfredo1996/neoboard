@@ -2,6 +2,7 @@
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { getChartConfig } from "@/lib/chart-registry";
+import { normalizeValue } from "@/lib/normalize-value";
 import type { ChartType } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
@@ -124,7 +125,8 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
       );
 
     case "single-value": {
-      const val = data ?? 0;
+      const raw = data ?? 0;
+      const val = typeof raw === "number" || typeof raw === "string" ? raw : normalizeValue(raw) ?? String(raw);
       return (
         <SingleValueChart
           value={typeof val === "number" || typeof val === "string" ? val : String(val)}
@@ -205,6 +207,7 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
             rangeMax={(settings.rangeMax as number | undefined) ?? 100}
             rangeStep={(settings.rangeStep as number | undefined) ?? 1}
             placeholder={(settings.placeholder as string | undefined) || undefined}
+            searchable={(settings.searchable as boolean | undefined) ?? false}
           />
         </div>
       );
@@ -324,6 +327,17 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
 
   // Use preview data directly if provided
   if (previewData !== undefined) {
+    const validationError = chartConfig.validate?.(previewData) ?? null;
+    if (validationError) {
+      return (
+        <EmptyState
+          icon={<AlertCircle className="h-8 w-8" />}
+          title="Incompatible data format"
+          description={validationError}
+          className="py-6"
+        />
+      );
+    }
     const transformedData = chartConfig.transform(previewData);
     return (
       <div className="h-full w-full">
@@ -364,6 +378,18 @@ export function CardContainer({ widget, previewData, previewResultId }: CardCont
       <EmptyState
         title="No data"
         description="No data returned from the query."
+        className="py-6"
+      />
+    );
+  }
+
+  const validationError = chartConfig.validate?.(widgetQuery.data.data) ?? null;
+  if (validationError) {
+    return (
+      <EmptyState
+        icon={<AlertCircle className="h-8 w-8" />}
+        title="Incompatible data format"
+        description={validationError}
         className="py-6"
       />
     );
