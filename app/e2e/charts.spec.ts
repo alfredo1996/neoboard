@@ -18,13 +18,17 @@ test.describe("Chart rendering", () => {
     // Navigate to edit and add a table widget to test
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
+
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // DataGrid should render a table element
     await expect(dialog.locator("table").first()).toBeVisible({ timeout: 15000 });
@@ -33,13 +37,17 @@ test.describe("Chart rendering", () => {
   test("single value chart should render a large number", async ({ page }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("Value", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Single Value" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN count(m) AS count");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS count");
+
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // SingleValueChart renders with data-testid
     await expect(dialog.locator("[data-testid='single-value-chart']").first()).toBeVisible({
@@ -50,13 +58,17 @@ test.describe("Chart rendering", () => {
   test("JSON viewer should render collapsible tree", async ({ page }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("JSON", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "JSON Viewer" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m LIMIT 2");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN m LIMIT 2");
+
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // JsonViewer renders with font-mono class
     await expect(
@@ -75,27 +87,25 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await page.waitForURL(/\/edit$/, { timeout: 15_000 });
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
   test("Neo4j bar chart — fetches data and renders canvas", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Bar chart + Neo4j connection
-    await dialog.getByText("Bar", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Bar Chart is default — just select Neo4j connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Query for aggregated data
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, count(p) AS value ORDER BY value DESC LIMIT 5"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    // Query for aggregated data
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, count(p) AS value ORDER BY value DESC LIMIT 5"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // The ECharts bar chart should render a canvas element inside the preview
     const preview = dialog.locator(".border.rounded-lg").first();
@@ -111,19 +121,19 @@ test.describe("Neo4j connector → chart visualization", () => {
 
   test("Neo4j line chart — fetches data and renders canvas", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Line", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Line Chart" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (m:Movie) RETURN m.released AS year, count(m) AS count ORDER BY year"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (m:Movie) RETURN m.released AS year, count(m) AS count ORDER BY year"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -136,19 +146,19 @@ test.describe("Neo4j connector → chart visualization", () => {
 
   test("Neo4j pie chart — fetches data and renders canvas", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Pie", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Pie Chart" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS label, count(*) AS value"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS label, count(*) AS value"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -161,17 +171,19 @@ test.describe("Neo4j connector → chart visualization", () => {
 
   test("Neo4j table — fetches data and shows actual movie names", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill("MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -185,15 +197,17 @@ test.describe("Neo4j connector → chart visualization", () => {
 
   test("Neo4j single-value — fetches aggregated count", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Value", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Single Value" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN count(m) AS total");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS total");
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -210,25 +224,24 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await page.waitForURL(/\/edit$/, { timeout: 15_000 });
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
   test("PostgreSQL bar chart — fetches data and renders canvas", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Bar", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Bar Chart is default — just select PostgreSQL connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY released LIMIT 10"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY released LIMIT 10"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -241,19 +254,19 @@ test.describe("PostgreSQL connector → chart visualization", () => {
 
   test("PostgreSQL line chart — fetches data and renders canvas", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Line", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Line Chart" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -266,19 +279,19 @@ test.describe("PostgreSQL connector → chart visualization", () => {
 
   test("PostgreSQL pie chart — fetches data and renders canvas", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Pie", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Pie Chart" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY value DESC LIMIT 5"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY value DESC LIMIT 5"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -291,17 +304,19 @@ test.describe("PostgreSQL connector → chart visualization", () => {
 
   test("PostgreSQL table — fetches data and shows actual movie names", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill("SELECT title, released, tagline FROM movies ORDER BY released LIMIT 5");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "SELECT title, released, tagline FROM movies ORDER BY released LIMIT 5"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -317,15 +332,17 @@ test.describe("PostgreSQL connector → chart visualization", () => {
 
   test("PostgreSQL single-value — fetches aggregated count", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Value", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Single Value" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByLabel("Query").fill("SELECT COUNT(*) AS total FROM movies");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("SELECT COUNT(*) AS total FROM movies");
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -385,21 +402,21 @@ test.describe("Graph chart visualization", () => {
 
   test("graph chart preview — renders nodes and toolbar controls", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Select Graph chart + Neo4j connection
-    await dialog.getByText("Graph", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Select Graph chart + Neo4j connection
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Graph" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Query that returns nodes + relationships
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    // Query that returns nodes + relationships
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // The preview container should render
     const preview = dialog.locator(".border.rounded-lg").first();
@@ -422,21 +439,21 @@ test.describe("Graph chart visualization", () => {
 
   test("graph chart — added widget renders on dashboard", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Graph + Neo4j
-    await dialog.getByText("Graph", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Graph + Neo4j
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Graph" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Query returning graph data
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 15"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    // Query returning graph data
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 15"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // Wait for preview then add the widget
     const preview = dialog.locator(".border.rounded-lg").first();
@@ -456,24 +473,25 @@ test.describe("Graph chart visualization", () => {
 
   test("graph chart — empty result shows 'No graph data' message", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Graph + Neo4j
-    await dialog.getByText("Graph", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Graph + Neo4j
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Graph" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Query that returns scalars (no nodes/relationships)
-    await dialog
-      .getByLabel("Query")
-      .fill("RETURN 1 AS value");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    // Query that returns scalars (no nodes/relationships)
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("RETURN 1 AS value");
+    await dialog.getByRole("button", { name: "Run" }).click();
 
-    // Should show the "No graph data" empty state since there are no nodes
+    // Should show the "Incompatible data format" validation empty state
+    // since the data lacks graph structures (nodes/relationships/paths).
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
-    await expect(dialog.getByText("No graph data")).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.getByText("Incompatible data format")).toBeVisible({ timeout: 10_000 });
 
     // Toolbar should NOT be visible (graph didn't render)
     await expect(
@@ -486,19 +504,19 @@ test.describe("Graph chart visualization", () => {
 
   test("graph chart — layout selector changes layout", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Graph", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Graph" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
@@ -543,19 +561,19 @@ test.describe("Graph chart exploration", () => {
    */
   async function addGraphWidget(page: import("@playwright/test").Page) {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Graph", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Graph" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Neo4j/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // Wait for preview to appear
     const preview = dialog.locator(".border.rounded-lg").first();
