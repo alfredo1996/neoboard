@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import {
-  Play,
   AlertCircle,
   AlertTriangle,
   BarChart3,
@@ -26,7 +26,6 @@ import {
   Button,
   Input,
   Label,
-  Textarea,
   Alert,
   AlertTitle,
   AlertDescription,
@@ -42,7 +41,6 @@ import {
   SelectValue,
   Checkbox,
   Combobox,
-  LoadingButton,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -62,6 +60,13 @@ const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon }> = {
   json: { label: "JSON Viewer", Icon: Braces },
   "parameter-select": { label: "Parameter Selector", Icon: SlidersHorizontal },
 };
+
+// CodeMirror accesses real DOM APIs — load it only client-side.
+const QueryEditor = dynamic(
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.QueryEditor })),
+  { ssr: false }
+);
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -127,6 +132,8 @@ export function WidgetEditorModal({
     () => connections.find((c) => c.id === connectionId) ?? null,
     [connections, connectionId]
   );
+  const editorLanguage: "cypher" | "sql" =
+    selectedConnection?.type === "postgresql" ? "sql" : "cypher";
 
   // Chart types compatible with the selected connector
   const compatibleChartTypes = useMemo(
@@ -327,29 +334,18 @@ export function WidgetEditorModal({
 
             <div className="space-y-1.5">
               <Label htmlFor="editor-query">Query</Label>
-              <Textarea
-                id="editor-query"
+              <QueryEditor
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-                className="font-mono min-h-[100px]"
-                rows={4}
+                onChange={setQuery}
+                onRun={handlePreview}
+                language={editorLanguage}
+                placeholder={
+                  editorLanguage === "sql"
+                    ? "SELECT * FROM users LIMIT 10"
+                    : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
+                }
+                className="min-h-[160px]"
               />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <LoadingButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                loading={previewQuery.isPending}
-                loadingText="Running..."
-                disabled={!query.trim()}
-                onClick={handlePreview}
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Run Query
-              </LoadingButton>
             </div>
 
             <div className="border-t pt-4">
