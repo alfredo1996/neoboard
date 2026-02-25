@@ -6,7 +6,7 @@ import { normalizeValue } from "@/lib/normalize-value";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import React, { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AlertCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
@@ -23,6 +23,9 @@ import {
   SingleValueChart,
   JsonViewer,
   DataGrid,
+  DataGridColumnHeader,
+  DataGridViewOptions,
+  DataGridPagination,
   ColumnMappingOverlay,
 } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
@@ -277,12 +280,16 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
     return () => observer.disconnect();
   }, []);
 
+  const enableSorting = settings.enableSorting !== false;
+
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
     return Object.keys(records[0]).map((key) => ({
       id: key,
       accessorFn: (row: Record<string, unknown>) => row[key],
-      header: key,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title={key} />
+      ),
       cell: ({ getValue }) => {
         const v = getValue();
         if (v === null || v === undefined) return <span className="text-muted-foreground">null</span>;
@@ -290,10 +297,11 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
         return String(v);
       },
     }));
-  }, [records]);
+  }, [records, enableSorting]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {
-    return <EmptyState title="No rows" description="Query returned no data." className="py-6" />;
+    return <EmptyState title={emptyMessage} className="py-6" />;
   }
 
   // enablePagination defaults to true per chart-options-schema.
@@ -304,14 +312,22 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
       <DataGrid
         columns={columns}
         data={records as Record<string, unknown>[]}
-        enableSorting={settings.enableSorting !== false}
+        enableSorting={enableSorting}
         enableSelection={settings.enableSelection as boolean | undefined}
         enableGlobalFilter={settings.enableGlobalFilter !== false}
         enableColumnFilters={settings.enableColumnFilters !== false}
         enablePagination={enablePagination}
-        pageSize={(settings.pageSize as number) ?? 20}
+        pageSize={(settings.pageSize as number) ?? 10}
         containerHeight={enablePagination ? containerHeight : undefined}
         onRowClick={onRowClick}
+        pagination={(table) => (
+          <div className="flex items-center gap-2">
+            <DataGridViewOptions table={table} />
+            <div className="flex-1">
+              <DataGridPagination table={table} />
+            </div>
+          </div>
+        )}
       />
     </div>
   );
@@ -320,17 +336,12 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
 
 /**
  * Extracts column names from raw query result data.
- * Works with both the Neo4j array format and PostgreSQL { records } format.
+ * Both Neo4j and PostgreSQL now return a flat Record[] array.
  */
 function extractColumnNames(data: unknown): string[] {
-  let records: Record<string, unknown>[] = [];
-  if (Array.isArray(data)) {
-    records = data as Record<string, unknown>[];
-  } else if (data && typeof data === "object" && "records" in data) {
-    records = (data as { records: Record<string, unknown>[] }).records;
-  }
+  const records = Array.isArray(data) ? data : [];
   if (!records.length) return [];
-  const first = records[0];
+  const first = records[0] as Record<string, unknown> | undefined;
   if (!first || typeof first !== "object") return [];
   return Object.keys(first);
 }
@@ -371,9 +382,13 @@ export function CardContainer({
   const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
   const staleTime = enableCache ? cacheTtlMinutes * 60_000 : 0;
 
+  // Parameter-select widgets are self-contained (no query to run).
+  const isParameterWidget = widget.chartType === "parameter-select";
+
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
-  const queryInput = previewData !== undefined ? null : {
+  // Parameter-select widgets skip query execution entirely.
+  const queryInput = (previewData !== undefined || isParameterWidget) ? null : {
     connectionId: widget.connectionId,
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
@@ -455,6 +470,23 @@ export function CardContainer({
             onMappingChange={handleMappingChange}
           />
         )}
+      </div>
+    );
+  }
+
+  // Parameter-select widgets are self-contained — skip query lifecycle
+  if (isParameterWidget) {
+    return (
+      <div className="h-full w-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <ChartRenderer
+            type={chartConfig.type}
+            data={null}
+            settings={chartOptions}
+            connectionId={widget.connectionId}
+            widgetId={widget.id}
+          />
+        </div>
       </div>
     );
   }

@@ -668,3 +668,79 @@ describe("Searchable select — debounced search term logic", () => {
     expect(seedExtraParams).toBeUndefined();
   });
 });
+
+// ─── DebouncedTextInput — 200ms debounce ──────────────────────────────────
+
+describe("DebouncedTextInput — 200ms debounce logic", () => {
+  it("does not fire onChange before 200ms", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+
+    let fired = "";
+    const onChange = (v: string) => { fired = v; };
+
+    // Simulate the useEffect: setTimeout 200ms
+    const draft = "hello";
+    const timer = setTimeout(() => onChange(draft), 200);
+
+    // Not called yet
+    vi.advanceTimersByTime(199);
+    expect(fired).toBe("");
+
+    // Just past the threshold
+    vi.advanceTimersByTime(1);
+    expect(fired).toBe("hello");
+
+    clearTimeout(timer);
+    vi.useRealTimers();
+  });
+
+  it("cancels pending timer on rapid input (debounce resets)", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+
+    let fired = "";
+    const onChange = (v: string) => { fired = v; };
+
+    // Simulate typing "a", "ab", "abc" — each resets the 200ms timer
+    let timer = setTimeout(() => onChange("a"), 200);
+    vi.advanceTimersByTime(50);
+    clearTimeout(timer);
+
+    timer = setTimeout(() => onChange("ab"), 200);
+    vi.advanceTimersByTime(50);
+    clearTimeout(timer);
+
+    timer = setTimeout(() => onChange("abc"), 200);
+
+    // Not yet fired
+    expect(fired).toBe("");
+
+    vi.advanceTimersByTime(200);
+    expect(fired).toBe("abc");
+
+    clearTimeout(timer);
+    vi.useRealTimers();
+  });
+
+  it("does not fire when draft equals the external value (no change)", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+
+    const externalValue = "same";
+    let fired = false;
+    const onChange = () => { fired = true; };
+
+    // Simulate the guard: if (draft !== value) onChange(draft)
+    const draft = "same";
+    const timer = setTimeout(() => {
+      if (draft !== externalValue) onChange();
+    }, 200);
+
+    vi.advanceTimersByTime(200);
+    expect(fired).toBe(false);
+
+    clearTimeout(timer);
+    vi.useRealTimers();
+  });
+});

@@ -40,6 +40,7 @@ export { GridItem, type GridItemProps } from "./grid-item";
 
 // Dashboard
 export { DashboardGrid, type DashboardGridProps, type LayoutItem } from "./dashboard-grid";
+export { DashboardMiniPreview, type DashboardMiniPreviewProps, type MiniPreviewWidget } from "./dashboard-mini-preview";
 
 // Navigation
 export { VerticalTabs, type VerticalTabsProps, type VerticalTabItem } from "./vertical-tabs";

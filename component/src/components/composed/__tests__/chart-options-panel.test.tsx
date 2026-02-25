@@ -87,6 +87,17 @@ describe("ChartOptionsPanel", () => {
     expect(screen.queryByText("Tile Layer")).not.toBeInTheDocument();
   });
 
+  it("renders only placeholder and searchable for parameter-select", () => {
+    render(
+      <ChartOptionsPanel chartType="parameter-select" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
+    expect(screen.getByText("Search-as-you-type")).toBeInTheDocument();
+    // Should NOT show the old primary fields
+    expect(screen.queryByText("Parameter Name")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selector Type")).not.toBeInTheDocument();
+  });
+
   it("applies className", () => {
     const { container } = render(
       <ChartOptionsPanel
