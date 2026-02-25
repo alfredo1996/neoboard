@@ -204,4 +204,133 @@ describe("useDashboardStore", () => {
     useDashboardStore.getState().updateGridLayout(newGrid);
     expect(useDashboardStore.getState().layout.pages[1].gridLayout).toHaveLength(0);
   });
+
+  // ── duplicateWidget ───────────────────────────────────────────────
+
+  it("duplicateWidget adds a new widget with a unique ID", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "MATCH (n) RETURN n" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const page = useDashboardStore.getState().layout.pages[0];
+    expect(page.widgets).toHaveLength(2);
+    expect(page.widgets[1].id).not.toBe("w1");
+    expect(page.widgets[1].id).toBeTruthy();
+  });
+
+  it("duplicateWidget appends '(Copy)' to the widget title setting", () => {
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      settings: { title: "My Chart" },
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.title).toBe("My Chart (Copy)");
+  });
+
+  it("duplicateWidget offsets the grid position by (x+1, y+1)", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 2, y: 3, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const page = useDashboardStore.getState().layout.pages[0];
+    const copyGrid = page.gridLayout[1];
+    expect(copyGrid.x).toBe(3);
+    expect(copyGrid.y).toBe(4);
+    expect(copyGrid.w).toBe(4);
+    expect(copyGrid.h).toBe(3);
+  });
+
+  it("duplicateWidget produces independent settings (deep clone)", () => {
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      settings: { title: "Chart", nested: { value: 42 } },
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    // Mutating the original should not affect the copy
+    useDashboardStore.getState().updateWidget("w1", { settings: { title: "Changed" } });
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.title).toBe("Chart (Copy)");
+  });
+
+  it("duplicateWidget copies query and connectionId from the source widget", () => {
+    const widget = { id: "w1", chartType: "line", connectionId: "conn-abc", query: "MATCH (n) RETURN n" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.chartType).toBe("line");
+    expect(copy.connectionId).toBe("conn-abc");
+    expect(copy.query).toBe("MATCH (n) RETURN n");
+  });
+
+  it("duplicateWidget is a no-op for an unknown widgetId", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("does-not-exist");
+    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(1);
+  });
+
+  it("duplicateWidget operates only on the active page", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().addPage();
+    useDashboardStore.getState().setActivePage(0);
+    useDashboardStore.getState().duplicateWidget("w1");
+    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(2);
+    expect(useDashboardStore.getState().layout.pages[1].widgets).toHaveLength(0);
+  });
+
+  it("duplicateWidget sets title to undefined when source widget has no settings", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.title).toBeUndefined();
+  });
+
+  it("duplicateWidget sets title to undefined when settings.title is not a string", () => {
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      settings: { title: 42 },
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.title).toBeUndefined();
+  });
+
+  it("duplicateWidget preserves all non-title settings from source", () => {
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      settings: { title: "My Widget", color: "red", limit: 100 },
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
+    expect(copy.settings?.color).toBe("red");
+    expect(copy.settings?.limit).toBe(100);
+    expect(copy.settings?.title).toBe("My Widget (Copy)");
+  });
+
+  it("duplicateWidget assigns a grid item with the new widget's ID", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 6, h: 2 });
+    useDashboardStore.getState().duplicateWidget("w1");
+    const page = useDashboardStore.getState().layout.pages[0];
+    const copyWidget = page.widgets[1];
+    const copyGrid = page.gridLayout[1];
+    expect(copyGrid.i).toBe(copyWidget.id);
+  });
 });

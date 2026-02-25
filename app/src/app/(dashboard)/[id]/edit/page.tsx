@@ -61,6 +61,7 @@ export default function DashboardEditorPage({
   const removeWidget = useDashboardStore((s) => s.removeWidget);
   const updateWidget = useDashboardStore((s) => s.updateWidget);
   const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
+  const duplicateWidget = useDashboardStore((s) => s.duplicateWidget);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
@@ -264,7 +265,14 @@ export default function DashboardEditorPage({
                 editable
                 onRemoveWidget={removeWidget}
                 onEditWidget={openEditWidget}
+                onDuplicateWidget={duplicateWidget}
                 onLayoutChange={isActive ? updateGridLayout : undefined}
+                onWidgetSettingsChange={(widgetId, settings) => {
+                  const target = page.widgets.find((w) => w.id === widgetId);
+                  if (target) {
+                    updateWidget(widgetId, { ...target, settings });
+                  }
+                }}
               />
             </div>
           );

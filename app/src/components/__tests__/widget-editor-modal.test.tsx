@@ -123,7 +123,17 @@ vi.mock("lucide-react", () => ({
   Play: () => <span>Play</span>,
   ChevronLeft: () => <span>ChevronLeft</span>,
   AlertCircle: () => <span>AlertCircle</span>,
+  AlertTriangle: () => <span>AlertTriangle</span>,
   Loader2: () => <span>Loader2</span>,
+  BarChart3: () => <span>BarChart3</span>,
+  LineChart: () => <span>LineChart</span>,
+  PieChart: () => <span>PieChart</span>,
+  Hash: () => <span>Hash</span>,
+  GitGraph: () => <span>GitGraph</span>,
+  Map: () => <span>Map</span>,
+  Table2: () => <span>Table2</span>,
+  Braces: () => <span>Braces</span>,
+  SlidersHorizontal: () => <span>SlidersHorizontal</span>,
 }));
 
 // ---------------------------------------------------------------------------

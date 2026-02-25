@@ -27,7 +27,13 @@ interface DashboardContainerProps {
   editable?: boolean;
   onRemoveWidget?: (widgetId: string) => void;
   onEditWidget?: (widget: DashboardWidget) => void;
+  onDuplicateWidget?: (widgetId: string) => void;
   onLayoutChange?: (gridLayout: GridLayoutItem[]) => void;
+  /**
+   * Called when a widget's settings are updated inline (e.g. column mapping).
+   * The caller should persist the updated widget to the dashboard layout.
+   */
+  onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -42,7 +48,9 @@ export function DashboardContainer({
   editable = false,
   onRemoveWidget,
   onEditWidget,
+  onDuplicateWidget,
   onLayoutChange,
+  onWidgetSettingsChange,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -71,6 +79,18 @@ export function DashboardContainer({
         onClick: () => onEditWidget(widget),
       });
     }
+    if (onDuplicateWidget) {
+      actions.push({
+        label: "Duplicate",
+        onClick: () => onDuplicateWidget(widget.id),
+      });
+    }
+    // Widget Lab is not yet built — option is visible but disabled.
+    actions.push({
+      label: "Save to Widget Lab",
+      onClick: () => undefined,
+      disabled: true,
+    });
     if (onRemoveWidget) {
       actions.push({
         label: "Remove",
@@ -122,7 +142,15 @@ export function DashboardContainer({
                 </Button>
               }
             >
-              <CardContainer widget={widget} />
+              <CardContainer
+                widget={widget}
+                isEditMode={editable}
+                onWidgetSettingsChange={
+                  onWidgetSettingsChange
+                    ? (settings) => onWidgetSettingsChange(widget.id, settings)
+                    : undefined
+                }
+              />
             </WidgetCard>
           </div>
         ))}

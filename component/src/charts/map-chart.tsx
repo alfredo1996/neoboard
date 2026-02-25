@@ -29,6 +29,10 @@ export interface MapChartProps {
   autoFitBounds?: boolean;
   /** Padding for fitBounds */
   fitBoundsPadding?: [number, number];
+  /** Default marker radius in pixels (used when marker has no value) */
+  markerSize?: number;
+  /** Show popup when marker is clicked */
+  showPopup?: boolean;
   loading?: boolean;
   error?: Error | null;
   onMarkerClick?: (marker: MapMarker) => void;
@@ -85,6 +89,8 @@ function MapChart({
   attribution,
   autoFitBounds = false,
   fitBoundsPadding = [20, 20],
+  markerSize = 6,
+  showPopup = true,
   loading = false,
   error = null,
   onMarkerClick,
@@ -143,7 +149,7 @@ function MapChart({
 
     markers.forEach((m) => {
       const circleMarker = L.circleMarker([m.lat, m.lng], {
-        radius: m.value ? Math.min(Math.max(m.value, 4), 30) : 6,
+        radius: m.value ? Math.min(Math.max(m.value, 4), 30) : markerSize,
         fillColor: m.color ?? "#3b82f6",
         color: m.color ?? "#3b82f6",
         weight: 1,
@@ -159,8 +165,8 @@ function MapChart({
         circleMarker.bindTooltip(m.label);
       }
 
-      // Popup
-      if (m.popup) {
+      // Popup: bind only when showPopup is enabled
+      if (showPopup && m.popup) {
         circleMarker.bindPopup(m.popup);
       }
 
@@ -176,7 +182,7 @@ function MapChart({
       const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng] as [number, number]));
       map.fitBounds(bounds, { padding: fitBoundsPadding });
     }
-  }, [markers, onMarkerClick, autoFitBounds, fitBoundsPadding]);
+  }, [markers, onMarkerClick, autoFitBounds, fitBoundsPadding, markerSize, showPopup]);
 
   if (error) {
     return (
