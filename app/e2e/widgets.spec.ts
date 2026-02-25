@@ -10,24 +10,19 @@ test.describe("Widget creation", () => {
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
-  test("should complete two-step widget creation flow", async ({ page }) => {
+  test("should complete widget creation flow", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Select chart type and connection
-    await expect(dialog.getByText("Select Type")).toBeVisible();
-    await dialog.getByText("Bar", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Select connection (Bar Chart is default)
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Configure query and preview
-    await expect(dialog.getByText("Configure")).toBeVisible();
-    await dialog
-      .getByLabel("Query")
-      .fill("MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
 
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    await dialog.getByRole("button", { name: "Run" }).click();
     // Wait for preview to render
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
       timeout: 15000,
@@ -40,62 +35,77 @@ test.describe("Widget creation", () => {
 
   test("should add a table widget", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
+
     await dialog.getByRole("button", { name: "Add Widget" }).click();
   });
 
   test("should add a JSON viewer widget", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("JSON", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "JSON Viewer" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByLabel("Query").fill("MATCH (m:Movie) RETURN m LIMIT 3");
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (m:Movie) RETURN m LIMIT 3");
+
     await dialog.getByRole("button", { name: "Add Widget" }).click();
   });
 
   test("should render table with dot-notation fields (n.name)", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
     // Select Neo4j connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Use a Cypher query that returns dotted field names
-    await dialog.getByLabel("Query").fill("MATCH (n:Person) RETURN n.name, n.born LIMIT 5");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    // Use a Cypher query that returns dotted field names.
+    // No LIMIT here — wrapWithPreviewLimit appends LIMIT 25 automatically.
+    // Including LIMIT in the query + wrapWithPreviewLimit = double LIMIT → Cypher error.
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("MATCH (n:Person) RETURN n.name, n.born ORDER BY n.name");
+
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // Wait for the preview to render — should show table data (not empty)
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
       timeout: 15_000,
     });
     // The table header should contain the dotted key as-is
-    await expect(dialog.getByText("n.name")).toBeVisible({ timeout: 10_000 });
-    // And the table should contain actual data values
-    await expect(dialog.getByText("Keanu Reeves").or(dialog.getByText("Tom Cruise"))).toBeVisible({ timeout: 10_000 });
+    // Scope to <th> to avoid matching the CM editor content which also contains "n.name"
+    await expect(dialog.locator("th").filter({ hasText: "n.name" })).toBeVisible({ timeout: 10_000 });
+    // And the table should contain at least one data row
+    await expect(dialog.locator("tbody tr").first()).toBeVisible({ timeout: 10_000 });
   });
 
   test("should add a PostgreSQL widget and preview data", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
-    // Select the PG connection (2nd option, "Movies DB (PostgreSQL)")
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+    // Select the PG connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog.getByLabel("Query").fill("SELECT title, released FROM movies LIMIT 5");
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("SELECT title, released FROM movies LIMIT 5");
+
+    await dialog.getByRole("button", { name: "Run" }).click();
 
     // Wait for preview
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
@@ -107,32 +117,32 @@ test.describe("Widget creation", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("should navigate back from step 2 to step 1", async ({ page }) => {
+  test("modal shows connection and chart type selectors", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByRole("combobox").click();
-    await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await expect(dialog.getByText("Configure")).toBeVisible();
-    await dialog.getByRole("button", { name: /Back/ }).click();
-    await expect(dialog.getByText("Select Type")).toBeVisible();
+    // The new single-view modal should show both Connection and Chart Type selectors
+    await expect(dialog.getByText("Connection", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Chart Type", { exact: true })).toBeVisible();
+
+    // Query editor should be immediately visible
+    await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible();
   });
 
   test("connector combobox filters results by typed text", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Open the searchable combobox
-    await dialog.getByRole("combobox").click();
+    // Open the connection combobox (first combobox in dialog)
+    await dialog.getByRole("combobox").nth(0).click();
     // Type a partial name that exists (e.g. "neo" matches the Neo4j connection)
     await page.getByPlaceholder("Search connections...").fill("neo");
     // At least one matching option should be visible
     await expect(page.getByRole("option").first()).toBeVisible({ timeout: 5_000 });
     // Non-matching connections should not appear; pick the first visible option
     await page.getByRole("option").first().click();
-    // Next button should now be enabled
-    await expect(dialog.getByRole("button", { name: "Next" })).toBeEnabled();
+    // Run button should be visible (no Next step anymore)
+    await expect(dialog.getByRole("button", { name: "Run" })).toBeVisible();
   });
 });
 
@@ -159,11 +169,14 @@ test.describe("Widget edit – query cache invalidation", () => {
     );
 
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByRole("combobox").click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
-    await dialog.getByLabel("Query").fill(firstQuery);
+
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(firstQuery);
+
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -179,13 +192,20 @@ test.describe("Widget edit – query cache invalidation", () => {
     await page.getByRole("button", { name: "Widget actions" }).last().click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
 
-    const editDialog = page.getByRole("dialog");
+    const editDialog = page.getByRole("dialog", { name: "Edit Widget" });
     await expect(editDialog).toBeVisible();
-    await editDialog.getByLabel("Query").fill(secondQuery);
+
+    // Use the Clear query button to reliably reset CodeMirror state
+    // (Ctrl+A + insertText doesn't reliably update the React-controlled CM value)
+    await editDialog.getByRole("button", { name: "Clear query" }).click();
+    const editCm = editDialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await editCm.click();
+    await page.keyboard.insertText(secondQuery);
+
     await editDialog.getByRole("button", { name: "Save Changes" }).click();
     await expect(editDialog).not.toBeVisible();
 
-    // staleTime is 0, so the card must re-fetch immediately on save
+    // The query key changed (different query string), so the card must re-fetch
     await refetch;
   });
 });
