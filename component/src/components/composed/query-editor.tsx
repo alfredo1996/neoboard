@@ -32,6 +32,8 @@ export interface QueryEditorProps {
   language?: "cypher" | "sql" | string;
   readOnly?: boolean;
   className?: string;
+  /** When provided, a hint for the run-and-save keyboard shortcut is displayed next to the Run button. */
+  runAndSaveHint?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +134,7 @@ function QueryEditor({
   language = "cypher",
   readOnly = false,
   className,
+  runAndSaveHint = false,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
@@ -280,6 +283,7 @@ function QueryEditor({
     }
   };
 
+
   const handleHistorySelect = (query: string) => {
     const view = viewRef.current;
     if (view) {
@@ -345,11 +349,22 @@ function QueryEditor({
           >
             <RotateCcw className="h-3 w-3" />
           </Button>
+          {runAndSaveHint && (
+            <span
+              className="hidden sm:inline-flex items-center text-[10px] text-muted-foreground select-none mr-1"
+              aria-label="Run and save shortcut: Command Shift Enter"
+              title="Run & Save: ⌘⇧↵ / Ctrl+Shift+Enter"
+            >
+              <kbd className="font-mono">⌘⇧↵</kbd>
+              <span className="ml-1">Run &amp; Save</span>
+            </span>
+          )}
           <Button
             size="sm"
             className="h-7 gap-1"
             onClick={handleRun}
             disabled={!currentValue.trim() || running}
+            title="Run query (Ctrl+Enter / ⌘+Enter)"
           >
             {running ? (
               <Loader2 className="h-3 w-3 animate-spin" />

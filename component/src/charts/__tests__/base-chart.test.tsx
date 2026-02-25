@@ -1,7 +1,9 @@
-import { render, screen, cleanup } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BaseChart } from "../base-chart";
 
+// echarts/charts, echarts/components, echarts/renderers are mocked globally
+// in vitest.setup.ts. Only echarts/core is mocked here to capture specific fns.
 const mockSetOption = vi.fn();
 const mockResize = vi.fn();
 const mockDispose = vi.fn();
@@ -24,32 +26,9 @@ vi.mock("echarts/core", () => {
   return { use, init, default: { use, init } };
 });
 
-vi.mock("echarts/charts", () => ({
-  BarChart: vi.fn(),
-  LineChart: vi.fn(),
-  PieChart: vi.fn(),
-  GraphChart: vi.fn(),
-}));
-
-vi.mock("echarts/components", () => ({
-  TitleComponent: vi.fn(),
-  TooltipComponent: vi.fn(),
-  LegendComponent: vi.fn(),
-  GridComponent: vi.fn(),
-  DataZoomComponent: vi.fn(),
-}));
-
-vi.mock("echarts/renderers", () => ({
-  CanvasRenderer: vi.fn(),
-}));
-
 describe("BaseChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    cleanup();
   });
 
   it("renders a chart container", () => {

@@ -267,6 +267,12 @@ export default function DashboardEditorPage({
                 onEditWidget={openEditWidget}
                 onDuplicateWidget={duplicateWidget}
                 onLayoutChange={isActive ? updateGridLayout : undefined}
+                onWidgetSettingsChange={(widgetId, settings) => {
+                  const target = page.widgets.find((w) => w.id === widgetId);
+                  if (target) {
+                    updateWidget(widgetId, { ...target, settings });
+                  }
+                }}
               />
             </div>
           );

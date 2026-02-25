@@ -126,3 +126,10 @@ export { QueryEditor, type QueryEditorProps } from "./query-editor";
 
 // Utility
 export { CopyButton, type CopyButtonProps } from "./copy-button";
+
+// Column Mapping
+export {
+  ColumnMappingOverlay,
+  type ColumnMappingOverlayProps,
+  type ColumnMapping,
+} from "./column-mapping-overlay";

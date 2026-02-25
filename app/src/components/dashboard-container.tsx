@@ -30,6 +30,11 @@ interface DashboardContainerProps {
   onEditWidget?: (widget: DashboardWidget) => void;
   onDuplicateWidget?: (widgetId: string) => void;
   onLayoutChange?: (gridLayout: GridLayoutItem[]) => void;
+  /**
+   * Called when a widget's settings are updated inline (e.g. column mapping).
+   * The caller should persist the updated widget to the dashboard layout.
+   */
+  onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -47,6 +52,7 @@ export function DashboardContainer({
   onEditWidget,
   onDuplicateWidget,
   onLayoutChange,
+  onWidgetSettingsChange,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -142,7 +148,15 @@ export function DashboardContainer({
                 </Button>
               }
             >
-              <CardContainer widget={widget} />
+              <CardContainer
+                widget={widget}
+                isEditMode={editable}
+                onWidgetSettingsChange={
+                  onWidgetSettingsChange
+                    ? (settings) => onWidgetSettingsChange(widget.id, settings)
+                    : undefined
+                }
+              />
             </WidgetCard>
           </div>
         ))}

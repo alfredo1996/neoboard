@@ -11,6 +11,8 @@ describe("ChartOptionsPanel", () => {
     expect(screen.getByText("Stacked")).toBeInTheDocument();
     expect(screen.getByText("Show Values")).toBeInTheDocument();
     expect(screen.getByText("Show Legend")).toBeInTheDocument();
+    expect(screen.getByText("Bar Width (px, 0=auto)")).toBeInTheDocument();
+    expect(screen.getByText("Show Grid Lines")).toBeInTheDocument();
   });
 
   it("shows empty message for unknown chart type", () => {
@@ -66,8 +68,9 @@ describe("ChartOptionsPanel", () => {
   });
 
   it("does not show search input for chart types with few options", () => {
+    // json has only 1 option, well below the threshold of 4
     render(
-      <ChartOptionsPanel chartType="pie" settings={{}} onSettingsChange={vi.fn()} />
+      <ChartOptionsPanel chartType="json" settings={{}} onSettingsChange={vi.fn()} />
     );
     expect(screen.queryByPlaceholderText("Search options...")).not.toBeInTheDocument();
   });
