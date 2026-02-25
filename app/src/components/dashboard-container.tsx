@@ -27,6 +27,7 @@ interface DashboardContainerProps {
   editable?: boolean;
   onRemoveWidget?: (widgetId: string) => void;
   onEditWidget?: (widget: DashboardWidget) => void;
+  onDuplicateWidget?: (widgetId: string) => void;
   onLayoutChange?: (gridLayout: GridLayoutItem[]) => void;
   /**
    * Called when a widget's settings are updated inline (e.g. column mapping).
@@ -47,6 +48,7 @@ export function DashboardContainer({
   editable = false,
   onRemoveWidget,
   onEditWidget,
+  onDuplicateWidget,
   onLayoutChange,
   onWidgetSettingsChange,
 }: DashboardContainerProps) {
@@ -77,6 +79,18 @@ export function DashboardContainer({
         onClick: () => onEditWidget(widget),
       });
     }
+    if (onDuplicateWidget) {
+      actions.push({
+        label: "Duplicate",
+        onClick: () => onDuplicateWidget(widget.id),
+      });
+    }
+    // Widget Lab is not yet built — option is visible but disabled.
+    actions.push({
+      label: "Save to Widget Lab",
+      onClick: () => undefined,
+      disabled: true,
+    });
     if (onRemoveWidget) {
       actions.push({
         label: "Remove",

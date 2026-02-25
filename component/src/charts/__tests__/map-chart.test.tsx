@@ -191,4 +191,36 @@ describe("MapChart", () => {
     render(<MapChart markers={[]} autoFitBounds />);
     expect(mockFitBounds).not.toHaveBeenCalled();
   });
+
+  // --- New options ---
+
+  it("uses markerSize as default radius when marker has no value", () => {
+    const markers = [{ id: "1", lat: 10, lng: 20 }];
+    render(<MapChart markers={markers} markerSize={12} />);
+    expect(L.circleMarker).toHaveBeenCalledWith(
+      [10, 20],
+      expect.objectContaining({ radius: 12 }),
+    );
+  });
+
+  it("defaults marker radius to 6 when markerSize is not provided", () => {
+    const markers = [{ id: "1", lat: 10, lng: 20 }];
+    render(<MapChart markers={markers} />);
+    expect(L.circleMarker).toHaveBeenCalledWith(
+      [10, 20],
+      expect.objectContaining({ radius: 6 }),
+    );
+  });
+
+  it("binds popup when showPopup is true (default)", () => {
+    const markers = [{ id: "1", lat: 10, lng: 20, popup: "<b>Hello</b>" }];
+    render(<MapChart markers={markers} />);
+    expect(mockBindPopup).toHaveBeenCalledWith("<b>Hello</b>");
+  });
+
+  it("does not bind popup when showPopup is false", () => {
+    const markers = [{ id: "1", lat: 10, lng: 20, popup: "<b>Hello</b>" }];
+    render(<MapChart markers={markers} showPopup={false} />);
+    expect(mockBindPopup).not.toHaveBeenCalled();
+  });
 });
