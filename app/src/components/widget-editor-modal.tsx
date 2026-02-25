@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
@@ -12,7 +13,6 @@ import {
   Button,
   Input,
   Label,
-  Textarea,
   Alert,
   AlertTitle,
   AlertDescription,
@@ -33,6 +33,13 @@ import {
   LoadingButton,
   ChartTypePicker,
 } from "@neoboard/components";
+
+// CodeMirror accesses real DOM APIs — load it only client-side.
+const QueryEditor = dynamic(
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.QueryEditor })),
+  { ssr: false }
+);
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -87,6 +94,14 @@ export function WidgetEditorModal({
   const [cacheTtlMinutes, setCacheTtlMinutes] = useState(
     (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5
   );
+
+  // Derive connection type
+  const selectedConnection = useMemo(
+    () => connections.find((c) => c.id === connectionId) ?? null,
+    [connections, connectionId]
+  );
+  const editorLanguage: "cypher" | "sql" =
+    selectedConnection?.type === "postgresql" ? "sql" : "cypher";
 
   const previewQuery = useQueryExecution();
 
@@ -252,13 +267,17 @@ export function WidgetEditorModal({
 
                 <div className="space-y-1.5">
                   <Label htmlFor="editor-query">Query</Label>
-                  <Textarea
-                    id="editor-query"
+                  <QueryEditor
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-                    className="font-mono min-h-[100px]"
-                    rows={4}
+                    onChange={setQuery}
+                    onRun={handlePreview}
+                    language={editorLanguage}
+                    placeholder={
+                      editorLanguage === "sql"
+                        ? "SELECT * FROM users LIMIT 10"
+                        : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
+                    }
+                    className="min-h-[160px]"
                   />
                 </div>
 
