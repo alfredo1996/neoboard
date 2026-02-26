@@ -113,6 +113,11 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
           stacked={settings.stacked as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
+          barWidth={settings.barWidth as number | undefined}
+          barGap={settings.barGap as string | undefined}
+          xAxisLabel={settings.xAxisLabel as string | undefined}
+          yAxisLabel={settings.yAxisLabel as string | undefined}
+          showGridLines={settings.showGridLines as boolean | undefined}
           onClick={handleEChartsClick}
         />
       );
@@ -126,6 +131,10 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
           xAxisLabel={settings.xAxisLabel as string | undefined}
           yAxisLabel={settings.yAxisLabel as string | undefined}
           showLegend={settings.showLegend as boolean | undefined}
+          lineWidth={settings.lineWidth as number | undefined}
+          stepped={settings.stepped as boolean | undefined}
+          showPoints={settings.showPoints as boolean | undefined}
+          showGridLines={settings.showGridLines as boolean | undefined}
           onClick={handleEChartsClick}
         />
       );
@@ -137,6 +146,10 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
           donut={settings.donut as boolean | undefined}
           showLabel={settings.showLabel as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
+          roseMode={settings.roseMode as boolean | undefined}
+          labelPosition={settings.labelPosition as "outside" | "inside" | "center" | undefined}
+          showPercentage={settings.showPercentage as boolean | undefined}
+          sortSlices={settings.sortSlices as boolean | undefined}
           onClick={handleEChartsClick}
         />
       );
@@ -150,6 +163,8 @@ function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, 
           title={settings.title as string | undefined}
           prefix={settings.prefix as string | undefined}
           suffix={settings.suffix as string | undefined}
+          fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
+          numberFormat={settings.numberFormat as "plain" | "comma" | "compact" | "percent" | undefined}
         />
       );
     }

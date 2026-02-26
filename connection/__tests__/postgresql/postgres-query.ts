@@ -79,7 +79,7 @@ describe('PostgreSQL Query Execution', () => {
     };
 
     await connectionModule.runQuery(
-      { query: 'SELECT * FROM users' },
+      { query: 'SELECT * FROM users ORDER BY id ASC' },
       {
         onSuccess: r => (result = r),
         onFail: e => (error = e),
@@ -215,7 +215,7 @@ describe('PostgreSQL Query Execution', () => {
     expect(isHealthy).toBe(true);
   });
 
-  test('should include execution time in results', async () => {
+  test('should return flat records and COMPLETE status', async () => {
     let result: any = null;
     let status: QueryStatus | null = null;
 

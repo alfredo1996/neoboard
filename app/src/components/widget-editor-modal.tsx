@@ -569,14 +569,14 @@ export function WidgetEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="2xl" className="max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent size="full" className="max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {mode === "edit" ? "Edit Widget" : "Add Widget"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="py-4 min-h-[520px] flex-1 overflow-y-auto" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: "1.5rem" }}>
+        <div className="py-4 min-h-[520px] flex-1 overflow-y-auto" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "1.5rem" }}>
           {/* Left column: tabs + settings */}
           <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
             {/* Widget title — always visible above tabs */}
@@ -995,7 +995,7 @@ export function WidgetEditorModal({
               </Alert>
             )}
 
-            <div className="flex-1 min-h-[400px] overflow-hidden border rounded-lg relative">
+            <div className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
               {isParamSelect ? (
                 <div className="h-full flex items-center justify-center p-6" data-testid="param-preview">
                   <div className="w-full max-w-xs space-y-3">

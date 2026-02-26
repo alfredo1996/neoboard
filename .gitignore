@@ -51,3 +51,4 @@ coverage/
 .screenshots/before/
 .screenshots/after/
 .screenshots/diff/
+.playwright-mcp

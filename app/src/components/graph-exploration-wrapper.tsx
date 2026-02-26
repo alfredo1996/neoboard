@@ -19,6 +19,7 @@ import type {
   PropertySection,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/chart-registry";
+import { normalizeValue } from "@/lib/normalize-value";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 
 interface GraphExplorationWrapperProps {
@@ -110,10 +111,13 @@ function NodeContextMenu({
 
 function nodeToSections(node: GraphNode): PropertySection[] {
   const props = node.properties ?? {};
-  const propertyItems = Object.entries(props).map(([key, value]) => ({
-    key,
-    value: typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? ""),
-  }));
+  const propertyItems = Object.entries(props).map(([key, value]) => {
+    const normalized = normalizeValue(value) ?? value;
+    return {
+      key,
+      value: typeof normalized === "object" && normalized !== null ? JSON.stringify(normalized) : String(normalized ?? ""),
+    };
+  });
   const metaItems = [
     { key: "id", value: node.id },
     ...(node.labels?.length ? [{ key: "labels", value: node.labels.join(", ") }] : []),
