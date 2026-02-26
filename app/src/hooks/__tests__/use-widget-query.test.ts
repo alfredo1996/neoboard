@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractReferencedParams } from "../use-widget-query";
+import { extractReferencedParams, allReferencedParamsReady } from "../use-widget-query";
 
 describe("extractReferencedParams", () => {
   it("returns empty object when query has no placeholders", () => {
@@ -110,5 +110,92 @@ describe("extractReferencedParams", () => {
       { minAge: 18 }
     );
     expect(result).toEqual({ param_minAge: 18 });
+  });
+});
+
+describe("allReferencedParamsReady", () => {
+  it("returns true when query has no param placeholders", () => {
+    expect(allReferencedParamsReady("MATCH (n) RETURN n", {})).toBe(true);
+  });
+
+  it("returns true when all referenced params have values", () => {
+    expect(
+      allReferencedParamsReady(
+        "MATCH (n {id: $param_nodeId}) RETURN n",
+        { nodeId: "abc" }
+      )
+    ).toBe(true);
+  });
+
+  it("returns false when a referenced param is undefined", () => {
+    expect(
+      allReferencedParamsReady(
+        "MATCH (n {id: $param_nodeId}) RETURN n",
+        {}
+      )
+    ).toBe(false);
+  });
+
+  it("returns false when a referenced param is null", () => {
+    expect(
+      allReferencedParamsReady(
+        "SELECT * FROM t WHERE id = $param_id",
+        { id: null }
+      )
+    ).toBe(false);
+  });
+
+  it("returns false when a referenced param is an empty string", () => {
+    expect(
+      allReferencedParamsReady(
+        "SELECT * FROM t WHERE country = $param_country",
+        { country: "" }
+      )
+    ).toBe(false);
+  });
+
+  it("returns false when a referenced param is an empty array", () => {
+    expect(
+      allReferencedParamsReady(
+        "SELECT * FROM t WHERE genre = ANY($param_genre)",
+        { genre: [] }
+      )
+    ).toBe(false);
+  });
+
+  it("returns true when a referenced param is a non-empty array", () => {
+    expect(
+      allReferencedParamsReady(
+        "SELECT * FROM t WHERE genre = ANY($param_genre)",
+        { genre: ["Action"] }
+      )
+    ).toBe(true);
+  });
+
+  it("returns false when only one of two required params is set", () => {
+    expect(
+      allReferencedParamsReady(
+        "WHERE n.a = $param_from AND n.b = $param_to",
+        { from: "a" }
+      )
+    ).toBe(false);
+  });
+
+  it("returns true when all of multiple required params are set", () => {
+    expect(
+      allReferencedParamsReady(
+        "WHERE n.a = $param_from AND n.b = $param_to",
+        { from: "a", to: "b" }
+      )
+    ).toBe(true);
+  });
+
+  it("ignores unreferenced params — does not require them", () => {
+    expect(
+      allReferencedParamsReady(
+        "MATCH (n) RETURN n",
+        { unused: null, alsoUnused: "" }
+      )
+    ).toBe(true);
   });
 });

@@ -7,14 +7,19 @@ import React from "react";
 // Mocks — declared before importing the component under test
 // ---------------------------------------------------------------------------
 
-// useWidgetQuery: return pending by default (disabled queries in TanStack v5)
-vi.mock("@/hooks/use-widget-query", () => ({
-  useWidgetQuery: () => ({
+// Expose useWidgetQuery as a controllable spy so individual tests can override.
+const mockUseWidgetQuery = vi.hoisted(() =>
+  vi.fn(() => ({
     isPending: true,
     isError: false,
     error: null,
     data: null,
-  }),
+    fetchStatus: "fetching", // default: actively fetching (not "idle" waiting state)
+  }))
+);
+
+vi.mock("@/hooks/use-widget-query", () => ({
+  useWidgetQuery: mockUseWidgetQuery,
 }));
 
 vi.mock("@/stores/parameter-store", () => ({
@@ -238,5 +243,73 @@ describe("CardContainer — table widget empty state", () => {
     const emptyState = screen.getByTestId("empty-state");
     expect(emptyState).toBeTruthy();
     expect(emptyState.getAttribute("data-title")).toBe("No movies found");
+  });
+});
+
+describe("CardContainer — waiting for parameters state", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Simulate a disabled query: TanStack Query v5 returns isPending:true +
+    // fetchStatus:"idle" when the query is disabled (enabled:false).
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      error: null,
+      data: null,
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    // Restore default implementation so subsequent suites are unaffected.
+    mockUseWidgetQuery.mockImplementation(() => ({
+      isPending: true,
+      isError: false,
+      error: null,
+      data: null,
+      fetchStatus: "fetching",
+    }));
+  });
+
+  it("shows 'Waiting for parameters…' message when query is disabled", () => {
+    render(
+      <CardContainer
+        widget={{
+          id: "bar-waiting",
+          chartType: "bar",
+          connectionId: "conn-1",
+          query: "MATCH (n {id: $param_nodeId}) RETURN n",
+          settings: {},
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Waiting for parameters/)).toBeTruthy();
+    // Should NOT fall through to the loading skeleton
+    expect(screen.queryByTestId("skeleton")).toBeNull();
+  });
+
+  it("does not show 'Waiting for parameters…' for parameter-select widgets (they bypass query lifecycle)", () => {
+    render(
+      <CardContainer
+        widget={{
+          id: "param-waiting",
+          chartType: "parameter-select",
+          connectionId: "conn-1",
+          query: "",
+          settings: {
+            chartOptions: {
+              parameterType: "select",
+              parameterName: "genre",
+            },
+          },
+        }}
+      />
+    );
+
+    // parameter-select is self-contained — it must render its widget, not the waiting message
+    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+    expect(screen.getByTestId("parameter-widget-renderer")).toBeTruthy();
   });
 });

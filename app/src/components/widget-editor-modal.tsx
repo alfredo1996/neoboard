@@ -21,6 +21,7 @@ import {
   Calendar,
   Type,
   ListFilter,
+  Info,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -53,6 +54,9 @@ import {
   DateRelativePicker,
   ParamSelector,
   ParamMultiSelector,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -96,6 +100,35 @@ const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon }> = {
   table: { label: "Data Table", Icon: Table2 },
   json: { label: "JSON Viewer", Icon: Braces },
   "parameter-select": { label: "Parameter Selector", Icon: SlidersHorizontal },
+};
+
+/** Per-chart-type hints shown next to the Query label to guide column conventions. */
+const QUERY_HINTS: Partial<Record<ChartType, string>> = {
+  bar:
+    "Return 2+ columns: first = category label (string), rest = numeric series.\n" +
+    "Example: RETURN genre, count(*) AS films",
+  line:
+    "Return 2+ columns: first = x-axis label, rest = numeric series.\n" +
+    "Example: RETURN month, revenue, expenses",
+  pie:
+    "Return 2 columns: first = slice label (string), second = numeric value.\n" +
+    "Example: RETURN category, count(*) AS total",
+  "single-value":
+    "Return a single row with 1 numeric column.\n" +
+    "For trend mode, return 2 rows (current then previous period).\n" +
+    "Example: RETURN count(n) AS total",
+  graph:
+    "Return nodes, relationships, or paths — not tabular data.\n" +
+    "Example: MATCH (a)-[r]->(b) RETURN a, r, b",
+  map:
+    "Return 3 columns in order: latitude (number), longitude (number), label (string).\n" +
+    "Example: RETURN lat, lng, name",
+  table:
+    "Return any columns — all are displayed as-is.\n" +
+    "Example: SELECT * FROM orders LIMIT 100",
+  json:
+    "Return any data — rendered as a collapsible JSON tree.\n" +
+    "Example: RETURN properties(n) AS data",
 };
 
 // ── Parameter type mapping helpers ──────────────────────────────────
@@ -565,7 +598,7 @@ export function WidgetEditorModal({
                     <div className="grid grid-cols-2 gap-3">
                       {/* Connection */}
                       <div className="space-y-1.5">
-                        <Label>Connection{isParamSelect && <span className="text-destructive"> *</span>}</Label>
+                        <Label>Connection <span className="text-destructive">*</span></Label>
                         <Combobox
                           value={connectionId}
                           onChange={handleConnectionChange}
@@ -795,7 +828,21 @@ export function WidgetEditorModal({
                   {/* ── Query editor (non-parameter types) ── */}
                   {!isParamSelect && (
                     <div className="space-y-1.5">
-                      <Label htmlFor="editor-query">Query</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="editor-query">
+                          Query <span className="text-destructive">*</span>
+                        </Label>
+                        {chartType && QUERY_HINTS[chartType as ChartType] && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-line">
+                              {QUERY_HINTS[chartType as ChartType]}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       <QueryEditor
                         value={query}
                         onChange={setQuery}
@@ -948,7 +995,7 @@ export function WidgetEditorModal({
               </Alert>
             )}
 
-            <div className="flex-1 border rounded-lg min-h-[300px] relative">
+            <div className="h-[320px] overflow-hidden border rounded-lg relative">
               {isParamSelect ? (
                 <div className="h-full flex items-center justify-center p-6" data-testid="param-preview">
                   <div className="w-full max-w-xs space-y-3">

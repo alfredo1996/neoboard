@@ -292,9 +292,15 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
       ),
       cell: ({ getValue }) => {
         const v = getValue();
-        if (v === null || v === undefined) return <span className="text-muted-foreground">null</span>;
-        if (typeof v === "object") return JSON.stringify(v);
-        return String(v);
+        if (v === null || v === undefined)
+          return <span className="text-muted-foreground">null</span>;
+        const display =
+          typeof v === "object" ? JSON.stringify(v) : String(v);
+        return (
+          <span className="block truncate max-w-[240px]" title={display}>
+            {display}
+          </span>
+        );
       },
     }));
   }, [records, enableSorting]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -308,7 +314,7 @@ function TableRenderer({ data, settings = {}, onRowClick }: { data: unknown; set
   const enablePagination = settings.enablePagination !== false;
 
   return (
-    <div ref={containerRef} className="h-full overflow-hidden">
+    <div ref={containerRef} className="h-full overflow-y-auto">
       <DataGrid
         columns={columns}
         data={records as Record<string, unknown>[]}
@@ -487,6 +493,19 @@ export function CardContainer({
             widgetId={widget.id}
           />
         </div>
+      </div>
+    );
+  }
+
+  // When enabled:false (params not yet set), TanStack Query returns
+  // isPending:true + fetchStatus:"idle".  Show a friendly placeholder
+  // instead of the loading skeleton so the user isn't confused by errors.
+  if (widgetQuery.isPending && widgetQuery.fetchStatus === "idle") {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground text-center">
+          Waiting for parameters&hellip;
+        </p>
       </div>
     );
   }
