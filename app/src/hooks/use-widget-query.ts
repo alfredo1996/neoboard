@@ -19,6 +19,34 @@ interface QueryResult {
 }
 
 /**
+ * Returns true when every `$param_xxx` token in the query has a non-null,
+ * non-empty value in allParams.  Queries with no parameter tokens always
+ * return true so widgets without parameters are unaffected.
+ *
+ * @visibleForTesting
+ */
+export function allReferencedParamsReady(
+  query: string,
+  allParams: Record<string, unknown>
+): boolean {
+  const regex = /\$param_(\w+)/g;
+  let match;
+  while ((match = regex.exec(query)) !== null) {
+    const name = match[1];
+    const val = allParams[name];
+    if (
+      val === undefined ||
+      val === null ||
+      val === "" ||
+      (Array.isArray(val) && val.length === 0)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Extracts referenced `$param_xxx` names from a query string and returns
  * only the matching parameter values.
  *
@@ -102,7 +130,10 @@ export function useWidgetQuery(
       }
       return res.json();
     },
-    enabled: !!mergedInput?.connectionId && !!mergedInput?.query,
+    enabled:
+      !!mergedInput?.connectionId &&
+      !!mergedInput?.query &&
+      allReferencedParamsReady(mergedInput.query, allParameters),
     // staleTime controls how long cached data is considered fresh.
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.

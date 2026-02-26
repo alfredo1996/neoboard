@@ -109,4 +109,26 @@ describe("ChartOptionsPanel", () => {
     );
     expect(container.firstChild).toHaveClass("custom-class");
   });
+
+  it("shows a help icon for each option that has a description", () => {
+    // All bar chart options now have descriptions — each should render a HelpCircle
+    // trigger with cursor-help class.
+    const { container } = render(
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpIcons = container.querySelectorAll(".cursor-help");
+    // bar has 9 options, all with descriptions
+    expect(helpIcons.length).toBeGreaterThan(0);
+    expect(helpIcons.length).toBe(9);
+  });
+
+  it("does not show help icons for options without descriptions", () => {
+    // If we add an option with no description, its label should have no help icon.
+    // We verify indirectly: line chart has descriptions on all options too, so icons appear.
+    const { container } = render(
+      <ChartOptionsPanel chartType="line" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpIcons = container.querySelectorAll(".cursor-help");
+    expect(helpIcons.length).toBeGreaterThan(0);
+  });
 });

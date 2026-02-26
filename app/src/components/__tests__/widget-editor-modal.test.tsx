@@ -139,6 +139,9 @@ vi.mock("@neoboard/components", () => {
     DateRelativePicker: () => <div data-testid="date-relative-picker" />,
     ParamSelector: () => <div data-testid="param-selector" />,
     ParamMultiSelector: () => <div data-testid="param-multi-selector" />,
+    Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    TooltipTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
+    TooltipContent: ({ children }: { children: React.ReactNode }) => <div role="tooltip">{children}</div>,
   };
 });
 
@@ -160,6 +163,7 @@ vi.mock("lucide-react", () => ({
   Calendar: () => <span>Calendar</span>,
   Type: () => <span>Type</span>,
   ListFilter: () => <span>ListFilter</span>,
+  Info: () => <span data-testid="info-icon">Info</span>,
 }));
 
 // ---------------------------------------------------------------------------
@@ -644,6 +648,90 @@ describe("WidgetEditorModal — parameter-select mode", () => {
     const savedWidget = onSave.mock.calls[0][0];
     expect(savedWidget.settings.chartOptions.parameterType).toBe("select");
     expect(savedWidget.settings.chartOptions.parameterName).toBe("country");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Required field markers + query hints (Info icon)
+// ---------------------------------------------------------------------------
+
+describe("WidgetEditorModal — required markers and query hints", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows asterisk marker on the Connection label", () => {
+    const { container } = render(
+      <WidgetEditorModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="edit"
+        widget={WIDGET}
+        connections={CONNECTIONS}
+        onSave={vi.fn()}
+      />
+    );
+
+    const labels = container.querySelectorAll("label");
+    const connectionLabel = Array.from(labels).find((l) =>
+      l.textContent?.includes("Connection")
+    );
+    expect(connectionLabel).toBeTruthy();
+    expect(connectionLabel!.querySelector("span.text-destructive")).toBeTruthy();
+  });
+
+  it("shows asterisk marker on the Query label for non-parameter-select widgets", () => {
+    const { container } = render(
+      <WidgetEditorModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="edit"
+        widget={WIDGET}
+        connections={CONNECTIONS}
+        onSave={vi.fn()}
+      />
+    );
+
+    // The Query label renders with htmlFor="editor-query"
+    const queryLabel = container.querySelector('label[for="editor-query"]');
+    expect(queryLabel).toBeTruthy();
+    expect(queryLabel!.querySelector("span.text-destructive")).toBeTruthy();
+  });
+
+  it("shows the Info icon next to the Query label for chart types with query hints (e.g. bar)", () => {
+    const { getByTestId } = render(
+      <WidgetEditorModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="edit"
+        widget={WIDGET}
+        connections={CONNECTIONS}
+        onSave={vi.fn()}
+      />
+    );
+
+    // Info is mocked as <span data-testid="info-icon">Info</span>
+    expect(getByTestId("info-icon")).toBeTruthy();
+  });
+
+  it("does not show the Info icon for parameter-select widgets (query editor is hidden)", () => {
+    const { queryByTestId } = render(
+      <WidgetEditorModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="edit"
+        widget={PARAM_WIDGET}
+        connections={CONNECTIONS}
+        onSave={vi.fn()}
+      />
+    );
+
+    // parameter-select hides the query editor, so there should be no info icon there
+    expect(queryByTestId("info-icon")).toBeNull();
   });
 });
 
