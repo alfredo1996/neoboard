@@ -127,7 +127,6 @@ describe("ChartOptionsPanel", () => {
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
     // There should be no svg element with the lucide HelpCircle path inside the panel
-    const svgIcons = container.querySelectorAll("svg");
     // Only Switch thumbs and other UI icons, no HelpCircle — check no icon has cursor-help
     const helpIcons = container.querySelectorAll("svg.cursor-help");
     expect(helpIcons.length).toBe(0);

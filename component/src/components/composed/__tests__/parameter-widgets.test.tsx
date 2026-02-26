@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   TextInputParameter,
   ParamSelector,
@@ -307,11 +306,6 @@ describe("ParamMultiSelector", () => {
         onChange={onChange}
       />
     );
-    // The badge X buttons are plain buttons without accessible names;
-    // find via the badge container and click the first one
-    const badgeCloseButtons = screen.getAllByRole("button").filter((btn) =>
-      btn.closest(".inline-flex") !== null && btn.type === "button" && !btn.getAttribute("aria-label")
-    );
     // Click the close button on the first badge (Alpha)
     const alphaClose = document.querySelector('button[type="button"].ml-1');
     if (alphaClose) {
@@ -447,7 +441,7 @@ describe("DatePickerParameter", () => {
     // react-day-picker renders day buttons with a data-day attribute (date string).
     // The shadcn CalendarDayButton sets data-day={day.date.toLocaleDateString()}.
     // Find any button with a data-day attribute and click it.
-    const { container } = render(<div />); // dummy — we use document directly
+    render(<div />); // dummy — we use document directly
     const dayBtn = document.querySelector("button[data-day]");
     if (dayBtn) {
       fireEvent.click(dayBtn);
