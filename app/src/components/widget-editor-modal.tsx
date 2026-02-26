@@ -752,7 +752,7 @@ export function WidgetEditorModal({
                         <div className="space-y-1.5">
                           <Label htmlFor="seed-query">Seed Query <span className="text-destructive">*</span></Label>
                           <p className="text-xs text-muted-foreground">
-                            First column = value, second column = label
+                            Use columns named <code className="bg-muted px-1 rounded">value</code> and <code className="bg-muted px-1 rounded">label</code> (recommended), or first column = value, second = label
                           </p>
                           <SeedQueryInput
                             value={(chartOptions.seedQuery as string) ?? ""}

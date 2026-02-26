@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
-import { resolveRelativePreset } from "@/lib/date-utils";
 import {
   TextInputParameter,
   ParamSelector,
@@ -27,17 +27,21 @@ interface SeedQueryResult {
 /**
  * Fetches seed query options for select/multi-select/cascading widgets.
  * Returns an array of { label, value } pairs.
- * The first column is used as value; the second (if present) as label,
- * otherwise label falls back to value.
+ * Named columns 'value' and 'label' take precedence over ordinal positions.
+ *
+ * Defense-in-depth: `tenantId` is passed in the request body and the server
+ * asserts it matches the session tenant — complementing the existing
+ * ownership check on the connection itself.
  */
 function useSeedQuery(
   connectionId: string | undefined,
   query: string | undefined,
   enabled: boolean,
-  extraParams?: Record<string, unknown>
+  extraParams?: Record<string, unknown>,
+  tenantId?: string
 ): { options: ParamSelectorOption[]; loading: boolean } {
   const { data, isLoading } = useQuery<SeedQueryResult>({
-    queryKey: ["param-seed", connectionId, query, extraParams],
+    queryKey: ["param-seed", connectionId, query, extraParams, tenantId],
     queryFn: async ({ signal }) => {
       const res = await fetch("/api/query", {
         method: "POST",
@@ -47,6 +51,7 @@ function useSeedQuery(
           connectionId,
           query,
           params: extraParams ?? {},
+          ...(tenantId ? { tenantId } : {}),
         }),
       });
       if (!res.ok) {
@@ -67,8 +72,10 @@ function useSeedQuery(
       if (row && typeof row === "object") {
         const r = row as Record<string, unknown>;
         const keys = Object.keys(r);
-        const valueKey = keys[0] ?? "";
-        const labelKey = keys[1] ?? valueKey;
+        // Named columns 'value' and 'label' take precedence over ordinal positions.
+        // This lets query authors write: RETURN id AS value, name AS label
+        const valueKey = ("value" in r) ? "value" : (keys[0] ?? "");
+        const labelKey = ("label" in r) ? "label" : (keys[1] ?? valueKey);
         const rawValue = r[valueKey];
         // Store the raw value for type preservation; display uses String()
         const value = String(rawValue ?? "");
@@ -180,6 +187,13 @@ export function ParameterWidgetRenderer({
   const setParameter = useParameterStore((s) => s.setParameter);
   const clearParameter = useParameterStore((s) => s.clearParameter);
 
+  // Read tenantId from the Auth.js session for defense-in-depth tenant scoping
+  // on seed query requests. The server independently enforces connection ownership,
+  // but passing tenantId allows an additional assertion server-side.
+  const { data: session } = useSession();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Auth.js user type is extended at runtime
+  const tenantId = (session?.user as any)?.tenantId as string | undefined;
+
   // ── Searchable: debounced search term ─────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -224,7 +238,8 @@ export function ParameterWidgetRenderer({
     connectionId,
     seedQuery,
     needsSeed && cascadingEnabled,
-    seedExtraParams
+    seedExtraParams,
+    tenantId
   );
 
   // ── Convenience helpers ───────────────────────────────────────────────────
@@ -380,15 +395,13 @@ export function ParameterWidgetRenderer({
       const handleRelChange = (preset: RelativeDatePreset | "") => {
         if (!preset) {
           clear();
-          clearParameter(`${parameterName}_from`);
-          clearParameter(`${parameterName}_to`);
           return;
         }
+        // Store only the preset key (e.g. "last_7_days").
+        // _from/_to are resolved dynamically at query-execution time by
+        // useWidgetQuery so they always reflect today's date, not the date
+        // the user clicked the preset.
         set(preset);
-        // Also expand to flat _from/_to for query compatibility
-        const { from, to } = resolveRelativePreset(preset);
-        setParameter(`${parameterName}_from`, from, "Parameter Selector", `${parameterName}_from`, "date", "selector-widget");
-        setParameter(`${parameterName}_to`, to, "Parameter Selector", `${parameterName}_to`, "date", "selector-widget");
       };
       return (
         <DateRelativePicker

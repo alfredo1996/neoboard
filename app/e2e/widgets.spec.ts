@@ -122,7 +122,7 @@ test.describe("Widget creation", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // The new single-view modal should show both Connection and Chart Type selectors
-    await expect(dialog.getByText("Connection", { exact: true })).toBeVisible();
+    await expect(dialog.locator("label").filter({ hasText: "Connection" }).first()).toBeVisible();
     await expect(dialog.getByText("Chart Type", { exact: true })).toBeVisible();
 
     // Query editor should be immediately visible

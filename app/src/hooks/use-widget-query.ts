@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParameterStore } from "@/stores/parameter-store";
+import { resolveRelativePreset } from "@/lib/date-utils";
+import type { RelativeDatePreset } from "@neoboard/components";
 
 interface WidgetQueryInput {
   connectionId: string;
@@ -90,8 +92,19 @@ export function useWidgetQuery(
 
   const allParameters = useMemo(() => {
     const result: Record<string, unknown> = {};
+    // First pass: populate all raw store values
     for (const [name, entry] of Object.entries(parameters)) {
       result[name] = entry.value;
+    }
+    // Second pass: for date-relative entries, override _from/_to with values
+    // resolved at call time (not at selection time) so "Last 7 days" always
+    // refers to today's date, not the date when the preset was clicked.
+    for (const [name, entry] of Object.entries(parameters)) {
+      if (entry.type === "date-relative" && entry.value) {
+        const { from, to } = resolveRelativePreset(entry.value as RelativeDatePreset);
+        result[`${name}_from`] = from;
+        result[`${name}_to`] = to;
+      }
     }
     return result;
   }, [parameters]);

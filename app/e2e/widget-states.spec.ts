@@ -40,7 +40,7 @@ test.describe("Widget editor", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // The modal should show Connection and Chart Type selectors
-      await expect(dialog.getByText("Connection", { exact: true })).toBeVisible();
+      await expect(dialog.locator("label").filter({ hasText: "Connection" }).first()).toBeVisible();
       await expect(dialog.getByText("Chart Type", { exact: true })).toBeVisible();
 
       // Query editor should be immediately visible
