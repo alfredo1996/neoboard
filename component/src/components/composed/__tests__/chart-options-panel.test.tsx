@@ -110,25 +110,38 @@ describe("ChartOptionsPanel", () => {
     expect(container.firstChild).toHaveClass("custom-class");
   });
 
-  it("shows a help icon for each option that has a description", () => {
-    // All bar chart options now have descriptions — each should render a HelpCircle
-    // trigger with cursor-help class.
+  it("applies cursor-help class to label when option has a description", () => {
+    // All bar chart options have descriptions — labels should have cursor-help class
     const { container } = render(
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
-    const helpIcons = container.querySelectorAll(".cursor-help");
+    const helpLabels = container.querySelectorAll("label.cursor-help");
     // bar has 9 options, all with descriptions
-    expect(helpIcons.length).toBeGreaterThan(0);
-    expect(helpIcons.length).toBe(9);
+    expect(helpLabels.length).toBeGreaterThan(0);
+    expect(helpLabels.length).toBe(9);
   });
 
-  it("does not show help icons for options without descriptions", () => {
-    // If we add an option with no description, its label should have no help icon.
-    // We verify indirectly: line chart has descriptions on all options too, so icons appear.
+  it("does not render a HelpCircle icon — tooltip triggers on label text", () => {
+    // The HelpCircle icon was removed; only the label itself triggers the tooltip
     const { container } = render(
-      <ChartOptionsPanel chartType="line" settings={{}} onSettingsChange={vi.fn()} />
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
-    const helpIcons = container.querySelectorAll(".cursor-help");
-    expect(helpIcons.length).toBeGreaterThan(0);
+    // There should be no svg element with the lucide HelpCircle path inside the panel
+    const svgIcons = container.querySelectorAll("svg");
+    // Only Switch thumbs and other UI icons, no HelpCircle — check no icon has cursor-help
+    const helpIcons = container.querySelectorAll("svg.cursor-help");
+    expect(helpIcons.length).toBe(0);
+  });
+
+  it("label has dotted underline decoration when description is set", () => {
+    const { container } = render(
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpLabels = container.querySelectorAll("label.cursor-help");
+    expect(helpLabels.length).toBeGreaterThan(0);
+    // All such labels should have the dotted underline class
+    helpLabels.forEach((label) => {
+      expect(label.classList.contains("decoration-dotted")).toBe(true);
+    });
   });
 });
