@@ -15,7 +15,8 @@ Coverage is generated from all three packages in **lcov format**, which both Son
 
 | Package | Framework | Config file | Output |
 |---|---|---|---|
-| `app/` | Vitest + `@vitest/coverage-v8` | `app/vitest.config.ts` | `app/coverage/lcov.info` |
+| `app/` (unit) | Vitest + `@vitest/coverage-v8` | `app/vitest.config.ts` | `app/coverage/lcov.info` |
+| `app/` (E2E) | Playwright + nextcov | `app/playwright.config.ts` | `app/coverage-e2e/lcov.info` |
 | `component/` | Vitest + `@vitest/coverage-v8` | `component/vite.config.ts` | `component/coverage/lcov.info` |
 | `connection/` | Jest + `ts-jest` | `connection/jest.config.js` | `connection/coverage/lcov.info` |
 
@@ -23,7 +24,8 @@ Coverage is generated from all three packages in **lcov format**, which both Son
 
 ```bash
 # From repo root
-npm run test:coverage --prefix app
+npm run test:coverage --prefix app          # Vitest unit coverage
+npm run test:e2e:coverage --prefix app      # Playwright E2E coverage (needs Docker)
 npm run test:coverage --prefix component
 npm run test:coverage --prefix connection
 ```
@@ -99,7 +101,7 @@ Located at **repo root** (`sonar-project.properties`). Key settings:
 sonar.projectKey=alfredo1996_neoboard
 sonar.organization=alfredo1996
 sonar.sources=app/src,component/src,connection/src
-sonar.javascript.lcov.reportPaths=app/coverage/lcov.info,component/coverage/lcov.info,connection/coverage/lcov.info
+sonar.javascript.lcov.reportPaths=app/coverage/lcov.info,app/coverage-e2e/lcov.info,component/coverage/lcov.info,connection/coverage/lcov.info
 sonar.exclusions=**/node_modules/**,**/__tests__/**,**/*.test.ts,...
 ```
 
@@ -173,6 +175,32 @@ Key per-path instructions configured:
 - `app/src/app/api/**` — tenant JWT validation, credential logging
 
 To interact with CodeRabbit on a PR: `@coderabbitai explain this` or `@coderabbitai review`.
+
+---
+
+## E2E Coverage (nextcov)
+
+Playwright E2E tests collect V8 code coverage via [nextcov](https://github.com/stevez/nextcov). This captures client-side coverage for the `app/` package during real browser interactions.
+
+### How it works
+
+1. `E2E_COVERAGE=1` env var enables coverage collection
+2. `global-setup.ts` calls `initCoverage()` to initialize nextcov
+3. The `coverage` fixture in `e2e/fixtures.ts` collects per-test client coverage via CDP
+4. `global-teardown.ts` calls `finalizeCoverage()` to process and write reports
+5. Output is written to `app/coverage-e2e/` (lcov, json, text-summary)
+
+### CI integration
+
+- The **E2E Tests** workflow (`e2e-tests.yml`) runs with `E2E_COVERAGE=1` and uploads `app/coverage-e2e/` as an artifact
+- The **SonarCloud** workflow (`sonarqube.yml`) downloads that artifact so `app/coverage-e2e/lcov.info` is available during the scan
+- SonarCloud merges both `app/coverage/lcov.info` (Vitest) and `app/coverage-e2e/lcov.info` (Playwright)
+
+### Config
+
+- `app/playwright.config.ts` exports a `nextcov` config object read by `loadNextcovConfig()`
+- `app/next.config.ts` enables full source maps when `E2E_COVERAGE` is set
+- `collectServer: false` — only client-side coverage is collected (dev mode, no CDP inspector)
 
 ---
 

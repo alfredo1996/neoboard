@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
           : ["postgres"];
     }
 
+    // Enable full source maps for E2E coverage collection.
+    if (process.env.E2E_COVERAGE) {
+      config.devtool = "source-map";
+    }
+
     // Canonicalise mobx to a single instance to avoid MobX "multiple instances" warning.
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),

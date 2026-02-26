@@ -1,4 +1,5 @@
 import { test as base } from "@playwright/test";
+import { collectClientCoverage } from "nextcov/playwright";
 import * as dotenv from "dotenv";
 import * as path from "node:path";
 import { AuthPage } from "./pages/auth";
@@ -18,6 +19,7 @@ export const TEST_PG_PORT = process.env.TEST_PG_PORT ?? "5432";
 type Fixtures = {
   authPage: AuthPage;
   sidebarPage: SidebarPage;
+  coverage: void;
 };
 
 export const test = base.extend<Fixtures>({
@@ -27,6 +29,12 @@ export const test = base.extend<Fixtures>({
   sidebarPage: async ({ page }, use) => {
     await use(new SidebarPage(page));
   },
+  coverage: [
+    async ({ page }, use, testInfo) => {
+      await collectClientCoverage(page, testInfo, use);
+    },
+    { scope: "test", auto: true },
+  ],
 });
 
 export { expect } from "@playwright/test";

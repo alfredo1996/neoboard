@@ -98,6 +98,15 @@ jobs:
           NEO4J_USER: neo4j
           NEO4J_PASSWORD: neoboard123
 
+      # ── E2E coverage (optional — available when E2E workflow ran) ─────────
+      - name: Download E2E coverage artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: e2e-tests.yml
+          name: e2e-coverage
+          path: app/coverage-e2e
+          if_no_artifact_found: warn
+
       # ── SonarCloud Scanner ────────────────────────────────────────────────
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v3
