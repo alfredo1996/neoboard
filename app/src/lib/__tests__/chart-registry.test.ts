@@ -843,6 +843,50 @@ describe("bar transform normalizes date labels", () => {
   });
 });
 
+describe("transformToGraphData normalizes {low,high} integers in node/edge properties", () => {
+  const { transform } = chartRegistry.graph;
+
+  it("converts {low, high} integer objects in node properties to JS numbers", () => {
+    const data = [
+      {
+        n: {
+          labels: ["Person"],
+          properties: { age: { low: 30, high: 0 }, score: { low: 1000, high: 0 }, name: "Alice" },
+          identity: { low: 1, high: 0 },
+          elementId: "node:1",
+        },
+      },
+    ];
+    const result = transform(data) as { nodes: Record<string, unknown>[]; edges: Record<string, unknown>[] };
+    expect(result.nodes).toHaveLength(1);
+    const props = result.nodes[0].properties as Record<string, unknown>;
+    expect(props.age).toBe(30);
+    expect(props.score).toBe(1000);
+    expect(props.name).toBe("Alice");
+  });
+
+  it("converts {low, high} integer objects in edge properties to JS numbers", () => {
+    const data = [
+      {
+        r: {
+          type: "ACTED_IN",
+          start: { low: 1, high: 0 },
+          end: { low: 2, high: 0 },
+          properties: { weight: { low: 5, high: 0 } },
+          identity: { low: 10, high: 0 },
+          elementId: "rel:10",
+          startNodeElementId: "node:1",
+          endNodeElementId: "node:2",
+        },
+      },
+    ];
+    const result = transform(data) as { nodes: Record<string, unknown>[]; edges: Record<string, unknown>[] };
+    expect(result.edges).toHaveLength(1);
+    const props = result.edges[0].properties as Record<string, unknown>;
+    expect(props.weight).toBe(5);
+  });
+});
+
 describe("line transform normalizes date x-axis", () => {
   const { transform } = chartRegistry.line;
 

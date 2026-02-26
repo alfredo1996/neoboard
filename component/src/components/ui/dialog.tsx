@@ -14,6 +14,7 @@ const dialogContentVariants = cva(
         md: "max-w-lg",
         lg: "max-w-[700px]",
         xl: "max-w-[900px]",
+        "2xl": "max-w-5xl",
         full: "max-w-[calc(100vw-2rem)]",
       },
     },

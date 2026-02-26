@@ -285,14 +285,14 @@ With `enableSorting: false` in the table options, `column.getCanSort()` returns 
 | #  | Finding                                              | Severity    | Status  |
 |----|------------------------------------------------------|-------------|---------|
 | 7  | App-layer test coverage gap                          | Quality     | Pending |
-| 14 | Dialog bypasses CVA size variant system              | Design sys. | Pending |
-| 15 | Preview panel 180px shorter than left column cap     | UX          | Pending |
-| 16 | Production heights diverged from Storybook prototype | UX          | Pending |
-| 17 | No viewport-height guard on dialog                   | A11y / UX   | Pending |
-| 18 | Left column max-h leaves empty white space           | UX          | Pending |
-| 19 | Graph captions show `[object Object]` for non-primitive properties | Bug | Pending |
-| 20 | Graph widget — no modal to inspect node/relationship properties | UX | Pending |
-| 21 | "Waiting for parameters" doesn't name missing params | UX          | Pending |
-| 22 | Dashboard queries have no server-side row limit      | Safety      | Pending |
-| 23 | Chart options tooltip should trigger on label text, not icon | UX   | Pending |
-| 24 | Table sort UI renders even when sorting is disabled  | Bug / UX    | Pending |
+| 14 | Dialog bypasses CVA size variant system              | Design sys. | ✅ PR #75 |
+| 15 | Preview panel 180px shorter than left column cap     | UX          | ✅ PR #75 |
+| 16 | Production heights diverged from Storybook prototype | UX          | ✅ PR #75 |
+| 17 | No viewport-height guard on dialog                   | A11y / UX   | ✅ PR #75 |
+| 18 | Left column max-h leaves empty white space           | UX          | ✅ PR #75 |
+| 19 | Graph captions show `[object Object]` for non-primitive properties | Bug | ✅ PR #74 |
+| 20 | Graph widget — no modal to inspect node/relationship properties | UX | ✅ PR #74 |
+| 21 | "Waiting for parameters" doesn't name missing params | UX          | ✅ PR #74 |
+| 22 | Dashboard queries have no server-side row limit      | Safety      | ✅ PR #74 (post-fetch cap, 10 000 rows) |
+| 23 | Chart options tooltip should trigger on label text, not icon | UX   | ✅ PR #75 |
+| 24 | Table sort UI renders even when sorting is disabled  | Bug / UX    | ✅ PR #75 |

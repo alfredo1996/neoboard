@@ -10,7 +10,7 @@ Testing strategy: unit tests (Vitest) at all three package levels + full-app E2E
 |------|---------|---------|
 | **Vitest** | `app/` | Unit tests for API routes, hooks, stores, utilities |
 | **Vitest** | `component/` | Unit tests for UI components, charts, composed components |
-| **Vitest/Jest** | `connection/` | Integration tests for DB adapters (needs Docker) |
+| **Jest (ts-jest)** | `connection/` | Integration tests for DB adapters (needs Docker) |
 | **React Testing Library** | `component/` | Component testing utilities |
 | **@testing-library/user-event** | `component/` | User interaction simulation |
 | **Storybook + Playwright** | `component/` | Visual browser tests |
@@ -69,10 +69,15 @@ npm run test:coverage # Run with coverage report
 ### Commands
 ```bash
 cd component
-npm test              # Run all tests
-npm run test:coverage # Run with coverage report
-npm run test -- --watch  # Watch mode
+npm test              # Run unit tests (jsdom, --project unit)
+npm run test:coverage # Run unit tests with coverage report
+npm run test:watch    # Watch mode (unit project)
+npm run test:storybook # Run Storybook browser tests (Playwright, --project storybook)
 ```
+
+**Two Vitest projects:**
+- `unit` — standard jsdom environment, runs with `npm test` / `npm run test:coverage`
+- `storybook` — Playwright browser (Chromium, headless) via `@storybook/addon-vitest`; runs with `npm run test:storybook`; not included in the default `npm test` run or coverage
 
 ---
 
@@ -118,16 +123,23 @@ npm run test:e2e:ui    # Interactive Playwright UI mode
 ### Test Suites
 
 | Suite | File | What It Tests |
-|-------|------|--------------|
+|-------|------|---------------|
 | Auth | `e2e/auth.spec.ts` | Sign up, log in, log out, redirect when unauthenticated |
+| Auth States | `e2e/auth-states.spec.ts` | Login error alerts and edge-case auth states |
 | Navigation | `e2e/navigation.spec.ts` | Sidebar on all pages, tab switching, collapse/expand |
 | Connections | `e2e/connections.spec.ts` | Create, auto-status check, manual test, delete |
 | Dashboards | `e2e/dashboards.spec.ts` | Create, view, edit, delete dashboards |
+| Dashboard States | `e2e/dashboard-states.spec.ts` | Dashboard viewer uncovered states |
+| Empty States | `e2e/empty-states.spec.ts` | Dashboard list empty states, role badges |
 | Widgets | `e2e/widgets.spec.ts` | Two-step creation flow, query + preview, add to grid |
+| Widget States | `e2e/widget-states.spec.ts` | Widget editor edge cases and states |
 | Charts | `e2e/charts.spec.ts` | Bar/line/table/JSON/value charts render correctly |
 | Grid | `e2e/grid.spec.ts` | Drag, resize, save layout, view mode |
 | Users | `e2e/users.spec.ts` | List, create, delete users |
 | Parameters | `e2e/parameters.spec.ts` | Parameter widgets and cross-filtering |
+| Sidebar States | `e2e/sidebar-states.spec.ts` | Sidebar uncovered states |
+| Performance | `e2e/performance.spec.ts` | Tab switching, concurrent multi-connector queries, large dashboards |
+| Responsive | `e2e/responsive.spec.ts` | Mobile viewport (375×812) layout |
 
 ### Patterns
 
@@ -153,7 +165,7 @@ export class SidebarPage {
 Key settings in `app/playwright.config.ts`:
 - **Global setup/teardown**: `e2e/global-setup.ts` / `e2e/global-teardown.ts` (testcontainers)
 - **Web server**: `npx next dev --port 3000` (auto-started)
-- **Timeouts**: 60s per test, 10s for expects, 15s for navigation
+- **Timeouts**: 60s per test, 10s for expects, 15s navigation locally / 30s in CI
 - **Retries**: 1 locally, 2 in CI
 - **Traces**: on first retry (for debugging failures)
 

@@ -154,6 +154,7 @@ function DataGrid<TData>({
     data,
     columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
+    enableSorting,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,

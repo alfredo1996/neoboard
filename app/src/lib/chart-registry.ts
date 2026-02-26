@@ -242,11 +242,20 @@ function transformToGraphData(data: unknown): unknown {
   const nodesMap = new Map<string, Record<string, unknown>>();
   const edgesMap = new Map<string, Record<string, unknown>>();
 
+  function normalizeProps(props: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(props)) {
+      out[k] = normalizeValue(v) ?? v;
+    }
+    return out;
+  }
+
   function addNode(v: Record<string, unknown>) {
     const id = safeId(v.elementId ?? v.identity ?? Math.random());
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
-      const props = (v.properties as Record<string, unknown>) ?? {};
+      const rawProps = (v.properties as Record<string, unknown>) ?? {};
+      const props = normalizeProps(rawProps);
       nodesMap.set(id, {
         id,
         label: props.name ?? props.title ?? labels[0] ?? id,
@@ -262,11 +271,12 @@ function transformToGraphData(data: unknown): unknown {
       v.elementId ?? v.identity ?? `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`
     );
     if (!edgesMap.has(edgeId)) {
+      const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
         source: safeId(v.startNodeElementId ?? v.start),
         target: safeId(v.endNodeElementId ?? v.end),
         label: String(v.type),
-        properties: (v.properties ?? {}) as Record<string, unknown>,
+        properties: normalizeProps(rawProps),
       });
     }
   }

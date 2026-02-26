@@ -1,5 +1,4 @@
 import * as React from "react";
-import { HelpCircle } from "lucide-react";
 import { getChartOptions } from "./chart-options-schema";
 import type { ChartOptionDef } from "./chart-options-schema";
 import { Input } from "@/components/ui/input";
@@ -28,20 +27,27 @@ export interface ChartOptionsPanelProps {
 }
 
 function OptionLabel({ option }: { option: ChartOptionDef }) {
+  if (!option.description) {
+    return (
+      <Label htmlFor={option.key} className="text-sm">
+        {option.label}
+      </Label>
+    );
+  }
   return (
-    <Label htmlFor={option.key} className="text-sm flex items-center gap-1">
-      {option.label}
-      {option.description && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help shrink-0" />
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs text-xs">
-            {option.description}
-          </TooltipContent>
-        </Tooltip>
-      )}
-    </Label>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Label
+          htmlFor={option.key}
+          className="text-sm cursor-help underline decoration-dotted underline-offset-2"
+        >
+          {option.label}
+        </Label>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-xs">
+        {option.description}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

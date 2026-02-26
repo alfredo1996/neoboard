@@ -2,7 +2,7 @@ import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
 import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
 import { toNumber } from 'neo4j-driver-core';
-import { DateTime, Node, Relationship } from 'neo4j-driver';
+import { DateTime } from 'neo4j-driver';
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
 
 describe('Neo4jRecordParser - Objects Parsing', () => {
@@ -20,7 +20,9 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       onSuccess: (result: NeodashRecord[]) => {
         const movieNode = result[0]['m'];
 
-        expect(movieNode instanceof Node).toBe(true);
+        // parseGraphObject now returns a plain object with { identity, elementId, labels, properties }
+        expect(movieNode).toHaveProperty('labels');
+        expect(movieNode).toHaveProperty('properties');
         const movieNodeProperties = movieNode['properties'];
         // Assertions
         expect(movieNodeProperties.title).toBe('The Matrix');
@@ -53,7 +55,9 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
     const queryCallback: QueryCallback<any> = {
       onSuccess: (result: NeodashRecord[]) => {
         const relationship = result[0]['r'];
-        expect(relationship instanceof Relationship).toBe(true);
+        // parseGraphObject now returns a plain object (not a Relationship instance)
+        expect(relationship).toHaveProperty('type');
+        expect(relationship).toHaveProperty('properties');
 
         expect(relationship).toMatchObject({
           identity: expect.anything(),
