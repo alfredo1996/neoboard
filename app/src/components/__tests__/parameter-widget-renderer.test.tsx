@@ -150,30 +150,30 @@ describe("ParameterWidgetRenderer — store interactions", () => {
 
   // ── date-relative type ─────────────────────────────────────────────
   describe("date-relative parameter", () => {
-    it("stores a preset key and sets companion _from/_to", () => {
+    it("stores only the preset key — _from/_to are resolved dynamically at query time", () => {
       const { setParameter } = useParameterStore.getState();
+      // Renderer now stores only the preset key; _from/_to are NOT stored.
+      // useWidgetQuery resolves them dynamically from the preset key via
+      // resolveRelativePreset so they always reflect today's date.
       setParameter("window", "last_7_days", "Parameter Selector", "window", "date-relative", "selector-widget");
-      setParameter("window_from", "2024-06-09", "Parameter Selector", "window_from", "date", "selector-widget");
-      setParameter("window_to", "2024-06-15", "Parameter Selector", "window_to", "date", "selector-widget");
 
       const params = useParameterStore.getState().parameters;
       expect(params["window"].value).toBe("last_7_days");
-      expect(params["window_from"].value).toBe("2024-06-09");
-      expect(params["window_to"].value).toBe("2024-06-15");
+      expect(params["window"].type).toBe("date-relative");
+      // _from/_to are NOT in the store — they're derived at query execution time
+      expect(params["window_from"]).toBeUndefined();
+      expect(params["window_to"]).toBeUndefined();
     });
 
-    it("clears all companions when empty preset is set", () => {
+    it("clears the preset key when empty preset is set", () => {
       const { setParameter, clearParameter } = useParameterStore.getState();
       setParameter("window", "today", "Parameter Selector", "window", "date-relative", "selector-widget");
-      setParameter("window_from", "2024-06-15", "Parameter Selector", "window_from", "date", "selector-widget");
-      setParameter("window_to", "2024-06-15", "Parameter Selector", "window_to", "date", "selector-widget");
 
       clearParameter("window");
-      clearParameter("window_from");
-      clearParameter("window_to");
 
       const params = useParameterStore.getState().parameters;
       expect(params["window"]).toBeUndefined();
+      // _from/_to were never stored, so nothing to clear
       expect(params["window_from"]).toBeUndefined();
       expect(params["window_to"]).toBeUndefined();
     });

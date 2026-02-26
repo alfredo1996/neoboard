@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks — must be declared before importing the route so Vitest hoists them.
 // ---------------------------------------------------------------------------
 
-const mockRequireUserId = vi.fn<() => Promise<string>>();
+const mockRequireSession = vi.fn<() => Promise<{ userId: string; tenantId: string; role: string; canWrite: boolean }>>();
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
@@ -14,7 +14,7 @@ const mockDb = {
 const mockDecryptJson = vi.fn();
 const mockExecuteQuery = vi.fn();
 
-vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
+vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson, encryptJson: vi.fn() }));
 vi.mock("@/lib/query-executor", () => ({ executeQuery: mockExecuteQuery }));
@@ -38,6 +38,9 @@ vi.mock("next/server", () => ({
 function makeRequest(body: unknown) {
   return { json: async () => body } as Request;
 }
+
+/** Default authenticated session */
+const defaultSession = { userId: "user-1", tenantId: "tenant-a", role: "creator", canWrite: true };
 
 // Chainable drizzle query builder stub that resolves to `rows`.
 function drizzleSelectChain(rows: unknown[]) {
@@ -67,34 +70,57 @@ describe("POST /api/query", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500); // route catches and returns 500 with message
     expect((res._body as { error: string }).error).toMatch(/Unauthorized/);
   });
 
   it("returns 400 for invalid body (missing query)", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(defaultSession);
     const res = await POST(makeRequest({ connectionId: "c1" }));
     expect(res.status).toBe(400);
   });
 
   it("returns 400 for invalid body (missing connectionId)", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(defaultSession);
     const res = await POST(makeRequest({ query: "SELECT 1" }));
     expect(res.status).toBe(400);
   });
 
   it("returns 404 when connection not found / not owned", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(404);
     expect((res._body as { error: string }).error).toMatch(/not found/i);
   });
 
-  it("returns 200 with resultId on happy path", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+  it("returns 403 when body tenantId does not match session tenantId", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT 1", tenantId: "tenant-b" })
+    );
+    expect(res.status).toBe(403);
+    expect((res._body as { error: string }).error).toBe("Tenant mismatch");
+  });
+
+  it("succeeds when body tenantId matches session tenantId", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([{ id: "c1", type: "postgresql", configEncrypted: "enc", userId: "user-1" }])
+    );
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT 1", tenantId: "tenant-a" })
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 200 with resultId on happy path (no tenantId in body)", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(
       drizzleSelectChain([{ id: "c1", type: "postgresql", configEncrypted: "enc", userId: "user-1" }])
     );
@@ -110,7 +136,7 @@ describe("POST /api/query", () => {
   });
 
   it("includes resultId in response and it matches computeResultId", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(
       drizzleSelectChain([{ id: "c1", type: "neo4j", configEncrypted: "enc", userId: "user-1" }])
     );
@@ -125,7 +151,7 @@ describe("POST /api/query", () => {
   });
 
   it("returns 500 when executeQuery throws", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(
       drizzleSelectChain([{ id: "c1", type: "neo4j", configEncrypted: "enc", userId: "user-1" }])
     );

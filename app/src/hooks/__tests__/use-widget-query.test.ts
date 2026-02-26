@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extractReferencedParams, allReferencedParamsReady } from "../use-widget-query";
+import { resolveRelativePreset } from "@/lib/date-utils";
 
 describe("extractReferencedParams", () => {
   it("returns empty object when query has no placeholders", () => {
@@ -90,6 +91,42 @@ describe("extractReferencedParams", () => {
       param_period_from: "2024-01-01",
       param_period_to: "2024-01-31",
     });
+  });
+
+  // ── Date-relative dynamic _from/_to resolution ─────────────────────────
+  // These test that resolveRelativePreset produces _from/_to values that
+  // extractReferencedParams can consume (matching the dynamic computation in
+  // useWidgetQuery's allParameters).
+
+  it("date-relative _from/_to resolved dynamically are consumable by extractReferencedParams", () => {
+    // Simulate what useWidgetQuery does: compute _from/_to from preset at call time
+    const { from, to } = resolveRelativePreset("today");
+    const allParameters = { window: "today", window_from: from, window_to: to };
+
+    const result = extractReferencedParams(
+      "SELECT * FROM events WHERE d >= $param_window_from AND d <= $param_window_to",
+      allParameters
+    );
+    expect(result).toEqual({ param_window_from: from, param_window_to: to });
+    // Verify the resolved dates match today
+    expect(from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(from).toBe(to); // "today" => same from and to
+  });
+
+  it("date-relative last_7_days produces a 7-day range ending today", () => {
+    const { from, to } = resolveRelativePreset("last_7_days");
+    const today = new Date();
+    const isoToday = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, "0"),
+      String(today.getDate()).padStart(2, "0"),
+    ].join("-");
+    expect(to).toBe(isoToday);
+    // from should be 6 days ago (6 days difference = 7 days total including today)
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    const diffDays = Math.round((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
+    expect(diffDays).toBe(6);
   });
 
   // ── Number-range companion parameters ─────────────────────────────────────

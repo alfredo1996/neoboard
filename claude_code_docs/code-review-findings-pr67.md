@@ -1,214 +1,13 @@
 # Code Review Findings — PR #67 Parameter Selectors
 
 > Generated 2026-02-25 during post-implementation code review.
-> Applied improvements are marked ✅. Pending items require decision or design work.
-
----
-
-## Applied (Code Improvements)
-
-### ✅ `wrapWithPreviewLimit` double-LIMIT bug (app/)
-
-**File:** `app/src/components/widget-editor-modal.tsx` (lines 70-82)
-
-**Problem:** For Cypher/Neo4j, appending `LIMIT 25` to a query that already ends with `LIMIT N`
-produced invalid Cypher (`MATCH ... RETURN n LIMIT 5 LIMIT 25`) and caused a Neo4j syntax error
-in the widget preview. PostgreSQL was unaffected (uses subquery wrapper).
-
-**Fix applied:** Added LIMIT detection regex before appending:
-```typescript
-if (/\bLIMIT\s+\d+\s*$/i.test(trimmed)) return trimmed;
-```
-New unit tests added to `widget-editor-modal.test.tsx`.
-
----
-
-### ✅ `validatePieData` error message inaccuracy (app/)
-
-**File:** `app/src/lib/chart-registry.ts` (line 402)
-
-**Problem:** The condition `cols < 2` (which allows 2+ columns) displayed the message "requires
-**exactly** 2 columns". This was misleading — having 3 columns is fine.
-
-**Fix applied:** Changed message to "requires **at least** 2 columns".
-
----
-
-### ✅ Duplicate dashboard in-flight guard (app/)
-
-**File:** `app/src/app/(dashboard)/page.tsx` (line 202)
-
-**Problem:** The Duplicate DropdownMenuItem had no guard against rapid clicks while a duplication
-was already in progress, potentially firing multiple mutations.
-
-**Fix applied:** Added `disabled={duplicateDashboard.isPending}` to the DropdownMenuItem.
+> Updated 2026-02-26 — completed items removed; widget editor sizing issues added.
 
 ---
 
 ## Pending Feature Improvements
 
 These require design decisions or broader changes and should be planned as separate issues.
-
----
-
-### 1. Multi-tenant isolation in seed query API calls
-
-**File:** `app/src/components/parameter-widget-renderer.tsx`
-
-**Problem (CodeRabbit — Critical):** The `useSeedQuery` hook calls `/api/query` without
-explicitly scoping to the current tenant. While the API route enforces tenant isolation via
-the session + connection ownership check, a defense-in-depth approach would pass `tenantId`
-explicitly in the fetch body as a safeguard.
-
-**Suggested approach:**
-- Read `tenantId` from the Auth.js session in the client component
-- Include it in the `/api/query` payload for explicit validation
-- Add a server-side assertion in the route to reject mismatched tenantIds
-
-**Priority:** High (security defense-in-depth)
-
----
-
-### 2. Stale cascading selector values when parent changes
-
-**File:** `app/src/components/parameter-widget-renderer.tsx`
-
-**Problem (CodeRabbit — Major):** When the parent parameter value changes (e.g., user selects
-"Europe" as region), the child cascading-select (e.g., city = "New York") is not automatically
-cleared in the parameter store. The widget clears its internal display state but the store
-retains the old value, causing the dependent query to run with a stale child parameter.
-
-**Current behavior:** Child widget shows empty/reset UI but store has stale value.
-
-**Expected behavior:** Changing parent should clear child from the store immediately so queries
-don't receive a stale child parameter.
-
-**Suggested approach:**
-- In the cascading-select `useEffect` that detects parent value changes, also call
-  `clearParameter(parameterName)` when the parent changes.
-- Add a unit test to verify store cleanup on parent change.
-
-**Priority:** Medium (affects data correctness for cascading selectors)
-
----
-
-### 3. Date parsing timezone offset bug
-
-**Files:**
-- `component/src/components/composed/parameter-widgets/date-picker.tsx`
-- `component/src/components/composed/parameter-widgets/date-range-picker.tsx`
-
-**Problem (CodeRabbit — Major):** `new Date("YYYY-MM-DD")` parses date strings as **UTC midnight**
-but then `format()` (from date-fns) renders in the **local timezone**. In US timezones (UTC-5 to
-UTC-8), this produces an off-by-one-day display error (e.g., "2024-06-15" displays as "June 14").
-
-**Suggested approach:**
-```typescript
-// Instead of: new Date("2024-06-15")  ← UTC midnight → wrong local day
-// Use:
-const [y, m, d] = "2024-06-15".split("-").map(Number);
-new Date(y, m - 1, d);  // Local midnight → correct day
-```
-Or use `parseISO` from date-fns which handles this correctly.
-
-**Priority:** Medium (user-visible correctness, especially for US users)
-
----
-
-### 4. Relative date presets don't refresh on dashboard reload
-
-**File:** `app/src/components/parameter-widget-renderer.tsx`
-
-**Problem (CodeRabbit — Major):** "Last 7 days" computes `_from`/`_to` at the moment the user
-selects the preset. If the user keeps the dashboard open or reloads, those fixed dates become
-stale. "Last 7 days" selected on Monday still uses Monday's dates on Friday.
-
-**Suggested approach:**
-- Store the preset key in the parameter store (e.g., `last_7_days`), not the resolved dates
-- When resolving parameters for query execution, call `resolveRelativePreset` at query time
-- This way, every query execution uses "today" as the reference date
-
-**Priority:** Medium (affects all users of relative date parameters)
-
----
-
-### 5. Seed query result uses ordinal column positions, not named columns
-
-**File:** `app/src/components/parameter-widget-renderer.tsx`
-
-**Problem (CodeRabbit — Major):** The `useSeedQuery` hook builds `ParamSelectorOption` using
-`Object.values(record)[0]` (first column as value) and `Object.values(record)[1]` (second as label).
-This breaks if the query author writes columns in a different order or uses aliased names.
-
-**Suggested approach:**
-- Support named column conventions: columns named `value` and `label` take precedence
-- Fall back to first-column/second-column only when those names are absent
-- Document the convention in the UI (hint text in the seed query textarea)
-
-**Priority:** Low-Medium (affects developer ergonomics and query flexibility)
-
----
-
-### 6. Abort signal missing on seed query fetch
-
-**File:** `app/src/components/parameter-widget-renderer.tsx`
-
-**Problem (CodeRabbit — Minor):** The `useSeedQuery` `queryFn` makes a `fetch()` call without
-passing `signal: queryContext.signal`. This means React Query cannot abort in-flight requests
-when the component unmounts or the query key changes (e.g., when the user rapidly changes a
-parent cascade parameter).
-
-**Suggested approach:**
-```typescript
-queryFn: async ({ signal }) => {
-  const res = await fetch("/api/query", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ connectionId, query, params: extraParams ?? {} }),
-    signal,  // ← add this
-  });
-  ...
-}
-```
-
-**Priority:** Low (performance improvement, avoids network waste)
-
----
-
-### 8. Data table not scrollable when row count exceeds card height
-
-**File:** `component/src/components/composed/data-grid.tsx` (and `app/src/components/card-container.tsx`)
-
-**Problem (User-reported):** When a widget's "rows per page" setting is increased to a value that exceeds the visible height of the card, the table overflows outside the card boundary instead of becoming vertically scrollable within it. The card container does not constrain overflow, so rows spill out rather than being accessible via scroll.
-
-**Screenshot:** Rows visible below the card bottom edge; no scrollbar appears inside the card.
-
-**Suggested approach:**
-- Ensure `CardContainer` (or the inner content wrapper) has `overflow-y: auto` and a bounded height (e.g., `flex-1 min-h-0` in a flex column layout so it fills the card without expanding it)
-- Alternatively, cap the DataGrid's container height to the remaining card space and apply `overflow-y: auto` there
-- Verify the fix in both normal card size and fullscreen mode
-
-**Priority:** Medium (edge case but user-visible; affects any widget with a large page-size setting)
-
----
-
-### 9. Parameterized queries fire before parameters are set (500 error)
-
-**File:** `app/src/components/card-container.tsx` (query execution trigger), `app/src/app/api/query/route.ts`
-
-**Problem (User-reported):** When a dashboard has parameter widgets, the data widgets execute their queries immediately on load — before the user has selected any parameter values. If the query contains a parameter placeholder (e.g., `$param` or `{param}`), the API receives an undefined/null value, the query execution fails, and `/api/query` returns HTTP 500.
-
-**Current behavior:** Widget shows an error state / the network tab shows a 500 on page load.
-
-**Expected behavior:** Widgets whose queries reference one or more parameters should not execute until all required parameters have a value. Optional parameters should be allowed to execute with a default/empty value.
-
-**Suggested approach:**
-- In `CardContainer` (or the query hook), detect whether the widget's query references any parameter names (parse `{{paramName}}` or `$paramName` tokens)
-- Cross-reference against the parameter store: if any referenced parameter is still `undefined`/`null`, skip the query execution (set `enabled: false` on the React Query `useQuery` call)
-- Show a "Waiting for parameters…" placeholder state instead of an error
-- For optional parameters, allow authors to mark them optional (default value = `""` or `null`) so the query fires immediately with the default
-- add also a different message instead of the red usual one (otherwise by default an empty dashboard has a lot of red stuff)
-**Priority:** High (UX regression — users see a 500 error on dashboard load when parameters are present)
 
 ---
 
@@ -233,295 +32,267 @@ queryFn: async ({ signal }) => {
 
 ---
 
-### 10. Widget editor — required field markers and per-chart-type query hint
+### 14. Widget editor dialog bypasses the component library size variant system
 
-**File:** `app/src/components/widget-editor-modal.tsx`
+**File:** `app/src/components/widget-editor-modal.tsx` (line 572)
 
-**Problem (User-reported):** Two related UX gaps in the Add/Edit Widget modal.
+**Problem:** `DialogContent` is rendered with a raw `className="sm:max-w-6xl"` instead of using the CVA `size` prop defined in `component/src/components/ui/dialog.tsx`. The component library defines `sm`, `md`, `lg`, `xl`, and `full` variants — none of which cover the 6xl (1152px) range. This bypasses the design system and makes the dialog immune to future global dialog sizing changes.
 
-**A) Required fields lack consistent `*` markers.**
+**Suggested approach:**
+- Add a `2xl` (or `7xl`) size variant to `dialogContentVariants` in `dialog.tsx`:
+  ```typescript
+  "2xl": "max-w-5xl",   // 1024px — or whatever the design decision lands on
+  ```
+- Replace `className="sm:max-w-6xl"` in the modal with `size="2xl"` (or `size="full"`)
+- Consider whether the `full` variant (`calc(100vw - 2rem)`) is already sufficient for the widget editor use case
 
-The save button is disabled until certain fields are filled, but those fields carry no visual hint that they are required. From code analysis of the disabled condition and existing markers:
+**Priority:** Low (design system consistency, no user-visible regression)
 
-| Field | Required to save? | Has `*` today? |
+---
+
+### 15. Widget editor preview panel is shorter than the left column
+
+**File:** `app/src/components/widget-editor-modal.tsx` (lines 581, 998)
+
+**Problem:** The two-column layout has a left column capped at `max-h-[500px]` and a right-column preview pane fixed at `h-[320px]`. The 180px height gap means the preview ends well before the left column can grow to its maximum — creating visible dead space in the right column at most content heights, as seen in the screenshot.
+
+**Suggested approach:**
+- Align the preview height to the left column cap, e.g. `h-[500px]` or use a percentage of the body height
+- Alternatively, make the preview use `flex-1` with a `min-h` floor (as the Storybook prototype does: `flex-1 min-h-[400px]`) so it fills whatever vertical space remains
+
+**Priority:** Medium (visual polish — dead space is immediately visible)
+
+---
+
+### 16. Production body/column heights diverged from Storybook prototype
+
+**File:** `app/src/components/widget-editor-modal.tsx` (lines 579, 581)
+
+**Problem:** The Storybook prototype (`widget-editor-prototype.stories.tsx`) uses slightly larger dimensions than what was shipped to production:
+
+| Dimension | Storybook prototype | Production |
 |---|---|---|
-| Query | Yes (save disabled when empty) | No |
-| Connection | Yes (save disabled when empty) | Only for param-select widgets |
-| Seed Query | Yes (param-select only) | Yes |
-| Parameter Name | Yes (param-select only) | Yes |
+| Body `min-h` | `520px` | `450px` |
+| Left column `max-h` | `560px` | `500px` |
+| Preview height | `flex-1 min-h-[400px]` | fixed `h-[320px]` |
 
-The red asterisk pattern already exists in the file (`<span className="text-destructive">`) — it is just not applied to Query and Connection for regular (non-param) widgets.
-
-**Suggested approach:**
-- Add `<span className="text-destructive"> *</span>` to the **Query** label for all non-param-select widgets
-- Remove the `isParamSelect &&` condition from the **Connection** label so the asterisk shows universally (a connection is always required)
-- Add a `* Required` footnote at the bottom of the Data tab (WCAG SC 1.3.1)
-
-**B) No per-chart-type query format hint.**
-
-Users have no way to know what column structure a query must return for a given chart type without reading external docs. The query editor shows only a generic SQL/Cypher placeholder.
+The prototype's flexible preview (`flex-1`) fills available vertical space naturally. Production hardcoded it to 320px and reduced the overall body height, which shrank the modal and introduced the dead space below the preview placeholder.
 
 **Suggested approach:**
-- Add a small `Info` icon (lucide-react, already imported) next to the Query label
-- On hover it shows a shadcn `Tooltip` with a short description of the expected query shape for the selected chart type
-- The icon is only shown when a chart type is selected and the widget is not a param-select
+- Restore the prototype's `min-h-[520px]` for the body and `max-h-[560px]` for the left column
+- Replace the fixed `h-[320px]` preview with `flex-1 min-h-[400px]` so it fills the remaining space
 
-**Hint content per chart type:**
+**Priority:** Medium (directly responsible for the visible empty space in the right column)
 
+---
+
+### 17. Dialog has no viewport-height guard
+
+**File:** `app/src/components/widget-editor-modal.tsx` (line 572)
+
+**Problem:** The dialog has no `max-h-[90vh]` (or equivalent) constraint. On laptops or displays shorter than ~700px, the dialog content will overflow the viewport and the bottom buttons (Cancel / Add Widget) will be inaccessible without scrolling — but no scroll is present on the dialog itself because `overflow-y` is only set on the left column, not on the dialog wrapper.
+
+**Suggested approach:**
+```tsx
+<DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col">
+```
+Or alternatively, apply `overflow: hidden` on the dialog and let only the inner columns scroll (the left column already has `overflow-y-auto`).
+
+**Priority:** Medium (accessibility — affects users on smaller/lower-resolution displays)
+
+---
+
+### 18. Left column scroll region rarely triggers but always reserves space
+
+**File:** `app/src/components/widget-editor-modal.tsx` (line 581)
+
+**Problem:** `overflow-y-auto max-h-[500px]` on the left column creates a scroll container that only activates when content exceeds 500px. In practice, the Data tab content (title input + connection + chart type + query editor) fits within ~420–450px, so the scrollbar never appears — but the `max-h` silently reserves the full 500px, leaving blank white space below the query editor visible in the screenshot.
+
+**Suggested approach:**
+- Remove the fixed `max-h-[500px]` from the left column and instead constrain it via the grid row height (driven by the dialog's `max-h` guard from finding #17)
+- This allows the column to size to its content on short forms and still scroll when tabs like "Advanced" add more options
+- If a hard cap is needed, tie it to the dialog height: `max-h-[calc(90vh-180px)]` (accounting for header + footer)
+
+**Priority:** Low-Medium (causes visible whitespace at standard viewport sizes)
+
+---
+
+### 19. Graph widget — node/relationship captions show `[object Object]`
+
+**File:** `component/src/charts/graph-chart.tsx` (line 152)
+
+**Problem:** `resolveCaption()` uses `String(val)` to stringify the selected caption property:
 ```typescript
-const QUERY_HINTS: Record<string, string> = {
-  bar:
-    "Return 2+ columns: first = category label (string), rest = numeric series.\n" +
-    "Example: RETURN genre, count(*) AS films",
-  line:
-    "Return 2+ columns: first = x-axis label, rest = numeric series.\n" +
-    "Example: RETURN month, revenue, expenses",
-  pie:
-    "Return 2 columns: first = slice label (string), second = numeric value.\n" +
-    "Example: RETURN category, count(*) AS total",
-  "single-value":
-    "Return a single row with 1 numeric column.\n" +
-    "For trend mode, return 2 rows (current then previous period).\n" +
-    "Example: RETURN count(n) AS total",
-  graph:
-    "Return nodes, relationships, or paths — not tabular data.\n" +
-    "Example: MATCH (a)-[r]->(b) RETURN a, r, b",
-  map:
-    "Return 3 columns in order: latitude (number), longitude (number), label (string).\n" +
-    "Example: RETURN lat, lng, name",
-  table:
-    "Return any columns — all are displayed as-is.\n" +
-    "Example: SELECT * FROM orders LIMIT 100",
-  json:
-    "Return any data — rendered as a collapsible JSON tree.\n" +
-    "Example: RETURN properties(n) AS data",
-};
+if (val !== null && val !== undefined) return String(val);
 ```
+`String()` on a plain object produces `[object Object]`. Neo4j properties can be non-primitive — e.g. nested maps, spatial `Point` objects, or Integer `{low, high}` structs from the JS driver. Users who select such a property as the node caption see `[object Object]` on every node in the graph.
 
-**Rendering sketch (Query label row):**
+A `normalizeValue()` utility already exists in `app/src/lib/normalize-value.ts` that handles Neo4j Integer, DateTime, Date, Time, and generic object fallback via `JSON.stringify`. It is not currently applied to graph captions.
 
-```tsx
-<div className="flex items-center gap-1.5">
-  <Label htmlFor="query-editor">
-    Query <span className="text-destructive">*</span>
-  </Label>
-  {selectedChartType && QUERY_HINTS[selectedChartType] && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-line">
-        {QUERY_HINTS[selectedChartType]}
-      </TooltipContent>
-    </Tooltip>
-  )}
-</div>
-```
+**Fix:**
+- Move / copy the relevant normalization logic into `component/src/charts/graph-chart.tsx` (the component library cannot import from `app/`)
+- Replace `String(val)` with a local helper that handles the Neo4j driver types:
+  ```typescript
+  function primitiveString(val: unknown): string {
+    if (typeof val === "object" && val !== null) {
+      // Neo4j Integer {low, high}
+      if ("low" in val && "high" in val) return String((val as {low: number}).low);
+      return JSON.stringify(val);
+    }
+    return String(val);
+  }
+  ```
 
-**Notes:**
-- `whitespace-pre-line` on `TooltipContent` preserves the `\n` line breaks in the hint strings
-- `TooltipProvider` is already present in the modal tree
-- No new dependencies — `Info` is in lucide-react, `Tooltip` is in `@neoboard/components`
-
-**Priority:** Medium (discoverability, no breaking changes)
+**Priority:** High (user-visible corruption of graph node labels)
 
 ---
 
-### 11. Data table — cell text should truncate with ellipsis, not wrap
-
-**File:** `component/src/components/composed/data-grid.tsx`
-
-**Problem (User-reported, screenshot attached):** By default, long cell values (e.g., movie taglines) wrap across multiple lines, making rows variable-height and the table visually noisy. The current behavior is also inconsistent — some columns wrap mid-word at an arbitrary character count. Hovering already reveals the full text via the browser's native title attribute (or similar), which is the right pattern, but the base display should be a single truncated line.
-
-**Current behavior:** Cells wrap freely → rows have uneven heights → table looks unstructured for wide text columns.
-
-**Expected behavior:** All cells render as a single line with `text-overflow: ellipsis`. The full value is readable on hover via a `title` attribute (already present or trivial to add).
-
-**Suggested approach:**
-- On the cell `<td>` / cell renderer, apply `truncate` (Tailwind: `overflow-hidden text-ellipsis whitespace-nowrap`) — this is one class in Tailwind
-- Set a `title={String(cellValue)}` on the cell so the browser shows the full value natively on hover (no JS tooltip overhead)
-- Make this the default; a future "wrap" column option in the Style tab could opt specific columns back into wrapping
-
-```tsx
-// In the DataGrid cell renderer:
-<td
-  className="... truncate max-w-[200px]"
-  title={String(value)}
->
-  {displayValue}
-</td>
-```
-
-- The `max-w-[200px]` (or similar cap) is needed because `truncate` alone only kicks in when the container has a bounded width — without it the cell grows to fit. The exact value can be a CSS variable or a column-width setting.
-
-**Priority:** Medium (visual consistency, affects all table widgets with text-heavy data)
-
----
-
-### 12. Widget editor — preview pane should not resize with chart content
-
-**File:** `app/src/components/widget-editor-modal.tsx` (preview section)
-
-**Problem (User-reported):** In the widget editor modal, the right-hand preview pane expands or contracts its height to fit the rendered chart. A data table with 10 rows makes the preview tall; switching to a single-value widget collapses it. This causes the whole modal to shift layout as the user tweaks settings, which is disorienting.
-
-**Expected behavior:** The preview pane has a fixed height at all times. The chart renders inside this fixed box — if it needs more space (e.g., a long table) it scrolls internally rather than expanding the container.
-
-**Suggested approach:**
-- Give the preview wrapper a fixed height (e.g., `h-[320px]` or `h-[40vh]`) with `overflow: hidden`
-- The inner `CardContainer` / chart already fills its parent via `flex-1` or `h-full` — so constraining the parent is sufficient
-- This also gives editors a realistic preview of how the widget will look inside a normal-sized dashboard card
-
-```tsx
-// In the preview section of the modal:
-<div className="h-[320px] overflow-hidden rounded-lg border bg-card">
-  <CardContainer widget={previewWidget} ... />
-</div>
-```
-
-**Priority:** Low-Medium (UX polish; confusing but not blocking)
-
----
-
-### 13. Chart options panel (Style/Advanced tab) — option description tooltips
+### 20. Graph widget — no modal to inspect node/relationship properties
 
 **Files:**
-- `component/src/components/composed/chart-options-schema.ts`
-- `component/src/components/composed/chart-options-panel.tsx`
+- `component/src/components/composed/property-panel.tsx` (exists, exported, tested)
+- `app/src/components/graph-exploration-wrapper.tsx`
+- `component/src/charts/graph-chart.tsx`
 
-**Problem (User-reported):** Every option in the Style tab of the widget editor (stacked, smooth, orientation, pageSize, tileLayer, etc.) is shown as a bare label with no explanation of what it does. Users must guess or experiment to understand each setting.
+**Problem:** Clicking or right-clicking a graph node only shows "Expand / Collapse" actions (`NodeContextMenu`). There is no way to view the full property set of a node or relationship. The `PropertyPanel` component in `component/` is fully built, tested, exported, and has a "GraphNodeInspector" Storybook example — but it is not wired to any graph interaction.
 
-**Current state (from code analysis):**
-- `ChartOptionDef` interface has: `key`, `label`, `type`, `default`, `category`, `options?` — no `description` field
-- `OptionField` in `chart-options-panel.tsx` renders a plain `<Label>` with no tooltip or help text
-- 56 options across 9 chart types are completely undocumented in the UI
+**Suggested approach:**
+- Add an `onNodeClick` (or `onNodeDoubleClick`) callback to `graph-chart.tsx` that emits the clicked `GraphNode` to the parent
+- In `graph-exploration-wrapper.tsx` (the app-layer coordinator), hold state for `selectedNode: GraphNode | null`
+- When `selectedNode` is set, render a shadcn `Sheet` or `Dialog` containing `PropertyPanel`, mapping `selectedNode.properties` to `PropertySection[]`
+- Do the same for edge/relationship clicks via the existing `onRelationshipClick` callback
 
-**Suggested implementation:**
+**Priority:** High (core graph UX — properties are completely inaccessible to the user)
 
-_1. Add `description?: string` to `ChartOptionDef` in the schema:_
-```typescript
-interface ChartOptionDef {
-  key: string;
-  label: string;
-  type: "boolean" | "select" | "text" | "number";
-  default: unknown;
-  category: string;
-  options?: { label: string; value: string }[];
-  description?: string;  // ← NEW: shown in a tooltip on the label
-}
-```
+---
 
-_2. Update `OptionField` to show a `HelpCircle` icon + shadcn `Tooltip` when `description` is set:_
+### 21. "Waiting for parameters" placeholder doesn't name the missing parameters
+
+**File:** `app/src/components/card-container.tsx` (lines 503–510)
+
+**Problem:** When a widget's query references `$param_xxx` tokens that have not been set yet, the widget shows:
+> Waiting for parameters…
+
+The message is generic and gives no indication of which parameter widgets the user needs to interact with. On a dashboard with several parameter widgets, the user must guess which one is blocking each data widget.
+
+The `allReferencedParamsReady()` function in `use-widget-query.ts` already scans the query with `/\$param_(\w+)/g` to find referenced names — it just discards the list of missing names instead of returning them.
+
+**Suggested approach:**
+- Refactor `allReferencedParamsReady` to return `string[]` (the missing param names) instead of `boolean`
+- In `card-container.tsx`, render the missing names in the placeholder:
+  ```tsx
+  <p className="text-sm text-muted-foreground text-center">
+    Waiting for: {missingParams.map(n => (
+      <code key={n} className="font-mono">$param_{n}</code>
+    )).reduce(/* comma-join */)}
+  </p>
+  ```
+- Update `use-widget-query.ts` tests to cover the new return type
+
+**Priority:** Medium (usability — helps users quickly identify which parameter widget to fill)
+
+---
+
+### 22. Dashboard widget queries have no server-side row limit
+
+**Files:**
+- `app/src/app/api/query/route.ts`
+- `app/src/lib/query-executor.ts`
+- `app/src/hooks/use-widget-query.ts`
+
+**Problem:** `wrapWithPreviewLimit` (25 rows) is only applied client-side in the widget editor's **Preview** button path. On the live dashboard, widgets call `/api/query` with the raw unbounded user query. The backend `executeQuery()` applies no row cap. A query returning millions of rows will transfer all of them to the client, exhausting memory and network bandwidth.
+
+The `pageSize` chart option only controls how many rows are *displayed* — it does not limit how many rows are *fetched*. A user setting `pageSize = 10` still receives all rows from the server.
+
+**Suggested approach:**
+- Add a `MAX_ROWS` constant (e.g. 10 000) to the API route
+- After `executeQuery()` returns, truncate the result rows to `MAX_ROWS` and include a `truncated: true` flag in the response when rows were cut
+- Alternatively, enforce the cap inside `query-executor.ts` so it applies uniformly to all callers
+- In the widget (table/chart), display a subtle banner when `truncated === true`: "Showing first 10 000 rows. Refine your query to see all results."
+- **Do NOT** add `LIMIT` to the user's query — this would violate the query-safety rule in `CLAUDE.md`. Truncate the result set after execution.
+
+**Priority:** High (safety + performance — unbounded queries can crash the server process)
+
+---
+
+### 23. Chart options tooltip — HelpCircle icon should be removed; tooltip should trigger on the label text
+
+**File:** `component/src/components/composed/chart-options-panel.tsx` (lines 30–46)
+
+**Problem:** The current implementation appends a `HelpCircle` icon after each option label when `description` is set. The icon is small (h-3 w-3), visually clutters the options list, and is redundant — the label text itself is a more natural and discoverable hover target.
+
+**Current:**
 ```tsx
-// Replace the bare <Label> with:
-<Label htmlFor={option.key} className="text-sm flex items-center gap-1">
-  {option.label}
-  {option.description && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help shrink-0" />
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs text-xs">
-        {option.description}
-      </TooltipContent>
-    </Tooltip>
-  )}
-</Label>
+<Label ...>{option.label} <HelpCircle .../></Label>
+// HelpCircle is the TooltipTrigger
 ```
 
-`HelpCircle` is from lucide-react (already a dep). `Tooltip*` are already exported from `@neoboard/components`. `TooltipProvider` is in the app tree.
+**Desired:**
+```tsx
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Label className="cursor-help underline decoration-dotted">{option.label}</Label>
+  </TooltipTrigger>
+  <TooltipContent ...>{option.description}</TooltipContent>
+</Tooltip>
+```
 
-_3. Add `description` strings for all 56 existing options (full list):_
+**Suggested approach:**
+- Remove the `HelpCircle` import and icon
+- Wrap the `<Label>` itself in `<TooltipTrigger asChild>` when `description` is set
+- Apply `cursor-help` and a subtle `underline decoration-dotted` on the label so the hover target is still discoverable without an icon
+
+**Priority:** Low (UX polish — the tooltip feature works, this is a presentation refinement)
+
+---
+
+### 24. Table widget — sort UI renders even when `enableSorting` is disabled
+
+**Files:**
+- `component/src/components/composed/data-grid.tsx` (line 157)
+- `component/src/components/composed/data-grid-column-header.tsx` (line 29)
+- `app/src/components/card-container.tsx` (line 283)
+
+**Problem:** When `enableSorting = false`, `DataGrid` omits `getSortedRowModel` from `useReactTable` but does **not** pass `enableSorting: false` to the table config:
 ```typescript
-// ── bar ──────────────────────────────────────────────────
-{ key: "orientation",  description: "Vertical bars grow upward; horizontal bars grow left-to-right." },
-{ key: "stacked",      description: "Stack series on top of each other instead of placing them side by side." },
-{ key: "barWidth",     description: "Width of each bar as a percentage of the available slot (1–100)." },
-{ key: "barGap",       description: "Gap between bar groups as a percentage of the bar width." },
-{ key: "showValues",   description: "Display the numeric value as a label on each bar." },
-{ key: "showLegend",   description: "Show the chart legend identifying each data series." },
-{ key: "xAxisLabel",   description: "Custom label for the horizontal axis." },
-{ key: "yAxisLabel",   description: "Custom label for the vertical axis." },
-{ key: "showGridLines",description: "Show faint horizontal grid lines behind the bars." },
-// ── line ─────────────────────────────────────────────────
-{ key: "smooth",       description: "Render lines as smooth Bézier curves instead of straight segments." },
-{ key: "area",         description: "Fill the area beneath the line to emphasise volume over time." },
-{ key: "lineWidth",    description: "Stroke width of the line in pixels." },
-{ key: "stepped",      description: "Draw the line as a step function — useful for discrete state changes." },
-{ key: "showPoints",   description: "Draw a dot at each data point on the line." },
-// (shared with bar: showGridLines, xAxisLabel, yAxisLabel, showLegend)
-// ── pie ──────────────────────────────────────────────────
-{ key: "donut",        description: "Cut a circular hole in the centre to render the chart as a donut." },
-{ key: "roseMode",     description: "Vary each slice's radius by its value (Nightingale / rose chart)." },
-{ key: "labelPosition",description: "Where to place the slice labels: inside, outside, or hidden." },
-{ key: "showLabel",    description: "Show the category name on each slice." },
-{ key: "showPercentage",description:"Show the percentage value on each slice." },
-{ key: "sortSlices",   description: "Sort slices by value (largest first) for a cleaner layout." },
-// ── single-value ─────────────────────────────────────────
-{ key: "title",        description: "Custom heading shown above the value. Leave blank to hide." },
-{ key: "prefix",       description: "Text prepended to the value (e.g. '$', '€')." },
-{ key: "suffix",       description: "Text appended to the value (e.g. '%', ' items')." },
-{ key: "fontSize",     description: "Font size of the main displayed value in pixels." },
-{ key: "numberFormat", description: "Numeric format: auto, compact (1.2 k), percentage, or fixed decimals." },
-{ key: "trendEnabled", description: "Show a trend arrow comparing the current value to the previous period." },
-{ key: "colorThresholds",description:"Colour bands for the value — e.g. green below 100, red above." },
-// ── graph ────────────────────────────────────────────────
-{ key: "layout",       description: "Algorithm used to position nodes: force, hierarchical, or circular." },
-{ key: "nodeSize",     description: "Radius of each node circle in pixels." },
-{ key: "showLabels",   description: "Show the node label (first string property) on each node." },
-{ key: "showRelationshipLabels", description: "Show the relationship type on each edge." },
-{ key: "physics",      description: "Enable physics simulation so nodes repel and edges act as springs." },
-// ── map ──────────────────────────────────────────────────
-{ key: "tileLayer",    description: "Base-map tile provider. OSM is open and free; Carto is clean and minimal." },
-{ key: "zoom",         description: "Initial zoom level when the map first renders (1 = world, 18 = street)." },
-{ key: "minZoom",      description: "Minimum zoom level the user can zoom out to." },
-{ key: "maxZoom",      description: "Maximum zoom level the user can zoom in to." },
-{ key: "autoFitBounds",description: "Automatically pan and zoom to fit all markers on initial load." },
-{ key: "markerSize",   description: "Radius of each map marker in pixels." },
-{ key: "clusterMarkers",description:"Group nearby markers into clusters at lower zoom levels." },
-{ key: "showPopup",    description: "Show a popup with the row data when a marker is clicked." },
-// ── table ────────────────────────────────────────────────
-{ key: "enableSorting",description: "Allow clicking column headers to sort rows." },
-{ key: "enableSelection",description:"Allow selecting individual rows by clicking them." },
-{ key: "enableGlobalFilter",description:"Show a search box that filters all rows across all columns." },
-{ key: "enableColumnFilters",description:"Show per-column filter inputs below the header row." },
-{ key: "enablePagination",description:"Show pagination controls (Previous / Next) at the bottom." },
-{ key: "pageSize",     description: "Number of rows shown per page when pagination is enabled." },
-{ key: "emptyMessage", description: "Text shown when the query returns no rows." },
-// ── json ─────────────────────────────────────────────────
-{ key: "initialExpanded",description:"Expand all JSON nodes when the viewer first renders." },
-{ key: "showCopyButton",description:"Show a Copy button to copy the full JSON to the clipboard." },
-{ key: "theme",        description: "Colour theme for the JSON syntax highlighting." },
-// ── parameter-select ────────────────────────────────────
-{ key: "placeholder",  description: "Hint text shown inside the selector when no value is chosen." },
-{ key: "searchable",   description: "Allow the user to type to filter the option list." },
+// data-grid.tsx line 157 — only the row model is omitted
+getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
+// table.options.enableSorting is never set → defaults to true inside TanStack Table
 ```
 
-**Notes:**
-- No schema type change — `description` is optional and backward-compatible; options without it render exactly as before
-- Wrap `ChartOptionsPanel` usage in `<TooltipProvider>` if the modal tree doesn't already provide one (it does via `providers.tsx`)
-- Update `chart-options-panel.test.tsx` to add `Tooltip*` to the mock imports and add a test: "renders HelpCircle icon when option has description"
+`DataGridColumnHeader` guards on `column.getCanSort()` (line 29). TanStack Table computes `getCanSort()` from `table.options.enableSorting` (not from whether `getSortedRowModel` was provided), so it returns `true` even when no sort model is registered. As a result, every column header still renders the sort button with `ChevronsUpDown` + sort dropdown — clicking "Asc" or "Desc" fires `column.toggleSorting()` but the rows never reorder because no sorted row model exists.
 
-**Priority:** Medium (developer experience + discoverability; fully backward-compatible)
+Additionally, `card-container.tsx` line 283 defaults `enableSorting` to `true` (`settings.enableSorting !== false`), so sorting is on unless explicitly disabled in the chart options.
+
+**Fix:**
+```typescript
+// data-grid.tsx — also pass the flag to TanStack Table
+const table = useReactTable({
+  ...
+  enableSorting,                                              // ← ADD THIS
+  getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
+  ...
+});
+```
+With `enableSorting: false` in the table options, `column.getCanSort()` returns `false`, and `DataGridColumnHeader` falls back to a plain `<div>` with no sort UI.
+
+**Priority:** Medium (confusing UX — buttons appear that silently do nothing)
 
 ---
 
 ## Summary
 
-| #  | Finding                                           | Severity         | Status   |
-|----|---------------------------------------------------|------------------|----------|
-| —  | `wrapWithPreviewLimit` double-LIMIT bug           | Bug (e2e)        | ✅ Fixed |
-| —  | `validatePieData` misleading message              | Cosmetic         | ✅ Fixed |
-| —  | Duplicate button in-flight guard                  | UX               | ✅ Fixed |
-| 1  | Multi-tenant isolation in seed query              | Security         | Pending  |
-| 2  | Stale cascading child parameter                   | Logic            | Pending  |
-| 3  | Date parsing timezone bug                         | Correctness      | Pending  |
-| 4  | Relative date presets stale on reload             | UX               | Pending  |
-| 5  | Seed query ordinal column positions               | DX               | Pending  |
-| 6  | Missing abort signal on seed fetch                | Performance      | Pending  |
-| 7  | App-layer test coverage gap                       | Quality          | Pending  |
-| 8  | Table not scrollable when rows exceed card height | UX               | Pending  |
-| 9  | Queries fire before parameters are set (500)      | UX / Correctness | Pending  |
-| 10 | Widget editor: required markers + query hints     | DX / UX          | Pending  |
-| 11 | Data table: cell text wraps instead of truncating | UX               | Pending  |
-| 12 | Widget editor preview pane resizes with content   | UX               | Pending  |
-| 13 | Style tab options have no description tooltips    | DX / UX          | Pending  |
+| #  | Finding                                              | Severity    | Status  |
+|----|------------------------------------------------------|-------------|---------|
+| 7  | App-layer test coverage gap                          | Quality     | Pending |
+| 14 | Dialog bypasses CVA size variant system              | Design sys. | Pending |
+| 15 | Preview panel 180px shorter than left column cap     | UX          | Pending |
+| 16 | Production heights diverged from Storybook prototype | UX          | Pending |
+| 17 | No viewport-height guard on dialog                   | A11y / UX   | Pending |
+| 18 | Left column max-h leaves empty white space           | UX          | Pending |
+| 19 | Graph captions show `[object Object]` for non-primitive properties | Bug | Pending |
+| 20 | Graph widget — no modal to inspect node/relationship properties | UX | Pending |
+| 21 | "Waiting for parameters" doesn't name missing params | UX          | Pending |
+| 22 | Dashboard queries have no server-side row limit      | Safety      | Pending |
+| 23 | Chart options tooltip should trigger on label text, not icon | UX   | Pending |
+| 24 | Table sort UI renders even when sorting is disabled  | Bug / UX    | Pending |
