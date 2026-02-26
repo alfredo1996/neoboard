@@ -15,11 +15,13 @@ const mockUseWidgetQuery = vi.hoisted(() =>
     error: null,
     data: null,
     fetchStatus: "fetching", // default: actively fetching (not "idle" waiting state)
+    missingParams: [],
   }))
 );
 
 vi.mock("@/hooks/use-widget-query", () => ({
   useWidgetQuery: mockUseWidgetQuery,
+  getMissingParamNames: vi.fn(() => []),
 }));
 
 vi.mock("@/stores/parameter-store", () => ({
@@ -257,6 +259,7 @@ describe("CardContainer — waiting for parameters state", () => {
       isError: false,
       error: null,
       data: null,
+      missingParams: [],
     });
   });
 
@@ -269,6 +272,7 @@ describe("CardContainer — waiting for parameters state", () => {
       error: null,
       data: null,
       fetchStatus: "fetching",
+      missingParams: [],
     }));
   });
 
@@ -288,6 +292,60 @@ describe("CardContainer — waiting for parameters state", () => {
     expect(screen.getByText(/Waiting for parameters/)).toBeTruthy();
     // Should NOT fall through to the loading skeleton
     expect(screen.queryByTestId("skeleton")).toBeNull();
+  });
+
+  it("shows missing param names as code badges when waiting for parameters", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      error: null,
+      data: null,
+      missingParams: ["nodeId", "genre"],
+    });
+
+    render(
+      <CardContainer
+        widget={{
+          id: "bar-waiting-params",
+          chartType: "bar",
+          connectionId: "conn-1",
+          query: "MATCH (n {id: $param_nodeId, genre: $param_genre}) RETURN n",
+          settings: {},
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Waiting for parameters/)).toBeTruthy();
+    // Missing param badges should be shown
+    expect(screen.getByText("$param_nodeId")).toBeTruthy();
+    expect(screen.getByText("$param_genre")).toBeTruthy();
+  });
+
+  it("does not show param badges when all params are present", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      error: null,
+      data: null,
+      missingParams: [],
+    });
+
+    render(
+      <CardContainer
+        widget={{
+          id: "bar-waiting-no-params",
+          chartType: "bar",
+          connectionId: "conn-1",
+          query: "MATCH (n) RETURN n",
+          settings: {},
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Waiting for parameters/)).toBeTruthy();
+    expect(screen.queryByText(/\$param_/)).toBeNull();
   });
 
   it("does not show 'Waiting for parameters…' for parameter-select widgets (they bypass query lifecycle)", () => {

@@ -137,6 +137,29 @@ function pickDefaultCaptionProp(propKeys: string[]): string {
 }
 
 /**
+ * Converts a raw Neo4j property value to a human-readable string.
+ * Cannot import from app/ (package boundary), so Neo4j type patterns
+ * are identified structurally.
+ */
+function graphPrimitiveString(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val !== "object") return String(val);
+  const obj = val as Record<string, unknown>;
+  // Neo4j Integer { low, high }
+  if (typeof obj.low === "number" && typeof obj.high === "number") {
+    return String(obj.low + obj.high * 0x100000000);
+  }
+  // Neo4j temporal types have year/month/day fields
+  if (typeof obj.year === "object" || typeof obj.year === "number") {
+    const y = typeof obj.year === "number" ? obj.year : (obj.year as Record<string, unknown>).low;
+    const mo = typeof obj.month === "number" ? obj.month : (obj.month as Record<string, unknown>)?.low ?? 1;
+    const d = typeof obj.day === "number" ? obj.day : (obj.day as Record<string, unknown>)?.low ?? 1;
+    return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  return JSON.stringify(val);
+}
+
+/**
  * Resolve the caption for a node given the captionMap.
  */
 function resolveCaption(
@@ -149,7 +172,7 @@ function resolveCaption(
     const propKey = captionMap[lbl];
     if (propKey && propKey in props) {
       const val = props[propKey];
-      if (val !== null && val !== undefined) return String(val);
+      if (val !== null && val !== undefined) return graphPrimitiveString(val);
     }
   }
   return node.label ?? node.id;

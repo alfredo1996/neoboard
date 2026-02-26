@@ -5,12 +5,18 @@ import { createPortal } from "react-dom";
 import {
   GraphChart,
   useGraphExploration,
+  PropertyPanel,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@neoboard/components";
 import type {
   GraphNode,
   GraphEdge,
   GraphNodeEvent,
   FetchNeighborsResult,
+  PropertySection,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/chart-registry";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
@@ -39,11 +45,13 @@ function NodeContextMenu({
   onClose,
   onExpand,
   onCollapse,
+  onProperties,
 }: {
   menu: NodeMenu;
   onClose: () => void;
   onExpand?: () => void;
   onCollapse?: () => void;
+  onProperties?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -63,6 +71,7 @@ function NodeContextMenu({
   }, [onClose]);
 
   const items = [
+    onProperties && { label: "Properties", action: onProperties },
     onExpand && { label: "Expand", action: onExpand },
     onCollapse && { label: "Collapse", action: onCollapse },
   ].filter(Boolean) as { label: string; action: () => void }[];
@@ -99,6 +108,22 @@ function NodeContextMenu({
   );
 }
 
+function nodeToSections(node: GraphNode): PropertySection[] {
+  const props = node.properties ?? {};
+  const propertyItems = Object.entries(props).map(([key, value]) => ({
+    key,
+    value: typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? ""),
+  }));
+  const metaItems = [
+    { key: "id", value: node.id },
+    ...(node.labels?.length ? [{ key: "labels", value: node.labels.join(", ") }] : []),
+  ];
+  return [
+    { title: "Metadata", items: metaItems, collapsible: false as const },
+    ...(propertyItems.length > 0 ? [{ title: "Properties", items: propertyItems }] : []),
+  ];
+}
+
 export function GraphExplorationWrapper({
   widgetId,
   nodes: initialNodes,
@@ -109,6 +134,7 @@ export function GraphExplorationWrapper({
   resultId,
 }: GraphExplorationWrapperProps) {
   const [menu, setMenu] = useState<NodeMenu | null>(null);
+  const [propertiesNode, setPropertiesNode] = useState<GraphNode | null>(null);
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
 
@@ -229,6 +255,10 @@ export function GraphExplorationWrapper({
         <NodeContextMenu
           menu={menu}
           onClose={() => setMenu(null)}
+          onProperties={() => {
+            setPropertiesNode(menu.node);
+            setMenu(null);
+          }}
           onExpand={
             exploration.canExpand(menu.node.id)
               ? () => exploration.onExpandRequest(menu.node)
@@ -241,6 +271,20 @@ export function GraphExplorationWrapper({
           }
         />
       )}
+
+      {/* Node properties dialog */}
+      <Dialog open={propertiesNode !== null} onOpenChange={(open) => { if (!open) setPropertiesNode(null); }}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>{propertiesNode?.label ?? propertiesNode?.id ?? "Node Properties"}</DialogTitle>
+          </DialogHeader>
+          {propertiesNode && (
+            <div className="overflow-y-auto max-h-[400px]">
+              <PropertyPanel sections={nodeToSections(propertiesNode)} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

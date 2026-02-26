@@ -18,6 +18,8 @@ interface QueryResult {
   /** Unique ID for this execution, generated server-side. Can be used as a
    *  stable cache/state key (e.g. to detect when graph data changed). */
   resultId: string;
+  /** True when the server truncated the result set to MAX_ROWS (10 000). */
+  truncated?: boolean;
 }
 
 /**
@@ -46,6 +48,38 @@ export function allReferencedParamsReady(
     }
   }
   return true;
+}
+
+/**
+ * Returns the list of $param_xxx names in the query that have no value yet.
+ * Mirrors the logic of allReferencedParamsReady but returns the names
+ * instead of a boolean.
+ *
+ * @visibleForTesting
+ */
+export function getMissingParamNames(
+  query: string,
+  allParams: Record<string, unknown>
+): string[] {
+  const regex = /\$param_(\w+)/g;
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  let match;
+  while ((match = regex.exec(query)) !== null) {
+    const name = match[1];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const val = allParams[name];
+    if (
+      val === undefined ||
+      val === null ||
+      val === "" ||
+      (Array.isArray(val) && val.length === 0)
+    ) {
+      missing.push(name);
+    }
+  }
+  return missing;
 }
 
 /**
@@ -124,7 +158,7 @@ export function useWidgetQuery(
     return { ...input, params: mergedParams };
   }, [input, mergedParams]);
 
-  return useQuery<QueryResult, Error>({
+  const queryResult = useQuery<QueryResult, Error>({
     queryKey: [
       "widget-query",
       mergedInput?.connectionId,
@@ -153,4 +187,14 @@ export function useWidgetQuery(
     staleTime: options?.staleTime ?? 0,
     retry: false,
   });
+
+  const missingParams = useMemo(
+    () =>
+      mergedInput?.query
+        ? getMissingParamNames(mergedInput.query, allParameters)
+        : [],
+    [mergedInput, allParameters],
+  );
+
+  return { ...queryResult, missingParams };
 }

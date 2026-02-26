@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractReferencedParams, allReferencedParamsReady } from "../use-widget-query";
+import { extractReferencedParams, allReferencedParamsReady, getMissingParamNames } from "../use-widget-query";
 import { resolveRelativePreset } from "@/lib/date-utils";
 
 describe("extractReferencedParams", () => {
@@ -147,6 +147,84 @@ describe("extractReferencedParams", () => {
       { minAge: 18 }
     );
     expect(result).toEqual({ param_minAge: 18 });
+  });
+});
+
+describe("getMissingParamNames", () => {
+  it("returns empty array when query has no param placeholders", () => {
+    expect(getMissingParamNames("MATCH (n) RETURN n", {})).toEqual([]);
+  });
+
+  it("returns empty array when all referenced params have values", () => {
+    expect(
+      getMissingParamNames(
+        "MATCH (n {id: $param_nodeId}) RETURN n",
+        { nodeId: "abc" }
+      )
+    ).toEqual([]);
+  });
+
+  it("returns names of missing params", () => {
+    expect(
+      getMissingParamNames(
+        "WHERE n.a = $param_from AND n.b = $param_to",
+        { from: "a" }
+      )
+    ).toEqual(["to"]);
+  });
+
+  it("returns all missing params when none have values", () => {
+    expect(
+      getMissingParamNames(
+        "WHERE n.a = $param_from AND n.b = $param_to",
+        {}
+      )
+    ).toEqual(["from", "to"]);
+  });
+
+  it("deduplicates when param is referenced multiple times", () => {
+    expect(
+      getMissingParamNames(
+        "WHERE n.a = $param_x OR n.b = $param_x",
+        {}
+      )
+    ).toEqual(["x"]);
+  });
+
+  it("treats empty string as missing", () => {
+    expect(
+      getMissingParamNames(
+        "MATCH (n {id: $param_id}) RETURN n",
+        { id: "" }
+      )
+    ).toEqual(["id"]);
+  });
+
+  it("treats null as missing", () => {
+    expect(
+      getMissingParamNames(
+        "MATCH (n {id: $param_id}) RETURN n",
+        { id: null }
+      )
+    ).toEqual(["id"]);
+  });
+
+  it("treats empty array as missing", () => {
+    expect(
+      getMissingParamNames(
+        "SELECT * FROM t WHERE genre = ANY($param_genre)",
+        { genre: [] }
+      )
+    ).toEqual(["genre"]);
+  });
+
+  it("does not include param with non-empty array value as missing", () => {
+    expect(
+      getMissingParamNames(
+        "SELECT * FROM t WHERE genre = ANY($param_genre)",
+        { genre: ["Action"] }
+      )
+    ).toEqual([]);
   });
 });
 
