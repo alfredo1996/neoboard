@@ -18,10 +18,15 @@ import {
   Table2,
   Braces,
   SlidersHorizontal,
+  Calendar,
+  Type,
+  ListFilter,
+  Info,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   ChartOptionsPanel,
+  ChartSettingsPanel,
   getDefaultChartSettings,
   Button,
   LoadingButton,
@@ -42,12 +47,47 @@ import {
   SelectValue,
   Checkbox,
   Combobox,
+  Textarea,
+  TextInputParameter,
+  DatePickerParameter,
+  DateRangeParameter,
+  DateRelativePicker,
+  ParamSelector,
+  ParamMultiSelector,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   chartRegistry,
 } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
+import { useParameterValues } from "@/stores/parameter-store";
+import { extractReferencedParams } from "@/hooks/use-widget-query";
+
+/**
+ * Wraps a query with a row limit for preview-only execution.
+ * PostgreSQL uses a subquery wrapper; Cypher appends LIMIT.
+ * This MUST NOT be applied to production dashboard queries.
+ */
+export function wrapWithPreviewLimit(
+  query: string,
+  connectorType: "neo4j" | "postgresql",
+  limit = 25
+): string {
+  const trimmed = query.trim().replace(/;$/, "");
+  if (!trimmed) return trimmed;
+  if (connectorType === "postgresql") {
+    return `SELECT * FROM (${trimmed}) AS __preview LIMIT ${limit}`;
+  }
+  // Cypher — skip if the query already ends with a LIMIT clause to avoid
+  // "Multiple LIMIT clauses are not allowed" syntax errors in Neo4j.
+  if (/\bLIMIT\s+\d+\s*$/i.test(trimmed)) {
+    return trimmed;
+  }
+  return `${trimmed} LIMIT ${limit}`;
+}
 
 /** Icon + label map for chart type dropdown (keeps chart-registry free of UI concerns) */
 const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon }> = {
@@ -61,6 +101,84 @@ const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon }> = {
   json: { label: "JSON Viewer", Icon: Braces },
   "parameter-select": { label: "Parameter Selector", Icon: SlidersHorizontal },
 };
+
+/** Per-chart-type hints shown next to the Query label to guide column conventions. */
+const QUERY_HINTS: Partial<Record<ChartType, string>> = {
+  bar:
+    "Return 2+ columns: first = category label (string), rest = numeric series.\n" +
+    "Example: RETURN genre, count(*) AS films",
+  line:
+    "Return 2+ columns: first = x-axis label, rest = numeric series.\n" +
+    "Example: RETURN month, revenue, expenses",
+  pie:
+    "Return 2 columns: first = slice label (string), second = numeric value.\n" +
+    "Example: RETURN category, count(*) AS total",
+  "single-value":
+    "Return a single row with 1 numeric column.\n" +
+    "For trend mode, return 2 rows (current then previous period).\n" +
+    "Example: RETURN count(n) AS total",
+  graph:
+    "Return nodes, relationships, or paths — not tabular data.\n" +
+    "Example: MATCH (a)-[r]->(b) RETURN a, r, b",
+  map:
+    "Return 3 columns in order: latitude (number), longitude (number), label (string).\n" +
+    "Example: RETURN lat, lng, name",
+  table:
+    "Return any columns — all are displayed as-is.\n" +
+    "Example: SELECT * FROM orders LIMIT 100",
+  json:
+    "Return any data — rendered as a collapsible JSON tree.\n" +
+    "Example: RETURN properties(n) AS data",
+};
+
+// ── Parameter type mapping helpers ──────────────────────────────────
+type ParamUIType = "date" | "freetext" | "select";
+type DateSubType = "single" | "range" | "relative";
+
+function resolveInternalParamType(
+  ui: ParamUIType,
+  dateSub: DateSubType,
+  multi: boolean
+): string {
+  if (ui === "date") {
+    return dateSub === "range"
+      ? "date-range"
+      : dateSub === "relative"
+        ? "date-relative"
+        : "date";
+  }
+  if (ui === "freetext") return "text";
+  return multi ? "multi-select" : "select";
+}
+
+function reverseParamTypeMapping(t: string): {
+  uiType: ParamUIType;
+  dateSub: DateSubType;
+  multi: boolean;
+} {
+  switch (t) {
+    case "date":
+      return { uiType: "date", dateSub: "single", multi: false };
+    case "date-range":
+      return { uiType: "date", dateSub: "range", multi: false };
+    case "date-relative":
+      return { uiType: "date", dateSub: "relative", multi: false };
+    case "text":
+      return { uiType: "freetext", dateSub: "single", multi: false };
+    case "multi-select":
+      return { uiType: "select", dateSub: "single", multi: true };
+    default:
+      return { uiType: "select", dateSub: "single", multi: false };
+  }
+}
+
+const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> = {
+  date: { label: "Date Picker", Icon: Calendar },
+  freetext: { label: "Freetext", Icon: Type },
+  select: { label: "Select", Icon: ListFilter },
+};
+
+const paramTypes = Object.keys(paramTypeMeta) as ParamUIType[];
 
 // CodeMirror accesses real DOM APIs — load it only client-side.
 const QueryEditor = dynamic(
@@ -79,6 +197,48 @@ export interface WidgetEditorModalProps {
   connections: ConnectionListItem[];
   /** Called with the final widget data on save */
   onSave: (widget: DashboardWidget) => void;
+}
+
+/**
+ * Debounced seed query input — local draft state + 300ms debounce before
+ * syncing to chartOptions to prevent excessive re-renders on every keystroke.
+ */
+function SeedQueryInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  // Sync external value changes (e.g. mode reset) into draft
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  // Debounce: sync draft → parent after 300ms idle
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onChangeRef.current(draft);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft]);
+
+  return (
+    <Textarea
+      id="seed-query"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      placeholder={placeholder}
+      className="font-mono min-h-[80px]"
+      rows={3}
+    />
+  );
 }
 
 export function WidgetEditorModal({
@@ -126,11 +286,34 @@ export function WidgetEditorModal({
     (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5
   );
 
+  // Parameter widget editor state (only used when chartType === "parameter-select")
+  const [paramUIType, setParamUIType] = useState<ParamUIType>("select");
+  const [dateSub, setDateSub] = useState<DateSubType>("single");
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [paramWidgetName, setParamWidgetName] = useState("");
+
+  // Seed query preview options — populated when user clicks "Test Seed Query"
+  const seedQueryExecution = useQueryExecution();
+  const seedPreviewOptions = useMemo(() => {
+    if (!seedQueryExecution.data?.data) return null;
+    const rows = seedQueryExecution.data.data;
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    return rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      const keys = Object.keys(r);
+      return {
+        value: String(r[keys[0]] ?? ""),
+        label: keys.length > 1 ? String(r[keys[1]] ?? r[keys[0]] ?? "") : String(r[keys[0]] ?? ""),
+      };
+    });
+  }, [seedQueryExecution.data]);
+
   // Track whether the connector was changed in edit mode so we can warn
   // the user that their query may no longer be valid.
   const [connectorChanged, setConnectorChanged] = useState(false);
 
   const previewQuery = useQueryExecution();
+  const allParamValues = useParameterValues();
 
   // Derive the selected connection object so we can read its type
   const selectedConnection = useMemo(
@@ -185,6 +368,11 @@ export function WidgetEditorModal({
         setEnableCache(true);
         setCacheTtlMinutes(5);
         setConnectorChanged(false);
+        setParamUIType("select");
+        setDateSub("single");
+        setMultiSelect(false);
+        setParamWidgetName("");
+        seedQueryExecution.reset();
         previewQuery.reset();
       } else if (widget) {
         setChartType(widget.chartType);
@@ -202,6 +390,24 @@ export function WidgetEditorModal({
         setEnableCache(widget.settings?.enableCache !== false);
         setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
         setConnectorChanged(false);
+
+        // Initialize parameter editor state from existing widget
+        if (widget.chartType === "parameter-select") {
+          const opts = widget.settings?.chartOptions as Record<string, unknown> | undefined;
+          const internalType = (opts?.parameterType as string) ?? "select";
+          const mapped = reverseParamTypeMapping(internalType);
+          setParamUIType(mapped.uiType);
+          setDateSub(mapped.dateSub);
+          setMultiSelect(mapped.multi);
+          setParamWidgetName((opts?.parameterName as string) ?? "");
+        } else {
+          setParamUIType("select");
+          setDateSub("single");
+          setMultiSelect(false);
+          setParamWidgetName("");
+        }
+
+        seedQueryExecution.reset();
         previewQuery.reset();
       }
     }
@@ -217,9 +423,13 @@ export function WidgetEditorModal({
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
-      previewQuery.mutate({ connectionId, query });
+      const referenced = extractReferencedParams(query, allParamValues);
+      const params = Object.keys(referenced).length > 0 ? referenced : undefined;
+      const connectorType = selectedConnection?.type ?? "neo4j";
+      const previewQuery_ = wrapWithPreviewLimit(query, connectorType);
+      previewQuery.mutate({ connectionId, query: previewQuery_, params });
     }
-  }, [connectionId, query, previewQuery]);
+  }, [connectionId, query, previewQuery, allParamValues, selectedConnection]);
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
@@ -320,28 +530,38 @@ export function WidgetEditorModal({
     return [];
   }, [previewQuery.data]);
 
+  const isParamSelect = chartType === "parameter-select";
+
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
     const clickAction: ClickAction | undefined =
-      clickActionEnabled && parameterName && sourceField
+      !isParamSelect && clickActionEnabled && parameterName && sourceField
         ? {
             type: "set-parameter",
             parameterMapping: { parameterName, sourceField },
           }
         : undefined;
+    const resolvedChartOptions = isParamSelect
+      ? {
+          ...chartOptions,
+          parameterType: resolveInternalParamType(paramUIType, dateSub, multiSelect),
+          parameterName: paramWidgetName,
+          seedQuery: paramUIType === "select" ? (chartOptions.seedQuery ?? "") : undefined,
+        }
+      : chartOptions;
     onSave({
       id,
       chartType,
-      connectionId,
-      query,
+      connectionId: isParamSelect && paramUIType !== "select" ? "" : connectionId,
+      query: isParamSelect ? "" : query,
       params: widget?.params,
       settings: {
         ...(widget?.settings ?? {}),
         title: title || undefined,
-        chartOptions,
+        chartOptions: resolvedChartOptions,
         clickAction,
-        enableCache,
-        cacheTtlMinutes,
+        enableCache: isParamSelect ? undefined : enableCache,
+        cacheTtlMinutes: isParamSelect ? undefined : cacheTtlMinutes,
       },
     });
     onOpenChange(false);
@@ -356,10 +576,11 @@ export function WidgetEditorModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 min-h-[450px]">
-          {/* Left column: settings */}
-          <div className="space-y-4 overflow-y-auto max-h-[500px] pr-2">
-            <div className="space-y-1.5">
+        <div className="py-4 min-h-[450px]" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: "1.5rem" }}>
+          {/* Left column: tabs + settings */}
+          <div className="overflow-y-auto max-h-[500px] pr-2">
+            {/* Widget title — always visible above tabs */}
+            <div className="space-y-1.5 mb-4">
               <Label htmlFor="widget-title">Widget Title</Label>
               <Input
                 id="widget-title"
@@ -369,186 +590,399 @@ export function WidgetEditorModal({
               />
             </div>
 
-            {/* Connection selector — always visible */}
-            <div className="space-y-1.5">
-              <Label>Connection</Label>
-              <Combobox
-                value={connectionId}
-                onChange={handleConnectionChange}
-                options={connections.map((c) => ({
-                  value: c.id,
-                  label: `${c.name} (${c.type})`,
-                }))}
-                placeholder="Select a connection..."
-                searchPlaceholder="Search connections..."
-                emptyText="No connections found."
-                className="w-full"
-              />
-              {connectorChanged && (
-                <Alert variant="default" className="mt-1 py-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle className="text-sm">Connector changed</AlertTitle>
-                  <AlertDescription className="text-xs">
-                    Switching connectors may make the existing query invalid.
-                    Review the query before saving.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-
-            {/* Chart type dropdown with icons */}
-            <div className="space-y-1.5">
-              <Label>Chart Type</Label>
-              <Select
-                value={chartType}
-                onValueChange={(t) => {
-                  setChartType(t);
-                  setChartOptions(getDefaultChartSettings(t));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select chart type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {compatibleChartTypes.map((type) => {
-                    const meta = chartTypeMeta[type];
-                    const Icon = meta.Icon;
-                    return (
-                      <SelectItem key={type} value={type}>
-                        <span className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
-                          {meta.label}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="editor-query">Query</Label>
-              <QueryEditor
-                value={query}
-                onChange={setQuery}
-                onRun={handlePreview}
-                language={editorLanguage}
-                placeholder={
-                  editorLanguage === "sql"
-                    ? "SELECT * FROM users LIMIT 10"
-                    : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-                }
-                className="min-h-[160px]"
-              />
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-medium mb-3">Data Settings</h4>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-cache"
-                    checked={enableCache}
-                    onCheckedChange={(checked) => setEnableCache(!!checked)}
-                  />
-                  <Label htmlFor="enable-cache" className="text-sm">
-                    Cache results
-                  </Label>
-                </div>
-                {enableCache && (
-                  <div className="pl-6 space-y-1.5">
-                    <Label htmlFor="cache-ttl" className="text-sm">
-                      Cache timeout (minutes)
-                    </Label>
-                    <Input
-                      id="cache-ttl"
-                      type="number"
-                      min={1}
-                      max={1440}
-                      value={cacheTtlMinutes}
-                      onChange={(e) =>
-                        setCacheTtlMinutes(Math.max(1, Number(e.target.value)))
-                      }
-                      className="w-24"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Results are reused for up to {cacheTtlMinutes} minute{cacheTtlMinutes !== 1 ? "s" : ""} before re-querying.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-medium mb-3">Chart Options</h4>
-              <ChartOptionsPanel
-                chartType={chartType}
-                settings={chartOptions}
-                onSettingsChange={setChartOptions}
-              />
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Checkbox
-                  id="click-action-enabled"
-                  checked={clickActionEnabled}
-                  onCheckedChange={(checked) => setClickActionEnabled(!!checked)}
-                />
-                <Label htmlFor="click-action-enabled" className="text-sm font-medium">
-                  Enable click action
-                </Label>
-              </div>
-              {clickActionEnabled && (
-                <div className="space-y-3 pl-6">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="param-name">Parameter Name</Label>
-                    <Input
-                      id="param-name"
-                      value={parameterName}
-                      onChange={(e) => setParameterName(e.target.value)}
-                      placeholder={`param_${(title || chartType).toLowerCase().replace(/\s+/g, "_")}`}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Other widgets can reference this as <code>$param_{parameterName || "name"}</code> in their queries.
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="source-field">Source Field</Label>
-                    {availableFields.length > 0 ? (
-                      <Select value={sourceField} onValueChange={setSourceField}>
-                        <SelectTrigger id="source-field">
-                          <SelectValue placeholder="Select a field..." />
+            <ChartSettingsPanel
+              dataTab={
+                <div className="space-y-4">
+                  {/* Connection + Chart Type on the same row */}
+                  {(!isParamSelect || paramUIType === "select") ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Connection */}
+                      <div className="space-y-1.5">
+                        <Label>Connection <span className="text-destructive">*</span></Label>
+                        <Combobox
+                          value={connectionId}
+                          onChange={handleConnectionChange}
+                          options={connections.map((c) => ({
+                            value: c.id,
+                            label: `${c.name} (${c.type})`,
+                          }))}
+                          placeholder="Select a connection..."
+                          searchPlaceholder="Search connections..."
+                          emptyText="No connections found."
+                          className="w-full"
+                        />
+                      </div>
+                      {/* Chart Type */}
+                      <div className="space-y-1.5">
+                        <Label>Chart Type</Label>
+                        <Select
+                          value={chartType}
+                          onValueChange={(t) => {
+                            setChartType(t);
+                            setChartOptions(getDefaultChartSettings(t));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select chart type..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {compatibleChartTypes.map((type) => {
+                              const meta = chartTypeMeta[type];
+                              const Icon = meta.Icon;
+                              return (
+                                <SelectItem key={type} value={type}>
+                                  <span className="flex items-center gap-2">
+                                    <Icon className="h-4 w-4" />
+                                    {meta.label}
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Chart Type full-width when no connection is needed */
+                    <div className="space-y-1.5">
+                      <Label>Chart Type</Label>
+                      <Select
+                        value={chartType}
+                        onValueChange={(t) => {
+                          setChartType(t);
+                          setChartOptions(getDefaultChartSettings(t));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select chart type..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableFields.map((f) => (
-                            <SelectItem key={f} value={f}>
-                              {f}
-                            </SelectItem>
-                          ))}
+                          {compatibleChartTypes.map((type) => {
+                            const meta = chartTypeMeta[type];
+                            const Icon = meta.Icon;
+                            return (
+                              <SelectItem key={type} value={type}>
+                                <span className="flex items-center gap-2">
+                                  <Icon className="h-4 w-4" />
+                                  {meta.label}
+                                </span>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
-                    ) : (
-                      <Input
-                        id="source-field"
-                        value={sourceField}
-                        onChange={(e) => setSourceField(e.target.value)}
-                        placeholder="name"
+                    </div>
+                  )}
+
+                  {/* Connector-changed warning */}
+                  {!isParamSelect && connectorChanged && (
+                    <Alert variant="default" className="py-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle className="text-sm">Connector changed</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        Switching connectors may make the existing query invalid.
+                        Review the query before saving.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* ── Parameter config (when parameter-select) ── */}
+                  {isParamSelect && (
+                    <div className="space-y-4" data-testid="param-config-section">
+                      {/* Parameter Type dropdown */}
+                      <div className="space-y-1.5">
+                        <Label>Parameter Type</Label>
+                        <Select
+                          value={paramUIType}
+                          onValueChange={(v) => setParamUIType(v as ParamUIType)}
+                        >
+                          <SelectTrigger data-testid="param-type-select">
+                            <SelectValue placeholder="Select parameter type..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {paramTypes.map((type) => {
+                              const m = paramTypeMeta[type];
+                              const Icon = m.Icon;
+                              return (
+                                <SelectItem key={type} value={type}>
+                                  <span className="flex items-center gap-2">
+                                    <Icon className="h-4 w-4" />
+                                    {m.label}
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Date mode (only for date) */}
+                      {paramUIType === "date" && (
+                        <div className="space-y-1.5">
+                          <Label>Date Mode</Label>
+                          <Select value={dateSub} onValueChange={(v) => setDateSub(v as DateSubType)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="single">Single Date</SelectItem>
+                              <SelectItem value="range">Date Range</SelectItem>
+                              <SelectItem value="relative">Relative Date</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Multi-select toggle (only for select) */}
+                      {paramUIType === "select" && (
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="multi-select-toggle"
+                            checked={multiSelect}
+                            onCheckedChange={(checked) => setMultiSelect(!!checked)}
+                          />
+                          <Label htmlFor="multi-select-toggle" className="text-sm">
+                            Allow multiple selections
+                          </Label>
+                        </div>
+                      )}
+
+                      {/* Seed Query (only for select type) */}
+                      {paramUIType === "select" && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="seed-query">Seed Query <span className="text-destructive">*</span></Label>
+                          <p className="text-xs text-muted-foreground">
+                            Use columns named <code className="bg-muted px-1 rounded">value</code> and <code className="bg-muted px-1 rounded">label</code> (recommended), or first column = value, second = label
+                          </p>
+                          <SeedQueryInput
+                            value={(chartOptions.seedQuery as string) ?? ""}
+                            onChange={(v) => setChartOptions((prev) => ({ ...prev, seedQuery: v }))}
+                            placeholder="SELECT DISTINCT value FROM table ORDER BY value"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            disabled={!connectionId || !(chartOptions.seedQuery as string)?.trim()}
+                            onClick={() => {
+                              const sq = (chartOptions.seedQuery as string) ?? "";
+                              if (connectionId && sq.trim()) {
+                                seedQueryExecution.mutate({ connectionId, query: sq });
+                              }
+                            }}
+                          >
+                            {seedQueryExecution.isPending ? "Running..." : "Test Seed Query"}
+                          </Button>
+                          {seedQueryExecution.isError && (
+                            <p className="text-xs text-destructive mt-1">
+                              {seedQueryExecution.error.message}
+                            </p>
+                          )}
+                          {seedPreviewOptions && seedPreviewOptions.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {seedPreviewOptions.length} option{seedPreviewOptions.length !== 1 ? "s" : ""} loaded — see preview
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Parameter Name */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="param-widget-name">Parameter Name <span className="text-destructive">*</span></Label>
+                        <Input
+                          id="param-widget-name"
+                          value={paramWidgetName}
+                          onChange={(e) => setParamWidgetName(e.target.value)}
+                          placeholder="e.g. country"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Used to reference this parameter in widget queries
+                        </p>
+                      </div>
+
+                      {/* Reference hint */}
+                      {paramWidgetName && (
+                        <div className="border-t pt-4" data-testid="param-reference-hint">
+                          <h4 className="text-sm font-medium mb-2">Reference in queries</h4>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            <p>
+                              Other widgets can use this parameter as:{" "}
+                              <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+                                $param_{paramWidgetName}
+                              </code>
+                            </p>
+                            {paramUIType === "date" && (dateSub === "range" || dateSub === "relative") && (
+                              <p>
+                                Date range sub-parameters:{" "}
+                                <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{paramWidgetName}_from</code>,{" "}
+                                <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{paramWidgetName}_to</code>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Query editor (non-parameter types) ── */}
+                  {!isParamSelect && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="editor-query">
+                          Query <span className="text-destructive">*</span>
+                        </Label>
+                        {chartType && QUERY_HINTS[chartType as ChartType] && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-line">
+                              {QUERY_HINTS[chartType as ChartType]}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                      <QueryEditor
+                        value={query}
+                        onChange={setQuery}
+                        onRun={handlePreview}
+                        language={editorLanguage}
+                        readOnly={!connectionId}
+                        placeholder={
+                          !connectionId
+                            ? "Select a connection first to write a query"
+                            : editorLanguage === "sql"
+                            ? "SELECT * FROM users LIMIT 10"
+                            : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
+                        }
+                        className="min-h-[220px]"
                       />
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      The data field whose value is sent when a chart element is clicked.
-                    </p>
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              }
+              styleTab={
+                <ChartOptionsPanel
+                  chartType={chartType}
+                  settings={chartOptions}
+                  onSettingsChange={setChartOptions}
+                />
+              }
+              advancedTab={
+                isParamSelect ? (
+                  <p className="text-sm text-muted-foreground">
+                    No advanced options for parameter widgets.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Caching */}
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                        Caching
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="enable-cache"
+                          checked={enableCache}
+                          onCheckedChange={(checked) => setEnableCache(!!checked)}
+                        />
+                        <Label htmlFor="enable-cache" className="text-sm">
+                          Cache query results
+                        </Label>
+                      </div>
+                      {enableCache && (
+                        <div className="pl-6 space-y-1.5">
+                          <Label htmlFor="cache-ttl" className="text-sm">
+                            Cache timeout (minutes)
+                          </Label>
+                          <Input
+                            id="cache-ttl"
+                            type="number"
+                            min={1}
+                            max={1440}
+                            value={cacheTtlMinutes}
+                            onChange={(e) =>
+                              setCacheTtlMinutes(Math.max(1, Number(e.target.value)))
+                            }
+                            className="w-24"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Results are reused for up to {cacheTtlMinutes} minute{cacheTtlMinutes !== 1 ? "s" : ""} before re-querying.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Interactivity */}
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                        Interactivity
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="click-action-enabled"
+                          checked={clickActionEnabled}
+                          onCheckedChange={(checked) => setClickActionEnabled(!!checked)}
+                        />
+                        <Label htmlFor="click-action-enabled" className="text-sm">
+                          Enable click action
+                        </Label>
+                      </div>
+                      {clickActionEnabled && (
+                        <div className="space-y-3 pl-6">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="param-name">Parameter Name</Label>
+                            <Input
+                              id="param-name"
+                              value={parameterName}
+                              onChange={(e) => setParameterName(e.target.value)}
+                              placeholder={`param_${(title || chartType).toLowerCase().replace(/\s+/g, "_")}`}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Other widgets can reference this as <code>$param_{parameterName || "name"}</code> in their queries.
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="source-field">Source Field</Label>
+                            {availableFields.length > 0 ? (
+                              <Select value={sourceField} onValueChange={setSourceField}>
+                                <SelectTrigger id="source-field">
+                                  <SelectValue placeholder="Select a field..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableFields.map((f) => (
+                                    <SelectItem key={f} value={f}>
+                                      {f}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                id="source-field"
+                                value={sourceField}
+                                onChange={(e) => setSourceField(e.target.value)}
+                                placeholder="name"
+                              />
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              The data field whose value is sent when a chart element is clicked.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+            />
           </div>
 
           {/* Right column: preview */}
           <div className="flex flex-col">
             <Label className="mb-2">Preview</Label>
-            {previewQuery.isError && (
+            {!isParamSelect && previewQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Query Failed</AlertTitle>
@@ -561,28 +995,104 @@ export function WidgetEditorModal({
               </Alert>
             )}
 
-            <div className="flex-1 border rounded-lg overflow-hidden min-h-[300px] relative">
-              {previewQuery.isPending && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="h-[320px] overflow-hidden border rounded-lg relative">
+              {isParamSelect ? (
+                <div className="h-full flex items-center justify-center p-6" data-testid="param-preview">
+                  <div className="w-full max-w-xs space-y-3">
+                    <Label className="text-xs text-muted-foreground block">
+                      {paramWidgetName ? `$param_${paramWidgetName}` : "Parameter preview"}
+                    </Label>
+                    {paramUIType === "freetext" && (
+                      <TextInputParameter
+                        parameterName={paramWidgetName || "preview"}
+                        value=""
+                        onChange={() => {}}
+                        placeholder={
+                          (chartOptions.placeholder as string) || "Type a value..."
+                        }
+                      />
+                    )}
+                    {paramUIType === "date" && dateSub === "single" && (
+                      <DatePickerParameter
+                        parameterName={paramWidgetName || "preview"}
+                        value=""
+                        onChange={() => {}}
+                      />
+                    )}
+                    {paramUIType === "date" && dateSub === "range" && (
+                      <DateRangeParameter
+                        parameterName={paramWidgetName || "preview"}
+                        from=""
+                        to=""
+                        onChange={() => {}}
+                      />
+                    )}
+                    {paramUIType === "date" && dateSub === "relative" && (
+                      <DateRelativePicker
+                        parameterName={paramWidgetName || "preview"}
+                        value=""
+                        onChange={() => {}}
+                      />
+                    )}
+                    {paramUIType === "select" && !multiSelect && (
+                      <ParamSelector
+                        parameterName={paramWidgetName || "preview"}
+                        value=""
+                        onChange={() => {}}
+                        options={seedPreviewOptions ?? [
+                          { value: "option-1", label: "Option 1" },
+                          { value: "option-2", label: "Option 2" },
+                          { value: "option-3", label: "Option 3" },
+                        ]}
+                        loading={seedQueryExecution.isPending}
+                        placeholder={
+                          (chartOptions.placeholder as string) || "Select..."
+                        }
+                      />
+                    )}
+                    {paramUIType === "select" && multiSelect && (
+                      <ParamMultiSelector
+                        parameterName={paramWidgetName || "preview"}
+                        values={[]}
+                        onChange={() => {}}
+                        options={seedPreviewOptions ?? [
+                          { value: "option-1", label: "Option 1" },
+                          { value: "option-2", label: "Option 2" },
+                          { value: "option-3", label: "Option 3" },
+                        ]}
+                        loading={seedQueryExecution.isPending}
+                        placeholder={
+                          (chartOptions.placeholder as string) || "Select..."
+                        }
+                      />
+                    )}
+                  </div>
                 </div>
-              )}
-              {previewQuery.data ? (
-                <CardContainer
-                  widget={{
-                    id: "preview",
-                    chartType,
-                    connectionId,
-                    query,
-                    settings: { chartOptions },
-                  }}
-                  previewData={previewQuery.data.data}
-                  previewResultId={previewQuery.data.resultId}
-                />
               ) : (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  Run a query to see the preview
-                </div>
+                <>
+                  {previewQuery.isPending && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  )}
+                  {previewQuery.data ? (
+                    <CardContainer
+                      widget={{
+                        id: "preview",
+                        chartType,
+                        connectionId,
+                        query,
+                        settings: { chartOptions },
+                      }}
+                      previewData={previewQuery.data.data}
+                      previewResultId={previewQuery.data.resultId}
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                      Run a query to see the preview
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -598,7 +1108,12 @@ export function WidgetEditorModal({
           </Button>
           <LoadingButton
             type="button"
-            disabled={!query.trim()}
+            disabled={
+              isParamSelect
+                ? !paramWidgetName.trim() ||
+                  (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
+                : !query.trim()
+            }
             loading={saveStatus === "saving"}
             loadingText="Saving..."
             onClick={handleSave}

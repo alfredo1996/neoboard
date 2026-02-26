@@ -206,6 +206,16 @@ function QueryEditor({
       // Guard again after the second batch of dynamic imports.
       if (abortSignal.aborted || !containerRef.current) return;
 
+      // Final cleanup right before creating the view — prevents duplicates
+      // when two initEditor calls race (e.g. React 19 strict mode remount).
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      }
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
+      }
+
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
     },
@@ -222,6 +232,15 @@ function QueryEditor({
       abortSignal.aborted = true;
       viewRef.current?.destroy();
       viewRef.current = null;
+      // Reset so the reinit effect skips on the next mount (React 19
+      // strict mode: mount → cleanup → mount).
+      isFirstRender.current = true;
+      // Clear leftover DOM children to prevent duplicate editors.
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          containerRef.current.removeChild(containerRef.current.firstChild);
+        }
+      }
     };
     // Only runs once; language/schema changes are handled by the next effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -240,6 +259,12 @@ function QueryEditor({
     initEditor(doc, abortSignal);
     return () => {
       abortSignal.aborted = true;
+      // Clear leftover DOM children to prevent duplicate editors
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          containerRef.current.removeChild(containerRef.current.firstChild);
+        }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, readOnly]);
@@ -302,7 +327,7 @@ function QueryEditor({
       : (language ?? "Cypher");
 
   return (
-    <div className={cn("rounded-lg border bg-muted/30 flex flex-col", className)}>
+    <div className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}>
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <div className="flex items-center gap-2">

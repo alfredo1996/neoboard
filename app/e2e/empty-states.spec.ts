@@ -80,7 +80,7 @@ test.describe("Confirm dialog — destructive", () => {
     // Create a uniquely-named dashboard to avoid collision with retries
     const dashName = `Delete Test ${Date.now()}`;
     await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const createDialog = page.getByRole("dialog");
+    const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await createDialog.locator("#dashboard-name").fill(dashName);
     await createDialog.getByRole("button", { name: "Create" }).click();
     await page.waitForURL(/\/edit/, { timeout: 10_000 });
@@ -89,10 +89,10 @@ test.describe("Confirm dialog — destructive", () => {
       timeout: 10_000,
     });
 
-    // Find the dashboard card that contains our name and its Delete button
-    // Each card is a div with both the name text and action buttons
-    const card = page.locator("[class*='cursor-pointer']").filter({ hasText: dashName });
-    await card.getByRole("button", { name: "Delete" }).click();
+    // Open the dashboard options dropdown (Delete is inside a DropdownMenu)
+    const card = page.locator("[class*='cursor-pointer']").filter({ hasText: dashName }).first();
+    await card.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
 
     // Confirm dialog should be visible with destructive warning
     const confirmDialog = page.getByRole("alertdialog");

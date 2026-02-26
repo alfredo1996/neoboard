@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto";
 import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
@@ -13,11 +13,13 @@ const querySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
   params: z.record(z.any()).optional(),
+  /** Optional defense-in-depth field: when provided, must match the session tenant. */
+  tenantId: z.string().optional(),
 });
 
 export async function POST(request: Request) {
   try {
-    const userId = await requireUserId();
+    const { userId, tenantId: sessionTenantId } = await requireSession();
     const body = await request.json();
     const parsed = querySchema.safeParse(body);
 
@@ -28,7 +30,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const { connectionId, query, params } = parsed.data;
+    const { connectionId, query, params, tenantId: bodyTenantId } = parsed.data;
+
+    // Defense-in-depth: if the caller explicitly passes a tenantId,
+    // assert it matches the session to catch misconfigured clients early.
+    if (bodyTenantId && bodyTenantId !== sessionTenantId) {
+      return NextResponse.json({ error: "Tenant mismatch" }, { status: 403 });
+    }
 
     // Verify user owns the connection
     const [connection] = await db

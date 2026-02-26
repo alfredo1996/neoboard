@@ -12,25 +12,23 @@ test.describe("Parameter selectors", () => {
 
   test("should create a parameter-select widget", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Select "Parameter Selector" chart type
-    await dialog.getByText("Param", { exact: false }).click();
-    await dialog.getByRole("combobox").click();
+    // Select "Parameter Selector" chart type
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
     // Select Neo4j connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Configure the query for distinct values
-    await expect(dialog.getByText("Configure")).toBeVisible();
-    await dialog
-      .getByLabel("Query")
-      .fill("MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10");
-
-    // Set the parameter name via ChartOptionsPanel (rendered from chart-options-schema)
-    const paramInput = dialog.locator("#parameterName").or(
-      dialog.getByLabel("Parameter Name")
+    // Configure the query for distinct values via the seed-query textarea
+    // (CodeMirror is hidden for parameter-select widgets; SeedQueryInput uses a textarea)
+    await dialog.locator("#seed-query").fill(
+      "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
     );
+
+    // Set the parameter name
+    const paramInput = dialog.getByLabel("Parameter Name");
     await expect(paramInput).toBeVisible({ timeout: 5_000 });
     await paramInput.fill("year");
 
@@ -42,26 +40,26 @@ test.describe("Parameter selectors", () => {
     page,
   }) => {
     await page.getByRole("button", { name: "Add Widget" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Step 1: Select Bar chart
-    await dialog.getByText("Bar", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Select Bar Chart (default) + connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Step 2: Write query and run it
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 5"
-      );
-    await dialog.getByRole("button", { name: "Run Query" }).click();
+    // Write query and run it
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 5"
+    );
+    await dialog.getByRole("button", { name: "Run" }).click();
     // Wait for preview
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
       timeout: 15_000,
     });
 
+    // Navigate to Advanced tab — click action settings live there
+    await dialog.getByRole("tab", { name: "Advanced" }).click();
     // Enable click action
     await dialog.getByLabel("Enable click action").click();
     // Parameter name input should appear
@@ -112,7 +110,7 @@ test.describe("Parameter-to-refresh cycle", () => {
 
     // Create a fresh dashboard for this test
     await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const createDialog = page.getByRole("dialog");
+    const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await createDialog.locator("#dashboard-name").fill("Param Cycle Test");
     await createDialog.getByRole("button", { name: "Create" }).click();
     await page.waitForURL(/\/edit/, { timeout: 10_000 });
@@ -121,27 +119,25 @@ test.describe("Parameter-to-refresh cycle", () => {
     // --- Widget 1: Parameter-select (year dropdown) ---
     // Use .first() because a fresh dashboard shows both a toolbar and an empty-state "Add Widget" button
     await page.getByRole("button", { name: "Add Widget" }).first().click();
-    let dialog = page.getByRole("dialog");
+    // Scope dialog to the "Add Widget" modal by name to avoid matching Radix popovers
+    // that also have role="dialog" and can cause strict mode violations
+    let dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    // Select "Param" chart type
-    await dialog.getByText("Param", { exact: false }).click();
+    // Select "Parameter Selector" chart type
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
     // Select Neo4j connection
-    await dialog.getByRole("combobox").click();
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    // Configure query for distinct years
-    await expect(dialog.getByText("Configure")).toBeVisible();
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
-      );
+    // Configure query for distinct years via the seed-query textarea
+    // (CodeMirror is hidden for parameter-select widgets; SeedQueryInput uses a textarea)
+    await dialog.locator("#seed-query").fill(
+      "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
+    );
 
-    // Set parameterName via ChartOptionsPanel (id="parameterName") or fallback
-    const paramNameInput = dialog
-      .locator("#parameterName")
-      .or(dialog.getByLabel("Parameter Name"));
+    // Set parameter name
+    const paramNameInput = dialog.getByLabel("Parameter Name");
     await paramNameInput.fill("year");
 
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -149,18 +145,20 @@ test.describe("Parameter-to-refresh cycle", () => {
 
     // --- Widget 2: Dependent table using $param_year ---
     await page.getByRole("button", { name: "Add Widget" }).first().click();
-    dialog = page.getByRole("dialog");
+    dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByText("Table", { exact: true }).click();
-    await dialog.getByRole("combobox").click();
+    // Select "Data Table" chart type
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+    // Select connection
+    await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Next" }).click();
 
-    await dialog
-      .getByLabel("Query")
-      .fill(
-        "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5"
-      );
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText(
+      "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5"
+    );
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -177,8 +175,8 @@ test.describe("Parameter-to-refresh cycle", () => {
     await expect(page.getByText("year", { exact: true })).toBeVisible({ timeout: 15_000 });
 
     // Select a value from the parameter dropdown.
-    // The ParameterSelectRenderer renders a Select with placeholder "Select a value..."
-    const paramTrigger = page.getByText("Select a value...");
+    // The ParamSelector placeholder uses Unicode ellipsis "…" (U+2026), not three periods
+    const paramTrigger = page.getByText("Select a value…");
     await paramTrigger.click();
     // Pick the first available year option from the Radix select dropdown
     const firstOption = page.getByRole("option").first();

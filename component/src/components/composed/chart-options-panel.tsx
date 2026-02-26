@@ -1,4 +1,5 @@
 import * as React from "react";
+import { HelpCircle } from "lucide-react";
 import { getChartOptions } from "./chart-options-schema";
 import type { ChartOptionDef } from "./chart-options-schema";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export interface ChartOptionsPanelProps {
@@ -18,6 +25,24 @@ export interface ChartOptionsPanelProps {
   settings: Record<string, unknown>;
   onSettingsChange: (settings: Record<string, unknown>) => void;
   className?: string;
+}
+
+function OptionLabel({ option }: { option: ChartOptionDef }) {
+  return (
+    <Label htmlFor={option.key} className="text-sm flex items-center gap-1">
+      {option.label}
+      {option.description && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs">
+            {option.description}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </Label>
+  );
 }
 
 function OptionField({
@@ -33,9 +58,7 @@ function OptionField({
     case "boolean":
       return (
         <div className="flex items-center justify-between">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Switch
             id={option.key}
             checked={Boolean(value ?? option.default)}
@@ -47,9 +70,7 @@ function OptionField({
     case "select":
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Select
             value={String(value ?? option.default)}
             onValueChange={(v) => onChange(option.key, v)}
@@ -71,9 +92,7 @@ function OptionField({
     case "text":
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Input
             id={option.key}
             value={String(value ?? option.default ?? "")}
@@ -86,9 +105,7 @@ function OptionField({
     case "number":
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Input
             id={option.key}
             type="number"
@@ -144,6 +161,7 @@ function ChartOptionsPanel({
   }
 
   return (
+    <TooltipProvider>
     <div className={cn("space-y-4", className)}>
       {options.length > 4 && (
         <Input
@@ -171,6 +189,7 @@ function ChartOptionsPanel({
         ))}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
