@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { DataGrid } from "../data-grid";
+import { DataGridColumnHeader } from "../data-grid-column-header";
 import type { ColumnDef } from "@tanstack/react-table";
 
 interface TestRow {
@@ -63,6 +64,59 @@ describe("DataGrid", () => {
     render(<DataGrid columns={columns} data={data} enableSorting />);
     // Verify data renders (sorting model is configured internally)
     expect(screen.getByText("Alice")).toBeInTheDocument();
+  });
+
+  it("does not render sort buttons when enableSorting is false", () => {
+    // Columns using DataGridColumnHeader — when enableSorting=false the header
+    // should render as a plain div (no Button) because column.getCanSort() === false.
+    const sortableColumns: ColumnDef<TestRow, unknown>[] = [
+      {
+        accessorKey: "name",
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Name" />
+        ),
+      },
+      {
+        accessorKey: "email",
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Email" />
+        ),
+      },
+    ];
+    render(
+      <DataGrid columns={sortableColumns} data={data} enableSorting={false} />
+    );
+    // Column headers should be plain text with no sort button
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Email")).toBeInTheDocument();
+    // No sort-trigger buttons should appear in the header
+    expect(screen.queryByRole("button", { name: /name/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /email/i })).not.toBeInTheDocument();
+  });
+
+  it("renders sort buttons when enableSorting is true", () => {
+    // Columns using DataGridColumnHeader — when enableSorting=true the header
+    // renders as a Button (dropdown trigger) because column.getCanSort() === true.
+    const sortableColumns: ColumnDef<TestRow, unknown>[] = [
+      {
+        accessorKey: "name",
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Name" />
+        ),
+      },
+      {
+        accessorKey: "email",
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Email" />
+        ),
+      },
+    ];
+    render(
+      <DataGrid columns={sortableColumns} data={data} enableSorting={true} />
+    );
+    // Column headers should render as buttons (dropdown triggers for sorting)
+    expect(screen.getByRole("button", { name: /name/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /email/i })).toBeInTheDocument();
   });
 
   it("renders checkboxes when enableSelection is true", () => {
