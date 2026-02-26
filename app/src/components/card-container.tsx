@@ -399,7 +399,7 @@ export function CardContainer({
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const widgetQuery = useWidgetQuery(queryInput, { staleTime });
+  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime });
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
@@ -503,9 +503,18 @@ export function CardContainer({
   if (widgetQuery.isPending && widgetQuery.fetchStatus === "idle") {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-sm text-muted-foreground text-center">
-          Waiting for parameters&hellip;
-        </p>
+        <div className="text-center space-y-2">
+          <p className="text-sm text-muted-foreground">Waiting for parameters&hellip;</p>
+          {missingParams.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {missingParams.map((name) => (
+                <code key={name} className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
+                  $param_{name}
+                </code>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -565,6 +574,12 @@ export function CardContainer({
 
   return (
     <div className="h-full w-full flex flex-col">
+      {widgetQuery.data?.truncated && (
+        <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 border-b flex items-center gap-1.5">
+          <span>&#9888;</span>
+          <span>Showing first 10,000 rows. Refine your query to see all results.</span>
+        </div>
+      )}
       <div className="flex-1 min-h-0">
         <ChartRenderer
           type={chartConfig.type}
