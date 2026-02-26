@@ -24,7 +24,7 @@ npm run build                        # Production build + type-check
 npm run lint                         # ESLint all packages (root config)
 cd app && npx next lint --fix        # Auto-fix lint errors in app/
 cd app && npm test                   # App Vitest unit tests (API routes, hooks, stores)
-cd component && npm test             # Component Vitest unit tests (826 tests)
+cd component && npm test             # Component Vitest unit tests
 cd connection && npm test            # Connection integration tests (needs Docker)
 npm run test:e2e                     # Playwright E2E (requires Docker)
 npm run storybook                    # Component library viewer
@@ -33,27 +33,42 @@ npm run db:generate                  # Generate migration from schema
 docker compose up                    # Start Neo4j + PostgreSQL dev containers
 ```
 
+## TDD Workflow (mandatory)
+
+Follow Red → Green → Refactor on every change:
+
+1. **Red** — Write a failing test that describes the expected behavior. Do not write implementation yet.
+2. **Green** — Write the minimum code to make the test pass. No gold-plating.
+3. **Refactor** — Clean up without breaking tests.
+
+Rules:
+- Write the test **before** the implementation. No exceptions.
+- Run the relevant test suite before and after every change to confirm Red → Green.
+- Every new behavior, bug fix, and edge case gets a test.
+- Tests live in `__tests__/` next to the file under test, same package.
+- See `claude_code_docs/TESTING_APPROACH.md` for suite structure, commands, and patterns.
+
 ## Working Rules
 
-- Run `cd app && npx next lint --fix` after every change to app/.
+**Code quality:**
+- TypeScript strict. No `any` without a comment explaining why.
+- Run `cd app && npx next lint --fix` after every change to `app/`.
 - Run `npm run lint` from the repo root to lint all packages.
 - Run `npm run build` before committing to catch type errors.
-- New behavior = new tests. No exceptions.
-- Always check if you need to write tests for the code you're working on.
-- Use Conventional Commits: `type(scope): description`.
-- Branch naming: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `security/`.
-- PRs need labels: type + package + area. See `/github` skill.
-- TypeScript strict. No `any` without a comment explaining why.
 - Use `npm`, not `pnpm` or `yarn`.
-- Always run the tests of the related code you're writing before pushing to GitHub.
-- Always update/create new tests that are touched by your changes. 
 
-## PR Reviews
+**Git & PRs:**
+- Conventional Commits: `type(scope): description`.
+- Branch from `main`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
+- PRs target `dev` (integration) before merging to `main`.
+- Do not push if tests are failing.
+- PRs need labels: type + package + area. See `/github` skill.
+- After finishing: PR targeting `dev`, correct milestone/labels, link issue via `Closes #N`.
 
-- Always check CodeRabbit and SonarQube comments on PRs before merging.
-- Address all CodeRabbit suggestions or explicitly dismiss with justification.
+**PR reviews:**
+- Read `gh pr view <number> --comments` when resuming work on an existing PR.
+- Address all CodeRabbit suggestions or dismiss with justification.
 - SonarQube quality gate must pass (coverage, duplications, code smells).
-- When resuming work on an existing PR, read `gh pr view <number> --comments` first.
 
 ## Query Safety — DO NOT VIOLATE
 
@@ -93,42 +108,22 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 
 ## Detailed Docs
 
-Read `claude_code_docs/` before working on specific areas:
+Read before working on specific areas:
 
-- `TESTING_APPROACH.md` — Testing strategy, test commands, CI workflows
-- `v04-widget-power.md` — v0.4 chart/widget/parameter architecture and extension points
-- `sonarqube-and-coverage.md` — SonarCloud integration and coverage setup
-- `performance-testing.md` — Stress testing suite (Playwright + k6)
-- `plans/` — Feature implementation plans
+- `claude_code_docs/TESTING_APPROACH.md` — Testing strategy, test commands, CI workflows
+- `claude_code_docs/sonarqube-and-coverage.md` — SonarCloud integration and coverage setup
 
 ## Migrations
 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
 Test version-skip paths. `--skip-migrations` flag exists for emergency debugging.
 
-## Git strategy
-
-Two long-lived branches: `main` (stable) and `dev` (integration). Branch from `main` for new work; PRs target `dev` for integration testing before merging to `main`.
-
-Branch naming: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
-
-Keep branches separated; do not push if tests are failing.
-
-For a release: create `release/vX.Y.Z` from `dev`, verify, then merge to `main`.
-
-After finishing a branch: create a PR targeting `dev`, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.
-
 ## Design Review
 
-Before touching any UI code, read the design skill files:
+Before touching any UI code:
+1. Read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns. Source of truth for visual consistency.
+2. Read `.claude/skills/screenshot-review/skill.md` — screenshot workflow.
 
-- `.claude/skills/design-review/skill.md` — Design taste document with actual tokens, spacing, typography, color, and chart patterns extracted from this codebase. Treat as source of truth for visual consistency.
-- `.claude/skills/screenshot-review/skill.md` — Screenshot workflow for capturing before/after states and maintaining the baseline suite.
-
-### Rules for UI Changes
-
-- Always read `design-review/skill.md` before modifying any page, component, or layout.
-- Screenshot before AND after any visual change. Store in `.screenshots/before/` and `.screenshots/after/`.
-- Keep the baseline screenshot suite (`.screenshots/baseline-*/`) up to date when adding new pages or flows.
-- Reference baseline screenshots for comparison during code review.
-- New pages/flows must be added to the user story inventory and screenshot suite.
+Rules:
+- Screenshot before AND after any visual change (`screenshots/before/`, `.screenshots/after/`).
+- Keep the baseline suite (`.screenshots/baseline-*/`) up to date for new pages/flows.

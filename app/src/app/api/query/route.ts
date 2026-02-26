@@ -9,6 +9,9 @@ import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 import { computeResultId } from "@/lib/query-hash";
 
+/** Maximum number of rows returned per query execution to prevent OOM. */
+const MAX_ROWS = 10_000;
+
 const querySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
@@ -70,7 +73,15 @@ export async function POST(request: Request) {
     // cache key. Normalization handled inside computeResultId.
     const resultId = computeResultId(connectionId, query, params);
 
-    return NextResponse.json({ ...result, resultId });
+    // TODO: MAX_ROWS truncation currently happens after full materialisation.
+    // Ideally, pass a maxRows option to executeQuery so the driver can stop
+    // reading at MAX_ROWS+1 (cursor/stream consumption) to avoid OOM on very
+    // large result sets. See CodeRabbit review on PR #75.
+    const rawData = result.data;
+    const truncated = Array.isArray(rawData) && rawData.length > MAX_ROWS;
+    const truncatedData = truncated ? (rawData as unknown[]).slice(0, MAX_ROWS) : rawData;
+
+    return NextResponse.json({ ...result, data: truncatedData, resultId, ...(truncated ? { truncated: true } : {}) });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";

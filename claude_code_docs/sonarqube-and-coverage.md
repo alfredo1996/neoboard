@@ -112,7 +112,7 @@ sonar.exclusions=**/node_modules/**,**/__tests__/**,**/*.test.ts,...
 Workflow: `.github/workflows/sonarqube.yml`
 SonarCloud project: **alfredo1996_neoboard** / org: **alfredo1996**
 
-Triggers on push to `main` and all PRs. Steps:
+Triggers on push to `main` or `dev`, and PRs targeting `main` or `dev`. Steps:
 1. Checks out with `fetch-depth: 0` (needed for new code detection and blame)
 2. Starts Postgres + Neo4j service containers for connection integration tests
 3. Runs `test:coverage` for all three packages (serially)

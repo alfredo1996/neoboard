@@ -546,7 +546,7 @@ export const Default: Story = {
     // ── RENDER ───────────────────────────────────────────────────
 
     return (
-      <div className="border rounded-xl bg-background shadow-lg max-w-6xl mx-auto my-6">
+      <div className="border rounded-xl bg-background shadow-lg max-w-[calc(100vw-2rem)] mx-auto my-6">
         {/* Dialog header */}
         <div className="border-b px-6 py-4">
           <h2 className="text-lg font-semibold">Add Widget</h2>
@@ -557,7 +557,7 @@ export const Default: Story = {
           className="p-6 min-h-[520px]"
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
             gap: "1.5rem",
           }}
         >
@@ -633,7 +633,7 @@ export const Default: Story = {
           {/* ─── Right column: preview ─── */}
           <div className="flex flex-col">
             <Label className="mb-2">Preview</Label>
-            <div className="flex-1 border rounded-lg min-h-[400px] relative bg-muted/5">
+            <div className="h-[500px] flex-shrink-0 border rounded-lg relative bg-muted/5">
               {preview}
             </div>
             {isParamSelect && paramName && (
@@ -922,7 +922,7 @@ export const ParameterSelect: Story = {
     );
 
     return (
-      <div className="border rounded-xl bg-background shadow-lg max-w-6xl mx-auto my-6">
+      <div className="border rounded-xl bg-background shadow-lg max-w-[calc(100vw-2rem)] mx-auto my-6">
         <div className="border-b px-6 py-4">
           <h2 className="text-lg font-semibold">Add Parameter Widget</h2>
         </div>
@@ -931,7 +931,7 @@ export const ParameterSelect: Story = {
           className="p-6 min-h-[520px]"
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
             gap: "1.5rem",
           }}
         >
@@ -975,7 +975,7 @@ export const ParameterSelect: Story = {
           {/* Right: preview */}
           <div className="flex flex-col">
             <Label className="mb-2">Preview</Label>
-            <div className="flex-1 border rounded-lg min-h-[400px] relative bg-muted/5">
+            <div className="h-[500px] flex-shrink-0 border rounded-lg relative bg-muted/5">
               {preview}
             </div>
             {paramName && (

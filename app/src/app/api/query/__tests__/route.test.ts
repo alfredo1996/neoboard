@@ -162,4 +162,70 @@ describe("POST /api/query", () => {
     expect(res.status).toBe(500);
     expect((res._body as { error: string }).error).toBe("Driver error");
   });
+
+  // --- MAX_ROWS truncation tests ---
+
+  it("truncates data to 10,000 rows and sets truncated:true when result exceeds MAX_ROWS", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([{ id: "c1", type: "postgresql", configEncrypted: "enc", userId: "user-1" }])
+    );
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    // Return 10001 rows
+    const bigData = Array.from({ length: 10001 }, (_, i) => ({ n: i }));
+    mockExecuteQuery.mockResolvedValue({ data: bigData, fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }));
+    expect(res.status).toBe(200);
+    const body = res._body as { data: unknown[]; truncated?: boolean };
+    expect(body.data).toHaveLength(10000);
+    expect(body.truncated).toBe(true);
+  });
+
+  it("does not truncate and omits truncated flag when result is exactly 10,000 rows", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([{ id: "c1", type: "postgresql", configEncrypted: "enc", userId: "user-1" }])
+    );
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    const data = Array.from({ length: 10000 }, (_, i) => ({ n: i }));
+    mockExecuteQuery.mockResolvedValue({ data, fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }));
+    expect(res.status).toBe(200);
+    const body = res._body as { data: unknown[]; truncated?: boolean };
+    expect(body.data).toHaveLength(10000);
+    expect(body.truncated).toBeUndefined();
+  });
+
+  it("does not truncate when result is well below 10,000 rows", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([{ id: "c1", type: "postgresql", configEncrypted: "enc", userId: "user-1" }])
+    );
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+    expect(res.status).toBe(200);
+    const body = res._body as { data: unknown[]; truncated?: boolean };
+    expect(body.data).toHaveLength(1);
+    expect(body.truncated).toBeUndefined();
+  });
+
+  it("does not apply MAX_ROWS truncation when result data is not an array", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([{ id: "c1", type: "neo4j", configEncrypted: "enc", userId: "user-1" }])
+    );
+    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
+    // Non-array result (e.g. graph data object)
+    mockExecuteQuery.mockResolvedValue({ data: { nodes: [], edges: [] }, fields: [] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
+    expect(res.status).toBe(200);
+    const body = res._body as { data: unknown; truncated?: boolean };
+    expect(body.truncated).toBeUndefined();
+    expect(body.data).toEqual({ nodes: [], edges: [] });
+  });
 });

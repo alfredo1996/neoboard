@@ -569,16 +569,16 @@ export function WidgetEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl">
+      <DialogContent size="full" className="max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {mode === "edit" ? "Edit Widget" : "Add Widget"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="py-4 min-h-[450px]" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: "1.5rem" }}>
+        <div className="py-4 min-h-[520px] flex-1 overflow-y-auto" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "1.5rem" }}>
           {/* Left column: tabs + settings */}
-          <div className="overflow-y-auto max-h-[500px] pr-2">
+          <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
             {/* Widget title — always visible above tabs */}
             <div className="space-y-1.5 mb-4">
               <Label htmlFor="widget-title">Widget Title</Label>
@@ -980,8 +980,8 @@ export function WidgetEditorModal({
           </div>
 
           {/* Right column: preview */}
-          <div className="flex flex-col">
-            <Label className="mb-2">Preview</Label>
+          <div className="flex flex-col gap-2">
+            <Label className="mb-0">Preview</Label>
             {!isParamSelect && previewQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertCircle className="h-4 w-4" />
@@ -995,7 +995,7 @@ export function WidgetEditorModal({
               </Alert>
             )}
 
-            <div className="h-[320px] overflow-hidden border rounded-lg relative">
+            <div className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
               {isParamSelect ? (
                 <div className="h-full flex items-center justify-center p-6" data-testid="param-preview">
                   <div className="w-full max-w-xs space-y-3">
