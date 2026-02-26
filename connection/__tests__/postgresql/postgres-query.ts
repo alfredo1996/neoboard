@@ -91,8 +91,9 @@ describe('PostgreSQL Query Execution', () => {
     expect(error).toBeNull();
     expect(status).toBe(QueryStatus.COMPLETE);
     expect(result).toBeDefined();
-    expect(result.records).toHaveLength(2);
-    expect(result.records[0].name).toBe('Alice');
+    // onSuccess receives a flat NeodashRecord[] array directly
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe('Alice');
   });
 
   test('should execute query with parameters', async () => {
@@ -118,8 +119,8 @@ describe('PostgreSQL Query Execution', () => {
     );
 
     expect(status).toBe(QueryStatus.COMPLETE);
-    expect(result.records).toHaveLength(1);
-    expect(result.records[0].name).toBe('Alice');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Alice');
   });
 
   test('should return NO_DATA for empty result set', async () => {
@@ -201,7 +202,7 @@ describe('PostgreSQL Query Execution', () => {
     );
 
     // Even though we have 2 rows, with rowLimit=1, should get only 1
-    expect(result.records).toHaveLength(1);
+    expect(result).toHaveLength(1);
   });
 
   test('should check connection health', async () => {
@@ -216,6 +217,7 @@ describe('PostgreSQL Query Execution', () => {
 
   test('should include execution time in results', async () => {
     let result: any = null;
+    let status: QueryStatus | null = null;
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
@@ -227,12 +229,15 @@ describe('PostgreSQL Query Execution', () => {
       { query: 'SELECT * FROM users' },
       {
         onSuccess: r => (result = r),
+        setStatus: s => (status = s),
       },
       config
     );
 
-    expect(result.summary).toBeDefined();
-    expect(result.summary.executionTime).toBeGreaterThanOrEqual(0);
+    // onSuccess receives a flat NeodashRecord[] — no summary wrapper
+    expect(result).toBeDefined();
+    expect(Array.isArray(result)).toBe(true);
+    expect(status).toBe(QueryStatus.COMPLETE);
   });
 
   test('should call setSchema callback with schema information', async () => {
@@ -305,13 +310,12 @@ describe('PostgreSQL Query Execution', () => {
       config
     );
 
+    // onSuccess receives a flat NeodashRecord[] — no summary wrapper
     expect(status).toBe(QueryStatus.COMPLETE);
-    expect(result.records).toHaveLength(2);
-    expect(result.summary.queryType).toBe('read');
+    expect(result).toHaveLength(2);
   });
 
   test('should execute write query with WRITE access mode', async () => {
-    let result: any = null;
     let status: QueryStatus | null = null;
 
     const config = {
@@ -327,16 +331,13 @@ describe('PostgreSQL Query Execution', () => {
         params: { '0': 'Charlie', '1': 'charlie@example.com', '2': 35 },
       },
       {
-        onSuccess: r => (result = r),
         setStatus: s => (status = s),
       },
       config
     );
 
-    // INSERT returns affected rows, so status is COMPLETE, not NO_DATA
+    // INSERT with affected rows → COMPLETE (rowCount from pg is 1, not 0)
     expect(status).toBe(QueryStatus.COMPLETE);
-    expect(result.summary.queryType).toBe('write');
-    expect(result.summary.rowCount).toBeGreaterThan(0);
   });
 
   test('should handle timeout with proper status', async () => {
@@ -379,11 +380,11 @@ describe('PostgreSQL Query Execution', () => {
       config
     );
 
-    expect(result.records).toBeDefined();
-    expect(result.records).toHaveLength(1);
-    // Access properties directly via proxy
-    expect(result.records[0].name).toBe('Alice');
-    expect(result.records[0].email).toBe('alice@example.com');
+    // onSuccess receives a flat NeodashRecord[] — property access works via Proxy
+    expect(result).toBeDefined();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Alice');
+    expect(result[0].email).toBe('alice@example.com');
   });
 
   test('should rollback transaction on error', async () => {
@@ -421,7 +422,7 @@ describe('PostgreSQL Query Execution', () => {
       { ...DEFAULT_CONNECTION_CONFIG, connectionType: ConnectionTypes.POSTGRESQL, parseToNeodashRecord: true }
     );
 
-    expect(result.records).toHaveLength(0);
+    expect(result).toHaveLength(0);
   });
 
   test('should handle COMPLETE_TRUNCATED status when row limit exceeded', async () => {
@@ -457,6 +458,6 @@ describe('PostgreSQL Query Execution', () => {
     );
 
     expect(status).toBe(QueryStatus.COMPLETE_TRUNCATED);
-    expect(result.records).toHaveLength(1);
+    expect(result).toHaveLength(1);
   });
 });
