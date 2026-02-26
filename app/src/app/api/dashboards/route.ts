@@ -3,7 +3,36 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
+import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+
+interface WidgetPreviewItem {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  chartType: string;
+}
+
+function computePreview(
+  layout: DashboardLayoutV2 | null | undefined
+): WidgetPreviewItem[] {
+  if (!layout?.pages?.[0]) return [];
+  const page = layout.pages[0];
+  const typeMap = new Map(page.widgets.map((w) => [w.id, w.chartType]));
+  return page.gridLayout.map((g) => ({
+    x: g.x,
+    y: g.y,
+    w: g.w,
+    h: g.h,
+    chartType: typeMap.get(g.i) ?? "unknown",
+  }));
+}
+
+function countWidgets(layout: DashboardLayoutV2 | null | undefined): number {
+  if (!layout?.pages) return 0;
+  return layout.pages.reduce((sum, page) => sum + page.widgets.length, 0);
+}
 
 const createDashboardSchema = z.object({
   name: z.string().min(1),
@@ -25,15 +54,21 @@ export async function GET() {
           createdAt: dashboards.createdAt,
           updatedAt: dashboards.updatedAt,
           ownerId: dashboards.userId,
+          layoutJson: dashboards.layoutJson,
         })
         .from(dashboards)
         .where(eq(dashboards.tenantId, tenantId));
 
       return NextResponse.json(
-        all.map((d) => ({
-          ...d,
-          role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
-        }))
+        all.map((d) => {
+          const { layoutJson, ...rest } = d;
+          return {
+            ...rest,
+            role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
+            preview: computePreview(layoutJson),
+            widgetCount: countWidgets(layoutJson),
+          };
+        })
       );
     }
 
@@ -46,6 +81,7 @@ export async function GET() {
         isPublic: dashboards.isPublic,
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
+        layoutJson: dashboards.layoutJson,
       })
       .from(dashboards)
       .where(and(eq(dashboards.userId, userId), eq(dashboards.tenantId, tenantId)));
@@ -59,6 +95,7 @@ export async function GET() {
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
         role: dashboardShares.role,
+        layoutJson: dashboards.layoutJson,
       })
       .from(dashboardShares)
       .innerJoin(dashboards, eq(dashboardShares.dashboardId, dashboards.id))
@@ -69,14 +106,25 @@ export async function GET() {
         )
       );
 
+    function addPreview<T extends { layoutJson: DashboardLayoutV2 | null }>(
+      d: T
+    ) {
+      const { layoutJson, ...rest } = d;
+      return {
+        ...rest,
+        preview: computePreview(layoutJson),
+        widgetCount: countWidgets(layoutJson),
+      };
+    }
+
     // For Readers: only show explicitly assigned dashboards (not owned, since
     // Readers cannot create dashboards). For Creators: show owned + shared.
     const result =
       role === "reader"
-        ? shared
+        ? shared.map(addPreview)
         : [
-            ...owned.map((d) => ({ ...d, role: "owner" as const })),
-            ...shared,
+            ...owned.map((d) => addPreview({ ...d, role: "owner" as const })),
+            ...shared.map(addPreview),
           ];
 
     return NextResponse.json(result);

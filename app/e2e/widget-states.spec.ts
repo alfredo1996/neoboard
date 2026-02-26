@@ -5,7 +5,7 @@ test.describe("Widget editor", () => {
     await authPage.login(ALICE.email, ALICE.password);
     // Create a fresh dashboard to avoid test pollution from other specs
     await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill("Widget States Test");
     await dialog.getByRole("button", { name: "Create" }).click();
     await page.waitForURL(/\/edit/, { timeout: 10_000 });
@@ -15,17 +15,19 @@ test.describe("Widget editor", () => {
   test.describe("uncovered states", () => {
     test("should show preview error for invalid query", async ({ page }) => {
       await page.getByRole("button", { name: "Add Widget" }).first().click();
-      const dialog = page.getByRole("dialog");
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-      // Step 1: Select bar chart + connection
-      await dialog.getByText("Bar", { exact: true }).click();
-      await dialog.getByRole("combobox").click();
+      // Select connection (Bar Chart is default)
+      await dialog.getByRole("combobox").nth(0).click();
       await page.getByRole("option").first().click();
-      await dialog.getByRole("button", { name: "Next" }).click();
 
-      // Step 2: Enter an invalid query
-      await dialog.getByLabel("Query").fill("THIS IS NOT VALID CYPHER !!!");
-      await dialog.getByRole("button", { name: "Run Query" }).click();
+      // Enter an invalid query into the CodeMirror editor
+      const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+      await cm.click();
+      await page.keyboard.insertText("THIS IS NOT VALID CYPHER !!!");
+
+      // Run the query
+      await dialog.getByRole("button", { name: "Run" }).click();
 
       // Should show error
       await expect(
@@ -33,20 +35,32 @@ test.describe("Widget editor", () => {
       ).toBeVisible({ timeout: 15_000 });
     });
 
-    test("step 1 should show all chart types", async ({ page }) => {
+    test("chart type selector shows all chart types", async ({ page }) => {
       await page.getByRole("button", { name: "Add Widget" }).first().click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog.getByText("Select Type")).toBeVisible();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-      // All standard chart types should be visible
-      await expect(dialog.getByText("Bar", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("Line", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("Pie", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("Table", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("Graph", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("Map", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("Value", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("JSON", { exact: true })).toBeVisible();
+      // The modal should show Connection and Chart Type selectors
+      await expect(dialog.locator("label").filter({ hasText: "Connection" }).first()).toBeVisible();
+      await expect(dialog.getByText("Chart Type", { exact: true })).toBeVisible();
+
+      // Query editor should be immediately visible
+      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible();
+
+      // Open the chart type dropdown (2nd combobox)
+      await dialog.getByRole("combobox").nth(1).click();
+
+      // All standard chart types should be in the dropdown options
+      await expect(page.getByRole("option", { name: "Bar Chart" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Line Chart" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Pie Chart" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Data Table" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Graph" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Map" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Single Value" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "JSON Viewer" })).toBeVisible();
+
+      // Close by pressing Escape
+      await page.keyboard.press("Escape");
     });
   });
 
@@ -56,14 +70,16 @@ test.describe("Widget editor", () => {
     }) => {
       // Add a widget first
       await page.getByRole("button", { name: "Add Widget" }).first().click();
-      const dialog = page.getByRole("dialog");
-      await dialog.getByText("Table", { exact: true }).click();
-      await dialog.getByRole("combobox").click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Data Table" }).click();
+      await dialog.getByRole("combobox").nth(0).click();
       await page.getByRole("option").first().click();
-      await dialog.getByRole("button", { name: "Next" }).click();
-      await dialog
-        .getByLabel("Query")
-        .fill("MATCH (m:Movie) RETURN m.title LIMIT 3");
+
+      const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+      await cm.click();
+      await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title LIMIT 3");
+
       await dialog.getByRole("button", { name: "Add Widget" }).click();
       await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 

@@ -76,15 +76,20 @@ npm run db:generate --prefix "$ROOT_DIR/app" 2>/dev/null || true
 npm run db:migrate --prefix "$ROOT_DIR/app"
 echo ""
 
+# 4b. Seed demo connectors and dashboards
+echo "==> Seeding demo connectors and dashboards..."
+node "$ROOT_DIR/scripts/seed-demo.mjs"
+echo ""
+
 # 5. Check if first admin setup is needed
 echo "==> Checking neoboard user data..."
 USER_COUNT=$(docker exec neoboard-postgres psql -U neoboard -d neoboard -tAc "SELECT count(*) FROM \"user\"" 2>/dev/null || echo "0")
 if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
-  echo "    No users found."
-  echo "    Visit http://localhost:3000/signup to create the first admin account."
-  echo "    Use the ADMIN_BOOTSTRAP_TOKEN printed above (or found in $ENV_FILE)."
+  echo "    No users found — seed script may have failed."
+  echo "    Visit http://localhost:3000/signup to create admin manually."
 else
-  echo "    Neoboard already has $USER_COUNT user(s), skipping."
+  echo "    Found $USER_COUNT user(s)."
+  echo "    Login: admin@localhost / admin123"
 fi
 echo ""
 

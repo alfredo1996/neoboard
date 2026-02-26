@@ -56,11 +56,19 @@ describe("getChartOptions", () => {
     expect(keys).toContain("enableGlobalFilter");
     expect(keys).toContain("enableColumnFilters");
     expect(keys).toContain("pageSize");
+    expect(keys).toContain("emptyMessage");
   });
 
   it("returns options for json chart", () => {
     const keys = getChartOptions("json").map((o) => o.key);
     expect(keys).toContain("initialExpanded");
+  });
+
+  it("returns only secondary options for parameter-select", () => {
+    const options = getChartOptions("parameter-select");
+    const keys = options.map((o) => o.key);
+    expect(keys).toEqual(["placeholder", "searchable"]);
+    expect(options).toHaveLength(2);
   });
 
   it("returns empty array for unknown chart type", () => {
@@ -119,7 +127,8 @@ describe("getDefaultChartSettings", () => {
     expect(d.enableSorting).toBe(true);
     expect(d.enableGlobalFilter).toBe(true);
     expect(d.enableColumnFilters).toBe(true);
-    expect(d.pageSize).toBe(20);
+    expect(d.pageSize).toBe(10);
+    expect(d.emptyMessage).toBe("No results");
   });
 
   it("returns empty object for unknown type", () => {

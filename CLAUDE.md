@@ -46,6 +46,7 @@ docker compose up                    # Start Neo4j + PostgreSQL dev containers
 - TypeScript strict. No `any` without a comment explaining why.
 - Use `npm`, not `pnpm` or `yarn`.
 - Always run the tests of the related code you're writing before pushing to GitHub.
+- Always update/create new tests that are touched by your changes. 
 
 ## PR Reviews
 

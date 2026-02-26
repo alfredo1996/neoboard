@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParameterStore } from "@/stores/parameter-store";
+import { resolveRelativePreset } from "@/lib/date-utils";
+import type { RelativeDatePreset } from "@neoboard/components";
 
 interface WidgetQueryInput {
   connectionId: string;
@@ -16,6 +18,34 @@ interface QueryResult {
   /** Unique ID for this execution, generated server-side. Can be used as a
    *  stable cache/state key (e.g. to detect when graph data changed). */
   resultId: string;
+}
+
+/**
+ * Returns true when every `$param_xxx` token in the query has a non-null,
+ * non-empty value in allParams.  Queries with no parameter tokens always
+ * return true so widgets without parameters are unaffected.
+ *
+ * @visibleForTesting
+ */
+export function allReferencedParamsReady(
+  query: string,
+  allParams: Record<string, unknown>
+): boolean {
+  const regex = /\$param_(\w+)/g;
+  let match;
+  while ((match = regex.exec(query)) !== null) {
+    const name = match[1];
+    const val = allParams[name];
+    if (
+      val === undefined ||
+      val === null ||
+      val === "" ||
+      (Array.isArray(val) && val.length === 0)
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -62,8 +92,19 @@ export function useWidgetQuery(
 
   const allParameters = useMemo(() => {
     const result: Record<string, unknown> = {};
+    // First pass: populate all raw store values
     for (const [name, entry] of Object.entries(parameters)) {
       result[name] = entry.value;
+    }
+    // Second pass: for date-relative entries, override _from/_to with values
+    // resolved at call time (not at selection time) so "Last 7 days" always
+    // refers to today's date, not the date when the preset was clicked.
+    for (const [name, entry] of Object.entries(parameters)) {
+      if (entry.type === "date-relative" && entry.value) {
+        const { from, to } = resolveRelativePreset(entry.value as RelativeDatePreset);
+        result[`${name}_from`] = from;
+        result[`${name}_to`] = to;
+      }
     }
     return result;
   }, [parameters]);
@@ -102,7 +143,10 @@ export function useWidgetQuery(
       }
       return res.json();
     },
-    enabled: !!mergedInput?.connectionId && !!mergedInput?.query,
+    enabled:
+      !!mergedInput?.connectionId &&
+      !!mergedInput?.query &&
+      allReferencedParamsReady(mergedInput.query, allParameters),
     // staleTime controls how long cached data is considered fresh.
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.

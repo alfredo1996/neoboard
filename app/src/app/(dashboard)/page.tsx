@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Plus, LayoutDashboard, Copy } from "lucide-react";
+import { Plus, LayoutDashboard, MoreVertical, Pencil, Copy, Trash2, Grid2X2 } from "lucide-react";
 import {
   useDashboards,
   useCreateDashboard,
@@ -19,12 +19,18 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
   Label,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -32,6 +38,8 @@ import {
   LoadingButton,
   LoadingOverlay,
   ConfirmDialog,
+  TimeAgo,
+  DashboardMiniPreview,
 } from "@neoboard/components";
 import type { UserRole } from "@/lib/db/schema";
 
@@ -163,60 +171,74 @@ export default function DashboardListPage() {
                 return (
                   <Card
                     key={d.id}
-                    className="cursor-pointer transition-colors hover:bg-accent/50"
+                    className="flex flex-col cursor-pointer transition-colors hover:bg-accent/50"
                     onClick={() => router.push(`/${d.id}`)}
                   >
                     <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-base">{d.name}</CardTitle>
-                        <Badge variant="secondary">{d.role}</Badge>
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-base truncate">{d.name}</CardTitle>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {(canEdit || canDuplicate || canDelete) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">Dashboard options</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                {canEdit && (
+                                  <DropdownMenuItem onClick={() => router.push(`/${d.id}/edit`)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {canDuplicate && (
+                                  <DropdownMenuItem
+                                    onClick={() => duplicateDashboard.mutate(d.id)}
+                                    disabled={duplicateDashboard.isPending}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Duplicate
+                                  </DropdownMenuItem>
+                                )}
+                                {canDelete && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setDeleteTarget(d.id)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                          <Badge variant="secondary">{d.role}</Badge>
+                        </div>
                       </div>
                       {d.description && (
-                        <CardDescription>{d.description}</CardDescription>
+                        <CardDescription className="line-clamp-2">{d.description}</CardDescription>
                       )}
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-3">
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/${d.id}/edit`);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                        {canDuplicate && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              duplicateDashboard.mutate(d.id);
-                            }}
-                          >
-                            <Copy className="mr-1.5 h-3.5 w-3.5" />
-                            Duplicate
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteTarget(d.id);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        )}
-                      </div>
+                    <CardContent className="flex-1 p-4 pt-0">
+                      <DashboardMiniPreview widgets={d.preview ?? []} />
                     </CardContent>
+                    <CardFooter className="pt-0 text-xs text-muted-foreground justify-between">
+                      <TimeAgo date={d.updatedAt} />
+                      <span className="flex items-center gap-1">
+                        <Grid2X2 className="h-3 w-3" />
+                        {d.widgetCount ?? 0} widget{(d.widgetCount ?? 0) !== 1 ? "s" : ""}
+                      </span>
+                    </CardFooter>
                   </Card>
                 );
               })}

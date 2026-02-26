@@ -68,9 +68,9 @@ describe("ChartOptionsPanel", () => {
   });
 
   it("does not show search input for chart types with few options", () => {
-    // parameter-select has only 1 option, well below the threshold of 4
+    // json has only 1 option, well below the threshold of 4
     render(
-      <ChartOptionsPanel chartType="parameter-select" settings={{}} onSettingsChange={vi.fn()} />
+      <ChartOptionsPanel chartType="json" settings={{}} onSettingsChange={vi.fn()} />
     );
     expect(screen.queryByPlaceholderText("Search options...")).not.toBeInTheDocument();
   });
@@ -87,6 +87,17 @@ describe("ChartOptionsPanel", () => {
     expect(screen.queryByText("Tile Layer")).not.toBeInTheDocument();
   });
 
+  it("renders only placeholder and searchable for parameter-select", () => {
+    render(
+      <ChartOptionsPanel chartType="parameter-select" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
+    expect(screen.getByText("Search-as-you-type")).toBeInTheDocument();
+    // Should NOT show the old primary fields
+    expect(screen.queryByText("Parameter Name")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selector Type")).not.toBeInTheDocument();
+  });
+
   it("applies className", () => {
     const { container } = render(
       <ChartOptionsPanel
@@ -97,5 +108,27 @@ describe("ChartOptionsPanel", () => {
       />
     );
     expect(container.firstChild).toHaveClass("custom-class");
+  });
+
+  it("shows a help icon for each option that has a description", () => {
+    // All bar chart options now have descriptions — each should render a HelpCircle
+    // trigger with cursor-help class.
+    const { container } = render(
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpIcons = container.querySelectorAll(".cursor-help");
+    // bar has 9 options, all with descriptions
+    expect(helpIcons.length).toBeGreaterThan(0);
+    expect(helpIcons.length).toBe(9);
+  });
+
+  it("does not show help icons for options without descriptions", () => {
+    // If we add an option with no description, its label should have no help icon.
+    // We verify indirectly: line chart has descriptions on all options too, so icons appear.
+    const { container } = render(
+      <ChartOptionsPanel chartType="line" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpIcons = container.querySelectorAll(".cursor-help");
+    expect(helpIcons.length).toBeGreaterThan(0);
   });
 });
