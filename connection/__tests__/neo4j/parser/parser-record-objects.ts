@@ -1,8 +1,7 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
 import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
-import { toNumber } from 'neo4j-driver-core';
-import { DateTime, Node, Relationship } from 'neo4j-driver';
+import { DateTime } from 'neo4j-driver';
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
 
 describe('Neo4jRecordParser - Objects Parsing', () => {
@@ -20,16 +19,20 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       onSuccess: (result: NeodashRecord[]) => {
         const movieNode = result[0]['m'];
 
-        expect(movieNode instanceof Node).toBe(true);
+        // After normalization, movieNode is a plain object (not a Node instance)
+        expect(typeof movieNode).toBe('object');
+        expect(Array.isArray(movieNode['labels'])).toBe(true);
+        expect(movieNode['labels']).toContain('Movie');
         const movieNodeProperties = movieNode['properties'];
         // Assertions
         expect(movieNodeProperties.title).toBe('The Matrix');
         expect(movieNodeProperties.tagline).toBe('Welcome to the Real World');
-        expect(toNumber(movieNodeProperties.released)).toBe(1999);
+        // released is now a native JS number after normalization
+        expect(movieNodeProperties.released).toBe(1999);
 
         expect(typeof movieNodeProperties.title).toBe('string');
         expect(typeof movieNodeProperties.tagline).toBe('string');
-        expect(typeof toNumber(movieNodeProperties.released)).toBe('number');
+        expect(typeof movieNodeProperties.released).toBe('number');
       },
       onFail: (error) => {
         console.error('Error during query execution:', error);
@@ -53,17 +56,18 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
     const queryCallback: QueryCallback<any> = {
       onSuccess: (result: NeodashRecord[]) => {
         const relationship = result[0]['r'];
-        expect(relationship instanceof Relationship).toBe(true);
+        // After normalization, relationship is a plain object (not a Relationship instance)
+        expect(typeof relationship).toBe('object');
 
         expect(relationship).toMatchObject({
-          identity: expect.anything(),
-          start: expect.anything(),
-          end: expect.anything(),
-          type: expect.anything(),
+          identity: expect.any(Number),
+          start: expect.any(Number),
+          end: expect.any(Number),
+          type: expect.any(String),
           properties: { roles: expect.anything() },
-          elementId: expect.anything(),
-          startNodeElementId: expect.anything(),
-          endNodeElementId: expect.anything(),
+          elementId: expect.any(String),
+          startNodeElementId: expect.any(String),
+          endNodeElementId: expect.any(String),
         });
       },
       onFail: (error) => {

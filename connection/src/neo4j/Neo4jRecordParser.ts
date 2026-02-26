@@ -231,19 +231,42 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    */
   parseGraphObject(value: unknown) {
     if (value instanceof Node) {
-      return value;
+      return {
+        identity: this.__neo4jToNative(value.identity),
+        labels: value.labels,
+        properties: this.convertPlainObject(value.properties),
+        elementId: value.elementId,
+      };
     }
 
     if (value instanceof Relationship) {
-      return value;
-    }
-
-    if (value instanceof Path) {
-      return value;
+      return {
+        identity: this.__neo4jToNative(value.identity),
+        type: value.type,
+        start: this.__neo4jToNative(value.start),
+        end: this.__neo4jToNative(value.end),
+        properties: this.convertPlainObject(value.properties),
+        elementId: value.elementId,
+        startNodeElementId: value.startNodeElementId,
+        endNodeElementId: value.endNodeElementId,
+      };
     }
 
     if (value instanceof PathSegment) {
-      return value;
+      return {
+        start: this.__neo4jToNative(value.start),
+        relationship: this.__neo4jToNative(value.relationship),
+        end: this.__neo4jToNative(value.end),
+      };
+    }
+
+    if (value instanceof Path) {
+      return {
+        start: this.__neo4jToNative(value.start),
+        end: this.__neo4jToNative(value.end),
+        length: value.length,
+        segments: value.segments.map((seg) => this.__neo4jToNative(seg)),
+      };
     }
 
     if (value instanceof Point) {

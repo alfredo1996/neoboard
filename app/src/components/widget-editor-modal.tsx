@@ -136,10 +136,23 @@ export function WidgetEditorModal({
   }, [chartType, mode]);
 
   const handlePreview = useCallback(() => {
-    if (connectionId && query.trim()) {
+    if (connectionId && query.trim() && !previewQuery.isPending) {
       previewQuery.mutate({ connectionId, query });
     }
   }, [connectionId, query, previewQuery]);
+
+  // Cmd/Ctrl+Enter on the dialog (step 2 only) runs the preview query.
+  useEffect(() => {
+    if (!open || step !== 2) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "Enter") {
+        e.preventDefault();
+        handlePreview();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open, step, handlePreview]);
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
@@ -409,7 +422,7 @@ export function WidgetEditorModal({
                         chartType,
                         connectionId,
                         query,
-                        settings: { chartOptions },
+                        settings: { chartOptions, title: title || undefined },
                       }}
                       previewData={previewQuery.data.data}
                       previewResultId={previewQuery.data.resultId}
