@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataGrid } from "../data-grid";
-import { DataGridToolbar } from "../data-grid-toolbar";
+import { DataGridViewOptions } from "../data-grid-view-options";
 
 interface TestRow {
   name: string;
@@ -22,7 +22,11 @@ describe("DataGridViewOptions", () => {
       <DataGrid
         columns={columns}
         data={data}
-        toolbar={(table) => <DataGridToolbar table={table} />}
+        toolbar={(table) => (
+          <div className="flex items-center py-4">
+            <DataGridViewOptions table={table} />
+          </div>
+        )}
       />
     );
     expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
