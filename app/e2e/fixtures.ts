@@ -31,6 +31,10 @@ export const test = base.extend<Fixtures>({
   },
   coverage: [
     async ({ page }, use, testInfo) => {
+      if (process.env.E2E_COVERAGE !== "1") {
+        await use();
+        return;
+      }
       await collectClientCoverage(page, testInfo, use);
     },
     { scope: "test", auto: true },

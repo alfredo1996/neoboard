@@ -7,6 +7,7 @@ on:
     branches: [main, dev]
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
   statuses: write
@@ -100,7 +101,7 @@ jobs:
 
       # ── E2E coverage (optional — available when E2E workflow ran) ─────────
       - name: Download E2E coverage artifact
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
         with:
           workflow: e2e-tests.yml
           name: e2e-coverage

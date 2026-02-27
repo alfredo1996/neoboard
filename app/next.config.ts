@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     }
 
     // Enable full source maps for E2E coverage collection.
-    if (process.env.E2E_COVERAGE) {
+    if (process.env.E2E_COVERAGE === "1") {
       config.devtool = "source-map";
     }
 

@@ -117,4 +117,5 @@ jobs:
         with:
           name: e2e-coverage
           path: app/coverage-e2e/
+          if-no-files-found: error
           retention-days: 14
