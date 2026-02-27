@@ -48,6 +48,19 @@ Rules:
 - Tests live in `__tests__/` next to the file under test, same package.
 - See `claude_code_docs/TESTING_APPROACH.md` for suite structure, commands, and patterns.
 
+## Testing Boundaries (app/ package)
+
+| Layer | Tool | Examples |
+|-------|------|---------|
+| Pure functions/utils | Vitest (no DOM) | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| API routes | Vitest (mocked DB/auth) | Validation, permissions, error handling |
+| Zustand stores | Vitest (no mocks) | State transitions, cascading logic |
+| Store orchestration | Vitest (no DOM) | parameter-widget-renderer interactions, type coercion |
+| Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
+| UI components + pages | Playwright E2E | Real rendering, real data, real interactions |
+
+**Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`.** Component rendering is tested via Playwright E2E with real data. Vitest in `app/` is for pure logic, API routes, stores, and hooks only. UI component tests belong in `component/` (isolated, no business logic) or as Playwright E2E specs.
+
 ## Working Rules
 
 **Code quality:**

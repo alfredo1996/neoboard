@@ -21,15 +21,28 @@ Testing strategy: unit tests (Vitest) at all three package levels + full-app E2E
 ## Testing Layers
 
 ```
-          /  E2E (Playwright)  \       Full app flows against real DBs
+          /  E2E (Playwright)  \       Full app flows against real DBs + coverage
          /──────────────────────\
-        / App Unit (Vitest)      \     API routes, hooks, stores, crypto
+        / App Unit (Vitest)      \     API routes, hooks, stores, crypto (NO render tests)
        /──────────────────────────\
       / Component Unit (Vitest)    \   Individual component behavior
      /──────────────────────────────\
     / Connection Integration (Vitest)\  DB adapters against real databases
    /──────────────────────────────────\
 ```
+
+### App Unit Test Boundaries
+
+Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`. Component rendering is covered by Playwright E2E.
+
+| Layer | Tool | Examples |
+|-------|------|---------|
+| Pure functions/utils | Vitest (no DOM) | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| API routes | Vitest (mocked DB/auth) | Validation, permissions, error handling |
+| Zustand stores | Vitest (no mocks) | State transitions, cascading logic |
+| Store orchestration | Vitest (no DOM) | parameter-widget-renderer interactions, type coercion |
+| Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
+| UI components + pages | Playwright E2E | Real rendering, real data, real interactions |
 
 ---
 
@@ -111,9 +124,19 @@ npm run test:coverage # Run with coverage report
 
 ```bash
 cd app
-npm run test:e2e       # Runs all E2E tests (auto-starts testcontainers)
-npm run test:e2e:ui    # Interactive Playwright UI mode
+npm run test:e2e            # Runs all E2E tests (auto-starts testcontainers)
+npm run test:e2e:ui         # Interactive Playwright UI mode
+npm run test:e2e:coverage   # E2E tests with code coverage collection (nextcov)
 ```
+
+### E2E Coverage Collection
+
+Playwright E2E tests can collect V8 code coverage via [nextcov](https://github.com/stevez/nextcov). Coverage is collected per-test automatically via the `coverage` fixture in `e2e/fixtures.ts`.
+
+- Set `E2E_COVERAGE=1` to enable (or use `npm run test:e2e:coverage`)
+- Output: `app/coverage-e2e/` (lcov, json, text-summary)
+- SonarCloud merges this with Vitest coverage for the `app/` package
+- In CI, the E2E workflow uploads coverage as an artifact; the SonarCloud workflow downloads it
 
 **Infrastructure**: Uses `testcontainers` to automatically spin up PostgreSQL and Neo4j containers per test run. No manual `docker compose up` needed.
 
@@ -202,8 +225,9 @@ Key settings in `app/playwright.config.ts`:
 
 ### SonarCloud
 
-- All three packages generate coverage reports (`npm run test:coverage`)
-- SonarCloud aggregates coverage, detects code smells, duplications, and security hotspots
+- All three packages generate Vitest coverage reports (`npm run test:coverage`)
+- Playwright E2E coverage (`app/coverage-e2e/lcov.info`) is merged for the `app/` package
+- SonarCloud aggregates all coverage, detects code smells, duplications, and security hotspots
 - Quality gate must pass before merging
 
 ### CodeRabbit

@@ -3,7 +3,6 @@ import { describe, it, expect } from "vitest";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataGrid } from "../data-grid";
 import { DataGridViewOptions } from "../data-grid-view-options";
-import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 
 interface TestRow {
   name: string;

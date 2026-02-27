@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
+import { finalizeCoverage, loadNextcovConfig } from "nextcov/playwright";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
@@ -48,6 +49,16 @@ export default async function globalTeardown() {
         }
       }
     }
+  }
+
+  // ── Finalize E2E coverage (nextcov) ──────────────────────────────────────
+  if (process.env.E2E_COVERAGE) {
+    console.log("⏳ Finalizing E2E coverage reports...");
+    const nextcovConfig = await loadNextcovConfig(
+      path.resolve(__dirname, "..", "playwright.config.ts"),
+    );
+    await finalizeCoverage(nextcovConfig);
+    console.log("✅ E2E coverage reports written");
   }
 
   // Clean up temp files
