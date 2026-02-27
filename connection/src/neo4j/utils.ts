@@ -23,7 +23,7 @@ export function saveNodeAndRelPropertiesToDictionary(field: unknown, fieldsDict:
   if (field == undefined) {
     return;
   }
-  if (valueIsArray(field)) {
+  if (Array.isArray(field)) {
     field.forEach((v) => saveNodeAndRelPropertiesToDictionary(v, fieldsDict));
   } else if (valueIsNode(field)) {
     field.labels.forEach((l: string) => {
@@ -45,10 +45,6 @@ export function saveNodeAndRelPropertiesToDictionary(field: unknown, fieldsDict:
 }
 
 /* HELPER FUNCTIONS FOR DETERMINING TYPE OF FIELD RETURNED FROM NEO4J */
-export function valueIsArray(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
-
 export function valueIsNode(value: unknown): value is { labels: string[]; identity: unknown; properties: Record<string, unknown> } {
   return typeof value === 'object' && value !== null && 'labels' in value && 'identity' in value && 'properties' in value;
 }
