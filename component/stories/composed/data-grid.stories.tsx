@@ -2,12 +2,19 @@ import type { Meta, StoryObj } from "@storybook/react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { DataGrid } from "@/components/composed/data-grid";
-import { DataGridToolbar } from "@/components/composed/data-grid-toolbar";
 import { DataGridColumnHeader } from "@/components/composed/data-grid-column-header";
 import { DataGridPagination } from "@/components/composed/data-grid-pagination";
 import { DataGridFacetedFilter } from "@/components/composed/data-grid-faceted-filter";
-import { DataGridRowActions } from "@/components/composed/data-grid-row-actions";
 import type { DataGridProps } from "@/components/composed/data-grid";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Payment {
   id: string;
@@ -83,13 +90,18 @@ const enhancedColumns: ColumnDef<Payment, unknown>[] = [
   {
     id: "actions",
     cell: ({ row }) => (
-      <DataGridRowActions
-        actions={[
-          { label: "Edit", onClick: () => console.log("Edit", row.original) },
-          { label: "Copy ID", onClick: () => navigator.clipboard.writeText(row.original.id) },
-          { label: "Delete", onClick: () => console.log("Delete", row.original), destructive: true },
-        ]}
-      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => console.log("Edit", row.original)}>Edit</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigator.clipboard.writeText(row.original.id)}>Copy ID</DropdownMenuItem>
+          <DropdownMenuItem className="text-destructive" onClick={() => console.log("Delete", row.original)}>Delete</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     ),
   },
 ];
@@ -158,7 +170,13 @@ export const WithToolbarAndFilters: Story = {
     enableGlobalFilter: true,
     pageSize: 10,
     toolbar: (table) => (
-      <DataGridToolbar table={table} searchKey="email" searchPlaceholder="Filter emails...">
+      <div className="flex items-center gap-2 py-4">
+        <Input
+          placeholder="Filter emails..."
+          value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
+          onChange={(e) => table.getColumn("email")?.setFilterValue(e.target.value)}
+          className="h-8 w-[250px]"
+        />
         {table.getColumn("status") && (
           <DataGridFacetedFilter
             column={table.getColumn("status")}
@@ -166,7 +184,7 @@ export const WithToolbarAndFilters: Story = {
             options={statusOptions}
           />
         )}
-      </DataGridToolbar>
+      </div>
     ),
     pagination: (table) => <DataGridPagination table={table} />,
   },
