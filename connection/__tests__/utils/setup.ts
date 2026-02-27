@@ -1,4 +1,4 @@
-import { AuthType } from '../../src';
+import { AuthType } from '../../src/generalized/interfaces';
 import { GenericContainer, Wait } from 'testcontainers';
 import fs from 'fs';
 import path from 'path';
