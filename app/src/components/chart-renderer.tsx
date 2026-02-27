@@ -8,12 +8,26 @@ import type { ChartType } from "@/lib/chart-registry";
 import {
   Skeleton,
   EmptyState,
-  BarChart,
-  LineChart,
-  PieChart,
-  SingleValueChart,
   JsonViewer,
 } from "@neoboard/components";
+
+// Chart components use ECharts (browser APIs) — must be loaded client-side only
+const BarChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const LineChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.LineChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const PieChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.PieChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const SingleValueChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.SingleValueChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
 import type {
   BarChartDataPoint,
   LineChartDataPoint,
@@ -198,7 +212,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, connect
             parameterType={(settings.parameterType as ParameterType | undefined) ?? "select"}
             connectionId={connectionId}
             seedQuery={(settings.seedQuery as string | undefined)}
-            parentParameterName={(settings.parentParameterName as string | undefined) || undefined}
+            parentParameterName={settings.parentParameterName as string | undefined}
             rangeMin={(settings.rangeMin as number | undefined) ?? 0}
             rangeMax={(settings.rangeMax as number | undefined) ?? 100}
             rangeStep={(settings.rangeStep as number | undefined) ?? 1}

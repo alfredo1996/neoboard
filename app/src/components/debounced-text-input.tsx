@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TextInputParameter } from "@neoboard/components";
 
 /**
@@ -21,6 +21,8 @@ export function DebouncedTextInput({
   className?: string;
 }) {
   const [draft, setDraft] = useState(value);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
   // Sync draft when the external (store) value changes.
   useEffect(() => {
@@ -29,12 +31,12 @@ export function DebouncedTextInput({
 
   // Fire onChange after 200 ms of inactivity.
   useEffect(() => {
+    if (draft === value) return;
     const t = setTimeout(() => {
-      if (draft !== value) onChange(draft);
+      onChangeRef.current(draft);
     }, 200);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft]);
+  }, [draft, value]);
 
   return (
     <TextInputParameter

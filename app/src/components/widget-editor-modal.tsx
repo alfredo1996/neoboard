@@ -171,10 +171,15 @@ export function WidgetEditorModal({
     [connections, chartType, mode, widget?.connectionId]
   );
 
-  const handleChartTypeChange = useCallback((t: string) => {
-    setChartType(t);
-    setChartOptions(getDefaultChartSettings(t));
-  }, []);
+  const handleChartTypeChange = useCallback(
+    (t: string) => {
+      setChartType(t);
+      if (mode === "edit") {
+        setChartOptions(getDefaultChartSettings(t));
+      }
+    },
+    [mode]
+  );
 
   // Reset state when opening
   useEffect(() => {
