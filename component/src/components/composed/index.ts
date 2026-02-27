@@ -40,6 +40,7 @@ export { GridItem, type GridItemProps } from "./grid-item";
 
 // Dashboard
 export { DashboardGrid, type DashboardGridProps, type LayoutItem } from "./dashboard-grid";
+export { DashboardMiniPreview, type DashboardMiniPreviewProps, type MiniPreviewWidget } from "./dashboard-mini-preview";
 
 // Navigation
 export { VerticalTabs, type VerticalTabsProps, type VerticalTabItem } from "./vertical-tabs";
@@ -78,6 +79,46 @@ export { ParameterBar, type ParameterBarProps } from "./parameter-bar";
 export { RefreshControl, type RefreshControlProps, type RefreshInterval } from "./refresh-control";
 export { CrossFilterTag, type CrossFilterTagProps } from "./cross-filter-tag";
 
+// Parameter Widgets (pure UI — no store access, no API calls)
+export {
+  TextInputParameter,
+  type TextInputParameterProps,
+} from "./parameter-widgets/text-input";
+export {
+  ParamSelector,
+  type ParamSelectorProps,
+  type ParamSelectorOption,
+} from "./parameter-widgets/param-selector";
+export {
+  ParamMultiSelector,
+  type ParamMultiSelectorProps,
+  type ParamMultiSelectorOption,
+} from "./parameter-widgets/param-multi-selector";
+export {
+  DatePickerParameter,
+  type DatePickerParameterProps,
+} from "./parameter-widgets/date-picker";
+export {
+  DateRangeParameter,
+  type DateRangeParameterProps,
+} from "./parameter-widgets/date-range-picker";
+export {
+  DateRelativePicker,
+  type DateRelativePickerProps,
+  type RelativeDatePreset,
+  type RelativeDateOption,
+  RELATIVE_DATE_PRESETS,
+} from "./parameter-widgets/date-relative-picker";
+export {
+  NumberRangeSlider,
+  type NumberRangeSliderProps,
+} from "./parameter-widgets/number-range-slider";
+export {
+  CascadingSelector,
+  type CascadingSelectorProps,
+  type CascadingSelectorOption,
+} from "./parameter-widgets/cascading-selector";
+
 // Graph Visualization
 export { GraphLegend, type GraphLegendProps, type GraphLegendItem } from "./graph-legend";
 
@@ -86,3 +127,10 @@ export { QueryEditor, type QueryEditorProps } from "./query-editor";
 
 // Utility
 export { CopyButton, type CopyButtonProps } from "./copy-button";
+
+// Column Mapping
+export {
+  ColumnMappingOverlay,
+  type ColumnMappingOverlayProps,
+  type ColumnMapping,
+} from "./column-mapping-overlay";

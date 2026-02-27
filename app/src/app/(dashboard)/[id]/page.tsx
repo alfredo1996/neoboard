@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import React, { use, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, LayoutDashboard } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboards";
@@ -11,6 +11,7 @@ import {
   Button,
   Badge,
   Skeleton,
+  LoadingButton,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -27,6 +28,7 @@ export default function DashboardViewerPage({
   const router = useRouter();
   const { data: dashboard, isLoading } = useDashboard(id);
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [isPending, startTransition] = useTransition();
   const layout = useMemo(
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
     [dashboard]
@@ -67,7 +69,7 @@ export default function DashboardViewerPage({
   // layout is non-null here because dashboard is defined (guarded above)
   const resolvedLayout = layout!;
   const safeIndex = Math.min(activePageIndex, resolvedLayout.pages.length - 1);
-  const canEdit = dashboard.role === "owner" || dashboard.role === "editor";
+  const canEdit = dashboard.role === "owner" || dashboard.role === "editor" || dashboard.role === "admin";
 
   return (
     <div className="flex flex-col h-full">
@@ -88,13 +90,15 @@ export default function DashboardViewerPage({
         </ToolbarSection>
         <ToolbarSection>
           {canEdit && (
-            <Button
+            <LoadingButton
               size="sm"
-              onClick={() => router.push(`/${id}/edit`)}
+              loading={isPending}
+              loadingText="Opening editor..."
+              onClick={() => startTransition(() => router.push(`/${id}/edit?page=${safeIndex}`))}
             >
               <Pencil className="mr-2 h-4 w-4" />
               Edit
-            </Button>
+            </LoadingButton>
           )}
         </ToolbarSection>
       </Toolbar>

@@ -11,6 +11,8 @@ describe("ChartOptionsPanel", () => {
     expect(screen.getByText("Stacked")).toBeInTheDocument();
     expect(screen.getByText("Show Values")).toBeInTheDocument();
     expect(screen.getByText("Show Legend")).toBeInTheDocument();
+    expect(screen.getByText("Bar Width (px, 0=auto)")).toBeInTheDocument();
+    expect(screen.getByText("Show Grid Lines")).toBeInTheDocument();
   });
 
   it("shows empty message for unknown chart type", () => {
@@ -66,8 +68,9 @@ describe("ChartOptionsPanel", () => {
   });
 
   it("does not show search input for chart types with few options", () => {
+    // json has only 1 option, well below the threshold of 4
     render(
-      <ChartOptionsPanel chartType="pie" settings={{}} onSettingsChange={vi.fn()} />
+      <ChartOptionsPanel chartType="json" settings={{}} onSettingsChange={vi.fn()} />
     );
     expect(screen.queryByPlaceholderText("Search options...")).not.toBeInTheDocument();
   });
@@ -84,6 +87,17 @@ describe("ChartOptionsPanel", () => {
     expect(screen.queryByText("Tile Layer")).not.toBeInTheDocument();
   });
 
+  it("renders only placeholder and searchable for parameter-select", () => {
+    render(
+      <ChartOptionsPanel chartType="parameter-select" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
+    expect(screen.getByText("Search-as-you-type")).toBeInTheDocument();
+    // Should NOT show the old primary fields
+    expect(screen.queryByText("Parameter Name")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selector Type")).not.toBeInTheDocument();
+  });
+
   it("applies className", () => {
     const { container } = render(
       <ChartOptionsPanel
@@ -94,5 +108,39 @@ describe("ChartOptionsPanel", () => {
       />
     );
     expect(container.firstChild).toHaveClass("custom-class");
+  });
+
+  it("applies cursor-help class to label when option has a description", () => {
+    // All bar chart options have descriptions — labels should have cursor-help class
+    const { container } = render(
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpLabels = container.querySelectorAll("label.cursor-help");
+    // bar has 9 options, all with descriptions
+    expect(helpLabels.length).toBeGreaterThan(0);
+    expect(helpLabels.length).toBe(9);
+  });
+
+  it("does not render a HelpCircle icon — tooltip triggers on label text", () => {
+    // The HelpCircle icon was removed; only the label itself triggers the tooltip
+    const { container } = render(
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    // There should be no svg element with the lucide HelpCircle path inside the panel
+    // Only Switch thumbs and other UI icons, no HelpCircle — check no icon has cursor-help
+    const helpIcons = container.querySelectorAll("svg.cursor-help");
+    expect(helpIcons.length).toBe(0);
+  });
+
+  it("label has dotted underline decoration when description is set", () => {
+    const { container } = render(
+      <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
+    );
+    const helpLabels = container.querySelectorAll("label.cursor-help");
+    expect(helpLabels.length).toBeGreaterThan(0);
+    // All such labels should have the dotted underline class
+    helpLabels.forEach((label) => {
+      expect(label.classList.contains("decoration-dotted")).toBe(true);
+    });
   });
 });

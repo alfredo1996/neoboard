@@ -9,6 +9,11 @@
  * The toRecords helper is kept as a safety net for backward compatibility.
  */
 
+import { normalizeValue } from "./normalize-value";
+import type { ColumnMapping } from "@neoboard/components";
+
+export type { ColumnMapping };
+
 export type ChartType =
   | "bar"
   | "line"
@@ -20,10 +25,24 @@ export type ChartType =
   | "json"
   | "parameter-select";
 
+export type ConnectorType = "neo4j" | "postgresql";
+
 export interface ChartConfig {
   type: ChartType;
   label: string;
   transform: (data: unknown) => unknown;
+  transformWithMapping: (data: unknown, mapping: ColumnMapping) => unknown;
+  /**
+   * Validates raw data shape before transform. Returns an error string
+   * when data exists but has the wrong shape for this chart type.
+   * Returns null when data is valid OR empty (empty = separate "No data" state).
+   */
+  validate?: (data: unknown) => string | null;
+  /**
+   * Which connector types can produce data for this chart.
+   * If omitted, the chart is compatible with all connector types.
+   */
+  compatibleWith?: ConnectorType[];
 }
 
 /**
@@ -49,7 +68,7 @@ function transformToBarData(data: unknown): unknown {
   if (keys.length < 2) return [];
   const [labelKey, ...valueKeys] = keys;
   return records.map((r) => {
-    const point: Record<string, unknown> = { label: String(r[labelKey] ?? "") };
+    const point: Record<string, unknown> = { label: String(normalizeValue(r[labelKey]) ?? "") };
     for (const k of valueKeys) {
       point[k] = Number(r[k]) || 0;
     }
@@ -68,7 +87,7 @@ function transformToLineData(data: unknown): unknown {
   if (keys.length < 2) return [];
   const [xKey, ...seriesKeys] = keys;
   return records.map((r) => {
-    const point: Record<string, unknown> = { x: r[xKey] };
+    const point: Record<string, unknown> = { x: normalizeValue(r[xKey]) };
     for (const k of seriesKeys) {
       point[k] = Number(r[k]) || 0;
     }
@@ -86,8 +105,97 @@ function transformToPieData(data: unknown): unknown {
   const keys = Object.keys(records[0]);
   if (keys.length < 2) return [];
   return records.map((r) => ({
-    name: String(r[keys[0]] ?? ""),
+    name: String(normalizeValue(r[keys[0]]) ?? ""),
     value: Number(r[keys[1]]) || 0,
+  }));
+}
+
+/**
+ * Transform bar chart data respecting an optional column mapping.
+ * Falls back to default column selection when mapping fields are absent.
+ */
+function transformToBarDataWithMapping(
+  data: unknown,
+  mapping: ColumnMapping
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return [];
+
+  const labelKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+
+  let valueKeys: string[];
+  if (mapping.yAxis && mapping.yAxis.length > 0) {
+    valueKeys = mapping.yAxis.filter((k) => keys.includes(k));
+  } else {
+    valueKeys = keys.filter((k) => k !== labelKey);
+  }
+  if (valueKeys.length === 0) valueKeys = keys.filter((k) => k !== labelKey);
+
+  return records.map((r) => {
+    const point: Record<string, unknown> = { label: String(r[labelKey] ?? "") };
+    for (const k of valueKeys) {
+      point[k] = Number(r[k]) || 0;
+    }
+    return point;
+  });
+}
+
+/**
+ * Transform line chart data respecting an optional column mapping.
+ * Falls back to default column selection when mapping fields are absent.
+ */
+function transformToLineDataWithMapping(
+  data: unknown,
+  mapping: ColumnMapping
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return [];
+
+  const xKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+
+  let seriesKeys: string[];
+  if (mapping.yAxis && mapping.yAxis.length > 0) {
+    seriesKeys = mapping.yAxis.filter((k) => keys.includes(k));
+  } else {
+    seriesKeys = keys.filter((k) => k !== xKey);
+  }
+  if (seriesKeys.length === 0) seriesKeys = keys.filter((k) => k !== xKey);
+
+  return records.map((r) => {
+    const point: Record<string, unknown> = { x: r[xKey] };
+    for (const k of seriesKeys) {
+      point[k] = Number(r[k]) || 0;
+    }
+    return point;
+  });
+}
+
+/**
+ * Transform pie chart data respecting an optional column mapping.
+ * Falls back to default column selection when mapping fields are absent.
+ */
+function transformToPieDataWithMapping(
+  data: unknown,
+  mapping: ColumnMapping
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return [];
+
+  const nameKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+  const valueKey =
+    mapping.yAxis?.[0] && keys.includes(mapping.yAxis[0])
+      ? mapping.yAxis[0]
+      : keys.find((k) => k !== nameKey) ?? keys[1];
+
+  return records.map((r) => ({
+    name: String(r[nameKey] ?? ""),
+    value: Number(r[valueKey]) || 0,
   }));
 }
 
@@ -99,7 +207,7 @@ function transformToValueData(data: unknown): unknown {
   if (records.length > 0) {
     const first = records[0];
     const values = Object.values(first);
-    return values[0];
+    return normalizeValue(values[0]) ?? 0;
   }
   if (typeof data === "number" || typeof data === "string") return data;
   return 0;
@@ -134,11 +242,20 @@ function transformToGraphData(data: unknown): unknown {
   const nodesMap = new Map<string, Record<string, unknown>>();
   const edgesMap = new Map<string, Record<string, unknown>>();
 
+  function normalizeProps(props: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(props)) {
+      out[k] = normalizeValue(v) ?? v;
+    }
+    return out;
+  }
+
   function addNode(v: Record<string, unknown>) {
     const id = safeId(v.elementId ?? v.identity ?? Math.random());
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
-      const props = (v.properties as Record<string, unknown>) ?? {};
+      const rawProps = (v.properties as Record<string, unknown>) ?? {};
+      const props = normalizeProps(rawProps);
       nodesMap.set(id, {
         id,
         label: props.name ?? props.title ?? labels[0] ?? id,
@@ -154,11 +271,12 @@ function transformToGraphData(data: unknown): unknown {
       v.elementId ?? v.identity ?? `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`
     );
     if (!edgesMap.has(edgeId)) {
+      const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
         source: safeId(v.startNodeElementId ?? v.start),
         target: safeId(v.endNodeElementId ?? v.end),
         label: String(v.type),
-        properties: (v.properties ?? {}) as Record<string, unknown>,
+        properties: normalizeProps(rawProps),
       });
     }
   }
@@ -265,18 +383,166 @@ function transformToSelectData(data: unknown): unknown {
   return records.map((r) => r[firstKey]).filter((v) => v !== null && v !== undefined);
 }
 
+// ─── Validators ────────────────────────────────────────────────────────────
+// Each returns null if valid or empty, error string if rows exist but shape is wrong.
+
+function validateBarData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2)
+    return `Bar chart requires at least 2 columns: first column for category labels (x-axis) and one or more columns for numeric values (y-axis). Your query returned only ${cols} column(s). Example: \`SELECT category, count FROM ...\``;
+  return null;
+}
+
+function validateLineData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2)
+    return `Line chart requires at least 2 columns: first column for x-axis values (dates, numbers, or labels) and one or more columns for numeric series. Your query returned only ${cols} column(s). Example: \`SELECT date, revenue FROM ...\``;
+  return null;
+}
+
+function validatePieData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2)
+    return `Pie chart requires at least 2 columns: first column for slice names and second column for numeric values. Your query returned only ${cols} column(s). Example: \`SELECT category, total FROM ...\``;
+  return null;
+}
+
+function validateValueData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) {
+    if (typeof data === "number" || typeof data === "string") return null;
+    return null; // empty = "No data" state, not format error
+  }
+  const first = records[0];
+  const values = Object.values(first);
+  if (!values.length)
+    return "Single value chart requires at least 1 column with a scalar value (number or string). Your query returned no usable values.";
+  return null;
+}
+
+function validateGraphData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  // Check if any record value looks like a node or relationship
+  for (const record of records) {
+    for (const value of Object.values(record)) {
+      if (value && typeof value === "object") {
+        const v = value as Record<string, unknown>;
+        if ("labels" in v && "properties" in v) return null; // node found
+        if ("type" in v && "start" in v && "end" in v) return null; // relationship found
+        if ("segments" in v && "start" in v && "end" in v) return null; // path found
+      }
+    }
+  }
+  return "Graph chart requires Neo4j node and relationship data. Your query did not return any graph structures (nodes, relationships, or paths). Example: `MATCH (n)-[r]->(m) RETURN n, r, m`";
+}
+
+function validateMapData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+  const keys = Object.keys(records[0]);
+  const hasLat = keys.some((k) => /lat/i.test(k));
+  const hasLng = keys.some((k) => /lo?ng?/i.test(k));
+  if (!hasLat || !hasLng)
+    return "Map chart requires columns with latitude and longitude values. No columns matching lat/lng patterns were found. Use column names containing 'lat' and 'lng'/'lon'. Example: `SELECT name, latitude, longitude FROM ...`";
+  return null;
+}
+
 export const chartRegistry: Record<ChartType, ChartConfig> = {
-  bar: { type: "bar", label: "Bar Chart", transform: transformToBarData },
-  line: { type: "line", label: "Line Chart", transform: transformToLineData },
-  pie: { type: "pie", label: "Pie Chart", transform: transformToPieData },
-  table: { type: "table", label: "Data Table", transform: transformToTableData },
-  "single-value": { type: "single-value", label: "Single Value", transform: transformToValueData },
-  graph: { type: "graph", label: "Graph", transform: transformToGraphData },
-  map: { type: "map", label: "Map", transform: transformToMapData },
-  json: { type: "json", label: "JSON Viewer", transform: transformToJsonData },
-  "parameter-select": { type: "parameter-select", label: "Parameter Selector", transform: transformToSelectData },
+  bar: {
+    type: "bar",
+    label: "Bar Chart",
+    transform: transformToBarData,
+    transformWithMapping: transformToBarDataWithMapping,
+    validate: validateBarData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  line: {
+    type: "line",
+    label: "Line Chart",
+    transform: transformToLineData,
+    transformWithMapping: transformToLineDataWithMapping,
+    validate: validateLineData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  pie: {
+    type: "pie",
+    label: "Pie Chart",
+    transform: transformToPieData,
+    transformWithMapping: transformToPieDataWithMapping,
+    validate: validatePieData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  table: {
+    type: "table",
+    label: "Data Table",
+    transform: transformToTableData,
+    transformWithMapping: (data) => transformToTableData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  "single-value": {
+    type: "single-value",
+    label: "Single Value",
+    transform: transformToValueData,
+    transformWithMapping: (data) => transformToValueData(data),
+    validate: validateValueData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  // Graph visualization requires Neo4j node/relationship structures — not available from PostgreSQL.
+  graph: {
+    type: "graph",
+    label: "Graph",
+    transform: transformToGraphData,
+    transformWithMapping: (data) => transformToGraphData(data),
+    validate: validateGraphData,
+    compatibleWith: ["neo4j"],
+  },
+  map: {
+    type: "map",
+    label: "Map",
+    transform: transformToMapData,
+    transformWithMapping: (data) => transformToMapData(data),
+    validate: validateMapData,
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  json: {
+    type: "json",
+    label: "JSON Viewer",
+    transform: transformToJsonData,
+    transformWithMapping: (data) => transformToJsonData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  "parameter-select": {
+    type: "parameter-select",
+    label: "Parameter Selector",
+    transform: transformToSelectData,
+    transformWithMapping: (data) => transformToSelectData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
 };
 
 export function getChartConfig(type: string): ChartConfig | undefined {
   return chartRegistry[type as ChartType];
 }
+
+/**
+ * Returns all ChartTypes compatible with the given connector type.
+ *
+ * An unknown connectorType string returns an empty array so callers
+ * always receive a predictable result (no implicit "show everything").
+ */
+export function getCompatibleChartTypes(connectorType: string): ChartType[] {
+  const known: ConnectorType[] = ["neo4j", "postgresql"];
+  if (!known.includes(connectorType as ConnectorType)) return [];
+  const ct = connectorType as ConnectorType;
+  return (Object.values(chartRegistry) as ChartConfig[])
+    .filter((cfg) => !cfg.compatibleWith || cfg.compatibleWith.includes(ct))
+    .map((cfg) => cfg.type);
+}
+

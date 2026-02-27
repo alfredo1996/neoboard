@@ -3,21 +3,26 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto";
 import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 import { computeResultId } from "@/lib/query-hash";
 
+/** Maximum number of rows returned per query execution to prevent OOM. */
+const MAX_ROWS = 10_000;
+
 const querySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
   params: z.record(z.any()).optional(),
+  /** Optional defense-in-depth field: when provided, must match the session tenant. */
+  tenantId: z.string().optional(),
 });
 
 export async function POST(request: Request) {
   try {
-    const userId = await requireUserId();
+    const { userId, tenantId: sessionTenantId } = await requireSession();
     const body = await request.json();
     const parsed = querySchema.safeParse(body);
 
@@ -28,7 +33,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const { connectionId, query, params } = parsed.data;
+    const { connectionId, query, params, tenantId: bodyTenantId } = parsed.data;
+
+    // Defense-in-depth: if the caller explicitly passes a tenantId,
+    // assert it matches the session to catch misconfigured clients early.
+    if (bodyTenantId && bodyTenantId !== sessionTenantId) {
+      return NextResponse.json({ error: "Tenant mismatch" }, { status: 403 });
+    }
 
     // Verify user owns the connection
     const [connection] = await db
@@ -62,7 +73,15 @@ export async function POST(request: Request) {
     // cache key. Normalization handled inside computeResultId.
     const resultId = computeResultId(connectionId, query, params);
 
-    return NextResponse.json({ ...result, resultId });
+    // TODO: MAX_ROWS truncation currently happens after full materialisation.
+    // Ideally, pass a maxRows option to executeQuery so the driver can stop
+    // reading at MAX_ROWS+1 (cursor/stream consumption) to avoid OOM on very
+    // large result sets. See CodeRabbit review on PR #75.
+    const rawData = result.data;
+    const truncated = Array.isArray(rawData) && rawData.length > MAX_ROWS;
+    const truncatedData = truncated ? (rawData as unknown[]).slice(0, MAX_ROWS) : rawData;
+
+    return NextResponse.json({ ...result, data: truncatedData, resultId, ...(truncated ? { truncated: true } : {}) });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";

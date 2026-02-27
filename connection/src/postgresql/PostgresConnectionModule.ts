@@ -151,16 +151,9 @@ export class PostgresConnectionModule extends ConnectionModule {
         }
       }
 
-      // Return a structured result with records and execution summary.
-      // chart-registry.ts handles this format via toRecords({ records, summary }).
-      callbacks.onSuccess?.({
-        records: parsedRecords,
-        summary: {
-          executionTime,
-          queryType: config.accessMode === 'WRITE' ? 'write' : 'read',
-          rowCount,
-        },
-      } as T);
+      // Return a flat array of records — same shape as Neo4j's onSuccess.
+      // query-executor.ts wraps this as { data: result } for consumers.
+      callbacks.onSuccess?.(parsedRecords as T);
     } catch (error: unknown) {
       // Rollback transaction on error
       try {

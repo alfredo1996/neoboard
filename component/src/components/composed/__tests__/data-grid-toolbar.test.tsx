@@ -54,7 +54,7 @@ describe("DataGridToolbar", () => {
     expect(screen.getByPlaceholderText("Filter emails...")).toBeInTheDocument();
   });
 
-  it("renders view options button", () => {
+  it("renders view options button (icon-only with accessible label)", () => {
     render(
       <DataGrid
         columns={columns}
@@ -62,7 +62,7 @@ describe("DataGridToolbar", () => {
         toolbar={(table) => <DataGridToolbar table={table} />}
       />
     );
-    expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /toggle columns/i })).toBeInTheDocument();
   });
 
   it("filters data when typing in global search", async () => {

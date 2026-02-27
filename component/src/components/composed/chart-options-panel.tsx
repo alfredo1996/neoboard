@@ -11,6 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export interface ChartOptionsPanelProps {
@@ -18,6 +24,31 @@ export interface ChartOptionsPanelProps {
   settings: Record<string, unknown>;
   onSettingsChange: (settings: Record<string, unknown>) => void;
   className?: string;
+}
+
+function OptionLabel({ option }: { option: ChartOptionDef }) {
+  if (!option.description) {
+    return (
+      <Label htmlFor={option.key} className="text-sm">
+        {option.label}
+      </Label>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Label
+          htmlFor={option.key}
+          className="text-sm cursor-help underline decoration-dotted underline-offset-2"
+        >
+          {option.label}
+        </Label>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-xs">
+        {option.description}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function OptionField({
@@ -33,9 +64,7 @@ function OptionField({
     case "boolean":
       return (
         <div className="flex items-center justify-between">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Switch
             id={option.key}
             checked={Boolean(value ?? option.default)}
@@ -47,9 +76,7 @@ function OptionField({
     case "select":
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Select
             value={String(value ?? option.default)}
             onValueChange={(v) => onChange(option.key, v)}
@@ -71,9 +98,7 @@ function OptionField({
     case "text":
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Input
             id={option.key}
             value={String(value ?? option.default ?? "")}
@@ -86,9 +111,7 @@ function OptionField({
     case "number":
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={option.key} className="text-sm">
-            {option.label}
-          </Label>
+          <OptionLabel option={option} />
           <Input
             id={option.key}
             type="number"
@@ -144,6 +167,7 @@ function ChartOptionsPanel({
   }
 
   return (
+    <TooltipProvider>
     <div className={cn("space-y-4", className)}>
       {options.length > 4 && (
         <Input
@@ -171,6 +195,7 @@ function ChartOptionsPanel({
         ))}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 

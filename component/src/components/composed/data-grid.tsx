@@ -30,6 +30,30 @@ import { cn } from "@/lib/utils";
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
 
+/**
+ * Fixed layout heights used when computing the dynamic page size from a
+ * known container height.  Keep in sync with the actual rendered heights.
+ */
+export const DATA_GRID_HEADER_HEIGHT = 40;   // px — table <thead> row
+export const DATA_GRID_ROW_HEIGHT = 36;       // px — single data <tr>
+export const DATA_GRID_PAGINATION_HEIGHT = 52; // px — pagination control bar
+
+/**
+ * Calculate how many rows fit in the available container space.
+ *
+ * @param containerHeight - Total pixel height of the widget container.
+ * @param toolbarHeight   - Height of the toolbar above the table (0 when no toolbar).
+ * @returns The number of rows that fit, always at least 1.
+ */
+export function calcDynamicPageSize(
+  containerHeight: number,
+  toolbarHeight = 0,
+): number {
+  const availableForRows =
+    containerHeight - toolbarHeight - DATA_GRID_HEADER_HEIGHT - DATA_GRID_PAGINATION_HEIGHT;
+  return Math.max(1, Math.floor(availableForRows / DATA_GRID_ROW_HEIGHT));
+}
+
 export interface DataGridProps<TData> {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -37,7 +61,22 @@ export interface DataGridProps<TData> {
   enableSelection?: boolean;
   enableGlobalFilter?: boolean;
   enableColumnFilters?: boolean;
+  /**
+   * Whether to show pagination controls.  Defaults to `true`.
+   * When `false` all rows are rendered on a single page.
+   */
+  enablePagination?: boolean;
+  /**
+   * Fixed fallback page size used when `containerHeight` is not provided or
+   * when `enablePagination` is `false`.
+   */
   pageSize?: number;
+  /**
+   * Height of the outer widget container in pixels.  When provided and
+   * `enablePagination` is `true`, the page size is calculated dynamically so
+   * that exactly as many rows as fit are shown — no overflow, no wasted space.
+   */
+  containerHeight?: number;
   onRowClick?: (row: TData) => void;
   onSelectionChange?: (selectedRows: TData[]) => void;
   toolbar?: (table: Table<TData>) => React.ReactNode;
@@ -52,7 +91,9 @@ function DataGrid<TData>({
   enableSelection = false,
   enableGlobalFilter = false,
   enableColumnFilters = false,
+  enablePagination = true,
   pageSize = 10,
+  containerHeight,
   onRowClick,
   onSelectionChange,
   toolbar,
@@ -64,6 +105,23 @@ function DataGrid<TData>({
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
+
+  // Toolbar height is non-zero only when a toolbar render prop is supplied.
+  // We use a fixed estimate so the toolbar's own height does not have to be
+  // measured separately — the toolbar renders at 40 px in practice.
+  const TOOLBAR_HEIGHT = toolbar ? 40 : 0;
+
+  // Determine effective page size:
+  //  1. When pagination is disabled, show all rows (large sentinel).
+  //  2. When containerHeight is provided, derive page size dynamically.
+  //  3. Otherwise fall back to the explicit `pageSize` prop.
+  const effectivePageSize = React.useMemo(() => {
+    if (!enablePagination) return Number.MAX_SAFE_INTEGER;
+    if (containerHeight !== undefined && containerHeight > 0) {
+      return calcDynamicPageSize(containerHeight, TOOLBAR_HEIGHT);
+    }
+    return pageSize;
+  }, [enablePagination, containerHeight, pageSize, TOOLBAR_HEIGHT]);
 
   const allColumns = React.useMemo(() => {
     if (!enableSelection) return columns;
@@ -96,6 +154,7 @@ function DataGrid<TData>({
     data,
     columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
+    enableSorting,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,
@@ -115,10 +174,16 @@ function DataGrid<TData>({
     },
     initialState: {
       pagination: {
-        pageSize,
+        pageSize: effectivePageSize,
       },
     },
   });
+
+  // Keep TanStack Table's page size in sync whenever effectivePageSize changes
+  // (e.g. the container is resized or the user toggles pagination off/on).
+  React.useEffect(() => {
+    table.setPageSize(effectivePageSize);
+  }, [effectivePageSize, table]);
 
   React.useEffect(() => {
     if (onSelectionChange) {
@@ -128,6 +193,10 @@ function DataGrid<TData>({
       onSelectionChange(selectedRows);
     }
   }, [rowSelection, onSelectionChange, table]);
+
+  // Whether to render the built-in pagination bar.  The caller-supplied
+  // `pagination` render prop always takes priority.
+  const showBuiltInPagination = enablePagination && !pagination && table.getPageCount() > 1;
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -179,7 +248,7 @@ function DataGrid<TData>({
       {pagination ? (
         pagination(table)
       ) : (
-        table.getPageCount() > 1 && (
+        showBuiltInPagination && (
           <div className="flex items-center justify-end space-x-2">
             <div className="flex-1 text-sm text-muted-foreground">
               {enableSelection &&

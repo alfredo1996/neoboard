@@ -9,6 +9,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+// ---------------------------------------------------------------------------
+// CodeMirror type aliases (dynamic imports — never imported at module level
+// so the heavy editor code is only loaded in the browser).
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM view
+type CMEditorView = any;
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export interface QueryEditorProps {
   value?: string;
@@ -18,9 +28,100 @@ export interface QueryEditorProps {
   running?: boolean;
   history?: string[];
   placeholder?: string;
-  language?: string;
+  /** "cypher" | "sql" selects the language extension */
+  language?: "cypher" | "sql" | string;
+  readOnly?: boolean;
   className?: string;
+  /** When provided, a hint for the run-and-save keyboard shortcut is displayed next to the Run button. */
+  runAndSaveHint?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function buildExtensions(
+  language: string,
+  placeholder: string,
+  readOnly: boolean,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM extension type is complex
+  onUpdate: (newValue: string) => void,
+  onRun: () => void
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
+): Promise<any[]> {
+  const [
+    { EditorView, keymap, placeholder: cmPlaceholder },
+    { EditorState },
+    { defaultKeymap, historyKeymap, history: historyExt },
+    { autocompletion, completionKeymap },
+    { oneDark },
+  ] = await Promise.all([
+    import("@codemirror/view"),
+    import("@codemirror/state"),
+    import("@codemirror/commands"),
+    import("@codemirror/autocomplete"),
+    import("@codemirror/theme-one-dark"),
+  ]);
+
+  // Language
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
+  const langExts: any[] = [];
+  const lang = (language ?? "cypher").toLowerCase();
+  if (lang === "sql" || lang === "postgresql") {
+    const { sql } = await import("@codemirror/lang-sql");
+    langExts.push(sql());
+  }
+  // Cypher: no first-party CM6 package on npm — plain text for now.
+
+  // Cmd/Ctrl+Enter → run
+  const runKeymap = keymap.of([
+    {
+      key: "Ctrl-Enter",
+      mac: "Cmd-Enter",
+      run: () => {
+        onRun();
+        return true;
+      },
+    },
+  ]);
+
+  // Value change listener
+  const updateListener = EditorView.updateListener.of(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM ViewUpdate
+    (update: any) => {
+      if (update.docChanged) {
+        onUpdate(update.state.doc.toString());
+      }
+    }
+  );
+
+  const baseTheme = EditorView.theme({
+    "&": { height: "100%", minHeight: "120px" },
+    ".cm-scroller": {
+      overflow: "auto",
+      fontFamily: "var(--font-mono, monospace)",
+      fontSize: "0.875rem",
+    },
+    ".cm-content": { padding: "1rem" },
+  });
+
+  return [
+    historyExt(),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+    runKeymap,
+    ...langExts,
+    autocompletion(),
+    cmPlaceholder(placeholder),
+    oneDark,
+    baseTheme,
+    updateListener,
+    EditorState.readOnly.of(readOnly),
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 function QueryEditor({
   value,
@@ -30,48 +131,209 @@ function QueryEditor({
   running = false,
   history,
   placeholder = "Enter your query...",
-  language = "Cypher",
+  language = "cypher",
+  readOnly = false,
   className,
+  runAndSaveHint = false,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const currentValue = value ?? internalValue;
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    if (value === undefined) setInternalValue(newValue);
-    onChange?.(newValue);
-  };
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const viewRef = React.useRef<CMEditorView>(null);
+  // Prevent the CM update listener from triggering onChange while we are
+  // programmatically pushing a value into the editor.
+  const suppressUpdate = React.useRef(false);
 
+  // Keep the latest callbacks in refs so the stable closures passed to CM
+  // always call the current function.
+  const onChangeRef = React.useRef(onChange);
+  const onRunRef = React.useRef(onRun);
+  const runningRef = React.useRef(running);
+  const currentValueRef = React.useRef(currentValue);
+  React.useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  React.useEffect(() => { onRunRef.current = onRun; }, [onRun]);
+  React.useEffect(() => { runningRef.current = running; }, [running]);
+  React.useEffect(() => { currentValueRef.current = currentValue; }, [currentValue]);
+
+  // Whether the component is in "controlled" mode (value prop provided)
+  const isControlled = value !== undefined;
+
+  // -------------------------------------------------------------------------
+  // Create / recreate the CodeMirror editor
+  // -------------------------------------------------------------------------
+  const initEditor = React.useCallback(
+    async (docValue: string, abortSignal: { aborted: boolean }) => {
+      if (typeof window === "undefined" || !containerRef.current) return;
+
+      // Tear down any existing view
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      }
+      // Remove leftover DOM nodes
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
+      }
+
+      const { EditorView } = await import("@codemirror/view");
+      const { EditorState } = await import("@codemirror/state");
+
+      // Guard: a newer initEditor call may have superseded this one.
+      if (abortSignal.aborted) return;
+
+      const onUpdate = (newValue: string) => {
+        if (suppressUpdate.current) return;
+        if (!isControlled) setInternalValue(newValue);
+        onChangeRef.current?.(newValue);
+      };
+
+      const onRunCallback = () => {
+        const v = viewRef.current?.state.doc.toString() ?? currentValueRef.current;
+        if (v.trim() && !runningRef.current) {
+          onRunRef.current?.(v);
+        }
+      };
+
+      const extensions = await buildExtensions(
+        language,
+        placeholder,
+        readOnly,
+        onUpdate,
+        onRunCallback
+      );
+
+      // Guard again after the second batch of dynamic imports.
+      if (abortSignal.aborted || !containerRef.current) return;
+
+      // Final cleanup right before creating the view — prevents duplicates
+      // when two initEditor calls race (e.g. React 19 strict mode remount).
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      }
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
+      }
+
+      const state = EditorState.create({ doc: docValue, extensions });
+      viewRef.current = new EditorView({ state, parent: containerRef.current });
+    },
+    // Recreate when these change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language, readOnly, placeholder]
+  );
+
+  // Initial mount
+  React.useEffect(() => {
+    const abortSignal = { aborted: false };
+    initEditor(currentValue, abortSignal);
+    return () => {
+      abortSignal.aborted = true;
+      viewRef.current?.destroy();
+      viewRef.current = null;
+      // Reset so the reinit effect skips on the next mount (React 19
+      // strict mode: mount → cleanup → mount).
+      isFirstRender.current = true;
+      // Clear leftover DOM children to prevent duplicate editors.
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          containerRef.current.removeChild(containerRef.current.firstChild);
+        }
+      }
+    };
+    // Only runs once; language/schema changes are handled by the next effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Recreate editor when language / readOnly / schema change (after mount)
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Preserve current document content across reinit
+    const doc = viewRef.current?.state.doc.toString() ?? currentValueRef.current;
+    const abortSignal = { aborted: false };
+    initEditor(doc, abortSignal);
+    return () => {
+      abortSignal.aborted = true;
+      // Clear leftover DOM children to prevent duplicate editors
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          containerRef.current.removeChild(containerRef.current.firstChild);
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, readOnly]);
+
+  // -------------------------------------------------------------------------
+  // Sync controlled `value` into the editor when it changes externally
+  // -------------------------------------------------------------------------
+  React.useEffect(() => {
+    if (!isControlled) return;
+    const view = viewRef.current;
+    if (!view) return;
+    const doc = view.state.doc.toString();
+    if (doc !== value) {
+      suppressUpdate.current = true;
+      view.dispatch({ changes: { from: 0, to: doc.length, insert: value } });
+      suppressUpdate.current = false;
+    }
+  }, [value, isControlled]);
+
+  // -------------------------------------------------------------------------
+  // UI handlers
+  // -------------------------------------------------------------------------
   const handleRun = () => {
+    // Use React state (currentValue) as the authoritative source so the button
+    // always uses the same value that governs its disabled state.
     if (currentValue.trim() && !running) {
       onRun?.(currentValue);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      handleRun();
-    }
-  };
 
   const handleHistorySelect = (query: string) => {
-    if (value === undefined) setInternalValue(query);
+    const view = viewRef.current;
+    if (view) {
+      suppressUpdate.current = true;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: query } });
+      suppressUpdate.current = false;
+    }
+    if (!isControlled) setInternalValue(query);
     onChange?.(query);
   };
 
   const handleClear = () => {
-    if (value === undefined) setInternalValue("");
+    const view = viewRef.current;
+    if (view) {
+      suppressUpdate.current = true;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+      suppressUpdate.current = false;
+      view.focus();
+    }
+    if (!isControlled) setInternalValue("");
     onChange?.("");
-    textareaRef.current?.focus();
   };
 
+  const languageLabel =
+    language === "sql" || language === "postgresql"
+      ? "SQL"
+      : language === "cypher"
+      ? "Cypher"
+      : (language ?? "Cypher");
+
   return (
-    <div className={cn("rounded-lg border bg-muted/30", className)}>
-      <div className="flex items-center justify-between border-b px-3 py-2">
+    <div className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">{language}</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            {languageLabel}
+          </span>
           {history && history.length > 0 && (
             <Select onValueChange={handleHistorySelect}>
               <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent text-xs text-muted-foreground hover:text-foreground">
@@ -99,11 +361,22 @@ function QueryEditor({
           >
             <RotateCcw className="h-3 w-3" />
           </Button>
+          {runAndSaveHint && (
+            <span
+              className="hidden sm:inline-flex items-center text-[10px] text-muted-foreground select-none mr-1"
+              aria-label="Run and save shortcut: Command Shift Enter"
+              title="Run & Save: ⌘⇧↵ / Ctrl+Shift+Enter"
+            >
+              <kbd className="font-mono">⌘⇧↵</kbd>
+              <span className="ml-1">Run &amp; Save</span>
+            </span>
+          )}
           <Button
             size="sm"
             className="h-7 gap-1"
             onClick={handleRun}
             disabled={!currentValue.trim() || running}
+            title="Run query (Ctrl+Enter / ⌘+Enter)"
           >
             {running ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -114,14 +387,12 @@ function QueryEditor({
           </Button>
         </div>
       </div>
-      <textarea
-        ref={textareaRef}
-        value={currentValue}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        className="w-full resize-none bg-transparent p-4 font-mono text-sm outline-none placeholder:text-muted-foreground/60 min-h-[120px]"
-        spellCheck={false}
+
+      {/* CodeMirror mount point */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"
+        data-testid="codemirror-container"
       />
     </div>
   );

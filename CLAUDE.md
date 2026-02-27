@@ -16,33 +16,72 @@ Before editing any file, check which package it belongs to and respect its bound
 
 ## Commands
 
-All commands run from `app/` unless noted.
+All commands run from the repo root unless noted.
 
 ```bash
-npm run dev          # Dev server
-npm run build        # Production build + type-check
-cd app && npm test   # Vitest unit tests (fast, no containers)
-npm run test:e2e     # Playwright E2E (requires Docker)
-npm run lint         # ESLint — run from repo root
-cd app && npx next lint --fix  # Auto-fix lint errors in app/
-npm run storybook    # Component library viewer
-npm run db:migrate   # Drizzle migrations
-npm run db:generate  # Generate migration from schema
-docker compose up    # Start Neo4j + PostgreSQL dev containers
+npm run dev                          # Dev server (proxies to app/)
+npm run build                        # Production build + type-check
+npm run lint                         # ESLint all packages (root config)
+cd app && npx next lint --fix        # Auto-fix lint errors in app/
+cd app && npm test                   # App Vitest unit tests (API routes, hooks, stores)
+cd component && npm test             # Component Vitest unit tests
+cd connection && npm test            # Connection integration tests (needs Docker)
+npm run test:e2e                     # Playwright E2E (requires Docker)
+npm run storybook                    # Component library viewer
+npm run db:migrate                   # Drizzle migrations
+npm run db:generate                  # Generate migration from schema
+docker compose up                    # Start Neo4j + PostgreSQL dev containers
 ```
+
+## TDD Workflow (mandatory)
+
+Follow Red → Green → Refactor on every change:
+
+1. **Red** — Write a failing test that describes the expected behavior. Do not write implementation yet.
+2. **Green** — Write the minimum code to make the test pass. No gold-plating.
+3. **Refactor** — Clean up without breaking tests.
+
+Rules:
+- Write the test **before** the implementation. No exceptions.
+- Run the relevant test suite before and after every change to confirm Red → Green.
+- Every new behavior, bug fix, and edge case gets a test.
+- Tests live in `__tests__/` next to the file under test, same package.
+- See `claude_code_docs/TESTING_APPROACH.md` for suite structure, commands, and patterns.
+
+## Testing Boundaries (app/ package)
+
+| Layer | Tool | Examples |
+|-------|------|---------|
+| Pure functions/utils | Vitest (no DOM) | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| API routes | Vitest (mocked DB/auth) | Validation, permissions, error handling |
+| Zustand stores | Vitest (no mocks) | State transitions, cascading logic |
+| Store orchestration | Vitest (no DOM) | parameter-widget-renderer interactions, type coercion |
+| Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
+| UI components + pages | Playwright E2E | Real rendering, real data, real interactions |
+
+**Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`.** Component rendering is tested via Playwright E2E with real data. Vitest in `app/` is for pure logic, API routes, stores, and hooks only. UI component tests belong in `component/` (isolated, no business logic) or as Playwright E2E specs.
 
 ## Working Rules
 
-- Run `cd app && npx next lint --fix` after every change.
-- Run `npm run build` before committing to catch type errors.
-- New behavior = new tests. No exceptions.
-- Always check if you need to write tests for the code you're working on.
-- Use Conventional Commits: `type(scope): description`.
-- Branch naming: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `security/`.
-- PRs need labels: type + package + area. See `/github` skill.
+**Code quality:**
 - TypeScript strict. No `any` without a comment explaining why.
+- Run `cd app && npx next lint --fix` after every change to `app/`.
+- Run `npm run lint` from the repo root to lint all packages.
+- Run `npm run build` before committing to catch type errors.
 - Use `npm`, not `pnpm` or `yarn`.
-- Always run the tests of the related code you're writing before pushing to GitHub.
+
+**Git & PRs:**
+- Conventional Commits: `type(scope): description`.
+- Branch from `main`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
+- PRs target `dev` (integration) before merging to `main`.
+- Do not push if tests are failing.
+- PRs need labels: type + package + area. See `/github` skill.
+- After finishing: PR targeting `dev`, correct milestone/labels, link issue via `Closes #N`.
+
+**PR reviews:**
+- Read `gh pr view <number> --comments` when resuming work on an existing PR.
+- Address all CodeRabbit suggestions or dismiss with justification.
+- SonarQube quality gate must pass (coverage, duplications, code smells).
 
 ## Query Safety — DO NOT VIOLATE
 
@@ -82,19 +121,22 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 
 ## Detailed Docs
 
-Read `claude_code_docs/` before working on specific areas. These contain implementation details, patterns, and examples that don't belong in this file.
+Read before working on specific areas:
+
+- `claude_code_docs/TESTING_APPROACH.md` — Testing strategy, test commands, CI workflows
+- `claude_code_docs/sonarqube-and-coverage.md` — SonarCloud integration and coverage setup
 
 ## Migrations
 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
 Test version-skip paths. `--skip-migrations` flag exists for emergency debugging.
 
-## Git strategy
+## Design Review
 
-There is no `dev` branch — branch directly from `main`. Keep branches separated; do not push if tests are failing.
+Before touching any UI code:
+1. Read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns. Source of truth for visual consistency.
+2. Read `.claude/skills/screenshot-review/skill.md` — screenshot workflow.
 
-Branch naming: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
-
-For a release: create `release/vX.Y.Z` from `main`, then open a PR into it from the feature branches.
-
-After finishing a branch: create a PR, add the right milestone and labels, and link it to its issue using GitHub's "Closes #N" keyword — not just the issue number in the title.
+Rules:
+- Screenshot before AND after any visual change (`screenshots/before/`, `.screenshots/after/`).
+- Keep the baseline suite (`.screenshots/baseline-*/`) up to date for new pages/flows.
