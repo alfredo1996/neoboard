@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 import { ChartSettingsPanel } from '@/components/composed/chart-settings-panel';
-import { ChartTypePicker } from '@/components/composed/chart-type-picker';
 import { FieldPicker } from '@/components/composed/field-picker';
-import { ColorPicker } from '@/components/composed/color-picker';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 const meta = {
   title: 'Composed/ChartSettingsPanel',
@@ -39,7 +39,16 @@ export const Default: Story = {
             <div className="space-y-4">
               <div>
                 <Label className="text-xs font-medium mb-2 block">Chart Type</Label>
-                <ChartTypePicker value={chartType} onValueChange={setChartType} />
+                <Select value={chartType} onValueChange={setChartType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bar">Bar</SelectItem>
+                    <SelectItem value="line">Line</SelectItem>
+                    <SelectItem value="pie">Pie</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-xs font-medium mb-2 block">Fields</Label>
@@ -56,7 +65,12 @@ export const Default: Story = {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Primary Color</Label>
-                <ColorPicker value={color} onValueChange={setColor} />
+                <Input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-8 w-12 p-1"
+                />
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="legend" className="text-xs">Show Legend</Label>

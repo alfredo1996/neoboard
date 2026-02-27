@@ -7,7 +7,6 @@ import { SidebarItem } from '@/components/composed/sidebar-item';
 import { Toolbar, ToolbarSection, ToolbarSeparator } from '@/components/composed/toolbar';
 import { DashboardGrid } from '@/components/composed/dashboard-grid';
 import { WidgetCard } from '@/components/composed/widget-card';
-import { StatCard } from '@/components/composed/stat-card';
 import { LineChart } from '@/charts/line-chart';
 import { BarChart } from '@/charts/bar-chart';
 import { Button } from '@/components/ui/button';
@@ -136,16 +135,28 @@ export const FullDashboard: Story = {
           <div className="p-4">
             <DashboardGrid layout={dashboardLayout} rowHeight={60} isDraggable={false} isResizable={false}>
               <div key="stat-1">
-                <StatCard title="Revenue" value="$45,231" trend={{ value: 12.5, label: "vs last month" }} className="h-full" />
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
+                  <span className="text-sm text-muted-foreground">Revenue</span>
+                  <span className="text-2xl font-bold">$45,231</span>
+                </div>
               </div>
               <div key="stat-2">
-                <StatCard title="Users" value="2,350" trend={{ value: 8.2, label: "vs last month" }} className="h-full" />
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
+                  <span className="text-sm text-muted-foreground">Users</span>
+                  <span className="text-2xl font-bold">2,350</span>
+                </div>
               </div>
               <div key="stat-3">
-                <StatCard title="Orders" value="1,247" trend={{ value: -3.1, label: "vs last month" }} className="h-full" />
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
+                  <span className="text-sm text-muted-foreground">Orders</span>
+                  <span className="text-2xl font-bold">1,247</span>
+                </div>
               </div>
               <div key="stat-4">
-                <StatCard title="Conversion" value="3.2%" trend={{ value: 0 }} description="No change" className="h-full" />
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
+                  <span className="text-sm text-muted-foreground">Conversion</span>
+                  <span className="text-2xl font-bold">3.2%</span>
+                </div>
               </div>
               <div key="line">
                 <WidgetCard title="Revenue Over Time" subtitle="Monthly trend">
