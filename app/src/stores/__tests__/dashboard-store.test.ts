@@ -394,6 +394,20 @@ describe("useDashboardStore", () => {
       expect(useDashboardStore.getState().activePageIndex).toBe(1);
     });
 
+    it("is a no-op when fromIndex is out of bounds", () => {
+      setupThreePages();
+      useDashboardStore.getState().reorderPages(-1, 1);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page A", "Page B", "Page C"]);
+    });
+
+    it("is a no-op when toIndex is out of bounds", () => {
+      setupThreePages();
+      useDashboardStore.getState().reorderPages(0, 5);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page A", "Page B", "Page C"]);
+    });
+
     it("works with 2 pages (swap)", () => {
       const layout = {
         version: 2 as const,

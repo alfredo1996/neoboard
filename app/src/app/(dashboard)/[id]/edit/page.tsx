@@ -300,7 +300,7 @@ export default function DashboardEditorPage({
                 );
               }
               if (page.widgets.length === 0) return null;
-              if (!visitedPages.has(index)) return null;
+              if (!isActive && !visitedPages.has(index)) return null;
               return (
                 <div
                   key={page.id}

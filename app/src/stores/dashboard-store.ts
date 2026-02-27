@@ -111,7 +111,15 @@ export const useDashboardStore = create<DashboardState>((set) => ({
 
   reorderPages: (fromIndex, toIndex) =>
     set((state) => {
-      if (fromIndex === toIndex) return state;
+      const pageCount = state.layout.pages.length;
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= pageCount ||
+        toIndex >= pageCount
+      )
+        return state;
       const pages = [...state.layout.pages];
       const [moved] = pages.splice(fromIndex, 1);
       pages.splice(toIndex, 0, moved);
