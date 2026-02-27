@@ -45,4 +45,11 @@ app/e2e/.containers-state.json
 
 # Coverage reports (generated — never commit)
 coverage/
+app/coverage-e2e/
 *.lcov
+
+# Screenshot review (temporary per-PR artifacts)
+.screenshots/before/
+.screenshots/after/
+.screenshots/diff/
+.playwright-mcp

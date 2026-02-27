@@ -12,7 +12,7 @@ interface DashboardState {
   editMode: boolean;
 
   // Layout
-  setLayout: (layout: DashboardLayoutV2) => void;
+  setLayout: (layout: DashboardLayoutV2, initialPageIndex?: number) => void;
   setEditMode: (editMode: boolean) => void;
   reset: () => void;
 
@@ -27,6 +27,7 @@ interface DashboardState {
   removeWidget: (widgetId: string) => void;
   updateWidget: (widgetId: string, updates: Partial<DashboardWidget>) => void;
   updateGridLayout: (gridLayout: GridLayoutItem[]) => void;
+  duplicateWidget: (widgetId: string) => void;
 }
 
 const defaultPage = (): DashboardPage => ({
@@ -54,7 +55,14 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   activePageIndex: 0,
   editMode: false,
 
-  setLayout: (layout) => set({ layout, activePageIndex: 0 }),
+  setLayout: (layout, initialPageIndex = 0) =>
+    set({
+      layout,
+      activePageIndex: Math.min(
+        isNaN(initialPageIndex) ? 0 : initialPageIndex,
+        layout.pages.length - 1
+      ),
+    }),
   setEditMode: (editMode) => set({ editMode }),
   reset: () =>
     set({ layout: emptyLayout, activePageIndex: 0, editMode: false }),
@@ -157,6 +165,47 @@ export const useDashboardStore = create<DashboardState>((set) => ({
           pages: updatePage(state.layout.pages, idx, (p) => ({
             ...p,
             gridLayout,
+          })),
+        },
+      };
+    }),
+
+  duplicateWidget: (widgetId) =>
+    set((state) => {
+      const idx = state.activePageIndex;
+      const page = state.layout.pages[idx];
+      const source = page.widgets.find((w) => w.id === widgetId);
+      const sourceGrid = page.gridLayout.find((g) => g.i === widgetId);
+      if (!source || !sourceGrid) return state;
+
+      const newId = crypto.randomUUID();
+      const clonedWidget: DashboardWidget = {
+        ...structuredClone(source),
+        id: newId,
+        settings: {
+          ...structuredClone(source.settings ?? {}),
+          title:
+            typeof source.settings?.title === "string"
+              ? `${source.settings.title} (Copy)`
+              : undefined,
+        },
+      };
+      // Place the clone at the next available slot using grid gravity
+      // (same strategy as addWidget) instead of x+1/y+1 which causes overlap.
+      const clonedGrid: GridLayoutItem = {
+        ...sourceGrid,
+        i: newId,
+        x: (page.gridLayout.length * sourceGrid.w) % 12,
+        y: Infinity, // react-grid-layout compacts to the first available slot
+      };
+
+      return {
+        layout: {
+          ...state.layout,
+          pages: updatePage(state.layout.pages, idx, (p) => ({
+            ...p,
+            widgets: [...p.widgets, clonedWidget],
+            gridLayout: [...p.gridLayout, clonedGrid],
           })),
         },
       };

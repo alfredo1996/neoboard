@@ -1,7 +1,6 @@
 # NeoBoard - Testing Approach
 
-Testing strategy: component-level unit tests (Vitest) + full-app E2E tests (Playwright).
-No additional test runners in the `app/` project — Playwright E2E covers stores, API routes, and chart rendering end-to-end.
+Testing strategy: unit tests (Vitest) at all three package levels + full-app E2E tests (Playwright).
 
 ---
 
@@ -9,7 +8,9 @@ No additional test runners in the `app/` project — Playwright E2E covers store
 
 | Tool | Package | Purpose |
 |------|---------|---------|
-| **Vitest** | `component/` | Unit test runner for component library |
+| **Vitest** | `app/` | Unit tests for API routes, hooks, stores, utilities |
+| **Vitest** | `component/` | Unit tests for UI components, charts, composed components |
+| **Jest (ts-jest)** | `connection/` | Integration tests for DB adapters (needs Docker) |
 | **React Testing Library** | `component/` | Component testing utilities |
 | **@testing-library/user-event** | `component/` | User interaction simulation |
 | **Storybook + Playwright** | `component/` | Visual browser tests |
@@ -20,43 +21,100 @@ No additional test runners in the `app/` project — Playwright E2E covers store
 ## Testing Layers
 
 ```
-          /  E2E (Playwright)  \       Full app flows against real DBs
+          /  E2E (Playwright)  \       Full app flows against real DBs + coverage
          /──────────────────────\
-        / Component Unit (Vitest)\     Individual component behavior
+        / App Unit (Vitest)      \     API routes, hooks, stores, crypto (NO render tests)
        /──────────────────────────\
+      / Component Unit (Vitest)    \   Individual component behavior
+     /──────────────────────────────\
+    / Connection Integration (Vitest)\  DB adapters against real databases
+   /──────────────────────────────────\
+```
+
+### App Unit Test Boundaries
+
+Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`. Component rendering is covered by Playwright E2E.
+
+| Layer | Tool | Examples |
+|-------|------|---------|
+| Pure functions/utils | Vitest (no DOM) | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| API routes | Vitest (mocked DB/auth) | Validation, permissions, error handling |
+| Zustand stores | Vitest (no mocks) | State transitions, cascading logic |
+| Store orchestration | Vitest (no DOM) | parameter-widget-renderer interactions, type coercion |
+| Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
+| UI components + pages | Playwright E2E | Real rendering, real data, real interactions |
+
+---
+
+## 1. App Unit Tests (Vitest)
+
+**Location**: `app/src/**/__tests__/`
+**Runner**: Vitest with node environment
+**Config**: `app/vitest.config.ts`
+
+### What's Tested
+- API routes (connections CRUD, dashboards CRUD, query execution, auth)
+- Hooks (use-widget-query parameter extraction/substitution)
+- Stores (dashboard-store state management)
+- Utilities (query-hash, layout migration, bootstrap, auth session, crypto)
+
+### Commands
+```bash
+cd app
+npm test              # Run all tests
+npm run test:coverage # Run with coverage report
 ```
 
 ---
 
-## 1. Component Library Tests (Vitest)
+## 2. Component Library Tests (Vitest)
 
 **Location**: `component/src/**/__tests__/`
-**Count**: 826 tests across 145 files (all passing)
 **Runner**: Vitest with jsdom environment
+**Config**: `component/vite.config.ts`
 
 ### What's Tested
-- All 33 base UI components
-- All 55 composed components
-- All 7 chart components
+- All base UI components (shadcn/ui wrappers)
+- All composed components (query-editor, chart-settings-panel, etc.)
+- All chart components (bar, line, pie, single-value, graph, map)
 - Props, events, state changes, edge cases
 
 ### Commands
 ```bash
 cd component
-npm run test           # Run all tests
-npm run test -- --watch  # Watch mode
+npm test              # Run unit tests (jsdom, --project unit)
+npm run test:coverage # Run unit tests with coverage report
+npm run test:watch    # Watch mode (unit project)
+npm run test:storybook # Run Storybook browser tests (Playwright, --project storybook)
 ```
 
-### Config
-```
-component/vite.config.ts → test.projects:
-  - "unit": jsdom environment, src/**/*.test.{ts,tsx}
-  - "storybook": Playwright browser provider
+**Two Vitest projects:**
+- `unit` — standard jsdom environment, runs with `npm test` / `npm run test:coverage`
+- `storybook` — Playwright browser (Chromium, headless) via `@storybook/addon-vitest`; runs with `npm run test:storybook`; not included in the default `npm test` run or coverage
+
+---
+
+## 3. Connection Integration Tests
+
+**Location**: `connection/src/**/__tests__/`
+**Runner**: Vitest/Jest
+**Requires**: Docker (PostgreSQL + Neo4j)
+
+### What's Tested
+- Neo4j adapter (connection, query execution, schema introspection)
+- PostgreSQL adapter (connection, query execution, schema introspection)
+- Record parsing and normalization
+
+### Commands
+```bash
+cd connection
+npm test              # Run tests (needs Docker running)
+npm run test:coverage # Run with coverage report
 ```
 
 ---
 
-## 2. E2E Tests (Playwright)
+## 4. E2E Tests (Playwright)
 
 **Location**: `app/e2e/`
 **Config**: `app/playwright.config.ts`
@@ -66,9 +124,19 @@ component/vite.config.ts → test.projects:
 
 ```bash
 cd app
-npm run test:e2e       # Runs all E2E tests (auto-starts testcontainers)
-npm run test:e2e:ui    # Interactive Playwright UI mode
+npm run test:e2e            # Runs all E2E tests (auto-starts testcontainers)
+npm run test:e2e:ui         # Interactive Playwright UI mode
+npm run test:e2e:coverage   # E2E tests with code coverage collection (nextcov)
 ```
+
+### E2E Coverage Collection
+
+Playwright E2E tests can collect V8 code coverage via [nextcov](https://github.com/stevez/nextcov). Coverage is collected per-test automatically via the `coverage` fixture in `e2e/fixtures.ts`.
+
+- Set `E2E_COVERAGE=1` to enable (or use `npm run test:e2e:coverage`)
+- Output: `app/coverage-e2e/` (lcov, json, text-summary)
+- SonarCloud merges this with Vitest coverage for the `app/` package
+- In CI, the E2E workflow uploads coverage as an artifact; the SonarCloud workflow downloads it
 
 **Infrastructure**: Uses `testcontainers` to automatically spin up PostgreSQL and Neo4j containers per test run. No manual `docker compose up` needed.
 
@@ -78,15 +146,23 @@ npm run test:e2e:ui    # Interactive Playwright UI mode
 ### Test Suites
 
 | Suite | File | What It Tests |
-|-------|------|--------------|
+|-------|------|---------------|
 | Auth | `e2e/auth.spec.ts` | Sign up, log in, log out, redirect when unauthenticated |
+| Auth States | `e2e/auth-states.spec.ts` | Login error alerts and edge-case auth states |
 | Navigation | `e2e/navigation.spec.ts` | Sidebar on all pages, tab switching, collapse/expand |
 | Connections | `e2e/connections.spec.ts` | Create, auto-status check, manual test, delete |
 | Dashboards | `e2e/dashboards.spec.ts` | Create, view, edit, delete dashboards |
+| Dashboard States | `e2e/dashboard-states.spec.ts` | Dashboard viewer uncovered states |
+| Empty States | `e2e/empty-states.spec.ts` | Dashboard list empty states, role badges |
 | Widgets | `e2e/widgets.spec.ts` | Two-step creation flow, query + preview, add to grid |
+| Widget States | `e2e/widget-states.spec.ts` | Widget editor edge cases and states |
 | Charts | `e2e/charts.spec.ts` | Bar/line/table/JSON/value charts render correctly |
 | Grid | `e2e/grid.spec.ts` | Drag, resize, save layout, view mode |
 | Users | `e2e/users.spec.ts` | List, create, delete users |
+| Parameters | `e2e/parameters.spec.ts` | Parameter widgets and cross-filtering |
+| Sidebar States | `e2e/sidebar-states.spec.ts` | Sidebar uncovered states |
+| Performance | `e2e/performance.spec.ts` | Tab switching, concurrent multi-connector queries, large dashboards |
+| Responsive | `e2e/responsive.spec.ts` | Mobile viewport (375×812) layout |
 
 ### Patterns
 
@@ -112,7 +188,7 @@ export class SidebarPage {
 Key settings in `app/playwright.config.ts`:
 - **Global setup/teardown**: `e2e/global-setup.ts` / `e2e/global-teardown.ts` (testcontainers)
 - **Web server**: `npx next dev --port 3000` (auto-started)
-- **Timeouts**: 60s per test, 10s for expects, 15s for navigation
+- **Timeouts**: 60s per test, 10s for expects, 15s navigation locally / 30s in CI
 - **Retries**: 1 locally, 2 in CI
 - **Traces**: on first retry (for debugging failures)
 
@@ -137,27 +213,32 @@ Key settings in `app/playwright.config.ts`:
 
 ## CI Integration
 
-```yaml
-# .github/workflows/test.yml
-jobs:
-  component-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cd component && npm ci && npm test
+### GitHub Actions Workflows
 
-  e2e-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cd app && npm ci
-      - run: npx playwright install chromium
-      - run: npm run test:e2e
-      # testcontainers handles DB setup automatically — no services block needed
-```
+| Workflow | Trigger | What It Does |
+|----------|---------|-------------|
+| `app-tests.yml` | app/ changes | App Vitest unit tests + coverage |
+| `component-tests.yml` | component/ changes | Component Vitest tests + coverage |
+| `connection-tests.yml` | connection/ changes | Connection integration tests (with Docker services) |
+| `e2e-tests.yml` | PR to main | Full Playwright E2E suite |
+| `sonarqube.yml` | Push/PR | Coverage from all 3 packages + SonarCloud scan |
+
+### SonarCloud
+
+- All three packages generate Vitest coverage reports (`npm run test:coverage`)
+- Playwright E2E coverage (`app/coverage-e2e/lcov.info`) is merged for the `app/` package
+- SonarCloud aggregates all coverage, detects code smells, duplications, and security hotspots
+- Quality gate must pass before merging
+
+### CodeRabbit
+
+- Automated PR reviews for code quality, security patterns, and conventions
+- Always check and address CodeRabbit comments before merging
+
+---
 
 ## Design Decisions
 
-- **No unit tests in `app/`** — Playwright E2E already tests the full stack (API routes → query executor → connection module → chart rendering). Adding vitest to `app/` would be a redundant test layer with extra maintenance.
-- **Component library is the unit test boundary** — pure UI logic and chart components are tested in isolation with Vitest. App-level integration (stores, hooks, API wiring) is tested via E2E.
+- **Unit tests in all three packages** — Each package has its own test boundary. `app/` tests API routes, hooks, and stores with mocked dependencies. `component/` tests pure UI in isolation. `connection/` tests DB adapters against real databases.
 - **Testcontainers over docker-compose** — E2E tests are fully self-contained. No manual setup or persistent state between runs.
+- **Coverage enforcement** — SonarCloud quality gate enforces minimum coverage thresholds across all packages.

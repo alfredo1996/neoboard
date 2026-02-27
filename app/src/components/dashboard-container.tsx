@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
 import type {
@@ -9,6 +9,7 @@ import type {
   GridLayoutItem,
 } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
+import { formatParameterValue, filterParentParams } from "@/lib/format-parameter-value";
 import { LayoutDashboard, Maximize2 } from "lucide-react";
 import {
   WidgetCard,
@@ -27,7 +28,13 @@ interface DashboardContainerProps {
   editable?: boolean;
   onRemoveWidget?: (widgetId: string) => void;
   onEditWidget?: (widget: DashboardWidget) => void;
+  onDuplicateWidget?: (widgetId: string) => void;
   onLayoutChange?: (gridLayout: GridLayoutItem[]) => void;
+  /**
+   * Called when a widget's settings are updated inline (e.g. column mapping).
+   * The caller should persist the updated widget to the dashboard layout.
+   */
+  onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -37,20 +44,27 @@ function getWidgetTitle(widget: DashboardWidget): string {
   return getChartConfig(widget.chartType)?.label ?? widget.chartType;
 }
 
+
 export function DashboardContainer({
   page,
   editable = false,
   onRemoveWidget,
   onEditWidget,
+  onDuplicateWidget,
   onLayoutChange,
+  onWidgetSettingsChange,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
-  const paramEntries = Object.entries(parameters);
-  const hasParameters = paramEntries.length > 0;
+  const allEntries = Object.entries(parameters);
+  const displayEntries = useMemo(
+    () => filterParentParams(allEntries),
+    [allEntries]
+  );
+  const hasParameters = displayEntries.length > 0;
 
   if (page.widgets.length === 0) {
     return (
@@ -71,6 +85,18 @@ export function DashboardContainer({
         onClick: () => onEditWidget(widget),
       });
     }
+    if (onDuplicateWidget) {
+      actions.push({
+        label: "Duplicate",
+        onClick: () => onDuplicateWidget(widget.id),
+      });
+    }
+    // Widget Lab is not yet built — option is visible but disabled.
+    actions.push({
+      label: "Save to Widget Lab",
+      onClick: () => undefined,
+      disabled: true,
+    });
     if (onRemoveWidget) {
       actions.push({
         label: "Remove",
@@ -85,12 +111,12 @@ export function DashboardContainer({
     <>
       {hasParameters && (
         <ParameterBar onReset={clearAll}>
-          {paramEntries.map(([name, entry]) => (
+          {displayEntries.map(([name, entry]) => (
             <CrossFilterTag
               key={name}
               source={entry.source}
               field={entry.field}
-              value={String(entry.value)}
+              value={formatParameterValue(entry.value)}
               onRemove={() => clearParameter(name)}
             />
           ))}
@@ -122,7 +148,15 @@ export function DashboardContainer({
                 </Button>
               }
             >
-              <CardContainer widget={widget} />
+              <CardContainer
+                widget={widget}
+                isEditMode={editable}
+                onWidgetSettingsChange={
+                  onWidgetSettingsChange
+                    ? (settings) => onWidgetSettingsChange(widget.id, settings)
+                    : undefined
+                }
+              />
             </WidgetCard>
           </div>
         ))}

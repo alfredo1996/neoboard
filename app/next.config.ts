@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 import { resolve, sep } from "path";
 
+// Canonicalise all mobx imports to the single copy installed under component/
+// to prevent the "multiple mobx instances" MobX warning when @neo4j-nvl
+// is transpiled via transpilePackages.
+const mobxPath = resolve(import.meta.dirname, "..", "component", "node_modules", "mobx");
+
 const componentSrc = resolve(import.meta.dirname, "..", "component", "src");
 
 const nextConfig: NextConfig = {
@@ -20,6 +25,17 @@ const nextConfig: NextConfig = {
           ? [prev, "postgres"]
           : ["postgres"];
     }
+
+    // Enable full source maps for E2E coverage collection.
+    if (process.env.E2E_COVERAGE === "1") {
+      config.devtool = "source-map";
+    }
+
+    // Canonicalise mobx to a single instance to avoid MobX "multiple instances" warning.
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      mobx: mobxPath,
+    };
 
     // The component library uses @/ as a path alias pointing to its own src/.
     // The app also uses @/ (via tsconfig paths) pointing to app/src/.

@@ -7,7 +7,7 @@ test.describe("Dashboard CRUD", () => {
 
   test("should create a new dashboard", async ({ page }) => {
     await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill("E2E Test Dashboard");
     await dialog.getByRole("button", { name: "Create" }).click();
     // After creation, app navigates to edit page
@@ -26,7 +26,7 @@ test.describe("Dashboard CRUD", () => {
     await page.getByText("Movie Analytics").click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await page.waitForURL(/\/edit$/, { timeout: 15_000 });
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await expect(page.getByText("Editing:")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add Widget" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
@@ -35,7 +35,7 @@ test.describe("Dashboard CRUD", () => {
   test("should delete a dashboard", async ({ page }) => {
     // Create one to delete
     await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill("To Delete Dashboard");
     await dialog.getByRole("button", { name: "Create" }).click();
     // After creation, app navigates to edit page — go back to list
@@ -43,12 +43,13 @@ test.describe("Dashboard CRUD", () => {
     await page.goto("/");
     await expect(page.getByText("To Delete Dashboard")).toBeVisible({ timeout: 10000 });
 
-    // Find the card containing the text and click its Delete button
-    const card = page.locator("div[class*='border']")
+    // Open the dashboard options dropdown (Delete is inside a DropdownMenu)
+    const dashCard = page.locator("div[class*='cursor-pointer']")
       .filter({ hasText: "To Delete Dashboard" })
-      .filter({ has: page.getByRole("button", { name: /delete/i }) });
-    await card.getByRole("button", { name: /delete/i }).click();
-    // Confirm deletion
+      .first();
+    await dashCard.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    // Confirm deletion in the confirmation dialog
     await page.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText("To Delete Dashboard")).not.toBeVisible();
   });

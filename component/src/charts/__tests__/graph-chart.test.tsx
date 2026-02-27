@@ -405,4 +405,132 @@ describe("GraphChart", () => {
     const nvlNodes = capturedProps.nodes as NvlNode[];
     expect(nvlNodes[0].caption).toBe("Fallback Label");
   });
+
+  // --- New options ---
+
+  it("scales node size down when nodeSize is small", () => {
+    const sizedNodes = [{ id: "1", label: "A", value: 40 }];
+    render(<GraphChart nodes={sizedNodes} edges={[]} nodeSize="small" />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // small scale = 0.6 → 40 * 0.6 = 24
+    expect(nvlNodes[0].size).toBe(24);
+  });
+
+  it("keeps default scale when nodeSize is medium", () => {
+    const sizedNodes = [{ id: "1", label: "A", value: 40 }];
+    render(<GraphChart nodes={sizedNodes} edges={[]} nodeSize="medium" />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // medium scale = 1.0 → 40 * 1.0 = 40
+    expect(nvlNodes[0].size).toBe(40);
+  });
+
+  it("scales node size up when nodeSize is large", () => {
+    const sizedNodes = [{ id: "1", label: "A", value: 40 }];
+    render(<GraphChart nodes={sizedNodes} edges={[]} nodeSize="large" />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // large scale = 1.6 → 40 * 1.6 = 64
+    expect(nvlNodes[0].size).toBe(64);
+  });
+
+  it("includes relationship caption when showRelationshipLabels is true (default)", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} showRelationshipLabels />);
+    const nvlRels = capturedProps.rels as NvlRelationship[];
+    expect(nvlRels[0].caption).toBe("knows");
+  });
+
+  it("omits relationship caption when showRelationshipLabels is false", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} showRelationshipLabels={false} />);
+    const nvlRels = capturedProps.rels as NvlRelationship[];
+    expect(nvlRels[0].caption).toBeUndefined();
+  });
+
+  it("passes useStaticLayout false to NVL when physics is enabled (default)", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} physics />);
+    const opts = capturedProps.nvlOptions as Record<string, unknown>;
+    expect(opts.useStaticLayout).toBe(false);
+  });
+
+  it("passes useStaticLayout true to NVL when physics is disabled", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} physics={false} />);
+    const opts = capturedProps.nvlOptions as Record<string, unknown>;
+    expect(opts.useStaticLayout).toBe(true);
+  });
+
+  // --- Neo4j non-primitive caption values (#19) ---
+
+  it("renders Neo4j Integer { low, high } as a numeric string in node caption", () => {
+    const nodes = [
+      {
+        id: "i1",
+        labels: ["Item"],
+        properties: { count: { low: 42, high: 0 } },
+      },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    // Without the fix, caption would be "[object Object]"
+    expect(nvlNodes[0].caption).toBe("42");
+  });
+
+  it("renders Neo4j Integer with high word correctly", () => {
+    // low=0, high=1 => 0 + 1 * 0x100000000 = 4294967296
+    const nodes = [
+      {
+        id: "i2",
+        labels: ["Item"],
+        properties: { bigNum: { low: 0, high: 1 } },
+      },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].caption).toBe("4294967296");
+  });
+
+  it("renders Neo4j Date object as YYYY-MM-DD string in node caption", () => {
+    const nodes = [
+      {
+        id: "d1",
+        labels: ["Event"],
+        properties: {
+          date: { year: 2024, month: 3, day: 15 },
+        },
+      },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].caption).toBe("2024-03-15");
+  });
+
+  it("renders Neo4j Date with Integer year/month/day as YYYY-MM-DD string", () => {
+    const nodes = [
+      {
+        id: "d2",
+        labels: ["Event"],
+        properties: {
+          date: {
+            year: { low: 2023, high: 0 },
+            month: { low: 11, high: 0 },
+            day: { low: 7, high: 0 },
+          },
+        },
+      },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].caption).toBe("2023-11-07");
+  });
+
+  it("falls back to JSON.stringify for unknown object values", () => {
+    const nodes = [
+      {
+        id: "p1",
+        labels: ["Point"],
+        properties: { location: { x: 1.5, y: 2.5, srid: 4326 } },
+      },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes[0].caption).toContain("x");
+    expect(nvlNodes[0].caption).not.toBe("[object Object]");
+  });
 });

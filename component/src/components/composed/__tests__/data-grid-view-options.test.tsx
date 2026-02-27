@@ -17,7 +17,7 @@ const columns: ColumnDef<TestRow, unknown>[] = [
 const data: TestRow[] = [{ name: "Alice", email: "alice@example.com" }];
 
 describe("DataGridViewOptions", () => {
-  it("renders view button via toolbar", () => {
+  it("renders icon-only button with sr-only text and title", () => {
     render(
       <DataGrid
         columns={columns}
@@ -29,6 +29,22 @@ describe("DataGridViewOptions", () => {
         )}
       />
     );
-    expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
+    // Button accessible via sr-only span
+    const button = screen.getByRole("button", { name: /toggle columns/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute("title", "Toggle columns");
+  });
+
+  it("does not render visible 'View' label text", () => {
+    render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        pagination={(table) => <DataGridViewOptions table={table} />}
+      />
+    );
+    // The word "View" should not appear as visible text (only sr-only is acceptable)
+    const buttons = screen.queryAllByRole("button", { name: /^view$/i });
+    expect(buttons).toHaveLength(0);
   });
 });

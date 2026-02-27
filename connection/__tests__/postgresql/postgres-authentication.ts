@@ -1,6 +1,6 @@
 import { PostgresAuthenticationModule } from '../../src/postgresql';
 import {PostgreSqlContainer, StartedPostgreSqlContainer} from '@testcontainers/postgresql';
-import { AuthType } from '../../src';
+import { AuthType } from '../../src/generalized/interfaces';
 
 describe('PostgreSQL Authentication', () => {
   let container: StartedPostgreSqlContainer;
