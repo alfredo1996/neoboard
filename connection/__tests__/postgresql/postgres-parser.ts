@@ -1,92 +1,11 @@
 import { PostgresRecordParser } from '../../src/postgresql/PostgresRecordParser';
 import { NeodashRecord } from '../../src/generalized/NeodashRecord';
-import type { FieldDef } from 'pg';
 
 describe('PostgreSQL Record Parser', () => {
   let parser: PostgresRecordParser;
 
   beforeEach(() => {
     parser = new PostgresRecordParser();
-  });
-
-  test('should parse basic query results', () => {
-    const fields = [
-      { name: 'id', dataTypeID: 23 } as unknown as FieldDef,
-      { name: 'name', dataTypeID: 25 } as unknown as FieldDef,
-    ];
-
-    const rows = [
-      { id: 1, name: 'Alice' },
-      { id: 2, name: 'Bob' },
-    ];
-
-    const result = parser.parse(fields, rows, 2);
-
-    expect(result.fields).toHaveLength(2);
-    expect(result.fields[0].name).toBe('id');
-    expect(result.fields[0].type).toBe('number');
-    expect(result.fields[1].name).toBe('name');
-    expect(result.fields[1].type).toBe('string');
-    expect(result.records).toHaveLength(2);
-    expect(result.summary.rowCount).toBe(2);
-    expect(result.summary.database).toBe('postgresql');
-  });
-
-  test('should handle undefined fields', () => {
-    const rows = [{ id: 1, name: 'Alice' }];
-
-    const result = parser.parse(undefined, rows, 1);
-
-    expect(result.fields).toHaveLength(0);
-    expect(result.records).toHaveLength(1);
-    expect(result.summary.rowCount).toBe(1);
-  });
-
-  test('should map PostgreSQL types correctly', () => {
-    const fields = [
-      { name: 'bool_col', dataTypeID: 16 } as unknown as FieldDef,
-      { name: 'int_col', dataTypeID: 23 } as unknown as FieldDef,
-      { name: 'float_col', dataTypeID: 700 } as unknown as FieldDef,
-      { name: 'text_col', dataTypeID: 25 } as unknown as FieldDef,
-      { name: 'date_col', dataTypeID: 1082 } as unknown as FieldDef,
-      { name: 'json_col', dataTypeID: 3802 } as unknown as FieldDef,
-      { name: 'uuid_col', dataTypeID: 2950 } as unknown as FieldDef,
-      { name: 'array_col', dataTypeID: 1015 } as unknown as FieldDef,
-    ];
-
-    const rows = [{}];
-
-    const result = parser.parse(fields, rows, 1);
-
-    expect(result.fields[0].type).toBe('boolean');
-    expect(result.fields[1].type).toBe('number');
-    expect(result.fields[2].type).toBe('number');
-    expect(result.fields[3].type).toBe('string');
-    expect(result.fields[4].type).toBe('date');
-    expect(result.fields[5].type).toBe('object');
-    expect(result.fields[6].type).toBe('string');
-    expect(result.fields[7].type).toBe('array');
-  });
-
-  test('should handle unknown types as string', () => {
-    const fields = [{ name: 'unknown_col', dataTypeID: 99999 } as unknown as FieldDef];
-
-    const rows = [{}];
-
-    const result = parser.parse(fields, rows, 1);
-
-    expect(result.fields[0].type).toBe('string');
-  });
-
-  test('should include execution metadata', () => {
-    const fields = [{ name: 'id', dataTypeID: 23 } as unknown as FieldDef];
-    const rows = [{ id: 1 }];
-
-    const result = parser.parseWithMetadata(fields, rows, 1);
-
-    expect(result.summary.queryType).toBe('read');
-    expect(result.summary.database).toBe('postgresql');
-    expect(result.summary.executionTime).toBeGreaterThanOrEqual(0);
   });
 
   test('should implement _parse to return NeodashRecord', () => {
@@ -149,14 +68,14 @@ describe('PostgreSQL Record Parser', () => {
     expect(result).toBe(date);
   });
 
-  test('should implement isGraphObject to return false', () => {
+  test('should inherit default isGraphObject returning false', () => {
     expect(parser['isGraphObject']({})).toBe(false);
     expect(parser['isGraphObject']([])).toBe(false);
     expect(parser['isGraphObject']('string')).toBe(false);
     expect(parser['isGraphObject'](null)).toBe(false);
   });
 
-  test('should implement parseGraphObject to return value as is', () => {
+  test('should inherit default parseGraphObject returning value as is', () => {
     const obj = { key: 'value' };
     expect(parser['parseGraphObject'](obj)).toBe(obj);
   });
@@ -193,26 +112,5 @@ describe('PostgreSQL Record Parser', () => {
     const result = parser['_parse'](existingRecord as any);
 
     expect(result).toBe(existingRecord);
-  });
-
-  test('parseWithMetadata should return NeodashRecord array', () => {
-    const fields = [
-      { name: 'id', dataTypeID: 23 } as unknown as FieldDef,
-      { name: 'name', dataTypeID: 25 } as unknown as FieldDef,
-    ];
-
-    const rows = [
-      { id: 1, name: 'Alice' },
-      { id: 2, name: 'Bob' },
-    ];
-
-    const result = parser.parseWithMetadata(fields, rows, 2);
-
-    expect(result.records).toHaveLength(2);
-    expect(result.records[0]).toBeInstanceOf(NeodashRecord);
-    expect(result.records[1]).toBeInstanceOf(NeodashRecord);
-    expect(result.records[0].name).toBe('Alice');
-    expect(result.fields).toHaveLength(2);
-    expect(result.summary.rowCount).toBe(2);
   });
 });

@@ -110,16 +110,12 @@ export class PostgresConnectionModule extends ConnectionModule {
       // PostgreSQL (pg library) uses $1, $2, etc. for positional parameters
       const paramValues = Object.values(params);
 
-      // Start timing
-      const startTime = Date.now();
-
       // Execute query with positional parameters
       const result = await client.query(query, paramValues);
 
       // Commit transaction
       await client.query('COMMIT');
 
-      const executionTime = Date.now() - startTime;
       const rowCount = result.rowCount || 0;
       const isTruncated = rowCount > config.rowLimit;
 

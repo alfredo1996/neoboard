@@ -34,12 +34,15 @@ export abstract class NeodashRecordParser {
   abstract isTemporal(value: unknown): boolean;
 
   /**
-   * Checks if the given value is an object (excluding null and primitive types).
+   * Checks if the given value is a graph object (e.g., Neo4j Node, Relationship).
+   * Default implementation returns false (suitable for non-graph databases).
    *
    * @param value - The value to check.
-   * @returns True if the value is an object, false otherwise.
+   * @returns True if the value is a graph object, false otherwise.
    */
-  abstract isGraphObject(value: unknown): boolean;
+  isGraphObject(_value: unknown): boolean {
+    return false;
+  }
 
   /**
    * Parses a primitive value (e.g., string, number, boolean).
@@ -58,10 +61,13 @@ export abstract class NeodashRecordParser {
   abstract parseTemporal(value: unknown): unknown;
 
   /**
-   * Parses an object, typically extracting its properties or transforming it in some way.
+   * Parses a graph object. Default implementation returns the value as-is
+   * (suitable for non-graph databases).
    *
    * @param value - The object to parse.
    * @returns The parsed object.
    */
-  abstract parseGraphObject(value: unknown): unknown;
+  parseGraphObject(value: unknown): unknown {
+    return value;
+  }
 }
