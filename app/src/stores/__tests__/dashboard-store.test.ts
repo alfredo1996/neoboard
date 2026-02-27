@@ -333,6 +333,84 @@ describe("useDashboardStore", () => {
     expect(copy.settings?.title).toBeUndefined();
   });
 
+  // ── reorderPages ─────────────────────────────────────────────────
+
+  describe("reorderPages", () => {
+    function setupThreePages() {
+      const layout = {
+        version: 2 as const,
+        pages: [
+          { id: "p1", title: "Page A", widgets: [], gridLayout: [] },
+          { id: "p2", title: "Page B", widgets: [], gridLayout: [] },
+          { id: "p3", title: "Page C", widgets: [], gridLayout: [] },
+        ],
+      };
+      useDashboardStore.getState().setLayout(layout);
+    }
+
+    it("moves a page from index 0 to index 2", () => {
+      setupThreePages();
+      useDashboardStore.getState().reorderPages(0, 2);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page B", "Page C", "Page A"]);
+    });
+
+    it("moves a page from index 2 to index 0", () => {
+      setupThreePages();
+      useDashboardStore.getState().reorderPages(2, 0);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page C", "Page A", "Page B"]);
+    });
+
+    it("active page index follows the moved page when it was active", () => {
+      setupThreePages();
+      useDashboardStore.getState().setActivePage(0);
+      useDashboardStore.getState().reorderPages(0, 2);
+      expect(useDashboardStore.getState().activePageIndex).toBe(2);
+    });
+
+    it("active page index adjusts when a page moves past it (from before to after)", () => {
+      setupThreePages();
+      useDashboardStore.getState().setActivePage(1);
+      useDashboardStore.getState().reorderPages(0, 2);
+      // Page at index 0 moved to 2; active was 1, should shift down to 0
+      expect(useDashboardStore.getState().activePageIndex).toBe(0);
+    });
+
+    it("active page index adjusts when a page moves past it (from after to before)", () => {
+      setupThreePages();
+      useDashboardStore.getState().setActivePage(1);
+      useDashboardStore.getState().reorderPages(2, 0);
+      // Page at index 2 moved to 0; active was 1, should shift up to 2
+      expect(useDashboardStore.getState().activePageIndex).toBe(2);
+    });
+
+    it("is a no-op when fromIndex === toIndex", () => {
+      setupThreePages();
+      useDashboardStore.getState().setActivePage(1);
+      useDashboardStore.getState().reorderPages(1, 1);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page A", "Page B", "Page C"]);
+      expect(useDashboardStore.getState().activePageIndex).toBe(1);
+    });
+
+    it("works with 2 pages (swap)", () => {
+      const layout = {
+        version: 2 as const,
+        pages: [
+          { id: "p1", title: "First", widgets: [], gridLayout: [] },
+          { id: "p2", title: "Second", widgets: [], gridLayout: [] },
+        ],
+      };
+      useDashboardStore.getState().setLayout(layout);
+      useDashboardStore.getState().setActivePage(0);
+      useDashboardStore.getState().reorderPages(0, 1);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Second", "First"]);
+      expect(useDashboardStore.getState().activePageIndex).toBe(1);
+    });
+  });
+
   it("duplicateWidget sets title to undefined when settings.title is not a string", () => {
     const widget = {
       id: "w1",

@@ -21,6 +21,7 @@ interface DashboardState {
   addPage: () => void;
   removePage: (index: number) => void;
   renamePage: (index: number, title: string) => void;
+  reorderPages: (fromIndex: number, toIndex: number) => void;
 
   // Widget management (operate on active page)
   addWidget: (widget: DashboardWidget, gridItem: GridLayoutItem) => void;
@@ -107,6 +108,29 @@ export const useDashboardStore = create<DashboardState>((set) => ({
         })),
       },
     })),
+
+  reorderPages: (fromIndex, toIndex) =>
+    set((state) => {
+      if (fromIndex === toIndex) return state;
+      const pages = [...state.layout.pages];
+      const [moved] = pages.splice(fromIndex, 1);
+      pages.splice(toIndex, 0, moved);
+      let newActive = state.activePageIndex;
+      if (state.activePageIndex === fromIndex) {
+        newActive = toIndex;
+      } else if (
+        fromIndex < state.activePageIndex &&
+        toIndex >= state.activePageIndex
+      ) {
+        newActive = state.activePageIndex - 1;
+      } else if (
+        fromIndex > state.activePageIndex &&
+        toIndex <= state.activePageIndex
+      ) {
+        newActive = state.activePageIndex + 1;
+      }
+      return { layout: { ...state.layout, pages }, activePageIndex: newActive };
+    }),
 
   // ── Widget management (active page) ──────────────────────────────
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, GripVertical } from "lucide-react";
 import type { DashboardPage } from "@/lib/db/schema";
 import {
   Button,
@@ -21,6 +21,7 @@ interface PageTabsProps {
   onAdd?: () => void;
   onRemove?: (index: number) => void;
   onRename?: (index: number, title: string) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
 }
 
 export function PageTabs({
@@ -31,10 +32,15 @@ export function PageTabs({
   onAdd,
   onRemove,
   onRename,
+  onReorder,
 }: PageTabsProps) {
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Drag-and-drop state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
   function startRename(index: number) {
     setRenamingIndex(index);
@@ -54,10 +60,65 @@ export function PageTabs({
     if (e.key === "Escape") setRenamingIndex(null);
   }
 
+  const canDrag = editable && !!onReorder;
+
+  function handleDragStart(e: React.DragEvent, index: number) {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragIndex === null || dragIndex === index) {
+      setDropTargetIndex(null);
+      return;
+    }
+    setDropTargetIndex(index);
+  }
+
+  function handleDrop(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    const from = parseInt(e.dataTransfer.getData("text/plain"), 10);
+    if (!isNaN(from) && from !== index) {
+      onReorder?.(from, index);
+    }
+    setDragIndex(null);
+    setDropTargetIndex(null);
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null);
+    setDropTargetIndex(null);
+  }
+
   return (
-    <div className="flex items-center gap-1 px-4 border-b bg-background overflow-x-auto">
+    <div className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto">
       {pages.map((page, index) => (
-        <div key={page.id} className="group flex items-center shrink-0">
+        <div
+          key={page.id}
+          className={cn(
+            "group flex items-center shrink-0",
+            canDrag && dragIndex === index && "opacity-50",
+            canDrag &&
+              dropTargetIndex === index &&
+              dragIndex !== null &&
+              dragIndex !== index &&
+              "border-l-2 border-primary"
+          )}
+          draggable={canDrag && renamingIndex !== index}
+          onDragStart={
+            canDrag ? (e) => handleDragStart(e, index) : undefined
+          }
+          onDragOver={canDrag ? (e) => handleDragOver(e, index) : undefined}
+          onDrop={canDrag ? (e) => handleDrop(e, index) : undefined}
+          onDragEnd={canDrag ? handleDragEnd : undefined}
+        >
+          {canDrag && renamingIndex !== index && (
+            <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab shrink-0" />
+          )}
+
           {renamingIndex === index ? (
             <Input
               ref={inputRef}

@@ -1,12 +1,13 @@
 "use client";
 
-import { use, useEffect, useCallback, useState } from "react";
+import { use, useEffect, useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Plus, Save, LayoutDashboard, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
+import { useParameterStore } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
@@ -43,6 +44,36 @@ export default function DashboardEditorPage({
   const { id } = use(params);
   const { page: pageParam } = use(searchParams);
   const router = useRouter();
+  const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
+  const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
+  const prevDashboardId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevDashboardId.current && prevDashboardId.current !== id) {
+      saveToDashboard(prevDashboardId.current);
+    }
+    prevDashboardId.current = id;
+    restoreFromDashboard(id);
+    return () => {
+      saveToDashboard(id);
+    };
+  }, [id, saveToDashboard, restoreFromDashboard]);
+
+  const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
+  const [visitedPages, setVisitedPages] = useState<Set<number>>(
+    () => new Set([isNaN(initialPage) ? 0 : initialPage])
+  );
+
+  function handleSelectPage(index: number) {
+    setVisitedPages((prev) => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    setActivePage(index);
+  }
+
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const systemRole = session?.user?.role ?? "creator";
@@ -58,6 +89,7 @@ export default function DashboardEditorPage({
   const addPage = useDashboardStore((s) => s.addPage);
   const removePage = useDashboardStore((s) => s.removePage);
   const renamePage = useDashboardStore((s) => s.renamePage);
+  const reorderPages = useDashboardStore((s) => s.reorderPages);
   const addWidget = useDashboardStore((s) => s.addWidget);
   const removeWidget = useDashboardStore((s) => s.removeWidget);
   const updateWidget = useDashboardStore((s) => s.updateWidget);
@@ -153,15 +185,21 @@ export default function DashboardEditorPage({
                 <SheetTrigger asChild>
                   <Button variant="outline" size="sm">
                     <Users className="mr-2 h-4 w-4" />
-                    Assignments
+                    Sharing
                   </Button>
                 </SheetTrigger>
                 <SheetContent>
                   <SheetHeader>
-                    <SheetTitle>User Assignments</SheetTitle>
+                    <SheetTitle>Sharing</SheetTitle>
                   </SheetHeader>
                   <div className="mt-4">
-                    <DashboardAssignPanel dashboardId={id} />
+                    <DashboardAssignPanel
+                      dashboardId={id}
+                      isPublic={dashboard.isPublic ?? false}
+                      onTogglePublic={(value) => {
+                        updateDashboard.mutate({ id, isPublic: value });
+                      }}
+                    />
                   </div>
                 </SheetContent>
               </Sheet>
@@ -226,10 +264,11 @@ export default function DashboardEditorPage({
             pages={layout.pages}
             activeIndex={activePageIndex}
             editable
-            onSelect={setActivePage}
+            onSelect={handleSelectPage}
             onAdd={addPage}
             onRemove={removePage}
             onRename={renamePage}
+            onReorder={reorderPages}
           />
 
           <WidgetEditorModal
@@ -241,7 +280,7 @@ export default function DashboardEditorPage({
             onSave={handleEditorSave}
           />
 
-          <div className="flex-1 p-6 relative">
+          <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
             {layout.pages.map((page, index) => {
               const isActive = index === activePageIndex;
               if (page.widgets.length === 0 && isActive) {
@@ -261,6 +300,7 @@ export default function DashboardEditorPage({
                 );
               }
               if (page.widgets.length === 0) return null;
+              if (!visitedPages.has(index)) return null;
               return (
                 <div
                   key={page.id}
