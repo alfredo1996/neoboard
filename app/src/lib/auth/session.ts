@@ -15,15 +15,6 @@ export async function requireAdmin(): Promise<{
   }
   return { userId, tenantId };
 }
-
-/**
- * Get the current authenticated user's session.
- * Returns null if not authenticated.
- */
-export async function getSession() {
-  return auth();
-}
-
 /**
  * Get the current authenticated user ID.
  * Throws if not authenticated (use in protected API routes).
@@ -50,12 +41,10 @@ export async function requireSession(): Promise<{
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = session.user as any;
-  const role = (user.role as UserRole) ?? "creator";
+  const role = session.user.role ?? "creator";
   // tenantId is stamped into the JWT at sign-in time from TENANT_ID env var.
   // Fall back to env var as a safety net (e.g. tokens issued before this field existed).
-  const tenantId: string = user.tenantId ?? process.env.TENANT_ID ?? "default";
+  const tenantId: string = session.user.tenantId ?? process.env.TENANT_ID ?? "default";
   return {
     userId: session.user.id,
     role,

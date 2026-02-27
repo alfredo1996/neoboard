@@ -41,13 +41,11 @@ import {
   TimeAgo,
   DashboardMiniPreview,
 } from "@neoboard/components";
-import type { UserRole } from "@/lib/db/schema";
 
 export default function DashboardListPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const systemRole = ((session?.user as any)?.role ?? "creator") as UserRole;
+  const systemRole = session?.user?.role ?? "creator";
 
   const { data: dashboardList, isLoading } = useDashboards();
   const createDashboard = useCreateDashboard();

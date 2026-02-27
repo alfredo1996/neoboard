@@ -45,9 +45,7 @@ export default function DashboardEditorPage({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessionUser = session?.user as any;
-  const systemRole = sessionUser?.role ?? "creator";
+  const systemRole = session?.user?.role ?? "creator";
   const isAdmin = systemRole === "admin";
 
   const { data: dashboard, isLoading } = useDashboard(id);
