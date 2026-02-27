@@ -6,7 +6,6 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
-import type { UserRole } from "@/lib/db/schema";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -64,8 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        token.role = (user as any).role as UserRole;
+        token.role = user.role;
         token.tenantId = process.env.TENANT_ID ?? "default";
       }
       // Re-fetch role on token refresh so admin role changes propagate
@@ -82,10 +80,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).role = token.role as UserRole;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).tenantId = (token.tenantId as string) ?? process.env.TENANT_ID ?? "default";
+        session.user.role = token.role;
+        session.user.tenantId = token.tenantId ?? process.env.TENANT_ID ?? "default";
       }
       return session;
     },

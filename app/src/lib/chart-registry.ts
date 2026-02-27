@@ -57,16 +57,43 @@ function toRecords(data: unknown): Record<string, unknown>[] {
   return [];
 }
 
+// ─── Column resolution helpers ─────────────────────────────────────────────
+
 /**
- * Transform to bar chart format: [{ label, value }] or [{ label, series1, series2 }]
- * Uses the first column as label and remaining columns as numeric series.
+ * Resolve the label/x-axis key from a mapping, falling back to the first column.
  */
-function transformToBarData(data: unknown): unknown {
+function resolveLabelKey(keys: string[], mapping?: ColumnMapping): string {
+  if (mapping?.xAxis && keys.includes(mapping.xAxis)) return mapping.xAxis;
+  return keys[0];
+}
+
+/**
+ * Resolve value/series keys from a mapping, falling back to all non-label columns.
+ */
+function resolveValueKeys(keys: string[], labelKey: string, mapping?: ColumnMapping): string[] {
+  if (mapping?.yAxis && mapping.yAxis.length > 0) {
+    const valid = mapping.yAxis.filter((k) => keys.includes(k));
+    if (valid.length > 0) return valid;
+  }
+  return keys.filter((k) => k !== labelKey);
+}
+
+// ─── Merged chart transforms ───────────────────────────────────────────────
+
+/**
+ * Transform to bar chart format: [{ label, series1, series2 }]
+ * When mapping is provided, uses mapped columns; otherwise uses positional defaults.
+ * Always applies normalizeValue to labels for consistent type handling.
+ */
+function transformToBarData(data: unknown, mapping?: ColumnMapping): unknown {
   const records = toRecords(data);
   if (!records.length) return [];
   const keys = Object.keys(records[0]);
   if (keys.length < 2) return [];
-  const [labelKey, ...valueKeys] = keys;
+
+  const labelKey = resolveLabelKey(keys, mapping);
+  const valueKeys = resolveValueKeys(keys, labelKey, mapping);
+
   return records.map((r) => {
     const point: Record<string, unknown> = { label: String(normalizeValue(r[labelKey]) ?? "") };
     for (const k of valueKeys) {
@@ -78,14 +105,18 @@ function transformToBarData(data: unknown): unknown {
 
 /**
  * Transform to line chart format: [{ x, series1, series2 }]
- * Uses the first column as x-axis and remaining columns as series.
+ * When mapping is provided, uses mapped columns; otherwise uses positional defaults.
+ * Always applies normalizeValue to x-axis values for consistent type handling.
  */
-function transformToLineData(data: unknown): unknown {
+function transformToLineData(data: unknown, mapping?: ColumnMapping): unknown {
   const records = toRecords(data);
   if (!records.length) return [];
   const keys = Object.keys(records[0]);
   if (keys.length < 2) return [];
-  const [xKey, ...seriesKeys] = keys;
+
+  const xKey = resolveLabelKey(keys, mapping);
+  const seriesKeys = resolveValueKeys(keys, xKey, mapping);
+
   return records.map((r) => {
     const point: Record<string, unknown> = { x: normalizeValue(r[xKey]) };
     for (const k of seriesKeys) {
@@ -97,107 +128,28 @@ function transformToLineData(data: unknown): unknown {
 
 /**
  * Transform to pie chart format: [{ name, value }]
- * Uses the first column as name and second as value.
+ * When mapping is provided, uses mapped columns; otherwise uses positional defaults.
+ * Always applies normalizeValue to names for consistent type handling.
  */
-function transformToPieData(data: unknown): unknown {
-  const records = toRecords(data);
-  if (!records.length) return [];
-  const keys = Object.keys(records[0]);
-  if (keys.length < 2) return [];
-  return records.map((r) => ({
-    name: String(normalizeValue(r[keys[0]]) ?? ""),
-    value: Number(r[keys[1]]) || 0,
-  }));
-}
-
-/**
- * Transform bar chart data respecting an optional column mapping.
- * Falls back to default column selection when mapping fields are absent.
- */
-function transformToBarDataWithMapping(
-  data: unknown,
-  mapping: ColumnMapping
-): unknown {
+function transformToPieData(data: unknown, mapping?: ColumnMapping): unknown {
   const records = toRecords(data);
   if (!records.length) return [];
   const keys = Object.keys(records[0]);
   if (keys.length < 2) return [];
 
-  const labelKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
-
-  let valueKeys: string[];
-  if (mapping.yAxis && mapping.yAxis.length > 0) {
-    valueKeys = mapping.yAxis.filter((k) => keys.includes(k));
-  } else {
-    valueKeys = keys.filter((k) => k !== labelKey);
-  }
-  if (valueKeys.length === 0) valueKeys = keys.filter((k) => k !== labelKey);
-
-  return records.map((r) => {
-    const point: Record<string, unknown> = { label: String(r[labelKey] ?? "") };
-    for (const k of valueKeys) {
-      point[k] = Number(r[k]) || 0;
-    }
-    return point;
-  });
-}
-
-/**
- * Transform line chart data respecting an optional column mapping.
- * Falls back to default column selection when mapping fields are absent.
- */
-function transformToLineDataWithMapping(
-  data: unknown,
-  mapping: ColumnMapping
-): unknown {
-  const records = toRecords(data);
-  if (!records.length) return [];
-  const keys = Object.keys(records[0]);
-  if (keys.length < 2) return [];
-
-  const xKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
-
-  let seriesKeys: string[];
-  if (mapping.yAxis && mapping.yAxis.length > 0) {
-    seriesKeys = mapping.yAxis.filter((k) => keys.includes(k));
-  } else {
-    seriesKeys = keys.filter((k) => k !== xKey);
-  }
-  if (seriesKeys.length === 0) seriesKeys = keys.filter((k) => k !== xKey);
-
-  return records.map((r) => {
-    const point: Record<string, unknown> = { x: r[xKey] };
-    for (const k of seriesKeys) {
-      point[k] = Number(r[k]) || 0;
-    }
-    return point;
-  });
-}
-
-/**
- * Transform pie chart data respecting an optional column mapping.
- * Falls back to default column selection when mapping fields are absent.
- */
-function transformToPieDataWithMapping(
-  data: unknown,
-  mapping: ColumnMapping
-): unknown {
-  const records = toRecords(data);
-  if (!records.length) return [];
-  const keys = Object.keys(records[0]);
-  if (keys.length < 2) return [];
-
-  const nameKey = mapping.xAxis && keys.includes(mapping.xAxis) ? mapping.xAxis : keys[0];
+  const nameKey = resolveLabelKey(keys, mapping);
   const valueKey =
-    mapping.yAxis?.[0] && keys.includes(mapping.yAxis[0])
+    mapping?.yAxis?.[0] && keys.includes(mapping.yAxis[0])
       ? mapping.yAxis[0]
       : keys.find((k) => k !== nameKey) ?? keys[1];
 
   return records.map((r) => ({
-    name: String(r[nameKey] ?? ""),
+    name: String(normalizeValue(r[nameKey]) ?? ""),
     value: Number(r[valueKey]) || 0,
   }));
 }
+
+// ─── Non-mapping transforms ────────────────────────────────────────────────
 
 /**
  * Transform to a single value for SingleValueChart.
@@ -232,6 +184,28 @@ function safeId(v: unknown): string {
   return String(v);
 }
 
+// ─── Graph helpers (extracted from transformToGraphData) ────────────────────
+
+function normalizeProps(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) {
+    out[k] = normalizeValue(v) ?? v;
+  }
+  return out;
+}
+
+function isNode(v: Record<string, unknown>): boolean {
+  return "labels" in v && "properties" in v;
+}
+
+function isRelationship(v: Record<string, unknown>): boolean {
+  return "type" in v && "start" in v && "end" in v;
+}
+
+function isPath(v: Record<string, unknown>): boolean {
+  return "segments" in v && Array.isArray(v.segments) && "start" in v && "end" in v && !("type" in v);
+}
+
 /**
  * Transform to graph format: { nodes, edges }
  * Extracts Neo4j graph structures from query results.
@@ -241,14 +215,6 @@ function transformToGraphData(data: unknown): unknown {
   const records = toRecords(data);
   const nodesMap = new Map<string, Record<string, unknown>>();
   const edgesMap = new Map<string, Record<string, unknown>>();
-
-  function normalizeProps(props: Record<string, unknown>): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(props)) {
-      out[k] = normalizeValue(v) ?? v;
-    }
-    return out;
-  }
 
   function addNode(v: Record<string, unknown>) {
     const id = safeId(v.elementId ?? v.identity ?? Math.random());
@@ -281,18 +247,6 @@ function transformToGraphData(data: unknown): unknown {
     }
   }
 
-  function isNode(v: Record<string, unknown>): boolean {
-    return "labels" in v && "properties" in v;
-  }
-
-  function isRelationship(v: Record<string, unknown>): boolean {
-    return "type" in v && "start" in v && "end" in v;
-  }
-
-  function isPath(v: Record<string, unknown>): boolean {
-    return "segments" in v && Array.isArray(v.segments) && "start" in v && "end" in v && !("type" in v);
-  }
-
   function extractGraphValue(value: unknown) {
     if (!value || typeof value !== "object") return;
     const v = value as Record<string, unknown>;
@@ -302,7 +256,6 @@ function transformToGraphData(data: unknown): unknown {
     } else if (isRelationship(v)) {
       addEdge(v);
     } else if (isPath(v)) {
-      // Unpack Path: extract nodes and relationships from each segment
       const segments = v.segments as Record<string, unknown>[];
       for (const seg of segments) {
         if (seg.start && typeof seg.start === "object") {
@@ -315,7 +268,6 @@ function transformToGraphData(data: unknown): unknown {
           extractGraphValue(seg.end);
         }
       }
-      // Also extract the top-level start/end nodes of the path
       if (v.start && typeof v.start === "object") extractGraphValue(v.start);
       if (v.end && typeof v.end === "object") extractGraphValue(v.end);
     }
@@ -338,12 +290,10 @@ function transformToMapData(data: unknown): unknown {
   return records
     .filter((r) => {
       const vals = Object.values(r);
-      // Need at least lat and lon numbers
       return vals.some((v) => typeof v === "number");
     })
     .map((r, i) => {
       const keys = Object.keys(r);
-      // Heuristic: find lat/lon by key name, fallback to first two numbers
       const latKey = keys.find((k) => /lat/i.test(k));
       const lngKey = keys.find((k) => /lo?ng?/i.test(k));
       const labelKey = keys.find((k) => /name|label|title/i.test(k));
@@ -429,14 +379,13 @@ function validateValueData(data: unknown): string | null {
 function validateGraphData(data: unknown): string | null {
   const records = toRecords(data);
   if (!records.length) return null;
-  // Check if any record value looks like a node or relationship
   for (const record of records) {
     for (const value of Object.values(record)) {
       if (value && typeof value === "object") {
         const v = value as Record<string, unknown>;
-        if ("labels" in v && "properties" in v) return null; // node found
-        if ("type" in v && "start" in v && "end" in v) return null; // relationship found
-        if ("segments" in v && "start" in v && "end" in v) return null; // path found
+        if ("labels" in v && "properties" in v) return null;
+        if ("type" in v && "start" in v && "end" in v) return null;
+        if ("segments" in v && "start" in v && "end" in v) return null;
       }
     }
   }
@@ -458,24 +407,24 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   bar: {
     type: "bar",
     label: "Bar Chart",
-    transform: transformToBarData,
-    transformWithMapping: transformToBarDataWithMapping,
+    transform: (data) => transformToBarData(data),
+    transformWithMapping: (data, mapping) => transformToBarData(data, mapping),
     validate: validateBarData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   line: {
     type: "line",
     label: "Line Chart",
-    transform: transformToLineData,
-    transformWithMapping: transformToLineDataWithMapping,
+    transform: (data) => transformToLineData(data),
+    transformWithMapping: (data, mapping) => transformToLineData(data, mapping),
     validate: validateLineData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   pie: {
     type: "pie",
     label: "Pie Chart",
-    transform: transformToPieData,
-    transformWithMapping: transformToPieDataWithMapping,
+    transform: (data) => transformToPieData(data),
+    transformWithMapping: (data, mapping) => transformToPieData(data, mapping),
     validate: validatePieData,
     compatibleWith: ["neo4j", "postgresql"],
   },
@@ -545,4 +494,3 @@ export function getCompatibleChartTypes(connectorType: string): ChartType[] {
     .filter((cfg) => !cfg.compatibleWith || cfg.compatibleWith.includes(ct))
     .map((cfg) => cfg.type);
 }
-

@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
 import {
-  TextInputParameter,
   ParamSelector,
   ParamMultiSelector,
   DatePickerParameter,
@@ -17,6 +16,7 @@ import {
   type ParamSelectorOption,
   type RelativeDatePreset,
 } from "@neoboard/components";
+import { DebouncedTextInput } from "./debounced-text-input";
 
 // ─── Seed-query fetch ────────────────────────────────────────────────────────
 
@@ -89,52 +89,6 @@ function useSeedQuery(
   return { options, loading: isLoading };
 }
 
-// ─── Debounced text input ────────────────────────────────────────────────────
-
-/**
- * Thin wrapper around TextInputParameter that debounces the onChange callback
- * by 200 ms so that rapid keystrokes don't flood the parameter store.
- */
-function DebouncedTextInput({
-  parameterName,
-  value,
-  onChange,
-  placeholder,
-  className,
-}: {
-  parameterName: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  className?: string;
-}) {
-  const [draft, setDraft] = useState(value);
-
-  // Sync draft when the external (store) value changes.
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  // Fire onChange after 200 ms of inactivity.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (draft !== value) onChange(draft);
-    }, 200);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft]);
-
-  return (
-    <TextInputParameter
-      parameterName={parameterName}
-      value={draft}
-      onChange={(v) => setDraft(v ?? "")}
-      placeholder={placeholder}
-      className={className}
-    />
-  );
-}
-
 // ─── Widget config ───────────────────────────────────────────────────────────
 
 export interface ParameterWidgetConfig {
@@ -191,8 +145,7 @@ export function ParameterWidgetRenderer({
   // on seed query requests. The server independently enforces connection ownership,
   // but passing tenantId allows an additional assertion server-side.
   const { data: session } = useSession();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Auth.js user type is extended at runtime
-  const tenantId = (session?.user as any)?.tenantId as string | undefined;
+  const tenantId = session?.user?.tenantId;
 
   // ── Searchable: debounced search term ─────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");

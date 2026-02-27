@@ -253,6 +253,41 @@ describe("pie chart transformWithMapping", () => {
 });
 
 // ---------------------------------------------------------------------------
+// normalizeValue applied consistently with mapping
+// ---------------------------------------------------------------------------
+
+describe("normalizeValue applied to labels/names even with mapping", () => {
+  it("bar: normalizes Neo4j Integer labels when mapping is active", () => {
+    const data = [
+      { id: { low: 42, high: 0 }, count: 10 },
+      { id: { low: 99, high: 0 }, count: 20 },
+    ];
+    const mapping: ColumnMapping = { xAxis: "id", yAxis: ["count"] };
+    const result = chartRegistry.bar.transformWithMapping(data, mapping) as { label: string }[];
+    expect(result[0].label).toBe("42");
+    expect(result[1].label).toBe("99");
+  });
+
+  it("line: normalizes Neo4j Integer x-axis values when mapping is active", () => {
+    const data = [
+      { year: { low: 2024, high: 0 }, revenue: 500 },
+    ];
+    const mapping: ColumnMapping = { xAxis: "year", yAxis: ["revenue"] };
+    const result = chartRegistry.line.transformWithMapping(data, mapping) as { x: unknown }[];
+    expect(result[0].x).toBe(2024);
+  });
+
+  it("pie: normalizes Neo4j Integer names when mapping is active", () => {
+    const data = [
+      { code: { low: 1, high: 0 }, total: 50 },
+    ];
+    const mapping: ColumnMapping = { xAxis: "code", yAxis: ["total"] };
+    const result = chartRegistry.pie.transformWithMapping(data, mapping) as { name: string }[];
+    expect(result[0].name).toBe("1");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Non-mapping chart types — transformWithMapping delegates to transform
 // ---------------------------------------------------------------------------
 
