@@ -1,6 +1,5 @@
 import { NeodashRecordParser } from '../generalized/NeodashRecordParser';
 import { NeodashRecord } from '../generalized/NeodashRecord';
-import type { FieldDef } from 'pg';
 
 /**
  * PostgreSQL Record Parser
@@ -96,27 +95,6 @@ export class PostgresRecordParser extends NeodashRecordParser {
   }
 
   /**
-   * Determines if the provided value is a graph object.
-   * PostgreSQL doesn't have native graph objects like Neo4j, so this always returns false.
-   * @param value - The value to check
-   * @returns Always false for PostgreSQL
-   */
-  isGraphObject(value: unknown): boolean {
-    // PostgreSQL doesn't have native graph objects like nodes/relationships
-    return false;
-  }
-
-  /**
-   * Parses graph objects (not applicable for PostgreSQL).
-   * @param value - The value to parse
-   * @returns The value as is
-   */
-  parseGraphObject(value: unknown): unknown {
-    // PostgreSQL doesn't have graph objects, return as is
-    return value;
-  }
-
-  /**
    * Recursively converts all properties of a plain JavaScript object.
    * @param value - The object to recursively process
    * @returns A fully converted JavaScript object
@@ -129,123 +107,5 @@ export class PostgresRecordParser extends NeodashRecordParser {
       }
     }
     return result;
-  }
-
-  /**
-   * Parses PostgreSQL query results with metadata.
-   * @param fields - PostgreSQL field metadata
-   * @param rows - Query result rows
-   * @param totalCount - Total number of rows
-   * @returns Parsed result with fields, records, and summary
-   */
-  parseWithMetadata(fields: FieldDef[] | undefined, rows: Record<string, unknown>[], totalCount: number) {
-    const parsedRecords = this.bulkParse(rows);
-
-    return {
-      fields: fields
-        ? fields.map((field) => ({
-            name: field.name,
-            type: this.pgTypeToColumnType(field.dataTypeID),
-          }))
-        : [],
-      records: parsedRecords,
-      summary: {
-        rowCount: totalCount,
-        executionTime: 0,
-        queryType: 'read',
-        database: 'postgresql',
-      },
-    };
-  }
-
-  /**
-   * Parses PostgreSQL query results into a format with fields, records, and summary.
-   * @param fields - PostgreSQL field metadata
-   * @param rows - Query result rows
-   * @param totalCount - Total number of rows
-   * @returns Parsed result with fields, records, and summary
-   */
-  parse(fields: FieldDef[] | undefined, rows: Record<string, unknown>[], totalCount: number) {
-    if (!fields) {
-      return {
-        fields: [],
-        records: rows,
-        summary: {
-          rowCount: totalCount,
-          executionTime: 0,
-          queryType: 'read',
-          database: 'postgresql',
-        },
-      };
-    }
-
-    return {
-      fields: fields.map((field) => ({
-        name: field.name,
-        type: this.pgTypeToColumnType(field.dataTypeID),
-      })),
-      records: rows,
-      summary: {
-        rowCount: totalCount,
-        executionTime: 0,
-        queryType: 'read',
-        database: 'postgresql',
-      },
-    };
-  }
-
-  /**
-   * Maps PostgreSQL type OIDs to generic column types.
-   * Reference: https://github.com/brianc/node-postgres/blob/master/packages/pg-types/builtins.js
-   * @param typeId - PostgreSQL type OID
-   * @returns Generic column type
-   */
-  private pgTypeToColumnType(typeId: number): string {
-    // Common PostgreSQL OID mappings
-    const typeMap: Record<number, string> = {
-      // Numeric types
-      16: 'boolean', // bool
-      20: 'number', // int8
-      21: 'number', // int2
-      23: 'number', // int4
-      700: 'number', // float4
-      701: 'number', // float8
-      1700: 'number', // numeric
-
-      // String types
-      25: 'string', // text
-      1042: 'string', // bpchar (char)
-      1043: 'string', // varchar
-
-      // Date/Time types
-      1082: 'date', // date
-      1083: 'date', // time
-      1114: 'date', // timestamp
-      1184: 'date', // timestamptz
-      1266: 'date', // timetz
-
-      // JSON types
-      114: 'object', // json
-      3802: 'object', // jsonb
-
-      // Array types
-      1007: 'array', // int4[]
-      1015: 'array', // varchar[]
-      1005: 'array', // int2[]
-      1016: 'array', // int8[]
-      1021: 'array', // float4[]
-      1022: 'array', // float8[]
-      1000: 'array', // bool[]
-      1009: 'array', // text[]
-      101: 'array', // _json
-
-      // UUID
-      2950: 'string', // uuid
-
-      // Special types
-      17: 'object', // bytea
-    };
-
-    return typeMap[typeId] || 'string';
   }
 }

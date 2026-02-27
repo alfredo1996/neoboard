@@ -22,7 +22,11 @@ describe("DataGridViewOptions", () => {
       <DataGrid
         columns={columns}
         data={data}
-        pagination={(table) => <DataGridViewOptions table={table} />}
+        toolbar={(table) => (
+          <div className="flex items-center py-4">
+            <DataGridViewOptions table={table} />
+          </div>
+        )}
       />
     );
     // Button accessible via sr-only span

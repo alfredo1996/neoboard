@@ -1,1 +1,1 @@
-export { createConnectionModule, getConnectionTypeName, getSupportedConnectionTypes } from './factory';
+export { createConnectionModule } from './factory';
