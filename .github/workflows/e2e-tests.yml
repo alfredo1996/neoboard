@@ -29,7 +29,7 @@ jobs:
     # global-setup.ts pulls and starts Testcontainers (postgres + neo4j).
     # Neo4j needs ~90 s to start; allow enough headroom for the full suite.
     # Docker is pre-installed on ubuntu-latest runners.
-    timeout-minutes: 30
+    timeout-minutes: 25
 
     steps:
       - name: Checkout code
