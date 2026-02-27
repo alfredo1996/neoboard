@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import postgres from "postgres";
+import { initCoverage, loadNextcovConfig } from "nextcov/playwright";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
@@ -178,6 +179,16 @@ export default async function globalSetup() {
   process.env.NEXTAUTH_URL = "http://localhost:3000";
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
+
+  // ── Initialize E2E coverage collection (nextcov) ────────────────────────
+  if (process.env.E2E_COVERAGE) {
+    console.log("⏳ Initializing E2E coverage collection...");
+    const nextcovConfig = await loadNextcovConfig(
+      path.resolve(__dirname, "..", "playwright.config.ts"),
+    );
+    await initCoverage(nextcovConfig);
+    console.log("✅ E2E coverage initialized");
+  }
 
   console.log("\n✅ All containers ready. Starting tests...\n");
 }

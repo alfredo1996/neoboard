@@ -1,4 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
+import type { NextcovConfig } from "nextcov";
+
+/** Nextcov coverage config — read by loadNextcovConfig() in global-setup/teardown. */
+export const nextcov: NextcovConfig = {
+  buildDir: ".next",
+  outputDir: "coverage-e2e",
+  sourceRoot: "./src",
+  include: ["src/**/*.{ts,tsx}"],
+  exclude: ["src/**/__tests__/**", "src/**/*.test.ts"],
+  reporters: ["lcov", "json", "text-summary"],
+  collectServer: false,
+};
 
 export default defineConfig({
   testDir: "./e2e",
