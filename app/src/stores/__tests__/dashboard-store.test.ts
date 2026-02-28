@@ -408,6 +408,20 @@ describe("useDashboardStore", () => {
       expect(titles).toEqual(["Page A", "Page B", "Page C"]);
     });
 
+    it("is a no-op when fromIndex is not an integer", () => {
+      setupThreePages();
+      useDashboardStore.getState().reorderPages(0.5, 1);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page A", "Page B", "Page C"]);
+    });
+
+    it("is a no-op when toIndex is NaN", () => {
+      setupThreePages();
+      useDashboardStore.getState().reorderPages(0, NaN);
+      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      expect(titles).toEqual(["Page A", "Page B", "Page C"]);
+    });
+
     it("works with 2 pages (swap)", () => {
       const layout = {
         version: 2 as const,

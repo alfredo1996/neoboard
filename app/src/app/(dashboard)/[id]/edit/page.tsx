@@ -64,14 +64,26 @@ export default function DashboardEditorPage({
     () => new Set([isNaN(initialPage) ? 0 : initialPage])
   );
 
-  function handleSelectPage(index: number) {
+  function markVisited(index: number) {
     setVisitedPages((prev) => {
       if (prev.has(index)) return prev;
       const next = new Set(prev);
       next.add(index);
       return next;
     });
+  }
+
+  function handleSelectPage(index: number) {
+    markVisited(index);
     setActivePage(index);
+  }
+
+  // After reorderPages the store adjusts activePageIndex. Mark the new
+  // index as visited so the page stays in the DOM when switching away.
+  function handleReorderPages(fromIndex: number, toIndex: number) {
+    reorderPages(fromIndex, toIndex);
+    const newActive = useDashboardStore.getState().activePageIndex;
+    markVisited(newActive);
   }
 
   const queryClient = useQueryClient();
@@ -268,7 +280,7 @@ export default function DashboardEditorPage({
             onAdd={addPage}
             onRemove={removePage}
             onRename={renamePage}
-            onReorder={reorderPages}
+            onReorder={handleReorderPages}
           />
 
           <WidgetEditorModal
