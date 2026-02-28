@@ -1,5 +1,6 @@
 import { test as base, type APIRequestContext } from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
+import { nextcov } from "../playwright.config";
 import * as dotenv from "dotenv";
 import * as path from "node:path";
 import { AuthPage } from "./pages/auth";
@@ -35,7 +36,7 @@ export const test = base.extend<Fixtures>({
         await use();
         return;
       }
-      await collectClientCoverage(page, testInfo, use);
+      await collectClientCoverage(page, testInfo, use, nextcov);
     },
     { scope: "test", auto: true },
   ],
