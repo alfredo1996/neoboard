@@ -150,7 +150,6 @@ export default async function globalSetup() {
     `ENCRYPTION_KEY=${TEST_ENCRYPTION_KEY}`,
     `NEXTAUTH_SECRET=${TEST_NEXTAUTH_SECRET}`,
     `NEXTAUTH_URL=http://localhost:3000`,
-    `AUTH_TRUST_HOST=true`,
     `# Test container ports (for reference in tests)`,
     `TEST_NEO4J_BOLT_URL=bolt://localhost:${neo4jBoltPort}`,
     `TEST_NEO4J_HTTP_PORT=${neo4jHttpPort}`,
@@ -178,7 +177,6 @@ export default async function globalSetup() {
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
   process.env.NEXTAUTH_SECRET = TEST_NEXTAUTH_SECRET;
   process.env.NEXTAUTH_URL = "http://localhost:3000";
-  process.env.AUTH_TRUST_HOST = "true";
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
 
