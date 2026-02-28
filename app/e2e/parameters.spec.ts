@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, navigateToEditPage } from "./fixtures";
 
 test.describe("Parameter selectors", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -11,8 +11,7 @@ test.describe("Parameter selectors", () => {
       `Param Select ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -50,8 +49,7 @@ test.describe("Parameter selectors", () => {
       `Click Action ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -132,8 +130,7 @@ test.describe("Parameter-to-refresh cycle", () => {
       `Param Cycle ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       // --- Widget 1: Parameter-select (year dropdown) ---
       // Use .first() because a fresh dashboard shows both a toolbar and an empty-state "Add Widget" button

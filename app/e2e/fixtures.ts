@@ -1,5 +1,5 @@
-import { test as base } from "@playwright/test";
-import type { APIRequestContext } from "@playwright/test";
+import { test as base, expect as pwExpect } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
 import * as dotenv from "dotenv";
 import * as path from "node:path";
@@ -55,6 +55,11 @@ export async function createTestDashboard(
   const res = await request.post("/api/dashboards", {
     data: { name },
   });
+  if (!res.ok()) {
+    throw new Error(
+      `createTestDashboard failed: ${res.status()} ${await res.text()}`,
+    );
+  }
   const { id } = (await res.json()) as { id: string };
   return {
     id,
@@ -62,4 +67,17 @@ export async function createTestDashboard(
       await request.delete(`/api/dashboards/${id}`);
     },
   };
+}
+
+/**
+ * Navigate to a dashboard's edit page with CI-friendly timeouts.
+ * Waits for the "Editing:" indicator to confirm the page loaded.
+ */
+export async function navigateToEditPage(
+  page: Page,
+  dashboardId: string,
+) {
+  await page.goto(`/${dashboardId}/edit`);
+  await page.waitForLoadState("domcontentloaded");
+  await pwExpect(page.getByText("Editing:")).toBeVisible({ timeout: 30_000 });
 }

@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, navigateToEditPage } from "./fixtures";
 
 test.describe("Widget creation", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -11,8 +11,7 @@ test.describe("Widget creation", () => {
       `Widget Flow ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -45,8 +44,7 @@ test.describe("Widget creation", () => {
       `Table Widget ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -71,8 +69,7 @@ test.describe("Widget creation", () => {
       `JSON Widget ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -97,8 +94,7 @@ test.describe("Widget creation", () => {
       `Dot Notation ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -137,8 +133,7 @@ test.describe("Widget creation", () => {
       `PG Widget ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -173,8 +168,7 @@ test.describe("Widget creation", () => {
       `Modal Selectors ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -196,8 +190,7 @@ test.describe("Widget creation", () => {
       `Combobox Filter ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -229,8 +222,7 @@ test.describe("Widget edit – query cache invalidation", () => {
       `Cache Invalidation ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       // Set up response waiter BEFORE the action that triggers the request to
       // avoid a race condition where the response arrives before waitForResponse

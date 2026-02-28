@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, navigateToEditPage } from "./fixtures";
 
 test.describe("Chart rendering", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -21,8 +21,7 @@ test.describe("Chart rendering", () => {
       `Table Chart ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -50,8 +49,7 @@ test.describe("Chart rendering", () => {
       `Single Value ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -81,8 +79,7 @@ test.describe("Chart rendering", () => {
       `JSON Viewer ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -122,8 +119,7 @@ test.describe("Neo4j connector → chart visualization", () => {
       `Neo4j Bar ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -161,8 +157,7 @@ test.describe("Neo4j connector → chart visualization", () => {
       `Neo4j Line ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -197,8 +192,7 @@ test.describe("Neo4j connector → chart visualization", () => {
       `Neo4j Pie ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -233,8 +227,7 @@ test.describe("Neo4j connector → chart visualization", () => {
       `Neo4j Table ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -270,8 +263,7 @@ test.describe("Neo4j connector → chart visualization", () => {
       `Neo4j Single ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -309,8 +301,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
       `PG Bar ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -344,8 +335,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
       `PG Line ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -380,8 +370,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
       `PG Pie ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -416,8 +405,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
       `PG Table ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -455,8 +443,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
       `PG Single ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -532,8 +519,7 @@ test.describe("Graph chart visualization", () => {
       `Graph Preview ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -580,8 +566,7 @@ test.describe("Graph chart visualization", () => {
       `Graph Widget ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -625,8 +610,7 @@ test.describe("Graph chart visualization", () => {
       `Graph Empty ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -667,8 +651,7 @@ test.describe("Graph chart visualization", () => {
       `Graph Layout ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -761,8 +744,7 @@ test.describe("Graph chart exploration", () => {
       `Graph Status ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await addGraphWidget(page);
 
@@ -791,8 +773,7 @@ test.describe("Graph chart exploration", () => {
       `Graph Context ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await addGraphWidget(page);
 
@@ -825,8 +806,7 @@ test.describe("Graph chart exploration", () => {
       `Graph Expand ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await addGraphWidget(page);
 
@@ -878,8 +858,7 @@ test.describe("Graph chart exploration", () => {
       `Graph Reset ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await addGraphWidget(page);
 
@@ -936,8 +915,7 @@ test.describe("Graph chart exploration", () => {
       `Graph Collapse ${Date.now()}`,
     );
     try {
-      await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await navigateToEditPage(page, id);
 
       await addGraphWidget(page);
 
