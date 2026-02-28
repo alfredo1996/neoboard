@@ -78,9 +78,10 @@ describe("GET /api/dashboards", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    // First call = owned dashboards, second = shared dashboards (empty)
+    // First call = owned, second = shared (empty), third = public (empty)
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([ownedRow]))
+      .mockReturnValueOnce(makeSelectChain([]))
       .mockReturnValueOnce(makeSelectChain([]));
 
     const res = await GET();
@@ -96,7 +97,8 @@ describe("GET /api/dashboards", () => {
     const sharedRow = { id: "d2", name: "Shared", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([ownedRow]))
-      .mockReturnValueOnce(makeSelectChain([sharedRow]));
+      .mockReturnValueOnce(makeSelectChain([sharedRow]))
+      .mockReturnValueOnce(makeSelectChain([]));
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -139,16 +141,66 @@ describe("GET /api/dashboards", () => {
   it("returns only assigned dashboards for reader role", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const assignedRow = { id: "d1", name: "Assigned", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
-    // Reader: both owned and shared queries execute, but only shared is returned
+    // Reader: owned + shared + public queries
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))          // owned query (result discarded for reader)
-      .mockReturnValueOnce(makeSelectChain([assignedRow])); // shared/assigned query
+      .mockReturnValueOnce(makeSelectChain([]))            // owned query (result discarded for reader)
+      .mockReturnValueOnce(makeSelectChain([assignedRow])) // shared/assigned query
+      .mockReturnValueOnce(makeSelectChain([]));           // public query
 
     const res = await GET();
     expect(res.status).toBe(200);
     const body = res._body as Array<{ id: string; role: string }>;
     expect(body).toHaveLength(1);
     expect(body[0].id).toBe("d1");
+  });
+
+  it("includes public dashboards for creator role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date() };
+    const publicRow = { id: "d2", name: "Public Demo", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([ownedRow]))   // owned
+      .mockReturnValueOnce(makeSelectChain([]))            // shared
+      .mockReturnValueOnce(makeSelectChain([publicRow]));  // public
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ id: string; role: string }>;
+    expect(body).toHaveLength(2);
+    expect(body.find((d) => d.id === "d1")?.role).toBe("owner");
+    expect(body.find((d) => d.id === "d2")?.role).toBe("viewer");
+  });
+
+  it("deduplicates public dashboards already in owned or shared", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
+    const publicRow = { id: "d1", name: "Own", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([ownedRow]))   // owned
+      .mockReturnValueOnce(makeSelectChain([]))            // shared
+      .mockReturnValueOnce(makeSelectChain([publicRow]));  // public (same ID)
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ id: string }>;
+    expect(body).toHaveLength(1);
+    expect(body[0].id).toBe("d1");
+  });
+
+  it("includes public dashboards for reader role", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
+    const publicRow = { id: "d1", name: "Public Demo", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([]))            // owned (discarded for reader)
+      .mockReturnValueOnce(makeSelectChain([]))            // shared
+      .mockReturnValueOnce(makeSelectChain([publicRow]));  // public
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ id: string; role: string }>;
+    expect(body).toHaveLength(1);
+    expect(body[0].id).toBe("d1");
+    expect(body[0].role).toBe("viewer");
   });
 });
 

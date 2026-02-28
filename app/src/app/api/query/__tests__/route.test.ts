@@ -53,6 +53,18 @@ function drizzleSelectChain(rows: unknown[]) {
   return chain;
 }
 
+// Like drizzleSelectChain but also supports leftJoin (for dashboard-share queries).
+function drizzleJoinChain(rows: unknown[]) {
+  const chain = {
+    from: () => chain,
+    leftJoin: () => chain,
+    where: () => chain,
+    limit: () => Promise.resolve(rows),
+    then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve),
+  };
+  return chain;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -90,7 +102,11 @@ describe("POST /api/query", () => {
 
   it("returns 404 when connection not found / not owned", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([]));
+    // 1st call: ownership check → not found
+    // 2nd call: dashboard-access check → no access
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(drizzleJoinChain([]));
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(404);
     expect((res._body as { error: string }).error).toMatch(/not found/i);
@@ -161,6 +177,86 @@ describe("POST /api/query", () => {
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500);
     expect((res._body as { error: string }).error).toBe("Driver error");
+  });
+
+  // --- Access fallback tests ---
+
+  it("admin can execute query on unowned connection", async () => {
+    mockRequireSession.mockResolvedValue({ ...defaultSession, role: "admin" });
+    const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "other-user" };
+    // 1st call: ownership check → not found
+    // 2nd call: admin fallback → found
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(drizzleSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  it("non-admin with dashboard share can execute query on unowned connection", async () => {
+    mockRequireSession.mockResolvedValue({ ...defaultSession, role: "creator" });
+    const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "other-user" };
+    // 1st call: ownership check → not found
+    // 2nd call: dashboard-access check (join) → found a matching dashboard
+    // 3rd call: fetch the connection by id
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(drizzleJoinChain([{ id: "d1" }]))
+      .mockReturnValueOnce(drizzleSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(3);
+  });
+
+  it("non-admin without dashboard access gets 404", async () => {
+    mockRequireSession.mockResolvedValue({ ...defaultSession, role: "creator" });
+    // 1st call: ownership check → not found
+    // 2nd call: dashboard-access check → no matching dashboard
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(drizzleJoinChain([]));
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+    expect(res.status).toBe(404);
+    expect((res._body as { error: string }).error).toMatch(/not found/i);
+  });
+
+  it("non-admin with public dashboard can execute query on unowned connection", async () => {
+    mockRequireSession.mockResolvedValue({ ...defaultSession, role: "creator" });
+    const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "other-user" };
+    // 1st call: ownership check → not found
+    // 2nd call: dashboard-access check (join) → found a public dashboard
+    // 3rd call: fetch the connection by id
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(drizzleJoinChain([{ id: "d1" }]))
+      .mockReturnValueOnce(drizzleSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(3);
+  });
+
+  it("owner still works without any fallback (regression)", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "user-1" };
+    mockDb.select.mockReturnValueOnce(drizzleSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({ uri: "postgres://localhost", username: "u", password: "p" });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+
+    const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+    expect(res.status).toBe(200);
+    // Only 1 db.select call — fast path, no fallback needed
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 
   // --- MAX_ROWS truncation tests ---

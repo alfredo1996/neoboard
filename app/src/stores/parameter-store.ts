@@ -54,9 +54,15 @@ interface ParameterState {
   ) => void;
   clearParameter: (name: string) => void;
   clearAll: () => void;
+  /** Save current parameters to localStorage for the given dashboard. */
+  saveToDashboard: (dashboardId: string) => void;
+  /** Restore parameters from localStorage for the given dashboard. Clears current state first. */
+  restoreFromDashboard: (dashboardId: string) => void;
 }
 
-export const useParameterStore = create<ParameterState>((set) => ({
+const STORAGE_PREFIX = "nb-params:";
+
+export const useParameterStore = create<ParameterState>((set, get) => ({
   parameters: {},
 
   setParameter: (
@@ -82,6 +88,27 @@ export const useParameterStore = create<ParameterState>((set) => ({
     }),
 
   clearAll: () => set({ parameters: {} }),
+
+  saveToDashboard: (dashboardId) => {
+    const { parameters } = get();
+    if (Object.keys(parameters).length > 0) {
+      localStorage.setItem(
+        `${STORAGE_PREFIX}${dashboardId}`,
+        JSON.stringify(parameters)
+      );
+    }
+  },
+
+  restoreFromDashboard: (dashboardId) => {
+    try {
+      const stored = localStorage.getItem(
+        `${STORAGE_PREFIX}${dashboardId}`
+      );
+      set({ parameters: stored ? JSON.parse(stored) : {} });
+    } catch {
+      set({ parameters: {} });
+    }
+  },
 }));
 
 /** Returns just name→value for query substitution. */

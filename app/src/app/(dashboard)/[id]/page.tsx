@@ -1,9 +1,10 @@
 "use client";
 
-import React, { use, useMemo, useState, useTransition } from "react";
+import React, { use, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, LayoutDashboard } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboards";
+import { useParameterStore } from "@/stores/parameter-store";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
@@ -26,8 +27,36 @@ export default function DashboardViewerPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
+  const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
+  const prevDashboardId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevDashboardId.current && prevDashboardId.current !== id) {
+      saveToDashboard(prevDashboardId.current);
+    }
+    prevDashboardId.current = id;
+    restoreFromDashboard(id);
+    return () => {
+      saveToDashboard(id);
+    };
+  }, [id, saveToDashboard, restoreFromDashboard]);
+
   const { data: dashboard, isLoading } = useDashboard(id);
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [visitedPages, setVisitedPages] = useState<Set<number>>(
+    () => new Set([0])
+  );
+
+  function handleSelectPage(index: number) {
+    setVisitedPages((prev) => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    setActivePageIndex(index);
+  }
   const [isPending, startTransition] = useTransition();
   const layout = useMemo(
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
@@ -108,11 +137,11 @@ export default function DashboardViewerPage({
           pages={resolvedLayout.pages}
           activeIndex={safeIndex}
           editable={false}
-          onSelect={setActivePageIndex}
+          onSelect={handleSelectPage}
         />
       )}
 
-      <div className="flex-1 p-6 relative">
+      <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
         {resolvedLayout.pages.map((page, index) => {
           const isActive = index === safeIndex;
           if (page.widgets.length === 0 && isActive) {
@@ -134,6 +163,7 @@ export default function DashboardViewerPage({
             );
           }
           if (page.widgets.length === 0) return null;
+          if (!visitedPages.has(index)) return null;
           return (
             <div
               key={page.id}
