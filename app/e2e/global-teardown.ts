@@ -64,6 +64,7 @@ export default async function globalTeardown() {
   // Clean up temp files
   try { fs.unlinkSync(STATE_FILE); } catch {}
   try { fs.unlinkSync(ENV_FILE); } catch {}
+  try { fs.unlinkSync(path.join(__dirname, '..', '.env.ready')); } catch {}
 
   console.log("✅ Cleanup complete.\n");
 }

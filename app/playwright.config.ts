@@ -49,15 +49,16 @@ export default defineConfig({
   ],
 
   webServer: {
-    // CI: production build pre-compiles all routes upfront, eliminating cold-start
-    // compilation delays. globalSetup writes .env.local before this runs.
+    // CI: the production bundle is already built in a prior CI step.
+    // The bash loop waits for globalSetup to write .env.ready (sentinel)
+    // so that `next start` reads .env.local with the correct container ports.
     // Local: dev server for fast iteration with HMR.
     command: process.env.CI
-      ? "npx next build && npx next start --port 3000"
+      ? "bash -c 'while [ ! -f .env.ready ]; do sleep 0.1; done && exec npx next start --port 3000'"
       : "npx next dev --port 3000",
     port: 3000,
     reuseExistingServer: !process.env.CI,
-    // CI: build ~60-90s + start ~5s. Locally: dev server ~15s.
-    timeout: process.env.CI ? 180_000 : 30_000,
+    // CI: sentinel wait ~30-60s + start ~2-5s. Locally: dev server ~15s.
+    timeout: process.env.CI ? 120_000 : 30_000,
   },
 });

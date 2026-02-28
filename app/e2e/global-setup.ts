@@ -172,6 +172,11 @@ export default async function globalSetup() {
   fs.copyFileSync(ENV_FILE, ENV_LOCAL);
   console.log("✅ Copied .env.test → .env.local for Next.js");
 
+  // Signal the webServer that .env.local is ready (CI sentinel file).
+  const ENV_READY = path.join(__dirname, "..", ".env.ready");
+  fs.writeFileSync(ENV_READY, "");
+  console.log("✅ Wrote .env.ready sentinel for webServer");
+
   // Expose env vars to the current process (picked up by the webServer).
   process.env.DATABASE_URL = databaseUrl;
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
