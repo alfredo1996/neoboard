@@ -27,9 +27,9 @@ jobs:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
     # global-setup.ts pulls and starts Testcontainers (postgres + neo4j).
-    # Neo4j needs ~90 s to start; production build + 2 workers should finish
-    # the full suite in ~10-15 min. Docker is pre-installed on ubuntu-latest.
-    timeout-minutes: 20
+    # Neo4j needs ~90 s; next build ~90 s; tests ~8-12 min with 2 workers.
+    # 25 min gives enough headroom. Docker is pre-installed on ubuntu-latest.
+    timeout-minutes: 25
 
     steps:
       - name: Checkout code
