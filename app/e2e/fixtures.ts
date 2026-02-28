@@ -1,4 +1,4 @@
-import { test as base } from "@playwright/test";
+import { test as base, type APIRequestContext } from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
 import * as dotenv from "dotenv";
 import * as path from "node:path";
@@ -42,3 +42,26 @@ export const test = base.extend<Fixtures>({
 });
 
 export { expect } from "@playwright/test";
+
+/**
+ * Create an isolated dashboard for a test via the API.
+ * Uses `page.request` so it inherits the browser session cookies (must be
+ * called after login). Returns the dashboard ID and a cleanup function that
+ * deletes the dashboard — call in a `finally` block or `afterEach`.
+ */
+export async function createTestDashboard(
+  request: APIRequestContext,
+  name: string,
+): Promise<{ id: string; cleanup: () => Promise<void> }> {
+  const res = await request.post("/api/dashboards", { data: { name } });
+  if (!res.ok()) {
+    throw new Error(`Failed to create dashboard "${name}": ${res.status()}`);
+  }
+  const { id } = await res.json();
+  return {
+    id,
+    cleanup: async () => {
+      await request.delete(`/api/dashboards/${id}`);
+    },
+  };
+}

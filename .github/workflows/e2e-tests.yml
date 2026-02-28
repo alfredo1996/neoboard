@@ -27,9 +27,9 @@ jobs:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
     # global-setup.ts pulls and starts Testcontainers (postgres + neo4j).
-    # Neo4j needs ~90 s to start; allow enough headroom for the full suite.
-    # Docker is pre-installed on ubuntu-latest runners.
-    timeout-minutes: 30
+    # Neo4j needs ~90 s to start; production build + 2 workers should finish
+    # the full suite in ~10-15 min. Docker is pre-installed on ubuntu-latest.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -76,8 +76,8 @@ jobs:
         run: npx playwright install-deps chromium
 
       # ── Next.js build cache ──────────────────────────────────────────────────
-      # Caches webpack compilation artifacts across runs so the dev server
-      # compiles routes much faster on first hit (reduces cold-start flakiness).
+      # Caches webpack compilation artifacts across runs so `next build`
+      # completes faster on subsequent CI runs.
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
@@ -88,9 +88,9 @@ jobs:
 
       # ── Run tests ────────────────────────────────────────────────────────────
       # global-setup.ts starts postgres + neo4j via Testcontainers (images are
-      # already pulled above), seeds both databases, and writes .env.local for
-      # the Next.js dev server. retries=2 and navigationTimeout=30s (set in
-      # playwright.config.ts) absorb any remaining cold-start noise.
+      # already pulled above), seeds both databases, and writes .env.local.
+      # Playwright builds and starts the production server, then runs tests
+      # with 2 parallel workers.
       - name: Run E2E tests
         working-directory: app
         run: npx playwright test
