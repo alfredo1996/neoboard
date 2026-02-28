@@ -1,4 +1,5 @@
 import { test as base } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
 import * as dotenv from "dotenv";
 import * as path from "node:path";
@@ -42,3 +43,23 @@ export const test = base.extend<Fixtures>({
 });
 
 export { expect } from "@playwright/test";
+
+/**
+ * Creates a fresh dashboard via API for test isolation.
+ * Returns the dashboard ID and a cleanup function to delete it.
+ */
+export async function createTestDashboard(
+  request: APIRequestContext,
+  name: string,
+): Promise<{ id: string; cleanup: () => Promise<void> }> {
+  const res = await request.post("/api/dashboards", {
+    data: { name },
+  });
+  const { id } = (await res.json()) as { id: string };
+  return {
+    id,
+    cleanup: async () => {
+      await request.delete(`/api/dashboards/${id}`);
+    },
+  };
+}
