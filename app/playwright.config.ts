@@ -48,17 +48,17 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    // CI: the production bundle is already built in a prior CI step.
-    // The bash loop waits for globalSetup to write .env.ready (sentinel)
-    // so that `next start` reads .env.local with the correct container ports.
-    // Local: dev server for fast iteration with HMR.
-    command: process.env.CI
-      ? "bash -c 'while [ ! -f .env.ready ]; do sleep 0.1; done && exec npx next start --port 3000'"
-      : "npx next dev --port 3000",
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
-    // CI: sentinel wait ~30-60s + start ~2-5s. Locally: dev server ~15s.
-    timeout: process.env.CI ? 120_000 : 30_000,
-  },
+  // CI: webServer is disabled — globalSetup starts `next start` itself after
+  // writing .env.local so the server reads the correct DATABASE_URL.
+  // Playwright waits for the webServer port BEFORE running globalSetup, so
+  // using webServer in CI would deadlock (server needs env from globalSetup).
+  // Local: dev server for fast iteration with HMR.
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: "npx next dev --port 3000",
+        port: 3000,
+        reuseExistingServer: true,
+        timeout: 30_000,
+      },
 });

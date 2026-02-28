@@ -87,10 +87,8 @@ jobs:
             nextjs-${{ runner.os }}-
 
       # ── Build Next.js ─────────────────────────────────────────────────────────
-      # Pre-build the production bundle BEFORE Playwright starts so that the
-      # webServer command only needs `next start` (2-5 s instead of 60-90 s).
-      # This avoids a race where `next start` reads .env before globalSetup
-      # has written .env.local with the correct Testcontainer ports.
+      # Pre-build the production bundle so globalSetup can start `next start`
+      # after writing .env.local with the correct Testcontainer ports.
       - name: Build Next.js
         working-directory: app
         run: npx next build
@@ -98,9 +96,9 @@ jobs:
           CI: true
 
       # ── Run tests ────────────────────────────────────────────────────────────
-      # global-setup.ts starts postgres + neo4j via Testcontainers (images are
+      # globalSetup starts postgres + neo4j via Testcontainers (images are
       # already pulled above), seeds both databases, writes .env.local, then
-      # signals .env.ready so the webServer can start `next start`.
+      # starts `next start` itself (webServer is disabled in CI).
       - name: Run E2E tests
         working-directory: app
         run: npx playwright test

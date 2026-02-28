@@ -4,6 +4,7 @@ import { execSync } from "node:child_process";
 import { finalizeCoverage, loadNextcovConfig } from "nextcov/playwright";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
+const SERVER_PID_FILE = path.join(__dirname, ".server-pid");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
 const ENV_LOCAL = path.join(__dirname, "..", ".env.local");
 const ENV_LOCAL_BAK = path.join(__dirname, "..", ".env.local.bak");
@@ -13,7 +14,19 @@ export default async function globalTeardown() {
   // them automatically after the job; we must not try to remove them ourselves.
   const isServiceContainerMode = process.env.CI_SERVICE_CONTAINERS === "true";
 
-  console.log("\n🧹 Stopping test containers...\n");
+  console.log("\n🧹 Stopping test server & containers...\n");
+
+  // ── CI: stop the Next.js server we started in globalSetup ───────────────
+  if (fs.existsSync(SERVER_PID_FILE)) {
+    const pid = parseInt(fs.readFileSync(SERVER_PID_FILE, "utf-8"), 10);
+    try {
+      // Kill the detached process group (negative PID kills the group).
+      process.kill(-pid, "SIGTERM");
+      console.log(`✅ Stopped Next.js server (pid ${pid})`);
+    } catch {
+      console.log(`⚠️ Next.js server (pid ${pid}) already stopped`);
+    }
+  }
 
   // Restore original .env.local from backup.
   // Fallback: if no backup exists (e.g. previous crash deleted it), copy from
@@ -63,8 +76,8 @@ export default async function globalTeardown() {
 
   // Clean up temp files
   try { fs.unlinkSync(STATE_FILE); } catch {}
+  try { fs.unlinkSync(SERVER_PID_FILE); } catch {}
   try { fs.unlinkSync(ENV_FILE); } catch {}
-  try { fs.unlinkSync(path.join(__dirname, '..', '.env.ready')); } catch {}
 
   console.log("✅ Cleanup complete.\n");
 }
