@@ -1,9 +1,24 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { useParameterStore } from "../parameter-store";
 import type { ParameterType, ParameterSource } from "../parameter-store";
 
 function resetStore() {
   useParameterStore.getState().clearAll();
+}
+
+/** Minimal localStorage stub for Node (no jsdom). */
+function createLocalStorageMock() {
+  const store = new Map<string, string>();
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => store.set(key, value),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => [...store.keys()][index] ?? null,
+  } as Storage;
 }
 
 describe("useParameterStore", () => {
@@ -163,5 +178,153 @@ describe("useParameterStore", () => {
     expect(params["p_selector-widget"].sourceType).toBe("selector-widget");
     expect(params["p_url"].sourceType).toBe("url");
     expect(params["p_cross-dashboard"].sourceType).toBe("cross-dashboard");
+  });
+
+  // ── Per-dashboard parameter persistence ──────────────────────────
+
+  describe("saveToDashboard / restoreFromDashboard", () => {
+    let originalLocalStorage: Storage | undefined;
+
+    beforeEach(() => {
+      originalLocalStorage = globalThis.localStorage;
+      Object.defineProperty(globalThis, "localStorage", {
+        value: createLocalStorageMock(),
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      if (originalLocalStorage !== undefined) {
+        Object.defineProperty(globalThis, "localStorage", {
+          value: originalLocalStorage,
+          writable: true,
+          configurable: true,
+        });
+      } else {
+        // @ts-expect-error – cleanup in Node where localStorage didn't exist
+        delete globalThis.localStorage;
+      }
+    });
+
+    it("saves parameters to localStorage keyed by dashboard ID", () => {
+      const { setParameter, saveToDashboard } = useParameterStore.getState();
+      setParameter("genre", "Action", "Selector", "genre", "select", "selector-widget");
+      saveToDashboard("dash-1");
+
+      const stored = localStorage.getItem("nb-params:dash-1");
+      expect(stored).not.toBeNull();
+      const parsed = JSON.parse(stored!);
+      expect(parsed["genre"].value).toBe("Action");
+      expect(parsed["genre"].type).toBe("select");
+    });
+
+    it("restores parameters from localStorage", () => {
+      const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
+        useParameterStore.getState();
+
+      setParameter("year", 2024, "YearPicker", "year", "text", "selector-widget");
+      saveToDashboard("dash-2");
+      clearAll();
+      expect(useParameterStore.getState().parameters).toEqual({});
+
+      restoreFromDashboard("dash-2");
+      const restored = useParameterStore.getState().parameters;
+      expect(restored["year"].value).toBe(2024);
+      expect(restored["year"].source).toBe("YearPicker");
+    });
+
+    it("restores empty parameters when no data exists for dashboard", () => {
+      const { setParameter, restoreFromDashboard } = useParameterStore.getState();
+      setParameter("leftover", "stale", "Old", "x");
+
+      restoreFromDashboard("never-visited-dashboard");
+      expect(useParameterStore.getState().parameters).toEqual({});
+    });
+
+    it("does not save when parameters are empty", () => {
+      const { saveToDashboard } = useParameterStore.getState();
+      saveToDashboard("empty-dash");
+      expect(localStorage.getItem("nb-params:empty-dash")).toBeNull();
+    });
+
+    it("isolates parameters between different dashboards", () => {
+      const { setParameter, saveToDashboard, restoreFromDashboard } =
+        useParameterStore.getState();
+
+      // Set and save Dashboard A params
+      setParameter("movie", "The Matrix", "MovieSelector", "movie", "select", "selector-widget");
+      setParameter("year", 1999, "YearPicker", "year");
+      saveToDashboard("dash-A");
+
+      // Clear and set Dashboard B params
+      useParameterStore.getState().clearAll();
+      setParameter("city", "Berlin", "CityPicker", "city", "select", "selector-widget");
+      saveToDashboard("dash-B");
+
+      // Restore Dashboard A — should have movie+year, not city
+      restoreFromDashboard("dash-A");
+      const paramsA = useParameterStore.getState().parameters;
+      expect(paramsA["movie"].value).toBe("The Matrix");
+      expect(paramsA["year"].value).toBe(1999);
+      expect(paramsA["city"]).toBeUndefined();
+
+      // Restore Dashboard B — should have city, not movie/year
+      restoreFromDashboard("dash-B");
+      const paramsB = useParameterStore.getState().parameters;
+      expect(paramsB["city"].value).toBe("Berlin");
+      expect(paramsB["movie"]).toBeUndefined();
+      expect(paramsB["year"]).toBeUndefined();
+    });
+
+    it("handles corrupted localStorage gracefully", () => {
+      localStorage.setItem("nb-params:corrupt", "not-valid-json{{{");
+      const { restoreFromDashboard } = useParameterStore.getState();
+      restoreFromDashboard("corrupt");
+      expect(useParameterStore.getState().parameters).toEqual({});
+    });
+
+    it("overwrites previously saved parameters on re-save", () => {
+      const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
+        useParameterStore.getState();
+
+      // First save
+      setParameter("color", "red", "ColorPicker", "color");
+      saveToDashboard("dash-overwrite");
+      clearAll();
+
+      // Second save with different value
+      setParameter("color", "blue", "ColorPicker", "color");
+      saveToDashboard("dash-overwrite");
+      clearAll();
+
+      // Restore should get the latest
+      restoreFromDashboard("dash-overwrite");
+      expect(useParameterStore.getState().parameters["color"].value).toBe("blue");
+    });
+
+    it("preserves all entry fields through save/restore cycle", () => {
+      const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
+        useParameterStore.getState();
+
+      setParameter(
+        "tags",
+        ["action", "sci-fi"],
+        "TagSelector",
+        "tags",
+        "multi-select",
+        "selector-widget"
+      );
+      saveToDashboard("dash-fields");
+      clearAll();
+
+      restoreFromDashboard("dash-fields");
+      const entry = useParameterStore.getState().parameters["tags"];
+      expect(entry.value).toEqual(["action", "sci-fi"]);
+      expect(entry.source).toBe("TagSelector");
+      expect(entry.field).toBe("tags");
+      expect(entry.type).toBe("multi-select");
+      expect(entry.sourceType).toBe("selector-widget");
+    });
   });
 });

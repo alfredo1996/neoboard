@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Plus, LayoutDashboard, MoreVertical, Pencil, Copy, Trash2, Grid2X2 } from "lucide-react";
+import { Plus, LayoutDashboard, MoreVertical, Pencil, Copy, Trash2, Grid2X2, Globe } from "lucide-react";
 import {
   useDashboards,
   useCreateDashboard,
@@ -219,6 +219,9 @@ export default function DashboardListPage() {
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
+                          )}
+                          {d.isPublic && (
+                            <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-label="Public" />
                           )}
                           <Badge variant="secondary">{d.role}</Badge>
                         </div>

@@ -89,7 +89,7 @@ if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
   echo "    Visit http://localhost:3000/signup to create admin manually."
 else
   echo "    Found $USER_COUNT user(s)."
-  echo "    Login: admin@localhost / admin123"
+  echo "    Login: admin@neoboard.local / admin123"
 fi
 echo ""
 

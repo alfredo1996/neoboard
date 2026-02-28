@@ -725,12 +725,12 @@ async function main() {
 
     let adminId;
     if (users.length === 0) {
-      console.log("    Creating admin user (admin@localhost / admin123)...");
+      console.log("    Creating admin user (admin@neoboard.local / admin123)...");
       adminId = uuid();
       const hash = bcrypt.hashSync("admin123", 10);
       await sql`
         INSERT INTO "user" (id, name, email, "passwordHash", role, "createdAt")
-        VALUES (${adminId}, ${"Admin"}, ${"admin@localhost"}, ${hash}, ${"admin"}, NOW())
+        VALUES (${adminId}, ${"Admin"}, ${"admin@neoboard.local"}, ${hash}, ${"admin"}, NOW())
       `;
     } else {
       adminId = users[0].id;
@@ -780,7 +780,8 @@ async function main() {
       adminId,
       "Widget Showcase",
       "Every chart type across Neo4j and PostgreSQL connectors.",
-      showcaseLayout
+      showcaseLayout,
+      true
     );
 
     const paramLayout = buildParameterTesting(neo4jConnId, pgConnId);
@@ -790,7 +791,8 @@ async function main() {
       adminId,
       "Parameter Testing",
       "One page per parameter type per connector, with bound data widgets.",
-      paramLayout
+      paramLayout,
+      true
     );
 
     console.log("    Demo dashboards seeded.");
@@ -827,7 +829,7 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   return id;
 }
 
-async function upsertDashboard(sql, userId, name, description, layout) {
+async function upsertDashboard(sql, userId, name, description, layout, isPublic = false) {
   const existing = await sql`
     SELECT id FROM "dashboard" WHERE name = ${name} AND "userId" = ${userId}
   `;
@@ -835,7 +837,7 @@ async function upsertDashboard(sql, userId, name, description, layout) {
     // Update existing dashboard layout so re-running refreshes the demo data
     await sql`
       UPDATE "dashboard"
-      SET "layoutJson" = ${sql.json(layout)}, "updatedAt" = NOW()
+      SET "layoutJson" = ${sql.json(layout)}, "isPublic" = ${isPublic}, "updatedAt" = NOW()
       WHERE id = ${existing[0].id}
     `;
     console.log(`    Dashboard "${name}" already exists — layout updated.`);
@@ -845,7 +847,7 @@ async function upsertDashboard(sql, userId, name, description, layout) {
   const id = uuid();
   await sql`
     INSERT INTO "dashboard" (id, "userId", tenant_id, name, description, "layoutJson", "isPublic", "createdAt", "updatedAt")
-    VALUES (${id}, ${userId}, ${"default"}, ${name}, ${description}, ${sql.json(layout)}, ${false}, NOW(), NOW())
+    VALUES (${id}, ${userId}, ${"default"}, ${name}, ${description}, ${sql.json(layout)}, ${isPublic}, NOW(), NOW())
   `;
   console.log(`    Dashboard "${name}" created.`);
   return id;

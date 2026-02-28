@@ -150,6 +150,30 @@ describe("GET /api/dashboards/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns public dashboard as viewer for any authenticated user", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const publicDashboard = { ...OWNER_DASHBOARD, isPublic: true };
+    // First select: dashboard lookup — found with isPublic=true
+    // Second select: share lookup — no share found
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([publicDashboard]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { id: string; role: string };
+    expect(body.role).toBe("viewer");
+  });
+
+  it("returns 404 for private dashboard without share", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const privateDashboard = { ...OWNER_DASHBOARD, isPublic: false };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([privateDashboard]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(404);
+  });
+
   it("returns dashboard for admin (bypasses per-dashboard ACL)", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, userId: "admin-1", role: "admin" });
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
@@ -206,6 +230,17 @@ describe("PUT /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await PUT(makeRequest({ name: "" }), makeParams("d1"));
     expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when public dashboard is edited by non-owner", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const publicDashboard = { ...OWNER_DASHBOARD, isPublic: true };
+    // canAccess with "editor" required: dashboard found, no share → public only grants viewer
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([publicDashboard]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const res = await PUT(makeRequest({ name: "Hacked" }), makeParams("d1"));
+    expect(res.status).toBe(404);
   });
 
   it("updates layout with v2 pages schema", async () => {

@@ -20,6 +20,8 @@ interface QueryResult {
   resultId: string;
   /** True when the server truncated the result set to MAX_ROWS (10 000). */
   truncated?: boolean;
+  /** Server-side query execution time in milliseconds. */
+  serverDurationMs?: number;
 }
 
 /**
@@ -166,6 +168,7 @@ export function useWidgetQuery(
       mergedInput?.params,
     ],
     queryFn: async () => {
+      const fetchStart = performance.now();
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,7 +178,14 @@ export function useWidgetQuery(
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Query execution failed");
       }
-      return res.json();
+      const result: QueryResult = await res.json();
+      if (process.env.NODE_ENV === "development") {
+        const roundTripMs = Math.round(performance.now() - fetchStart);
+        console.debug(
+          `[widget-query] roundTrip=${roundTripMs}ms server=${result.serverDurationMs ?? "?"}ms query=${mergedInput?.query?.slice(0, 80)}`
+        );
+      }
+      return result;
     },
     enabled:
       !!mergedInput?.connectionId &&

@@ -79,7 +79,13 @@ async function canAccess(
     )
     .limit(1);
 
-  if (!share) return null;
+  if (!share) {
+    // Public dashboards grant read-only access to any authenticated tenant user
+    if (dashboard.isPublic && requiredRole === "viewer") {
+      return { dashboard, role: "viewer" as const };
+    }
+    return null;
+  }
 
   if (requiredRole === "owner") return null;
   if (requiredRole === "editor" && share.role === "viewer") return null;

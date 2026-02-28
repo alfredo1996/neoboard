@@ -396,7 +396,7 @@ export function WidgetEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="full" className="max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent size="full" className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {mode === "edit" ? "Edit Widget" : "Add Widget"}
