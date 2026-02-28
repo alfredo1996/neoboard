@@ -72,7 +72,7 @@ export async function GET() {
       );
     }
 
-    // Creator & Reader: owned dashboards + explicitly assigned/shared
+    // Creator & Reader: owned dashboards + explicitly assigned/shared + public
     const owned = await db
       .select({
         id: dashboards.id,
@@ -106,6 +106,19 @@ export async function GET() {
         )
       );
 
+    const publicDashboards = await db
+      .select({
+        id: dashboards.id,
+        name: dashboards.name,
+        description: dashboards.description,
+        isPublic: dashboards.isPublic,
+        createdAt: dashboards.createdAt,
+        updatedAt: dashboards.updatedAt,
+        layoutJson: dashboards.layoutJson,
+      })
+      .from(dashboards)
+      .where(and(eq(dashboards.tenantId, tenantId), eq(dashboards.isPublic, true)));
+
     function addPreview<T extends { layoutJson: DashboardLayoutV2 | null }>(
       d: T
     ) {
@@ -117,15 +130,25 @@ export async function GET() {
       };
     }
 
-    // For Readers: only show explicitly assigned dashboards (not owned, since
-    // Readers cannot create dashboards). For Creators: show owned + shared.
-    const result =
+    // Build combined list: owned + shared + public, deduplicated by ID
+    const ownedMapped = owned.map((d) => addPreview({ ...d, role: "owner" as const }));
+    const sharedMapped = shared.map(addPreview);
+    const publicMapped = publicDashboards.map((d) => addPreview({ ...d, role: "viewer" as const }));
+
+    // For Readers: shared + public (not owned, since Readers cannot create dashboards).
+    // For Creators: owned + shared + public.
+    const combined =
       role === "reader"
-        ? shared.map(addPreview)
-        : [
-            ...owned.map((d) => addPreview({ ...d, role: "owner" as const })),
-            ...shared.map(addPreview),
-          ];
+        ? [...sharedMapped, ...publicMapped]
+        : [...ownedMapped, ...sharedMapped, ...publicMapped];
+
+    // Deduplicate by ID (first occurrence wins — preserves owner/editor role over viewer)
+    const seen = new Set<string>();
+    const result = combined.filter((d) => {
+      if (seen.has(d.id)) return false;
+      seen.add(d.id);
+      return true;
+    });
 
     return NextResponse.json(result);
   } catch {

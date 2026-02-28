@@ -1,4 +1,8 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+
+// ---------------------------------------------------------------------------
+// Read-only tests: use the seeded "Movie Analytics" dashboard (no mutations)
+// ---------------------------------------------------------------------------
 
 test.describe("Chart rendering", () => {
   test.beforeEach(async ({ authPage, page }) => {
@@ -82,17 +86,25 @@ test.describe("Chart rendering", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Neo4j connector → chart visualization", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Neo4j Charts ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
   test("Neo4j bar chart — fetches data and renders canvas", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — just select Neo4j connection
@@ -120,7 +132,7 @@ test.describe("Neo4j connector → chart visualization", () => {
   });
 
   test("Neo4j line chart — fetches data and renders canvas", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -145,7 +157,7 @@ test.describe("Neo4j connector → chart visualization", () => {
   });
 
   test("Neo4j pie chart — fetches data and renders canvas", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -170,7 +182,7 @@ test.describe("Neo4j connector → chart visualization", () => {
   });
 
   test("Neo4j table — fetches data and shows actual movie names", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -196,7 +208,7 @@ test.describe("Neo4j connector → chart visualization", () => {
   });
 
   test("Neo4j single-value — fetches aggregated count", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -219,17 +231,25 @@ test.describe("Neo4j connector → chart visualization", () => {
 });
 
 test.describe("PostgreSQL connector → chart visualization", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `PG Charts ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
   test("PostgreSQL bar chart — fetches data and renders canvas", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — just select PostgreSQL connection
@@ -253,7 +273,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
   });
 
   test("PostgreSQL line chart — fetches data and renders canvas", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -278,7 +298,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
   });
 
   test("PostgreSQL pie chart — fetches data and renders canvas", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -303,7 +323,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
   });
 
   test("PostgreSQL table — fetches data and shows actual movie names", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -331,7 +351,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
   });
 
   test("PostgreSQL single-value — fetches aggregated count", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -354,7 +374,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Seeded dashboard view: verify widgets render from live queries
+// Seeded dashboard view: verify widgets render from live queries (read-only)
 // ---------------------------------------------------------------------------
 
 test.describe("Seeded dashboard renders live data", () => {
@@ -392,16 +412,25 @@ test.describe("Seeded dashboard renders live data", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Graph chart visualization", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Graph Viz ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
   test("graph chart preview — renders nodes and toolbar controls", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Graph chart + Neo4j connection
@@ -438,7 +467,7 @@ test.describe("Graph chart visualization", () => {
   });
 
   test("graph chart — added widget renders on dashboard", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Graph + Neo4j
@@ -472,7 +501,7 @@ test.describe("Graph chart visualization", () => {
   });
 
   test("graph chart — empty result shows 'No graph data' message", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Graph + Neo4j
@@ -503,7 +532,7 @@ test.describe("Graph chart visualization", () => {
   });
 
   test("graph chart — layout selector changes layout", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -547,12 +576,21 @@ test.describe("Graph chart visualization", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Graph chart exploration", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Graph Explore ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
   });
 
   /**
@@ -560,7 +598,7 @@ test.describe("Graph chart exploration", () => {
    * Returns after the dialog has closed and the widget is on the grid.
    */
   async function addGraphWidget(page: import("@playwright/test").Page) {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
@@ -640,7 +678,6 @@ test.describe("Graph chart exploration", () => {
     // Record initial node count text
     const nodeCountEl = page.locator("[data-testid='graph-node-count']");
     await expect(nodeCountEl).toBeVisible({ timeout: 10_000 });
-    const initialText = await nodeCountEl.textContent();
 
     // NVL renders overlay divs, so force: true is needed for canvas clicks
     const canvas = exploration.locator("canvas").first();

@@ -24,9 +24,10 @@ describe("WidgetCard", () => {
     expect(screen.getByText("Drag to reorder")).toBeInTheDocument();
   });
 
-  it("does not show drag handle by default", () => {
+  it("hides drag handle visually when not draggable", () => {
     render(<WidgetCard title="Sales">Content</WidgetCard>);
-    expect(screen.queryByText("Drag to reorder")).not.toBeInTheDocument();
+    const handle = screen.getByText("Drag to reorder").closest("button")!;
+    expect(handle.className).toContain("invisible");
   });
 
   it("renders action menu with actions", () => {

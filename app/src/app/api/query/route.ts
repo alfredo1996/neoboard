@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections } from "@/lib/db/schema";
+import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto";
 import { executeQuery } from "@/lib/query-executor";
@@ -22,7 +22,7 @@ const querySchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const { userId, tenantId: sessionTenantId } = await requireSession();
+    const { userId, tenantId: sessionTenantId, role } = await requireSession();
     const body = await request.json();
     const parsed = querySchema.safeParse(body);
 
@@ -41,14 +41,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tenant mismatch" }, { status: 403 });
     }
 
-    // Verify user owns the connection
-    const [connection] = await db
+    // 1. Fast path: direct ownership
+    let [connection] = await db
       .select()
       .from(connections)
       .where(
         and(eq(connections.id, connectionId), eq(connections.userId, userId))
       )
       .limit(1);
+
+    // 2. Admin fallback: admin can use any connection in the tenant
+    if (!connection && role === "admin") {
+      [connection] = await db
+        .select()
+        .from(connections)
+        .where(eq(connections.id, connectionId))
+        .limit(1);
+    }
+
+    // 3. Dashboard-access fallback: user owns or has a share for a dashboard
+    //    that references this connectionId in its layout
+    if (!connection) {
+      const hasAccess = await userHasDashboardAccessToConnection(
+        userId,
+        connectionId,
+        sessionTenantId
+      );
+      if (hasAccess) {
+        [connection] = await db
+          .select()
+          .from(connections)
+          .where(eq(connections.id, connectionId))
+          .limit(1);
+      }
+    }
 
     if (!connection) {
       return NextResponse.json(
@@ -61,11 +87,13 @@ export async function POST(request: Request) {
       connection.configEncrypted
     );
 
+    const queryStart = performance.now();
     const result = await executeQuery(
       connection.type as DbType,
       credentials,
       { query, params },
     );
+    const serverDurationMs = Math.round(performance.now() - queryStart);
 
     // Deterministic query hash: same connection + normalized query + params
     // → same resultId. Clients can use this to preserve state (e.g. graph
@@ -81,10 +109,50 @@ export async function POST(request: Request) {
     const truncated = Array.isArray(rawData) && rawData.length > MAX_ROWS;
     const truncatedData = truncated ? (rawData as unknown[]).slice(0, MAX_ROWS) : rawData;
 
-    return NextResponse.json({ ...result, data: truncatedData, resultId, ...(truncated ? { truncated: true } : {}) });
+    return NextResponse.json({ ...result, data: truncatedData, resultId, serverDurationMs, ...(truncated ? { truncated: true } : {}) });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+/**
+ * Check if the user owns or has been shared a dashboard whose layout
+ * references the given connectionId. This grants query-execution access
+ * only — no credential exposure or connection editing.
+ */
+async function userHasDashboardAccessToConnection(
+  userId: string,
+  connectionId: string,
+  tenantId: string
+): Promise<boolean> {
+  const [result] = await db
+    .select({ id: dashboards.id })
+    .from(dashboards)
+    .leftJoin(
+      dashboardShares,
+      and(
+        eq(dashboardShares.dashboardId, dashboards.id),
+        eq(dashboardShares.userId, userId),
+        eq(dashboardShares.tenantId, tenantId)
+      )
+    )
+    .where(
+      and(
+        eq(dashboards.tenantId, tenantId),
+        or(
+          eq(dashboards.userId, userId),
+          sql`${dashboardShares.id} IS NOT NULL`,
+          eq(dashboards.isPublic, true)
+        ),
+        sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements(${dashboards.layoutJson}->'pages') AS page,
+          jsonb_array_elements(page->'widgets') AS widget
+          WHERE widget->>'connectionId' = ${connectionId}
+        )`
+      )
+    )
+    .limit(1);
+  return !!result;
 }

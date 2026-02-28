@@ -1,17 +1,26 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard } from "./fixtures";
 
 test.describe("Widget creation", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Navigate to a dashboard in edit mode
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Widget Creation ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    // Navigate to the new dashboard in edit mode
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
   test("should complete widget creation flow", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select connection (Bar Chart is default)
@@ -34,7 +43,7 @@ test.describe("Widget creation", () => {
   });
 
   test("should add a table widget", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
@@ -49,7 +58,7 @@ test.describe("Widget creation", () => {
   });
 
   test("should add a JSON viewer widget", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "JSON Viewer" }).click();
@@ -64,7 +73,7 @@ test.describe("Widget creation", () => {
   });
 
   test("should render table with dot-notation fields (n.name)", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
@@ -93,7 +102,7 @@ test.describe("Widget creation", () => {
   });
 
   test("should add a PostgreSQL widget and preview data", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
@@ -118,7 +127,7 @@ test.describe("Widget creation", () => {
   });
 
   test("modal shows connection and chart type selectors", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // The new single-view modal should show both Connection and Chart Type selectors
@@ -130,7 +139,7 @@ test.describe("Widget creation", () => {
   });
 
   test("connector combobox filters results by typed text", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Open the connection combobox (first combobox in dialog)
@@ -147,12 +156,21 @@ test.describe("Widget creation", () => {
 });
 
 test.describe("Widget edit – query cache invalidation", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Widget Edit ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
   });
 
   test("re-fetches query data after editing widget with changed query", async ({ page }) => {
@@ -168,7 +186,7 @@ test.describe("Widget edit – query cache invalidation", () => {
       { timeout: 15_000 }
     );
 
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();

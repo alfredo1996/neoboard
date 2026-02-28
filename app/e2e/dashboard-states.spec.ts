@@ -80,20 +80,20 @@ test.describe("Dashboard editor — uncovered states", () => {
     await expect(page.getByText("Page 2")).toBeVisible({ timeout: 5_000 });
   });
 
-  test("admin should see Assignments button in editor toolbar", async ({
+  test("admin should see Sharing button in editor toolbar", async ({
     page,
   }) => {
     await expect(
-      page.getByRole("button", { name: "Assignments" })
+      page.getByRole("button", { name: "Sharing" })
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("admin should open assignments panel via sheet", async ({ page }) => {
+  test("admin should open sharing panel via sheet", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Assignments" })
+      page.getByRole("button", { name: "Sharing" })
     ).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Assignments" }).click();
-    await expect(page.getByText("User Assignments").first()).toBeVisible({
+    await page.getByRole("button", { name: "Sharing" }).click();
+    await expect(page.getByText("Sharing").first()).toBeVisible({
       timeout: 10_000,
     });
   });

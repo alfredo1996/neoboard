@@ -19,13 +19,17 @@ import {
   Alert,
   AlertDescription,
   LoadingButton,
+  Switch,
+  Separator,
 } from "@neoboard/components";
 
 interface DashboardAssignPanelProps {
   readonly dashboardId: string;
+  readonly isPublic: boolean;
+  readonly onTogglePublic: (value: boolean) => void;
 }
 
-export function DashboardAssignPanel({ dashboardId }: Readonly<DashboardAssignPanelProps>) {
+export function DashboardAssignPanel({ dashboardId, isPublic, onTogglePublic }: Readonly<DashboardAssignPanelProps>) {
   const { data: shares, isLoading } = useDashboardShares(dashboardId);
   const assign = useAssignDashboard(dashboardId);
   const removeShare = useRemoveDashboardShare(dashboardId);
@@ -47,7 +51,26 @@ export function DashboardAssignPanel({ dashboardId }: Readonly<DashboardAssignPa
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">User Assignments</h3>
+      <div>
+        <h3 className="text-sm font-semibold">Access</h3>
+        <div className="mt-3 flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="public-toggle" className="text-sm">Public access</Label>
+            <p className="text-xs text-muted-foreground">
+              Anyone in the organization can view this dashboard
+            </p>
+          </div>
+          <Switch
+            id="public-toggle"
+            checked={isPublic}
+            onCheckedChange={onTogglePublic}
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      <h3 className="text-sm font-semibold">People</h3>
 
       <form onSubmit={handleAssign} className="flex items-end gap-2">
         <div className="flex-1 space-y-1">

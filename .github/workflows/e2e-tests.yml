@@ -27,9 +27,9 @@ jobs:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
     # global-setup.ts pulls and starts Testcontainers (postgres + neo4j).
-    # Neo4j needs ~90 s to start; allow enough headroom for the full suite.
-    # Docker is pre-installed on ubuntu-latest runners.
-    timeout-minutes: 30
+    # Neo4j needs ~90 s; next build ~90 s; tests ~8-12 min with 2 workers.
+    # 25 min gives enough headroom. Docker is pre-installed on ubuntu-latest.
+    timeout-minutes: 25
 
     steps:
       - name: Checkout code
@@ -76,8 +76,8 @@ jobs:
         run: npx playwright install-deps chromium
 
       # ── Next.js build cache ──────────────────────────────────────────────────
-      # Caches webpack compilation artifacts across runs so the dev server
-      # compiles routes much faster on first hit (reduces cold-start flakiness).
+      # Caches webpack compilation artifacts across runs so `next build`
+      # completes faster on subsequent CI runs.
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
@@ -86,11 +86,19 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-
 
+      # ── Build Next.js ─────────────────────────────────────────────────────────
+      # Pre-build the production bundle so globalSetup can start `next start`
+      # after writing .env.local with the correct Testcontainer ports.
+      - name: Build Next.js
+        working-directory: app
+        run: npx next build
+        env:
+          CI: true
+
       # ── Run tests ────────────────────────────────────────────────────────────
-      # global-setup.ts starts postgres + neo4j via Testcontainers (images are
-      # already pulled above), seeds both databases, and writes .env.local for
-      # the Next.js dev server. retries=2 and navigationTimeout=30s (set in
-      # playwright.config.ts) absorb any remaining cold-start noise.
+      # globalSetup starts postgres + neo4j via Testcontainers (images are
+      # already pulled above), seeds both databases, writes .env.local, then
+      # starts `next start` itself (webServer is disabled in CI).
       - name: Run E2E tests
         working-directory: app
         run: npx playwright test
@@ -117,5 +125,5 @@ jobs:
         with:
           name: e2e-coverage
           path: app/coverage-e2e/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14

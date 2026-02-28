@@ -11,6 +11,12 @@ import {
 } from "@neoboard/components";
 import type { ParamUIType, DateSubType } from "./parameter-config-section";
 
+const DEFAULT_PREVIEW_OPTIONS = [
+  { value: "option-1", label: "Option 1" },
+  { value: "option-2", label: "Option 2" },
+  { value: "option-3", label: "Option 3" },
+];
+
 export interface ParameterPreviewProps {
   paramUIType: ParamUIType;
   dateSub: DateSubType;
@@ -73,11 +79,7 @@ export function ParameterPreview({
             parameterName={paramWidgetName || "preview"}
             value=""
             onChange={() => {}}
-            options={seedPreviewOptions ?? [
-              { value: "option-1", label: "Option 1" },
-              { value: "option-2", label: "Option 2" },
-              { value: "option-3", label: "Option 3" },
-            ]}
+            options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
             placeholder={
               (chartOptions.placeholder as string) || "Select..."
@@ -89,11 +91,7 @@ export function ParameterPreview({
             parameterName={paramWidgetName || "preview"}
             values={[]}
             onChange={() => {}}
-            options={seedPreviewOptions ?? [
-              { value: "option-1", label: "Option 1" },
-              { value: "option-2", label: "Option 2" },
-              { value: "option-3", label: "Option 3" },
-            ]}
+            options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
             placeholder={
               (chartOptions.placeholder as string) || "Select..."

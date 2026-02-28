@@ -1,17 +1,25 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard } from "./fixtures";
 
 test.describe("Parameter selectors", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Navigate to a dashboard in edit mode
-    await page.getByText("Movie Analytics").click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Params ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
   test("should create a parameter-select widget", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select "Parameter Selector" chart type
@@ -39,7 +47,7 @@ test.describe("Parameter selectors", () => {
   test("should create a widget with click action and verify parameter mapping UI", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Widget" }).click();
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Bar Chart (default) + connection
@@ -94,6 +102,12 @@ test.describe("Parameter bar on view page", () => {
 });
 
 test.describe("Parameter-to-refresh cycle", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
   /**
    * End-to-end test that verifies the full parameter flow:
    * 1. Create a parameter-select widget that populates a dropdown
@@ -108,12 +122,13 @@ test.describe("Parameter-to-refresh cycle", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
 
-    // Create a fresh dashboard for this test
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
-    await createDialog.locator("#dashboard-name").fill("Param Cycle Test");
-    await createDialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    // Create a fresh dashboard for this test via API
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Param Cycle ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(page.getByText("Editing:")).toBeVisible();
 
     // --- Widget 1: Parameter-select (year dropdown) ---

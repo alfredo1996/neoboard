@@ -67,7 +67,7 @@ export function TableRenderer({ data, settings = {}, onRowClick }: TableRenderer
         );
       },
     }));
-  }, [records, enableSorting]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [records]);
 
   const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {

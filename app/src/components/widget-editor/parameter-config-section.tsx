@@ -87,11 +87,12 @@ function SeedQueryInput({
   }, [value]);
 
   useEffect(() => {
+    if (draft === value) return;
     const timer = setTimeout(() => {
       onChangeRef.current(draft);
     }, 300);
     return () => clearTimeout(timer);
-  }, [draft]);
+  }, [draft, value]);
 
   return (
     <Textarea

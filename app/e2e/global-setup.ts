@@ -5,10 +5,13 @@ import {
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
+import * as http from "node:http";
+import { spawn } from "node:child_process";
 import postgres from "postgres";
 import { initCoverage, loadNextcovConfig } from "nextcov/playwright";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
+const SERVER_PID_FILE = path.join(__dirname, ".server-pid");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
 const ENV_LOCAL = path.join(__dirname, "..", ".env.local");
 const ENV_LOCAL_BAK = path.join(__dirname, "..", ".env.local.bak");
@@ -172,13 +175,44 @@ export default async function globalSetup() {
   fs.copyFileSync(ENV_FILE, ENV_LOCAL);
   console.log("✅ Copied .env.test → .env.local for Next.js");
 
-  // Expose env vars to the current process (picked up by the webServer).
+  // Expose env vars to the current process (available to test workers).
   process.env.DATABASE_URL = databaseUrl;
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
   process.env.NEXTAUTH_SECRET = TEST_NEXTAUTH_SECRET;
   process.env.NEXTAUTH_URL = "http://localhost:3000";
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
+
+  // ── CI: start the Next.js production server ─────────────────────────────
+  // Playwright waits for webServer port BEFORE running globalSetup, so we
+  // can't use the webServer config in CI (it would deadlock — the server
+  // needs .env.local which we just wrote). Instead, we start it here.
+  if (process.env.CI) {
+    console.log("⏳ Starting Next.js production server...");
+    const appDir = path.resolve(__dirname, "..");
+    const server = spawn("npx", ["next", "start", "--port", "3000"], {
+      cwd: appDir,
+      stdio: "pipe",
+      env: { ...process.env },
+      detached: true,
+    });
+    server.unref();
+
+    // Forward server output to the console for debugging.
+    server.stdout?.on("data", (d: Buffer) =>
+      process.stdout.write(`[NextServer] ${d}`),
+    );
+    server.stderr?.on("data", (d: Buffer) =>
+      process.stderr.write(`[NextServer] ${d}`),
+    );
+
+    // Save PID so globalTeardown can kill it.
+    fs.writeFileSync(SERVER_PID_FILE, String(server.pid));
+
+    // Wait for port 3000 to accept connections (up to 60 s).
+    await waitForPort(3000, 60_000);
+    console.log("✅ Next.js server ready on port 3000");
+  }
 
   // ── Initialize E2E coverage collection (nextcov) ────────────────────────
   if (process.env.E2E_COVERAGE) {
@@ -191,4 +225,25 @@ export default async function globalSetup() {
   }
 
   console.log("\n✅ All containers ready. Starting tests...\n");
+}
+
+/** Poll until `port` accepts a TCP connection, or throw after `timeoutMs`. */
+function waitForPort(port: number, timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  return new Promise((resolve, reject) => {
+    function check() {
+      const req = http.get(`http://localhost:${port}/`, (res) => {
+        res.resume(); // Consume the response to free memory.
+        resolve();
+      });
+      req.on("error", () => {
+        if (Date.now() - start > timeoutMs) {
+          reject(new Error(`Port ${port} not available after ${timeoutMs}ms`));
+        } else {
+          setTimeout(check, 500);
+        }
+      });
+    }
+    check();
+  });
 }

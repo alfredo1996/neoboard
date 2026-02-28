@@ -51,7 +51,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
   ) => {
     return (
       <Card ref={ref} className={cn("flex flex-col h-full", className)}>
-        {(title || actions || draggable || headerExtra) && (
+        {(title || actions || headerExtra) && (
           <CardHeader
             className={cn(
               "flex flex-row items-center justify-between space-y-0 p-4 pb-2",
@@ -59,16 +59,17 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
             )}
           >
             <div className="flex items-center gap-2">
-              {draggable && (
-                <button
-                  type="button"
-                  className="drag-handle cursor-grab active:cursor-grabbing touch-none"
-                  onMouseDown={onDragHandleMouseDown}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <span className="sr-only">Drag to reorder</span>
-                </button>
-              )}
+              <button
+                type="button"
+                className={cn(
+                  "drag-handle cursor-grab active:cursor-grabbing touch-none",
+                  !draggable && "invisible"
+                )}
+                onMouseDown={draggable ? onDragHandleMouseDown : undefined}
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <span className="sr-only">Drag to reorder</span>
+              </button>
               <div>
                 {title && (
                   <h3 className="text-sm font-semibold leading-none">{title}</h3>
