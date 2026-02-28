@@ -20,7 +20,7 @@ export default defineConfig({
   // 2 retries in CI: absorbs cold-start flakiness on the first page navigation
   // while the Next.js dev server compiles routes on demand.
   retries: process.env.CI ? 2 : 1,
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 1 : undefined,
   // "github" adds PR annotations; "list" streams each test result to the log
   // so you can follow progress in real time during a CI run.
   // CI: github (PR annotations) + list (real-time stream) + html (artifact for debugging).
