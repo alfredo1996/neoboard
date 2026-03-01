@@ -693,6 +693,131 @@ function buildParameterTesting(neo4jConnId, pgConnId) {
   };
 }
 
+function buildFormTesting(neo4jConnId, pgConnId) {
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: Neo4j Forms ──
+      {
+        id: uuid(),
+        title: "Neo4j Forms",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "form",
+            connectionId: neo4jConnId,
+            query:
+              "CREATE (n:Feedback {author: $param_author, message: $param_message, rating: toInteger($param_rating)}) RETURN n.author AS author",
+            settings: {
+              title: "Submit Feedback",
+              chartOptions: {
+                submitButtonText: "Send Feedback",
+                successMessage: "Feedback submitted!",
+                resetOnSuccess: true,
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "form",
+            connectionId: neo4jConnId,
+            query:
+              "CREATE (p:Person {name: $param_name, born: toInteger($param_born)}) RETURN p.name AS name",
+            settings: {
+              title: "Add Person",
+              chartOptions: {
+                submitButtonText: "Create Person",
+                successMessage: "Person created successfully!",
+                resetOnSuccess: true,
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (n:Feedback) RETURN n.author AS author, n.message AS message, n.rating AS rating ORDER BY n.author",
+            settings: { title: "Feedback Entries" },
+          },
+          {
+            id: uuid(),
+            chartType: "single-value",
+            connectionId: neo4jConnId,
+            query: "MATCH (n:Feedback) RETURN count(n) AS value",
+            settings: { title: "Total Feedback" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 5 },
+          { i: null, x: 4, y: 0, w: 4, h: 4 },
+          { i: null, x: 0, y: 5, w: 8, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 2 },
+        ],
+      },
+
+      // ── Page 2: PostgreSQL Forms ──
+      {
+        id: uuid(),
+        title: "PostgreSQL Forms",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "form",
+            connectionId: pgConnId,
+            query:
+              "INSERT INTO movies (title, released, tagline) VALUES ($param_title, CAST($param_released AS INTEGER), $param_tagline) RETURNING title",
+            settings: {
+              title: "Add Movie",
+              chartOptions: {
+                submitButtonText: "Insert Movie",
+                successMessage: "Movie added to the database!",
+                resetOnSuccess: true,
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "form",
+            connectionId: pgConnId,
+            query:
+              "INSERT INTO people (name, born) VALUES ($param_name, CAST($param_born AS INTEGER)) RETURNING name",
+            settings: {
+              title: "Add Person",
+              chartOptions: {
+                submitButtonText: "Insert Person",
+                successMessage: "Person added!",
+                resetOnSuccess: true,
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT title, released, tagline FROM movies ORDER BY released DESC LIMIT 20",
+            settings: { title: "Recent Movies" },
+          },
+          {
+            id: uuid(),
+            chartType: "single-value",
+            connectionId: pgConnId,
+            query: "SELECT count(*) AS value FROM movies",
+            settings: { title: "Total Movies" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 5 },
+          { i: null, x: 4, y: 0, w: 4, h: 4 },
+          { i: null, x: 0, y: 5, w: 8, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 2 },
+        ],
+      },
+    ],
+  };
+}
+
 // ─── Main ────────────────────────────────────────────────────────────
 
 async function main() {
@@ -792,6 +917,17 @@ async function main() {
       "Parameter Testing",
       "One page per parameter type per connector, with bound data widgets.",
       paramLayout,
+      true
+    );
+
+    const formLayout = buildFormTesting(neo4jConnId, pgConnId);
+    patchGridIds(formLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Form Testing",
+      "Form widgets for Neo4j (CREATE) and PostgreSQL (INSERT) with companion data tables.",
+      formLayout,
       true
     );
 
