@@ -186,9 +186,12 @@ describe("DataGrid", () => {
       <DataGrid columns={columns} data={data} onCellClick={() => {}} />
     );
     const tbody = container.querySelector("tbody");
-    const cells = tbody!.querySelectorAll("td");
+    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
+    expect(cells.length).toBeGreaterThan(0);
     // All data cells should have cursor-pointer
-    expect(cells[0]).toHaveClass("cursor-pointer");
+    for (const cell of cells) {
+      expect(cell).toHaveClass("cursor-pointer");
+    }
   });
 
   it("does not apply cursor-pointer to cells when onCellClick is not provided", () => {
@@ -196,8 +199,11 @@ describe("DataGrid", () => {
       <DataGrid columns={columns} data={data} />
     );
     const tbody = container.querySelector("tbody");
-    const cells = tbody!.querySelectorAll("td");
-    expect(cells[0]).not.toHaveClass("cursor-pointer");
+    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell).not.toHaveClass("cursor-pointer");
+    }
   });
 
   it("applies custom className", () => {

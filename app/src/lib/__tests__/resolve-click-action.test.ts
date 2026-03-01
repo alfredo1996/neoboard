@@ -251,4 +251,56 @@ describe("resolveClickAction", () => {
     const result = resolveClickAction(widget, { active: true });
     expect(result?.setParameter?.value).toBe(true);
   });
+
+  it("returns null when cell-click _clickedColumn is missing", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { _clickedValue: "Alice" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when cell-click _clickedColumn is empty string", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { _clickedColumn: "", _clickedValue: "Alice" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when cell-click _clickedColumn is whitespace only", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { _clickedColumn: "   ", _clickedValue: "Alice" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when cell-click _clickedColumn is a number (non-string)", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { _clickedColumn: 42, _clickedValue: "Alice" });
+    expect(result).toBeNull();
+  });
 });

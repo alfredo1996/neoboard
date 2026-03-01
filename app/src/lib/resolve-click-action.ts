@@ -39,8 +39,10 @@ export function resolveClickAction(
 
     // Cell-click: value comes directly from the clicked cell
     if ("_clickedValue" in point) {
+      const clickedColumn = point._clickedColumn;
+      if (typeof clickedColumn !== "string" || !clickedColumn.trim()) return null;
       value = point._clickedValue;
-      effectiveSourceField = (point._clickedColumn as string) ?? "";
+      effectiveSourceField = clickedColumn;
     } else {
       value = point[sourceField];
       effectiveSourceField = sourceField;

@@ -198,16 +198,18 @@ test.describe("Parameter-to-refresh cycle", () => {
     // The ParamSelector placeholder uses Unicode ellipsis "…" (U+2026), not three periods
     const paramTrigger = page.getByText("Select a value…");
     await paramTrigger.click();
-    // Pick the first available year option from the Radix select dropdown
-    const firstOption = page.getByRole("option").first();
-    await expect(firstOption).toBeVisible({ timeout: 5_000 });
-    await firstOption.click();
+    // Pick the first available year option from the Radix select dropdown.
+    // Use toPass() to handle Radix animation instability (element may be
+    // detached/re-mounted during the opening animation).
+    await expect(async () => {
+      await page.getByRole("option").first().click({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
 
     // After selecting a parameter, the dependent table widget should refresh
     // and should NOT show a "Query Failed" error (it had one before selection
-    // because $param_year was not yet set)
-    await page.waitForTimeout(3_000); // allow query to re-execute
-    await expect(page.locator("text=Query Failed")).not.toBeVisible();
+    // because $param_year was not yet set).
+    // Wait for query re-execution by checking that no error appears.
+    await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -316,8 +318,7 @@ test.describe("Click actions", () => {
       await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
 
       // The dependent widgets should re-run without errors
-      await page.waitForTimeout(2_000);
-      await expect(page.locator("text=Query Failed")).not.toBeVisible();
+      await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
     } finally {
       await cleanup();
     }

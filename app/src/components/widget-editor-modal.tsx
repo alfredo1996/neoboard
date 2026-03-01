@@ -283,12 +283,17 @@ export function WidgetEditorModal({
     const resolvedSourceField = chartType === "table" ? "" : trimmedSourceField;
     if (needsParam && chartType !== "table" && !resolvedSourceField) return undefined;
     if (needsPage && !trimmedTargetPageId) return undefined;
+    // Validate targetPageId against current layout pages to prevent stale references
+    if (needsPage && layout) {
+      const validPageIds = new Set((layout.pages ?? []).map((p) => p.id));
+      if (!validPageIds.has(trimmedTargetPageId)) return undefined;
+    }
     return {
       type: clickActionType,
       ...(needsParam ? { parameterMapping: { parameterName: trimmedParamName, sourceField: resolvedSourceField } } : {}),
       ...(needsPage ? { targetPageId: trimmedTargetPageId } : {}),
     };
-  }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId]);
+  }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId, layout]);
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
