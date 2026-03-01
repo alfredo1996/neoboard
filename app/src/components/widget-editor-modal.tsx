@@ -275,15 +275,18 @@ export function WidgetEditorModal({
     if (!clickActionEnabled || chartType === "parameter-select") return undefined;
     const needsParam = clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate";
     const needsPage = clickActionType === "navigate-to-page" || clickActionType === "set-parameter-and-navigate";
-    if (needsParam && !parameterName) return undefined;
+    const trimmedParamName = parameterName.trim();
+    const trimmedSourceField = sourceField.trim();
+    const trimmedTargetPageId = targetPageId.trim();
+    if (needsParam && !trimmedParamName) return undefined;
     // For tables, sourceField is empty (cell-click provides the value directly)
-    const resolvedSourceField = chartType === "table" ? "" : sourceField;
+    const resolvedSourceField = chartType === "table" ? "" : trimmedSourceField;
     if (needsParam && chartType !== "table" && !resolvedSourceField) return undefined;
-    if (needsPage && !targetPageId) return undefined;
+    if (needsPage && !trimmedTargetPageId) return undefined;
     return {
       type: clickActionType,
-      ...(needsParam ? { parameterMapping: { parameterName, sourceField: resolvedSourceField } } : {}),
-      ...(needsPage ? { targetPageId } : {}),
+      ...(needsParam ? { parameterMapping: { parameterName: trimmedParamName, sourceField: resolvedSourceField } } : {}),
+      ...(needsPage ? { targetPageId: trimmedTargetPageId } : {}),
     };
   }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId]);
 

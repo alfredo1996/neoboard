@@ -199,4 +199,56 @@ describe("resolveClickAction", () => {
     const result = resolveClickAction(widget, { val: 0 });
     expect(result?.setParameter?.value).toBe(0);
   });
+
+  it("returns null when value is an object (non-scalar)", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "data" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { data: { nested: true } });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when value is an array (non-scalar)", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "items" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { items: [1, 2, 3] });
+    expect(result).toBeNull();
+  });
+
+  it("allows null as a valid scalar value", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "x", sourceField: "val" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { val: null });
+    expect(result?.setParameter?.value).toBeNull();
+  });
+
+  it("allows boolean as a valid scalar value", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "flag", sourceField: "active" },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, { active: true });
+    expect(result?.setParameter?.value).toBe(true);
+  });
 });

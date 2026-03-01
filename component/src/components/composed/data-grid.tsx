@@ -226,18 +226,22 @@ function DataGrid<TData>({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
+                  {row.getVisibleCells().map((cell) => {
+                    const isDataCell = cell.column.id !== "select";
+                    const cellClickable = onCellClick && isDataCell;
+                    return (
                     <TableCell
                       key={cell.id}
-                      className={onCellClick ? "cursor-pointer hover:bg-muted/50" : undefined}
-                      onClick={onCellClick ? (e) => {
+                      className={cellClickable ? "cursor-pointer hover:bg-muted/50" : undefined}
+                      onClick={cellClickable ? (e) => {
                         e.stopPropagation();
                         onCellClick({ column: cell.column.id, value: cell.getValue() });
                       } : undefined}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
-                  ))}
+                    );
+                  })}
                 </TableRow>
               ))
             ) : (

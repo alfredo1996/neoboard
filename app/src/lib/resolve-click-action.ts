@@ -1,5 +1,9 @@
 import type { DashboardWidget, ClickAction } from "./db/schema";
 
+function isScalar(v: unknown): v is string | number | boolean | null {
+  return v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+}
+
 export interface ClickActionResult {
   setParameter?: {
     parameterName: string;
@@ -42,7 +46,7 @@ export function resolveClickAction(
       effectiveSourceField = sourceField;
     }
 
-    if (value === undefined) return null;
+    if (value === undefined || !isScalar(value)) return null;
     const label =
       (widget.settings?.title as string) || widget.chartType;
     result.setParameter = { parameterName, value, label, sourceField: effectiveSourceField };
