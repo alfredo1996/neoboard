@@ -341,8 +341,12 @@ test.describe("Click actions", () => {
       // Navigate to the "Navigate to Page" tab
       await page.getByRole("tab", { name: "Navigate to Page" }).click();
 
-      // Wait for the table to load
-      const movieCell = page.locator("td").filter({ hasText: "Apollo 13" });
+      // Wait for the table on the ACTIVE page to load.
+      // Both pages have "Apollo 13" in their tables, but page 1 is now hidden
+      // (className="hidden", aria-hidden="true"). Scope to the visible container
+      // so we don't accidentally pick page 1's hidden <td>.
+      const activePage = page.locator('div[aria-hidden="false"]');
+      const movieCell = activePage.locator("td").filter({ hasText: "Apollo 13" });
       await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
 
       // Click a movie title cell — should navigate to page 1 and set the parameter
