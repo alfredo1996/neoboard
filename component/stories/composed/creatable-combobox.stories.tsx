@@ -39,6 +39,8 @@ export const Default: Story = {
   args: {
     suggestions: parameterNames,
     placeholder: "Type or select parameter...",
+    value: "",
+    onChange: () => {},
   },
 };
 
@@ -56,6 +58,8 @@ export const WithExistingValue: Story = {
   },
   args: {
     suggestions: parameterNames,
+    value: "",
+    onChange: () => {},
   },
 };
 
@@ -74,6 +78,8 @@ export const EmptySuggestions: Story = {
   args: {
     suggestions: [],
     placeholder: "Type a parameter name...",
+    value: "",
+    onChange: () => {},
   },
 };
 

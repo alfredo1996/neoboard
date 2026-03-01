@@ -10,6 +10,7 @@ export interface CreatableComboboxProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }
 
 /**
@@ -24,6 +25,7 @@ function CreatableCombobox({
   placeholder = "Type or select...",
   className,
   disabled,
+  id,
 }: CreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState(value);
@@ -71,6 +73,7 @@ function CreatableCombobox({
   return (
     <div ref={wrapperRef} className={cn("relative", className)}>
       <input
+        id={id}
         role="combobox"
         aria-expanded={open && filtered.length > 0}
         aria-autocomplete="list"

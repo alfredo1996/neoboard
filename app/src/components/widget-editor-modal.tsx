@@ -573,7 +573,7 @@ export function WidgetEditorModal({
                           <div className="space-y-1.5">
                             <Label htmlFor="click-action-type">Action Type</Label>
                             <Select value={clickActionType} onValueChange={(v) => setClickActionType(v as ClickAction["type"])}>
-                              <SelectTrigger id="click-action-type">
+                              <SelectTrigger id="click-action-type" aria-label="Action Type">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -589,6 +589,7 @@ export function WidgetEditorModal({
                             <div className="space-y-1.5">
                               <Label htmlFor="param-name">Parameter Name</Label>
                               <CreatableCombobox
+                                id="param-name"
                                 suggestions={parameterSuggestions}
                                 value={parameterName}
                                 onChange={setParameterName}
@@ -606,7 +607,7 @@ export function WidgetEditorModal({
                               <Label htmlFor="source-field">Source Field</Label>
                               {availableFields.length > 0 ? (
                                 <Select value={sourceField} onValueChange={setSourceField}>
-                                  <SelectTrigger id="source-field">
+                                  <SelectTrigger id="source-field" aria-label="Source Field">
                                     <SelectValue placeholder="Select a field..." />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -644,7 +645,7 @@ export function WidgetEditorModal({
                               <Label htmlFor="target-page">Target Page</Label>
                               {layout && layout.pages.length > 1 ? (
                                 <Select value={targetPageId} onValueChange={setTargetPageId}>
-                                  <SelectTrigger id="target-page">
+                                  <SelectTrigger id="target-page" aria-label="Target Page">
                                     <SelectValue placeholder="Select a page..." />
                                   </SelectTrigger>
                                   <SelectContent>
