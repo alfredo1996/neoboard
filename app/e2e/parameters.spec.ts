@@ -333,6 +333,11 @@ test.describe("Click actions", () => {
     try {
       await page.goto(`/${id}`);
 
+      // Wait for the dashboard to load and render page tabs
+      await expect(
+        page.getByRole("tab", { name: "Navigate to Page" })
+      ).toBeVisible({ timeout: 15_000 });
+
       // Navigate to the "Navigate to Page" tab
       await page.getByRole("tab", { name: "Navigate to Page" }).click();
 

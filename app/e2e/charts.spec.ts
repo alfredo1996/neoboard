@@ -488,7 +488,7 @@ test.describe("Graph chart visualization", () => {
     const preview = dialog.locator(".border.rounded-lg").first();
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
-    await expect(dialog).not.toBeVisible();
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
 
     // The graph widget should now be on the dashboard grid
     // It should have the toolbar controls visible (not "No graph data")
