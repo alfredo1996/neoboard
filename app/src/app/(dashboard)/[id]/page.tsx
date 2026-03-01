@@ -86,6 +86,9 @@ export default function DashboardViewerPage({
   const autoRefreshSettings = activeLocalSettings ?? layout?.settings ?? {};
   const refetchInterval = getRefetchInterval(autoRefreshSettings);
 
+  // Counter to ensure only the latest persist write wins if user clicks rapidly
+  const persistGenRef = useRef(0);
+
   const handleIntervalChange = useCallback(
     (value: string) => {
       const newSettings: DashboardSettings =
@@ -93,20 +96,29 @@ export default function DashboardViewerPage({
           ? { autoRefresh: false }
           : { autoRefresh: true, refreshIntervalSeconds: Number(value) };
       setLocalSettings({ dashboardId: id, settings: newSettings });
-      // Persist to DB in the background
+      // Persist to DB in the background (latest-wins: skip stale callbacks)
       if (layout) {
-        updateDashboard.mutate({
+        const gen = ++persistGenRef.current;
+        updateDashboard.mutateAsync({
           id,
           layoutJson: { ...layout, settings: newSettings },
+        }).catch(() => {
+          // Revert local state only if this was still the latest change
+          if (persistGenRef.current === gen) {
+            setLocalSettings(null);
+          }
         });
       }
     },
     [id, layout, updateDashboard]
   );
 
-  const intervalLabel = autoRefreshSettings.autoRefresh
-    ? formatInterval(autoRefreshSettings.refreshIntervalSeconds ?? 60)
+  // Derive display values from the effective (normalized) interval
+  const effectiveSeconds = typeof refetchInterval === "number" ? refetchInterval / 1000 : null;
+  const intervalLabel = effectiveSeconds !== null
+    ? formatInterval(effectiveSeconds)
     : "Auto-refresh";
+  const dropdownValue = effectiveSeconds !== null ? String(effectiveSeconds) : "off";
 
   if (isLoading) {
     return (
@@ -178,7 +190,7 @@ export default function DashboardViewerPage({
                   <DropdownMenuLabel>Auto-refresh</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuRadioGroup
-                    value={autoRefreshSettings.autoRefresh ? String(autoRefreshSettings.refreshIntervalSeconds ?? 60) : "off"}
+                    value={dropdownValue}
                     onValueChange={handleIntervalChange}
                   >
                     <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
