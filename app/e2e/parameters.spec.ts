@@ -303,8 +303,10 @@ test.describe("Click actions", () => {
     try {
       await page.goto(`/${id}`);
 
-      // Wait for the table with movie titles to render
-      const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
+      // Wait for the table with movie titles to render.
+      // Use "Apollo 13" — it's 3rd alphabetically, guaranteed on page 1
+      // of the DataGrid (ORDER BY m.title LIMIT 20 returns first 20, paged at 10).
+      const movieCell = page.locator("td").filter({ hasText: "Apollo 13" });
       await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
 
       // Click a cell in the movies table
@@ -335,7 +337,7 @@ test.describe("Click actions", () => {
       await page.getByRole("tab", { name: "Navigate to Page" }).click();
 
       // Wait for the table to load
-      const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
+      const movieCell = page.locator("td").filter({ hasText: "Apollo 13" });
       await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
 
       // Click a movie title cell — should navigate to page 1 and set the parameter
