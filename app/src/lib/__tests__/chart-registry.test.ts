@@ -824,6 +824,52 @@ describe("charts without validators", () => {
   it("parameter-select has no validate function", () => {
     expect(chartRegistry["parameter-select"].validate).toBeUndefined();
   });
+
+  it("form has no validate function", () => {
+    expect(chartRegistry.form.validate).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// form chart type
+// ---------------------------------------------------------------------------
+describe("form chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.form).toBeDefined();
+    expect(chartRegistry.form.type).toBe("form");
+    expect(chartRegistry.form.label).toBe("Form");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.form.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.form.compatibleWith).toContain("postgresql");
+  });
+
+  it("transform returns empty array (form has no data transform)", () => {
+    expect(chartRegistry.form.transform([{ a: 1 }])).toEqual([]);
+    expect(chartRegistry.form.transform([])).toEqual([]);
+    expect(chartRegistry.form.transform(null)).toEqual([]);
+  });
+
+  it("transformWithMapping returns empty array", () => {
+    expect(chartRegistry.form.transformWithMapping([{ a: 1 }], {})).toEqual([]);
+  });
+
+  it("is included in neo4j compatible chart types", () => {
+    const result = getCompatibleChartTypes("neo4j");
+    expect(result).toContain("form");
+  });
+
+  it("is included in postgresql compatible chart types", () => {
+    const result = getCompatibleChartTypes("postgresql");
+    expect(result).toContain("form");
+  });
+
+  it("getChartConfig returns config for form", () => {
+    const cfg = getChartConfig("form");
+    expect(cfg).toBeDefined();
+    expect(cfg?.type).toBe("form");
+  });
 });
 
 describe("bar transform normalizes date labels", () => {

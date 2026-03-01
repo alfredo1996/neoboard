@@ -41,6 +41,8 @@ export { wrapWithPreviewLimit };
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
+import { deriveFormFields } from "@/lib/derive-form-fields";
+import { FormWidget } from "@neoboard/components";
 import {
   ParameterConfigSection,
   resolveInternalParamType,
@@ -358,11 +360,18 @@ export function WidgetEditorModal({
   }, [previewQuery.data]);
 
   const isParamSelect = chartType === "parameter-select";
+  const isForm = chartType === "form";
+
+  // Derive form fields from the query text for the form preview
+  const formPreviewFields = useMemo(
+    () => (isForm ? deriveFormFields(query) : []),
+    [isForm, query],
+  );
 
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
     const clickAction: ClickAction | undefined =
-      !isParamSelect && clickActionEnabled && parameterName && sourceField
+      !isParamSelect && !isForm && clickActionEnabled && parameterName && sourceField
         ? {
             type: "set-parameter",
             parameterMapping: { parameterName, sourceField },
@@ -385,10 +394,10 @@ export function WidgetEditorModal({
       settings: {
         ...(widget?.settings ?? {}),
         title: title || undefined,
-        chartOptions: resolvedChartOptions,
-        clickAction,
-        enableCache: isParamSelect ? undefined : enableCache,
-        cacheTtlMinutes: isParamSelect ? undefined : cacheTtlMinutes,
+        chartOptions: isForm ? chartOptions : resolvedChartOptions,
+        clickAction: (isParamSelect || isForm) ? undefined : clickAction,
+        enableCache: (isParamSelect || isForm) ? undefined : enableCache,
+        cacheTtlMinutes: (isParamSelect || isForm) ? undefined : cacheTtlMinutes,
       },
     });
     onOpenChange(false);
@@ -427,7 +436,7 @@ export function WidgetEditorModal({
                     onChartTypeChange={handleChartTypeChange}
                     compatibleChartTypes={compatibleChartTypes}
                     connections={connections}
-                    showConnection={!isParamSelect || paramUIType === "select"}
+                    showConnection={isForm || !isParamSelect || paramUIType === "select"}
                   />
 
                   {/* Connector-changed warning */}
@@ -467,7 +476,7 @@ export function WidgetEditorModal({
                       chartType={chartType}
                       query={query}
                       onQueryChange={setQuery}
-                      onRun={handlePreview}
+                      onRun={isForm ? undefined : handlePreview}
                       editorLanguage={editorLanguage}
                       connectionId={connectionId}
                     />
@@ -482,9 +491,11 @@ export function WidgetEditorModal({
                 />
               }
               advancedTab={
-                isParamSelect ? (
+                (isParamSelect || isForm) ? (
                   <p className="text-sm text-muted-foreground">
-                    No advanced options for parameter widgets.
+                    {isForm
+                      ? "Form options (submit text, success message) are in the Style tab."
+                      : "No advanced options for parameter widgets."}
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -594,7 +605,7 @@ export function WidgetEditorModal({
           {/* Right column: preview */}
           <div className="flex flex-col gap-2">
             <Label className="mb-0">Preview</Label>
-            {!isParamSelect && previewQuery.isError && (
+            {!isParamSelect && !isForm && previewQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Query Failed</AlertTitle>
@@ -618,6 +629,20 @@ export function WidgetEditorModal({
                   seedPreviewOptions={seedPreviewOptions}
                   seedQueryPending={seedQueryExecution.isPending}
                 />
+              ) : isForm ? (
+                formPreviewFields.length > 0 ? (
+                  <FormWidget
+                    fields={formPreviewFields}
+                    values={Object.fromEntries(formPreviewFields.map((f) => [f.name, ""]))}
+                    onFieldChange={() => {}}
+                    onSubmit={() => {}}
+                    submitButtonText={(chartOptions.submitButtonText as string) || undefined}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                    Write a query with $param_xxx placeholders to see the form preview
+                  </div>
+                )
               ) : (
                 <>
                   {previewQuery.isPending && (
@@ -662,7 +687,9 @@ export function WidgetEditorModal({
               isParamSelect
                 ? !paramWidgetName.trim() ||
                   (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
-                : !query.trim()
+                : isForm
+                  ? !connectionId || !query.trim()
+                  : !query.trim()
             }
             loading={saveStatus === "saving"}
             loadingText="Saving..."

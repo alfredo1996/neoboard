@@ -44,13 +44,17 @@ export const QUERY_HINTS: Partial<Record<ChartType, string>> = {
   json:
     "Return any data — rendered as a collapsible JSON tree.\n" +
     "Example: RETURN properties(n) AS data",
+  form:
+    "Write a mutation query with $param_xxx placeholders for each form field.\n" +
+    "Example: CREATE (n:Person {name: $param_name, email: $param_email})",
 };
 
 export interface QueryEditorPanelProps {
   chartType: string;
   query: string;
   onQueryChange: (q: string) => void;
-  onRun: () => void;
+  /** When omitted, the Ctrl/Cmd+Enter run shortcut is disabled (e.g. form widgets). */
+  onRun?: () => void;
   editorLanguage: "cypher" | "sql";
   connectionId: string;
 }

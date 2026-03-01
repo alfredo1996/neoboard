@@ -23,7 +23,8 @@ export type ChartType =
   | "graph"
   | "map"
   | "json"
-  | "parameter-select";
+  | "parameter-select"
+  | "form";
 
 export type ConnectorType = "neo4j" | "postgresql";
 
@@ -472,6 +473,13 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     label: "Parameter Selector",
     transform: transformToSelectData,
     transformWithMapping: (data) => transformToSelectData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+  },
+  form: {
+    type: "form",
+    label: "Form",
+    transform: () => [],
+    transformWithMapping: () => [],
     compatibleWith: ["neo4j", "postgresql"],
   },
 };

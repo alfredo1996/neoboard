@@ -58,6 +58,7 @@ test.describe("Widget editor", () => {
       await expect(page.getByRole("option", { name: "Map" })).toBeVisible();
       await expect(page.getByRole("option", { name: "Single Value" })).toBeVisible();
       await expect(page.getByRole("option", { name: "JSON Viewer" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Form" })).toBeVisible();
 
       // Close by pressing Escape
       await page.keyboard.press("Escape");

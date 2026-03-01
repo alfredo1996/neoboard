@@ -41,6 +41,7 @@ import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer"
 import type { ParameterType } from "@/stores/parameter-store";
 import { GraphExplorationWrapper } from "./graph-exploration-wrapper";
 import { TableRenderer } from "./table-renderer";
+import { FormWidgetRenderer } from "./form-widget-renderer";
 
 // Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
 const GraphChart = dynamic(
@@ -69,13 +70,14 @@ export interface ChartRendererProps {
   connectionId?: string;
   widgetId?: string;
   resultId?: string;
+  query?: string;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, widgetId, resultId }: ChartRendererProps) {
+export function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, widgetId, resultId, query }: ChartRendererProps) {
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
     return (e: EChartsClickEvent) =>
@@ -231,6 +233,15 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, connect
             initialExpanded={(settings.initialExpanded as number) ?? 2}
           />
         </div>
+      );
+
+    case "form":
+      return (
+        <FormWidgetRenderer
+          connectionId={connectionId ?? ""}
+          query={query ?? ""}
+          settings={settings}
+        />
       );
 
     default:
