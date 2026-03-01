@@ -212,30 +212,113 @@ test.describe("Parameter-to-refresh cycle", () => {
 });
 
 test.describe("Click actions", () => {
+  /**
+   * Helper: create a dashboard with click-action widgets via the API.
+   * Returns the dashboard ID and a cleanup function.
+   */
+  async function createClickActionDashboard(
+    request: import("@playwright/test").APIRequestContext,
+  ) {
+    const res = await request.post("/api/dashboards", {
+      data: { name: `Click Actions ${Date.now()}` },
+    });
+    if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
+    const { id } = await res.json();
+
+    const layout = {
+      version: 2 as const,
+      pages: [
+        {
+          id: "page-cell-click",
+          title: "Cell Click",
+          widgets: [
+            {
+              id: "ca-w1",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
+              settings: {
+                title: "Movies",
+                clickAction: {
+                  type: "set-parameter",
+                  parameterMapping: { parameterName: "param_clicked_movie", sourceField: "" },
+                },
+              },
+            },
+            {
+              id: "ca-w2",
+              chartType: "bar",
+              connectionId: "conn-neo4j-001",
+              query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WHERE m.title = $param_clicked_movie RETURN p.name AS name, 1 AS count",
+              settings: { title: "Cast" },
+            },
+          ],
+          gridLayout: [
+            { i: "ca-w1", x: 0, y: 0, w: 6, h: 5 },
+            { i: "ca-w2", x: 6, y: 0, w: 6, h: 5 },
+          ],
+        },
+        {
+          id: "page-navigate",
+          title: "Navigate to Page",
+          widgets: [
+            {
+              id: "ca-w3",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
+              settings: {
+                title: "Click to navigate",
+                clickAction: {
+                  type: "set-parameter-and-navigate",
+                  parameterMapping: { parameterName: "param_clicked_movie", sourceField: "" },
+                  targetPageId: "page-cell-click",
+                },
+              },
+            },
+          ],
+          gridLayout: [{ i: "ca-w3", x: 0, y: 0, w: 12, h: 5 }],
+        },
+      ],
+    };
+
+    const putRes = await request.put(`/api/dashboards/${id}`, {
+      data: { layoutJson: layout },
+    });
+    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+
+    return {
+      id,
+      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+    };
+  }
+
   test("cell-click on table sets a parameter and updates dependent widgets", async ({
     authPage,
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createClickActionDashboard(page.request);
 
-    // Navigate to the seeded "Click Actions" demo dashboard
-    await page.getByText("Click Actions", { exact: true }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    try {
+      await page.goto(`/${id}`);
 
-    // The first page should load — "Cell Click → Parameter"
-    // Wait for the table with movie titles to render
-    const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
-    await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
+      // Wait for the table with movie titles to render
+      const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
+      await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
 
-    // Click a cell in the movies table
-    await movieCell.first().click();
+      // Click a cell in the movies table
+      await movieCell.first().click();
 
-    // The parameter bar should appear with a cross-filter tag
-    await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      // The parameter bar should appear with a cross-filter tag
+      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
 
-    // The dependent widgets should re-run without errors
-    await page.waitForTimeout(2_000);
-    await expect(page.locator("text=Query Failed")).not.toBeVisible();
+      // The dependent widgets should re-run without errors
+      await page.waitForTimeout(2_000);
+      await expect(page.locator("text=Query Failed")).not.toBeVisible();
+    } finally {
+      await cleanup();
+    }
   });
 
   test("click action with navigate-to-page switches to target page", async ({
@@ -243,28 +326,31 @@ test.describe("Click actions", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createClickActionDashboard(page.request);
 
-    // Navigate to the seeded "Click Actions" demo dashboard
-    await page.getByText("Click Actions", { exact: true }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    try {
+      await page.goto(`/${id}`);
 
-    // Navigate to the "Navigate to Page" tab (page 3)
-    await page.getByRole("tab", { name: "Navigate to Page" }).click();
+      // Navigate to the "Navigate to Page" tab
+      await page.getByRole("tab", { name: "Navigate to Page" }).click();
 
-    // Wait for the table to load
-    const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
-    await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
+      // Wait for the table to load
+      const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
+      await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
 
-    // Click a movie title cell — should navigate to page 1 and set the parameter
-    await movieCell.first().click();
+      // Click a movie title cell — should navigate to page 1 and set the parameter
+      await movieCell.first().click();
 
-    // After navigation, "Cell Click → Parameter" tab should be active
-    await expect(
-      page.getByRole("tab", { name: "Cell Click → Parameter" })
-    ).toHaveAttribute("data-state", "active", { timeout: 5_000 });
+      // After navigation, "Cell Click" tab should be active
+      await expect(
+        page.getByRole("tab", { name: "Cell Click" })
+      ).toHaveAttribute("data-state", "active", { timeout: 5_000 });
 
-    // The parameter bar should show the clicked value
-    await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      // The parameter bar should show the clicked value
+      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+    } finally {
+      await cleanup();
+    }
   });
 
   test("widget editor hides source field for table chart type", async ({

@@ -135,26 +135,6 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
        ],"gridLayout":[
          {"i":"w1","x":0,"y":0,"w":12,"h":5}
        ]}
-     ]}'::jsonb),
-    ('dash-003', 'user-alice-001', 'default', 'Click Actions', 'Cell-click sets parameters and page navigation via click actions', true,
-     '{"version":2,"pages":[
-       {"id":"page-cell-click","title":"Cell Click → Parameter","widgets":[
-         {"id":"ca-w1","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20","settings":{"title":"Movies","clickAction":{"type":"set-parameter","parameterMapping":{"parameterName":"param_clicked_movie","sourceField":""}}}},
-         {"id":"ca-w2","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WHERE m.title = $param_clicked_movie RETURN p.name AS name, 1 AS count","settings":{"title":"Cast for selected movie"}}
-       ],"gridLayout":[
-         {"i":"ca-w1","x":0,"y":0,"w":6,"h":5},
-         {"i":"ca-w2","x":6,"y":0,"w":6,"h":5}
-       ]},
-       {"id":"page-bar-click","title":"Bar Click → Parameter","widgets":[
-         {"id":"ca-w3","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN m.released AS name, count(*) AS value ORDER BY m.released","settings":{"title":"Movies by Decade","clickAction":{"type":"set-parameter","parameterMapping":{"parameterName":"param_clicked_decade","sourceField":"name"}}}}
-       ],"gridLayout":[
-         {"i":"ca-w3","x":0,"y":0,"w":12,"h":5}
-       ]},
-       {"id":"page-navigate","title":"Navigate to Page","widgets":[
-         {"id":"ca-w4","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20","settings":{"title":"Click to navigate","clickAction":{"type":"set-parameter-and-navigate","parameterMapping":{"parameterName":"param_clicked_movie","sourceField":""},"targetPageId":"page-cell-click"}}}
-       ],"gridLayout":[
-         {"i":"ca-w4","x":0,"y":0,"w":12,"h":5}
-       ]}
      ]}'::jsonb);
 
 -- Seed dashboard share (Alice shares her dashboard with Bob as viewer)
