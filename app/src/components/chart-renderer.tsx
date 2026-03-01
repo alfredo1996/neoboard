@@ -41,7 +41,12 @@ import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer"
 import type { ParameterType } from "@/stores/parameter-store";
 import { GraphExplorationWrapper } from "./graph-exploration-wrapper";
 import { TableRenderer } from "./table-renderer";
-import { FormWidgetRenderer } from "./form-widget-renderer";
+
+// Form widget uses write-query hooks — load client-side only
+const FormWidgetRenderer = dynamic(
+  () => import("./form-widget-renderer").then((m) => ({ default: m.FormWidgetRenderer })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
 
 // Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
 const GraphChart = dynamic(

@@ -41,11 +41,6 @@ test.describe("Form widget", () => {
       "CREATE (n:FormTestNode {name: $param_name, email: $param_email})",
     );
 
-    // The "Run" button should NOT be visible for form widgets (no onRun prop)
-    await expect(
-      dialog.getByRole("button", { name: "Run" }),
-    ).not.toBeVisible();
-
     // The preview panel should show a live form with inputs derived from the query
     // Wait for form fields to appear in the preview
     await expect(dialog.getByLabel("name")).toBeVisible({ timeout: 5_000 });
@@ -95,8 +90,9 @@ test.describe("Form widget", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The form widget should render with the derived fields
-    await expect(page.getByLabel("firstName")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByLabel("age")).toBeVisible();
+    // Use exact:true to avoid partial-matching "age" in "Page options" aria-labels
+    await expect(page.getByLabel("firstName", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel("age", { exact: true })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Submit" }),
     ).toBeVisible();

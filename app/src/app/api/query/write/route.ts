@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -11,12 +11,12 @@ import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
-  params: z.record(z.any()).optional(),
+  params: z.record(z.unknown()).optional(),
 });
 
 export async function POST(request: Request) {
   try {
-    const { canWrite } = await requireSession();
+    const { userId, canWrite } = await requireSession();
 
     if (!canWrite) {
       return NextResponse.json(
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const [connection] = await db
       .select()
       .from(connections)
-      .where(eq(connections.id, connectionId))
+      .where(and(eq(connections.id, connectionId), eq(connections.userId, userId)))
       .limit(1);
 
     if (!connection) {
@@ -70,8 +70,10 @@ export async function POST(request: Request) {
       serverDurationMs,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Write query execution failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[write-query]", error instanceof Error ? error.message : error);
+    return NextResponse.json(
+      { error: "Write query execution failed" },
+      { status: 500 },
+    );
   }
 }

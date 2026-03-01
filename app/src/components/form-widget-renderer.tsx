@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { FormWidget } from "@neoboard/components";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { deriveFormFields } from "@/lib/derive-form-fields";
@@ -22,13 +22,22 @@ export function FormWidgetRenderer({
     settings.fieldConfig as Record<string, FormFieldConfig> | undefined,
   );
 
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    for (const f of fields) {
-      initial[f.name] = "";
-    }
-    return initial;
-  });
+  // Stable key for field names so useEffect only fires when fields actually change
+  const fieldKey = useMemo(() => fields.map((f) => f.name).join(","), [fields]);
+
+  const [values, setValues] = useState<Record<string, string>>({});
+
+  // Sync form values when fields change (e.g. user edits the query)
+  useEffect(() => {
+    setValues((prev) => {
+      const next: Record<string, string> = {};
+      for (const f of fields) {
+        next[f.name] = prev[f.name] ?? "";
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldKey]);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
