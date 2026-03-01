@@ -5,6 +5,7 @@ import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
+import { resolveClickAction } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import {
@@ -39,6 +40,8 @@ interface CardContainerProps {
    * The caller is responsible for persisting the updated settings.
    */
   onWidgetSettingsChange?: (settings: Record<string, unknown>) => void;
+  /** Called when a click action navigates to a different page. */
+  onNavigateToPage?: (pageId: string) => void;
 }
 
 /**
@@ -67,19 +70,23 @@ export function CardContainer({
   previewResultId,
   isEditMode = false,
   onWidgetSettingsChange,
+  onNavigateToPage,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
   function handleChartClick(point: Record<string, unknown>) {
-    const clickAction = widget.settings?.clickAction as ClickAction | undefined;
-    if (!clickAction || clickAction.type !== "set-parameter") return;
-    const { parameterName, sourceField } = clickAction.parameterMapping;
-    const value = point[sourceField];
-    if (value !== undefined) {
-      const title = (widget.settings?.title as string) || chartConfig?.label || widget.chartType;
+    const result = resolveClickAction(widget, point);
+    if (!result) return;
+
+    if (result.setParameter) {
+      const { parameterName, value, label, sourceField } = result.setParameter;
       useParameterStore
         .getState()
-        .setParameter(parameterName, value, title, sourceField, "text", "click-action");
+        .setParameter(parameterName, value, label, sourceField, "text", "click-action");
+    }
+
+    if (result.navigateToPageId) {
+      onNavigateToPage?.(result.navigateToPageId);
     }
   }
   const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);

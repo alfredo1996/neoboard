@@ -693,6 +693,145 @@ function buildParameterTesting(neo4jConnId, pgConnId) {
   };
 }
 
+function buildClickActionDemo(neo4jConnId, pgConnId) {
+  // Page IDs are pre-generated so widgets can reference them in click actions
+  const page1Id = uuid();
+  const page2Id = uuid();
+  const page3Id = uuid();
+
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: Cell-Click → Set Parameter (Neo4j) ──
+      {
+        id: page1Id,
+        title: "Cell Click → Parameter",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.released DESC LIMIT 20",
+            settings: {
+              title: "Click a movie title cell",
+              clickAction: {
+                type: "set-parameter",
+                parameterMapping: {
+                  parameterName: "clicked_movie",
+                  sourceField: "",
+                },
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WHERE m.title = $param_clicked_movie RETURN p.name AS name, type(r) AS role",
+            settings: { title: "Cast & Crew for $param_clicked_movie" },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WHERE m.title = $param_clicked_movie RETURN p.name AS person, type(r) AS role, r.roles AS roles",
+            settings: { title: "Details" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 5, h: 4 },
+          { i: null, x: 5, y: 0, w: 7, h: 4 },
+          { i: null, x: 0, y: 4, w: 12, h: 3 },
+        ],
+      },
+
+      // ── Page 2: Bar Click → Set Parameter (Neo4j) ──
+      {
+        id: page2Id,
+        title: "Bar Click → Parameter",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade",
+            settings: {
+              title: "Click a decade bar",
+              clickAction: {
+                type: "set-parameter",
+                parameterMapping: {
+                  parameterName: "clicked_decade",
+                  sourceField: "name",
+                },
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) WHERE (m.released / 10) * 10 = toInteger($param_clicked_decade) RETURN m.title AS title, m.released AS year ORDER BY m.released",
+            settings: { title: "Movies in decade $param_clicked_decade" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 4 },
+          { i: null, x: 6, y: 0, w: 6, h: 4 },
+        ],
+      },
+
+      // ── Page 3: Navigate to Page + Set Parameter ──
+      {
+        id: page3Id,
+        title: "Navigate to Page",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN m.title AS title, m.released AS released, m.tagline AS tagline ORDER BY m.title LIMIT 15",
+            settings: {
+              title: "Click a title → navigate to Page 1 + set parameter",
+              clickAction: {
+                type: "set-parameter-and-navigate",
+                parameterMapping: {
+                  parameterName: "clicked_movie",
+                  sourceField: "",
+                },
+                targetPageId: page1Id,
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "pie",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH ()-[r]->() RETURN type(r) AS type, count(*) AS count",
+            settings: {
+              title: "Click a slice → navigate to Bar page",
+              clickAction: {
+                type: "navigate-to-page",
+                targetPageId: page2Id,
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 7, h: 4 },
+          { i: null, x: 7, y: 0, w: 5, h: 4 },
+        ],
+      },
+    ],
+  };
+}
+
 // ─── Main ────────────────────────────────────────────────────────────
 
 async function main() {
@@ -792,6 +931,17 @@ async function main() {
       "Parameter Testing",
       "One page per parameter type per connector, with bound data widgets.",
       paramLayout,
+      true
+    );
+
+    const clickLayout = buildClickActionDemo(neo4jConnId, pgConnId);
+    patchGridIds(clickLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Click Actions",
+      "Cell-click sets parameters, bar-click sets parameters, and page navigation via click actions.",
+      clickLayout,
       true
     );
 

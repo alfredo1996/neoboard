@@ -51,12 +51,12 @@ describe("DataGrid", () => {
     expect(screen.getByText("No results.")).toBeInTheDocument();
   });
 
-  it("calls onRowClick when a row is clicked", async () => {
+  it("calls onCellClick with column and value when a cell is clicked", async () => {
     const user = userEvent.setup();
-    const onRowClick = vi.fn();
-    render(<DataGrid columns={columns} data={data} onRowClick={onRowClick} />);
+    const onCellClick = vi.fn();
+    render(<DataGrid columns={columns} data={data} onCellClick={onCellClick} />);
     await user.click(screen.getByText("Alice"));
-    expect(onRowClick).toHaveBeenCalledWith(data[0]);
+    expect(onCellClick).toHaveBeenCalledWith({ column: "name", value: "Alice" });
   });
 
   it("enables sorting when enableSorting is true", () => {
@@ -181,13 +181,23 @@ describe("DataGrid", () => {
     expect(onSelectionChange).toHaveBeenCalledWith([data[0]]);
   });
 
-  it("applies cursor-pointer class when onRowClick is provided", () => {
+  it("applies cursor-pointer class to cells when onCellClick is provided", () => {
     const { container } = render(
-      <DataGrid columns={columns} data={data} onRowClick={() => {}} />
+      <DataGrid columns={columns} data={data} onCellClick={() => {}} />
     );
     const tbody = container.querySelector("tbody");
-    const rows = within(tbody!).getAllByRole("row");
-    expect(rows[0]).toHaveClass("cursor-pointer");
+    const cells = tbody!.querySelectorAll("td");
+    // All data cells should have cursor-pointer
+    expect(cells[0]).toHaveClass("cursor-pointer");
+  });
+
+  it("does not apply cursor-pointer to cells when onCellClick is not provided", () => {
+    const { container } = render(
+      <DataGrid columns={columns} data={data} />
+    );
+    const tbody = container.querySelector("tbody");
+    const cells = tbody!.querySelectorAll("td");
+    expect(cells[0]).not.toHaveClass("cursor-pointer");
   });
 
   it("applies custom className", () => {

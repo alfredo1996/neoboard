@@ -181,11 +181,12 @@ export interface GridLayoutItem {
 }
 
 export interface ClickAction {
-  type: "set-parameter";
-  parameterMapping: {
+  type: "set-parameter" | "navigate-to-page" | "set-parameter-and-navigate";
+  parameterMapping?: {
     parameterName: string;
     sourceField: string;
   };
+  targetPageId?: string;
 }
 
 // ─── Inferred types ──────────────────────────────────────────────────

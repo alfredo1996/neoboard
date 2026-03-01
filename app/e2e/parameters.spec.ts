@@ -70,11 +70,16 @@ test.describe("Parameter selectors", () => {
     await dialog.getByRole("tab", { name: "Advanced" }).click();
     // Enable click action
     await dialog.getByLabel("Enable click action").click();
-    // Parameter name input should appear
+
+    // Action type selector should appear (defaults to "Set Parameter")
+    await expect(dialog.getByLabel("Action Type")).toBeVisible();
+
+    // Parameter name input should appear (CreatableCombobox)
     await expect(dialog.getByLabel("Parameter Name")).toBeVisible();
     await dialog.getByLabel("Parameter Name").fill("selected_movie");
 
     // Source field — should show a dropdown with fields from the query result
+    // (visible for bar charts, hidden for tables)
     await expect(dialog.getByLabel("Source Field")).toBeVisible();
 
     // Add the widget
@@ -203,5 +208,153 @@ test.describe("Parameter-to-refresh cycle", () => {
     // because $param_year was not yet set)
     await page.waitForTimeout(3_000); // allow query to re-execute
     await expect(page.locator("text=Query Failed")).not.toBeVisible();
+  });
+});
+
+test.describe("Click actions", () => {
+  test("cell-click on table sets a parameter and updates dependent widgets", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+
+    // Navigate to the seeded "Click Actions" demo dashboard
+    await page.getByText("Click Actions").click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+
+    // The first page should load — "Cell Click → Parameter"
+    // Wait for the table with movie titles to render
+    const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
+    await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
+
+    // Click a cell in the movies table
+    await movieCell.first().click();
+
+    // The parameter bar should appear with a cross-filter tag
+    await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+
+    // The dependent widgets should re-run without errors
+    await page.waitForTimeout(2_000);
+    await expect(page.locator("text=Query Failed")).not.toBeVisible();
+  });
+
+  test("click action with navigate-to-page switches to target page", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+
+    // Navigate to the seeded "Click Actions" demo dashboard
+    await page.getByText("Click Actions").click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+
+    // Navigate to the "Navigate to Page" tab (page 3)
+    await page.getByRole("tab", { name: "Navigate to Page" }).click();
+
+    // Wait for the table to load
+    const movieCell = page.locator("td").filter({ hasText: "The Matrix" });
+    await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
+
+    // Click a movie title cell — should navigate to page 1 and set the parameter
+    await movieCell.first().click();
+
+    // After navigation, "Cell Click → Parameter" tab should be active
+    await expect(
+      page.getByRole("tab", { name: "Cell Click → Parameter" })
+    ).toHaveAttribute("data-state", "active", { timeout: 5_000 });
+
+    // The parameter bar should show the clicked value
+    await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("widget editor hides source field for table chart type", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Click UI ${Date.now()}`,
+    );
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Editing:")).toBeVisible();
+
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+      // Select "Data Table" chart type
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Data Table" }).click();
+      // Select connection
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+
+      // Navigate to Advanced tab and enable click action
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByLabel("Enable click action").click();
+
+      // Action type selector should appear
+      await expect(dialog.getByLabel("Action Type")).toBeVisible();
+      // Parameter Name should appear
+      await expect(dialog.getByLabel("Parameter Name")).toBeVisible();
+      // Source Field should NOT appear for tables
+      await expect(dialog.getByLabel("Source Field")).not.toBeVisible();
+      // Should show the cell-click explanation text
+      await expect(
+        dialog.getByText("Tables use cell-click")
+      ).toBeVisible();
+
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("widget editor shows action type options including navigate", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Click Nav UI ${Date.now()}`,
+    );
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Editing:")).toBeVisible();
+
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+      // Select Bar chart + connection
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+
+      // Navigate to Advanced tab and enable click action
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByLabel("Enable click action").click();
+
+      // Click the action type select to see options
+      await dialog.getByLabel("Action Type").click();
+      await expect(page.getByRole("option", { name: "Set Parameter" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Navigate to Page" })).toBeVisible();
+      await expect(page.getByRole("option", { name: /Set Parameter.*Navigate/ })).toBeVisible();
+
+      // Select "Navigate to Page"
+      await page.getByRole("option", { name: "Navigate to Page" }).click();
+
+      // Parameter Name and Source Field should be hidden
+      await expect(dialog.getByLabel("Parameter Name")).not.toBeVisible();
+      await expect(dialog.getByLabel("Source Field")).not.toBeVisible();
+      // Target Page should be visible (but show "add more pages" message for single-page dashboard)
+      await expect(dialog.getByText("Add more pages")).toBeVisible();
+
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+    } finally {
+      await cleanup();
+    }
   });
 });

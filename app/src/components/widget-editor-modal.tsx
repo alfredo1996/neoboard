@@ -3,8 +3,9 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
+import type { DashboardWidget, DashboardLayoutV2, ClickAction } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
+import { collectParameterNames } from "@/lib/collect-parameter-names";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import {
   ChartOptionsPanel,
@@ -28,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
+  CreatableCombobox,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -59,6 +61,8 @@ export interface WidgetEditorModalProps {
   connections: ConnectionListItem[];
   /** Called with the final widget data on save */
   onSave: (widget: DashboardWidget) => void;
+  /** Dashboard layout — used for page list and parameter name suggestions */
+  layout?: DashboardLayoutV2;
 }
 
 export function WidgetEditorModal({
@@ -68,6 +72,7 @@ export function WidgetEditorModal({
   widget,
   connections,
   onSave,
+  layout,
 }: WidgetEditorModalProps) {
   const [chartType, setChartType] = useState(widget?.chartType ?? "bar");
   const [connectionId, setConnectionId] = useState(widget?.connectionId ?? "");
@@ -87,11 +92,23 @@ export function WidgetEditorModal({
   // Click action state
   const existingClickAction = widget?.settings?.clickAction as ClickAction | undefined;
   const [clickActionEnabled, setClickActionEnabled] = useState(!!existingClickAction);
+  const [clickActionType, setClickActionType] = useState<ClickAction["type"]>(
+    existingClickAction?.type ?? "set-parameter"
+  );
   const [parameterName, setParameterName] = useState(
-    existingClickAction?.parameterMapping.parameterName ?? ""
+    existingClickAction?.parameterMapping?.parameterName ?? ""
   );
   const [sourceField, setSourceField] = useState(
-    existingClickAction?.parameterMapping.sourceField ?? ""
+    existingClickAction?.parameterMapping?.sourceField ?? ""
+  );
+  const [targetPageId, setTargetPageId] = useState(
+    existingClickAction?.targetPageId ?? ""
+  );
+
+  // Parameter name suggestions from the dashboard layout
+  const parameterSuggestions = useMemo(
+    () => (layout ? collectParameterNames(layout) : []),
+    [layout]
   );
 
   // Save status for visual feedback after CMD+Shift+Enter
@@ -191,8 +208,10 @@ export function WidgetEditorModal({
         setTitle("");
         setChartOptions(getDefaultChartSettings("bar"));
         setClickActionEnabled(false);
+        setClickActionType("set-parameter");
         setParameterName("");
         setSourceField("");
+        setTargetPageId("");
         setEnableCache(true);
         setCacheTtlMinutes(5);
         setConnectorChanged(false);
@@ -213,8 +232,10 @@ export function WidgetEditorModal({
         );
         const ca = widget.settings?.clickAction as ClickAction | undefined;
         setClickActionEnabled(!!ca);
-        setParameterName(ca?.parameterMapping.parameterName ?? "");
-        setSourceField(ca?.parameterMapping.sourceField ?? "");
+        setClickActionType(ca?.type ?? "set-parameter");
+        setParameterName(ca?.parameterMapping?.parameterName ?? "");
+        setSourceField(ca?.parameterMapping?.sourceField ?? "");
+        setTargetPageId(ca?.targetPageId ?? "");
         setEnableCache(widget.settings?.enableCache !== false);
         setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
         setConnectorChanged(false);
@@ -249,6 +270,23 @@ export function WidgetEditorModal({
     }
   }, [chartType, mode]);
 
+  // Build click action from current editor state
+  const buildClickAction = useCallback((): ClickAction | undefined => {
+    if (!clickActionEnabled || chartType === "parameter-select") return undefined;
+    const needsParam = clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate";
+    const needsPage = clickActionType === "navigate-to-page" || clickActionType === "set-parameter-and-navigate";
+    if (needsParam && !parameterName) return undefined;
+    // For tables, sourceField is empty (cell-click provides the value directly)
+    const resolvedSourceField = chartType === "table" ? "" : sourceField;
+    if (needsParam && chartType !== "table" && !resolvedSourceField) return undefined;
+    if (needsPage && !targetPageId) return undefined;
+    return {
+      type: clickActionType,
+      ...(needsParam ? { parameterMapping: { parameterName, sourceField: resolvedSourceField } } : {}),
+      ...(needsPage ? { targetPageId } : {}),
+    };
+  }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId]);
+
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
       const referenced = extractReferencedParams(query, allParamValues);
@@ -276,13 +314,6 @@ export function WidgetEditorModal({
             savedTimerRef.current = null;
           }, 1500);
           const id = widget?.id ?? crypto.randomUUID();
-          const clickAction: ClickAction | undefined =
-            clickActionEnabled && parameterName && sourceField
-              ? {
-                  type: "set-parameter",
-                  parameterMapping: { parameterName, sourceField },
-                }
-              : undefined;
           onSave({
             id,
             chartType,
@@ -293,7 +324,7 @@ export function WidgetEditorModal({
               ...(widget?.settings ?? {}),
               title: title || undefined,
               chartOptions,
-              clickAction,
+              clickAction: buildClickAction(),
               enableCache,
               cacheTtlMinutes,
             },
@@ -310,9 +341,7 @@ export function WidgetEditorModal({
     saveStatus,
     connectionId,
     widget,
-    clickActionEnabled,
-    parameterName,
-    sourceField,
+    buildClickAction,
     chartType,
     title,
     chartOptions,
@@ -361,13 +390,7 @@ export function WidgetEditorModal({
 
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
-    const clickAction: ClickAction | undefined =
-      !isParamSelect && clickActionEnabled && parameterName && sourceField
-        ? {
-            type: "set-parameter",
-            parameterMapping: { parameterName, sourceField },
-          }
-        : undefined;
+    const clickAction = buildClickAction();
     const resolvedChartOptions = isParamSelect
       ? {
           ...chartOptions,
@@ -543,45 +566,99 @@ export function WidgetEditorModal({
                       </div>
                       {clickActionEnabled && (
                         <div className="space-y-3 pl-6">
+                          {/* Action type */}
                           <div className="space-y-1.5">
-                            <Label htmlFor="param-name">Parameter Name</Label>
-                            <Input
-                              id="param-name"
-                              value={parameterName}
-                              onChange={(e) => setParameterName(e.target.value)}
-                              placeholder={`param_${(title || chartType).toLowerCase().replace(/\s+/g, "_")}`}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Other widgets can reference this as <code>$param_{parameterName || "name"}</code> in their queries.
-                            </p>
+                            <Label htmlFor="click-action-type">Action Type</Label>
+                            <Select value={clickActionType} onValueChange={(v) => setClickActionType(v as ClickAction["type"])}>
+                              <SelectTrigger id="click-action-type">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="set-parameter">Set Parameter</SelectItem>
+                                <SelectItem value="navigate-to-page">Navigate to Page</SelectItem>
+                                <SelectItem value="set-parameter-and-navigate">Set Parameter &amp; Navigate</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="source-field">Source Field</Label>
-                            {availableFields.length > 0 ? (
-                              <Select value={sourceField} onValueChange={setSourceField}>
-                                <SelectTrigger id="source-field">
-                                  <SelectValue placeholder="Select a field..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableFields.map((f) => (
-                                    <SelectItem key={f} value={f}>
-                                      {f}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                id="source-field"
-                                value={sourceField}
-                                onChange={(e) => setSourceField(e.target.value)}
-                                placeholder="name"
+
+                          {/* Parameter name — shown for set-parameter types */}
+                          {(clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate") && (
+                            <div className="space-y-1.5">
+                              <Label htmlFor="param-name">Parameter Name</Label>
+                              <CreatableCombobox
+                                suggestions={parameterSuggestions}
+                                value={parameterName}
+                                onChange={setParameterName}
+                                placeholder={`param_${(title || chartType).toLowerCase().replace(/\s+/g, "_")}`}
                               />
-                            )}
+                              <p className="text-xs text-muted-foreground">
+                                Other widgets can reference this as <code>$param_{parameterName || "name"}</code> in their queries.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Source field — shown for set-parameter types, hidden for tables */}
+                          {(clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate") && chartType !== "table" && (
+                            <div className="space-y-1.5">
+                              <Label htmlFor="source-field">Source Field</Label>
+                              {availableFields.length > 0 ? (
+                                <Select value={sourceField} onValueChange={setSourceField}>
+                                  <SelectTrigger id="source-field">
+                                    <SelectValue placeholder="Select a field..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableFields.map((f) => (
+                                      <SelectItem key={f} value={f}>
+                                        {f}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  id="source-field"
+                                  value={sourceField}
+                                  onChange={(e) => setSourceField(e.target.value)}
+                                  placeholder="name"
+                                />
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                The data field whose value is sent when a chart element is clicked.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Table cell-click info */}
+                          {(clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate") && chartType === "table" && (
                             <p className="text-xs text-muted-foreground">
-                              The data field whose value is sent when a chart element is clicked.
+                              Tables use cell-click: the clicked cell&apos;s value is sent directly as the parameter value.
                             </p>
-                          </div>
+                          )}
+
+                          {/* Target page — shown for navigate types */}
+                          {(clickActionType === "navigate-to-page" || clickActionType === "set-parameter-and-navigate") && (
+                            <div className="space-y-1.5">
+                              <Label htmlFor="target-page">Target Page</Label>
+                              {layout && layout.pages.length > 1 ? (
+                                <Select value={targetPageId} onValueChange={setTargetPageId}>
+                                  <SelectTrigger id="target-page">
+                                    <SelectValue placeholder="Select a page..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {layout.pages.map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        {p.title}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  Add more pages to the dashboard to enable navigation.
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
