@@ -339,8 +339,8 @@ test.describe("Click actions", () => {
 
       // Click the action type select to see options
       await dialog.getByLabel("Action Type").click();
-      await expect(page.getByRole("option", { name: "Set Parameter" })).toBeVisible();
-      await expect(page.getByRole("option", { name: "Navigate to Page" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Set Parameter", exact: true })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Navigate to Page", exact: true })).toBeVisible();
       await expect(page.getByRole("option", { name: /Set Parameter.*Navigate/ })).toBeVisible();
 
       // Select "Navigate to Page"
