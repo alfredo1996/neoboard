@@ -219,7 +219,7 @@ test.describe("Click actions", () => {
     await authPage.login(ALICE.email, ALICE.password);
 
     // Navigate to the seeded "Click Actions" demo dashboard
-    await page.getByText("Click Actions").click();
+    await page.getByText("Click Actions", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The first page should load — "Cell Click → Parameter"
@@ -245,7 +245,7 @@ test.describe("Click actions", () => {
     await authPage.login(ALICE.email, ALICE.password);
 
     // Navigate to the seeded "Click Actions" demo dashboard
-    await page.getByText("Click Actions").click();
+    await page.getByText("Click Actions", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Navigate to the "Navigate to Page" tab (page 3)
