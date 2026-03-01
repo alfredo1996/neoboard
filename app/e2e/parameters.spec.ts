@@ -357,8 +357,10 @@ test.describe("Click actions", () => {
         page.getByRole("tab", { name: "Cell Click" })
       ).toHaveAttribute("data-state", "active", { timeout: 5_000 });
 
-      // The parameter bar should show the clicked value
-      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      // The parameter bar should show the clicked value.
+      // Both pages may render parameter bars, so use .first() to avoid
+      // strict mode violation from matching 2 "Reset" buttons.
+      await expect(page.getByText("Reset").first()).toBeVisible({ timeout: 5_000 });
     } finally {
       await cleanup();
     }
