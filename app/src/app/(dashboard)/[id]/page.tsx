@@ -57,7 +57,7 @@ export default function DashboardViewerPage({
     };
   }, [id, saveToDashboard, restoreFromDashboard]);
 
-  const { data: dashboard, isLoading } = useDashboard(id);
+  const { data: dashboard, isLoading, isFetching } = useDashboard(id);
   const updateDashboard = useUpdateDashboard();
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -86,8 +86,8 @@ export default function DashboardViewerPage({
   const autoRefreshSettings = activeLocalSettings ?? layout?.settings ?? {};
   const refetchInterval = getRefetchInterval(autoRefreshSettings);
 
-  // Counter to ensure only the latest persist write wins if user clicks rapidly
-  const persistGenRef = useRef(0);
+  // Promise queue to serialize persist writes and prevent out-of-order saves
+  const persistQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const handleIntervalChange = useCallback(
     (value: string) => {
@@ -96,18 +96,16 @@ export default function DashboardViewerPage({
           ? { autoRefresh: false }
           : { autoRefresh: true, refreshIntervalSeconds: Number(value) };
       setLocalSettings({ dashboardId: id, settings: newSettings });
-      // Persist to DB in the background (latest-wins: skip stale callbacks)
+      // Persist in-order to avoid out-of-order last-write issues
       if (layout) {
-        const gen = ++persistGenRef.current;
-        updateDashboard.mutateAsync({
+        const payload = {
           id,
           layoutJson: { ...layout, settings: newSettings },
-        }).catch(() => {
-          // Revert local state only if this was still the latest change
-          if (persistGenRef.current === gen) {
-            setLocalSettings(null);
-          }
-        });
+        };
+        persistQueueRef.current = persistQueueRef.current
+          .catch(() => undefined)
+          .then(() => updateDashboard.mutateAsync(payload))
+          .catch(() => undefined);
       }
     },
     [id, layout, updateDashboard]
@@ -181,7 +179,7 @@ export default function DashboardViewerPage({
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">
                     <RefreshCw
-                      className={`mr-2 h-4 w-4${refetchInterval ? " animate-spin" : ""}`}
+                      className={`mr-2 h-4 w-4${isFetching ? " animate-spin" : ""}`}
                     />
                     {intervalLabel}
                   </Button>
