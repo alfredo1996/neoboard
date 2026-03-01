@@ -121,7 +121,7 @@ export function extractReferencedParams(
  */
 export function useWidgetQuery(
   input: WidgetQueryInput | null,
-  options?: { staleTime?: number }
+  options?: { staleTime?: number; refetchInterval?: number | false }
 ) {
   // Get parameters from store - using selector that returns stable value
   const parameters = useParameterStore((s) => s.parameters);
@@ -195,6 +195,7 @@ export function useWidgetQuery(
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
     staleTime: options?.staleTime ?? 0,
+    refetchInterval: options?.refetchInterval,
     retry: false,
   });
 
