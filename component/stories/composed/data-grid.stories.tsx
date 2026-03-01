@@ -190,6 +190,17 @@ export const WithToolbarAndFilters: Story = {
   },
 };
 
+export const WithCellClick: Story = {
+  args: {
+    columns: basicColumns,
+    data,
+    onCellClick: (info) => {
+      console.log("Cell clicked:", info);
+      alert(`Clicked column "${info.column}" with value: ${JSON.stringify(info.value)}`);
+    },
+  },
+};
+
 export const EmptyState: Story = {
   args: {
     columns: basicColumns,

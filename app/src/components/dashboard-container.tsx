@@ -35,6 +35,8 @@ interface DashboardContainerProps {
    * The caller should persist the updated widget to the dashboard layout.
    */
   onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
+  /** Called when a click action navigates to a different page. */
+  onNavigateToPage?: (pageId: string) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -53,6 +55,7 @@ export function DashboardContainer({
   onDuplicateWidget,
   onLayoutChange,
   onWidgetSettingsChange,
+  onNavigateToPage,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -156,6 +159,7 @@ export function DashboardContainer({
                     ? (settings) => onWidgetSettingsChange(widget.id, settings)
                     : undefined
                 }
+                onNavigateToPage={onNavigateToPage}
               />
             </WidgetCard>
           </div>
@@ -175,7 +179,7 @@ export function DashboardContainer({
                 {getWidgetTitle(fullscreenWidget)}
               </h2>
               <div className="flex-1 min-h-0">
-                <CardContainer widget={fullscreenWidget} />
+                <CardContainer widget={fullscreenWidget} onNavigateToPage={onNavigateToPage} />
               </div>
             </>
           )}

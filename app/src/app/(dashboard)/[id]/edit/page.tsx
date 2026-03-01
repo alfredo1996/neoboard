@@ -108,6 +108,17 @@ export default function DashboardEditorPage({
   const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
   const duplicateWidget = useDashboardStore((s) => s.duplicateWidget);
 
+  const handleNavigateToPage = useCallback(
+    (pageId: string) => {
+      const index = layout.pages.findIndex((p) => p.id === pageId);
+      if (index >= 0) {
+        markVisited(index);
+        setActivePage(index);
+      }
+    },
+    [layout.pages, setActivePage]
+  );
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
@@ -290,6 +301,7 @@ export default function DashboardEditorPage({
             widget={editingWidget}
             connections={connections ?? []}
             onSave={handleEditorSave}
+            layout={layout}
           />
 
           <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
@@ -332,6 +344,7 @@ export default function DashboardEditorPage({
                         updateWidget(widgetId, { ...target, settings });
                       }
                     }}
+                    onNavigateToPage={handleNavigateToPage}
                   />
                 </div>
               );

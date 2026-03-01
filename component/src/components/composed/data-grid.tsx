@@ -77,7 +77,7 @@ export interface DataGridProps<TData> {
    * that exactly as many rows as fit are shown — no overflow, no wasted space.
    */
   containerHeight?: number;
-  onRowClick?: (row: TData) => void;
+  onCellClick?: (info: { column: string; value: unknown }) => void;
   onSelectionChange?: (selectedRows: TData[]) => void;
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
@@ -94,7 +94,7 @@ function DataGrid<TData>({
   enablePagination = true,
   pageSize = 10,
   containerHeight,
-  onRowClick,
+  onCellClick,
   onSelectionChange,
   toolbar,
   pagination,
@@ -225,11 +225,16 @@ function DataGrid<TData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={onRowClick ? "cursor-pointer" : undefined}
-                  onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={onCellClick ? "cursor-pointer hover:bg-muted/50" : undefined}
+                      onClick={onCellClick ? (e) => {
+                        e.stopPropagation();
+                        onCellClick({ column: cell.column.id, value: cell.getValue() });
+                      } : undefined}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

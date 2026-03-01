@@ -2,6 +2,7 @@
 export { LoadingButton, type LoadingButtonProps } from "./loading-button";
 export { PasswordInput, type PasswordInputProps } from "./password-input";
 export { Combobox, type ComboboxProps, type ComboboxOption } from "./combobox";
+export { CreatableCombobox, type CreatableComboboxProps } from "./creatable-combobox";
 export { MultiSelect, type MultiSelectProps, type MultiSelectOption } from "./multi-select";
 
 // Pickers

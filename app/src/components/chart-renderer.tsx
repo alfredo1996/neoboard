@@ -192,7 +192,13 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, connect
     }
 
     case "table":
-      return <TableRenderer data={data} settings={settings} onRowClick={onChartClick} />;
+      return (
+        <TableRenderer
+          data={data}
+          settings={settings}
+          onCellClick={onChartClick ? (info) => onChartClick({ _clickedColumn: info.column, _clickedValue: info.value }) : undefined}
+        />
+      );
 
     case "parameter-select": {
       const pName = settings.parameterName as string | undefined;
