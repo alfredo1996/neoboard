@@ -79,9 +79,11 @@ export default function DashboardViewerPage({
     [dashboard]
   );
 
-  // Auto-refresh: local override (null = use persisted settings from layout)
-  const [localSettings, setLocalSettings] = useState<DashboardSettings | null>(null);
-  const autoRefreshSettings = localSettings ?? layout?.settings ?? {};
+  // Auto-refresh: local override (null = use persisted settings from layout).
+  // Keyed by dashboard id so navigating to a different dashboard resets the override.
+  const [localSettings, setLocalSettings] = useState<{ dashboardId: string; settings: DashboardSettings } | null>(null);
+  const activeLocalSettings = localSettings?.dashboardId === id ? localSettings.settings : null;
+  const autoRefreshSettings = activeLocalSettings ?? layout?.settings ?? {};
   const refetchInterval = getRefetchInterval(autoRefreshSettings);
 
   const handleIntervalChange = useCallback(
@@ -90,7 +92,7 @@ export default function DashboardViewerPage({
         value === "off"
           ? { autoRefresh: false }
           : { autoRefresh: true, refreshIntervalSeconds: Number(value) };
-      setLocalSettings(newSettings);
+      setLocalSettings({ dashboardId: id, settings: newSettings });
       // Persist to DB in the background
       if (layout) {
         updateDashboard.mutate({

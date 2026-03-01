@@ -33,4 +33,16 @@ describe("getRefetchInterval", () => {
   it("clamps to minimum 30s when interval is 1", () => {
     expect(getRefetchInterval({ autoRefresh: true, refreshIntervalSeconds: 1 })).toBe(30_000);
   });
+
+  it("falls back to default when refreshIntervalSeconds is NaN", () => {
+    expect(getRefetchInterval({ autoRefresh: true, refreshIntervalSeconds: NaN })).toBe(60_000);
+  });
+
+  it("falls back to default when refreshIntervalSeconds is Infinity", () => {
+    expect(getRefetchInterval({ autoRefresh: true, refreshIntervalSeconds: Infinity })).toBe(60_000);
+  });
+
+  it("falls back to default when refreshIntervalSeconds is -Infinity", () => {
+    expect(getRefetchInterval({ autoRefresh: true, refreshIntervalSeconds: -Infinity })).toBe(60_000);
+  });
 });

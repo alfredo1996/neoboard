@@ -9,6 +9,7 @@ const DEFAULT_INTERVAL_SECONDS = 60;
  */
 export function getRefetchInterval(settings?: DashboardSettings): number | false {
   if (!settings?.autoRefresh) return false;
-  const seconds = settings.refreshIntervalSeconds ?? DEFAULT_INTERVAL_SECONDS;
+  const rawSeconds = settings.refreshIntervalSeconds ?? DEFAULT_INTERVAL_SECONDS;
+  const seconds = Number.isFinite(rawSeconds) ? rawSeconds : DEFAULT_INTERVAL_SECONDS;
   return Math.max(seconds, MIN_INTERVAL_SECONDS) * 1000;
 }
