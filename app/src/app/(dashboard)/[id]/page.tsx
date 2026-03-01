@@ -1,24 +1,39 @@
 "use client";
 
-import React, { use, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import React, { use, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, LayoutDashboard } from "lucide-react";
-import { useDashboard } from "@/hooks/use-dashboards";
+import { ArrowLeft, Pencil, LayoutDashboard, RefreshCw } from "lucide-react";
+import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
+import { getRefetchInterval } from "@/lib/dashboard-settings";
+import type { DashboardSettings } from "@/lib/db/schema";
 import {
   Button,
   Badge,
   Skeleton,
   LoadingButton,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@neoboard/components";
 import {
   EmptyState,
   Toolbar,
   ToolbarSection,
+  ToolbarSeparator,
 } from "@neoboard/components";
+
+function formatInterval(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  return `${seconds / 60}m`;
+}
 
 export default function DashboardViewerPage({
   params,
@@ -43,6 +58,7 @@ export default function DashboardViewerPage({
   }, [id, saveToDashboard, restoreFromDashboard]);
 
   const { data: dashboard, isLoading } = useDashboard(id);
+  const updateDashboard = useUpdateDashboard();
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([0])
@@ -62,6 +78,33 @@ export default function DashboardViewerPage({
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
     [dashboard]
   );
+
+  // Auto-refresh: local override (null = use persisted settings from layout)
+  const [localSettings, setLocalSettings] = useState<DashboardSettings | null>(null);
+  const autoRefreshSettings = localSettings ?? layout?.settings ?? {};
+  const refetchInterval = getRefetchInterval(autoRefreshSettings);
+
+  const handleIntervalChange = useCallback(
+    (value: string) => {
+      const newSettings: DashboardSettings =
+        value === "off"
+          ? { autoRefresh: false }
+          : { autoRefresh: true, refreshIntervalSeconds: Number(value) };
+      setLocalSettings(newSettings);
+      // Persist to DB in the background
+      if (layout) {
+        updateDashboard.mutate({
+          id,
+          layoutJson: { ...layout, settings: newSettings },
+        });
+      }
+    },
+    [id, layout, updateDashboard]
+  );
+
+  const intervalLabel = autoRefreshSettings.autoRefresh
+    ? formatInterval(autoRefreshSettings.refreshIntervalSeconds ?? 60)
+    : "Auto-refresh";
 
   if (isLoading) {
     return (
@@ -119,15 +162,42 @@ export default function DashboardViewerPage({
         </ToolbarSection>
         <ToolbarSection>
           {canEdit && (
-            <LoadingButton
-              size="sm"
-              loading={isPending}
-              loadingText="Opening editor..."
-              onClick={() => startTransition(() => router.push(`/${id}/edit?page=${safeIndex}`))}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </LoadingButton>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <RefreshCw
+                      className={`mr-2 h-4 w-4${refetchInterval ? " animate-spin" : ""}`}
+                    />
+                    {intervalLabel}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Auto-refresh</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={autoRefreshSettings.autoRefresh ? String(autoRefreshSettings.refreshIntervalSeconds ?? 60) : "off"}
+                    onValueChange={handleIntervalChange}
+                  >
+                    <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="30">30 seconds</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="60">1 minute</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="300">5 minutes</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="600">10 minutes</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ToolbarSeparator />
+              <LoadingButton
+                size="sm"
+                loading={isPending}
+                loadingText="Opening editor..."
+                onClick={() => startTransition(() => router.push(`/${id}/edit?page=${safeIndex}`))}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </LoadingButton>
+            </>
           )}
         </ToolbarSection>
       </Toolbar>
@@ -170,7 +240,7 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} />
+              <DashboardContainer page={page} refetchInterval={refetchInterval} />
             </div>
           );
         })}

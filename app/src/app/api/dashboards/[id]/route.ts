@@ -30,6 +30,11 @@ const pageSchema = z.object({
   gridLayout: z.array(gridLayoutItemSchema),
 });
 
+const dashboardSettingsSchema = z.object({
+  autoRefresh: z.boolean().optional(),
+  refreshIntervalSeconds: z.number().min(30).optional(),
+});
+
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -37,6 +42,7 @@ const updateDashboardSchema = z.object({
     .object({
       version: z.literal(2),
       pages: z.array(pageSchema).min(1),
+      settings: dashboardSettingsSchema.optional(),
     })
     .optional(),
   isPublic: z.boolean().optional(),
