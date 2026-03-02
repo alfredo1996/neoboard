@@ -43,6 +43,12 @@ export interface ChartConfig {
    * If omitted, the chart is compatible with all connector types.
    */
   compatibleWith?: ConnectorType[];
+  /**
+   * Whether this chart type supports click actions. Defaults to true if omitted.
+   * Set to false for chart types where clicking doesn't make sense
+   * (e.g. single-value, json, parameter-select).
+   */
+  supportsClickAction?: boolean;
 }
 
 /**
@@ -442,6 +448,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: (data) => transformToValueData(data),
     validate: validateValueData,
     compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
   },
   // Graph visualization requires Neo4j node/relationship structures — not available from PostgreSQL.
   graph: {
@@ -466,6 +473,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToJsonData,
     transformWithMapping: (data) => transformToJsonData(data),
     compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
   },
   "parameter-select": {
     type: "parameter-select",
@@ -473,11 +481,22 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToSelectData,
     transformWithMapping: (data) => transformToSelectData(data),
     compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
   },
 };
 
 export function getChartConfig(type: string): ChartConfig | undefined {
   return chartRegistry[type as ChartType];
+}
+
+/**
+ * Returns whether a chart type supports click actions.
+ * Unknown chart types return false.
+ */
+export function chartSupportsClickAction(type: string): boolean {
+  const config = getChartConfig(type);
+  if (!config) return false;
+  return config.supportsClickAction !== false;
 }
 
 /**

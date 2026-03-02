@@ -31,7 +31,8 @@ test.describe("Widget creation", () => {
     await cm.click();
     await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
 
-    await dialog.getByRole("button", { name: "Run" }).click();
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     // Wait for preview to render
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
       timeout: 15000,
@@ -88,7 +89,8 @@ test.describe("Widget creation", () => {
     await cm.click();
     await page.keyboard.insertText("MATCH (n:Person) RETURN n.name, n.born ORDER BY n.name");
 
-    await dialog.getByRole("button", { name: "Run" }).click();
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // Wait for the preview to render — should show table data (not empty)
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
@@ -114,7 +116,8 @@ test.describe("Widget creation", () => {
     await cm.click();
     await page.keyboard.insertText("SELECT title, released FROM movies LIMIT 5");
 
-    await dialog.getByRole("button", { name: "Run" }).click();
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // Wait for preview
     await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({

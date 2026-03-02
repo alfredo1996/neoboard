@@ -27,7 +27,8 @@ test.describe("Widget editor", () => {
       await page.keyboard.insertText("THIS IS NOT VALID CYPHER !!!");
 
       // Run the query
-      await dialog.getByRole("button", { name: "Run" }).click();
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
       // Should show error
       await expect(

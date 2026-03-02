@@ -50,15 +50,27 @@ export default async function globalTeardown() {
       const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
         pgContainerId: string;
         neo4jContainerId: string;
+        pausedDevContainers?: string[];
       };
 
       for (const [name, id] of Object.entries(state)) {
+        if (name === "pausedDevContainers") continue;
         try {
           execSync(`docker rm -f ${id}`, { stdio: "pipe" });
-          console.log(`✅ Removed ${name}: ${id.slice(0, 12)}`);
+          console.log(`✅ Removed ${name}: ${(id as string).slice(0, 12)}`);
         } catch {
           // Container may already be gone
-          console.log(`⚠️ ${name} (${id.slice(0, 12)}) already removed`);
+          console.log(`⚠️ ${name} (${(id as string).slice(0, 12)}) already removed`);
+        }
+      }
+
+      // Restart any dev containers that were paused by globalSetup
+      for (const name of state.pausedDevContainers ?? []) {
+        try {
+          execSync(`docker start ${name}`, { stdio: "pipe" });
+          console.log(`▶  Restarted dev container: ${name}`);
+        } catch {
+          console.log(`⚠️  Could not restart dev container: ${name}`);
         }
       }
     }

@@ -3,6 +3,7 @@ import {
   getCompatibleChartTypes,
   getChartConfig,
   chartRegistry,
+  chartSupportsClickAction,
 } from "../chart-registry";
 import type { ChartType, ConnectorType } from "../chart-registry";
 
@@ -809,6 +810,51 @@ describe("map validate", () => {
     expect(err).toBeTruthy();
     expect(err).toContain("Map chart");
     expect(err).toContain("lat");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chartSupportsClickAction
+// ---------------------------------------------------------------------------
+describe("chartSupportsClickAction", () => {
+  it("returns true for bar", () => {
+    expect(chartSupportsClickAction("bar")).toBe(true);
+  });
+
+  it("returns true for line", () => {
+    expect(chartSupportsClickAction("line")).toBe(true);
+  });
+
+  it("returns true for pie", () => {
+    expect(chartSupportsClickAction("pie")).toBe(true);
+  });
+
+  it("returns true for table", () => {
+    expect(chartSupportsClickAction("table")).toBe(true);
+  });
+
+  it("returns true for graph", () => {
+    expect(chartSupportsClickAction("graph")).toBe(true);
+  });
+
+  it("returns true for map", () => {
+    expect(chartSupportsClickAction("map")).toBe(true);
+  });
+
+  it("returns false for single-value", () => {
+    expect(chartSupportsClickAction("single-value")).toBe(false);
+  });
+
+  it("returns false for json", () => {
+    expect(chartSupportsClickAction("json")).toBe(false);
+  });
+
+  it("returns false for parameter-select", () => {
+    expect(chartSupportsClickAction("parameter-select")).toBe(false);
+  });
+
+  it("returns false for unknown chart type", () => {
+    expect(chartSupportsClickAction("unknown-type")).toBe(false);
   });
 });
 

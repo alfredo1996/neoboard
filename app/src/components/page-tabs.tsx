@@ -94,7 +94,7 @@ export function PageTabs({
   }
 
   return (
-    <div className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto">
+    <div role="tablist" className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto">
       {pages.map((page, index) => (
         <div
           key={page.id}
@@ -132,6 +132,9 @@ export function PageTabs({
           ) : (
             <button
               type="button"
+              role="tab"
+              aria-selected={index === activeIndex}
+              data-state={index === activeIndex ? "active" : "inactive"}
               data-testid="page-tab"
               onClick={() => onSelect(index)}
               className={cn(
