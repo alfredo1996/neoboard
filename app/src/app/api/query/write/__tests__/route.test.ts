@@ -162,13 +162,17 @@ describe("POST /api/query/write", () => {
   });
 
   it("returns 404 when connection belongs to another user", async () => {
-    const otherUserConnection = { ...fakeConnection, userId: "user-other" };
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(404);
-    // The connection exists but doesn't match the session userId
-    void otherUserConnection; // demonstrates intent — the mock returns [] because userId won't match
+  });
+
+  it("returns 404 when connection belongs to a different tenant", async () => {
+    mockRequireSession.mockResolvedValue({ ...writerSession, tenantId: "tenant-other" });
+    mockDb.select.mockReturnValue(drizzleSelectChain([]));
+    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    expect(res.status).toBe(404);
   });
 
   it("does not apply MAX_ROWS truncation on write results", async () => {
