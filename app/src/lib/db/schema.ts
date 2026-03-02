@@ -186,12 +186,29 @@ export interface GridLayoutItem {
   h: number;
 }
 
-export interface ClickAction {
-  type: "set-parameter";
-  parameterMapping: {
+export interface ClickActionRule {
+  id: string;
+  /** For tables: which column triggers this rule. */
+  triggerColumn?: string;
+  type: "set-parameter" | "navigate-to-page" | "set-parameter-and-navigate";
+  parameterMapping?: {
     parameterName: string;
     sourceField: string;
   };
+  targetPageId?: string;
+}
+
+export interface ClickAction {
+  type: "set-parameter" | "navigate-to-page" | "set-parameter-and-navigate";
+  parameterMapping?: {
+    parameterName: string;
+    sourceField: string;
+  };
+  targetPageId?: string;
+  /** Restrict which table columns are clickable. Empty/undefined = all columns. */
+  clickableColumns?: string[];
+  /** Multi-rule support. When present, each rule is evaluated independently. */
+  rules?: ClickActionRule[];
 }
 
 // ─── Inferred types ──────────────────────────────────────────────────

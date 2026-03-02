@@ -82,18 +82,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/.next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'app/package-lock.json') }}
+          key: nextjs-e2e-cov-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'app/package-lock.json') }}
           restore-keys: |
-            nextjs-${{ runner.os }}-
+            nextjs-e2e-cov-${{ runner.os }}-
 
       # ── Build Next.js ─────────────────────────────────────────────────────────
       # Pre-build the production bundle so globalSetup can start `next start`
       # after writing .env.local with the correct Testcontainer ports.
+      # E2E_COVERAGE must be set at build time so next.config.ts enables
+      # productionBrowserSourceMaps — without source maps, nextcov cannot map
+      # V8 coverage back to source files.
       - name: Build Next.js
         working-directory: app
         run: npx next build
         env:
           CI: true
+          E2E_COVERAGE: "1"
 
       # ── Run tests ────────────────────────────────────────────────────────────
       # globalSetup starts postgres + neo4j via Testcontainers (images are

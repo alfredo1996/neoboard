@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
+import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -37,6 +38,8 @@ interface DashboardContainerProps {
   onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
   /** TanStack Query refetchInterval — periodically re-executes all widget queries. */
   refetchInterval?: number | false;
+  /** Called when a click action navigates to a different page. */
+  onNavigateToPage?: (pageId: string) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -56,6 +59,7 @@ export function DashboardContainer({
   onLayoutChange,
   onWidgetSettingsChange,
   refetchInterval,
+  onNavigateToPage,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -134,7 +138,7 @@ export function DashboardContainer({
         {page.widgets.map((widget) => (
           <div key={widget.id} data-testid="widget-card">
             <WidgetCard
-              title={getWidgetTitle(widget)}
+              title={interpolateTitle(getWidgetTitle(widget), parameters)}
               subtitle={undefined}
               className="h-full"
               draggable={editable}
@@ -160,6 +164,7 @@ export function DashboardContainer({
                     : undefined
                 }
                 refetchInterval={refetchInterval}
+                onNavigateToPage={onNavigateToPage}
               />
             </WidgetCard>
           </div>
@@ -176,10 +181,10 @@ export function DashboardContainer({
           {fullscreenWidget && (
             <>
               <h2 className="text-lg font-semibold mb-2">
-                {getWidgetTitle(fullscreenWidget)}
+                {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
               </h2>
               <div className="flex-1 min-h-0">
-                <CardContainer widget={fullscreenWidget} refetchInterval={refetchInterval} />
+                <CardContainer widget={fullscreenWidget} refetchInterval={refetchInterval} onNavigateToPage={onNavigateToPage} />
               </div>
             </>
           )}

@@ -40,38 +40,43 @@ export interface QueryEditorProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Load the CodeMirror language extension for the given language name.
+ * Returns an array of extensions (empty for Cypher/plain text).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
+async function loadLanguageExt(language: string): Promise<any[]> {
+  const lang = (language ?? "cypher").toLowerCase();
+  if (lang === "sql" || lang === "postgresql") {
+    const { sql } = await import("@codemirror/lang-sql");
+    return [sql()];
+  }
+  // Cypher: no first-party CM6 package on npm — plain text for now.
+  return [];
+}
+
 async function buildExtensions(
-  language: string,
   placeholder: string,
-  readOnly: boolean,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM extension type is complex
   onUpdate: (newValue: string) => void,
-  onRun: () => void
+  onRun: () => void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  langCompartmentExt: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  readOnlyCompartmentExt: any,
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
-    { EditorState },
     { defaultKeymap, historyKeymap, history: historyExt },
     { autocompletion, completionKeymap },
     { oneDark },
   ] = await Promise.all([
     import("@codemirror/view"),
-    import("@codemirror/state"),
     import("@codemirror/commands"),
     import("@codemirror/autocomplete"),
     import("@codemirror/theme-one-dark"),
   ]);
-
-  // Language
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
-  const langExts: any[] = [];
-  const lang = (language ?? "cypher").toLowerCase();
-  if (lang === "sql" || lang === "postgresql") {
-    const { sql } = await import("@codemirror/lang-sql");
-    langExts.push(sql());
-  }
-  // Cypher: no first-party CM6 package on npm — plain text for now.
 
   // Cmd/Ctrl+Enter → run
   const runKeymap = keymap.of([
@@ -109,13 +114,13 @@ async function buildExtensions(
     historyExt(),
     keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
     runKeymap,
-    ...langExts,
+    langCompartmentExt,
     autocompletion(),
     cmPlaceholder(placeholder),
     oneDark,
     baseTheme,
     updateListener,
-    EditorState.readOnly.of(readOnly),
+    readOnlyCompartmentExt,
   ];
 }
 
@@ -145,22 +150,40 @@ function QueryEditor({
   // programmatically pushing a value into the editor.
   const suppressUpdate = React.useRef(false);
 
-  // Keep the latest callbacks in refs so the stable closures passed to CM
-  // always call the current function.
+  // Keep the latest callbacks and prop values in refs so the async initEditor
+  // closure always reads the current values when it finishes initialising.
   const onChangeRef = React.useRef(onChange);
   const onRunRef = React.useRef(onRun);
   const runningRef = React.useRef(running);
   const currentValueRef = React.useRef(currentValue);
+  // language and readOnly can change while initEditor is still awaiting module
+  // imports. Track them in refs so initEditor picks up the latest values when
+  // it creates the editor, preventing a readOnly-stuck-on-true race condition.
+  const languageRef = React.useRef(language);
+  const readOnlyRef = React.useRef(readOnly);
   React.useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   React.useEffect(() => { onRunRef.current = onRun; }, [onRun]);
   React.useEffect(() => { runningRef.current = running; }, [running]);
   React.useEffect(() => { currentValueRef.current = currentValue; }, [currentValue]);
+  React.useEffect(() => { languageRef.current = language; }, [language]);
+  React.useEffect(() => { readOnlyRef.current = readOnly; }, [readOnly]);
 
   // Whether the component is in "controlled" mode (value prop provided)
   const isControlled = value !== undefined;
 
+  // Compartment refs — used to reconfigure language and readOnly in-place
+  // without destroying and re-creating the editor.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  const languageCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  const readOnlyCompartmentRef = React.useRef<any>(null);
+  // Cache EditorState after first load so the readOnly effect can reconfigure
+  // the compartment synchronously (no extra async import tick).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
+  const editorStateRef = React.useRef<any>(null);
+
   // -------------------------------------------------------------------------
-  // Create / recreate the CodeMirror editor
+  // Create the CodeMirror editor (runs once on mount)
   // -------------------------------------------------------------------------
   const initEditor = React.useCallback(
     async (docValue: string, abortSignal: { aborted: boolean }) => {
@@ -176,10 +199,29 @@ function QueryEditor({
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
 
-      const { EditorView } = await import("@codemirror/view");
-      const { EditorState } = await import("@codemirror/state");
+      const [
+        { EditorView },
+        { EditorState, Compartment },
+      ] = await Promise.all([
+        import("@codemirror/view"),
+        import("@codemirror/state"),
+      ]);
 
       // Guard: a newer initEditor call may have superseded this one.
+      if (abortSignal.aborted) return;
+
+      // Cache EditorState for synchronous readOnly reconfiguration later.
+      editorStateRef.current = EditorState;
+
+      // Create compartments for in-place reconfiguration of language and readOnly.
+      const langCompartment = new Compartment();
+      const readOnlyCompartment = new Compartment();
+      languageCompartmentRef.current = langCompartment;
+      readOnlyCompartmentRef.current = readOnlyCompartment;
+
+      // Read the latest language/readOnly via refs — they may have changed
+      // while we were awaiting the module imports above.
+      const langExts = await loadLanguageExt(languageRef.current);
       if (abortSignal.aborted) return;
 
       const onUpdate = (newValue: string) => {
@@ -196,11 +238,11 @@ function QueryEditor({
       };
 
       const extensions = await buildExtensions(
-        language,
         placeholder,
-        readOnly,
         onUpdate,
-        onRunCallback
+        onRunCallback,
+        langCompartment.of(langExts),
+        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current))
       );
 
       // Guard again after the second batch of dynamic imports.
@@ -219,9 +261,10 @@ function QueryEditor({
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
     },
-    // Recreate when these change
+    // language and readOnly are captured at mount time; changes after mount
+    // are handled by the compartment effects below (no remount needed).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [language, readOnly, placeholder]
+    [placeholder]
   );
 
   // Initial mount
@@ -232,9 +275,6 @@ function QueryEditor({
       abortSignal.aborted = true;
       viewRef.current?.destroy();
       viewRef.current = null;
-      // Reset so the reinit effect skips on the next mount (React 19
-      // strict mode: mount → cleanup → mount).
-      isFirstRender.current = true;
       // Clear leftover DOM children to prevent duplicate editors.
       if (containerRef.current) {
         while (containerRef.current.firstChild) {
@@ -242,32 +282,37 @@ function QueryEditor({
         }
       }
     };
-    // Only runs once; language/schema changes are handled by the next effect.
+    // Only runs once; language/readOnly changes are handled by compartment effects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recreate editor when language / readOnly / schema change (after mount)
-  const isFirstRender = React.useRef(true);
+  // Language: async reconfigure in place (no editor remount)
   React.useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    // Preserve current document content across reinit
-    const doc = viewRef.current?.state.doc.toString() ?? currentValueRef.current;
-    const abortSignal = { aborted: false };
-    initEditor(doc, abortSignal);
-    return () => {
-      abortSignal.aborted = true;
-      // Clear leftover DOM children to prevent duplicate editors
-      if (containerRef.current) {
-        while (containerRef.current.firstChild) {
-          containerRef.current.removeChild(containerRef.current.firstChild);
-        }
+    const view = viewRef.current;
+    const compartment = languageCompartmentRef.current;
+    if (!view || !compartment) return;
+    let cancelled = false;
+    loadLanguageExt(language).then((exts) => {
+      if (!cancelled && viewRef.current) {
+        viewRef.current.dispatch({ effects: compartment.reconfigure(exts) });
       }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, readOnly]);
+    });
+    return () => { cancelled = true; };
+  }, [language]);
+
+  // readOnly: synchronous reconfigure in place (no editor remount).
+  // Uses the cached EditorState ref (populated by initEditor) to avoid an
+  // extra async import tick that would leave the editor writable/read-only
+  // for one event-loop tick after a connection is selected.
+  React.useEffect(() => {
+    const view = viewRef.current;
+    const compartment = readOnlyCompartmentRef.current;
+    const EditorState = editorStateRef.current;
+    if (!view || !compartment || !EditorState) return;
+    view.dispatch({
+      effects: compartment.reconfigure(EditorState.readOnly.of(readOnly)),
+    });
+  }, [readOnly]);
 
   // -------------------------------------------------------------------------
   // Sync controlled `value` into the editor when it changes externally

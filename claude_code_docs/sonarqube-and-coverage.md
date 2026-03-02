@@ -114,11 +114,11 @@ sonar.exclusions=**/node_modules/**,**/__tests__/**,**/*.test.ts,...
 Workflow: `.github/workflows/sonarqube.yml`
 SonarCloud project: **alfredo1996_neoboard** / org: **alfredo1996**
 
-Triggers on push to `main` or `dev`, and PRs targeting `main` or `dev`. Steps:
-1. Checks out with `fetch-depth: 0` (needed for new code detection and blame)
-2. Starts Postgres + Neo4j service containers for connection integration tests
-3. Runs `test:coverage` for all three packages (serially)
-4. Runs `SonarSource/sonarcloud-github-action@v3`
+Triggers on push to `main` or `dev`, and PRs targeting `main` or `dev`. Three jobs:
+
+1. **unit-tests** — Starts Postgres + Neo4j service containers, runs `test:coverage` for all three packages, uploads lcov artifacts
+2. **e2e** — Builds Next.js with `E2E_COVERAGE=1`, runs Playwright tests with coverage, uploads `app/coverage-e2e/lcov.info`
+3. **sonar-scan** — Downloads both coverage artifacts, runs `SonarSource/sonarcloud-github-action@v3`
 
 `GITHUB_TOKEN` is automatic — PR decoration (inline issues, Quality Gate badge) works out of the box.
 
@@ -190,10 +190,20 @@ Playwright E2E tests collect V8 code coverage via [nextcov](https://github.com/s
 4. `global-teardown.ts` calls `finalizeCoverage()` to process and write reports
 5. Output is written to `app/coverage-e2e/` (lcov, json, text-summary)
 
+### Critical: E2E_COVERAGE must be set at build time
+
+`E2E_COVERAGE=1` must be set on **both** the `next build` step **and** the `playwright test` step:
+
+- **Build time**: `next.config.ts` reads `E2E_COVERAGE` to enable `productionBrowserSourceMaps: true` and `devtool: "source-map"`. Without source maps baked into the production bundle, nextcov cannot map V8 coverage back to original source files — the lcov report will be empty/0%.
+- **Test time**: Playwright fixtures use `E2E_COVERAGE` to decide whether to collect CDP coverage data and call nextcov finalization.
+
+If you only set `E2E_COVERAGE=1` at test time (not build time), source maps won't exist and coverage will report 0% even though tests pass.
+
 ### CI integration
 
-- The **E2E Tests** workflow (`e2e-tests.yml`) runs with `E2E_COVERAGE=1` and uploads `app/coverage-e2e/` as an artifact
-- The **SonarCloud** workflow (`sonarqube.yml`) downloads that artifact so `app/coverage-e2e/lcov.info` is available during the scan
+- Both workflows (`e2e-tests.yml` and `sonarqube.yml`) set `E2E_COVERAGE: "1"` on the **Build Next.js** step and the **Run E2E tests** step
+- The build cache uses a separate key (`nextjs-e2e-cov-` / `nextjs-sonar-cov-`) to prevent stale non-coverage builds from being reused
+- The **SonarCloud** workflow downloads the E2E coverage artifact so `app/coverage-e2e/lcov.info` is available during the scan
 - SonarCloud merges both `app/coverage/lcov.info` (Vitest) and `app/coverage-e2e/lcov.info` (Playwright)
 
 ### Config
@@ -201,6 +211,15 @@ Playwright E2E tests collect V8 code coverage via [nextcov](https://github.com/s
 - `app/playwright.config.ts` exports a `nextcov` config object read by `loadNextcovConfig()`
 - `app/next.config.ts` enables full source maps when `E2E_COVERAGE` is set
 - `collectServer: false` — only client-side coverage is collected (dev mode, no CDP inspector)
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| `coverage-e2e/lcov.info` is empty or ~15KB | `E2E_COVERAGE=1` not set at build time | Add `E2E_COVERAGE: "1"` to the `next build` step env |
+| SonarCloud shows 0% on client components (`page.tsx`, `card-container.tsx`) | Stale build cache without source maps | Change the cache key to bust old builds |
+| Coverage works locally but not in CI | Local dev server has source maps by default; CI uses `next build` + `next start` | Ensure CI build step has `E2E_COVERAGE=1` |
+| "4 inconsistencies in coverage report" warning | Generated/barrel files in lcov but not indexed | Harmless; no action needed |
 
 ---
 

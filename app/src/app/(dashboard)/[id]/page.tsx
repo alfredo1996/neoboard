@@ -73,13 +73,17 @@ export default function DashboardViewerPage({
     () => new Set([0])
   );
 
-  function handleSelectPage(index: number) {
+  function markVisited(index: number) {
     setVisitedPages((prev) => {
       if (prev.has(index)) return prev;
       const next = new Set(prev);
       next.add(index);
       return next;
     });
+  }
+
+  function handleSelectPage(index: number) {
+    markVisited(index);
     setActivePageIndex(index);
   }
   const [isPending, startTransition] = useTransition();
@@ -148,6 +152,18 @@ export default function DashboardViewerPage({
   const buttonLabel = countdown !== null
     ? `${intervalLabel} · ${formatCountdown(countdown)}`
     : intervalLabel;
+
+  const handleNavigateToPage = useCallback(
+    (pageId: string) => {
+      if (!layout) return;
+      const index = layout.pages.findIndex((p) => p.id === pageId);
+      if (index >= 0) {
+        markVisited(index);
+        setActivePageIndex(index);
+      }
+    },
+    [layout]
+  );
 
   if (isLoading) {
     return (
@@ -308,7 +324,7 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} refetchInterval={refetchInterval} />
+              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} />
             </div>
           );
         })}
