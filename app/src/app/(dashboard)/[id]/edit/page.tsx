@@ -168,7 +168,7 @@ export default function DashboardEditorPage({
       updateWidget(widget.id, widget);
     }
     queryClient.invalidateQueries({
-      queryKey: ["widget-query", widget.connectionId, widget.query],
+      queryKey: ["widget-query", widget.id],
     });
   }
 
@@ -290,6 +290,15 @@ export default function DashboardEditorPage({
             widget={editingWidget}
             connections={connections ?? []}
             onSave={handleEditorSave}
+            otherWidgets={
+              (layout.pages[activePageIndex]?.widgets ?? [])
+                .filter((w) => w.id !== editingWidget?.id)
+                .map((w) => ({
+                  id: w.id,
+                  title: (w.settings?.title as string) || "",
+                  chartType: w.chartType,
+                }))
+            }
           />
 
           <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">

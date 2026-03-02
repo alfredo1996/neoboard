@@ -101,7 +101,7 @@ export function CardContainer({
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime });
+  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, widgetId: widget.id });
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
@@ -207,7 +207,7 @@ export function CardContainer({
           <ChartRenderer
             type={chartConfig.type}
             data={null}
-            settings={chartOptions}
+            settings={widget.settings as Record<string, unknown>}
             connectionId={widget.connectionId}
             widgetId={widget.id}
             query={widget.query}

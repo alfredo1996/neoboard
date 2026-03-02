@@ -121,7 +121,7 @@ export function extractReferencedParams(
  */
 export function useWidgetQuery(
   input: WidgetQueryInput | null,
-  options?: { staleTime?: number }
+  options?: { staleTime?: number; widgetId?: string }
 ) {
   // Get parameters from store - using selector that returns stable value
   const parameters = useParameterStore((s) => s.parameters);
@@ -163,6 +163,7 @@ export function useWidgetQuery(
   const queryResult = useQuery<QueryResult, Error>({
     queryKey: [
       "widget-query",
+      options?.widgetId,
       mergedInput?.connectionId,
       mergedInput?.query,
       mergedInput?.params,

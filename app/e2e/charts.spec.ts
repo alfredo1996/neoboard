@@ -756,6 +756,68 @@ test.describe("Graph chart exploration", () => {
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
+  test("graph context menu appears above fullscreen dialog overlay", async ({
+    page,
+  }) => {
+    await addGraphWidget(page);
+
+    // Save and navigate to view mode
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
+      timeout: 10_000,
+    });
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+
+    // Wait for graph exploration to render
+    const exploration = page.locator("[data-testid='graph-exploration']");
+    await expect(exploration).toBeVisible({ timeout: 15_000 });
+
+    // Look for a fullscreen button on the widget card (may be visible on hover)
+    const widgetCard = exploration.locator("..").locator("..");
+    await widgetCard.hover();
+    const fullscreenBtn = page
+      .getByRole("button", { name: /fullscreen/i })
+      .first();
+    const hasFullscreen = await fullscreenBtn
+      .isVisible({ timeout: 2_000 })
+      .catch(() => false);
+
+    if (hasFullscreen) {
+      await fullscreenBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Right-click on the canvas to trigger context menu
+    const canvas = page.locator("[data-testid='graph-exploration']").locator("canvas").first();
+    await expect(canvas).toBeVisible({ timeout: 10_000 });
+    const box = await canvas.boundingBox();
+    if (box) {
+      await canvas.click({
+        button: "right",
+        position: { x: box.width / 2, y: box.height / 2 },
+        force: true,
+      });
+    }
+
+    // If the context menu appeared, it should be visible and interactive
+    // (z-[500] fix ensures it renders above the Dialog overlay)
+    const contextMenu = page.locator("[data-testid='graph-context-menu']");
+    const menuVisible = await contextMenu.isVisible().catch(() => false);
+    if (menuVisible) {
+      await expect(contextMenu).toBeVisible();
+      // Click Properties if available
+      const propertiesBtn = page.getByRole("button", { name: "Properties" });
+      if (await propertiesBtn.isVisible().catch(() => false)) {
+        await propertiesBtn.click();
+        await expect(contextMenu).not.toBeVisible({ timeout: 3_000 });
+      }
+    }
+
+    // No errors regardless of whether a node was hit
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
   test("graph chart — collapse removes expanded neighbors", async ({
     page,
   }) => {

@@ -707,9 +707,34 @@ function buildFormTesting(neo4jConnId, pgConnId) {
             chartType: "form",
             connectionId: neo4jConnId,
             query:
-              "CREATE (n:Feedback {author: $param_author, message: $param_message, rating: toInteger($param_rating)}) RETURN n.author AS author",
+              "CREATE (n:Feedback {author: $param_author, message: $param_message, rating: toInteger($param_rating_min)}) RETURN n.author AS author",
             settings: {
               title: "Submit Feedback",
+              formFields: [
+                {
+                  id: uuid(),
+                  label: "Author",
+                  parameterName: "author",
+                  parameterType: "text",
+                  placeholder: "Your name",
+                },
+                {
+                  id: uuid(),
+                  label: "Message",
+                  parameterName: "message",
+                  parameterType: "text",
+                  placeholder: "Your feedback...",
+                },
+                {
+                  id: uuid(),
+                  label: "Rating (1–5)",
+                  parameterName: "rating",
+                  parameterType: "number-range",
+                  rangeMin: 1,
+                  rangeMax: 5,
+                  rangeStep: 1,
+                },
+              ],
               chartOptions: {
                 submitButtonText: "Send Feedback",
                 successMessage: "Feedback submitted!",
@@ -722,9 +747,27 @@ function buildFormTesting(neo4jConnId, pgConnId) {
             chartType: "form",
             connectionId: neo4jConnId,
             query:
-              "CREATE (p:Person {name: $param_name, born: toInteger($param_born)}) RETURN p.name AS name",
+              "CREATE (p:Person {name: $param_name, born: toInteger($param_born_min)}) RETURN p.name AS name",
             settings: {
               title: "Add Person",
+              formFields: [
+                {
+                  id: uuid(),
+                  label: "Name",
+                  parameterName: "name",
+                  parameterType: "text",
+                  placeholder: "Full name",
+                },
+                {
+                  id: uuid(),
+                  label: "Born",
+                  parameterName: "born",
+                  parameterType: "number-range",
+                  rangeMin: 1900,
+                  rangeMax: 2010,
+                  rangeStep: 1,
+                },
+              ],
               chartOptions: {
                 submitButtonText: "Create Person",
                 successMessage: "Person created successfully!",
@@ -766,9 +809,34 @@ function buildFormTesting(neo4jConnId, pgConnId) {
             chartType: "form",
             connectionId: pgConnId,
             query:
-              "INSERT INTO movies (title, released, tagline) VALUES ($param_title, CAST($param_released AS INTEGER), $param_tagline) RETURNING title",
+              "INSERT INTO movies (title, released, tagline) VALUES ($param_title, CAST($param_released_min AS INTEGER), $param_tagline) RETURNING title",
             settings: {
               title: "Add Movie",
+              formFields: [
+                {
+                  id: uuid(),
+                  label: "Title",
+                  parameterName: "title",
+                  parameterType: "text",
+                  placeholder: "Movie title",
+                },
+                {
+                  id: uuid(),
+                  label: "Year Released",
+                  parameterName: "released",
+                  parameterType: "number-range",
+                  rangeMin: 1900,
+                  rangeMax: 2030,
+                  rangeStep: 1,
+                },
+                {
+                  id: uuid(),
+                  label: "Tagline",
+                  parameterName: "tagline",
+                  parameterType: "text",
+                  placeholder: "Tagline",
+                },
+              ],
               chartOptions: {
                 submitButtonText: "Insert Movie",
                 successMessage: "Movie added to the database!",
@@ -781,9 +849,27 @@ function buildFormTesting(neo4jConnId, pgConnId) {
             chartType: "form",
             connectionId: pgConnId,
             query:
-              "INSERT INTO people (name, born) VALUES ($param_name, CAST($param_born AS INTEGER)) RETURNING name",
+              "INSERT INTO people (name, born) VALUES ($param_name, CAST($param_born_min AS INTEGER)) RETURNING name",
             settings: {
               title: "Add Person",
+              formFields: [
+                {
+                  id: uuid(),
+                  label: "Name",
+                  parameterName: "name",
+                  parameterType: "text",
+                  placeholder: "Full name",
+                },
+                {
+                  id: uuid(),
+                  label: "Born",
+                  parameterName: "born",
+                  parameterType: "number-range",
+                  rangeMin: 1900,
+                  rangeMax: 2010,
+                  rangeStep: 1,
+                },
+              ],
               chartOptions: {
                 submitButtonText: "Insert Person",
                 successMessage: "Person added!",
