@@ -40,6 +40,8 @@ interface CardContainerProps {
    * The caller is responsible for persisting the updated settings.
    */
   onWidgetSettingsChange?: (settings: Record<string, unknown>) => void;
+  /** TanStack Query refetchInterval — periodically re-executes the widget query. */
+  refetchInterval?: number | false;
   /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
 }
@@ -70,6 +72,7 @@ export function CardContainer({
   previewResultId,
   isEditMode = false,
   onWidgetSettingsChange,
+  refetchInterval,
   onNavigateToPage,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
@@ -109,7 +112,7 @@ export function CardContainer({
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime });
+  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, refetchInterval });
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {

@@ -146,9 +146,15 @@ export interface DashboardPage {
   gridLayout: GridLayoutItem[];
 }
 
+export interface DashboardSettings {
+  autoRefresh?: boolean;
+  refreshIntervalSeconds?: number;
+}
+
 export interface DashboardLayoutV2 {
   version: 2;
   pages: DashboardPage[];
+  settings?: DashboardSettings;
 }
 
 /**

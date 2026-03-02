@@ -243,6 +243,32 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 400 when refreshIntervalSeconds is below 5", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const layout = {
+      version: 2,
+      pages: [{ id: "p1", title: "Page 1", widgets: [], gridLayout: [] }],
+      settings: { autoRefresh: true, refreshIntervalSeconds: 4 },
+    };
+    const res = await PUT(makeRequest({ layoutJson: layout }), makeParams("d1"));
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts refreshIntervalSeconds of 5 (minimum)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const layout = {
+      version: 2,
+      pages: [{ id: "p1", title: "Page 1", widgets: [], gridLayout: [] }],
+      settings: { autoRefresh: true, refreshIntervalSeconds: 5 },
+    };
+    const updated = { ...OWNER_DASHBOARD, layoutJson: layout };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const res = await PUT(makeRequest({ layoutJson: layout }), makeParams("d1"));
+    expect(res.status).toBe(200);
+  });
+
   it("updates layout with v2 pages schema", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
