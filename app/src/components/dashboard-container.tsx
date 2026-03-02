@@ -36,6 +36,8 @@ interface DashboardContainerProps {
    * The caller should persist the updated widget to the dashboard layout.
    */
   onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
+  /** TanStack Query refetchInterval — periodically re-executes all widget queries. */
+  refetchInterval?: number | false;
   /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
 }
@@ -56,6 +58,7 @@ export function DashboardContainer({
   onDuplicateWidget,
   onLayoutChange,
   onWidgetSettingsChange,
+  refetchInterval,
   onNavigateToPage,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
@@ -160,6 +163,7 @@ export function DashboardContainer({
                     ? (settings) => onWidgetSettingsChange(widget.id, settings)
                     : undefined
                 }
+                refetchInterval={refetchInterval}
                 onNavigateToPage={onNavigateToPage}
               />
             </WidgetCard>
@@ -180,7 +184,7 @@ export function DashboardContainer({
                 {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
               </h2>
               <div className="flex-1 min-h-0">
-                <CardContainer widget={fullscreenWidget} onNavigateToPage={onNavigateToPage} />
+                <CardContainer widget={fullscreenWidget} refetchInterval={refetchInterval} onNavigateToPage={onNavigateToPage} />
               </div>
             </>
           )}
