@@ -5,7 +5,7 @@ import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
-import { resolveClickAction } from "@/lib/resolve-click-action";
+import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import {
@@ -75,7 +75,7 @@ export function CardContainer({
   const chartConfig = getChartConfig(widget.chartType);
 
   function handleChartClick(point: Record<string, unknown>) {
-    const result = resolveClickAction(widget, point);
+    const result = resolveClickActions(widget, point);
     if (!result) return;
 
     if (result.setParameter) {
@@ -89,7 +89,9 @@ export function CardContainer({
       onNavigateToPage?.(result.navigateToPageId);
     }
   }
-  const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);
+  const clickAction = widget.settings?.clickAction as ClickAction | undefined;
+  const hasClickAction = !!clickAction;
+  const clickableColumns = deriveClickableColumns(clickAction);
 
   // Cache settings from widget config. Default: cache enabled, 5-min TTL.
   const enableCache = widget.settings?.enableCache !== false;
@@ -171,6 +173,7 @@ export function CardContainer({
             data={transformedData}
             settings={chartOptions}
             onChartClick={hasClickAction ? handleChartClick : undefined}
+            clickableColumns={clickableColumns}
             connectionId={widget.connectionId}
             widgetId={widget.id}
             resultId={previewResultId}
@@ -294,6 +297,7 @@ export function CardContainer({
           data={transformedData}
           settings={chartOptions}
           onChartClick={hasClickAction ? handleChartClick : undefined}
+          clickableColumns={clickableColumns}
           connectionId={widget.connectionId}
           widgetId={widget.id}
           resultId={widgetQuery.data.resultId}

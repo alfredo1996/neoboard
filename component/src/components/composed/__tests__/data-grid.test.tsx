@@ -181,20 +181,24 @@ describe("DataGrid", () => {
     expect(onSelectionChange).toHaveBeenCalledWith([data[0]]);
   });
 
-  it("applies cursor-pointer class to cells when onCellClick is provided", () => {
+  it("wraps clickable cells in a badge span when onCellClick is provided", () => {
     const { container } = render(
       <DataGrid columns={columns} data={data} onCellClick={() => {}} />
     );
     const tbody = container.querySelector("tbody");
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
     expect(cells.length).toBeGreaterThan(0);
-    // All data cells should have cursor-pointer
     for (const cell of cells) {
       expect(cell).toHaveClass("cursor-pointer");
+      // Badge span should wrap cell content
+      const badge = cell.querySelector("span");
+      expect(badge).toBeTruthy();
+      expect(badge).toHaveClass("text-primary");
+      expect(badge).toHaveClass("rounded-md");
     }
   });
 
-  it("does not apply cursor-pointer to cells when onCellClick is not provided", () => {
+  it("does not wrap cells in a badge span when onCellClick is not provided", () => {
     const { container } = render(
       <DataGrid columns={columns} data={data} />
     );
@@ -203,6 +207,93 @@ describe("DataGrid", () => {
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) {
       expect(cell).not.toHaveClass("cursor-pointer");
+      // No badge span wrapper
+      const badge = cell.querySelector("span.rounded-md");
+      expect(badge).toBeNull();
+    }
+  });
+
+  it("wraps only cells in clickableColumns with badge span", () => {
+    const { container } = render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        onCellClick={() => {}}
+        clickableColumns={["name"]}
+      />
+    );
+    const tbody = container.querySelector("tbody");
+    const rows = Array.from(tbody?.querySelectorAll("tr") ?? []);
+    for (const row of rows) {
+      const cells = Array.from(row.querySelectorAll("td"));
+      if (cells.length === 0) continue;
+      // First cell (name) should have badge span
+      expect(cells[0]).toHaveClass("cursor-pointer");
+      const badge0 = cells[0].querySelector("span.rounded-md");
+      expect(badge0).toBeTruthy();
+      expect(badge0).toHaveClass("text-primary");
+      // Other cells should NOT have badge span
+      expect(cells[1]).not.toHaveClass("cursor-pointer");
+      expect(cells[1].querySelector("span.rounded-md")).toBeNull();
+      expect(cells[2]).not.toHaveClass("cursor-pointer");
+      expect(cells[2].querySelector("span.rounded-md")).toBeNull();
+    }
+  });
+
+  it("does not fire onCellClick for cells outside clickableColumns", async () => {
+    const user = userEvent.setup();
+    const onCellClick = vi.fn();
+    render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        onCellClick={onCellClick}
+        clickableColumns={["name"]}
+      />
+    );
+    // Click email cell — should NOT trigger handler
+    await user.click(screen.getByText("alice@example.com"));
+    expect(onCellClick).not.toHaveBeenCalled();
+    // Click name cell — should trigger handler
+    await user.click(screen.getByText("Alice"));
+    expect(onCellClick).toHaveBeenCalledWith({ column: "name", value: "Alice" });
+  });
+
+  it("wraps all cells with badge span when clickableColumns is empty", () => {
+    const { container } = render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        onCellClick={() => {}}
+        clickableColumns={[]}
+      />
+    );
+    const tbody = container.querySelector("tbody");
+    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell).toHaveClass("cursor-pointer");
+      const badge = cell.querySelector("span.rounded-md");
+      expect(badge).toBeTruthy();
+      expect(badge).toHaveClass("text-primary");
+    }
+  });
+
+  it("wraps all cells with badge span when clickableColumns is undefined", () => {
+    const { container } = render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        onCellClick={() => {}}
+      />
+    );
+    const tbody = container.querySelector("tbody");
+    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell).toHaveClass("cursor-pointer");
+      const badge = cell.querySelector("span.rounded-md");
+      expect(badge).toBeTruthy();
     }
   });
 

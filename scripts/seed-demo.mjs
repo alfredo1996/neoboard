@@ -698,6 +698,11 @@ function buildClickActionDemo(neo4jConnId, pgConnId) {
   const page1Id = uuid();
   const page2Id = uuid();
   const page3Id = uuid();
+  const page4Id = uuid();
+  const page5Id = uuid();
+  const page6Id = uuid();
+  const page7Id = uuid();
+  const page8Id = uuid();
 
   return {
     version: 2,
@@ -717,10 +722,17 @@ function buildClickActionDemo(neo4jConnId, pgConnId) {
               title: "Click a movie title cell",
               clickAction: {
                 type: "set-parameter",
-                parameterMapping: {
-                  parameterName: "clicked_movie",
-                  sourceField: "",
-                },
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    triggerColumn: "title",
+                    parameterMapping: {
+                      parameterName: "clicked_movie",
+                      sourceField: "title",
+                    },
+                  },
+                ],
               },
             },
           },
@@ -763,10 +775,16 @@ function buildClickActionDemo(neo4jConnId, pgConnId) {
               title: "Click a decade bar",
               clickAction: {
                 type: "set-parameter",
-                parameterMapping: {
-                  parameterName: "clicked_decade",
-                  sourceField: "name",
-                },
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    parameterMapping: {
+                      parameterName: "clicked_decade",
+                      sourceField: "name",
+                    },
+                  },
+                ],
               },
             },
           },
@@ -800,11 +818,18 @@ function buildClickActionDemo(neo4jConnId, pgConnId) {
               title: "Click a title → navigate to Page 1 + set parameter",
               clickAction: {
                 type: "set-parameter-and-navigate",
-                parameterMapping: {
-                  parameterName: "clicked_movie",
-                  sourceField: "",
-                },
-                targetPageId: page1Id,
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter-and-navigate",
+                    triggerColumn: "title",
+                    parameterMapping: {
+                      parameterName: "clicked_movie",
+                      sourceField: "title",
+                    },
+                    targetPageId: page1Id,
+                  },
+                ],
               },
             },
           },
@@ -818,7 +843,13 @@ function buildClickActionDemo(neo4jConnId, pgConnId) {
               title: "Click a slice → navigate to Bar page",
               clickAction: {
                 type: "navigate-to-page",
-                targetPageId: page2Id,
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "navigate-to-page",
+                    targetPageId: page2Id,
+                  },
+                ],
               },
             },
           },
@@ -826,6 +857,286 @@ function buildClickActionDemo(neo4jConnId, pgConnId) {
         gridLayout: [
           { i: null, x: 0, y: 0, w: 7, h: 4 },
           { i: null, x: 7, y: 0, w: 5, h: 4 },
+        ],
+      },
+
+      // ── Page 4: Multi-Rule Table (Neo4j) ──
+      // Demonstrates multiple action rules on a single table widget:
+      // - Clicking "title" column → sets param_movie
+      // - Clicking "released" column → sets param_year
+      {
+        id: page4Id,
+        title: "Multi-Rule Table",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN m.title AS title, m.released AS released, m.tagline AS tagline ORDER BY m.released DESC LIMIT 25",
+            settings: {
+              title: "Click title or released column",
+              clickAction: {
+                type: "set-parameter",
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    triggerColumn: "title",
+                    parameterMapping: {
+                      parameterName: "movie",
+                      sourceField: "title",
+                    },
+                  },
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    triggerColumn: "released",
+                    parameterMapping: {
+                      parameterName: "year",
+                      sourceField: "released",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WHERE m.title = $param_movie RETURN p.name AS name, type(r) AS role",
+            settings: { title: "Cast & Crew — $param_movie" },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) WHERE m.released = toInteger($param_year) RETURN m.title AS title, m.released AS released, m.tagline AS tagline ORDER BY m.title",
+            settings: { title: "Movies released in $param_year" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 5, h: 4 },
+          { i: null, x: 5, y: 0, w: 7, h: 4 },
+          { i: null, x: 0, y: 4, w: 12, h: 3 },
+        ],
+      },
+
+      // ── Page 5: PG — Cell Click → Parameter ──
+      {
+        id: page5Id,
+        title: "PG — Cell Click → Parameter",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT title, released FROM movies ORDER BY released DESC LIMIT 20",
+            settings: {
+              title: "Click a movie title cell",
+              clickAction: {
+                type: "set-parameter",
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    triggerColumn: "title",
+                    parameterMapping: {
+                      parameterName: "pg_clicked_movie",
+                      sourceField: "title",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: pgConnId,
+            query:
+              "SELECT p.name, r.relationship AS role FROM roles r JOIN people p ON r.person_id = p.id JOIN movies m ON r.movie_id = m.id WHERE m.title = $param_pg_clicked_movie",
+            settings: { title: "Cast & Crew — $param_pg_clicked_movie" },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT p.name AS person, r.relationship, r.roles FROM roles r JOIN people p ON r.person_id = p.id JOIN movies m ON r.movie_id = m.id WHERE m.title = $param_pg_clicked_movie",
+            settings: { title: "Details" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 5, h: 4 },
+          { i: null, x: 5, y: 0, w: 7, h: 4 },
+          { i: null, x: 0, y: 4, w: 12, h: 3 },
+        ],
+      },
+
+      // ── Page 6: PG — Bar Click → Parameter ──
+      {
+        id: page6Id,
+        title: "PG — Bar Click → Parameter",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: pgConnId,
+            query:
+              "SELECT (released / 10) * 10 AS decade, count(*) AS count FROM movies GROUP BY decade ORDER BY decade",
+            settings: {
+              title: "Click a decade bar",
+              clickAction: {
+                type: "set-parameter",
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    parameterMapping: {
+                      parameterName: "pg_clicked_decade",
+                      sourceField: "name",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT title, released AS year FROM movies WHERE (released / 10) * 10 = $param_pg_clicked_decade::INTEGER ORDER BY released",
+            settings: { title: "Movies in decade $param_pg_clicked_decade" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 4 },
+          { i: null, x: 6, y: 0, w: 6, h: 4 },
+        ],
+      },
+
+      // ── Page 7: PG — Navigate to Page ──
+      {
+        id: page7Id,
+        title: "PG — Navigate to Page",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT title, released, tagline FROM movies ORDER BY title LIMIT 15",
+            settings: {
+              title: "Click title → navigate to PG Cell Click page",
+              clickAction: {
+                type: "set-parameter-and-navigate",
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter-and-navigate",
+                    triggerColumn: "title",
+                    parameterMapping: {
+                      parameterName: "pg_clicked_movie",
+                      sourceField: "title",
+                    },
+                    targetPageId: page5Id,
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "pie",
+            connectionId: pgConnId,
+            query:
+              "SELECT relationship AS type, count(*) AS count FROM roles GROUP BY relationship",
+            settings: {
+              title: "Click a slice → navigate to Bar page",
+              clickAction: {
+                type: "navigate-to-page",
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "navigate-to-page",
+                    targetPageId: page6Id,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 7, h: 4 },
+          { i: null, x: 7, y: 0, w: 5, h: 4 },
+        ],
+      },
+
+      // ── Page 8: PG — Multi-Rule Table ──
+      {
+        id: page8Id,
+        title: "PG — Multi-Rule Table",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT title, released, tagline FROM movies ORDER BY released DESC LIMIT 25",
+            settings: {
+              title: "Click title or released column",
+              clickAction: {
+                type: "set-parameter",
+                rules: [
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    triggerColumn: "title",
+                    parameterMapping: {
+                      parameterName: "pg_movie",
+                      sourceField: "title",
+                    },
+                  },
+                  {
+                    id: uuid(),
+                    type: "set-parameter",
+                    triggerColumn: "released",
+                    parameterMapping: {
+                      parameterName: "pg_year",
+                      sourceField: "released",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: pgConnId,
+            query:
+              "SELECT p.name, r.relationship AS role FROM roles r JOIN people p ON r.person_id = p.id JOIN movies m ON r.movie_id = m.id WHERE m.title = $param_pg_movie",
+            settings: { title: "Cast & Crew — $param_pg_movie" },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT title, released, tagline FROM movies WHERE released = $param_pg_year::INTEGER ORDER BY title",
+            settings: { title: "Movies released in $param_pg_year" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 5, h: 4 },
+          { i: null, x: 5, y: 0, w: 7, h: 4 },
+          { i: null, x: 0, y: 4, w: 12, h: 3 },
         ],
       },
     ],
@@ -940,7 +1251,7 @@ async function main() {
       sql,
       adminId,
       "Click Actions",
-      "Cell-click sets parameters, bar-click sets parameters, and page navigation via click actions.",
+      "Cell-click, bar-click, page navigation, and multi-rule table actions. All rules are editable and deletable.",
       clickLayout,
       true
     );

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
+import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -134,7 +135,7 @@ export function DashboardContainer({
         {page.widgets.map((widget) => (
           <div key={widget.id} data-testid="widget-card">
             <WidgetCard
-              title={getWidgetTitle(widget)}
+              title={interpolateTitle(getWidgetTitle(widget), parameters)}
               subtitle={undefined}
               className="h-full"
               draggable={editable}
@@ -176,7 +177,7 @@ export function DashboardContainer({
           {fullscreenWidget && (
             <>
               <h2 className="text-lg font-semibold mb-2">
-                {getWidgetTitle(fullscreenWidget)}
+                {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
               </h2>
               <div className="flex-1 min-h-0">
                 <CardContainer widget={fullscreenWidget} onNavigateToPage={onNavigateToPage} />

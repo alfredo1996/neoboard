@@ -66,6 +66,12 @@ vi.mock("@codemirror/state", () => ({
     create: (config: unknown) => ({ type: "state", config }),
     readOnly: { of: (v: boolean) => ({ type: "readOnly", value: v }) },
   },
+  Compartment: class MockCompartment {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    of(ext: any) { return { type: "compartment.of", ext }; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    reconfigure(ext: any) { return { type: "compartment.reconfigure", ext }; }
+  },
 }));
 
 vi.mock("@codemirror/commands", () => ({
@@ -242,16 +248,19 @@ describe("QueryEditor", () => {
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — language switching", () => {
-  it("reinitialises editor (destroys old view) when language prop changes", async () => {
+  it("reconfigures language compartment when language prop changes (no remount)", async () => {
     const { rerender } = render(<QueryEditor language="cypher" />);
     await flushAsync();
+    mockDispatch.mockClear();
     mockDestroy.mockClear();
 
     rerender(<QueryEditor language="sql" />);
     await flushAsync();
 
-    // The old view must have been destroyed on reinit
-    expect(mockDestroy).toHaveBeenCalled();
+    // With Compartments, the editor dispatches a reconfigure effect in place.
+    // The old view must NOT be destroyed (no remount).
+    expect(mockDispatch).toHaveBeenCalled();
+    expect(mockDestroy).not.toHaveBeenCalled();
     expect(screen.getByText("SQL")).toBeInTheDocument();
   });
 });

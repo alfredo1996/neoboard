@@ -3,10 +3,10 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import type { DashboardWidget, DashboardLayoutV2, ClickAction } from "@/lib/db/schema";
+import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { collectParameterNames } from "@/lib/collect-parameter-names";
-import { AlertCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Play } from "lucide-react";
 import {
   ChartOptionsPanel,
   ChartSettingsPanel,
@@ -23,17 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Checkbox,
-  CreatableCombobox,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   chartRegistry,
+  chartSupportsClickAction,
 } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
 import { useParameterValues } from "@/stores/parameter-store";
@@ -50,6 +45,7 @@ import {
 } from "./widget-editor/parameter-config-section";
 import type { ParamUIType, DateSubType } from "./widget-editor/parameter-config-section";
 import { ParameterPreview } from "./widget-editor/parameter-preview";
+import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -104,6 +100,13 @@ export function WidgetEditorModal({
   const [targetPageId, setTargetPageId] = useState(
     existingClickAction?.targetPageId ?? ""
   );
+  const [clickableColumns, setClickableColumns] = useState<string[]>(
+    existingClickAction?.clickableColumns ?? []
+  );
+  const [actionRules, setActionRules] = useState<ClickActionRule[]>(
+    existingClickAction?.rules ?? []
+  );
+  const [dialogStep, setDialogStep] = useState<"main" | "rules">("main");
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -194,6 +197,10 @@ export function WidgetEditorModal({
       if (mode === "edit") {
         setChartOptions(getDefaultChartSettings(t));
       }
+      // Auto-disable click action when switching to an unsupported type
+      if (!chartSupportsClickAction(t)) {
+        setClickActionEnabled(false);
+      }
     },
     [mode]
   );
@@ -212,6 +219,7 @@ export function WidgetEditorModal({
         setParameterName("");
         setSourceField("");
         setTargetPageId("");
+        setClickableColumns([]);
         setEnableCache(true);
         setCacheTtlMinutes(5);
         setConnectorChanged(false);
@@ -219,6 +227,8 @@ export function WidgetEditorModal({
         setDateSub("single");
         setMultiSelect(false);
         setParamWidgetName("");
+        setActionRules([]);
+        setDialogStep("main");
         seedQueryExecution.reset();
         previewQuery.reset();
       } else if (widget) {
@@ -236,6 +246,9 @@ export function WidgetEditorModal({
         setParameterName(ca?.parameterMapping?.parameterName ?? "");
         setSourceField(ca?.parameterMapping?.sourceField ?? "");
         setTargetPageId(ca?.targetPageId ?? "");
+        setClickableColumns(ca?.clickableColumns ?? []);
+        setActionRules(ca?.rules ?? []);
+        setDialogStep("main");
         setEnableCache(widget.settings?.enableCache !== false);
         setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
         setConnectorChanged(false);
@@ -272,7 +285,7 @@ export function WidgetEditorModal({
 
   // Build click action from current editor state
   const buildClickAction = useCallback((): ClickAction | undefined => {
-    if (!clickActionEnabled || chartType === "parameter-select") return undefined;
+    if (!clickActionEnabled || !chartSupportsClickAction(chartType)) return undefined;
     const needsParam = clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate";
     const needsPage = clickActionType === "navigate-to-page" || clickActionType === "set-parameter-and-navigate";
     const trimmedParamName = parameterName.trim();
@@ -289,11 +302,13 @@ export function WidgetEditorModal({
       if (!validPageIds.has(trimmedTargetPageId)) return undefined;
     }
     return {
-      type: clickActionType,
-      ...(needsParam ? { parameterMapping: { parameterName: trimmedParamName, sourceField: resolvedSourceField } } : {}),
-      ...(needsPage ? { targetPageId: trimmedTargetPageId } : {}),
+      type: actionRules.length > 0 ? actionRules[0].type : clickActionType,
+      ...(needsParam && actionRules.length === 0 ? { parameterMapping: { parameterName: trimmedParamName, sourceField: resolvedSourceField } } : {}),
+      ...(needsPage && actionRules.length === 0 ? { targetPageId: trimmedTargetPageId } : {}),
+      ...(chartType === "table" && clickableColumns.length > 0 && actionRules.length === 0 ? { clickableColumns } : {}),
+      ...(actionRules.length > 0 ? { rules: actionRules } : {}),
     };
-  }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId, layout]);
+  }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId, layout, clickableColumns, actionRules]);
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
@@ -428,6 +443,18 @@ export function WidgetEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="full" className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden">
+        {dialogStep === "rules" ? (
+          <ActionRulesEditor
+            rules={actionRules}
+            onRulesChange={setActionRules}
+            onBack={() => setDialogStep("main")}
+            chartType={chartType}
+            availableFields={availableFields}
+            parameterSuggestions={parameterSuggestions}
+            pages={(layout?.pages ?? []).map((p) => ({ id: p.id, title: p.title }))}
+          />
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle>
             {mode === "edit" ? "Edit Widget" : "Add Widget"}
@@ -557,7 +584,8 @@ export function WidgetEditorModal({
                       )}
                     </div>
 
-                    {/* Interactivity */}
+                    {/* Interactivity — hidden for chart types that don't support click actions */}
+                    {chartSupportsClickAction(chartType) && (
                     <div className="space-y-4 border-t pt-4">
                       <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
                         Interactivity
@@ -574,103 +602,18 @@ export function WidgetEditorModal({
                       </div>
                       {clickActionEnabled && (
                         <div className="space-y-3 pl-6">
-                          {/* Action type */}
-                          <div className="space-y-1.5">
-                            <Label htmlFor="click-action-type">Action Type</Label>
-                            <Select value={clickActionType} onValueChange={(v) => setClickActionType(v as ClickAction["type"])}>
-                              <SelectTrigger id="click-action-type" aria-label="Action Type">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="set-parameter">Set Parameter</SelectItem>
-                                <SelectItem value="navigate-to-page">Navigate to Page</SelectItem>
-                                <SelectItem value="set-parameter-and-navigate">Set Parameter &amp; Navigate</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Parameter name — shown for set-parameter types */}
-                          {(clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate") && (
-                            <div className="space-y-1.5">
-                              <Label htmlFor="param-name">Parameter Name</Label>
-                              <CreatableCombobox
-                                id="param-name"
-                                suggestions={parameterSuggestions}
-                                value={parameterName}
-                                onChange={setParameterName}
-                                placeholder={`param_${(title || chartType).toLowerCase().replace(/\s+/g, "_")}`}
-                              />
-                              <p className="text-xs text-muted-foreground">
-                                Other widgets can reference this as <code>$param_{parameterName || "name"}</code> in their queries.
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Source field — shown for set-parameter types, hidden for tables */}
-                          {(clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate") && chartType !== "table" && (
-                            <div className="space-y-1.5">
-                              <Label htmlFor="source-field">Source Field</Label>
-                              {availableFields.length > 0 ? (
-                                <Select value={sourceField} onValueChange={setSourceField}>
-                                  <SelectTrigger id="source-field" aria-label="Source Field">
-                                    <SelectValue placeholder="Select a field..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableFields.map((f) => (
-                                      <SelectItem key={f} value={f}>
-                                        {f}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Input
-                                  id="source-field"
-                                  value={sourceField}
-                                  onChange={(e) => setSourceField(e.target.value)}
-                                  placeholder="name"
-                                />
-                              )}
-                              <p className="text-xs text-muted-foreground">
-                                The data field whose value is sent when a chart element is clicked.
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Table cell-click info */}
-                          {(clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate") && chartType === "table" && (
-                            <p className="text-xs text-muted-foreground">
-                              Tables use cell-click: the clicked cell&apos;s value is sent directly as the parameter value.
-                            </p>
-                          )}
-
-                          {/* Target page — shown for navigate types */}
-                          {(clickActionType === "navigate-to-page" || clickActionType === "set-parameter-and-navigate") && (
-                            <div className="space-y-1.5">
-                              <Label htmlFor="target-page">Target Page</Label>
-                              {layout && layout.pages.length > 1 ? (
-                                <Select value={targetPageId} onValueChange={setTargetPageId}>
-                                  <SelectTrigger id="target-page" aria-label="Target Page">
-                                    <SelectValue placeholder="Select a page..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {layout.pages.map((p) => (
-                                      <SelectItem key={p.id} value={p.id}>
-                                        {p.title}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <p className="text-xs text-muted-foreground">
-                                  Add more pages to the dashboard to enable navigation.
-                                </p>
-                              )}
-                            </div>
-                          )}
+                          <p className="text-sm text-muted-foreground">
+                            {actionRules.length === 0
+                              ? "No action rules configured."
+                              : `${actionRules.length} action rule(s) configured.`}
+                          </p>
+                          <Button variant="outline" size="sm" onClick={() => setDialogStep("rules")}>
+                            Manage Action Rules
+                          </Button>
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
                 )
               }
@@ -679,7 +622,24 @@ export function WidgetEditorModal({
 
           {/* Right column: preview */}
           <div className="flex flex-col gap-2">
-            <Label className="mb-0">Preview</Label>
+            <div className="flex items-center justify-between">
+              <Label className="mb-0">Preview</Label>
+              {!isParamSelect && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreview}
+                  disabled={!connectionId || !query.trim() || previewQuery.isPending}
+                >
+                  {previewQuery.isPending ? (
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
+                  ) : (
+                    <Play className="h-3 w-3 mr-1.5" />
+                  )}
+                  Run
+                </Button>
+              )}
+            </div>
             {!isParamSelect && previewQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertCircle className="h-4 w-4" />
@@ -761,6 +721,8 @@ export function WidgetEditorModal({
                 : "Add Widget"}
           </LoadingButton>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -78,6 +78,8 @@ export interface DataGridProps<TData> {
    */
   containerHeight?: number;
   onCellClick?: (info: { column: string; value: unknown }) => void;
+  /** Restrict which columns are clickable. Empty/undefined = all columns. */
+  clickableColumns?: string[];
   onSelectionChange?: (selectedRows: TData[]) => void;
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
@@ -95,6 +97,7 @@ function DataGrid<TData>({
   pageSize = 10,
   containerHeight,
   onCellClick,
+  clickableColumns,
   onSelectionChange,
   toolbar,
   pagination,
@@ -228,17 +231,24 @@ function DataGrid<TData>({
                 >
                   {row.getVisibleCells().map((cell) => {
                     const isDataCell = cell.column.id !== "select";
-                    const cellClickable = onCellClick && isDataCell;
+                    const isInClickableColumns = !clickableColumns?.length || clickableColumns.includes(cell.column.id);
+                    const cellClickable = onCellClick && isDataCell && isInClickableColumns;
                     return (
                     <TableCell
                       key={cell.id}
-                      className={cellClickable ? "cursor-pointer hover:bg-muted/50" : undefined}
+                      className={cellClickable ? "cursor-pointer" : undefined}
                       onClick={cellClickable ? (e) => {
                         e.stopPropagation();
                         onCellClick({ column: cell.column.id, value: cell.getValue() });
                       } : undefined}
                     >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {cellClickable ? (
+                        <span className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 text-primary hover:bg-primary/15 transition-colors">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </span>
+                      ) : (
+                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                      )}
                     </TableCell>
                     );
                   })}
