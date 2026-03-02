@@ -66,6 +66,8 @@ export interface ChartRendererProps {
   data: unknown;
   settings?: Record<string, unknown>;
   onChartClick?: (point: Record<string, unknown>) => void;
+  /** Restrict which table columns are clickable. Only applies to table type. */
+  clickableColumns?: string[];
   connectionId?: string;
   widgetId?: string;
   resultId?: string;
@@ -75,7 +77,7 @@ export interface ChartRendererProps {
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, connectionId, widgetId, resultId }: ChartRendererProps) {
+export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId }: ChartRendererProps) {
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
     return (e: EChartsClickEvent) =>
@@ -192,7 +194,14 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, connect
     }
 
     case "table":
-      return <TableRenderer data={data} settings={settings} onRowClick={onChartClick} />;
+      return (
+        <TableRenderer
+          data={data}
+          settings={settings}
+          onCellClick={onChartClick ? (info) => onChartClick({ _clickedColumn: info.column, _clickedValue: info.value }) : undefined}
+          clickableColumns={clickableColumns}
+        />
+      );
 
     case "parameter-select": {
       const pName = settings.parameterName as string | undefined;

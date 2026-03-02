@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
+import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -35,6 +36,8 @@ interface DashboardContainerProps {
    * The caller should persist the updated widget to the dashboard layout.
    */
   onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
+  /** Called when a click action navigates to a different page. */
+  onNavigateToPage?: (pageId: string) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -53,6 +56,7 @@ export function DashboardContainer({
   onDuplicateWidget,
   onLayoutChange,
   onWidgetSettingsChange,
+  onNavigateToPage,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -131,7 +135,7 @@ export function DashboardContainer({
         {page.widgets.map((widget) => (
           <div key={widget.id} data-testid="widget-card">
             <WidgetCard
-              title={getWidgetTitle(widget)}
+              title={interpolateTitle(getWidgetTitle(widget), parameters)}
               subtitle={undefined}
               className="h-full"
               draggable={editable}
@@ -156,6 +160,7 @@ export function DashboardContainer({
                     ? (settings) => onWidgetSettingsChange(widget.id, settings)
                     : undefined
                 }
+                onNavigateToPage={onNavigateToPage}
               />
             </WidgetCard>
           </div>
@@ -172,10 +177,10 @@ export function DashboardContainer({
           {fullscreenWidget && (
             <>
               <h2 className="text-lg font-semibold mb-2">
-                {getWidgetTitle(fullscreenWidget)}
+                {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
               </h2>
               <div className="flex-1 min-h-0">
-                <CardContainer widget={fullscreenWidget} />
+                <CardContainer widget={fullscreenWidget} onNavigateToPage={onNavigateToPage} />
               </div>
             </>
           )}

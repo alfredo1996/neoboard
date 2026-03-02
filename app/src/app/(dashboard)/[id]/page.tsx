@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import React, { use, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, LayoutDashboard } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboards";
@@ -48,19 +48,35 @@ export default function DashboardViewerPage({
     () => new Set([0])
   );
 
-  function handleSelectPage(index: number) {
+  function markVisited(index: number) {
     setVisitedPages((prev) => {
       if (prev.has(index)) return prev;
       const next = new Set(prev);
       next.add(index);
       return next;
     });
+  }
+
+  function handleSelectPage(index: number) {
+    markVisited(index);
     setActivePageIndex(index);
   }
   const [isPending, startTransition] = useTransition();
   const layout = useMemo(
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
     [dashboard]
+  );
+
+  const handleNavigateToPage = useCallback(
+    (pageId: string) => {
+      if (!layout) return;
+      const index = layout.pages.findIndex((p) => p.id === pageId);
+      if (index >= 0) {
+        markVisited(index);
+        setActivePageIndex(index);
+      }
+    },
+    [layout]
   );
 
   if (isLoading) {
@@ -170,7 +186,7 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} />
+              <DashboardContainer page={page} onNavigateToPage={handleNavigateToPage} />
             </div>
           );
         })}

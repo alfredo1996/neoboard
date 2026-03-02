@@ -523,7 +523,7 @@ describe("ParameterWidgetRenderer — type-safe parameter values", () => {
   });
 
   it("falls back to string when rawValue is undefined", () => {
-    const options = [{ value: "abc", label: "ABC" }]; // no rawValue
+    const options: { value: string; label: string; rawValue?: unknown }[] = [{ value: "abc", label: "ABC" }]; // no rawValue
     const selectedString = "abc";
     const opt = options.find((o) => o.value === selectedString);
     const storedValue = opt?.rawValue !== undefined ? opt.rawValue : selectedString;
@@ -620,7 +620,7 @@ describe("Searchable select — debounced search term logic", () => {
     // Simulates seedExtraParams computation in ParameterWidgetRenderer
     const searchable = true;
     const debouncedSearch = "test";
-    const parameterType = "select";
+    const parameterType: string = "select";
     const parentParams = {};
 
     const base = parameterType === "cascading-select" ? parentParams : {};
@@ -637,7 +637,7 @@ describe("Searchable select — debounced search term logic", () => {
   it("searchable extraParams is undefined when search is empty", () => {
     const searchable = true;
     const debouncedSearch = "";
-    const parameterType = "select";
+    const parameterType: string = "select";
     const parentParams = {};
 
     const base = parameterType === "cascading-select" ? parentParams : {};
@@ -654,7 +654,7 @@ describe("Searchable select — debounced search term logic", () => {
   it("non-searchable mode does not include param_search", () => {
     const searchable = false;
     const debouncedSearch = "test";
-    const parameterType = "select";
+    const parameterType: string = "select";
     const parentParams = {};
 
     const base = parameterType === "cascading-select" ? parentParams : {};
