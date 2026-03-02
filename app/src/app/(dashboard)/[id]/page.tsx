@@ -9,11 +9,13 @@ import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard-settings";
+import { useCountdown } from "@/hooks/use-countdown";
 import type { DashboardSettings } from "@/lib/db/schema";
 import {
   Button,
   Badge,
   Skeleton,
+  Input,
   LoadingButton,
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +34,14 @@ import {
 
 function formatInterval(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
-  return `${seconds / 60}m`;
+  return `${Math.round(seconds / 60)}m`;
+}
+
+function formatCountdown(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 export default function DashboardViewerPage({
@@ -86,30 +95,48 @@ export default function DashboardViewerPage({
   const autoRefreshSettings = activeLocalSettings ?? layout?.settings ?? {};
   const refetchInterval = getRefetchInterval(autoRefreshSettings);
 
+  // Countdown to the next auto-refresh tick
+  const countdown = useCountdown(refetchInterval);
+
+  // Custom interval input state (seconds as string — validated on apply)
+  const [customSeconds, setCustomSeconds] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   // Promise queue to serialize persist writes and prevent out-of-order saves
   const persistQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
-  const handleIntervalChange = useCallback(
-    (value: string) => {
+  const applyInterval = useCallback(
+    (seconds: number | "off") => {
       const newSettings: DashboardSettings =
-        value === "off"
+        seconds === "off"
           ? { autoRefresh: false }
-          : { autoRefresh: true, refreshIntervalSeconds: Number(value) };
+          : { autoRefresh: true, refreshIntervalSeconds: seconds };
       setLocalSettings({ dashboardId: id, settings: newSettings });
-      // Persist in-order to avoid out-of-order last-write issues
       if (layout) {
-        const payload = {
-          id,
-          layoutJson: { ...layout, settings: newSettings },
-        };
+        const payload = { id, layoutJson: { ...layout, settings: newSettings } };
         persistQueueRef.current = persistQueueRef.current
           .catch(() => undefined)
           .then(() => updateDashboard.mutateAsync(payload))
           .catch(() => undefined);
       }
     },
-    [id, layout, updateDashboard]
+    [id, layout, updateDashboard],
   );
+
+  const handleIntervalChange = useCallback(
+    (value: string) => {
+      applyInterval(value === "off" ? "off" : Number(value));
+    },
+    [applyInterval],
+  );
+
+  const handleCustomApply = useCallback(() => {
+    const s = parseInt(customSeconds, 10);
+    if (!Number.isFinite(s) || s < 5) return; // minimum 5s
+    applyInterval(s);
+    setCustomSeconds("");
+    setDropdownOpen(false);
+  }, [customSeconds, applyInterval]);
 
   // Derive display values from the effective (normalized) interval
   const effectiveSeconds = typeof refetchInterval === "number" ? refetchInterval / 1000 : null;
@@ -117,6 +144,10 @@ export default function DashboardViewerPage({
     ? formatInterval(effectiveSeconds)
     : "Auto-refresh";
   const dropdownValue = effectiveSeconds !== null ? String(effectiveSeconds) : "off";
+  // Toolbar button label: show interval + live countdown when active
+  const buttonLabel = countdown !== null
+    ? `${intervalLabel} · ${formatCountdown(countdown)}`
+    : intervalLabel;
 
   if (isLoading) {
     return (
@@ -175,16 +206,16 @@ export default function DashboardViewerPage({
         <ToolbarSection>
           {canEdit && (
             <>
-              <DropdownMenu>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" data-testid="auto-refresh-trigger">
                     <RefreshCw
                       className={`mr-2 h-4 w-4${isFetching ? " animate-spin" : ""}`}
                     />
-                    {intervalLabel}
+                    {buttonLabel}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuLabel>Auto-refresh</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuRadioGroup
@@ -197,6 +228,31 @@ export default function DashboardViewerPage({
                     <DropdownMenuRadioItem value="300">5 minutes</DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="600">10 minutes</DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Custom (seconds)</p>
+                    <div className="flex gap-1.5">
+                      <Input
+                        type="number"
+                        min={5}
+                        placeholder="e.g. 5"
+                        value={customSeconds}
+                        onChange={(e) => setCustomSeconds(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCustomApply(); }}
+                        className="h-7 text-xs"
+                        data-testid="custom-interval-input"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={handleCustomApply}
+                        data-testid="custom-interval-apply"
+                      >
+                        Set
+                      </Button>
+                    </div>
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
               <ToolbarSeparator />

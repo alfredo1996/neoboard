@@ -1,6 +1,6 @@
 import type { DashboardSettings } from "@/lib/db/schema";
 
-const MIN_INTERVAL_SECONDS = 30;
+const MIN_INTERVAL_SECONDS = 5;
 const DEFAULT_INTERVAL_SECONDS = 60;
 
 /**

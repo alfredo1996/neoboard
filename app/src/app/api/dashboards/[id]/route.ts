@@ -32,7 +32,7 @@ const pageSchema = z.object({
 
 const dashboardSettingsSchema = z.object({
   autoRefresh: z.boolean().optional(),
-  refreshIntervalSeconds: z.number().min(30).optional(),
+  refreshIntervalSeconds: z.number().min(5).optional(),
 });
 
 const updateDashboardSchema = z.object({
