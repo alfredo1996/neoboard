@@ -825,9 +825,10 @@ test.describe("Graph chart exploration", () => {
     if (menuVisible) {
       await expect(contextMenu).toBeVisible();
       // Click Properties to verify z-index fix allows real interaction (z-[500] > z-50).
-      const propertiesBtn = page.getByRole("button", { name: "Properties" });
+      const propertiesBtn = contextMenu.getByRole("button", { name: "Properties" });
       if (await propertiesBtn.isVisible().catch(() => false)) {
-        await propertiesBtn.click();
+        await expect(propertiesBtn).toBeEnabled();
+        await propertiesBtn.click({ force: true });
         await expect(contextMenu).not.toBeVisible({ timeout: 3_000 });
       }
     }

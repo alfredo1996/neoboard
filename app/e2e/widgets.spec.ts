@@ -154,7 +154,7 @@ test.describe("Widget creation", () => {
     // Non-matching connections should not appear; pick the first visible option
     await page.getByRole("option").first().click();
     // Run button should be visible (no Next step anymore)
-    await expect(dialog.getByRole("button", { name: "Run" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Run", exact: true })).toBeVisible();
   });
 });
 

@@ -90,6 +90,23 @@ CREATE TABLE "dashboard_share" (
     "createdAt" timestamp DEFAULT now()
 );
 
+-- migration 0004: widget_template table
+CREATE TABLE "widget_template" (
+    "id" text PRIMARY KEY NOT NULL,
+    "name" text NOT NULL,
+    "description" text,
+    "tags" text[] DEFAULT '{}',
+    "chartType" text NOT NULL,
+    "connectorType" text NOT NULL,
+    "query" text NOT NULL DEFAULT '',
+    "params" jsonb,
+    "settings" jsonb,
+    "createdBy" text NOT NULL,
+    "tenant_id" text NOT NULL DEFAULT 'default',
+    "createdAt" timestamp DEFAULT now(),
+    "updatedAt" timestamp DEFAULT now()
+);
+
 -- Foreign keys
 ALTER TABLE "account" ADD CONSTRAINT "account_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "connection" ADD CONSTRAINT "connection_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
@@ -97,6 +114,7 @@ ALTER TABLE "dashboard_share" ADD CONSTRAINT "dashboard_share_dashboardId_dashbo
 ALTER TABLE "dashboard_share" ADD CONSTRAINT "dashboard_share_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "dashboard" ADD CONSTRAINT "dashboard_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "widget_template" ADD CONSTRAINT "widget_template_createdBy_user_id_fk" FOREIGN KEY ("createdBy") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 
 -- Seed users (password: password123, bcrypt hash)
 -- Alice is admin so she can manage connections and all dashboards

@@ -93,7 +93,8 @@ test.describe("Widget Lab", () => {
     }) => {
       // Open widget actions menu → "Save to Widget Lab"
       const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await widgetCard.getByRole("button", { name: /more|options/i }).click();
+      await widgetCard.hover();
+      await widgetCard.getByRole("button", { name: /more|options|widget options/i }).click();
       await page.getByRole("menuitem", { name: "Save to Widget Lab" }).click();
 
       // Save Template dialog should appear
