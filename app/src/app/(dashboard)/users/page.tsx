@@ -45,6 +45,49 @@ const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | 
   reader: "secondary",
 };
 
+type CanWriteCellProps = {
+  id: string;
+  canWrite: boolean;
+  isSelf: boolean;
+  isReader: boolean;
+  isAdmin: boolean;
+  onToggle: (id: string, checked: boolean) => void;
+};
+
+function CanWriteCell({ id, canWrite, isSelf, isReader, isAdmin, onToggle }: CanWriteCellProps) {
+  if (!isAdmin) {
+    return (
+      <Badge variant={canWrite ? "default" : "secondary"}>
+        {canWrite ? "Yes" : "No"}
+      </Badge>
+    );
+  }
+
+  const disabled = isSelf || isReader;
+  const toggle = (
+    <Switch
+      checked={canWrite}
+      disabled={disabled}
+      onCheckedChange={(checked) => onToggle(id, checked)}
+    />
+  );
+
+  if (disabled) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex cursor-not-allowed opacity-60">{toggle}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {isSelf ? "You cannot change your own write permission" : "Readers cannot execute write queries"}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return toggle;
+}
+
 export default function UsersPage() {
   const { data: session } = useSession();
   type SessionUser = NonNullable<Session["user"]> & { id?: string; role?: UserRole; tenantId?: string };
@@ -141,60 +184,33 @@ export default function UsersPage() {
       {
         accessorKey: "canWrite",
         header: "Write",
-        cell: ({ row }) => {
-          const canWrite = row.original.canWrite;
-          const isSelf = row.original.id === currentUserId;
-          const isReader = row.original.role === "reader";
-
-          if (!isAdmin) {
-            return (
-              <Badge variant={canWrite ? "default" : "secondary"}>
-                {canWrite ? "Yes" : "No"}
-              </Badge>
-            );
-          }
-
-          const disabled = isSelf || isReader;
-          const toggle = (
-            <Switch
-              checked={canWrite}
-              disabled={disabled}
-              onCheckedChange={(checked) =>
-                updateCanWrite.mutate(
-                  { id: row.original.id, canWrite: checked },
-                  {
-                    onSuccess: () =>
-                      toast({
-                        title: "Write permission updated",
-                        description: `${row.original.name ?? row.original.email} can ${checked ? "now" : "no longer"} execute write queries.`,
-                      }),
-                    onError: (err) =>
-                      toast({
-                        title: "Failed to update write permission",
-                        description: err instanceof Error ? err.message : "Something went wrong.",
-                        variant: "destructive",
-                      }),
-                  }
-                )
-              }
-            />
-          );
-
-          if (disabled) {
-            return (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-not-allowed opacity-60">{toggle}</span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isSelf ? "You cannot change your own write permission" : "Readers cannot execute write queries"}
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          return toggle;
-        },
+        cell: ({ row }) => (
+          <CanWriteCell
+            id={row.original.id}
+            canWrite={row.original.canWrite}
+            isSelf={row.original.id === currentUserId}
+            isReader={row.original.role === "reader"}
+            isAdmin={isAdmin}
+            onToggle={(id, checked) =>
+              updateCanWrite.mutate(
+                { id, canWrite: checked },
+                {
+                  onSuccess: () =>
+                    toast({
+                      title: "Write permission updated",
+                      description: `${row.original.name ?? row.original.email} can ${checked ? "now" : "no longer"} execute write queries.`,
+                    }),
+                  onError: (err) =>
+                    toast({
+                      title: "Failed to update write permission",
+                      description: err instanceof Error ? err.message : "Something went wrong.",
+                      variant: "destructive",
+                    }),
+                }
+              )
+            }
+          />
+        ),
       },
       {
         accessorKey: "createdAt",

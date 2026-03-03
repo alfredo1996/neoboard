@@ -69,8 +69,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.canWrite = (user as { canWrite?: boolean }).canWrite ?? true;
         token.tenantId = process.env.TENANT_ID ?? "default";
       }
-      // Re-fetch role and canWrite on token refresh so changes propagate
-      if (token.id && !token.role) {
+      // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions
+      if (token.id) {
         const [dbUser] = await db
           .select({ role: users.role, canWrite: users.canWrite })
           .from(users)

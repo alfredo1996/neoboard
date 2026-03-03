@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
@@ -19,7 +19,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await requireAdmin();
+    const { userId, tenantId } = await requireAdmin();
     const { id } = await params;
 
     if (id === userId) {
@@ -46,7 +46,7 @@ export async function PATCH(
     const [updated] = await db
       .update(users)
       .set(updateFields)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .returning({
         id: users.id,
         name: users.name,
@@ -72,7 +72,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await requireAdmin();
+    const { userId, tenantId } = await requireAdmin();
     const { id } = await params;
 
     if (id === userId) {
@@ -84,7 +84,7 @@ export async function DELETE(
 
     const deleted = await db
       .delete(users)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .returning({ id: users.id });
 
     if (!deleted.length) {
