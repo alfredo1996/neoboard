@@ -101,13 +101,14 @@ export function CardContainer({
   const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
   const staleTime = enableCache ? cacheTtlMinutes * 60_000 : 0;
 
-  // Parameter-select widgets are self-contained (no query to run).
+  // Parameter-select and form widgets are self-contained (no auto-query).
   const isParameterWidget = widget.chartType === "parameter-select";
+  const isFormWidget = widget.chartType === "form";
 
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
-  // Parameter-select widgets skip query execution entirely.
-  const queryInput = (previewData !== undefined || isParameterWidget) ? null : {
+  // Parameter-select and form widgets skip query execution entirely.
+  const queryInput = (previewData !== undefined || isParameterWidget || isFormWidget) ? null : {
     connectionId: widget.connectionId,
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
@@ -205,6 +206,24 @@ export function CardContainer({
             settings={chartOptions}
             connectionId={widget.connectionId}
             widgetId={widget.id}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Form widgets render their own inputs — no data query needed
+  if (isFormWidget) {
+    return (
+      <div className="h-full w-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <ChartRenderer
+            type={chartConfig.type}
+            data={null}
+            settings={widget.settings as Record<string, unknown>}
+            connectionId={widget.connectionId}
+            widgetId={widget.id}
+            query={widget.query}
           />
         </div>
       </div>

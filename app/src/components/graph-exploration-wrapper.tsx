@@ -81,7 +81,7 @@ function NodeContextMenu({
     <div
       ref={ref}
       data-testid="graph-context-menu"
-      className="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md text-sm"
+      className="fixed z-[500] min-w-[160px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md text-sm"
       style={{ left: menu.x, top: menu.y }}
     >
       <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium border-b mb-1">

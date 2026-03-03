@@ -22,6 +22,22 @@
             "type": "command",
             "command": "[ \"$(git branch --show-current)\" != \"main\" ] || { echo 'Cannot edit on main. Create a feature branch first.' >&2; exit 2; }",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/check-boundaries.sh",
+            "timeout": 5,
+            "statusMessage": "Checking package boundaries..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE '^npm (install|uninstall|remove|add) [a-zA-Z@]'; then echo \"BLOCKED: npm dependency changes require explicit user approval. Ask first.\" >&2; exit 2; fi",
+            "timeout": 5
           }
         ]
       }
@@ -32,8 +48,30 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE_PATH=$(echo \"$CLAUDE_FILE_PATHS\" | head -1); if echo \"$FILE_PATH\" | grep -qE '\\.(ts|tsx)$'; then npx prettier --write \"$FILE_PATH\" 2>/dev/null; fi",
-            "timeout": 15
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/format-and-lint.sh",
+            "timeout": 30,
+            "statusMessage": "Formatting & linting..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'CRITICAL RULES (re-injected after compaction):\\n- TDD mandatory: write failing test FIRST, then implement\\n- Package boundaries: component/ has NO business logic/API/stores; connection/ has NO React/UI\\n- Query safety: NEVER interpolate user input, ALWAYS parameterized queries\\n- Run cd app && npx next lint --fix after app/ changes\\n- Run npm run build before committing\\n- PRs target dev branch, not main\\n- Coverage target: 80%% per package'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude needs your attention\" with title \"NeoBoard\" sound name \"Ping\"' 2>/dev/null || true",
+            "timeout": 5
           }
         ]
       }

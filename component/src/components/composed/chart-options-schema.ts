@@ -203,6 +203,12 @@ const parameterSelectOptions: ChartOptionDef[] = [
   { key: "searchable", label: "Search-as-you-type", type: "boolean", default: false, category: "Parameter", description: "Allow the user to type to filter the option list in real time." },
 ];
 
+const formOptions: ChartOptionDef[] = [
+  { key: "submitButtonText", label: "Submit Button Text", type: "text", default: "Submit", category: "Form", description: "Label for the form submit button." },
+  { key: "successMessage", label: "Success Message", type: "text", default: "Form submitted successfully", category: "Form", description: "Message shown after a successful submission." },
+  { key: "resetOnSuccess", label: "Reset on Success", type: "boolean", default: true, category: "Form", description: "Clear all form fields after a successful submission." },
+];
+
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   bar: barOptions,
   line: lineOptions,
@@ -213,6 +219,7 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   table: tableOptions,
   json: jsonOptions,
   "parameter-select": parameterSelectOptions,
+  form: formOptions,
 };
 
 export function getChartOptions(chartType: string): ChartOptionDef[] {

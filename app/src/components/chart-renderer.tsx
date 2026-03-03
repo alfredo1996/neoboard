@@ -42,6 +42,12 @@ import type { ParameterType } from "@/stores/parameter-store";
 import { GraphExplorationWrapper } from "./graph-exploration-wrapper";
 import { TableRenderer } from "./table-renderer";
 
+// Form widget uses write-query hooks — load client-side only
+const FormWidgetRenderer = dynamic(
+  () => import("./form-widget-renderer").then((m) => ({ default: m.FormWidgetRenderer })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+
 // Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
 const GraphChart = dynamic(
   () => import("@neoboard/components").then((mod) => ({ default: mod.GraphChart })),
@@ -71,13 +77,14 @@ export interface ChartRendererProps {
   connectionId?: string;
   widgetId?: string;
   resultId?: string;
+  query?: string;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId }: ChartRendererProps) {
+export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query }: ChartRendererProps) {
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
     return (e: EChartsClickEvent) =>
@@ -240,6 +247,15 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
             initialExpanded={(settings.initialExpanded as number) ?? 2}
           />
         </div>
+      );
+
+    case "form":
+      return (
+        <FormWidgetRenderer
+          connectionId={connectionId ?? ""}
+          query={query ?? ""}
+          settings={settings}
+        />
       );
 
     default:
