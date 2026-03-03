@@ -13,7 +13,9 @@ import type { ColumnDef } from "@tanstack/react-table";
 export interface TableRendererProps {
   data: unknown;
   settings?: Record<string, unknown>;
-  onRowClick?: (row: Record<string, unknown>) => void;
+  onCellClick?: (info: { column: string; value: unknown }) => void;
+  /** Restrict which columns are clickable. Empty/undefined = all columns. */
+  clickableColumns?: string[];
 }
 
 /**
@@ -21,7 +23,7 @@ export interface TableRendererProps {
  * Uses a ResizeObserver on the wrapper div to pass a live containerHeight so
  * DataGrid can calculate the dynamic page size automatically.
  */
-export function TableRenderer({ data, settings = {}, onRowClick }: TableRendererProps) {
+export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns }: TableRendererProps) {
   const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
@@ -89,7 +91,8 @@ export function TableRenderer({ data, settings = {}, onRowClick }: TableRenderer
         enablePagination={enablePagination}
         pageSize={(settings.pageSize as number) ?? 10}
         containerHeight={enablePagination ? containerHeight : undefined}
-        onRowClick={onRowClick}
+        onCellClick={onCellClick}
+        clickableColumns={clickableColumns}
         pagination={(table) => (
           <div className="flex items-center gap-2">
             <DataGridViewOptions table={table} />

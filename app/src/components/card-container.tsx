@@ -5,6 +5,7 @@ import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
+import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import {
@@ -39,6 +40,10 @@ interface CardContainerProps {
    * The caller is responsible for persisting the updated settings.
    */
   onWidgetSettingsChange?: (settings: Record<string, unknown>) => void;
+  /** TanStack Query refetchInterval — periodically re-executes the widget query. */
+  refetchInterval?: number | false;
+  /** Called when a click action navigates to a different page. */
+  onNavigateToPage?: (pageId: string) => void;
 }
 
 /**
@@ -67,22 +72,29 @@ export function CardContainer({
   previewResultId,
   isEditMode = false,
   onWidgetSettingsChange,
+  refetchInterval,
+  onNavigateToPage,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
   function handleChartClick(point: Record<string, unknown>) {
-    const clickAction = widget.settings?.clickAction as ClickAction | undefined;
-    if (!clickAction || clickAction.type !== "set-parameter") return;
-    const { parameterName, sourceField } = clickAction.parameterMapping;
-    const value = point[sourceField];
-    if (value !== undefined) {
-      const title = (widget.settings?.title as string) || chartConfig?.label || widget.chartType;
+    const result = resolveClickActions(widget, point);
+    if (!result) return;
+
+    if (result.setParameter) {
+      const { parameterName, value, label, sourceField } = result.setParameter;
       useParameterStore
         .getState()
-        .setParameter(parameterName, value, title, sourceField, "text", "click-action");
+        .setParameter(parameterName, value, label, sourceField, "text", "click-action");
+    }
+
+    if (result.navigateToPageId) {
+      onNavigateToPage?.(result.navigateToPageId);
     }
   }
-  const hasClickAction = !!(widget.settings?.clickAction as ClickAction | undefined);
+  const clickAction = widget.settings?.clickAction as ClickAction | undefined;
+  const hasClickAction = !!clickAction;
+  const clickableColumns = deriveClickableColumns(clickAction);
 
   // Cache settings from widget config. Default: cache enabled, 5-min TTL.
   const enableCache = widget.settings?.enableCache !== false;
@@ -101,7 +113,7 @@ export function CardContainer({
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, widgetId: widget.id });
+  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, refetchInterval });
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
@@ -165,6 +177,7 @@ export function CardContainer({
             data={transformedData}
             settings={chartOptions}
             onChartClick={hasClickAction ? handleChartClick : undefined}
+            clickableColumns={clickableColumns}
             connectionId={widget.connectionId}
             widgetId={widget.id}
             resultId={previewResultId}
@@ -306,6 +319,7 @@ export function CardContainer({
           data={transformedData}
           settings={chartOptions}
           onChartClick={hasClickAction ? handleChartClick : undefined}
+          clickableColumns={clickableColumns}
           connectionId={widget.connectionId}
           widgetId={widget.id}
           resultId={widgetQuery.data.resultId}

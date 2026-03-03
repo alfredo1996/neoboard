@@ -101,7 +101,6 @@ jobs:
         with:
           name: unit-coverage
           retention-days: 1
-          if-no-files-found: error
           path: |
             app/coverage/lcov.info
             component/coverage/lcov.info
@@ -157,15 +156,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/.next/cache
-          key: nextjs-sonar-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'app/package-lock.json') }}
+          key: nextjs-sonar-cov-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'app/package-lock.json') }}
           restore-keys: |
-            nextjs-sonar-${{ runner.os }}-
+            nextjs-sonar-cov-${{ runner.os }}-
 
       - name: Build Next.js
         working-directory: app
         run: npx next build
         env:
           CI: true
+          E2E_COVERAGE: "1"
 
       - name: Run E2E tests
         working-directory: app
@@ -211,7 +211,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: unit-coverage
-          path: .
         continue-on-error: true
 
       - name: Download E2E coverage

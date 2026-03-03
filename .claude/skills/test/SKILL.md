@@ -36,6 +36,11 @@ echo "$CHANGED" | grep -q '^connection/' && RUN_CONNECTION=true
 cd app && npm test
 ```
 
+**App integration tests** (if app/ changed):
+```bash
+cd app && npm test:e2e
+```
+
 **Component tests** (if component/ changed):
 ```bash
 cd component && npm test

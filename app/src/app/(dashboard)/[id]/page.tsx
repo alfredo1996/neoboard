@@ -1,24 +1,48 @@
 "use client";
 
-import React, { use, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import React, { use, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, LayoutDashboard } from "lucide-react";
-import { useDashboard } from "@/hooks/use-dashboards";
+import { ArrowLeft, Pencil, LayoutDashboard, RefreshCw } from "lucide-react";
+import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
+import { getRefetchInterval } from "@/lib/dashboard-settings";
+import { useCountdown } from "@/hooks/use-countdown";
+import type { DashboardSettings } from "@/lib/db/schema";
 import {
   Button,
   Badge,
   Skeleton,
+  Input,
   LoadingButton,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@neoboard/components";
 import {
   EmptyState,
   Toolbar,
   ToolbarSection,
+  ToolbarSeparator,
 } from "@neoboard/components";
+
+function formatInterval(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.round(seconds / 60)}m`;
+}
+
+function formatCountdown(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export default function DashboardViewerPage({
   params,
@@ -42,25 +66,103 @@ export default function DashboardViewerPage({
     };
   }, [id, saveToDashboard, restoreFromDashboard]);
 
-  const { data: dashboard, isLoading } = useDashboard(id);
+  const { data: dashboard, isLoading, isFetching } = useDashboard(id);
+  const updateDashboard = useUpdateDashboard();
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([0])
   );
 
-  function handleSelectPage(index: number) {
+  function markVisited(index: number) {
     setVisitedPages((prev) => {
       if (prev.has(index)) return prev;
       const next = new Set(prev);
       next.add(index);
       return next;
     });
+  }
+
+  function handleSelectPage(index: number) {
+    markVisited(index);
     setActivePageIndex(index);
   }
   const [isPending, startTransition] = useTransition();
   const layout = useMemo(
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
     [dashboard]
+  );
+
+  // Auto-refresh: local override (null = use persisted settings from layout).
+  // Keyed by dashboard id so navigating to a different dashboard resets the override.
+  const [localSettings, setLocalSettings] = useState<{ dashboardId: string; settings: DashboardSettings } | null>(null);
+  const activeLocalSettings = localSettings?.dashboardId === id ? localSettings.settings : null;
+  const autoRefreshSettings = activeLocalSettings ?? layout?.settings ?? {};
+  const refetchInterval = getRefetchInterval(autoRefreshSettings);
+
+  // Countdown to the next auto-refresh tick
+  const countdown = useCountdown(refetchInterval);
+
+  // Custom interval input state (seconds as string — validated on apply)
+  const [customSeconds, setCustomSeconds] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Promise queue to serialize persist writes and prevent out-of-order saves
+  const persistQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const applyInterval = useCallback(
+    (seconds: number | "off") => {
+      const newSettings: DashboardSettings =
+        seconds === "off"
+          ? { autoRefresh: false }
+          : { autoRefresh: true, refreshIntervalSeconds: seconds };
+      setLocalSettings({ dashboardId: id, settings: newSettings });
+      if (layout) {
+        const payload = { id, layoutJson: { ...layout, settings: newSettings } };
+        persistQueueRef.current = persistQueueRef.current
+          .catch(() => undefined)
+          .then(() => updateDashboard.mutateAsync(payload))
+          .catch(() => undefined);
+      }
+    },
+    [id, layout, updateDashboard],
+  );
+
+  const handleIntervalChange = useCallback(
+    (value: string) => {
+      applyInterval(value === "off" ? "off" : Number(value));
+    },
+    [applyInterval],
+  );
+
+  const handleCustomApply = useCallback(() => {
+    const s = parseInt(customSeconds, 10);
+    if (!Number.isFinite(s) || s < 5) return; // minimum 5s
+    applyInterval(s);
+    setCustomSeconds("");
+    setDropdownOpen(false);
+  }, [customSeconds, applyInterval]);
+
+  // Derive display values from the effective (normalized) interval
+  const effectiveSeconds = typeof refetchInterval === "number" ? refetchInterval / 1000 : null;
+  const intervalLabel = effectiveSeconds !== null
+    ? formatInterval(effectiveSeconds)
+    : "Auto-refresh";
+  const dropdownValue = effectiveSeconds !== null ? String(effectiveSeconds) : "off";
+  // Toolbar button label: show interval + live countdown when active
+  const buttonLabel = countdown !== null
+    ? `${intervalLabel} · ${formatCountdown(countdown)}`
+    : intervalLabel;
+
+  const handleNavigateToPage = useCallback(
+    (pageId: string) => {
+      if (!layout) return;
+      const index = layout.pages.findIndex((p) => p.id === pageId);
+      if (index >= 0) {
+        markVisited(index);
+        setActivePageIndex(index);
+      }
+    },
+    [layout]
   );
 
   if (isLoading) {
@@ -119,15 +221,67 @@ export default function DashboardViewerPage({
         </ToolbarSection>
         <ToolbarSection>
           {canEdit && (
-            <LoadingButton
-              size="sm"
-              loading={isPending}
-              loadingText="Opening editor..."
-              onClick={() => startTransition(() => router.push(`/${id}/edit?page=${safeIndex}`))}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </LoadingButton>
+            <>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" data-testid="auto-refresh-trigger">
+                    <RefreshCw
+                      className={`mr-2 h-4 w-4${isFetching ? " animate-spin" : ""}`}
+                    />
+                    {buttonLabel}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel>Auto-refresh</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={dropdownValue}
+                    onValueChange={handleIntervalChange}
+                  >
+                    <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="30">30 seconds</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="60">1 minute</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="300">5 minutes</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="600">10 minutes</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Custom (seconds)</p>
+                    <div className="flex gap-1.5">
+                      <Input
+                        type="number"
+                        min={5}
+                        placeholder="e.g. 5"
+                        value={customSeconds}
+                        onChange={(e) => setCustomSeconds(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCustomApply(); }}
+                        className="h-7 text-xs"
+                        data-testid="custom-interval-input"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={handleCustomApply}
+                        data-testid="custom-interval-apply"
+                      >
+                        Set
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ToolbarSeparator />
+              <LoadingButton
+                size="sm"
+                loading={isPending}
+                loadingText="Opening editor..."
+                onClick={() => startTransition(() => router.push(`/${id}/edit?page=${safeIndex}`))}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </LoadingButton>
+            </>
           )}
         </ToolbarSection>
       </Toolbar>
@@ -170,7 +324,7 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} />
+              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} />
             </div>
           );
         })}

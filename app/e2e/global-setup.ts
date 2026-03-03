@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import * as http from "node:http";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import postgres from "postgres";
 import { initCoverage, loadNextcovConfig } from "nextcov/playwright";
 
@@ -64,12 +64,42 @@ async function updateConnectionConfigs(
   }
 }
 
+/**
+ * Stop any running dev containers that would compete for memory/network
+ * resources with testcontainers. Their names are saved to the state file so
+ * globalTeardown can restart them afterwards.
+ */
+function pauseDevContainers(): string[] {
+  const candidates = ["neoboard-postgres", "neoboard-neo4j"];
+  const paused: string[] = [];
+  for (const name of candidates) {
+    try {
+      const running = execSync(
+        `docker ps --filter "name=^/${name}$" --format "{{.Names}}"`,
+        { stdio: "pipe" },
+      ).toString().trim();
+      if (running === name) {
+        execSync(`docker stop ${name}`, { stdio: "pipe" });
+        paused.push(name);
+        console.log(`⏸  Paused dev container: ${name}`);
+      }
+    } catch {
+      // Container absent or docker error — safe to ignore
+    }
+  }
+  return paused;
+}
+
 export default async function globalSetup() {
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
   const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
   const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
 
   console.log("\n⏳ Starting test containers...\n");
+
+  // Pause any running neoboard dev containers so they don't compete with
+  // testcontainers for memory and Docker network resources.
+  const pausedDevContainers = pauseDevContainers();
 
   // Start both containers in parallel to minimise total startup time.
   const [pgContainer, neo4jContainer] = await Promise.all([
@@ -133,12 +163,14 @@ export default async function globalSetup() {
   }
   console.log("✅ Neo4j seeded successfully");
 
-  // Save container IDs so teardown can remove them.
+  // Save container IDs so teardown can remove them, plus the dev containers
+  // that were paused so teardown can restart them.
   fs.writeFileSync(
     STATE_FILE,
     JSON.stringify({
       pgContainerId: pgContainer.getId(),
       neo4jContainerId: neo4jContainer.getId(),
+      pausedDevContainers,
     }),
   );
 
