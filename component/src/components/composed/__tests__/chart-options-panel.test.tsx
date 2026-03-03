@@ -116,9 +116,9 @@ describe("ChartOptionsPanel", () => {
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
     const helpLabels = container.querySelectorAll("label.cursor-help");
-    // bar has 9 options, all with descriptions
+    // bar has 10 options (including colorThresholds), all with descriptions
     expect(helpLabels.length).toBeGreaterThan(0);
-    expect(helpLabels.length).toBe(9);
+    expect(helpLabels.length).toBe(10);
   });
 
   it("does not render a HelpCircle icon — tooltip triggers on label text", () => {

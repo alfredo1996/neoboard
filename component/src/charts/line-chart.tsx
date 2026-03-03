@@ -9,6 +9,7 @@ import {
   resolveShowLegend,
   buildCompactGrid,
 } from "./chart-utils";
+import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 
 export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has an `x` key and one or more numeric series keys. */
@@ -31,6 +32,8 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showGridLines?: boolean;
   /** Use stepped line style */
   stepped?: boolean;
+  /** JSON string of [{ value: number, color: string }] thresholds; colors each series by its last value */
+  colorThresholds?: string;
 }
 
 /**
@@ -53,6 +56,7 @@ function LineChart({
   lineWidth = 2,
   showGridLines = true,
   stepped = false,
+  colorThresholds,
   ...rest
 }: LineChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -63,6 +67,7 @@ function LineChart({
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
     const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
+    const thresholds = parseColorThresholds(colorThresholds ?? "");
 
     return {
       tooltip: { trigger: "axis" },
@@ -87,19 +92,29 @@ function LineChart({
         axisLabel: { show: !compact },
         splitLine: { show: showGridLines },
       },
-      series: seriesKeys.map((key) => ({
-        name: key,
-        type: "line" as const,
-        data: data.map((d) => d[key] as number),
-        smooth,
-        step: stepped ? ("start" as const) : undefined,
-        lineStyle: { width: lineWidth },
-        showSymbol: showPoints,
-        areaStyle: area ? {} : undefined,
-        emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
-      })),
+      series: seriesKeys.map((key) => {
+        const lastValue = [...data]
+          .reverse()
+          .find((d) => typeof d[key] === "number")?.[key] as number | undefined;
+        const seriesColor =
+          thresholds.length && lastValue !== undefined
+            ? resolveThresholdColor(lastValue, thresholds)
+            : undefined;
+        return {
+          name: key,
+          type: "line" as const,
+          data: data.map((d) => d[key] as number),
+          smooth,
+          step: stepped ? ("start" as const) : undefined,
+          lineStyle: { width: lineWidth, color: seriesColor },
+          itemStyle: seriesColor ? { color: seriesColor } : undefined,
+          showSymbol: showPoints,
+          areaStyle: area ? {} : undefined,
+          emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
+        };
+      }),
     };
-  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, compact, hideLegend]);
+  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, colorThresholds, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

@@ -9,6 +9,7 @@ import {
   resolveShowLegend,
   buildCompactGrid,
 } from "./chart-utils";
+import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 
 export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has a `label` key and one or more numeric series keys. */
@@ -31,6 +32,8 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   xAxisLabel?: string;
   /** Y-axis name label */
   yAxisLabel?: string;
+  /** JSON string of [{ value: number, color: string }] thresholds for per-bar coloring */
+  colorThresholds?: string;
 }
 
 /**
@@ -53,6 +56,7 @@ function BarChart({
   showGridLines = true,
   xAxisLabel,
   yAxisLabel,
+  colorThresholds,
   ...rest
 }: BarChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -66,6 +70,7 @@ function BarChart({
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
+    const thresholds = parseColorThresholds(colorThresholds ?? "");
 
     const categoryAxis = {
       type: "category" as const,
@@ -93,7 +98,11 @@ function BarChart({
       series: seriesKeys.map((key) => ({
         name: key,
         type: "bar" as const,
-        data: data.map((d) => d[key] as number),
+        data: data.map((d) => {
+          const v = d[key] as number;
+          const color = thresholds.length ? resolveThresholdColor(v, thresholds) : undefined;
+          return color ? { value: v, itemStyle: { color } } : v;
+        }),
         stack: stacked ? "total" : undefined,
         barWidth: effectiveBarWidth,
         barGap,
@@ -103,7 +112,7 @@ function BarChart({
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
       })),
     };
-  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, compact, hideLegend]);
+  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, colorThresholds, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

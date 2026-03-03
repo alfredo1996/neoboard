@@ -105,6 +105,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           xAxisLabel={settings.xAxisLabel as string | undefined}
           yAxisLabel={settings.yAxisLabel as string | undefined}
           showGridLines={settings.showGridLines as boolean | undefined}
+          colorThresholds={settings.colorThresholds as string | undefined}
           onClick={handleEChartsClick}
         />
       );
@@ -122,6 +123,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stepped={settings.stepped as boolean | undefined}
           showPoints={settings.showPoints as boolean | undefined}
           showGridLines={settings.showGridLines as boolean | undefined}
+          colorThresholds={settings.colorThresholds as string | undefined}
           onClick={handleEChartsClick}
         />
       );
@@ -137,6 +139,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           labelPosition={settings.labelPosition as "outside" | "inside" | "center" | undefined}
           showPercentage={settings.showPercentage as boolean | undefined}
           sortSlices={settings.sortSlices as boolean | undefined}
+          colorThresholds={settings.colorThresholds as string | undefined}
           onClick={handleEChartsClick}
         />
       );
@@ -152,6 +155,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           suffix={settings.suffix as string | undefined}
           fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
           numberFormat={settings.numberFormat as "plain" | "comma" | "compact" | "percent" | undefined}
+          colorThresholds={settings.colorThresholds as string | undefined}
         />
       );
     }

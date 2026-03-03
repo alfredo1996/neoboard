@@ -31,6 +31,7 @@ const barOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the bars." },
+  { key: "colorThresholds", label: "Color Thresholds (JSON)", type: "text", default: "", category: "Style", description: "Per-bar color bands as JSON, e.g. [{\"value\":50,\"color\":\"#bbf7d0\"},{\"value\":100,\"color\":\"#fde68a\"}]." },
 ];
 
 const lineOptions: ChartOptionDef[] = [
@@ -43,6 +44,7 @@ const lineOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each data series." },
+  { key: "colorThresholds", label: "Color Thresholds (JSON)", type: "text", default: "", category: "Style", description: "Series color bands as JSON applied to the last data point, e.g. [{\"value\":50,\"color\":\"#bbf7d0\"}]." },
 ];
 
 const pieOptions: ChartOptionDef[] = [
@@ -65,6 +67,7 @@ const pieOptions: ChartOptionDef[] = [
   { key: "showPercentage", label: "Show Percentage", type: "boolean", default: true, category: "Labels", description: "Show the percentage value on each slice." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each slice." },
   { key: "sortSlices", label: "Sort Slices by Value", type: "boolean", default: false, category: "Layout", description: "Sort slices by value (largest first) for a cleaner visual layout." },
+  { key: "colorThresholds", label: "Color Thresholds (JSON)", type: "text", default: "", category: "Style", description: "Per-slice color bands as JSON, e.g. [{\"value\":50,\"color\":\"#bbf7d0\"},{\"value\":100,\"color\":\"#fde68a\"}]." },
 ];
 
 const singleValueOptions: ChartOptionDef[] = [
@@ -166,6 +169,8 @@ const tableOptions: ChartOptionDef[] = [
   { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination", description: "Show Previous / Next controls to page through large result sets." },
   { key: "pageSize", label: "Page Size", type: "number", default: 10, category: "Pagination", description: "Number of rows shown per page when pagination is enabled." },
   { key: "emptyMessage", label: "Empty Message", type: "text", default: "No results", category: "Display", description: "Text displayed when the query returns no rows." },
+  { key: "colorThresholds", label: "Color Thresholds (JSON)", type: "text", default: "", category: "Style", description: "Row background color bands as JSON, e.g. [{\"value\":100,\"color\":\"#bbf7d0\"}]." },
+  { key: "colorThresholdsColumn", label: "Threshold Column", type: "text", default: "", category: "Style", description: "Column to evaluate thresholds against. Leave blank to use the first numeric column." },
 ];
 
 const jsonOptions: ChartOptionDef[] = [
