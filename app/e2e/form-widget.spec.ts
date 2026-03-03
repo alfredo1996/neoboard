@@ -60,8 +60,8 @@ test.describe("Form widget", () => {
     await paramInputs.nth(1).fill("email");
 
     // Preview should show two labeled placeholders + Submit button
-    await expect(dialog.getByText("Author")).toBeVisible({ timeout: 5_000 });
-    await expect(dialog.getByText("Message")).toBeVisible({ timeout: 5_000 });
+    await expect(dialog.getByText("Author", { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(dialog.getByText("Message", { exact: true })).toBeVisible({ timeout: 5_000 });
     await expect(
       dialog.getByRole("button", { name: "Submit" }),
     ).toBeVisible();
@@ -311,7 +311,7 @@ test.describe("Form widget", () => {
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
 
-    await tableDialog.getByRole("button", { name: "Run" }).click();
+    await tableDialog.getByRole("button", { name: "Run", exact: true }).click();
     await expect(
       tableDialog.locator("[data-testid='base-chart'], table").first(),
     ).toBeVisible({ timeout: 15_000 });
