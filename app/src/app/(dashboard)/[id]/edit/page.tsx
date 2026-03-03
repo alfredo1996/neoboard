@@ -306,21 +306,20 @@ export default function DashboardEditorPage({
             layout={layout}
           />
 
-          {templateWidget && (
-            <SaveTemplateDialog
-              open={templateWidget !== undefined}
-              onOpenChange={(open) => {
-                if (!open) setTemplateWidget(undefined);
-              }}
-              widget={templateWidget}
-              connectorType={
-                (connections ?? []).find((c) => c.id === templateWidget.connectionId)
-                  ?.type === "postgresql"
-                  ? "postgresql"
-                  : "neo4j"
-              }
-            />
-          )}
+          {templateWidget && (() => {
+            const conn = (connections ?? []).find((c) => c.id === templateWidget.connectionId);
+            if (!conn) return null;
+            return (
+              <SaveTemplateDialog
+                open={true}
+                onOpenChange={(open) => {
+                  if (!open) setTemplateWidget(undefined);
+                }}
+                widget={templateWidget}
+                connectorType={conn.type === "postgresql" ? "postgresql" : "neo4j"}
+              />
+            );
+          })()}
 
           <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
             {layout.pages.map((page, index) => {

@@ -17,7 +17,8 @@ export function useWidgetTemplates(filters?: WidgetTemplateFilters) {
   return useQuery<WidgetTemplate[]>({
     queryKey: ["widget-templates", filters],
     queryFn: async () => {
-      const res = await fetch(`/api/widget-templates${qs ? `?${qs}` : ""}`);
+      const url = qs ? `/api/widget-templates?${qs}` : "/api/widget-templates";
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch widget templates");
       return res.json();
     },

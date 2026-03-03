@@ -38,8 +38,11 @@ export async function GET(request: Request) {
       .orderBy(widgetTemplates.createdAt);
 
     return NextResponse.json(rows);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -61,17 +64,26 @@ export async function POST(request: Request) {
       );
     }
 
+    const data = parsed.data;
+    const settings = data.settings
+      ? { ...data.settings, connectionId: undefined }
+      : data.settings;
+
     const [template] = await db
       .insert(widgetTemplates)
       .values({
-        ...parsed.data,
+        ...data,
+        settings,
         createdBy: userId,
         tenantId,
       })
       .returning();
 
     return NextResponse.json(template, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

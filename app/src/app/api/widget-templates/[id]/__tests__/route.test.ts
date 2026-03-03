@@ -120,6 +120,12 @@ describe("PUT /api/widget-templates/[id]", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 when user cannot write", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: false, tenantId: "default" });
+    const res = await PUT(makeRequest({ name: "Updated" }), { params: Promise.resolve({ id: "t1" }) });
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when template not found", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     mockDb.select.mockReturnValue(makeSelectChain([]));
@@ -176,6 +182,12 @@ describe("DELETE /api/widget-templates/[id]", () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await DELETE({} as Request, { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user cannot write", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: false, tenantId: "default" });
+    const res = await DELETE({} as Request, { params: Promise.resolve({ id: "t1" }) });
+    expect(res.status).toBe(403);
   });
 
   it("returns 404 when template not found", async () => {

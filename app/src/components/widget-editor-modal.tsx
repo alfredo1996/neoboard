@@ -3,12 +3,11 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule } from "@/lib/db/schema";
+import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule, WidgetTemplate } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { collectParameterNames } from "@/lib/collect-parameter-names";
 import { AlertCircle, AlertTriangle, Play, FlaskConical } from "lucide-react";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
-import type { WidgetTemplate } from "@/lib/db/schema";
 import {
   ChartOptionsPanel,
   ChartSettingsPanel,
@@ -191,7 +190,7 @@ export function WidgetEditorModal({
 
   // Template picker — only used in add mode
   const selectedConnectorType = selectedConnection?.type ?? undefined;
-  const { data: templates } = useWidgetTemplates(
+  const { data: templates, isLoading: templatesLoading } = useWidgetTemplates(
     mode === "add" && dialogStep === "templates"
       ? { connectorType: selectedConnectorType }
       : undefined
@@ -200,12 +199,10 @@ export function WidgetEditorModal({
   function applyTemplate(t: WidgetTemplate) {
     setChartType(t.chartType);
     setQuery(t.query ?? "");
-    if (t.settings) {
-      setChartOptions((t.settings.chartOptions as Record<string, unknown>) ?? getDefaultChartSettings(t.chartType));
-      setTitle((t.settings.title as string) ?? "");
-    } else {
-      setChartOptions(getDefaultChartSettings(t.chartType));
-    }
+    setTitle((t.settings?.title as string) ?? "");
+    setChartOptions(
+      (t.settings?.chartOptions as Record<string, unknown>) ?? getDefaultChartSettings(t.chartType)
+    );
     setDialogStep("main");
   }
   const editorLanguage: "cypher" | "sql" =
@@ -530,12 +527,18 @@ export function WidgetEditorModal({
               <DialogTitle>Browse Templates</DialogTitle>
             </DialogHeader>
             <div className="py-4 flex-1 overflow-y-auto min-h-[400px]">
-              {!templates || templates.length === 0 ? (
+              {templatesLoading && (
+                <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
+                  <p className="text-sm">Loading templates...</p>
+                </div>
+              )}
+              {!templatesLoading && (!templates || templates.length === 0) && (
                 <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
                   <FlaskConical className="h-8 w-8 opacity-40" />
                   <p className="text-sm">No templates available{selectedConnectorType ? ` for ${selectedConnectorType}` : ""}.</p>
                 </div>
-              ) : (
+              )}
+              {!templatesLoading && templates && templates.length > 0 && (
                 <div className="space-y-2">
                   {templates.map((t) => (
                     <button

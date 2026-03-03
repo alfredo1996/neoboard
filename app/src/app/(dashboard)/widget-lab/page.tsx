@@ -26,9 +26,9 @@ function TemplateCard({
   canDelete,
   onDelete,
 }: {
-  template: WidgetTemplate;
-  canDelete: boolean;
-  onDelete: () => void;
+  readonly template: WidgetTemplate;
+  readonly canDelete: boolean;
+  readonly onDelete: () => void;
 }) {
   const chartLabel =
     getChartConfig(template.chartType)?.label ?? template.chartType;
@@ -73,9 +73,11 @@ function TemplateCard({
         </pre>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        Saved {new Date(template.createdAt!).toLocaleDateString()}
-      </p>
+      {template.createdAt && (
+        <p className="text-xs text-muted-foreground">
+          Saved {new Date(template.createdAt).toLocaleDateString()}
+        </p>
+      )}
     </div>
   );
 }
@@ -91,11 +93,18 @@ export default function WidgetLabPage() {
   const [search, setSearch] = useState("");
   const [filterChartType, setFilterChartType] = useState<string>("all");
   const [filterConnector, setFilterConnector] = useState<string>("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const chartTypes = useMemo(() => {
     if (!templates) return [];
-    return [...new Set(templates.map((t) => t.chartType))].sort();
+    return [...new Set(templates.map((t) => t.chartType))].sort((a, b) => a.localeCompare(b));
+  }, [templates]);
+
+  const allTags = useMemo(() => {
+    if (!templates) return [];
+    const tags = templates.flatMap((t) => t.tags ?? []);
+    return [...new Set(tags)].sort((a, b) => a.localeCompare(b));
   }, [templates]);
 
   const filtered = useMemo(() => {
@@ -112,9 +121,11 @@ export default function WidgetLabPage() {
         return false;
       if (filterConnector !== "all" && t.connectorType !== filterConnector)
         return false;
+      if (filterTag !== "all" && !(t.tags ?? []).includes(filterTag))
+        return false;
       return true;
     });
-  }, [templates, search, filterChartType, filterConnector]);
+  }, [templates, search, filterChartType, filterConnector, filterTag]);
 
   function canDelete(template: WidgetTemplate) {
     return role === "admin" || template.createdBy === userId;
@@ -160,10 +171,24 @@ export default function WidgetLabPage() {
               <SelectItem value="postgresql">PostgreSQL</SelectItem>
             </SelectContent>
           </Select>
+
+          {allTags.length > 0 && (
+            <Select value={filterTag} onValueChange={setFilterTag}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tags</SelectItem>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <LoadingOverlay loading={isLoading} text="Loading templates...">
-          {!isLoading && filtered.length === 0 ? (
+          {!isLoading && filtered.length === 0 && (
             templates?.length === 0 ? (
               <EmptyState
                 icon={<FlaskConical className="h-12 w-12" />}
@@ -177,7 +202,8 @@ export default function WidgetLabPage() {
                 description="Try adjusting the search or filter options."
               />
             )
-          ) : (
+          )}
+          {!isLoading && filtered.length > 0 && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((template) => (
                 <TemplateCard

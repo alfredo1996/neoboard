@@ -33,8 +33,11 @@ export async function GET(
     }
 
     return NextResponse.json(template);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -43,8 +46,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role, tenantId } = await requireSession();
+    const { userId, role, canWrite, tenantId } = await requireSession();
     const { id } = await params;
+
+    if (!canWrite) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const [existing] = await db
       .select()
@@ -70,15 +77,23 @@ export async function PUT(
       );
     }
 
+    const data = parsed.data;
+    const settings = data.settings
+      ? { ...data.settings, connectionId: undefined }
+      : data.settings;
+
     const [updated] = await db
       .update(widgetTemplates)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({ ...data, settings, updatedAt: new Date() })
       .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
       .returning();
 
     return NextResponse.json(updated);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -87,8 +102,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role, tenantId } = await requireSession();
+    const { userId, role, canWrite, tenantId } = await requireSession();
     const { id } = await params;
+
+    if (!canWrite) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const [existing] = await db
       .select()
@@ -109,7 +128,10 @@ export async function DELETE(
       .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)));
 
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

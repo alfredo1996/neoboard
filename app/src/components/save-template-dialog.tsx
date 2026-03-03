@@ -18,11 +18,11 @@ import {
 import { getChartConfig } from "@/lib/chart-registry";
 
 interface SaveTemplateDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  widget: DashboardWidget;
-  connectorType: "neo4j" | "postgresql";
-  onSaved?: () => void;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly widget: DashboardWidget;
+  readonly connectorType: "neo4j" | "postgresql";
+  readonly onSaved?: () => void;
 }
 
 export function SaveTemplateDialog({
