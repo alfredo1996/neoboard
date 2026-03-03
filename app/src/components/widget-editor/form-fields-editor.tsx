@@ -75,6 +75,7 @@ export function FormFieldsEditor({ fields, onChange }: FormFieldsEditorProps) {
   const removeField = useCallback(
     (id: string) => {
       onChange(fields.filter((f) => f.id !== id));
+      setOpenItems((prev) => prev.filter((openId) => openId !== id));
     },
     [fields, onChange],
   );

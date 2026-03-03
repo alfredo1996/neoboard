@@ -138,7 +138,7 @@ export default function DashboardEditorPage({
         query: tmpl.query ?? "",
         settings: {
           ...widget.settings,
-          ...(tmpl.settings ?? {}),
+          ...(tmpl.settings ?? undefined),
           // Never overwrite the widget's connection
           connectionId: widget.settings?.connectionId,
         },

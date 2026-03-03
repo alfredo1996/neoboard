@@ -198,7 +198,11 @@ export function WidgetEditorModal({
       : undefined
   );
 
+  // Guard against the add-mode chartType reset effect overwriting template settings
+  const applyingTemplateRef = useRef(false);
+
   function applyTemplate(t: WidgetTemplate) {
+    applyingTemplateRef.current = true;
     setTemplateId(t.id);
     setTemplateSyncedAt(t.updatedAt?.toISOString() ?? new Date().toISOString());
     setChartType(t.chartType);
@@ -338,9 +342,14 @@ export function WidgetEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, widget]);
 
-  // Re-initialize chart options when chart type changes (add mode only)
+  // Re-initialize chart options when chart type changes (add mode only).
+  // Skip reset when the change comes from applyTemplate to preserve template settings.
   useEffect(() => {
     if (mode === "add") {
+      if (applyingTemplateRef.current) {
+        applyingTemplateRef.current = false;
+        return;
+      }
       setChartOptions(getDefaultChartSettings(chartType));
     }
   }, [chartType, mode]);
@@ -521,7 +530,7 @@ export function WidgetEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="full" className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden">
-        {dialogStep === "rules" ? (
+        {dialogStep === "rules" && (
           <ActionRulesEditor
             rules={actionRules}
             onRulesChange={setActionRules}
@@ -531,7 +540,8 @@ export function WidgetEditorModal({
             parameterSuggestions={parameterSuggestions}
             pages={(layout?.pages ?? []).map((p) => ({ id: p.id, title: p.title }))}
           />
-        ) : dialogStep === "templates" ? (
+        )}
+        {dialogStep === "templates" && (
           <>
             <DialogHeader>
               <DialogTitle>Browse Templates</DialogTitle>
@@ -577,7 +587,8 @@ export function WidgetEditorModal({
               </Button>
             </DialogFooter>
           </>
-        ) : (
+        )}
+        {dialogStep === "main" && (
         <>
         <DialogHeader>
           <DialogTitle>

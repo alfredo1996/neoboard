@@ -62,6 +62,7 @@ vi.mock("next/server", () => ({
 // ---------------------------------------------------------------------------
 
 describe("GET /api/widget-templates/[id]", () => {
+  // any: mocked NextResponse shape exposes _body and status which are not in the real type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let GET: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
 
@@ -100,6 +101,7 @@ describe("GET /api/widget-templates/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("PUT /api/widget-templates/[id]", () => {
+  // any: mocked NextResponse shape exposes _body and status which are not in the real type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let PUT: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
 
@@ -168,6 +170,7 @@ describe("PUT /api/widget-templates/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/widget-templates/[id]", () => {
+  // any: mocked NextResponse shape exposes _body and status which are not in the real type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let DELETE: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
 
