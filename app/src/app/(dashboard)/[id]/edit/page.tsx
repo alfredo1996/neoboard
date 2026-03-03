@@ -179,7 +179,7 @@ export default function DashboardEditorPage({
       updateWidget(widget.id, widget);
     }
     queryClient.invalidateQueries({
-      queryKey: ["widget-query", widget.connectionId, widget.query],
+      queryKey: ["widget-query", widget.id],
     });
   }
 

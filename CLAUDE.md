@@ -59,6 +59,8 @@ Rules:
 | Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
 | UI components + pages | Playwright E2E | Real rendering, real data, real interactions |
 
+**Coverage target: 80% per package** (unit + E2E combined). Track with `npm run test:coverage` in each package.
+
 **Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`.** Component rendering is tested via Playwright E2E with real data. Vitest in `app/` is for pure logic, API routes, stores, and hooks only. UI component tests belong in `component/` (isolated, no business logic) or as Playwright E2E specs.
 
 ## Working Rules
@@ -72,7 +74,7 @@ Rules:
 
 **Git & PRs:**
 - Conventional Commits: `type(scope): description`.
-- Branch from `main`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
+- Branch from `dev`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
 - PRs target `dev` (integration) before merging to `main`.
 - Do not push if tests are failing.
 - PRs need labels: type + package + area. See `/github` skill.
@@ -138,5 +140,5 @@ Before touching any UI code:
 2. Read `.claude/skills/screenshot-review/skill.md` — screenshot workflow.
 
 Rules:
-- Screenshot before AND after any visual change (`screenshots/before/`, `.screenshots/after/`).
+- Screenshot before AND after any visual change (`.screenshots/before/`, `.screenshots/after/`).
 - Keep the baseline suite (`.screenshots/baseline-*/`) up to date for new pages/flows.

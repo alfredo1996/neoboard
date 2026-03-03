@@ -104,6 +104,7 @@ export async function executeQuery(
   type: DbType,
   credentials: ConnectionCredentials,
   queryParams: { query: string; params?: Record<string, unknown> },
+  options?: { accessMode?: "READ" | "WRITE" },
 ): Promise<{ data: unknown; fields?: unknown }> {
   const module = getOrCreateModule(type, credentials) as {
     runQuery: (
@@ -117,6 +118,7 @@ export async function executeQuery(
     ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
     connectionType: toConnectionType(type),
     database: credentials.database,
+    ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
   };
 
   // PostgreSQL uses positional $1, $2 params — rewrite $param_xxx tokens

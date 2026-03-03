@@ -11,6 +11,7 @@ import {
   ChartOptionsPanel,
   ChartSettingsPanel,
   getDefaultChartSettings,
+  Badge,
   Button,
   LoadingButton,
   Input,
@@ -38,6 +39,7 @@ export { wrapWithPreviewLimit };
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
+import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
 import {
   ParameterConfigSection,
   resolveInternalParamType,
@@ -45,6 +47,7 @@ import {
 } from "./widget-editor/parameter-config-section";
 import type { ParamUIType, DateSubType } from "./widget-editor/parameter-config-section";
 import { ParameterPreview } from "./widget-editor/parameter-preview";
+import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 
 export interface WidgetEditorModalProps {
@@ -114,6 +117,16 @@ export function WidgetEditorModal({
     [layout]
   );
 
+  // Derive other widgets from layout for the "After Submit" refresh config.
+  // Includes all widgets across all pages except the widget being edited.
+  const otherWidgets = useMemo(() => {
+    if (!layout) return [];
+    return layout.pages
+      .flatMap((p) => p.widgets)
+      .filter((w) => w.id !== widget?.id)
+      .map((w) => ({ id: w.id, title: (w.settings?.title as string) ?? "", chartType: w.chartType }));
+  }, [layout, widget?.id]);
+
   // Save status for visual feedback after CMD+Shift+Enter
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,6 +144,18 @@ export function WidgetEditorModal({
   const [dateSub, setDateSub] = useState<DateSubType>("single");
   const [multiSelect, setMultiSelect] = useState(false);
   const [paramWidgetName, setParamWidgetName] = useState("");
+
+  // Form fields state (only used when chartType === "form")
+  const [formFields, setFormFields] = useState<FormFieldDef[]>(
+    () => (widget?.settings?.formFields as FormFieldDef[] | undefined) ?? [],
+  );
+
+  // Widget IDs to refresh when this form submits successfully
+  const [refreshWidgetIds, setRefreshWidgetIds] = useState<string[]>(
+    () =>
+      ((widget?.settings?.chartOptions as Record<string, unknown> | undefined)
+        ?.refreshWidgetIds as string[] | undefined) ?? [],
+  );
 
   // Seed query preview options — populated when user clicks "Test Seed Query"
   const seedQueryExecution = useQueryExecution();
@@ -227,6 +252,8 @@ export function WidgetEditorModal({
         setDateSub("single");
         setMultiSelect(false);
         setParamWidgetName("");
+        setFormFields([]);
+        setRefreshWidgetIds([]);
         setActionRules([]);
         setDialogStep("main");
         seedQueryExecution.reset();
@@ -252,6 +279,17 @@ export function WidgetEditorModal({
         setEnableCache(widget.settings?.enableCache !== false);
         setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
         setConnectorChanged(false);
+
+        // Initialize form fields from existing widget
+        setFormFields(
+          (widget.settings?.formFields as FormFieldDef[] | undefined) ?? [],
+        );
+
+        // Initialize refresh widget IDs from existing form widget options
+        setRefreshWidgetIds(
+          ((widget.settings?.chartOptions as Record<string, unknown> | undefined)
+            ?.refreshWidgetIds as string[] | undefined) ?? [],
+        );
 
         // Initialize parameter editor state from existing widget
         if (widget.chartType === "parameter-select") {
@@ -347,6 +385,7 @@ export function WidgetEditorModal({
               ...(widget?.settings ?? {}),
               title: title || undefined,
               chartOptions,
+              formFields: chartType === "form" ? formFields : undefined,
               clickAction: buildClickAction(),
               enableCache,
               cacheTtlMinutes,
@@ -368,6 +407,7 @@ export function WidgetEditorModal({
     chartType,
     title,
     chartOptions,
+    formFields,
     enableCache,
     cacheTtlMinutes,
     previewQuery,
@@ -410,6 +450,7 @@ export function WidgetEditorModal({
   }, [previewQuery.data]);
 
   const isParamSelect = chartType === "parameter-select";
+  const isForm = chartType === "form";
 
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
@@ -431,10 +472,17 @@ export function WidgetEditorModal({
       settings: {
         ...(widget?.settings ?? {}),
         title: title || undefined,
-        chartOptions: resolvedChartOptions,
-        clickAction,
-        enableCache: isParamSelect ? undefined : enableCache,
-        cacheTtlMinutes: isParamSelect ? undefined : cacheTtlMinutes,
+        chartOptions: isForm
+          ? {
+              ...chartOptions,
+              refreshWidgetIds:
+                refreshWidgetIds.length > 0 ? refreshWidgetIds : undefined,
+            }
+          : resolvedChartOptions,
+        formFields: isForm ? formFields : undefined,
+        clickAction: (isParamSelect || isForm) ? undefined : clickAction,
+        enableCache: (isParamSelect || isForm) ? undefined : enableCache,
+        cacheTtlMinutes: (isParamSelect || isForm) ? undefined : cacheTtlMinutes,
       },
     });
     onOpenChange(false);
@@ -485,7 +533,7 @@ export function WidgetEditorModal({
                     onChartTypeChange={handleChartTypeChange}
                     compatibleChartTypes={compatibleChartTypes}
                     connections={connections}
-                    showConnection={!isParamSelect || paramUIType === "select"}
+                    showConnection={isForm || !isParamSelect || paramUIType === "select"}
                   />
 
                   {/* Connector-changed warning */}
@@ -525,8 +573,17 @@ export function WidgetEditorModal({
                       chartType={chartType}
                       query={query}
                       onQueryChange={setQuery}
-                      onRun={handlePreview}
+                      onRun={isForm ? undefined : handlePreview}
                       editorLanguage={editorLanguage}
+                      connectionId={connectionId}
+                    />
+                  )}
+
+                  {/* Form fields editor (form type only) */}
+                  {isForm && (
+                    <FormFieldsEditor
+                      fields={formFields}
+                      onChange={setFormFields}
                       connectionId={connectionId}
                     />
                   )}
@@ -544,6 +601,72 @@ export function WidgetEditorModal({
                   <p className="text-sm text-muted-foreground">
                     No advanced options for parameter widgets.
                   </p>
+                ) : isForm ? (
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                      After Submit
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Refresh these widgets when the form submits successfully.
+                    </p>
+                    {otherWidgets && otherWidgets.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {refreshWidgetIds.length} of {otherWidgets.length} selected
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => {
+                              const allSelected = otherWidgets.every((w) =>
+                                refreshWidgetIds.includes(w.id),
+                              );
+                              setRefreshWidgetIds(
+                                allSelected ? [] : otherWidgets.map((w) => w.id),
+                              );
+                            }}
+                          >
+                            {otherWidgets.every((w) => refreshWidgetIds.includes(w.id))
+                              ? "Deselect all"
+                              : "Select all"}
+                          </Button>
+                        </div>
+                        {otherWidgets.map((w) => (
+                          <div key={w.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`refresh-widget-${w.id}`}
+                              checked={refreshWidgetIds.includes(w.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setRefreshWidgetIds((prev) => [...prev, w.id]);
+                                } else {
+                                  setRefreshWidgetIds((prev) =>
+                                    prev.filter((id) => id !== w.id),
+                                  );
+                                }
+                              }}
+                            />
+                            <Label
+                              htmlFor={`refresh-widget-${w.id}`}
+                              className="text-sm flex items-center gap-1.5"
+                            >
+                              {w.title || "(untitled)"}
+                              <Badge variant="outline" className="text-xs font-normal">
+                                {chartRegistry[w.chartType as ChartType]?.label ?? w.chartType}
+                              </Badge>
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No other widgets on this page.
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {/* Caching */}
@@ -624,7 +747,7 @@ export function WidgetEditorModal({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <Label className="mb-0">Preview</Label>
-              {!isParamSelect && (
+              {!isParamSelect && !isForm && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -640,7 +763,7 @@ export function WidgetEditorModal({
                 </Button>
               )}
             </div>
-            {!isParamSelect && previewQuery.isError && (
+            {!isParamSelect && !isForm && previewQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Query Failed</AlertTitle>
@@ -664,6 +787,26 @@ export function WidgetEditorModal({
                   seedPreviewOptions={seedPreviewOptions}
                   seedQueryPending={seedQueryExecution.isPending}
                 />
+              ) : isForm ? (
+                formFields.length > 0 ? (
+                  <div className="p-4 space-y-3 overflow-auto h-full">
+                    {formFields.map((f) => (
+                      <div key={f.id} className="space-y-1.5">
+                        <Label className="text-sm">{f.label || f.parameterName}</Label>
+                        <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
+                          {f.parameterType}
+                        </div>
+                      </div>
+                    ))}
+                    <Button disabled className="w-full mt-2">
+                      {(chartOptions.submitButtonText as string) || "Submit"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
+                    Add fields in the Fields section below to see the form preview
+                  </div>
+                )
               ) : (
                 <>
                   {previewQuery.isPending && (
@@ -708,7 +851,9 @@ export function WidgetEditorModal({
               isParamSelect
                 ? !paramWidgetName.trim() ||
                   (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
-                : !query.trim()
+                : isForm
+                  ? !connectionId || !query.trim()
+                  : !query.trim()
             }
             loading={saveStatus === "saving"}
             loadingText="Saving..."

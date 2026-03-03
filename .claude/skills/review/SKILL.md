@@ -7,7 +7,7 @@ allowed-tools: Read, Bash(gh *), Bash(git *), Grep(*), Glob(*)
 ---
 ## State
 - Branch: !`git branch --show-current`
-- Changed: !`git diff origin/main --name-only 2>/dev/null || git diff --name-only`
+- Changed: !`git diff origin/dev --name-only 2>/dev/null || git diff --name-only`
 
 ## Checklist
 Use ultrathink.

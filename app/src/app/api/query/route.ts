@@ -15,7 +15,7 @@ const MAX_ROWS = 10_000;
 const querySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
-  params: z.record(z.any()).optional(),
+  params: z.record(z.unknown()).optional(),
   /** Optional defense-in-depth field: when provided, must match the session tenant. */
   tenantId: z.string().optional(),
 });

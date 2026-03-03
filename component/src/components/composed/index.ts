@@ -95,6 +95,9 @@ export {
   type CascadingSelectorOption,
 } from "./parameter-widgets/cascading-selector";
 
+// Form
+export { FormWidget, type FormWidgetProps, type FormFieldDef } from "./form-widget";
+
 // Query
 export { QueryEditor, type QueryEditorProps } from "./query-editor";
 
