@@ -3,6 +3,7 @@ import type { UserRole } from "@/lib/db/schema";
 declare module "next-auth" {
   interface User {
     role?: UserRole;
+    canWrite?: boolean;
     tenantId?: string;
   }
 
@@ -10,6 +11,7 @@ declare module "next-auth" {
     user: User & {
       id: string;
       role?: UserRole;
+      canWrite?: boolean;
       tenantId?: string;
     };
   }
@@ -19,6 +21,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     role?: UserRole;
+    canWrite?: boolean;
     tenantId?: string;
   }
 }

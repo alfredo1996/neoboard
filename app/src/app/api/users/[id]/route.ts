@@ -5,9 +5,14 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 
-const updateUserSchema = z.object({
-  role: z.enum(["admin", "creator", "reader"]),
-});
+const updateUserSchema = z
+  .object({
+    role: z.enum(["admin", "creator", "reader"]).optional(),
+    canWrite: z.boolean().optional(),
+  })
+  .refine((d) => d.role !== undefined || d.canWrite !== undefined, {
+    message: "At least one field must be provided",
+  });
 
 export async function PATCH(
   request: Request,
@@ -34,15 +39,20 @@ export async function PATCH(
       );
     }
 
+    const updateFields: { role?: "admin" | "creator" | "reader"; canWrite?: boolean } = {};
+    if (parsed.data.role !== undefined) updateFields.role = parsed.data.role;
+    if (parsed.data.canWrite !== undefined) updateFields.canWrite = parsed.data.canWrite;
+
     const [updated] = await db
       .update(users)
-      .set({ role: parsed.data.role })
+      .set(updateFields)
       .where(eq(users.id, id))
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
+        canWrite: users.canWrite,
         createdAt: users.createdAt,
       });
 

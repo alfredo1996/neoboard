@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import { Users as UsersIcon, Plus } from "lucide-react";
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from "@/hooks/use-users";
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserCanWrite } from "@/hooks/use-users";
 import type { UserListItem } from "@/hooks/use-users";
 import type { UserRole } from "@/lib/db/schema";
 import {
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
   Badge,
+  Switch,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -57,6 +58,7 @@ export default function UsersPage() {
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
+  const updateCanWrite = useUpdateUserCanWrite();
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<{
@@ -137,6 +139,64 @@ export default function UsersPage() {
         },
       },
       {
+        accessorKey: "canWrite",
+        header: "Write",
+        cell: ({ row }) => {
+          const canWrite = row.original.canWrite;
+          const isSelf = row.original.id === currentUserId;
+          const isReader = row.original.role === "reader";
+
+          if (!isAdmin) {
+            return (
+              <Badge variant={canWrite ? "default" : "secondary"}>
+                {canWrite ? "Yes" : "No"}
+              </Badge>
+            );
+          }
+
+          const disabled = isSelf || isReader;
+          const toggle = (
+            <Switch
+              checked={canWrite}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                updateCanWrite.mutate(
+                  { id: row.original.id, canWrite: checked },
+                  {
+                    onSuccess: () =>
+                      toast({
+                        title: "Write permission updated",
+                        description: `${row.original.name ?? row.original.email} can ${checked ? "now" : "no longer"} execute write queries.`,
+                      }),
+                    onError: (err) =>
+                      toast({
+                        title: "Failed to update write permission",
+                        description: err instanceof Error ? err.message : "Something went wrong.",
+                        variant: "destructive",
+                      }),
+                  }
+                )
+              }
+            />
+          );
+
+          if (disabled) {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex cursor-not-allowed opacity-60">{toggle}</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isSelf ? "You cannot change your own write permission" : "Readers cannot execute write queries"}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return toggle;
+        },
+      },
+      {
         accessorKey: "createdAt",
         header: "Created",
         cell: ({ getValue }) => {
@@ -172,7 +232,7 @@ export default function UsersPage() {
         },
       },
     ],
-    [isAdmin, currentUserId, updateRole, toast]
+    [isAdmin, currentUserId, updateRole, updateCanWrite, toast]
   );
 
   async function handleCreate(e: React.FormEvent) {

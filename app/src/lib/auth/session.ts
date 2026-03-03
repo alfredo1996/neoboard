@@ -48,7 +48,8 @@ export async function requireSession(): Promise<{
   return {
     userId: session.user.id,
     role,
-    canWrite: role !== "reader",
+    // Readers can never write; for other roles read from JWT (DB-backed), defaulting to true for old tokens
+    canWrite: role !== "reader" && (session.user.canWrite !== false),
     tenantId,
   };
 }
