@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireAdmin = vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
+const mockRequireAdmin = vi.fn<() => Promise<{ userId: string; canWrite: boolean; tenantId: string }>>();
 
 function makeUpdateChain(returning: unknown[]) {
   const c = {
@@ -77,7 +77,7 @@ describe("PATCH /api/users/[id]", () => {
   });
 
   it("updates canWrite field and returns updated user", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", canWrite: true, tenantId: "default" });
     const updated = { id: "u1", name: "Bob", email: "bob@example.com", role: "creator", canWrite: false, createdAt: new Date() };
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
 
@@ -88,7 +88,7 @@ describe("PATCH /api/users/[id]", () => {
   });
 
   it("updates both role and canWrite", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", canWrite: true, tenantId: "default" });
     const updated = { id: "u2", name: "Eve", email: "eve@example.com", role: "creator", canWrite: false, createdAt: new Date() };
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
 
@@ -100,7 +100,7 @@ describe("PATCH /api/users/[id]", () => {
   });
 
   it("returns 400 when body is empty (no fields provided)", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", canWrite: true, tenantId: "default" });
 
     const res = await PATCH(makeRequest({}), makeParams("u3"));
 
@@ -108,7 +108,7 @@ describe("PATCH /api/users/[id]", () => {
   });
 
   it("returns 400 when self-editing", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "self-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({ userId: "self-1", canWrite: true, tenantId: "default" });
 
     const res = await PATCH(makeRequest({ canWrite: false }), makeParams("self-1"));
 
@@ -116,7 +116,7 @@ describe("PATCH /api/users/[id]", () => {
   });
 
   it("returns 404 when user not found", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", canWrite: true, tenantId: "default" });
     mockDb.update.mockReturnValue(makeUpdateChain([]));
 
     const res = await PATCH(makeRequest({ canWrite: false }), makeParams("nonexistent"));
