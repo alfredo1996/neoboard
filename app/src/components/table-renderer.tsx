@@ -81,8 +81,11 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   // enablePagination defaults to true per chart-options-schema.
   const enablePagination = settings.enablePagination !== false;
 
-  const thresholds = parseColorThresholds((settings.colorThresholds as string) ?? "");
-  const thresholdColumn = (settings.colorThresholdsColumn as string) || "";
+  const thresholds = parseColorThresholds(
+    typeof settings.colorThresholds === "string" ? settings.colorThresholds : ""
+  );
+  const thresholdColumn =
+    typeof settings.colorThresholdsColumn === "string" ? settings.colorThresholdsColumn : "";
   const getRowStyle =
     thresholds.length > 0
       ? (row: Record<string, unknown>): React.CSSProperties | undefined => {

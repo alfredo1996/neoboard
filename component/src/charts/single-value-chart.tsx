@@ -1,12 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  type ColorThreshold,
-  parseColorThresholds,
-  resolveThresholdColor,
-} from "./color-threshold";
+import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 
-export type { ColorThreshold };
+export type { ColorThreshold } from "./color-threshold";
 export type SingleValueFontSize = "sm" | "md" | "lg" | "xl";
 export type SingleValueNumberFormat = "plain" | "comma" | "compact" | "percent";
 

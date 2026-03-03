@@ -99,9 +99,13 @@ function BarChart({
         name: key,
         type: "bar" as const,
         data: data.map((d) => {
-          const v = d[key] as number;
-          const color = thresholds.length ? resolveThresholdColor(v, thresholds) : undefined;
-          return color ? { value: v, itemStyle: { color } } : v;
+          const rawValue = d[key];
+          const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+          const color =
+            Number.isFinite(numericValue) && thresholds.length
+              ? resolveThresholdColor(numericValue, thresholds)
+              : undefined;
+          return color ? { value: rawValue, itemStyle: { color } } : rawValue;
         }),
         stack: stacked ? "total" : undefined,
         barWidth: effectiveBarWidth,

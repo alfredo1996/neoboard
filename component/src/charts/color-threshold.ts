@@ -17,6 +17,7 @@ export function parseColorThresholds(raw: string): ColorThreshold[] {
         "value" in t &&
         "color" in t &&
         typeof (t as ColorThreshold).value === "number" &&
+        Number.isFinite((t as ColorThreshold).value) &&
         typeof (t as ColorThreshold).color === "string",
     );
   } catch {
