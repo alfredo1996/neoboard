@@ -29,6 +29,13 @@
       "when": 1771860582454,
       "tag": "0003_stormy_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772000000000,
+      "tag": "0004_widget_template",
+      "breakpoints": true
     }
   ]
 }

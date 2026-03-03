@@ -40,6 +40,8 @@ interface DashboardContainerProps {
   refetchInterval?: number | false;
   /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
+  /** Called when the user chooses "Save to Widget Lab" for a widget. */
+  onSaveAsTemplate?: (widget: DashboardWidget) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -60,6 +62,7 @@ export function DashboardContainer({
   onWidgetSettingsChange,
   refetchInterval,
   onNavigateToPage,
+  onSaveAsTemplate,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -98,12 +101,12 @@ export function DashboardContainer({
         onClick: () => onDuplicateWidget(widget.id),
       });
     }
-    // Widget Lab is not yet built — option is visible but disabled.
-    actions.push({
-      label: "Save to Widget Lab",
-      onClick: () => undefined,
-      disabled: true,
-    });
+    if (onSaveAsTemplate) {
+      actions.push({
+        label: "Save to Widget Lab",
+        onClick: () => onSaveAsTemplate(widget),
+      });
+    }
     if (onRemoveWidget) {
       actions.push({
         label: "Remove",

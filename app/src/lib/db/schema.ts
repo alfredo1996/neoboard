@@ -134,6 +134,29 @@ export const dashboardShares = pgTable("dashboard_share", {
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
 });
 
+export const widgetTemplates = pgTable("widget_template", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  description: text("description"),
+  tags: text("tags").array().default([]),
+  chartType: text("chartType").notNull(),
+  connectorType: text("connectorType").notNull(),
+  query: text("query").notNull().default(""),
+  params: jsonb("params").$type<Record<string, unknown>>(),
+  settings: jsonb("settings").$type<Record<string, unknown>>(),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
+  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+});
+
+export type WidgetTemplate = typeof widgetTemplates.$inferSelect;
+export type NewWidgetTemplate = typeof widgetTemplates.$inferInsert;
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export type UserRole = "admin" | "creator" | "reader";

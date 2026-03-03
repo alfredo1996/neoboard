@@ -6,7 +6,9 @@ import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { collectParameterNames } from "@/lib/collect-parameter-names";
-import { AlertCircle, AlertTriangle, Play } from "lucide-react";
+import { AlertCircle, AlertTriangle, Play, FlaskConical } from "lucide-react";
+import { useWidgetTemplates } from "@/hooks/use-widget-templates";
+import type { WidgetTemplate } from "@/lib/db/schema";
 import {
   ChartOptionsPanel,
   ChartSettingsPanel,
@@ -28,6 +30,7 @@ import {
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
+  getChartConfig,
   chartRegistry,
   chartSupportsClickAction,
 } from "@/lib/chart-registry";
@@ -109,7 +112,7 @@ export function WidgetEditorModal({
   const [actionRules, setActionRules] = useState<ClickActionRule[]>(
     existingClickAction?.rules ?? []
   );
-  const [dialogStep, setDialogStep] = useState<"main" | "rules">("main");
+  const [dialogStep, setDialogStep] = useState<"main" | "rules" | "templates">("main");
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -185,6 +188,26 @@ export function WidgetEditorModal({
     () => connections.find((c) => c.id === connectionId) ?? null,
     [connections, connectionId]
   );
+
+  // Template picker — only used in add mode
+  const selectedConnectorType = selectedConnection?.type ?? undefined;
+  const { data: templates } = useWidgetTemplates(
+    mode === "add" && dialogStep === "templates"
+      ? { connectorType: selectedConnectorType }
+      : undefined
+  );
+
+  function applyTemplate(t: WidgetTemplate) {
+    setChartType(t.chartType);
+    setQuery(t.query ?? "");
+    if (t.settings) {
+      setChartOptions((t.settings.chartOptions as Record<string, unknown>) ?? getDefaultChartSettings(t.chartType));
+      setTitle((t.settings.title as string) ?? "");
+    } else {
+      setChartOptions(getDefaultChartSettings(t.chartType));
+    }
+    setDialogStep("main");
+  }
   const editorLanguage: "cypher" | "sql" =
     selectedConnection?.type === "postgresql" ? "sql" : "cypher";
 
@@ -501,6 +524,46 @@ export function WidgetEditorModal({
             parameterSuggestions={parameterSuggestions}
             pages={(layout?.pages ?? []).map((p) => ({ id: p.id, title: p.title }))}
           />
+        ) : dialogStep === "templates" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Browse Templates</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 flex-1 overflow-y-auto min-h-[400px]">
+              {!templates || templates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
+                  <FlaskConical className="h-8 w-8 opacity-40" />
+                  <p className="text-sm">No templates available{selectedConnectorType ? ` for ${selectedConnectorType}` : ""}.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => applyTemplate(t)}
+                      className="w-full text-left rounded-lg border p-3 hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-sm">{t.name}</span>
+                        <div className="flex gap-1">
+                          <Badge variant="secondary" className="text-xs">{getChartConfig(t.chartType)?.label ?? t.chartType}</Badge>
+                          <Badge variant="outline" className="text-xs">{t.connectorType}</Badge>
+                        </div>
+                      </div>
+                      {t.description && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogStep("main")}>
+                Back
+              </Button>
+            </DialogFooter>
+          </>
         ) : (
         <>
         <DialogHeader>
@@ -535,6 +598,19 @@ export function WidgetEditorModal({
                     connections={connections}
                     showConnection={isForm || !isParamSelect || paramUIType === "select"}
                   />
+
+                  {mode === "add" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setDialogStep("templates")}
+                    >
+                      <FlaskConical className="h-4 w-4" />
+                      From Template
+                    </Button>
+                  )}
 
                   {/* Connector-changed warning */}
                   {!isParamSelect && connectorChanged && (

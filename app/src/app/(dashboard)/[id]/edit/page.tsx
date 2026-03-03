@@ -13,6 +13,7 @@ import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
+import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import { migrateLayout } from "@/lib/migrate-layout";
 import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
 import {
@@ -123,6 +124,7 @@ export default function DashboardEditorPage({
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [templateWidget, setTemplateWidget] = useState<DashboardWidget | undefined>();
 
   // Redirect Readers away from edit mode
   useEffect(() => {
@@ -304,6 +306,22 @@ export default function DashboardEditorPage({
             layout={layout}
           />
 
+          {templateWidget && (
+            <SaveTemplateDialog
+              open={templateWidget !== undefined}
+              onOpenChange={(open) => {
+                if (!open) setTemplateWidget(undefined);
+              }}
+              widget={templateWidget}
+              connectorType={
+                (connections ?? []).find((c) => c.id === templateWidget.connectionId)
+                  ?.type === "postgresql"
+                  ? "postgresql"
+                  : "neo4j"
+              }
+            />
+          )}
+
           <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
             {layout.pages.map((page, index) => {
               const isActive = index === activePageIndex;
@@ -345,6 +363,7 @@ export default function DashboardEditorPage({
                       }
                     }}
                     onNavigateToPage={handleNavigateToPage}
+                    onSaveAsTemplate={setTemplateWidget}
                   />
                 </div>
               );
