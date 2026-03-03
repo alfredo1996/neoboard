@@ -446,10 +446,10 @@ test.describe("Write permission enforcement", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(page.getByText(creatorEmail)).toBeVisible({ timeout: 10_000 });
 
-    // Disable can_write for that user
+    // Disable can_write for that user (admin sees a Switch, not a badge)
     const row = page.getByRole("row").filter({ hasText: creatorEmail });
     await row.getByRole("switch").click();
-    await expect(row.getByText("No")).toBeVisible({ timeout: 5_000 });
+    await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
 
     // Create a dashboard as Alice for the creator to use (public so creator can view it)
     const res = await page.request.post("/api/dashboards", {

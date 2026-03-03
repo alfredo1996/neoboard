@@ -73,19 +73,20 @@ test.describe("can_write toggle", () => {
   test("Write column shows Yes badge for creators by default", async ({ page }) => {
     const email = await createCreator(page, "badge-test");
     const row = page.getByRole("row").filter({ hasText: email });
-    await expect(row.getByText("Yes")).toBeVisible();
+    // Admin sees a Switch in the Write column; checked = canWrite enabled
+    await expect(row.getByRole("switch")).toBeChecked();
   });
 
   test("admin can toggle can_write off for a creator", async ({ page }) => {
     const email = await createCreator(page, "toggle-off");
     const row = page.getByRole("row").filter({ hasText: email });
 
-    // Default: write enabled
-    await expect(row.getByText("Yes")).toBeVisible();
+    // Default: write enabled (switch checked)
+    await expect(row.getByRole("switch")).toBeChecked();
 
     // Toggle off
     await row.getByRole("switch").click();
-    await expect(row.getByText("No")).toBeVisible({ timeout: 5_000 });
+    await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
   });
 
   test("admin can toggle can_write back on after disabling", async ({ page }) => {
@@ -94,11 +95,11 @@ test.describe("can_write toggle", () => {
 
     // Disable first
     await row.getByRole("switch").click();
-    await expect(row.getByText("No")).toBeVisible({ timeout: 5_000 });
+    await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
 
     // Re-enable
     await row.getByRole("switch").click();
-    await expect(row.getByText("Yes")).toBeVisible({ timeout: 5_000 });
+    await expect(row.getByRole("switch")).toBeChecked({ timeout: 5_000 });
   });
 
   test("Write switch is disabled for the admin's own row", async ({ page }) => {
