@@ -60,8 +60,8 @@ test.describe("Form widget", () => {
     await paramInputs.nth(1).fill("email");
 
     // Preview should show two labeled placeholders + Submit button
-    await expect(dialog.getByText("Author")).toBeVisible({ timeout: 5_000 });
-    await expect(dialog.getByText("Message")).toBeVisible({ timeout: 5_000 });
+    await expect(dialog.getByText("Author", { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(dialog.getByText("Message", { exact: true })).toBeVisible({ timeout: 5_000 });
     await expect(
       dialog.getByRole("button", { name: "Submit" }),
     ).toBeVisible();
@@ -311,7 +311,7 @@ test.describe("Form widget", () => {
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
 
-    await tableDialog.getByRole("button", { name: "Run" }).click();
+    await tableDialog.getByRole("button", { name: "Run", exact: true }).click();
     await expect(
       tableDialog.locator("[data-testid='base-chart'], table").first(),
     ).toBeVisible({ timeout: 15_000 });
@@ -410,7 +410,123 @@ test.describe("Form widget", () => {
   });
 });
 
-// Note: Write permission denial (reader role returning 403) is tested in the
-// unit test suite at app/src/app/api/query/write/__tests__/route.test.ts.
-// No seeded reader-role user exists in the E2E environment, so we skip the
-// E2E permission test. The API route enforces `canWrite` server-side.
+// ---------------------------------------------------------------------------
+// Write permission enforcement
+// ---------------------------------------------------------------------------
+// These tests create a creator user, disable their can_write via the Users
+// page (as admin), then log in as that user and verify the form widget
+// surfaces "Write permission required" and captures a screenshot.
+
+test.describe("Write permission enforcement", () => {
+  let creatorEmail: string;
+  let dashboardId: string;
+
+  test.beforeAll(async ({ browser }) => {
+    // Create a new browser context (clean cookies) for the admin setup
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // Log in as Alice (admin)
+    await page.goto("/login");
+    await page.getByLabel("Email").waitFor({ state: "visible" });
+    await page.getByLabel("Email").fill(ALICE.email);
+    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL("/", { timeout: 15_000 });
+
+    // Create a creator user
+    creatorEmail = `no-write-${Date.now()}@example.com`;
+    await page.goto("/users");
+    await expect(page.getByText(ALICE.email)).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Create User" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.locator("#user-name").fill("No Write Creator");
+    await dialog.locator("#user-email").fill(creatorEmail);
+    await dialog.locator("#user-password").fill("password123");
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByText(creatorEmail)).toBeVisible({ timeout: 10_000 });
+
+    // Disable can_write for that user
+    const row = page.getByRole("row").filter({ hasText: creatorEmail });
+    await row.getByRole("switch").click();
+    await expect(row.getByText("No")).toBeVisible({ timeout: 5_000 });
+
+    // Create a dashboard as Alice for the creator to use (public so creator can view it)
+    const res = await page.request.post("/api/dashboards", {
+      data: { name: `Write-Permission-Test-${Date.now()}` },
+    });
+    const { id } = await res.json();
+    dashboardId = id;
+
+    await context.close();
+  });
+
+  test.afterAll(async ({ browser }) => {
+    if (!dashboardId) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto("/login");
+    await page.getByLabel("Email").waitFor({ state: "visible" });
+    await page.getByLabel("Email").fill(ALICE.email);
+    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL("/", { timeout: 15_000 });
+    await page.request.delete(`/api/dashboards/${dashboardId}`);
+    await context.close();
+  });
+
+  test("form widget shows 'Write permission required' when can_write is false", async ({
+    authPage,
+    page,
+  }) => {
+    // Log in as the creator with can_write=false
+    await authPage.login(creatorEmail, "password123");
+
+    // Go to the dashboard edit page and add a form widget
+    await page.goto(`/${dashboardId}/edit`);
+    await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Form" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    await cm.click();
+    await page.keyboard.insertText("CREATE (n:PermTest {v: $param_v}) RETURN n.v AS v");
+
+    await dialog.getByRole("button", { name: "Add Field" }).click();
+    await dialog.getByPlaceholder("e.g. Movie Title").fill("Value");
+    await dialog.getByPlaceholder("e.g. title").fill("v");
+
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // Save and switch to view mode
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+
+    // Wait for the form widget to render
+    await expect(page.getByText("Value", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("textbox", { name: "v" }).fill("test-value");
+
+    // Submit — API returns 403
+    await page.getByRole("button", { name: "Submit" }).click();
+
+    // The form widget renders the API error inline
+    await expect(
+      page.getByText("Write permission required"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Screenshot: 403 error displayed inside the form widget
+    await page.screenshot({
+      path: ".screenshots/form-widget-403-write-permission.png",
+      fullPage: false,
+    });
+  });
+});
