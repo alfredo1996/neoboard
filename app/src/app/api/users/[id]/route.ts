@@ -19,7 +19,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await requireAdmin();
+    const { userId, canWrite } = await requireAdmin();
+    if (!canWrite) throw new Error("Forbidden");
     const { id } = await params;
 
     if (id === userId) {
@@ -72,7 +73,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await requireAdmin();
+    const { userId, canWrite } = await requireAdmin();
+    if (!canWrite) throw new Error("Forbidden");
     const { id } = await params;
 
     if (id === userId) {
