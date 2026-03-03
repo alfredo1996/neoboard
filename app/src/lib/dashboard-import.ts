@@ -45,7 +45,8 @@ export const neoboardExportSchema = z.object({
   layout: z.object({
     version: z.literal(2),
     pages: z.array(pageSchema),
-  }),
+    settings: z.record(z.unknown()).optional(),
+  }).passthrough(),
 });
 
 export type NeoboardExportInput = z.infer<typeof neoboardExportSchema>;

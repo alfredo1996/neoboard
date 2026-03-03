@@ -180,12 +180,16 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
     e.preventDefault();
     if (!parsed) return;
 
-    const result = await importDashboard.mutateAsync({
-      payload: parsed.payload,
-      connectionMapping: mapping,
-    });
-    handleOpenChange(false);
-    router.push(`/${result.id}`);
+    try {
+      const result = await importDashboard.mutateAsync({
+        payload: parsed.payload,
+        connectionMapping: mapping,
+      });
+      handleOpenChange(false);
+      router.push(`/${result.id}`);
+    } catch (error) {
+      setFileError(error instanceof Error ? error.message : "Failed to import dashboard.");
+    }
   }
 
   const hasConnections = parsed && !parsed.isNeoDash && Object.keys(parsed.connections).length > 0;
