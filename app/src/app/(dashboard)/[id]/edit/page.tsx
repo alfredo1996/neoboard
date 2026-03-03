@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useCallback, useRef, useState } from "react";
+import { use, useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Plus, Save, LayoutDashboard, Users } from "lucide-react";
@@ -9,13 +9,14 @@ import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useParameterStore } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
+import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import { migrateLayout } from "@/lib/migrate-layout";
-import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
+import type { DashboardWidget, GridLayoutItem, WidgetTemplate } from "@/lib/db/schema";
 import {
   Button,
   Skeleton,
@@ -118,6 +119,43 @@ export default function DashboardEditorPage({
       }
     },
     [layout.pages, setActivePage]
+  );
+
+  // Template sync — fetch all tenant templates once; build lookup map
+  const { data: allTemplates } = useWidgetTemplates();
+  const templateMap = useMemo<Record<string, WidgetTemplate>>(
+    () => Object.fromEntries((allTemplates ?? []).map((t) => [t.id, t])),
+    [allTemplates]
+  );
+
+  const handleSyncWidget = useCallback(
+    (widget: DashboardWidget) => {
+      const tmpl = widget.templateId ? templateMap[widget.templateId] : undefined;
+      if (!tmpl) return; // template deleted — "Detach" will clean up
+      updateWidget(widget.id, {
+        ...widget,
+        chartType: tmpl.chartType,
+        query: tmpl.query ?? "",
+        settings: {
+          ...widget.settings,
+          ...(tmpl.settings ?? {}),
+          // Never overwrite the widget's connection
+          connectionId: widget.settings?.connectionId,
+        },
+        templateSyncedAt: tmpl.updatedAt?.toISOString() ?? new Date().toISOString(),
+      });
+    },
+    [templateMap, updateWidget]
+  );
+
+  const handleDetachWidget = useCallback(
+    (widgetId: string) => {
+      const page = layout.pages.find((p) => p.widgets.some((w) => w.id === widgetId));
+      const widget = page?.widgets.find((w) => w.id === widgetId);
+      if (!widget) return;
+      updateWidget(widgetId, { ...widget, templateId: undefined, templateSyncedAt: undefined });
+    },
+    [layout.pages, updateWidget]
   );
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -363,6 +401,9 @@ export default function DashboardEditorPage({
                     }}
                     onNavigateToPage={handleNavigateToPage}
                     onSaveAsTemplate={setTemplateWidget}
+                    templateMap={templateMap}
+                    onSyncWidget={handleSyncWidget}
+                    onDetachWidget={handleDetachWidget}
                   />
                 </div>
               );

@@ -81,6 +81,8 @@ export function WidgetEditorModal({
   const [title, setTitle] = useState(
     (widget?.settings?.title as string) ?? ""
   );
+  const [templateId, setTemplateId] = useState<string | undefined>(widget?.templateId);
+  const [templateSyncedAt, setTemplateSyncedAt] = useState<string | undefined>(widget?.templateSyncedAt);
   const [chartOptions, setChartOptions] = useState<Record<string, unknown>>(
     () => {
       if (widget?.settings?.chartOptions) {
@@ -197,6 +199,8 @@ export function WidgetEditorModal({
   );
 
   function applyTemplate(t: WidgetTemplate) {
+    setTemplateId(t.id);
+    setTemplateSyncedAt(t.updatedAt?.toISOString() ?? new Date().toISOString());
     setChartType(t.chartType);
     setQuery(t.query ?? "");
     setTitle((t.settings?.title as string) ?? "");
@@ -410,6 +414,8 @@ export function WidgetEditorModal({
               enableCache,
               cacheTtlMinutes,
             },
+            templateId,
+            templateSyncedAt,
           });
           onOpenChange(false);
         },
@@ -433,6 +439,8 @@ export function WidgetEditorModal({
     previewQuery,
     onSave,
     onOpenChange,
+    templateId,
+    templateSyncedAt,
   ]);
 
   // Register CMD+Shift+Enter / Ctrl+Shift+Enter on the dialog when it is open.
@@ -504,6 +512,8 @@ export function WidgetEditorModal({
         enableCache: (isParamSelect || isForm) ? undefined : enableCache,
         cacheTtlMinutes: (isParamSelect || isForm) ? undefined : cacheTtlMinutes,
       },
+      templateId,
+      templateSyncedAt,
     });
     onOpenChange(false);
   }

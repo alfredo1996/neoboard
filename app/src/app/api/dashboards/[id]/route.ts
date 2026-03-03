@@ -21,7 +21,7 @@ const widgetSchema = z.object({
   query: z.string(),
   params: z.record(z.unknown()).optional(),
   settings: z.record(z.unknown()).optional(),
-});
+}).passthrough(); // preserves templateId, templateSyncedAt and any future fields
 
 const pageSchema = z.object({
   id: z.string(),

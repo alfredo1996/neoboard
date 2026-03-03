@@ -199,6 +199,10 @@ export interface DashboardWidget {
   query: string;
   params?: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  /** ID of the Widget Lab template this widget was created from. */
+  templateId?: string;
+  /** ISO timestamp of the template snapshot at apply-time (= template.updatedAt). */
+  templateSyncedAt?: string;
 }
 
 export interface GridLayoutItem {
