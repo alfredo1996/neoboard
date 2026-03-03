@@ -41,12 +41,17 @@ export function isNeoDashFormat(json: unknown): boolean {
   if (!json || typeof json !== "object" || Array.isArray(json)) return false;
   const obj = json as Record<string, unknown>;
   if (!Array.isArray(obj.pages) || obj.pages.length === 0) return false;
-  const firstPage = obj.pages[0] as Record<string, unknown>;
-  return Array.isArray(firstPage.reports);
+  return obj.pages.every((p) => {
+    if (!p || typeof p !== "object" || Array.isArray(p)) return false;
+    return Array.isArray((p as Record<string, unknown>).reports);
+  });
 }
 
 export function convertNeoDash(json: unknown): NeoboardExport {
   const nd = json as NeoDashJson;
+
+  const toFiniteNumber = (value: unknown, fallback: number): number =>
+    typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
   const pages = nd.pages.map((page) => {
     const widgets: DashboardWidget[] = [];
@@ -67,10 +72,10 @@ export function convertNeoDash(json: unknown): NeoboardExport {
 
       gridLayout.push({
         i: widgetId,
-        x: report.x,
-        y: report.y,
-        w: report.width,
-        h: report.height,
+        x: toFiniteNumber(report.x, 0),
+        y: toFiniteNumber(report.y, 0),
+        w: toFiniteNumber(report.width, 4),
+        h: toFiniteNumber(report.height, 4),
       });
     }
 

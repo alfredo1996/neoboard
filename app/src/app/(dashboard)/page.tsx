@@ -80,14 +80,16 @@ interface ParsedImport {
 
 async function triggerExport(id: string, name: string) {
   const res = await fetch(`/api/dashboards/${id}/export`);
-  if (!res.ok) return;
+  if (!res.ok) {
+    throw new Error(`Failed to export dashboard (${res.status})`);
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const slug = name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "");
   a.href = url;
   a.download = `dashboard-${slug}.json`;
   a.click();
@@ -97,8 +99,8 @@ async function triggerExport(id: string, name: string) {
 // ── ImportDashboardDialog ─────────────────────────────────────────────
 
 interface ImportDashboardDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
 }
 
 function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProps) {
@@ -123,34 +125,31 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
     onOpenChange(isOpen);
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setFileError(null);
     setParsed(null);
     setMapping({});
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const json = JSON.parse(ev.target?.result as string);
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
 
-        if (isNeoDashFormat(json)) {
-          // NeoDash — no connection mapping needed
-          const pageCount = (json.pages as unknown[])?.length ?? 0;
-          const widgetCount = (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
-            (sum: number, p) => sum + (p.reports?.length ?? 0),
-            0
-          ) ?? 0;
-          setParsed({
-            payload: json,
-            dashboardName: (json as { title?: string }).title ?? "Imported Dashboard",
-            widgetCount: widgetCount,
-            isNeoDash: true,
-            connections: {},
-          });
-          void pageCount;
-        } else if (json.formatVersion === 1) {
+      if (isNeoDashFormat(json)) {
+        // NeoDash — no connection mapping needed
+        const widgetCount = (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
+          (sum: number, p) => sum + (p.reports?.length ?? 0),
+          0
+        ) ?? 0;
+        setParsed({
+          payload: json,
+          dashboardName: (json as { title?: string }).title ?? "Imported Dashboard",
+          widgetCount: widgetCount,
+          isNeoDash: true,
+          connections: {},
+        });
+      } else if (json.formatVersion === 1) {
           // NeoBoard export
           const connections = (json.connections ?? {}) as Record<string, ConnectionInfo>;
           const widgetCount = (json.layout?.pages as Array<{ widgets?: unknown[] }>)?.reduce(
@@ -172,11 +171,9 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
         } else {
           setFileError("Unrecognised file format. Expected a NeoBoard or NeoDash export.");
         }
-      } catch {
-        setFileError("Failed to parse file. Make sure it is a valid JSON file.");
-      }
-    };
-    reader.readAsText(file);
+    } catch {
+      setFileError("Failed to parse file. Make sure it is a valid JSON file.");
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -224,7 +221,7 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
               <div className="rounded-md border p-3 bg-muted/40 space-y-1">
                 <p className="text-sm font-medium truncate">{parsed.dashboardName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {parsed.widgetCount} widget{parsed.widgetCount !== 1 ? "s" : ""}
+                  {parsed.widgetCount} widget{parsed.widgetCount === 1 ? "" : "s"}
                   {parsed.isNeoDash ? " · NeoDash format" : " · NeoBoard format"}
                 </p>
               </div>
@@ -471,7 +468,11 @@ export default function DashboardListPage() {
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem
-                                  onClick={() => triggerExport(d.id, d.name)}
+                                  onClick={() => {
+                                    void triggerExport(d.id, d.name).catch((err) => {
+                                      console.error("Export failed", err);
+                                    });
+                                  }}
                                 >
                                   <Download className="mr-2 h-4 w-4" />
                                   Export

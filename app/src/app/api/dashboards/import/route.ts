@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards } from "@/lib/db/schema";
+import { connections, dashboards } from "@/lib/db/schema";
+
+const importRequestSchema = z.object({
+  payload: z.unknown(),
+  connectionMapping: z.record(z.string()).default({}),
+});
 import { requireSession } from "@/lib/auth/session";
 import { neoboardExportSchema, applyConnectionMapping } from "@/lib/dashboard-import";
 import { isNeoDashFormat, convertNeoDash } from "@/lib/neodash-converter";
@@ -15,11 +21,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { payload, connectionMapping = {} } = body as {
-      payload: unknown;
-      connectionMapping: Record<string, string>;
-    };
+    const parsedBody = importRequestSchema.safeParse(await request.json());
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: parsedBody.error.errors[0]?.message ?? "Invalid request body" },
+        { status: 400 }
+      );
+    }
+    const { payload, connectionMapping } = parsedBody.data;
 
     // Auto-detect and convert NeoDash format
     let exportData;
@@ -34,6 +43,18 @@ export async function POST(request: Request) {
         );
       }
       exportData = parsed.data;
+    }
+
+    // Validate that all mapped connection IDs belong to the caller
+    const mappedIds = [...new Set(Object.values(connectionMapping).filter(Boolean))];
+    if (mappedIds.length > 0) {
+      const allowed = await db
+        .select({ id: connections.id })
+        .from(connections)
+        .where(and(inArray(connections.id, mappedIds), eq(connections.userId, userId)));
+      if (allowed.length !== mappedIds.length) {
+        return NextResponse.json({ error: "Invalid connection mapping" }, { status: 400 });
+      }
     }
 
     // Apply connection mapping to layout
@@ -67,7 +88,10 @@ export async function POST(request: Request) {
       .returning();
 
     return NextResponse.json(created, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (e) {
+    if (e instanceof Error && e.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

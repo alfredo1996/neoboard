@@ -139,6 +139,8 @@ describe("POST /api/dashboards/import", () => {
 
   it("imports a valid NeoBoard export and returns 201", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    // Connection ownership check returns 1 allowed connection
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "real-conn-id" }]));
     // No existing dashboard with same name
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const created = {
@@ -170,6 +172,8 @@ describe("POST /api/dashboards/import", () => {
 
   it("appends (imported) to name when dashboard with same name already exists", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    // Connection ownership check returns 1 allowed connection
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "real-conn-id" }]));
     // Existing dashboard found
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "existing" }]));
     const created = {

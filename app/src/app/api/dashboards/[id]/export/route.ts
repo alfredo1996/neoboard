@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await requireSession();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
 
     const [dashboard] = await db
@@ -44,7 +44,7 @@ export async function GET(
       connectionRows = await db
         .select({ id: connections.id, name: connections.name, type: connections.type })
         .from(connections)
-        .where(inArray(connections.id, [...connectionIds]));
+        .where(and(inArray(connections.id, [...connectionIds]), eq(connections.userId, userId)));
     }
 
     const payload = buildExportPayload(dashboard, connectionRows);
@@ -52,8 +52,8 @@ export async function GET(
     // Slugify name for filename
     const slug = dashboard.name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
+      .replaceAll(/[^a-z0-9]+/g, "-")
+      .replaceAll(/^-|-$/g, "");
 
     return new Response(JSON.stringify(payload, null, 2), {
       status: 200,
@@ -62,7 +62,10 @@ export async function GET(
         "Content-Disposition": `attachment; filename="dashboard-${slug}.json"`,
       },
     });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (e) {
+    if (e instanceof Error && e.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

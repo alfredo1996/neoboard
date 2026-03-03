@@ -1,6 +1,34 @@
 import { z } from "zod";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
+const widgetSchema = z
+  .object({
+    id: z.string(),
+    chartType: z.string(),
+    connectionId: z.string(),
+    query: z.string(),
+  })
+  .passthrough();
+
+const gridLayoutItemSchema = z
+  .object({
+    i: z.string(),
+    x: z.number(),
+    y: z.number(),
+    w: z.number(),
+    h: z.number(),
+  })
+  .passthrough();
+
+const pageSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    widgets: z.array(widgetSchema),
+    gridLayout: z.array(gridLayoutItemSchema),
+  })
+  .passthrough();
+
 export const neoboardExportSchema = z.object({
   formatVersion: z.literal(1),
   exportedAt: z.string(),
@@ -16,7 +44,7 @@ export const neoboardExportSchema = z.object({
   ),
   layout: z.object({
     version: z.literal(2),
-    pages: z.array(z.unknown()),
+    pages: z.array(pageSchema),
   }),
 });
 

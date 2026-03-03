@@ -37,9 +37,10 @@ export function buildExportPayload(
   const rowsById = new Map(connectionRows.map((r) => [r.id, r]));
   for (const [origId, key] of Object.entries(idToKey)) {
     const row = rowsById.get(origId);
-    if (row) {
-      connectionMap[key] = { name: row.name, type: row.type };
+    if (!row) {
+      throw new Error(`Missing connection metadata for connectionId: ${origId}`);
     }
+    connectionMap[key] = { name: row.name, type: row.type };
   }
 
   // Deep-clone layout and replace connectionIds
@@ -47,9 +48,7 @@ export function buildExportPayload(
     ...page,
     widgets: page.widgets.map((widget) => ({
       ...widget,
-      connectionId: widget.connectionId
-        ? (idToKey[widget.connectionId] ?? widget.connectionId)
-        : "",
+      connectionId: widget.connectionId ? idToKey[widget.connectionId] : "",
     })),
     gridLayout: page.gridLayout.map((item) => ({ ...item })),
   }));
