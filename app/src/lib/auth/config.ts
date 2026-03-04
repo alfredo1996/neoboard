@@ -56,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           image: user.image,
           role: user.role,
+          canWrite: user.canWrite,
         };
       },
     }),
@@ -65,16 +66,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.canWrite = (user as { canWrite?: boolean }).canWrite ?? true;
         token.tenantId = process.env.TENANT_ID ?? "default";
       }
-      // Re-fetch role on token refresh so admin role changes propagate
-      if (token.id && !token.role) {
+      // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions
+      if (token.id) {
         const [dbUser] = await db
-          .select({ role: users.role })
+          .select({ role: users.role, canWrite: users.canWrite })
           .from(users)
           .where(eq(users.id, token.id as string))
           .limit(1);
-        if (dbUser) token.role = dbUser.role;
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.canWrite = dbUser.canWrite;
+        }
       }
       return token;
     },
@@ -82,6 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token.id) {
         session.user.id = token.id as string;
         session.user.role = token.role;
+        session.user.canWrite = (token.canWrite as boolean) ?? true;
         session.user.tenantId = token.tenantId ?? process.env.TENANT_ID ?? "default";
       }
       return session;

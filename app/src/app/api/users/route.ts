@@ -11,6 +11,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(["admin", "creator", "reader"]).optional().default("creator"),
+  canWrite: z.boolean().optional().default(true),
 });
 
 export async function GET() {
@@ -23,6 +24,7 @@ export async function GET() {
         name: users.name,
         email: users.email,
         role: users.role,
+        canWrite: users.canWrite,
         createdAt: users.createdAt,
       })
       .from(users);
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password, role } = parsed.data;
+    const { name, email, password, role, canWrite } = parsed.data;
 
     const existing = await db
       .select({ id: users.id })
@@ -67,12 +69,13 @@ export async function POST(request: Request) {
 
     const [user] = await db
       .insert(users)
-      .values({ name, email, passwordHash, role })
+      .values({ name, email, passwordHash, role, canWrite })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
+        canWrite: users.canWrite,
         createdAt: users.createdAt,
       });
 

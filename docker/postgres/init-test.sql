@@ -24,6 +24,8 @@ CREATE TABLE "user" (
     "passwordHash" text,
     -- migration 0001: role column
     "role" "user_role" DEFAULT 'creator' NOT NULL,
+    -- migration 0004: can_write column
+    "can_write" boolean DEFAULT true NOT NULL,
     "createdAt" timestamp DEFAULT now(),
     CONSTRAINT "user_email_unique" UNIQUE("email")
 );

@@ -23,19 +23,32 @@ export function DebouncedTextInput({
   const [draft, setDraft] = useState(value);
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Track the previous value prop to detect external (non-user) changes.
+  const prevValueRef = useRef(value);
 
-  // Sync draft when the external (store) value changes.
+  // Sync draft when the external (store) value changes (e.g. form reset).
   useEffect(() => {
-    setDraft(value);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setDraft(value); // eslint-disable-line react-hooks/set-state-in-effect -- intentional sync from prop
   }, [value]);
 
   // Fire onChange after 200 ms of inactivity.
   useEffect(() => {
+    // If the value prop changed externally (e.g. resetOnSuccess), skip
+    // creating a debounce timer — the draft/value mismatch is from the
+    // external reset, not from user typing.
+    if (prevValueRef.current !== value) {
+      prevValueRef.current = value;
+      return;
+    }
     if (draft === value) return;
-    const t = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       onChangeRef.current(draft);
     }, 200);
-    return () => clearTimeout(t);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [draft, value]);
 
   return (

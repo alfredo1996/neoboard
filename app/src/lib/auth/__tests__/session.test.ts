@@ -115,6 +115,22 @@ describe("requireSession", () => {
     expect(session.tenantId).toBe("tenant-abc");
   });
 
+  it("returns canWrite=false for creator when session.user.canWrite is false", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", role: "creator", tenantId: "t1", canWrite: false },
+    });
+    const session = await requireSession();
+    expect(session.canWrite).toBe(false);
+  });
+
+  it("returns canWrite=false for reader even when session.user.canWrite is true", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-2", role: "reader", tenantId: "t1", canWrite: true },
+    });
+    const session = await requireSession();
+    expect(session.canWrite).toBe(false);
+  });
+
   it("returns canWrite=false for reader role", async () => {
     mockAuth.mockResolvedValue({
       user: { id: "user-2", role: "reader", tenantId: "t1" },
@@ -126,6 +142,14 @@ describe("requireSession", () => {
   it("returns canWrite=true for admin role", async () => {
     mockAuth.mockResolvedValue({
       user: { id: "admin-1", role: "admin", tenantId: "t1" },
+    });
+    const session = await requireSession();
+    expect(session.canWrite).toBe(true);
+  });
+
+  it("defaults canWrite to true for creator when session.user.canWrite is missing (old token)", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-3", role: "creator", tenantId: "t1" },
     });
     const session = await requireSession();
     expect(session.canWrite).toBe(true);

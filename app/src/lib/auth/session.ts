@@ -3,17 +3,18 @@ import type { UserRole } from "@/lib/db/schema";
 
 /**
  * Require the current user to be an admin.
- * Throws if not authenticated or not admin.
+ * Throws if not authenticated, not admin, or not allowed to write.
  */
 export async function requireAdmin(): Promise<{
   userId: string;
+  canWrite: boolean;
   tenantId: string;
 }> {
-  const { userId, role, tenantId } = await requireSession();
+  const { userId, role, canWrite, tenantId } = await requireSession();
   if (role !== "admin") {
     throw new Error("Forbidden");
   }
-  return { userId, tenantId };
+  return { userId, canWrite, tenantId };
 }
 /**
  * Get the current authenticated user ID.
@@ -48,7 +49,8 @@ export async function requireSession(): Promise<{
   return {
     userId: session.user.id,
     role,
-    canWrite: role !== "reader",
+    // Admins always write; readers never write; others read from JWT (DB-backed), defaulting true for old tokens
+    canWrite: role === "admin" ? true : role !== "reader" && (session.user.canWrite !== false),
     tenantId,
   };
 }

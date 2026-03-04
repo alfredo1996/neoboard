@@ -58,6 +58,7 @@ function LabeledInput({ label, value, onChange, placeholder, type = "text" }: La
 export function FormFieldsEditor({ fields, onChange }: FormFieldsEditorProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [openItems, setOpenItems] = useState<string[]>([]);
 
   const addField = useCallback(() => {
     const newField: FormFieldDef = {
@@ -68,6 +69,7 @@ export function FormFieldsEditor({ fields, onChange }: FormFieldsEditorProps) {
       required: true,
     };
     onChange([...fields, newField]);
+    setOpenItems((prev) => [...prev, newField.id]);
   }, [fields, onChange]);
 
   const removeField = useCallback(
@@ -115,7 +117,8 @@ export function FormFieldsEditor({ fields, onChange }: FormFieldsEditorProps) {
       {fields.length > 0 && (
         <Accordion
           type="multiple"
-          defaultValue={[]}
+          value={openItems}
+          onValueChange={setOpenItems}
           className="space-y-1"
         >
           {fields.map((field, index) => (
