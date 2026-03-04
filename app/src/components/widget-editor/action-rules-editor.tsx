@@ -42,6 +42,24 @@ export function ActionRulesEditor({
 }: ActionRulesEditorProps) {
   const isTable = chartType === "table";
 
+  // Controlled accordion state — auto-expand newly added rules
+  const [openItems, setOpenItems] = React.useState<string[]>(
+    () => rules.map((r) => r.id),
+  );
+  const prevRuleIdsRef = React.useRef(new Set(rules.map((r) => r.id)));
+  React.useEffect(() => {
+    const currentIds = new Set(rules.map((r) => r.id));
+    const newIds = rules
+      .filter((r) => !prevRuleIdsRef.current.has(r.id))
+      .map((r) => r.id);
+    if (newIds.length > 0) {
+      setOpenItems((prev) => [...prev, ...newIds]);
+    }
+    // Remove deleted rule IDs from openItems
+    setOpenItems((prev) => prev.filter((id) => currentIds.has(id)));
+    prevRuleIdsRef.current = currentIds;
+  }, [rules]);
+
   function ruleSummary(rule: ClickActionRule): string {
     const parts: string[] = [];
     if (rule.triggerColumn) parts.push(rule.triggerColumn);
@@ -89,7 +107,7 @@ export function ActionRulesEditor({
           </p>
         )}
 
-        <Accordion type="multiple" defaultValue={rules.map((r) => r.id)}>
+        <Accordion type="multiple" value={openItems} onValueChange={setOpenItems}>
           {rules.map((rule, index) => (
             <AccordionItem key={rule.id} value={rule.id} className="border rounded-lg">
               <div className="flex items-center pr-2">
