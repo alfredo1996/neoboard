@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import { Users as UsersIcon, Plus } from "lucide-react";
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from "@/hooks/use-users";
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserCanWrite } from "@/hooks/use-users";
 import type { UserListItem } from "@/hooks/use-users";
 import type { UserRole } from "@/lib/db/schema";
 import {
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
   Badge,
+  Switch,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -44,6 +45,52 @@ const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | 
   reader: "secondary",
 };
 
+type CanWriteCellProps = Readonly<{
+  id: string;
+  role: UserRole;
+  canWrite: boolean;
+  isSelf: boolean;
+  isAdmin: boolean;
+  onToggle: (id: string, checked: boolean) => void;
+}>;
+
+function CanWriteCell({ id, role, canWrite, isSelf, isAdmin, onToggle }: CanWriteCellProps) {
+  // Admins always write; readers never write; others use DB value
+  const effectiveCanWrite = role === "admin" ? true : role === "reader" ? false : canWrite;
+  if (!isAdmin) {
+    return (
+      <Badge variant={effectiveCanWrite ? "default" : "secondary"}>
+        {effectiveCanWrite ? "Yes" : "No"}
+      </Badge>
+    );
+  }
+
+  // Disable toggle for self, admins (always on), and readers (always off)
+  const disabled = isSelf || role !== "creator";
+  const toggle = (
+    <Switch
+      checked={effectiveCanWrite}
+      disabled={disabled}
+      onCheckedChange={(checked) => onToggle(id, checked)}
+    />
+  );
+
+  if (disabled) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex cursor-not-allowed opacity-60">{toggle}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {isSelf ? "You cannot change your own write permission" : "Readers cannot execute write queries"}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return toggle;
+}
+
 export default function UsersPage() {
   const { data: session } = useSession();
   type SessionUser = NonNullable<Session["user"]> & { id?: string; role?: UserRole; tenantId?: string };
@@ -57,6 +104,7 @@ export default function UsersPage() {
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
+  const updateCanWrite = useUpdateUserCanWrite();
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<{
@@ -68,6 +116,50 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const handleRoleUpdate = useCallback(
+    (id: string, val: string, displayName: string) => {
+      updateRole.mutate(
+        { id, role: val as UserRole },
+        {
+          onSuccess: () =>
+            toast({
+              title: "Role updated",
+              description: `${displayName} is now a${val === "admin" ? "n" : ""} ${val}.`,
+            }),
+          onError: (err) =>
+            toast({
+              title: "Failed to update role",
+              description: err instanceof Error ? err.message : "Something went wrong.",
+              variant: "destructive",
+            }),
+        }
+      );
+    },
+    [updateRole, toast]
+  );
+
+  const handleCanWriteToggle = useCallback(
+    (id: string, checked: boolean, displayName: string) => {
+      updateCanWrite.mutate(
+        { id, canWrite: checked },
+        {
+          onSuccess: () =>
+            toast({
+              title: "Write permission updated",
+              description: `${displayName} can ${checked ? "now" : "no longer"} execute write queries.`,
+            }),
+          onError: (err) =>
+            toast({
+              title: "Failed to update write permission",
+              description: err instanceof Error ? err.message : "Something went wrong.",
+              variant: "destructive",
+            }),
+        }
+      );
+    },
+    [updateCanWrite, toast]
+  );
+
   const columns = useMemo(
     (): ColumnDef<UserListItem, unknown>[] => [
       { accessorKey: "name", header: "Name" },
@@ -78,6 +170,7 @@ export default function UsersPage() {
         cell: ({ row }) => {
           const r = row.original.role;
           const isSelf = row.original.id === currentUserId;
+          const displayName = row.original.name ?? row.original.email ?? "User";
 
           if (!isAdmin) {
             return (
@@ -105,24 +198,7 @@ export default function UsersPage() {
           return (
             <Select
               value={r}
-              onValueChange={(val) =>
-                updateRole.mutate(
-                  { id: row.original.id, role: val as UserRole },
-                  {
-                    onSuccess: () =>
-                      toast({
-                        title: "Role updated",
-                        description: `${row.original.name ?? row.original.email} is now a${val === "admin" ? "n" : ""} ${val}.`,
-                      }),
-                    onError: (err) =>
-                      toast({
-                        title: "Failed to update role",
-                        description: err instanceof Error ? err.message : "Something went wrong.",
-                        variant: "destructive",
-                      }),
-                  }
-                )
-              }
+              onValueChange={(val) => handleRoleUpdate(row.original.id, val, displayName)}
             >
               <SelectTrigger className="h-7 w-28 text-xs">
                 <SelectValue />
@@ -135,6 +211,22 @@ export default function UsersPage() {
             </Select>
           );
         },
+      },
+      {
+        accessorKey: "canWrite",
+        header: "Write",
+        cell: ({ row }) => (
+          <CanWriteCell
+            id={row.original.id}
+            role={row.original.role}
+            canWrite={row.original.canWrite}
+            isSelf={row.original.id === currentUserId}
+            isAdmin={isAdmin}
+            onToggle={(id, checked) =>
+              handleCanWriteToggle(id, checked, row.original.name ?? row.original.email ?? "User")
+            }
+          />
+        ),
       },
       {
         accessorKey: "createdAt",
@@ -172,7 +264,7 @@ export default function UsersPage() {
         },
       },
     ],
-    [isAdmin, currentUserId, updateRole, toast]
+    [isAdmin, currentUserId, handleRoleUpdate, handleCanWriteToggle]
   );
 
   async function handleCreate(e: React.FormEvent) {

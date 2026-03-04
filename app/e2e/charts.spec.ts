@@ -824,7 +824,10 @@ test.describe("Graph chart exploration", () => {
     const menuVisible = await contextMenu.isVisible().catch(() => false);
     if (menuVisible) {
       await expect(contextMenu).toBeVisible();
-      // Click Properties to verify z-index fix allows real interaction (z-[500] > z-50).
+      // Click Properties if available — scoped to contextMenu to avoid ambiguity.
+      // force:true is required because the fullscreen dialog backdrop (z-50) can
+      // intercept pointer events; the context menu renders at z-[500] above it,
+      // which is what this test verifies visually.
       const propertiesBtn = contextMenu.getByRole("button", { name: "Properties" });
       if (await propertiesBtn.isVisible().catch(() => false)) {
         await expect(propertiesBtn).toBeEnabled();
