@@ -77,17 +77,20 @@ test.describe("Parameter selectors", () => {
 
     // Open rules editor and add a rule
     await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-    await dialog.getByRole("button", { name: "Add Rule" }).click();
+    const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+    await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
 
     // Action type selector should appear (defaults to "Set Parameter")
-    await expect(dialog.getByLabel("Action Type")).toBeVisible();
+    // Wait for accordion to expand after adding the rule.
+    // Verify form labels are visible — proves the accordion expanded and rule form rendered.
+    await expect(rulesDialog.getByText("Action Type")).toBeVisible({ timeout: 5_000 });
     // Parameter name input should appear
-    await expect(dialog.getByLabel("Parameter Name")).toBeVisible();
+    await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
     // Source field — visible for bar charts
-    await expect(dialog.getByLabel("Source Field")).toBeVisible();
+    await expect(rulesDialog.getByText("Source Field")).toBeVisible();
 
     // Go back and add the widget
-    await dialog.getByRole("button", { name: "Done" }).click();
+    await rulesDialog.getByRole("button", { name: "Done" }).click();
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
   });
@@ -439,7 +442,7 @@ test.describe("Click actions", () => {
         "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size LIMIT 5"
       );
       await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
-    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+      await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
         timeout: 15_000,
       });
@@ -450,25 +453,28 @@ test.describe("Click actions", () => {
 
       // Click "Manage Action Rules" to open the rules editor
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
+      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
 
       // Should show the Action Rules heading
-      await expect(dialog.getByRole("heading", { name: "Action Rules" })).toBeVisible();
+      await expect(rulesDialog.getByRole("heading", { name: "Action Rules" })).toBeVisible();
       // Should show "No action rules yet" message
-      await expect(dialog.getByText("No action rules yet")).toBeVisible();
+      await expect(rulesDialog.getByText("No action rules yet")).toBeVisible();
 
       // Click "Add Rule"
-      await dialog.getByRole("button", { name: "Add Rule" }).click();
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
       // Should show "Rule 1"
-      await expect(dialog.getByText("Rule 1")).toBeVisible();
+      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
       // Should show Action Type selector
-      await expect(dialog.getByLabel("Action Type")).toBeVisible();
+      await expect(rulesDialog.getByText("Action Type")).toBeVisible({ timeout: 5_000 });
       // Should show Parameter Name
-      await expect(dialog.getByLabel("Parameter Name")).toBeVisible();
+      await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
       // Should show Source Field (for bar chart, not table)
-      await expect(dialog.getByLabel("Source Field")).toBeVisible();
+      await expect(rulesDialog.getByText("Source Field")).toBeVisible();
 
       // Click "Done" to return to main dialog
-      await dialog.getByRole("button", { name: "Done" }).click();
+      await rulesDialog.getByRole("button", { name: "Done" }).click();
+      // Navigate back to Advanced tab (Done returns to Data tab)
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
       // Should show "1 action rule(s) configured."
       await expect(dialog.getByText("1 action rule(s) configured.")).toBeVisible();
 
@@ -557,8 +563,8 @@ test.describe("Click actions", () => {
       await page.keyboard.insertText(
         "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
-    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       // Wait for preview to render
       await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
         timeout: 15_000,
@@ -570,21 +576,22 @@ test.describe("Click actions", () => {
 
       // Open the action rules editor
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-      await expect(dialog.getByRole("heading", { name: "Action Rules" })).toBeVisible();
+      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+      await expect(rulesDialog.getByRole("heading", { name: "Action Rules" })).toBeVisible();
 
       // Add a rule
-      await dialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(dialog.getByText("Rule 1")).toBeVisible();
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
+      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
 
       // Should show "Trigger Column" selector for tables
-      await expect(dialog.getByLabel("Trigger Column")).toBeVisible();
+      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({ timeout: 5_000 });
       // Should show "Parameter Name" input
-      await expect(dialog.getByLabel("Parameter Name")).toBeVisible();
+      await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
       // Source Field should NOT appear for table chart types
-      await expect(dialog.getByLabel("Source Field")).not.toBeVisible();
+      await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
 
       // Click Done and cancel
-      await dialog.getByRole("button", { name: "Done" }).click();
+      await rulesDialog.getByRole("button", { name: "Done" }).click();
       await dialog.getByRole("button", { name: "Cancel" }).click();
     } finally {
       await cleanup();

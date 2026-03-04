@@ -8,6 +8,7 @@ export interface UserListItem {
   name: string | null;
   email: string | null;
   role: UserRole;
+  canWrite: boolean;
   createdAt: string;
 }
 
@@ -16,6 +17,7 @@ export interface CreateUserInput {
   email: string;
   password: string;
   role?: UserRole;
+  canWrite?: boolean;
 }
 
 export function useUsers() {
@@ -65,6 +67,28 @@ export function useUpdateUserRole() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to update role");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useUpdateUserCanWrite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, canWrite }: { id: string; canWrite: boolean }) => {
+      const res = await fetch(`/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canWrite }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to update write permission");
       }
       return res.json();
     },
