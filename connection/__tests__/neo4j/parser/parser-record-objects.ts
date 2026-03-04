@@ -2,7 +2,7 @@ import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
 import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
 import { toNumber } from 'neo4j-driver-core';
-import { DateTime } from 'neo4j-driver';
+
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
 
 describe('Neo4jRecordParser - Objects Parsing', () => {
@@ -128,7 +128,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
         // Inner values
         expect(typeof record['mixedArray'][0]).toBe('number'); // released
         expect(typeof record['mixedArray'][1]).toBe('string'); // tagline
-        expect(record['mixedArray'][2] instanceof DateTime).toBe(true); // datetime
+        expect(typeof record['mixedArray'][2]).toBe('string'); // datetime → formatted string
       },
       onFail: (error) => {
         console.error('Error during query execution:', error);
@@ -164,7 +164,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
         expect(data.count).toBe(123);
         expect(data.flag).toBe(true);
         expect(data.info.label).toBe('neo4j');
-        expect(data.info.created instanceof DateTime).toBe(true);
+        expect(typeof data.info.created).toBe('string'); // datetime → formatted string
       },
       onFail: (error) => {
         console.error('Error during query execution:', error);
