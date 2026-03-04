@@ -258,6 +258,8 @@ test.describe("Form widget", () => {
     const cm = dialog.locator(
       "[data-testid='codemirror-container'] .cm-content",
     );
+    // Wait for editor to exit readOnly mode before typing
+    await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
     await cm.click();
     await page.keyboard.insertText(
       "CREATE (n:FormReqTest {name: $param_name})",
@@ -274,6 +276,7 @@ test.describe("Form widget", () => {
       dialog.getByRole("checkbox", { name: "Required" }),
     ).toBeChecked();
 
+    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 

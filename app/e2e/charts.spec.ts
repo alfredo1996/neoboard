@@ -29,10 +29,11 @@ test.describe("Chart rendering", () => {
     await page.getByRole("option").first().click();
 
     const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    // Wait for editor to exit readOnly mode before typing
+    await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
     await cm.click();
     await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
 
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // DataGrid should render a table element
@@ -49,10 +50,10 @@ test.describe("Chart rendering", () => {
     await page.getByRole("option").first().click();
 
     const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    // Wait for editor to exit readOnly mode before typing
+    await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
     await cm.click();
     await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS count");
-
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // SingleValueChart renders with data-testid
@@ -197,11 +198,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+    // Wait for editor to exit readOnly mode before typing
+    await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
     await cm.click();
     await page.keyboard.insertText(
       "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     const preview = dialog.locator(".border.rounded-lg").first();

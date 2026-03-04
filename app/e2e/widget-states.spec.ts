@@ -79,9 +79,12 @@ test.describe("Widget editor", () => {
       await page.getByRole("option").first().click();
 
       const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+      // Wait for editor to exit readOnly mode before typing
+      await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
       await cm.click();
       await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title LIMIT 3");
 
+      await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
       await dialog.getByRole("button", { name: "Add Widget" }).click();
       await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
