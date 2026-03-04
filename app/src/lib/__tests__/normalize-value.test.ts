@@ -39,34 +39,6 @@ describe("normalizeValue", () => {
     expect(typeof result).toBe("string");
   });
 
-  // Neo4j Integer {low, high}
-  it("converts Neo4j Integer to number", () => {
-    expect(normalizeValue({ low: 7, high: 0 })).toBe(7);
-  });
-
-  it("converts Neo4j Integer with larger low value", () => {
-    expect(normalizeValue({ low: 12345, high: 0 })).toBe(12345);
-  });
-
-  // Neo4j DateTime
-  it("formats Neo4j DateTime with year-month-day-hour-minute-second", () => {
-    const dt = { year: 2024, month: 3, day: 15, hour: 10, minute: 5, second: 0 };
-    const result = normalizeValue(dt);
-    expect(result).toBe("2024-03-15 10:05:00");
-  });
-
-  it("formats Neo4j Date (year-month-day only)", () => {
-    const d = { year: 2024, month: 1, day: 9 };
-    const result = normalizeValue(d);
-    expect(result).toBe("2024-01-09");
-  });
-
-  it("formats Neo4j Time (hour-minute-second only)", () => {
-    const t = { hour: 14, minute: 30, second: 5 };
-    const result = normalizeValue(t);
-    expect(result).toBe("14:30:05");
-  });
-
   // Generic object fallback
   it("JSON stringifies a plain object", () => {
     const obj = { foo: "bar" };

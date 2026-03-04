@@ -129,8 +129,8 @@ export class Neo4jRecordParser extends NeodashRecordParser {
 
   /**
    * Converts Neo4j temporal types into JavaScript-native representations.
-   * - Neo4jDate: JS Date (year, month, day)
-   * - DateTime: parsed from .toString() to retain timezone
+   * - Neo4jDate: "YYYY-MM-DD" string
+   * - DateTime: "YYYY-MM-DD HH:mm:ss" string
    * - LocalDateTime: JS Date with manual component mapping
    * - Time and LocalTime: formatted string (HH:mm:ss.nnnnnnnnn)
    * - Duration: plain JS object with numeric fields
@@ -151,9 +151,11 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     seconds: any;
     nanoseconds: any;
   }) {
-    // TODO: This is a fellony, to redo. Probably the best way is to reuse the parser to get the types out. The example is in getRecordType
     if (value instanceof Neo4jDate) {
-      return value;
+      const y = value.year.toNumber();
+      const m = String(value.month.toNumber()).padStart(2, '0');
+      const d = String(value.day.toNumber()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
 
     if (value instanceof Time) {
@@ -174,10 +176,14 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     }
 
     if (value instanceof DateTime) {
-      // DateTime includes timezone offset (e.g., +02:00), which is critical for accurate conversion.
-      // We use .toString() to get the full ISO-8601 string, then construct a JS Date from it.
-      // This preserves the original timezone offset during parsing.
-      return value;
+      const pad = (num: { toNumber: () => number }) => String(num.toNumber()).padStart(2, '0');
+      const y = value.year.toNumber();
+      const mo = pad(value.month);
+      const d = pad(value.day);
+      const h = pad(value.hour);
+      const mi = pad(value.minute);
+      const s = pad(value.second);
+      return `${y}-${mo}-${d} ${h}:${mi}:${s}`;
     }
 
     if (value instanceof LocalDateTime) {

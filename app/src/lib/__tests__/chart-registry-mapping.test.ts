@@ -257,10 +257,10 @@ describe("pie chart transformWithMapping", () => {
 // ---------------------------------------------------------------------------
 
 describe("normalizeValue applied to labels/names even with mapping", () => {
-  it("bar: normalizes Neo4j Integer labels when mapping is active", () => {
+  it("bar: normalizes number labels when mapping is active", () => {
     const data = [
-      { id: { low: 42, high: 0 }, count: 10 },
-      { id: { low: 99, high: 0 }, count: 20 },
+      { id: 42, count: 10 },
+      { id: 99, count: 20 },
     ];
     const mapping: ColumnMapping = { xAxis: "id", yAxis: ["count"] };
     const result = chartRegistry.bar.transformWithMapping(data, mapping) as { label: string }[];
@@ -268,18 +268,18 @@ describe("normalizeValue applied to labels/names even with mapping", () => {
     expect(result[1].label).toBe("99");
   });
 
-  it("line: normalizes Neo4j Integer x-axis values when mapping is active", () => {
+  it("line: normalizes number x-axis values when mapping is active", () => {
     const data = [
-      { year: { low: 2024, high: 0 }, revenue: 500 },
+      { year: 2024, revenue: 500 },
     ];
     const mapping: ColumnMapping = { xAxis: "year", yAxis: ["revenue"] };
     const result = chartRegistry.line.transformWithMapping(data, mapping) as { x: unknown }[];
     expect(result[0].x).toBe(2024);
   });
 
-  it("pie: normalizes Neo4j Integer names when mapping is active", () => {
+  it("pie: normalizes number names when mapping is active", () => {
     const data = [
-      { code: { low: 1, high: 0 }, total: 50 },
+      { code: 1, total: 50 },
     ];
     const mapping: ColumnMapping = { xAxis: "code", yAxis: ["total"] };
     const result = chartRegistry.pie.transformWithMapping(data, mapping) as { name: string }[];
