@@ -73,6 +73,25 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
     }));
   }, [records]);
 
+  const thresholds = useMemo(() => {
+    const raw =
+      typeof settings.colorThresholds === "string"
+        ? settings.colorThresholds
+        : "";
+    return parseColorThresholds(raw);
+  }, [settings.colorThresholds]);
+
+  const thresholdColumn =
+    typeof settings.colorThresholdsColumn === "string" ? settings.colorThresholdsColumn : "";
+
+  // Compute a single fallback numeric column once so every row is colored consistently.
+  const fallbackThresholdColumn = useMemo(() => {
+    if (!records.length) return undefined;
+    return Object.keys(records[0]).find(
+      (k) => typeof (records[0] as Record<string, unknown>)[k] === "number",
+    );
+  }, [records]);
+
   const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {
     return <EmptyState title={emptyMessage} className="py-6" />;
@@ -81,18 +100,13 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   // enablePagination defaults to true per chart-options-schema.
   const enablePagination = settings.enablePagination !== false;
 
-  const thresholds = parseColorThresholds(
-    typeof settings.colorThresholds === "string" ? settings.colorThresholds : ""
-  );
-  const thresholdColumn =
-    typeof settings.colorThresholdsColumn === "string" ? settings.colorThresholdsColumn : "";
   const getRowStyle =
     thresholds.length > 0
       ? (row: Record<string, unknown>): React.CSSProperties | undefined => {
           const col =
             thresholdColumn && thresholdColumn in row
               ? thresholdColumn
-              : Object.keys(row).find((k) => typeof row[k] === "number");
+              : fallbackThresholdColumn;
           if (!col) return undefined;
           const val = row[col];
           if (typeof val !== "number") return undefined;

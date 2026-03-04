@@ -411,9 +411,11 @@ test.describe("Form widget", () => {
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(400);
 
-    // Listen for the write query API response
+    // Listen for the write query API response (tighten matcher to this form's POST)
     const writeResponsePromise = page.waitForResponse(
-      (r) => r.url().includes("/api/query/write"),
+      (r) =>
+        r.url().includes("/api/query/write") &&
+        r.request().method() === "POST",
       { timeout: 15_000 },
     );
 

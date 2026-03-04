@@ -93,9 +93,14 @@ function LineChart({
         splitLine: { show: showGridLines },
       },
       series: seriesKeys.map((key) => {
-        const lastValue = [...data]
-          .reverse()
-          .find((d) => typeof d[key] === "number")?.[key] as number | undefined;
+        let lastValue: number | undefined;
+        for (let i = data.length - 1; i >= 0; i -= 1) {
+          const candidate = data[i][key];
+          if (typeof candidate === "number") {
+            lastValue = candidate;
+            break;
+          }
+        }
         const seriesColor =
           thresholds.length && lastValue !== undefined
             ? resolveThresholdColor(lastValue, thresholds)

@@ -45,6 +45,11 @@ describe("parseColorThresholds", () => {
     expect(parseColorThresholds(raw)).toEqual([]);
   });
 
+  it("filters out entries with non-finite numeric value", () => {
+    const raw = '[{"value":1e309,"color":"red"}]';
+    expect(parseColorThresholds(raw)).toEqual([]);
+  });
+
   it("filters out entries with non-string color", () => {
     const raw = JSON.stringify([{ value: 50, color: 123 }]);
     expect(parseColorThresholds(raw)).toEqual([]);
