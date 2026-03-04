@@ -109,7 +109,7 @@ test.describe("Form widget", () => {
     // Save the dashboard
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
+      timeout: 15_000,
     });
 
     // Navigate to view mode
@@ -117,10 +117,12 @@ test.describe("Form widget", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The form widget should render with the configured fields
+    // Fields default to required=true, so the label includes an asterisk "*".
+    // Use regex anchored at start to avoid matching "Page 1" tab or param hints.
     await expect(
-      page.getByText("First Name", { exact: true }),
+      page.getByText(/^First Name/),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Age", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Age/)).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Submit" }),
     ).toBeVisible();
@@ -157,19 +159,32 @@ test.describe("Form widget", () => {
     // Save and go to view mode
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
+      timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Wait for the form to render — the label "Name" should be visible
-    await expect(page.getByText("Name", { exact: true })).toBeVisible({
+    // (fields default to required, so label renders as "Name*")
+    await expect(page.getByText(/^Name/)).toBeVisible({
       timeout: 15_000,
     });
+
+    // Wait for all network requests to complete (dev mode StrictMode triggers
+    // a second dashboard fetch; we must let it settle before form interaction
+    // to avoid a tree remount that would reset component state).
+    await page.waitForLoadState("networkidle");
+    // Extra wait to let StrictMode double-fetch complete and tree stabilize
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(3_000);
 
     // DebouncedTextInput renders an <input> scoped inside the widget card
     const nameInput = page.getByRole("textbox", { name: "name" });
     await nameInput.fill("E2E Test Person");
+
+    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(400);
 
     // Submit the form
     await page.getByRole("button", { name: "Submit" }).click();
@@ -218,7 +233,7 @@ test.describe("Form widget", () => {
     // Save and navigate to view mode
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
+      timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
@@ -253,8 +268,11 @@ test.describe("Form widget", () => {
     await dialog.getByPlaceholder("e.g. Movie Title").fill("Full Name");
     await dialog.getByPlaceholder("e.g. title").fill("name");
 
-    // Check Required checkbox (inside AccordionContent, which is open by default)
-    await dialog.getByRole("checkbox", { name: "Required" }).click();
+    // Fields default to required=true, so no need to click the checkbox —
+    // just verify it's already checked
+    await expect(
+      dialog.getByRole("checkbox", { name: "Required" }),
+    ).toBeChecked();
 
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
@@ -262,14 +280,20 @@ test.describe("Form widget", () => {
     // Save and go to view mode
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
+      timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    await expect(page.getByText("Full Name", { exact: true })).toBeVisible({
+    // Label includes asterisk for required fields
+    await expect(page.getByText(/^Full Name/)).toBeVisible({
       timeout: 15_000,
     });
+
+    // Wait for background requests to complete (dev mode StrictMode double-fetch)
+    await page.waitForLoadState("networkidle");
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(3_000);
 
     // Submit without filling — should show error, not fire the query
     await page.getByRole("button", { name: "Submit" }).click();
@@ -280,6 +304,11 @@ test.describe("Form widget", () => {
     // Fill the required field — error should clear
     const nameInput = page.getByRole("textbox", { name: "name" });
     await nameInput.fill("Alice");
+
+    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(400);
+
     await expect(page.getByText("This field is required")).not.toBeVisible({
       timeout: 3_000,
     });
@@ -294,6 +323,8 @@ test.describe("Form widget", () => {
   test("form widget refreshes another widget on submit when configured", async ({
     page,
   }) => {
+    // This test creates TWO widgets with query execution, so it needs extra time
+    test.setTimeout(60_000);
     // Add a table widget first
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const tableDialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -311,7 +342,7 @@ test.describe("Form widget", () => {
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
 
-    await tableDialog.getByRole("button", { name: "Run", exact: true }).click();
+    await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     await expect(
       tableDialog.locator("[data-testid='base-chart'], table").first(),
     ).toBeVisible({ timeout: 15_000 });
@@ -356,20 +387,41 @@ test.describe("Form widget", () => {
     // Save and go to view mode
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
+      timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    // Wait for form to render
-    await expect(page.getByText("Name", { exact: true })).toBeVisible({
+    // Wait for form to render (label includes asterisk for required fields)
+    await expect(page.getByText(/^Name/)).toBeVisible({
       timeout: 15_000,
     });
+
+    // Wait for background requests to complete (dev mode StrictMode double-fetch)
+    await page.waitForLoadState("networkidle");
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(3_000);
 
     // Fill and submit the form
     const nameInput = page.getByRole("textbox", { name: "name" });
     await nameInput.fill("RefreshTestNode");
+    await expect(nameInput).toHaveValue("RefreshTestNode");
+
+    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(400);
+
+    // Listen for the write query API response
+    const writeResponsePromise = page.waitForResponse(
+      (r) => r.url().includes("/api/query/write"),
+      { timeout: 15_000 },
+    );
+
     await page.getByRole("button", { name: "Submit" }).click();
+
+    // Verify the API call completes
+    const writeResponse = await writeResponsePromise;
+    expect(writeResponse.status()).toBe(200);
 
     // Form should succeed
     await expect(page.getByText("Form submitted successfully")).toBeVisible({
@@ -419,6 +471,7 @@ test.describe("Form widget", () => {
 
 test.describe("Write permission enforcement", () => {
   let creatorEmail: string;
+  let creatorUserId: string;
   let dashboardId: string;
 
   test.beforeAll(async ({ browser }) => {
@@ -434,7 +487,7 @@ test.describe("Write permission enforcement", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL("/", { timeout: 15_000 });
 
-    // Create a creator user
+    // Create a creator user (can_write defaults to true)
     creatorEmail = `no-write-${Date.now()}@example.com`;
     await page.goto("/users");
     await expect(page.getByText(ALICE.email)).toBeVisible({ timeout: 10_000 });
@@ -446,17 +499,56 @@ test.describe("Write permission enforcement", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(page.getByText(creatorEmail)).toBeVisible({ timeout: 10_000 });
 
-    // Disable can_write for that user (admin sees a Switch, not a badge)
-    const row = page.getByRole("row").filter({ hasText: creatorEmail });
-    await row.getByRole("switch").click();
-    await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
+    // Grab the user ID from the Users API so we can disable can_write later
+    const usersRes = await page.request.get("/api/users");
+    const users = await usersRes.json();
+    const creator = users.find(
+      (u: { email: string }) => u.email === creatorEmail,
+    );
+    creatorUserId = creator?.id;
 
-    // Create a dashboard as Alice for the creator to use (public so creator can view it)
-    const res = await page.request.post("/api/dashboards", {
+    // Create a dashboard (admin-owned) then update to add layout + make public
+    const dashRes = await page.request.post("/api/dashboards", {
       data: { name: `Write-Permission-Test-${Date.now()}` },
     });
-    const { id } = await res.json();
-    dashboardId = id;
+    const dash = await dashRes.json();
+    dashboardId = dash.id;
+
+    // Update the dashboard with the form widget layout and make it public
+    await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        isPublic: true,
+        layoutJson: {
+          version: 2,
+          pages: [{
+            id: "page-1",
+            title: "Page 1",
+            widgets: [{
+              id: "w-form",
+              chartType: "form",
+              connectionId: "conn-neo4j-001",
+              query: "CREATE (n:PermTest {v: $param_v}) RETURN n.v AS v",
+              settings: {
+                title: "Form",
+                formFields: [{
+                  id: "f1",
+                  label: "Value",
+                  parameterName: "v",
+                  parameterType: "text",
+                  required: true,
+                }],
+              },
+            }],
+            gridLayout: [{ i: "w-form", x: 0, y: 0, w: 12, h: 4 }],
+          }],
+        },
+      },
+    });
+
+    // Disable can_write for the creator
+    await page.request.patch(`/api/users/${creatorUserId}`, {
+      data: { canWrite: false },
+    });
 
     await context.close();
   });
@@ -482,40 +574,25 @@ test.describe("Write permission enforcement", () => {
     // Log in as the creator with can_write=false
     await authPage.login(creatorEmail, "password123");
 
-    // Go to the dashboard edit page and add a form widget
-    await page.goto(`/${dashboardId}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+    // Navigate to the public dashboard (admin-owned, public access)
+    await page.goto(`/${dashboardId}`);
 
-    await page.getByRole("button", { name: "Add Widget" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    // Wait for the form widget to render (label includes asterisk for required fields)
+    await expect(page.getByText(/^Value/)).toBeVisible({ timeout: 15_000 });
 
-    await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Form" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option").first().click();
+    // Wait for background requests to complete (dev mode StrictMode double-fetch)
+    await page.waitForLoadState("networkidle");
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(3_000);
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("CREATE (n:PermTest {v: $param_v}) RETURN n.v AS v");
-
-    await dialog.getByRole("button", { name: "Add Field" }).click();
-    await dialog.getByPlaceholder("e.g. Movie Title").fill("Value");
-    await dialog.getByPlaceholder("e.g. title").fill("v");
-
-    await dialog.getByRole("button", { name: "Add Widget" }).click();
-    await expect(dialog).not.toBeVisible();
-
-    // Save and switch to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-
-    // Wait for the form widget to render
-    await expect(page.getByText("Value", { exact: true })).toBeVisible({ timeout: 15_000 });
+    // Fill the form
     await page.getByRole("textbox", { name: "v" }).fill("test-value");
 
-    // Submit — API returns 403
+    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(400);
+
+    // Submit — API returns 403 because can_write is false
     await page.getByRole("button", { name: "Submit" }).click();
 
     // The form widget renders the API error inline

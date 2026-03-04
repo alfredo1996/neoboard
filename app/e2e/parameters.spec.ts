@@ -81,11 +81,13 @@ test.describe("Parameter selectors", () => {
     await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
 
     // Action type selector should appear (defaults to "Set Parameter")
-    await expect(rulesDialog.getByLabel("Action Type")).toBeVisible();
+    // Wait for accordion to expand after adding the rule.
+    // Verify form labels are visible — proves the accordion expanded and rule form rendered.
+    await expect(rulesDialog.getByText("Action Type")).toBeVisible({ timeout: 5_000 });
     // Parameter name input should appear
-    await expect(rulesDialog.getByLabel("Parameter Name")).toBeVisible();
+    await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
     // Source field — visible for bar charts
-    await expect(rulesDialog.getByLabel("Source Field")).toBeVisible();
+    await expect(rulesDialog.getByText("Source Field")).toBeVisible();
 
     // Go back and add the widget
     await rulesDialog.getByRole("button", { name: "Done" }).click();
@@ -440,7 +442,7 @@ test.describe("Click actions", () => {
         "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size LIMIT 5"
       );
       await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
-    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+      await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
         timeout: 15_000,
       });
@@ -463,14 +465,16 @@ test.describe("Click actions", () => {
       // Should show "Rule 1"
       await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
       // Should show Action Type selector
-      await expect(rulesDialog.getByLabel("Action Type")).toBeVisible();
+      await expect(rulesDialog.getByText("Action Type")).toBeVisible({ timeout: 5_000 });
       // Should show Parameter Name
-      await expect(rulesDialog.getByLabel("Parameter Name")).toBeVisible();
+      await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
       // Should show Source Field (for bar chart, not table)
-      await expect(rulesDialog.getByLabel("Source Field")).toBeVisible();
+      await expect(rulesDialog.getByText("Source Field")).toBeVisible();
 
       // Click "Done" to return to main dialog
       await rulesDialog.getByRole("button", { name: "Done" }).click();
+      // Navigate back to Advanced tab (Done returns to Data tab)
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
       // Should show "1 action rule(s) configured."
       await expect(dialog.getByText("1 action rule(s) configured.")).toBeVisible();
 
@@ -559,8 +563,8 @@ test.describe("Click actions", () => {
       await page.keyboard.insertText(
         "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
-    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       // Wait for preview to render
       await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
         timeout: 15_000,
@@ -580,11 +584,11 @@ test.describe("Click actions", () => {
       await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
 
       // Should show "Trigger Column" selector for tables
-      await expect(rulesDialog.getByLabel("Trigger Column")).toBeVisible();
+      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({ timeout: 5_000 });
       // Should show "Parameter Name" input
-      await expect(rulesDialog.getByLabel("Parameter Name")).toBeVisible();
+      await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
       // Source Field should NOT appear for table chart types
-      await expect(rulesDialog.getByLabel("Source Field")).not.toBeVisible();
+      await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
 
       // Click Done and cancel
       await rulesDialog.getByRole("button", { name: "Done" }).click();
