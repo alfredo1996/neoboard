@@ -46,41 +46,46 @@ test.describe("Widget creation", () => {
   test("should add a table widget", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Data Table" }).click();
+    // Select connection first to avoid CM readonly race (chart type change after
+    // connection is set re-renders the editor but preserves the connectionId state)
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
 
     const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
     await cm.click();
     await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
 
+    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
   });
 
   test("should add a JSON viewer widget", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "JSON Viewer" }).click();
+    // Select connection first to avoid CM readonly race
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "JSON Viewer" }).click();
 
     const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
     await cm.click();
     await page.keyboard.insertText("MATCH (m:Movie) RETURN m LIMIT 3");
 
+    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
   });
 
   test("should render table with dot-notation fields (n.name)", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Data Table" }).click();
-    // Select Neo4j connection
+    // Select connection first to avoid CM readonly race
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
 
     // Use a Cypher query that returns dotted field names.
     // No LIMIT here — wrapWithPreviewLimit appends LIMIT 25 automatically.
@@ -106,11 +111,11 @@ test.describe("Widget creation", () => {
   test("should add a PostgreSQL widget and preview data", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Data Table" }).click();
-    // Select the PG connection
+    // Select PG connection first to avoid CM readonly race
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
 
     const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
     await cm.click();
@@ -154,7 +159,7 @@ test.describe("Widget creation", () => {
     // Non-matching connections should not appear; pick the first visible option
     await page.getByRole("option").first().click();
     // Run button should be visible (no Next step anymore)
-    await expect(dialog.getByRole("button", { name: "Run", exact: true })).toBeVisible();
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeVisible();
   });
 });
 
