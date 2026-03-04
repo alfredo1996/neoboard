@@ -186,8 +186,6 @@ function transformToTableData(data: unknown): unknown {
 function safeId(v: unknown): string {
   if (typeof v === "string") return v;
   if (typeof v === "number") return String(v);
-  if (v && typeof v === "object" && "low" in v)
-    return String((v as { low: number }).low);
   return String(v);
 }
 

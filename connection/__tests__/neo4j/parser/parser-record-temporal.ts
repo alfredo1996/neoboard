@@ -1,10 +1,9 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
 import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
-import { Date as Neo4jDate } from 'neo4j-driver';
 
 describe('Neo4jRecordParser - Temporal Parsing', () => {
-  test('should correctly parse a Neo4j Date value', async () => {
+  test('should correctly parse a Neo4j Date value to YYYY-MM-DD string', async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -17,9 +16,9 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       onSuccess: (parsed) => {
         const currentDate = parsed[0]['currentDate'];
         expect(currentDate).toBeDefined();
-
-        // Check if it's a valid JS Date object
-        expect(currentDate instanceof Neo4jDate).toBe(true); // Now is not Parsing. so Date will be always Neo4jDate
+        expect(typeof currentDate).toBe('string');
+        // Expect YYYY-MM-DD format
+        expect(currentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       },
       onFail: (error) => {
         console.error('Error during query execution:', error);
@@ -30,7 +29,7 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
     await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
   });
 
-  test('should correctly parse a Neo4j DateTime value', async () => {
+  test('should correctly parse a Neo4j DateTime value to formatted string', async () => {
     const config = getNeo4jAuth();
 
     const connection = new Neo4jConnectionModule(config);
@@ -44,13 +43,9 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       onSuccess: (parsed) => {
         const currentDateTime = parsed[0]['currentDateTime'];
         expect(currentDateTime).toBeDefined();
-
-        // Check if the string can be treated as a valid JavaScript date
-        const isValidDate = (dateString: string): boolean => {
-          const parsedDate = new Date(dateString);
-          return !isNaN(parsedDate.getTime()); // Returns true if it's a valid date, false otherwise
-        };
-        expect(isValidDate(currentDateTime)).toBe(true); // Expect the DateTime string to be valid
+        expect(typeof currentDateTime).toBe('string');
+        // Expect YYYY-MM-DD HH:mm:ss format
+        expect(currentDateTime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
       },
       onFail: (error) => {
         console.error('Error during query execution:', error);
