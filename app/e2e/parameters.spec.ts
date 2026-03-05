@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
 
 test.describe("Parameter selectors", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -55,9 +55,7 @@ test.describe("Parameter selectors", () => {
     await page.getByRole("option").first().click();
 
     // Write query and run it
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 5"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -182,9 +180,7 @@ test.describe("Parameter-to-refresh cycle", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5"
     );
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -436,9 +432,7 @@ test.describe("Click actions", () => {
       await page.getByRole("option").first().click();
 
       // Run a query to get available fields
-      const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-      await cm.click();
-      await page.keyboard.insertText(
+      await typeInEditor(dialog, page,
         "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size LIMIT 5"
       );
       await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -558,9 +552,7 @@ test.describe("Click actions", () => {
       await page.getByRole("option").first().click();
 
       // Write query and run it to populate available fields
-      const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-      await cm.click();
-      await page.keyboard.insertText(
+      await typeInEditor(dialog, page,
         "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
       );
       await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });

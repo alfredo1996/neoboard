@@ -73,6 +73,36 @@ describe("isNeoDashFormat", () => {
   it("returns false for a string", () => {
     expect(isNeoDashFormat("not an object")).toBe(false);
   });
+
+  it("returns false when a later page has no reports (validates ALL pages)", () => {
+    expect(
+      isNeoDashFormat({
+        pages: [
+          { title: "P1", reports: [] },
+          { title: "P2" }, // missing reports
+        ],
+      })
+    ).toBe(false);
+  });
+
+  it("returns false when a page is null", () => {
+    expect(isNeoDashFormat({ pages: [null] })).toBe(false);
+  });
+
+  it("returns false when a page is an array", () => {
+    expect(isNeoDashFormat({ pages: [[]] })).toBe(false);
+  });
+
+  it("returns true for multi-page NeoDash with all pages having reports", () => {
+    expect(
+      isNeoDashFormat({
+        pages: [
+          { title: "P1", reports: [{ id: "r1", type: "table", query: "q" }] },
+          { title: "P2", reports: [] },
+        ],
+      })
+    ).toBe(true);
+  });
 });
 
 describe("convertNeoDash", () => {
@@ -190,10 +220,78 @@ describe("convertNeoDash", () => {
     expect(() => new Date(result.exportedAt)).not.toThrow();
   });
 
+  it("falls back to defaults when report fields are missing", () => {
+    const nd = {
+      pages: [{
+        title: "P",
+        reports: [{
+          id: "r1", title: "W", type: "table",
+          // query, settings, parameters all missing
+          x: 0, y: 0, width: 6, height: 4,
+        }],
+      }],
+    };
+    const result = convertNeoDash(nd);
+    const widget = result.layout.pages[0].widgets[0];
+    expect(widget.query).toBe("");
+    expect(widget.params).toEqual({});
+    expect(widget.settings).toEqual({});
+  });
+
+  it("falls back to 'Imported Dashboard' when title is missing", () => {
+    const nd = {
+      pages: [{
+        title: "P",
+        reports: [{ id: "r1", title: "W", type: "table", query: "q", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }],
+      }],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.dashboard.name).toBe("Imported Dashboard");
+  });
+
   it("preserves the report query in widget.query", () => {
     const result = convertNeoDash(NEODASH_SIMPLE);
     const widget = result.layout.pages[0].widgets[0];
     expect(widget.query).toBe("MATCH (u:User) RETURN u.name");
+  });
+
+  it("normalizes non-finite grid coordinates to safe defaults", () => {
+    const nd = {
+      title: "T",
+      version: "2.4",
+      pages: [{
+        title: "P",
+        reports: [{
+          id: "r1", title: "W", type: "table", query: "q",
+          x: NaN, y: Infinity, width: undefined, height: "bad",
+          settings: {}, parameters: {},
+        }],
+      }],
+    };
+    const result = convertNeoDash(nd);
+    const grid = result.layout.pages[0].gridLayout[0];
+    expect(grid.x).toBe(0);
+    expect(grid.y).toBe(0);
+    expect(grid.w).toBe(4);
+    expect(grid.h).toBe(4);
+  });
+
+  it("preserves valid grid coordinates", () => {
+    const nd = {
+      title: "T",
+      version: "2.4",
+      pages: [{
+        title: "P",
+        reports: [{
+          id: "r1", title: "W", type: "bar", query: "q",
+          x: 3, y: 5, width: 8, height: 6,
+          settings: {}, parameters: {},
+        }],
+      }],
+    };
+    const result = convertNeoDash(nd);
+    const grid = result.layout.pages[0].gridLayout[0];
+    expect(grid).toMatchObject({ x: 3, y: 5, w: 8, h: 6 });
   });
 
   it("all chart type mappings", () => {
