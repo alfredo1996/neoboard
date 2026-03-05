@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, typeInEditor } from "./fixtures";
 
 test.describe("Widget editor", () => {
   test.beforeEach(async ({ authPage, page }) => {
@@ -22,9 +22,7 @@ test.describe("Widget editor", () => {
       await page.getByRole("option").first().click();
 
       // Enter an invalid query into the CodeMirror editor
-      const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-      await cm.click();
-      await page.keyboard.insertText("THIS IS NOT VALID CYPHER !!!");
+      await typeInEditor(dialog, page, "THIS IS NOT VALID CYPHER !!!");
 
       // Run the query
       await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -78,10 +76,9 @@ test.describe("Widget editor", () => {
       await dialog.getByRole("combobox").nth(0).click();
       await page.getByRole("option").first().click();
 
-      const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-      await cm.click();
-      await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title LIMIT 3");
+      await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title LIMIT 3");
 
+      await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
       await dialog.getByRole("button", { name: "Add Widget" }).click();
       await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 

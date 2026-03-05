@@ -47,7 +47,9 @@ test.describe("Dashboard CRUD", () => {
     const dashCard = page.locator("div[class*='cursor-pointer']")
       .filter({ hasText: "To Delete Dashboard" })
       .first();
+    await expect(dashCard.getByRole("button", { name: "Dashboard options" })).toBeVisible({ timeout: 5_000 });
     await dashCard.getByRole("button", { name: "Dashboard options" }).click();
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible({ timeout: 5_000 });
     await page.getByRole("menuitem", { name: "Delete" }).click();
     // Confirm deletion in the confirmation dialog
     await page.getByRole("button", { name: "Delete" }).click();

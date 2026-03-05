@@ -38,11 +38,13 @@ test.describe("Dashboard list & role badges", () => {
     await dialog.locator("#user-password").fill("password123");
     // Default role is creator
     await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(`badge-creator-${timestamp}@example.com`)).toBeVisible();
 
     // Create a reader
     await page.getByRole("button", { name: "Create User" }).first().click();
     dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
     await dialog.locator("#user-name").fill("Badge Reader");
     await dialog.locator("#user-email").fill(`badge-reader-${timestamp}@example.com`);
     await dialog.locator("#user-password").fill("password123");
