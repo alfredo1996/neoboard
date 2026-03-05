@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
 
 test.describe("Form widget", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -33,11 +33,7 @@ test.describe("Form widget", () => {
     await page.getByRole("option").first().click();
 
     // Write a write query
-    const cm = dialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "CREATE (n:FormTestNode {name: $param_name, email: $param_email})",
     );
 
@@ -83,11 +79,7 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "CREATE (n:FormTestNode {firstName: $param_firstName, age: $param_age_min})",
     );
 
@@ -140,11 +132,7 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "CREATE (n:FormE2ETest {name: $param_name}) RETURN n.name AS name",
     );
 
@@ -210,11 +198,7 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await cm.click();
-    await page.keyboard.insertText("CREATE (n:Test {val: $param_val})");
+    await typeInEditor(dialog, page, "CREATE (n:Test {val: $param_val})");
 
     // No fields added — preview shows placeholder message
     await expect(
@@ -255,11 +239,7 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "CREATE (n:FormReqTest {name: $param_name})",
     );
 
@@ -274,6 +254,7 @@ test.describe("Form widget", () => {
       dialog.getByRole("checkbox", { name: "Required" }),
     ).toBeChecked();
 
+    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -332,16 +313,13 @@ test.describe("Form widget", () => {
     await tableDialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const tableCm = tableDialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await tableCm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(tableDialog, page,
       "MATCH (n:FormRefreshNode) RETURN n.name AS name LIMIT 10",
     );
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
 
+    await expect(tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     await expect(
       tableDialog.locator("[data-testid='base-chart'], table").first(),
@@ -359,11 +337,7 @@ test.describe("Form widget", () => {
     await formDialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const formCm = formDialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await formCm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(formDialog, page,
       "CREATE (n:FormRefreshNode {name: $param_name})",
     );
 
@@ -453,11 +427,7 @@ test.describe("Form widget", () => {
     ).toBeDisabled();
 
     // Add query — now enabled
-    const cm = dialog.locator(
-      "[data-testid='codemirror-container'] .cm-content",
-    );
-    await cm.click();
-    await page.keyboard.insertText("CREATE (n:Test {val: $param_val})");
+    await typeInEditor(dialog, page, "CREATE (n:Test {val: $param_val})");
     await expect(
       dialog.getByRole("button", { name: "Add Widget" }),
     ).toBeEnabled();

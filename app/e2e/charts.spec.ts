@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Read-only tests: use the seeded "Movie Analytics" dashboard (no mutations)
@@ -28,9 +28,7 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
 
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
@@ -48,9 +46,7 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS count");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN count(m) AS count");
 
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
@@ -70,9 +66,7 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m LIMIT 2");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m LIMIT 2");
 
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
@@ -115,9 +109,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query for aggregated data
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, count(p) AS value ORDER BY value DESC LIMIT 5"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -144,9 +136,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (m:Movie) RETURN m.released AS year, count(m) AS count ORDER BY year"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -170,9 +160,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS label, count(*) AS value"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -196,11 +184,10 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
     );
+
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
@@ -223,9 +210,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS total");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN count(m) AS total");
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
@@ -264,9 +249,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY released LIMIT 10"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -290,9 +273,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -316,9 +297,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY value DESC LIMIT 5"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -342,9 +321,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT title, released, tagline FROM movies ORDER BY released LIMIT 5"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -371,9 +348,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("SELECT COUNT(*) AS total FROM movies");
+    await typeInEditor(dialog, page, "SELECT COUNT(*) AS total FROM movies");
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
@@ -453,9 +428,7 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query that returns nodes + relationships
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -491,9 +464,7 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query returning graph data
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 15"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -526,9 +497,7 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query that returns scalars (no nodes/relationships)
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("RETURN 1 AS value");
+    await typeInEditor(dialog, page, "RETURN 1 AS value");
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
@@ -556,9 +525,7 @@ test.describe("Graph chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
@@ -623,9 +590,7 @@ test.describe("Graph chart exploration", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5"
     );
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
