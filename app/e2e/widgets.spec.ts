@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
 
 test.describe("Widget creation", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -27,9 +27,7 @@ test.describe("Widget creation", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
 
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
@@ -53,9 +51,7 @@ test.describe("Widget creation", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title, m.released LIMIT 10");
 
     await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -70,9 +66,7 @@ test.describe("Widget creation", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "JSON Viewer" }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m LIMIT 3");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m LIMIT 3");
 
     await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -90,9 +84,7 @@ test.describe("Widget creation", () => {
     // Use a Cypher query that returns dotted field names.
     // No LIMIT here — wrapWithPreviewLimit appends LIMIT 25 automatically.
     // Including LIMIT in the query + wrapWithPreviewLimit = double LIMIT → Cypher error.
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (n:Person) RETURN n.name, n.born ORDER BY n.name");
+    await typeInEditor(dialog, page, "MATCH (n:Person) RETURN n.name, n.born ORDER BY n.name");
 
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
@@ -117,9 +109,7 @@ test.describe("Widget creation", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("SELECT title, released FROM movies LIMIT 5");
+    await typeInEditor(dialog, page, "SELECT title, released FROM movies LIMIT 5");
 
     await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
@@ -199,9 +189,7 @@ test.describe("Widget edit – query cache invalidation", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(firstQuery);
+    await typeInEditor(dialog, page, firstQuery);
 
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
@@ -224,9 +212,7 @@ test.describe("Widget edit – query cache invalidation", () => {
     // Use the Clear query button to reliably reset CodeMirror state
     // (Ctrl+A + insertText doesn't reliably update the React-controlled CM value)
     await editDialog.getByRole("button", { name: "Clear query" }).click();
-    const editCm = editDialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await editCm.click();
-    await page.keyboard.insertText(secondQuery);
+    await typeInEditor(editDialog, page, secondQuery);
 
     await editDialog.getByRole("button", { name: "Save Changes" }).click();
     await expect(editDialog).not.toBeVisible();

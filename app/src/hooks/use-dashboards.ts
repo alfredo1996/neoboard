@@ -3,6 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
+export interface ImportDashboardInput {
+  payload: unknown;
+  connectionMapping: Record<string, string>;
+}
+
 export interface WidgetPreviewItem {
   x: number;
   y: number;
@@ -134,6 +139,27 @@ export function useDuplicateDashboard() {
         method: "POST",
       });
       if (!res.ok) throw new Error("Failed to duplicate dashboard");
+      return res.json() as Promise<DashboardDetail>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+  });
+}
+
+// ── Import hook ──────────────────────────────────────────────────────
+
+export function useImportDashboard() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (body: ImportDashboardInput) => {
+      const res = await fetch("/api/dashboards/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await res.text());
       return res.json() as Promise<DashboardDetail>;
     },
     onSuccess: () => {

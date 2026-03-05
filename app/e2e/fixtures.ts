@@ -1,4 +1,4 @@
-import { test as base, type APIRequestContext } from "@playwright/test";
+import { test as base, expect, type APIRequestContext } from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
 import { nextcov } from "../playwright.config";
 import * as dotenv from "dotenv";
@@ -42,7 +42,23 @@ export const test = base.extend<Fixtures>({
   ],
 });
 
-export { expect } from "@playwright/test";
+export { expect };
+
+/**
+ * Safely type text into the CodeMirror editor inside a dialog.
+ * Waits for the editor to exit `readOnly` mode (contenteditable="true")
+ * before clicking and inserting text.
+ */
+export async function typeInEditor(
+  dialog: import("@playwright/test").Locator,
+  page: import("@playwright/test").Page,
+  query: string,
+) {
+  const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
+  await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
+  await cm.click();
+  await page.keyboard.insertText(query);
+}
 
 /**
  * Create an isolated dashboard for a test via the API.
