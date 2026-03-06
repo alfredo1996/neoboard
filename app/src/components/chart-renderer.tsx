@@ -36,6 +36,7 @@ import type {
   GraphEdge,
   MapMarker,
   EChartsClickEvent,
+  StylingRule,
 } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
 import type { ParameterType } from "@/stores/parameter-store";
@@ -75,13 +76,17 @@ export interface ChartRendererProps {
   widgetId?: string;
   resultId?: string;
   query?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query }: ChartRendererProps) {
+export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query, stylingRules, paramValues }: ChartRendererProps) {
   const colorThresholds =
     typeof settings.colorThresholds === "string" ? settings.colorThresholds : undefined;
 
@@ -106,6 +111,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           yAxisLabel={settings.yAxisLabel as string | undefined}
           showGridLines={settings.showGridLines as boolean | undefined}
           colorThresholds={colorThresholds}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
         />
       );
@@ -124,6 +131,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showPoints={settings.showPoints as boolean | undefined}
           showGridLines={settings.showGridLines as boolean | undefined}
           colorThresholds={colorThresholds}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
         />
       );
@@ -140,6 +149,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showPercentage={settings.showPercentage as boolean | undefined}
           sortSlices={settings.sortSlices as boolean | undefined}
           colorThresholds={colorThresholds}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
         />
       );
@@ -156,6 +167,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
           numberFormat={settings.numberFormat as "plain" | "comma" | "compact" | "percent" | undefined}
           colorThresholds={colorThresholds}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
         />
       );
     }
@@ -211,6 +224,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           settings={settings}
           onCellClick={onChartClick ? (info) => onChartClick({ _clickedColumn: info.column, _clickedValue: info.value }) : undefined}
           clickableColumns={clickableColumns}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
         />
       );
 

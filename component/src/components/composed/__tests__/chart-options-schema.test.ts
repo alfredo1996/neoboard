@@ -9,7 +9,6 @@ describe("getChartOptions", () => {
     expect(keys).toContain("stacked");
     expect(keys).toContain("showValues");
     expect(keys).toContain("showLegend");
-    expect(keys).toContain("colorThresholds");
   });
 
   it("returns options for line chart", () => {
@@ -19,7 +18,6 @@ describe("getChartOptions", () => {
     expect(keys).toContain("xAxisLabel");
     expect(keys).toContain("yAxisLabel");
     expect(keys).toContain("showLegend");
-    expect(keys).toContain("colorThresholds");
   });
 
   it("returns options for pie chart", () => {
@@ -27,7 +25,6 @@ describe("getChartOptions", () => {
     expect(keys).toContain("donut");
     expect(keys).toContain("showLabel");
     expect(keys).toContain("showLegend");
-    expect(keys).toContain("colorThresholds");
   });
 
   it("returns options for single-value chart", () => {
@@ -60,8 +57,6 @@ describe("getChartOptions", () => {
     expect(keys).toContain("enableColumnFilters");
     expect(keys).toContain("pageSize");
     expect(keys).toContain("emptyMessage");
-    expect(keys).toContain("colorThresholds");
-    expect(keys).toContain("colorThresholdsColumn");
   });
 
   it("returns options for json chart", () => {

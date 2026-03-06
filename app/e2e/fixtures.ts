@@ -44,16 +44,21 @@ export const test = base.extend<Fixtures>({
 
 export { expect };
 
+/** Locate the widget preview panel inside a dialog by its stable data-testid. */
+export function getPreview(dialog: import("@playwright/test").Locator) {
+  return dialog.getByTestId("widget-preview");
+}
+
 /**
  * Safely type text into the CodeMirror editor inside a dialog.
  *
- * Uses CM6's `view.dispatch()` API to set text directly — this bypasses the
- * readOnly guard (which only blocks browser input events) and fires
- * `EditorView.updateListener` so `onChange` propagates to React state.
+ * Waits for CM6 to mount and become writable, then uses browser-level
+ * `keyboard.insertText()` which works in both dev and production builds
+ * (unlike the CM6 internal `cmView` API which gets minified away).
  */
 export async function typeInEditor(
   dialog: import("@playwright/test").Locator,
-  _page: import("@playwright/test").Page,
+  page: import("@playwright/test").Page,
   query: string,
 ) {
   const cmContainer = dialog.locator("[data-testid='codemirror-container']");
@@ -62,16 +67,9 @@ export async function typeInEditor(
   await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 10_000 });
   await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 10_000 });
 
-  // Set text via CM6's dispatch API — bypasses readOnly (which only blocks
-  // browser input events) and fires updateListener → onChange.
-  await cmContainer.evaluate((el, text) => {
-    const cmEditor = el.querySelector(".cm-editor") as HTMLElement | null;
-    // CM6 stores the EditorView on .cm-editor via cmView.view
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const view = (cmEditor as any)?.cmView?.view;
-    if (!view) throw new Error("CM6 EditorView not found");
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
-  }, query);
+  const cm = cmContainer.locator(".cm-content");
+  await cm.click();
+  await page.keyboard.insertText(query);
 }
 
 /**

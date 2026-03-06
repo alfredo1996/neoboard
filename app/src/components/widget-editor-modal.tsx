@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule } from "@/lib/db/schema";
+import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule, StylingRule, StylingConfig } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { collectParameterNames } from "@/lib/collect-parameter-names";
 import { AlertCircle, AlertTriangle, Play } from "lucide-react";
@@ -30,6 +30,8 @@ import {
   getCompatibleChartTypes,
   chartRegistry,
   chartSupportsClickAction,
+  chartSupportsStyling,
+  getStylingTargets,
 } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
 import { useParameterValues } from "@/stores/parameter-store";
@@ -49,6 +51,8 @@ import type { ParamUIType, DateSubType } from "./widget-editor/parameter-config-
 import { ParameterPreview } from "./widget-editor/parameter-preview";
 import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
+import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
+import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -109,7 +113,18 @@ export function WidgetEditorModal({
   const [actionRules, setActionRules] = useState<ClickActionRule[]>(
     existingClickAction?.rules ?? []
   );
-  const [dialogStep, setDialogStep] = useState<"main" | "rules">("main");
+
+  // Styling rules state
+  const existingStylingConfig = widget?.settings?.stylingConfig as StylingConfig | undefined;
+  const [stylingEnabled, setStylingEnabled] = useState(!!existingStylingConfig?.enabled);
+  const [stylingRules, setStylingRules] = useState<StylingRule[]>(
+    existingStylingConfig?.rules ?? []
+  );
+  const [stylingTargetColumn, setStylingTargetColumn] = useState(
+    existingStylingConfig?.targetColumn ?? ""
+  );
+
+  const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules">("main");
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -226,6 +241,10 @@ export function WidgetEditorModal({
       if (!chartSupportsClickAction(t)) {
         setClickActionEnabled(false);
       }
+      // Auto-disable styling when switching to an unsupported type
+      if (!chartSupportsStyling(t)) {
+        setStylingEnabled(false);
+      }
     },
     [mode]
   );
@@ -255,6 +274,9 @@ export function WidgetEditorModal({
         setFormFields([]);
         setRefreshWidgetIds([]);
         setActionRules([]);
+        setStylingEnabled(false);
+        setStylingRules([]);
+        setStylingTargetColumn("");
         setDialogStep("main");
         seedQueryExecution.reset();
         previewQuery.reset();
@@ -275,6 +297,38 @@ export function WidgetEditorModal({
         setTargetPageId(ca?.targetPageId ?? "");
         setClickableColumns(ca?.clickableColumns ?? []);
         setActionRules(ca?.rules ?? []);
+
+        // Initialize styling rules from existing widget
+        const sc = widget.settings?.stylingConfig as StylingConfig | undefined;
+        if (sc) {
+          setStylingEnabled(sc.enabled);
+          setStylingRules(sc.rules ?? []);
+          setStylingTargetColumn(sc.targetColumn ?? "");
+        } else {
+          // Try migrating from legacy colorThresholds
+          const legacyThresholds = (widget.settings?.chartOptions as Record<string, unknown> | undefined)?.colorThresholds;
+          const legacyColumn = (widget.settings?.chartOptions as Record<string, unknown> | undefined)?.colorThresholdsColumn;
+          if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
+            const migrated = migrateColorThresholds(
+              legacyThresholds,
+              typeof legacyColumn === "string" ? legacyColumn : undefined,
+            );
+            if (migrated) {
+              setStylingEnabled(migrated.enabled);
+              setStylingRules(migrated.rules);
+              setStylingTargetColumn(migrated.targetColumn ?? "");
+            } else {
+              setStylingEnabled(false);
+              setStylingRules([]);
+              setStylingTargetColumn("");
+            }
+          } else {
+            setStylingEnabled(false);
+            setStylingRules([]);
+            setStylingTargetColumn("");
+          }
+        }
+
         setDialogStep("main");
         setEnableCache(widget.settings?.enableCache !== false);
         setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
@@ -348,6 +402,16 @@ export function WidgetEditorModal({
     };
   }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId, layout, clickableColumns, actionRules]);
 
+  const buildStylingConfig = useCallback((): StylingConfig | undefined => {
+    if (!stylingEnabled || !chartSupportsStyling(chartType)) return undefined;
+    if (stylingRules.length === 0) return undefined;
+    return {
+      enabled: true,
+      rules: stylingRules,
+      targetColumn: stylingTargetColumn || undefined,
+    };
+  }, [stylingEnabled, chartType, stylingRules, stylingTargetColumn]);
+
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
       const referenced = extractReferencedParams(query, allParamValues);
@@ -387,6 +451,7 @@ export function WidgetEditorModal({
               chartOptions,
               formFields: chartType === "form" ? formFields : undefined,
               clickAction: buildClickAction(),
+              stylingConfig: buildStylingConfig(),
               enableCache,
               cacheTtlMinutes,
             },
@@ -404,6 +469,7 @@ export function WidgetEditorModal({
     connectionId,
     widget,
     buildClickAction,
+    buildStylingConfig,
     chartType,
     title,
     chartOptions,
@@ -455,6 +521,7 @@ export function WidgetEditorModal({
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
     const clickAction = buildClickAction();
+    const stylingConfig = buildStylingConfig();
     const resolvedChartOptions = isParamSelect
       ? {
           ...chartOptions,
@@ -481,6 +548,7 @@ export function WidgetEditorModal({
           : resolvedChartOptions,
         formFields: isForm ? formFields : undefined,
         clickAction: (isParamSelect || isForm) ? undefined : clickAction,
+        stylingConfig: (isParamSelect || isForm) ? undefined : stylingConfig,
         enableCache: (isParamSelect || isForm) ? undefined : enableCache,
         cacheTtlMinutes: (isParamSelect || isForm) ? undefined : cacheTtlMinutes,
       },
@@ -491,7 +559,19 @@ export function WidgetEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="full" className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden">
-        {dialogStep === "rules" ? (
+        {dialogStep === "styling-rules" ? (
+          <StylingRulesEditor
+            rules={stylingRules}
+            onRulesChange={setStylingRules}
+            onBack={() => setDialogStep("main")}
+            chartType={chartType}
+            targetColumn={stylingTargetColumn}
+            onTargetColumnChange={setStylingTargetColumn}
+            availableFields={availableFields}
+            parameterSuggestions={parameterSuggestions}
+            stylingTargets={getStylingTargets(chartType)}
+          />
+        ) : dialogStep === "rules" ? (
           <ActionRulesEditor
             rules={actionRules}
             onRulesChange={setActionRules}
@@ -737,6 +817,37 @@ export function WidgetEditorModal({
                       )}
                     </div>
                     )}
+
+                    {/* Rule-based styling — hidden for unsupported chart types */}
+                    {chartSupportsStyling(chartType) && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                        Rule-Based Styling
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="styling-enabled"
+                          checked={stylingEnabled}
+                          onCheckedChange={(checked) => setStylingEnabled(!!checked)}
+                        />
+                        <Label htmlFor="styling-enabled" className="text-sm">
+                          Enable rule-based styling
+                        </Label>
+                      </div>
+                      {stylingEnabled && (
+                        <div className="space-y-3 pl-6">
+                          <p className="text-sm text-muted-foreground">
+                            {stylingRules.length === 0
+                              ? "No styling rules configured."
+                              : `${stylingRules.length} styling rule(s) configured.`}
+                          </p>
+                          <Button variant="outline" size="sm" onClick={() => setDialogStep("styling-rules")}>
+                            Manage Styling Rules
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    )}
                   </div>
                 )
               }
@@ -776,7 +887,7 @@ export function WidgetEditorModal({
               </Alert>
             )}
 
-            <div className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
+            <div data-testid="widget-preview" className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
               {isParamSelect ? (
                 <ParameterPreview
                   paramUIType={paramUIType}

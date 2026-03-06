@@ -9,11 +9,16 @@ const mobxPath = resolve(import.meta.dirname, "..", "component", "node_modules",
 const componentSrc = resolve(import.meta.dirname, "..", "component", "src");
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: {
+      mobx: mobxPath,
+    },
+  },
   // Enable source maps in production for E2E coverage collection (nextcov).
   productionBrowserSourceMaps: process.env.E2E_COVERAGE === "1",
   outputFileTracingRoot: resolve(import.meta.dirname, ".."),
   transpilePackages: ["@neoboard/components"],
-  serverExternalPackages: ["connection", "neo4j-driver", "pg", "postgres"],
+  serverExternalPackages: ["connection", "postgres"],
   webpack: (config, { isServer }) => {
     if (isServer) {
       // The instrumentation file is compiled in a separate webpack pass that does

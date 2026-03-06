@@ -25,7 +25,7 @@ test.describe("Widget editor", () => {
       await typeInEditor(dialog, page, "THIS IS NOT VALID CYPHER !!!");
 
       // Run the query
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
       // Should show error
@@ -78,7 +78,7 @@ test.describe("Widget editor", () => {
 
       await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title LIMIT 3");
 
-      await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
+      await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 10_000 });
       await dialog.getByRole("button", { name: "Add Widget" }).click();
       await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 

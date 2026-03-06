@@ -138,6 +138,7 @@ function JsonViewer({
 }: JsonViewerProps) {
   return (
     <div
+      data-testid="json-viewer"
       className={cn(
         "font-mono text-sm rounded-md border bg-muted/30 p-3 overflow-auto",
         className

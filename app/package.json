@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -19,6 +19,9 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@neoboard/components": "file:../component",
     "@tanstack/react-query": "^5.62.16",
     "bcryptjs": "^3.0.2",

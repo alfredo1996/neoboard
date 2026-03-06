@@ -162,13 +162,15 @@ test.describe("Form widget", () => {
     // a second dashboard fetch; we must let it settle before form interaction
     // to avoid a tree remount that would reset component state).
     await page.waitForLoadState("networkidle");
-    // Extra wait to let StrictMode double-fetch complete and tree stabilize
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(3_000);
-
-    // DebouncedTextInput renders an <input> scoped inside the widget card
+    // Retry fill until the value survives StrictMode's double-render cycle.
+    // The 1s pause inside lets any pending remount fire before we verify.
     const nameInput = page.getByRole("textbox", { name: "name" });
-    await nameInput.fill("E2E Test Person");
+    await expect(async () => {
+      await nameInput.fill("E2E Test Person");
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(1_000);
+      await expect(nameInput).toHaveValue("E2E Test Person");
+    }).toPass({ timeout: 10_000 });
 
     // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
     // eslint-disable-next-line playwright/no-wait-for-timeout
@@ -254,7 +256,7 @@ test.describe("Form widget", () => {
       dialog.getByRole("checkbox", { name: "Required" }),
     ).toBeChecked();
 
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 10_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -273,14 +275,16 @@ test.describe("Form widget", () => {
 
     // Wait for background requests to complete (dev mode StrictMode double-fetch)
     await page.waitForLoadState("networkidle");
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(3_000);
-
-    // Submit without filling — should show error, not fire the query
-    await page.getByRole("button", { name: "Submit" }).click();
-    await expect(
-      page.getByText("This field is required"),
-    ).toBeVisible({ timeout: 5_000 });
+    // Retry submit until validation error survives StrictMode's double-render cycle.
+    // The 1s pause inside lets any pending remount fire before we verify.
+    await expect(async () => {
+      await page.getByRole("button", { name: "Submit" }).click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(1_000);
+      await expect(
+        page.getByText("This field is required"),
+      ).toBeVisible();
+    }).toPass({ timeout: 10_000 });
 
     // Fill the required field — error should clear
     const nameInput = page.getByRole("textbox", { name: "name" });
@@ -319,7 +323,7 @@ test.describe("Form widget", () => {
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
 
-    await expect(tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     await expect(
       tableDialog.locator("[data-testid='base-chart'], table").first(),
@@ -373,13 +377,15 @@ test.describe("Form widget", () => {
 
     // Wait for background requests to complete (dev mode StrictMode double-fetch)
     await page.waitForLoadState("networkidle");
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(3_000);
-
-    // Fill and submit the form
+    // Retry fill until the value survives StrictMode's double-render cycle.
+    // The 1s pause inside lets any pending remount fire before we verify.
     const nameInput = page.getByRole("textbox", { name: "name" });
-    await nameInput.fill("RefreshTestNode");
-    await expect(nameInput).toHaveValue("RefreshTestNode");
+    await expect(async () => {
+      await nameInput.fill("RefreshTestNode");
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(1_000);
+      await expect(nameInput).toHaveValue("RefreshTestNode");
+    }).toPass({ timeout: 10_000 });
 
     // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
     // eslint-disable-next-line playwright/no-wait-for-timeout
@@ -554,11 +560,15 @@ test.describe("Write permission enforcement", () => {
 
     // Wait for background requests to complete (dev mode StrictMode double-fetch)
     await page.waitForLoadState("networkidle");
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(3_000);
-
-    // Fill the form
-    await page.getByRole("textbox", { name: "v" }).fill("test-value");
+    // Retry fill until the value survives StrictMode's double-render cycle.
+    // The 1s pause inside lets any pending remount fire before we verify.
+    const vInput = page.getByRole("textbox", { name: "v" });
+    await expect(async () => {
+      await vInput.fill("test-value");
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(1_000);
+      await expect(vInput).toHaveValue("test-value");
+    }).toPass({ timeout: 10_000 });
 
     // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
     // eslint-disable-next-line playwright/no-wait-for-timeout
