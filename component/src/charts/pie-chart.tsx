@@ -3,8 +3,9 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { EMPTY_DATA_OPTION, getCompactState } from "./chart-utils";
-import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
+import { EMPTY_DATA_OPTION, getCompactState, resolveItemColor } from "./chart-utils";
+import { parseColorThresholds } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
 
 export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of `{ name, value }` slices */
@@ -23,8 +24,12 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   showPercentage?: boolean;
   /** Sort slices by value descending */
   sortSlices?: boolean;
-  /** JSON string of [{ value: number, color: string }] thresholds for per-slice coloring */
+  /** @deprecated Use stylingRules instead. JSON string of thresholds */
   colorThresholds?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -45,6 +50,8 @@ function PieChart({
   showPercentage = true,
   sortSlices = false,
   colorThresholds,
+  stylingRules,
+  paramValues,
   ...rest
 }: PieChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -61,9 +68,9 @@ function PieChart({
       ? [...data].sort((a, b) => b.value - a.value)
       : data;
 
-    const thresholds = parseColorThresholds(colorThresholds ?? "");
+    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
     const coloredData = sortedData.map((d) => {
-      const color = thresholds.length ? resolveThresholdColor(d.value, thresholds) : undefined;
+      const color = resolveItemColor(d.value, stylingRules, paramValues, thresholds);
       return color ? { ...d, itemStyle: { color } } : d;
     });
 
@@ -103,7 +110,7 @@ function PieChart({
         },
       ],
     };
-  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, colorThresholds, compact, hideLegend]);
+  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

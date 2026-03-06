@@ -8,8 +8,10 @@ import {
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
+  resolveItemColor,
 } from "./chart-utils";
-import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
+import { parseColorThresholds } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
 
 export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has an `x` key and one or more numeric series keys. */
@@ -32,8 +34,12 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showGridLines?: boolean;
   /** Use stepped line style */
   stepped?: boolean;
-  /** JSON string of [{ value: number, color: string }] thresholds; colors each series by its last value */
+  /** @deprecated Use stylingRules instead. JSON string of thresholds */
   colorThresholds?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -57,6 +63,8 @@ function LineChart({
   showGridLines = true,
   stepped = false,
   colorThresholds,
+  stylingRules,
+  paramValues,
   ...rest
 }: LineChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -67,7 +75,7 @@ function LineChart({
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
     const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
-    const thresholds = parseColorThresholds(colorThresholds ?? "");
+    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
 
     return {
       tooltip: { trigger: "axis" },
@@ -101,10 +109,9 @@ function LineChart({
             break;
           }
         }
-        const seriesColor =
-          thresholds.length && lastValue !== undefined
-            ? resolveThresholdColor(lastValue, thresholds)
-            : undefined;
+        const seriesColor = lastValue !== undefined
+          ? resolveItemColor(lastValue, stylingRules, paramValues, thresholds)
+          : undefined;
         return {
           name: key,
           type: "line" as const,
@@ -119,7 +126,7 @@ function LineChart({
         };
       }),
     };
-  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, colorThresholds, compact, hideLegend]);
+  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

@@ -8,8 +8,10 @@ import {
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
+  resolveItemColor,
 } from "./chart-utils";
-import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
+import { parseColorThresholds } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
 
 export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has a `label` key and one or more numeric series keys. */
@@ -32,8 +34,12 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   xAxisLabel?: string;
   /** Y-axis name label */
   yAxisLabel?: string;
-  /** JSON string of [{ value: number, color: string }] thresholds for per-bar coloring */
+  /** @deprecated Use stylingRules instead. JSON string of thresholds for per-bar coloring */
   colorThresholds?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -57,6 +63,8 @@ function BarChart({
   xAxisLabel,
   yAxisLabel,
   colorThresholds,
+  stylingRules,
+  paramValues,
   ...rest
 }: BarChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -70,7 +78,7 @@ function BarChart({
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
-    const thresholds = parseColorThresholds(colorThresholds ?? "");
+    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
 
     const categoryAxis = {
       type: "category" as const,
@@ -101,10 +109,9 @@ function BarChart({
         data: data.map((d) => {
           const rawValue = d[key];
           const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
-          const color =
-            Number.isFinite(numericValue) && thresholds.length
-              ? resolveThresholdColor(numericValue, thresholds)
-              : undefined;
+          const color = Number.isFinite(numericValue)
+            ? resolveItemColor(numericValue, stylingRules, paramValues, thresholds)
+            : undefined;
           return color ? { value: rawValue, itemStyle: { color } } : rawValue;
         }),
         stack: stacked ? "total" : undefined,
@@ -116,7 +123,7 @@ function BarChart({
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
       })),
     };
-  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, colorThresholds, compact, hideLegend]);
+  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

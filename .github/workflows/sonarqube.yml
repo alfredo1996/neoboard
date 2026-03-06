@@ -220,6 +220,9 @@ jobs:
           path: app/coverage-e2e
         continue-on-error: true
 
+      - name: Clean generated files before scan
+        run: rm -rf component/coverage app/coverage connection/coverage
+
       - name: List coverage files
         run: |
           echo "=== Coverage files ==="
