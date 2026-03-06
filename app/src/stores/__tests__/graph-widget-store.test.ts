@@ -12,7 +12,7 @@ describe("useGraphWidgetStore", () => {
 
   it("setState creates new widget state", () => {
     const nodes = [{ id: "n1", labels: ["Person"], properties: {} }];
-    const edges = [{ id: "e1", from: "n1", to: "n2", type: "KNOWS", properties: {} }];
+    const edges = [{ id: "e1", source: "n1", target: "n2", from: "n1", to: "n2", type: "KNOWS", properties: {} }];
     useGraphWidgetStore.getState().setState("w1", { nodes, edges });
     const state = useGraphWidgetStore.getState().states["w1"];
     expect(state.nodes).toEqual(nodes);
