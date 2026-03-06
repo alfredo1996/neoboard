@@ -456,29 +456,29 @@ describe("GraphChart", () => {
     expect(opts.useStaticLayout).toBe(true);
   });
 
-  // --- Neo4j non-primitive caption values (#19) ---
+  // --- Caption rendering for normalized values ---
+  // Since PR #92, Neo4j temporal types are normalized at the parser boundary.
+  // The component receives plain JS numbers and Date objects.
 
-  it("renders Neo4j Integer { low, high } as a numeric string in node caption", () => {
+  it("renders a number property as a numeric string in node caption", () => {
     const nodes = [
       {
         id: "i1",
         labels: ["Item"],
-        properties: { count: { low: 42, high: 0 } },
+        properties: { count: 42 },
       },
     ];
     render(<GraphChart nodes={nodes} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
-    // Without the fix, caption would be "[object Object]"
     expect(nvlNodes[0].caption).toBe("42");
   });
 
-  it("renders Neo4j Integer with high word correctly", () => {
-    // low=0, high=1 => 0 + 1 * 0x100000000 = 4294967296
+  it("renders a large number property correctly", () => {
     const nodes = [
       {
         id: "i2",
         labels: ["Item"],
-        properties: { bigNum: { low: 0, high: 1 } },
+        properties: { bigNum: 4294967296 },
       },
     ];
     render(<GraphChart nodes={nodes} edges={[]} />);
@@ -486,38 +486,34 @@ describe("GraphChart", () => {
     expect(nvlNodes[0].caption).toBe("4294967296");
   });
 
-  it("renders Neo4j Date object as YYYY-MM-DD string in node caption", () => {
+  it("renders a Date object as a readable datetime string in node caption", () => {
     const nodes = [
       {
         id: "d1",
         labels: ["Event"],
         properties: {
-          date: { year: 2024, month: 3, day: 15 },
+          date: new Date("2024-03-15T00:00:00Z"),
         },
       },
     ];
     render(<GraphChart nodes={nodes} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
-    expect(nvlNodes[0].caption).toBe("2024-03-15");
+    expect(nvlNodes[0].caption).toBe("2024-03-15 00:00:00");
   });
 
-  it("renders Neo4j Date with Integer year/month/day as YYYY-MM-DD string", () => {
+  it("renders a Date with time components correctly", () => {
     const nodes = [
       {
         id: "d2",
         labels: ["Event"],
         properties: {
-          date: {
-            year: { low: 2023, high: 0 },
-            month: { low: 11, high: 0 },
-            day: { low: 7, high: 0 },
-          },
+          date: new Date("2023-11-07T14:30:00Z"),
         },
       },
     ];
     render(<GraphChart nodes={nodes} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
-    expect(nvlNodes[0].caption).toBe("2023-11-07");
+    expect(nvlNodes[0].caption).toBe("2023-11-07 14:30:00");
   });
 
   it("falls back to JSON.stringify for unknown object values", () => {

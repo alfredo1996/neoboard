@@ -1,6 +1,8 @@
 export { BaseChart, CHART_COLORS, resolveChartColors } from "./base-chart";
 export type { ColorThreshold } from "./color-threshold";
 export { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
+export type { StylingRule, StylingConfig, StylingOperator } from "./styling-rule";
+export { resolveStylingRuleColor } from "./styling-rule";
 export { LineChart } from "./line-chart";
 export type { LineChartProps } from "./line-chart";
 export { BarChart } from "./bar-chart";
