@@ -438,6 +438,7 @@ function QueryEditor({
         ref={containerRef}
         className="flex-1 overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"
         data-testid="codemirror-container"
+        data-readonly={readOnly}
       />
     </div>
   );

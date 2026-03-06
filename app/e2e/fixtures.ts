@@ -46,18 +46,32 @@ export { expect };
 
 /**
  * Safely type text into the CodeMirror editor inside a dialog.
- * Waits for the editor to exit `readOnly` mode (contenteditable="true")
- * before clicking and inserting text.
+ *
+ * Uses CM6's `view.dispatch()` API to set text directly — this bypasses the
+ * readOnly guard (which only blocks browser input events) and fires
+ * `EditorView.updateListener` so `onChange` propagates to React state.
  */
 export async function typeInEditor(
   dialog: import("@playwright/test").Locator,
-  page: import("@playwright/test").Page,
+  _page: import("@playwright/test").Page,
   query: string,
 ) {
-  const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-  await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
-  await cm.click();
-  await page.keyboard.insertText(query);
+  const cmContainer = dialog.locator("[data-testid='codemirror-container']");
+
+  // Wait for CM6 to mount and React to signal writable
+  await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 10_000 });
+  await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 10_000 });
+
+  // Set text via CM6's dispatch API — bypasses readOnly (which only blocks
+  // browser input events) and fires updateListener → onChange.
+  await cmContainer.evaluate((el, text) => {
+    const cmEditor = el.querySelector(".cm-editor") as HTMLElement | null;
+    // CM6 stores the EditorView on .cm-editor via cmView.view
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const view = (cmEditor as any)?.cmView?.view;
+    if (!view) throw new Error("CM6 EditorView not found");
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+  }, query);
 }
 
 /**
