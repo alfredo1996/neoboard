@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,17 +10,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireSession = vi.fn<
   () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
 >();
-
-function makeSelectChain(rows: unknown[]) {
-  const resolved = Promise.resolve(rows);
-  const c = Object.assign(resolved, {
-    from: () => c,
-    where: () => c,
-    innerJoin: () => c,
-    limit: () => Promise.resolve(rows),
-  });
-  return c;
-}
 
 function makeInsertChain() {
   return { values: () => Promise.resolve() };
@@ -45,27 +37,11 @@ vi.mock("@/lib/auth/session", () => ({
   requireUserId: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function makeParams(id: string) {
-  return { params: Promise.resolve({ id }) };
-}
-
-function makeRequest(body: unknown, url = "http://localhost/api/dashboards/d1/share") {
-  return { json: async () => body, url } as Request;
-}
 
 function makeDeleteRequest(url: string) {
   return { url } as Request;

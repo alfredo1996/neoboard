@@ -44,18 +44,30 @@ export const test = base.extend<Fixtures>({
 
 export { expect };
 
+/** Locate the widget preview panel inside a dialog by its stable data-testid. */
+export function getPreview(dialog: import("@playwright/test").Locator) {
+  return dialog.getByTestId("widget-preview");
+}
+
 /**
  * Safely type text into the CodeMirror editor inside a dialog.
- * Waits for the editor to exit `readOnly` mode (contenteditable="true")
- * before clicking and inserting text.
+ *
+ * Waits for CM6 to mount and become writable, then uses browser-level
+ * `keyboard.insertText()` which works in both dev and production builds
+ * (unlike the CM6 internal `cmView` API which gets minified away).
  */
 export async function typeInEditor(
   dialog: import("@playwright/test").Locator,
   page: import("@playwright/test").Page,
   query: string,
 ) {
-  const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-  await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 5_000 });
+  const cmContainer = dialog.locator("[data-testid='codemirror-container']");
+
+  // Wait for CM6 to mount and React to signal writable
+  await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 10_000 });
+  await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 10_000 });
+
+  const cm = cmContainer.locator(".cm-content");
   await cm.click();
   await page.keyboard.insertText(query);
 }

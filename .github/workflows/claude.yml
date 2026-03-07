@@ -31,8 +31,18 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - run: npm ci
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            app/package-lock.json
+            component/package-lock.json
+            connection/package-lock.json
+      - name: Install dependencies
+        run: |
+          npm ci --prefix app &
+          npm ci --prefix component &
+          npm ci --prefix connection &
+          wait
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

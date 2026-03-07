@@ -29,6 +29,9 @@ export function useUsers() {
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
+    // Don't retry permission errors — retrying a 403 won't help.
+    retry: (_count, error) =>
+      !(error instanceof Error && error.message === "Forbidden"),
   });
 }
 

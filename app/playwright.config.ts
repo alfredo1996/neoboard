@@ -34,7 +34,7 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3100",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     navigationTimeout: 15_000,
@@ -48,17 +48,4 @@ export default defineConfig({
     },
   ],
 
-  // CI: webServer is disabled — globalSetup starts `next start` itself after
-  // writing .env.local so the server reads the correct DATABASE_URL.
-  // Playwright waits for the webServer port BEFORE running globalSetup, so
-  // using webServer in CI would deadlock (server needs env from globalSetup).
-  // Local: dev server for fast iteration with HMR.
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "npx next dev --port 3000",
-        port: 3000,
-        reuseExistingServer: true,
-        timeout: 30_000,
-      },
 });

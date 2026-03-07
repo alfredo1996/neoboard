@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeRequest } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before importing the route so Vitest hoists them.
@@ -21,23 +23,7 @@ vi.mock("@/lib/query-executor", () => ({ executeQuery: mockExecuteQuery }));
 vi.mock("@/lib/schema-prefetch", () => ({ prefetchSchema: vi.fn() }));
 
 // Minimal Next.js server shim
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeRequest(body: unknown) {
-  return { json: async () => body } as Request;
-}
+vi.mock("next/server", () => nextResponseMockFactory());
 
 /** Default authenticated session */
 const defaultSession = { userId: "user-1", tenantId: "tenant-a", role: "creator", canWrite: true };

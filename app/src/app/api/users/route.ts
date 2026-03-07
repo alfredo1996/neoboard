@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
+import { validateBody, handleRouteError } from "@/lib/api-utils";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
@@ -31,8 +32,7 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (e) {
-    const status = e instanceof Error && e.message === "Forbidden" ? 403 : 401;
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Unauthorized" }, { status });
+    return handleRouteError(e);
   }
 }
 
@@ -41,16 +41,10 @@ export async function POST(request: Request) {
     await requireAdmin();
 
     const body = await request.json();
-    const parsed = createUserSchema.safeParse(body);
+    const result = validateBody(createUserSchema, body);
+    if (!result.success) return result.response;
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
-    }
-
-    const { name, email, password, role, canWrite } = parsed.data;
+    const { name, email, password, role, canWrite } = result.data;
 
     const existing = await db
       .select({ id: users.id })
@@ -81,7 +75,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(user, { status: 201 });
   } catch (e) {
-    const status = e instanceof Error && e.message === "Forbidden" ? 403 : 401;
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Unauthorized" }, { status });
+    return handleRouteError(e);
   }
 }
