@@ -110,7 +110,8 @@ test.describe("Users page — role enforcement", () => {
     await dialog.locator("#user-password").fill("password123");
     // Creator is default role
     await dialog.getByRole("button", { name: "Create" }).click();
-    await expect(page.getByText(creatorEmail)).toBeVisible();
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(creatorEmail)).toBeVisible({ timeout: 10_000 });
 
     // Logout and login as creator
     await authPage.logout();
@@ -119,11 +120,10 @@ test.describe("Users page — role enforcement", () => {
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
     // Navigate to users page
-    await page.goto("/users");
-
-    // Wait for loading to finish, then check forbidden message
-    await expect(page.getByText("Admin access required")).toBeVisible({
-      timeout: 30_000,
-    });
+    await page.goto("/users", { waitUntil: "networkidle" });
+    // Wait for the loading overlay to disappear before asserting content
+    await expect(page.getByText("Loading users...")).not.toBeVisible({ timeout: 30_000 });
+    // Non-admin should see forbidden message
+    await expect(page.getByText("Admin access required")).toBeVisible({ timeout: 10_000 });
   });
 });

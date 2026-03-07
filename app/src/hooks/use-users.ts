@@ -8,6 +8,7 @@ export interface UserListItem {
   name: string | null;
   email: string | null;
   role: UserRole;
+  canWrite: boolean;
   createdAt: string;
 }
 
@@ -16,6 +17,7 @@ export interface CreateUserInput {
   email: string;
   password: string;
   role?: UserRole;
+  canWrite?: boolean;
 }
 
 export function useUsers() {
@@ -27,6 +29,9 @@ export function useUsers() {
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
+    // Don't retry permission errors — retrying a 403 won't help.
+    retry: (_count, error) =>
+      !(error instanceof Error && error.message === "Forbidden"),
   });
 }
 
@@ -65,6 +70,28 @@ export function useUpdateUserRole() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to update role");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useUpdateUserCanWrite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, canWrite }: { id: string; canWrite: boolean }) => {
+      const res = await fetch(`/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canWrite }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to update write permission");
       }
       return res.json();
     },

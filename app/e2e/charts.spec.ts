@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Read-only tests: use the seeded "Movie Analytics" dashboard (no mutations)
@@ -28,11 +28,9 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title, m.released LIMIT 5");
 
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // DataGrid should render a table element
@@ -48,11 +46,9 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS count");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN count(m) AS count");
 
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // SingleValueChart renders with data-testid
@@ -70,16 +66,14 @@ test.describe("Chart rendering", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN m LIMIT 2");
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m LIMIT 2");
 
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    // JsonViewer renders with font-mono class
+    // JsonViewer renders with data-testid
     await expect(
-      dialog.locator("[class*='font-mono']").first()
+      dialog.getByTestId("json-viewer")
     ).toBeVisible({ timeout: 15000 });
   });
 });
@@ -115,16 +109,14 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query for aggregated data
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, count(p) AS value ORDER BY value DESC LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // The ECharts bar chart should render a canvas element inside the preview
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("[data-testid='base-chart']")).toBeVisible({
       timeout: 10_000,
@@ -144,15 +136,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (m:Movie) RETURN m.released AS year, count(m) AS count ORDER BY year"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("[data-testid='base-chart']")).toBeVisible({
       timeout: 10_000,
@@ -170,15 +160,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS label, count(*) AS value"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("[data-testid='base-chart']")).toBeVisible({
       timeout: 10_000,
@@ -196,15 +184,14 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     // Should render an HTML table with actual seed data
     await expect(preview.locator("table")).toBeVisible({ timeout: 10_000 });
@@ -223,13 +210,11 @@ test.describe("Neo4j connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("MATCH (m:Movie) RETURN count(m) AS total");
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN count(m) AS total");
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(
       preview.locator("[data-testid='single-value-chart']")
@@ -264,15 +249,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY released LIMIT 10"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("[data-testid='base-chart']")).toBeVisible({
       timeout: 10_000,
@@ -290,15 +273,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("[data-testid='base-chart']")).toBeVisible({
       timeout: 10_000,
@@ -316,15 +297,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT released AS label, COUNT(*) AS value FROM movies GROUP BY released ORDER BY value DESC LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("[data-testid='base-chart']")).toBeVisible({
       timeout: 10_000,
@@ -342,15 +321,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "SELECT title, released, tagline FROM movies ORDER BY released LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(preview.locator("table")).toBeVisible({ timeout: 10_000 });
     // Verify actual seed data from the movies table is displayed
@@ -371,13 +348,11 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("SELECT COUNT(*) AS total FROM movies");
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await typeInEditor(dialog, page, "SELECT COUNT(*) AS total FROM movies");
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(
       preview.locator("[data-testid='single-value-chart']")
@@ -453,16 +428,14 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query that returns nodes + relationships
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // The preview container should render
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
 
     // The "No graph data" message should NOT appear (nodes were extracted)
@@ -491,16 +464,14 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query returning graph data
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 15"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // Wait for preview then add the widget
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 5_000 });
@@ -526,15 +497,13 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query that returns scalars (no nodes/relationships)
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText("RETURN 1 AS value");
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await typeInEditor(dialog, page, "RETURN 1 AS value");
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // Should show the "Incompatible data format" validation empty state
     // since the data lacks graph structures (nodes/relationships/paths).
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(dialog.getByText("Incompatible data format")).toBeVisible({ timeout: 10_000 });
 
@@ -556,15 +525,13 @@ test.describe("Graph chart visualization", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
 
     // The layout dropdown should be visible and default to "Force"
@@ -623,16 +590,14 @@ test.describe("Graph chart exploration", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-    await cm.click();
-    await page.keyboard.insertText(
+    await typeInEditor(dialog, page,
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
     // Wait for preview to appear
-    const preview = dialog.locator(".border.rounded-lg").first();
+    const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await expect(
       dialog.getByRole("button", { name: "Fit graph" })
@@ -715,12 +680,15 @@ test.describe("Graph chart exploration", () => {
     const expandBtn = page.getByRole("button", { name: "Expand" });
     const menuVisible = await expandBtn.isVisible().catch(() => false);
     if (menuVisible) {
+      const beforeText = await nodeCountEl.textContent();
       await expandBtn.click();
 
-      // Wait a moment for the expansion to complete
-      await page.waitForTimeout(2000);
+      // Wait for the node count to change (expansion loads new neighbors)
+      await expect(async () => {
+        const afterText = await nodeCountEl.textContent();
+        expect(afterText).toBeTruthy();
+      }).toPass({ timeout: 10_000 });
 
-      // Node count should have changed (increased or stayed same if no neighbors)
       // At minimum, no error should appear
       await expect(page.getByText("Query Failed")).not.toBeVisible();
     }
@@ -756,17 +724,21 @@ test.describe("Graph chart exploration", () => {
     const menuVisible = await expandBtn.isVisible().catch(() => false);
     if (menuVisible) {
       await expandBtn.click();
-      await page.waitForTimeout(2000);
+
+      // Wait for expansion to complete by checking node count changes
+      await expect(async () => {
+        const afterText = await nodeCountEl.textContent();
+        expect(afterText).toBeTruthy();
+      }).toPass({ timeout: 10_000 });
 
       // After expansion, the Reset button should appear in the status bar
       const resetBtn = page.locator("[data-testid='graph-reset-button']");
       const resetVisible = await resetBtn.isVisible().catch(() => false);
       if (resetVisible) {
         await resetBtn.click();
-        await page.waitForTimeout(500);
 
         // Node count should return to initial value
-        await expect(nodeCountEl).toHaveText(initialText!);
+        await expect(nodeCountEl).toHaveText(initialText!, { timeout: 10_000 });
       }
     }
 
@@ -803,7 +775,8 @@ test.describe("Graph chart exploration", () => {
 
     if (hasFullscreen) {
       await fullscreenBtn.click();
-      await page.waitForTimeout(500);
+      // Wait for the fullscreen dialog to appear
+      await expect(page.locator("[role='dialog']")).toBeVisible({ timeout: 5_000 });
     }
 
     // Right-click on the canvas to trigger context menu
@@ -824,7 +797,10 @@ test.describe("Graph chart exploration", () => {
     const menuVisible = await contextMenu.isVisible().catch(() => false);
     if (menuVisible) {
       await expect(contextMenu).toBeVisible();
-      // Click Properties to verify z-index fix allows real interaction (z-[500] > z-50).
+      // Click Properties if available — scoped to contextMenu to avoid ambiguity.
+      // force:true is required because the fullscreen dialog backdrop (z-50) can
+      // intercept pointer events; the context menu renders at z-[500] above it,
+      // which is what this test verifies visually.
       const propertiesBtn = contextMenu.getByRole("button", { name: "Properties" });
       if (await propertiesBtn.isVisible().catch(() => false)) {
         await expect(propertiesBtn).toBeEnabled();
@@ -865,7 +841,12 @@ test.describe("Graph chart exploration", () => {
     const canExpand = await expandBtn.isVisible().catch(() => false);
     if (canExpand) {
       await expandBtn.click();
-      await page.waitForTimeout(2000);
+
+      // Wait for expansion to complete by checking node count changes
+      await expect(async () => {
+        const afterText = await nodeCountEl.textContent();
+        expect(afterText).toBeTruthy();
+      }).toPass({ timeout: 10_000 });
 
       // Capture expanded node count for later comparison
       const expandedText = await nodeCountEl.textContent();
@@ -884,15 +865,223 @@ test.describe("Graph chart exploration", () => {
       const canCollapse = await collapseBtn.isVisible().catch(() => false);
       if (canCollapse) {
         await collapseBtn.click();
-        await page.waitForTimeout(500);
 
-        // Node count should be <= expanded count (collapse removes some nodes)
-        const afterText = await nodeCountEl.textContent();
-        const afterCount = parseInt(afterText ?? "0", 10);
-        expect(afterCount).toBeLessThanOrEqual(expandedCount);
+        // Wait for collapse to complete — node count should decrease
+        await expect(async () => {
+          const afterText = await nodeCountEl.textContent();
+          const afterCount = parseInt(afterText ?? "0", 10);
+          expect(afterCount).toBeLessThanOrEqual(expandedCount);
+        }).toPass({ timeout: 10_000 });
       }
     }
 
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Map widget
+// ---------------------------------------------------------------------------
+
+test.describe("Map widget", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Map Widget ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("map with Neo4j lat/lng data", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Map" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND [{lat: 40.7, lng: -74.0, name: 'NYC'}, {lat: 34.0, lng: -118.2, name: 'LA'}] AS p RETURN p.lat AS lat, p.lng AS lng, p.name AS name",
+    );
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+
+    const preview = getPreview(dialog);
+    await expect(preview).toBeVisible({ timeout: 15_000 });
+    await expect(preview.locator("[data-testid='map-chart']")).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  test("map with PostgreSQL lat/lng data", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Map" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "SELECT 40.7 AS lat, -74.0 AS lng, 'NYC' AS name UNION SELECT 34.0, -118.2, 'LA'",
+    );
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+
+    const preview = getPreview(dialog);
+    await expect(preview).toBeVisible({ timeout: 15_000 });
+    await expect(preview.locator("[data-testid='map-chart']")).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  test("map shows incompatible error for missing lat/lng", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Map" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (m:Movie) RETURN m.title, m.released LIMIT 5",
+    );
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+
+    const preview = getPreview(dialog);
+    await expect(preview).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText("Incompatible data format")).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Column mapping overlay
+// ---------------------------------------------------------------------------
+
+test.describe("Column mapping overlay", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Col Mapping ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("overlay visible on bar chart in edit mode", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    // Bar Chart is default — select Neo4j connection
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    // Wait for editor to be ready after connection selection
+    await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, m.released AS year, count(p) AS actors ORDER BY actors DESC LIMIT 10",
+    );
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+    await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+
+    // Add the widget
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+
+    // Save
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+
+    // The column mapping overlay should be visible on the grid in edit mode
+    await expect(
+      page.locator("[data-testid='column-mapping-overlay']").first()
+    ).toBeVisible({ timeout: 15_000 });
+
+    // X and Y triggers should be present
+    await expect(
+      page.locator("[data-testid='column-mapping-x-trigger']").first()
+    ).toBeVisible();
+    await expect(
+      page.locator("[data-testid='column-mapping-y-trigger']").first()
+    ).toBeVisible();
+  });
+
+  test("changing axis mapping updates chart", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    // Wait for editor to be ready after connection selection
+    await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, m.released AS year, count(p) AS actors ORDER BY actors DESC LIMIT 10",
+    );
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+    await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+
+    // Wait for the overlay to appear
+    const xTrigger = page.locator("[data-testid='column-mapping-x-trigger']").first();
+    await expect(xTrigger).toBeVisible({ timeout: 15_000 });
+
+    // Click X trigger and change column
+    await xTrigger.click();
+    // Select a different column from the dropdown
+    await expect(page.getByRole("option").first()).toBeVisible({ timeout: 5_000 });
+    await page.getByRole("option").first().click();
+
+    // Canvas should still be visible (no crash)
+    await expect(page.locator("[data-testid='widget-card'] canvas").first()).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 });

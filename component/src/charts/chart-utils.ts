@@ -1,4 +1,8 @@
 import type { EChartsOption } from "echarts";
+import type { ColorThreshold } from "./color-threshold";
+import { resolveThresholdColor } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
+import { resolveStylingRuleColor } from "./styling-rule";
 
 /**
  * The ECharts "no data" title option, shared across all chart types.
@@ -61,4 +65,23 @@ export function buildCompactGrid(compact: boolean, showLegend: boolean) {
     bottom: showLegend ? 40 : compact ? 8 : 24,
     containLabel: true,
   };
+}
+
+/**
+ * Resolve a color for a numeric value using styling rules (preferred) or
+ * legacy color thresholds as fallback. Returns undefined when no rule matches.
+ */
+export function resolveItemColor(
+  value: number,
+  stylingRules: StylingRule[] | undefined,
+  paramValues: Record<string, unknown> | undefined,
+  thresholds: ColorThreshold[],
+): string | undefined {
+  if (stylingRules?.length) {
+    return resolveStylingRuleColor(value, stylingRules, paramValues);
+  }
+  if (thresholds.length) {
+    return resolveThresholdColor(value, thresholds);
+  }
+  return undefined;
 }

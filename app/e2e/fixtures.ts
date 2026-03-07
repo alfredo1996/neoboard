@@ -1,4 +1,4 @@
-import { test as base, type APIRequestContext } from "@playwright/test";
+import { test as base, expect, type APIRequestContext } from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
 import { nextcov } from "../playwright.config";
 import * as dotenv from "dotenv";
@@ -42,7 +42,56 @@ export const test = base.extend<Fixtures>({
   ],
 });
 
-export { expect } from "@playwright/test";
+export { expect };
+
+/** Locate the widget preview panel inside a dialog by its stable data-testid. */
+export function getPreview(dialog: import("@playwright/test").Locator) {
+  return dialog.getByTestId("widget-preview");
+}
+
+/**
+ * Safely type text into the CodeMirror editor inside a dialog.
+ *
+ * Waits for CM6 to mount and become writable, then uses browser-level
+ * `keyboard.insertText()` which works in both dev and production builds
+ * (unlike the CM6 internal `cmView` API which gets minified away).
+ *
+ * Uses a retry loop because the React `data-readonly` attribute and even
+ * CM6's `contenteditable` can briefly show "writable" during mount/remount
+ * before the readonly compartment reconfiguration takes effect. The retry
+ * verifies the text was actually inserted and clears stale state if needed.
+ */
+export async function typeInEditor(
+  dialog: import("@playwright/test").Locator,
+  page: import("@playwright/test").Page,
+  query: string,
+) {
+  const cmContainer = dialog.locator("[data-testid='codemirror-container']");
+  const cm = cmContainer.locator(".cm-content");
+
+  // Wait for CM6 to mount
+  await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 10_000 });
+
+  // Wait for the React wrapper to signal writable
+  await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 10_000 });
+
+  // Retry inserting text until it actually appears in the editor.
+  // CM6 readonly compartment reconfiguration can lag behind React attribute.
+  await expect(async () => {
+    // Ensure CM6 contenteditable is true before each attempt
+    await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 2_000 });
+    await cm.click();
+    // Select all + delete to clear any partial/stale content from previous attempts
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(query);
+    // Verify the text was actually inserted (check first 20 chars)
+    const text = await cm.textContent();
+    if (!text || !text.includes(query.substring(0, 20))) {
+      throw new Error("Query text not inserted — CM6 likely still readonly");
+    }
+  }).toPass({ timeout: 15_000 });
+}
 
 /**
  * Create an isolated dashboard for a test via the API.

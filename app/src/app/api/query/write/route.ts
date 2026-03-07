@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto";
 import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
+import { validateBody, forbidden, notFound, serverError } from "@/lib/api-utils";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
@@ -19,23 +20,14 @@ export async function POST(request: Request) {
     const { userId, canWrite } = await requireSession();
 
     if (!canWrite) {
-      return NextResponse.json(
-        { error: "Write permission required" },
-        { status: 403 },
-      );
+      return forbidden("Write permission required");
     }
 
     const body = await request.json();
-    const parsed = writeQuerySchema.safeParse(body);
+    const validation = validateBody(writeQuerySchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 },
-      );
-    }
-
-    const { connectionId, query, params } = parsed.data;
+    const { connectionId, query, params } = validation.data;
 
     // Only connection owners can execute write queries
     const [connection] = await db
@@ -45,10 +37,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (!connection) {
-      return NextResponse.json(
-        { error: "Connection not found" },
-        { status: 404 },
-      );
+      return notFound("Connection not found");
     }
 
     const credentials = decryptJson<ConnectionCredentials>(
@@ -71,9 +60,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[write-query]", error instanceof Error ? error.message : error);
-    return NextResponse.json(
-      { error: "Write query execution failed" },
-      { status: 500 },
-    );
+    return serverError("Write query execution failed");
   }
 }

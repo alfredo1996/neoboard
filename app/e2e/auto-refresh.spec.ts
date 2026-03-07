@@ -11,9 +11,9 @@ test.describe("Auto-refresh", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
 
-    // Open auto-refresh dropdown
+    // Open auto-refresh dropdown — wait for it to be fully interactive
     const refreshButton = page.getByTestId("auto-refresh-trigger");
-    await expect(refreshButton).toBeVisible();
+    await expect(refreshButton).toBeVisible({ timeout: 10_000 });
     await refreshButton.click();
 
     // Wait for the PUT request to complete before reloading — avoids
@@ -28,9 +28,9 @@ test.describe("Auto-refresh", () => {
     await expect(page.getByTestId("auto-refresh-trigger")).toContainText("30s", { timeout: 5_000 });
 
     // Reload and verify the setting persisted from the DB
-    await page.reload();
+    await page.reload({ waitUntil: "networkidle" });
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("auto-refresh-trigger")).toContainText("30s", { timeout: 10_000 });
 
     // Disable auto-refresh to clean up
@@ -54,10 +54,11 @@ test.describe("Auto-refresh", () => {
     // Button should show "5s" + countdown; dropdown should be closed
     await expect(page.getByTestId("auto-refresh-trigger")).toContainText("5s", { timeout: 5_000 });
 
-    // Wait for at least one full refresh cycle (≤ 6s)
-    // After one cycle the countdown resets — easiest signal is that the
-    // page still shows "5s" (didn't error out) and widgets didn't flash skeletons
-    await page.waitForTimeout(6_000);
+    // Wait for the auto-refresh to trigger at least one query cycle
+    await page.waitForResponse(
+      (resp) => resp.url().includes("/api/query") && resp.request().method() === "POST",
+      { timeout: 10_000 },
+    );
     await expect(page.getByTestId("auto-refresh-trigger")).toContainText("5s");
     // No widget should be stuck on a loading skeleton after the refresh
     await expect(page.locator("[data-loading='true']")).toHaveCount(0, { timeout: 3_000 });

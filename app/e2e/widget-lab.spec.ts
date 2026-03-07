@@ -94,7 +94,7 @@ test.describe("Widget Lab", () => {
       // Open widget actions menu → "Save to Widget Lab"
       const widgetCard = page.locator("[data-testid='widget-card']").first();
       await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: /more|options|widget options/i }).click();
+      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
       await page.getByRole("menuitem", { name: "Save to Widget Lab" }).click();
 
       // Save Template dialog should appear
@@ -152,7 +152,7 @@ test.describe("Widget Lab", () => {
       await card.getByRole("button", { name: "Delete template" }).click();
 
       // Confirm the deletion
-      const confirmDialog = page.getByRole("dialog", { name: "Delete Template" });
+      const confirmDialog = page.getByRole("alertdialog", { name: "Delete Template" });
       await expect(confirmDialog).toBeVisible();
       await confirmDialog.getByRole("button", { name: "Delete" }).click();
       await expect(confirmDialog).not.toBeVisible();
@@ -215,30 +215,32 @@ test.describe("Widget Lab", () => {
       // Click "From Template"
       await dialog.getByRole("button", { name: "From Template" }).click();
 
-      // Browse Templates view should be visible
+      // Dialog title changes to "Browse Templates"
+      const browseDialog = page.getByRole("dialog", { name: "Browse Templates" });
       await expect(
-        dialog.getByRole("heading", { name: "Browse Templates" }),
+        browseDialog.getByRole("heading", { name: "Browse Templates" }),
       ).toBeVisible();
 
       // The template we created should be listed
-      await expect(dialog.getByText("E2E From Template")).toBeVisible({
+      await expect(browseDialog.getByText("E2E From Template")).toBeVisible({
         timeout: 10_000,
       });
 
       // Click to apply
-      await dialog
+      await browseDialog
         .locator("button")
         .filter({ hasText: "E2E From Template" })
         .click();
 
-      // Should return to main dialog step
+      // Should return to main dialog step (title changes back)
+      const mainDialog = page.getByRole("dialog", { name: "Add Widget" });
       await expect(
-        dialog.getByRole("heading", { name: "Add Widget" }),
+        mainDialog.getByRole("heading", { name: "Add Widget" }),
       ).toBeVisible();
 
       // Query should be pre-filled from the template
       await expect(
-        dialog.locator("[data-testid='codemirror-container']"),
+        mainDialog.locator("[data-testid='codemirror-container']"),
       ).toBeVisible();
     });
   });

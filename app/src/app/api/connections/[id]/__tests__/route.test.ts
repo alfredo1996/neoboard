@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeUpdateChain, makeDeleteChain } from "@/__tests__/helpers/drizzle-mocks";
+import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,23 +10,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireUserId = vi.fn<() => Promise<string>>();
 const mockEncryptJson = vi.fn((v: unknown) => `enc:${JSON.stringify(v)}`);
 const mockPrefetchSchema = vi.fn();
-
-function makeUpdateChain(returning: unknown[]) {
-  const c = {
-    set: () => c,
-    where: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
-
-function makeDeleteChain(returning: unknown[]) {
-  const c = {
-    where: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   update: vi.fn(),
@@ -34,27 +20,7 @@ vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ encryptJson: mockEncryptJson, decryptJson: vi.fn() }));
 vi.mock("@/lib/schema-prefetch", () => ({ prefetchSchema: mockPrefetchSchema }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeRequest(body: unknown) {
-  return { json: async () => body } as Request;
-}
-
-function makeParams(id: string) {
-  return { params: Promise.resolve({ id }) };
-}
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests

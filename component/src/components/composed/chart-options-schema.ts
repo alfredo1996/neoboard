@@ -100,7 +100,6 @@ const singleValueOptions: ChartOptionDef[] = [
     ],
   },
   { key: "trendEnabled", label: "Show Trend Indicator", type: "boolean", default: false, category: "Display", description: "Show a trend arrow comparing the current value to the previous period (requires 2 rows in the query result)." },
-  { key: "colorThresholds", label: "Color Thresholds (JSON)", type: "text", default: "", category: "Display", description: "Define colour bands for the value as JSON, e.g. [{\"max\":100,\"color\":\"green\"},{\"color\":\"red\"}]." },
 ];
 
 const graphOptions: ChartOptionDef[] = [

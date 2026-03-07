@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeRequest } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before importing the route so Vitest hoists them.
@@ -20,23 +22,7 @@ vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson, encryptJson: vi.f
 vi.mock("@/lib/query-executor", () => ({ executeQuery: mockExecuteQuery }));
 
 // Minimal Next.js server shim
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeRequest(body: unknown) {
-  return { json: async () => body } as Request;
-}
+vi.mock("next/server", () => nextResponseMockFactory());
 
 /** Chainable drizzle query builder stub that resolves to `rows`. */
 function drizzleSelectChain(rows: unknown[]) {

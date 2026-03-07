@@ -4,6 +4,8 @@ import {
   getChartConfig,
   chartRegistry,
   chartSupportsClickAction,
+  chartSupportsStyling,
+  getStylingTargets,
 } from "../chart-registry";
 import type { ChartType, ConnectorType } from "../chart-registry";
 
@@ -627,11 +629,11 @@ describe("graph transform", () => {
     expect(result.nodes[0].label).toBe("Widget");
   });
 
-  it("handles Neo4j Integer {low, high} identity for node id", () => {
+  it("handles numeric identity for node id", () => {
     const data = [
       {
         n: {
-          identity: { low: 7, high: 0 },
+          identity: 7,
           labels: ["N"],
           properties: { name: "Seven" },
         },
@@ -644,7 +646,7 @@ describe("graph transform", () => {
     expect(result.nodes[0].id).toBe("7");
   });
 
-  it("handles numeric identity for node id", () => {
+  it("handles larger numeric identity for node id", () => {
     const data = [
       {
         n: {
@@ -928,23 +930,23 @@ describe("bar transform normalizes date labels", () => {
     expect(result[0].label).not.toContain("[object Object]");
   });
 
-  it("converts Neo4j Integer to number in labels", () => {
-    const data = [{ id: { low: 7, high: 0 }, value: 10 }];
+  it("converts number to string in labels", () => {
+    const data = [{ id: 7, value: 10 }];
     const result = transform(data) as Array<{ label: string }>;
     expect(result[0].label).toBe("7");
   });
 });
 
-describe("transformToGraphData normalizes {low,high} integers in node/edge properties", () => {
+describe("transformToGraphData handles native number properties", () => {
   const { transform } = chartRegistry.graph;
 
-  it("converts {low, high} integer objects in node properties to JS numbers", () => {
+  it("passes through native number properties in nodes", () => {
     const data = [
       {
         n: {
           labels: ["Person"],
-          properties: { age: { low: 30, high: 0 }, score: { low: 1000, high: 0 }, name: "Alice" },
-          identity: { low: 1, high: 0 },
+          properties: { age: 30, score: 1000, name: "Alice" },
+          identity: 1,
           elementId: "node:1",
         },
       },
@@ -957,15 +959,15 @@ describe("transformToGraphData normalizes {low,high} integers in node/edge prope
     expect(props.name).toBe("Alice");
   });
 
-  it("converts {low, high} integer objects in edge properties to JS numbers", () => {
+  it("passes through native number properties in edges", () => {
     const data = [
       {
         r: {
           type: "ACTED_IN",
-          start: { low: 1, high: 0 },
-          end: { low: 2, high: 0 },
-          properties: { weight: { low: 5, high: 0 } },
-          identity: { low: 10, high: 0 },
+          start: 1,
+          end: 2,
+          properties: { weight: 5 },
+          identity: 10,
           elementId: "rel:10",
           startNodeElementId: "node:1",
           endNodeElementId: "node:2",
@@ -976,6 +978,69 @@ describe("transformToGraphData normalizes {low,high} integers in node/edge prope
     expect(result.edges).toHaveLength(1);
     const props = result.edges[0].properties as Record<string, unknown>;
     expect(props.weight).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chartSupportsStyling
+// ---------------------------------------------------------------------------
+describe("chartSupportsStyling", () => {
+  it.each(["bar", "line", "pie", "single-value", "table"] as const)(
+    "returns true for %s",
+    (type) => {
+      expect(chartSupportsStyling(type)).toBe(true);
+    },
+  );
+
+  it.each(["graph", "map", "json", "parameter-select", "form"] as const)(
+    "returns false for %s",
+    (type) => {
+      expect(chartSupportsStyling(type)).toBe(false);
+    },
+  );
+
+  it("returns false for unknown type", () => {
+    expect(chartSupportsStyling("unknown")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getStylingTargets
+// ---------------------------------------------------------------------------
+describe("getStylingTargets", () => {
+  it("returns [color] for bar", () => {
+    const targets = getStylingTargets("bar");
+    expect(targets).toEqual([{ value: "color", label: "Color" }]);
+  });
+
+  it("returns [color] for line", () => {
+    expect(getStylingTargets("line")).toEqual([{ value: "color", label: "Color" }]);
+  });
+
+  it("returns [color] for pie", () => {
+    expect(getStylingTargets("pie")).toEqual([{ value: "color", label: "Color" }]);
+  });
+
+  it("returns color + backgroundColor for single-value", () => {
+    const targets = getStylingTargets("single-value");
+    expect(targets).toHaveLength(2);
+    expect(targets).toContainEqual({ value: "color", label: "Text Color" });
+    expect(targets).toContainEqual({ value: "backgroundColor", label: "Background Color" });
+  });
+
+  it("returns backgroundColor + textColor for table", () => {
+    const targets = getStylingTargets("table");
+    expect(targets).toHaveLength(2);
+    expect(targets).toContainEqual({ value: "backgroundColor", label: "Background Color" });
+    expect(targets).toContainEqual({ value: "textColor", label: "Text Color" });
+  });
+
+  it("returns empty array for graph", () => {
+    expect(getStylingTargets("graph")).toEqual([]);
+  });
+
+  it("returns empty array for unknown type", () => {
+    expect(getStylingTargets("unknown")).toEqual([]);
   });
 });
 
