@@ -1,46 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
+import { resolveStylingRuleColor } from "./styling-rule";
 
+export type { ColorThreshold } from "./color-threshold";
 export type SingleValueFontSize = "sm" | "md" | "lg" | "xl";
 export type SingleValueNumberFormat = "plain" | "comma" | "compact" | "percent";
-
-/** A color threshold entry: value below which the given color applies. */
-export interface ColorThreshold {
-  value: number;
-  color: string;
-}
-
-/** Parse a JSON string of ColorThreshold entries; returns [] on error. */
-function parseColorThresholds(raw: string): ColorThreshold[] {
-  if (!raw.trim()) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (t): t is ColorThreshold =>
-        typeof t === "object" &&
-        t !== null &&
-        "value" in t &&
-        "color" in t &&
-        typeof (t as ColorThreshold).value === "number" &&
-        typeof (t as ColorThreshold).color === "string",
-    );
-  } catch {
-    return [];
-  }
-}
-
-/** Returns the first matching threshold color for a numeric value, or undefined. */
-function resolveThresholdColor(
-  numericValue: number,
-  thresholds: ColorThreshold[],
-): string | undefined {
-  const sorted = [...thresholds].sort((a, b) => a.value - b.value);
-  for (const t of sorted) {
-    if (numericValue <= t.value) return t.color;
-  }
-  return undefined;
-}
 
 /** Format a numeric value according to the chosen format. */
 function applyNumberFormat(numericValue: number, fmt: SingleValueNumberFormat): string {
@@ -80,8 +46,12 @@ export interface SingleValueChartProps {
   fontSize?: SingleValueFontSize;
   /** Built-in number formatting applied when value is numeric and format is not provided */
   numberFormat?: SingleValueNumberFormat;
-  /** JSON string of [{ value: number, color: string }] thresholds */
+  /** @deprecated Use stylingRules instead. JSON string of thresholds */
   colorThresholds?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
   /** Additional CSS classes */
   className?: string;
   /** Show loading state */
@@ -104,6 +74,8 @@ function SingleValueChart({
   fontSize = "lg",
   numberFormat = "plain",
   colorThresholds,
+  stylingRules,
+  paramValues,
   className,
   loading = false,
   error = null,
@@ -133,12 +105,24 @@ function SingleValueChart({
     displayValue = value;
   }
 
-  // Resolve color from thresholds when value is numeric
-  const thresholds = colorThresholds ? parseColorThresholds(colorThresholds) : [];
-  const thresholdColor =
+  // Resolve color from styling rules or legacy thresholds
+  const thresholds = colorThresholds && !stylingRules ? parseColorThresholds(colorThresholds) : [];
+  const legacyColor =
     typeof value === "number" && thresholds.length > 0
       ? resolveThresholdColor(value, thresholds)
       : undefined;
+
+  // Resolve from styling rules — separate text color and background color
+  let textColor: string | undefined;
+  let bgColor: string | undefined;
+  if (typeof value === "number" && stylingRules?.length) {
+    const colorRules = stylingRules.filter((r) => !r.target || r.target === "color");
+    const bgRules = stylingRules.filter((r) => r.target === "backgroundColor");
+    textColor = colorRules.length ? resolveStylingRuleColor(value, colorRules, paramValues) : undefined;
+    bgColor = bgRules.length ? resolveStylingRuleColor(value, bgRules, paramValues) : undefined;
+  }
+  // Fallback to legacy threshold for text color
+  const thresholdColor = textColor ?? legacyColor;
 
   const trendColor =
     trend?.direction === "up"
@@ -153,7 +137,7 @@ function SingleValueChart({
   const valueSizeClass = FONT_SIZE_CLASS[fontSize] ?? FONT_SIZE_CLASS.lg;
 
   return (
-    <Card className={cn(className)} data-testid="single-value-chart">
+    <Card className={cn(className)} data-testid="single-value-chart" style={bgColor ? { backgroundColor: bgColor } : undefined}>
       {title && (
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">

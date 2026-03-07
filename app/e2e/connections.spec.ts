@@ -121,6 +121,22 @@ test.describe("Connections", () => {
     await expect(card.getByText("Error")).toBeVisible({ timeout: 30_000 });
   });
 
+  test("should duplicate a connection via card dropdown", async ({ page }) => {
+    // Open the first connection card's dropdown menu
+    const firstActions = page.getByRole("button", { name: "Connection actions" }).first();
+    await expect(firstActions).toBeVisible({ timeout: 10_000 });
+    await firstActions.click();
+    await page.getByRole("menuitem", { name: "Duplicate" }).click();
+
+    // The create dialog should open with the name pre-filled with "(copy)"
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const nameInput = dialog.locator("#conn-name");
+    await expect(nameInput).toBeVisible();
+    const nameValue = await nameInput.inputValue();
+    expect(nameValue).toContain("(copy)");
+  });
+
   test("should delete a connection with confirmation", async ({ page }) => {
     const name = `To Delete ${Date.now()}`;
     // Create one first

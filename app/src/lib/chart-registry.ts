@@ -50,6 +50,12 @@ export interface ChartConfig {
    * (e.g. single-value, json, parameter-select).
    */
   supportsClickAction?: boolean;
+  /**
+   * Whether this chart type supports rule-based styling.
+   * Defaults to true if omitted. Set to false for chart types that
+   * can't apply conditional colors (graph, map, json, parameter-select, form).
+   */
+  supportsStyling?: boolean;
 }
 
 /**
@@ -457,6 +463,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: (data) => transformToGraphData(data),
     validate: validateGraphData,
     compatibleWith: ["neo4j"],
+    supportsStyling: false,
   },
   map: {
     type: "map",
@@ -465,6 +472,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: (data) => transformToMapData(data),
     validate: validateMapData,
     compatibleWith: ["neo4j", "postgresql"],
+    supportsStyling: false,
   },
   json: {
     type: "json",
@@ -473,6 +481,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: (data) => transformToJsonData(data),
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
+    supportsStyling: false,
   },
   "parameter-select": {
     type: "parameter-select",
@@ -481,6 +490,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: (data) => transformToSelectData(data),
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
+    supportsStyling: false,
   },
   form: {
     type: "form",
@@ -488,6 +498,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: () => [],
     transformWithMapping: () => [],
     compatibleWith: ["neo4j", "postgresql"],
+    supportsStyling: false,
   },
 };
 
@@ -503,6 +514,38 @@ export function chartSupportsClickAction(type: string): boolean {
   const config = getChartConfig(type);
   if (!config) return false;
   return config.supportsClickAction !== false;
+}
+
+/**
+ * Returns whether a chart type supports rule-based styling.
+ * Unknown chart types return false.
+ */
+export function chartSupportsStyling(type: string): boolean {
+  const config = getChartConfig(type);
+  if (!config) return false;
+  return config.supportsStyling !== false;
+}
+
+/**
+ * Returns the available styling targets for a chart type.
+ * Each target describes what visual property a styling rule can affect.
+ */
+export function getStylingTargets(type: string): { value: string; label: string }[] {
+  if (!chartSupportsStyling(type)) return [];
+  switch (type) {
+    case "single-value":
+      return [
+        { value: "color", label: "Text Color" },
+        { value: "backgroundColor", label: "Background Color" },
+      ];
+    case "table":
+      return [
+        { value: "backgroundColor", label: "Background Color" },
+        { value: "textColor", label: "Text Color" },
+      ];
+    default:
+      return [{ value: "color", label: "Color" }];
+  }
 }
 
 /**

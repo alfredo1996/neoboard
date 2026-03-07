@@ -6,8 +6,6 @@ import { finalizeCoverage, loadNextcovConfig } from "nextcov/playwright";
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const SERVER_PID_FILE = path.join(__dirname, ".server-pid");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
-const ENV_LOCAL = path.join(__dirname, "..", ".env.local");
-const ENV_LOCAL_BAK = path.join(__dirname, "..", ".env.local.bak");
 
 export default async function globalTeardown() {
   // In CI the databases are GitHub Actions service containers — GitHub stops
@@ -16,7 +14,7 @@ export default async function globalTeardown() {
 
   console.log("\n🧹 Stopping test server & containers...\n");
 
-  // ── CI: stop the Next.js server we started in globalSetup ───────────────
+  // ── Stop the Next.js server we started in globalSetup ───────────────────
   if (fs.existsSync(SERVER_PID_FILE)) {
     const pid = parseInt(fs.readFileSync(SERVER_PID_FILE, "utf-8"), 10);
     try {
@@ -28,19 +26,6 @@ export default async function globalTeardown() {
     }
   }
 
-  // Restore original .env.local from backup.
-  // Fallback: if no backup exists (e.g. previous crash deleted it), copy from
-  // .env (version-controlled source of truth) so the dev server always works.
-  const ENV_BASE = path.join(__dirname, "..", ".env");
-  if (fs.existsSync(ENV_LOCAL_BAK)) {
-    fs.copyFileSync(ENV_LOCAL_BAK, ENV_LOCAL);
-    fs.unlinkSync(ENV_LOCAL_BAK);
-    console.log("📦 Restored .env.local from backup");
-  } else if (fs.existsSync(ENV_BASE)) {
-    fs.copyFileSync(ENV_BASE, ENV_LOCAL);
-    console.log("📦 Restored .env.local from .env (no backup found)");
-  }
-
   if (isServiceContainerMode) {
     console.log("CI service containers — skipping docker rm (GitHub manages them).");
   } else {
@@ -50,27 +35,15 @@ export default async function globalTeardown() {
       const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
         pgContainerId: string;
         neo4jContainerId: string;
-        pausedDevContainers?: string[];
       };
 
       for (const [name, id] of Object.entries(state)) {
-        if (name === "pausedDevContainers") continue;
         try {
           execSync(`docker rm -f ${id}`, { stdio: "pipe" });
-          console.log(`✅ Removed ${name}: ${(id as string).slice(0, 12)}`);
+          console.log(`✅ Removed ${name}: ${id.slice(0, 12)}`);
         } catch {
           // Container may already be gone
-          console.log(`⚠️ ${name} (${(id as string).slice(0, 12)}) already removed`);
-        }
-      }
-
-      // Restart any dev containers that were paused by globalSetup
-      for (const name of state.pausedDevContainers ?? []) {
-        try {
-          execSync(`docker start ${name}`, { stdio: "pipe" });
-          console.log(`▶  Restarted dev container: ${name}`);
-        } catch {
-          console.log(`⚠️  Could not restart dev container: ${name}`);
+          console.log(`⚠️ ${name} (${id.slice(0, 12)}) already removed`);
         }
       }
     }

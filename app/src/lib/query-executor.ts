@@ -6,6 +6,8 @@ const connectionInterfaces = require("connection/src/generalized/interfaces");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const connectionConfig = require("connection/src/ConnectionModuleConfig");
 
+import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
+
 export interface ConnectionCredentials {
   uri: string;
   username: string;
@@ -28,20 +30,6 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
   return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}`;
 }
 
-/** Ensure the database is encoded in the URI for drivers that extract it from the path. */
-function ensureDatabaseInUri(uri: string, database?: string): string {
-  if (!database) return uri;
-  try {
-    const url = new URL(uri);
-    // If the URI already has a non-empty path (database), don't override
-    if (url.pathname && url.pathname !== "/") return uri;
-    url.pathname = `/${database}`;
-    return url.toString();
-  } catch {
-    return uri;
-  }
-}
-
 function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): unknown {
   const key = getCacheKey(type, credentials);
   let module = moduleCache.get(key);
@@ -57,44 +45,6 @@ function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): un
     moduleCache.set(key, module);
   }
   return module;
-}
-
-/**
- * Rewrites `$param_xxx` named placeholders to PostgreSQL positional `$1, $2, ...`
- * parameters and builds the matching ordered values array.
- *
- * Neo4j natively supports `$param_xxx` syntax, so this is only needed for PostgreSQL.
- */
-function rewriteParamsForPostgres(
-  query: string,
-  params: Record<string, unknown>,
-): { query: string; params: Record<string, unknown> } {
-  const tokenRegex = /\$param_(\w+)/g;
-  const seen = new Map<string, number>();
-  const values: unknown[] = [];
-  let positionalIndex = 0;
-
-  const rewritten = query.replace(tokenRegex, (token) => {
-    // Re-use the same positional index if the same token appears multiple times
-    if (seen.has(token)) {
-      return `$${seen.get(token)}`;
-    }
-    positionalIndex++;
-    seen.set(token, positionalIndex);
-
-    // The param key in the map uses the full "param_xxx" form (set by extractReferencedParams)
-    const paramKey = token.slice(1); // strip leading '$'
-    values.push(params[paramKey]);
-    return `$${positionalIndex}`;
-  });
-
-  // Build a numeric-keyed object so Object.values() preserves insertion order
-  const positionalParams: Record<string, unknown> = {};
-  for (let i = 0; i < values.length; i++) {
-    positionalParams[String(i)] = values[i];
-  }
-
-  return { query: rewritten, params: positionalParams };
 }
 
 /**

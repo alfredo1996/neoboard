@@ -8,7 +8,10 @@ import {
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
+  resolveItemColor,
 } from "./chart-utils";
+import { parseColorThresholds } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
 
 export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has an `x` key and one or more numeric series keys. */
@@ -31,6 +34,12 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showGridLines?: boolean;
   /** Use stepped line style */
   stepped?: boolean;
+  /** @deprecated Use stylingRules instead. JSON string of thresholds */
+  colorThresholds?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -53,6 +62,9 @@ function LineChart({
   lineWidth = 2,
   showGridLines = true,
   stepped = false,
+  colorThresholds,
+  stylingRules,
+  paramValues,
   ...rest
 }: LineChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -63,6 +75,7 @@ function LineChart({
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
     const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
+    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
 
     return {
       tooltip: { trigger: "axis" },
@@ -87,19 +100,33 @@ function LineChart({
         axisLabel: { show: !compact },
         splitLine: { show: showGridLines },
       },
-      series: seriesKeys.map((key) => ({
-        name: key,
-        type: "line" as const,
-        data: data.map((d) => d[key] as number),
-        smooth,
-        step: stepped ? ("start" as const) : undefined,
-        lineStyle: { width: lineWidth },
-        showSymbol: showPoints,
-        areaStyle: area ? {} : undefined,
-        emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
-      })),
+      series: seriesKeys.map((key) => {
+        let lastValue: number | undefined;
+        for (let i = data.length - 1; i >= 0; i -= 1) {
+          const candidate = data[i][key];
+          if (typeof candidate === "number") {
+            lastValue = candidate;
+            break;
+          }
+        }
+        const seriesColor = lastValue !== undefined
+          ? resolveItemColor(lastValue, stylingRules, paramValues, thresholds)
+          : undefined;
+        return {
+          name: key,
+          type: "line" as const,
+          data: data.map((d) => d[key] as number),
+          smooth,
+          step: stepped ? ("start" as const) : undefined,
+          lineStyle: { width: lineWidth, color: seriesColor },
+          itemStyle: seriesColor ? { color: seriesColor } : undefined,
+          showSymbol: showPoints,
+          areaStyle: area ? {} : undefined,
+          emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
+        };
+      }),
     };
-  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, compact, hideLegend]);
+  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

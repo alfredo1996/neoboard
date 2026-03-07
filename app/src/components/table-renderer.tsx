@@ -7,7 +7,11 @@ import {
   DataGridColumnHeader,
   DataGridViewOptions,
   DataGridPagination,
+  parseColorThresholds,
+  resolveThresholdColor,
+  resolveStylingRuleColor,
 } from "@neoboard/components";
+import type { StylingRule } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 
 export interface TableRendererProps {
@@ -16,6 +20,10 @@ export interface TableRendererProps {
   onCellClick?: (info: { column: string; value: unknown }) => void;
   /** Restrict which columns are clickable. Empty/undefined = all columns. */
   clickableColumns?: string[];
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -23,7 +31,7 @@ export interface TableRendererProps {
  * Uses a ResizeObserver on the wrapper div to pass a live containerHeight so
  * DataGrid can calculate the dynamic page size automatically.
  */
-export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns }: TableRendererProps) {
+export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns, stylingRules, paramValues }: TableRendererProps) {
   const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
@@ -71,13 +79,68 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
     }));
   }, [records]);
 
+  const thresholds = useMemo(() => {
+    const raw =
+      typeof settings.colorThresholds === "string"
+        ? settings.colorThresholds
+        : "";
+    return parseColorThresholds(raw);
+  }, [settings.colorThresholds]);
+
+  const thresholdColumn =
+    typeof settings.colorThresholdsColumn === "string" ? settings.colorThresholdsColumn : "";
+
+  // Compute a single fallback numeric column once so every row is colored consistently.
+  const fallbackThresholdColumn = useMemo(() => {
+    if (!records.length) return undefined;
+    return Object.keys(records[0]).find(
+      (k) => typeof (records[0] as Record<string, unknown>)[k] === "number",
+    );
+  }, [records]);
+
+  // enablePagination defaults to true per chart-options-schema.
+  const enablePagination = settings.enablePagination !== false;
+
+  const getRowStyle = useMemo(() => {
+    if (stylingRules?.length) {
+      return (row: Record<string, unknown>): React.CSSProperties | undefined => {
+        const col =
+          thresholdColumn && thresholdColumn in row
+            ? thresholdColumn
+            : fallbackThresholdColumn;
+        if (!col) return undefined;
+        const val = row[col];
+        const bgRules = stylingRules.filter((r) => !r.target || r.target === "backgroundColor");
+        const textRules = stylingRules.filter((r) => r.target === "textColor");
+        const bgColor = bgRules.length ? resolveStylingRuleColor(val, bgRules, paramValues) : undefined;
+        const textColor = textRules.length ? resolveStylingRuleColor(val, textRules, paramValues) : undefined;
+        if (!bgColor && !textColor) return undefined;
+        return {
+          ...(bgColor ? { backgroundColor: bgColor } : {}),
+          ...(textColor ? { color: textColor } : {}),
+        };
+      };
+    }
+    if (thresholds.length > 0) {
+      return (row: Record<string, unknown>): React.CSSProperties | undefined => {
+        const col =
+          thresholdColumn && thresholdColumn in row
+            ? thresholdColumn
+            : fallbackThresholdColumn;
+        if (!col) return undefined;
+        const val = row[col];
+        if (typeof val !== "number") return undefined;
+        const color = resolveThresholdColor(val, thresholds);
+        return color ? { backgroundColor: color } : undefined;
+      };
+    }
+    return undefined;
+  }, [stylingRules, paramValues, thresholds, thresholdColumn, fallbackThresholdColumn]);
+
   const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {
     return <EmptyState title={emptyMessage} className="py-6" />;
   }
-
-  // enablePagination defaults to true per chart-options-schema.
-  const enablePagination = settings.enablePagination !== false;
 
   return (
     <div ref={containerRef} className="h-full overflow-y-auto">
@@ -93,6 +156,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
         containerHeight={enablePagination ? containerHeight : undefined}
         onCellClick={onCellClick}
         clickableColumns={clickableColumns}
+        getRowStyle={getRowStyle}
         pagination={(table) => (
           <div className="flex items-center gap-2">
             <DataGridViewOptions table={table} />

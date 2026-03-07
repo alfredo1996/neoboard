@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { validateBody, unauthorized, forbidden } from "@/lib/api-utils";
 
 interface WidgetPreviewItem {
   x: number;
@@ -152,7 +153,7 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }
 
@@ -161,31 +162,25 @@ export async function POST(request: Request) {
     const { userId, canWrite, tenantId } = await requireSession();
 
     if (!canWrite) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden();
     }
 
     const body = await request.json();
-    const parsed = createDashboardSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
-    }
+    const result = validateBody(createDashboardSchema, body);
+    if (!result.success) return result.response;
 
     const [dashboard] = await db
       .insert(dashboards)
       .values({
         userId,
         tenantId,
-        name: parsed.data.name,
-        description: parsed.data.description,
+        name: result.data.name,
+        description: result.data.description,
       })
       .returning();
 
     return NextResponse.json(dashboard, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }

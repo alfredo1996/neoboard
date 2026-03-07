@@ -8,6 +8,7 @@ import { decryptJson } from "@/lib/crypto";
 import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 import { computeResultId } from "@/lib/query-hash";
+import { validateBody, forbidden, notFound, serverError } from "@/lib/api-utils";
 
 /** Maximum number of rows returned per query execution to prevent OOM. */
 const MAX_ROWS = 10_000;
@@ -24,21 +25,15 @@ export async function POST(request: Request) {
   try {
     const { userId, tenantId: sessionTenantId, role } = await requireSession();
     const body = await request.json();
-    const parsed = querySchema.safeParse(body);
+    const validation = validateBody(querySchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
-    }
-
-    const { connectionId, query, params, tenantId: bodyTenantId } = parsed.data;
+    const { connectionId, query, params, tenantId: bodyTenantId } = validation.data;
 
     // Defense-in-depth: if the caller explicitly passes a tenantId,
     // assert it matches the session to catch misconfigured clients early.
     if (bodyTenantId && bodyTenantId !== sessionTenantId) {
-      return NextResponse.json({ error: "Tenant mismatch" }, { status: 403 });
+      return forbidden("Tenant mismatch");
     }
 
     // 1. Fast path: direct ownership
@@ -77,10 +72,7 @@ export async function POST(request: Request) {
     }
 
     if (!connection) {
-      return NextResponse.json(
-        { error: "Connection not found" },
-        { status: 404 }
-      );
+      return notFound("Connection not found");
     }
 
     const credentials = decryptJson<ConnectionCredentials>(
@@ -113,7 +105,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }
 

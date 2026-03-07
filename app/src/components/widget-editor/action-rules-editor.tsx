@@ -9,7 +9,6 @@ import {
   AccordionItem,
   AccordionTrigger,
   Button,
-  Input,
   Label,
   Select,
   SelectContent,
@@ -20,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@neoboard/components";
+import { useAccordionCrud } from "./use-accordion-crud";
+import { FieldSelectorInput } from "./field-selector-input";
 
 interface ActionRulesEditorProps {
   rules: ClickActionRule[];
@@ -42,23 +43,8 @@ export function ActionRulesEditor({
 }: ActionRulesEditorProps) {
   const isTable = chartType === "table";
 
-  // Controlled accordion state — auto-expand newly added rules
-  const [openItems, setOpenItems] = React.useState<string[]>(
-    () => rules.map((r) => r.id),
-  );
-  const prevRuleIdsRef = React.useRef(new Set(rules.map((r) => r.id)));
-  React.useEffect(() => {
-    const currentIds = new Set(rules.map((r) => r.id));
-    const newIds = rules
-      .filter((r) => !prevRuleIdsRef.current.has(r.id))
-      .map((r) => r.id);
-    if (newIds.length > 0) {
-      setOpenItems((prev) => [...prev, ...newIds]);
-    }
-    // Remove deleted rule IDs from openItems
-    setOpenItems((prev) => prev.filter((id) => currentIds.has(id)));
-    prevRuleIdsRef.current = currentIds;
-  }, [rules]);
+  const { openItems, setOpenItems, addItem, removeItem, updateItem } =
+    useAccordionCrud<ClickActionRule>(rules, onRulesChange);
 
   function ruleSummary(rule: ClickActionRule): string {
     const parts: string[] = [];
@@ -70,23 +56,12 @@ export function ActionRulesEditor({
   }
 
   function addRule() {
-    const newRule: ClickActionRule = {
+    addItem(() => ({
       id: crypto.randomUUID(),
       type: "set-parameter",
       triggerColumn: isTable ? availableFields[0] ?? "" : undefined,
       parameterMapping: { parameterName: "", sourceField: availableFields[0] ?? "" },
-    };
-    onRulesChange([...rules, newRule]);
-  }
-
-  function removeRule(id: string) {
-    onRulesChange(rules.filter((r) => r.id !== id));
-  }
-
-  function updateRule(id: string, updates: Partial<ClickActionRule>) {
-    onRulesChange(
-      rules.map((r) => (r.id === id ? { ...r, ...updates } : r)),
-    );
+    }));
   }
 
   return (
@@ -120,7 +95,7 @@ export function ActionRulesEditor({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => removeRule(rule.id)}
+                  onClick={() => removeItem(rule.id)}
                   aria-label={`Delete rule ${index + 1}`}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -131,29 +106,13 @@ export function ActionRulesEditor({
                 {isTable && (
                   <div className="space-y-1.5">
                     <Label>Trigger Column</Label>
-                    {availableFields.length > 0 ? (
-                      <Select
-                        value={rule.triggerColumn ?? ""}
-                        onValueChange={(v) => updateRule(rule.id, { triggerColumn: v })}
-                      >
-                        <SelectTrigger aria-label="Trigger Column">
-                          <SelectValue placeholder="Select column..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableFields.map((f) => (
-                            <SelectItem key={f} value={f}>
-                              {f}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={rule.triggerColumn ?? ""}
-                        onChange={(e) => updateRule(rule.id, { triggerColumn: e.target.value })}
-                        placeholder="Column name"
-                      />
-                    )}
+                    <FieldSelectorInput
+                      value={rule.triggerColumn ?? ""}
+                      onChange={(v) => updateItem(rule.id, { triggerColumn: v })}
+                      fields={availableFields}
+                      label="Trigger Column"
+                      placeholder="Select column..."
+                    />
                   </div>
                 )}
 
@@ -163,7 +122,7 @@ export function ActionRulesEditor({
                   <Select
                     value={rule.type}
                     onValueChange={(v) =>
-                      updateRule(rule.id, {
+                      updateItem(rule.id, {
                         type: v as ClickActionRule["type"],
                       })
                     }
@@ -188,7 +147,7 @@ export function ActionRulesEditor({
                         suggestions={parameterSuggestions}
                         value={rule.parameterMapping?.parameterName ?? ""}
                         onChange={(v) =>
-                          updateRule(rule.id, {
+                          updateItem(rule.id, {
                             parameterMapping: {
                               parameterName: v,
                               sourceField: rule.parameterMapping?.sourceField ?? "",
@@ -203,43 +162,20 @@ export function ActionRulesEditor({
                     {!isTable && (
                       <div className="space-y-1.5">
                         <Label>Source Field</Label>
-                        {availableFields.length > 0 ? (
-                          <Select
-                            value={rule.parameterMapping?.sourceField ?? ""}
-                            onValueChange={(v) =>
-                              updateRule(rule.id, {
-                                parameterMapping: {
-                                  parameterName: rule.parameterMapping?.parameterName ?? "",
-                                  sourceField: v,
-                                },
-                              })
-                            }
-                          >
-                            <SelectTrigger aria-label="Source Field">
-                              <SelectValue placeholder="Select field..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableFields.map((f) => (
-                                <SelectItem key={f} value={f}>
-                                  {f}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            value={rule.parameterMapping?.sourceField ?? ""}
-                            onChange={(e) =>
-                              updateRule(rule.id, {
-                                parameterMapping: {
-                                  parameterName: rule.parameterMapping?.parameterName ?? "",
-                                  sourceField: e.target.value,
-                                },
-                              })
-                            }
-                            placeholder="name"
-                          />
-                        )}
+                        <FieldSelectorInput
+                          value={rule.parameterMapping?.sourceField ?? ""}
+                          onChange={(v) =>
+                            updateItem(rule.id, {
+                              parameterMapping: {
+                                parameterName: rule.parameterMapping?.parameterName ?? "",
+                                sourceField: v,
+                              },
+                            })
+                          }
+                          fields={availableFields}
+                          label="Source Field"
+                          placeholder="Select field..."
+                        />
                       </div>
                     )}
                   </>
@@ -252,7 +188,7 @@ export function ActionRulesEditor({
                     {pages.length > 0 ? (
                       <Select
                         value={rule.targetPageId ?? ""}
-                        onValueChange={(v) => updateRule(rule.id, { targetPageId: v })}
+                        onValueChange={(v) => updateItem(rule.id, { targetPageId: v })}
                       >
                         <SelectTrigger aria-label="Target Page">
                           <SelectValue placeholder="Select a page..." />

@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import { makeRequest } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,25 +10,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireSession = vi.fn<
   () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
 >();
-
-function makeSelectChain(rows: unknown[]) {
-  const resolved = Promise.resolve(rows);
-  const c = Object.assign(resolved, {
-    from: () => c,
-    where: () => c,
-    innerJoin: () => c,
-    limit: () => Promise.resolve(rows),
-  });
-  return c;
-}
-
-function makeInsertChain(returning: unknown[]) {
-  const c = {
-    values: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -36,23 +20,11 @@ vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function makeRequest(body: unknown) {
-  return { json: async () => body } as Request;
-}
 
 const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "tenant-1" };
 

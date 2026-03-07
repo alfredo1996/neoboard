@@ -55,4 +55,30 @@ test.describe("Dashboard CRUD", () => {
     await page.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText("To Delete Dashboard")).not.toBeVisible();
   });
+
+  test("should duplicate a dashboard via card dropdown", async ({ page }) => {
+    // Find the "Movie Analytics" card and open its dropdown
+    const dashCard = page
+      .locator("div[class*='cursor-pointer']")
+      .filter({ hasText: "Movie Analytics" })
+      .first();
+    await expect(dashCard).toBeVisible({ timeout: 10_000 });
+    await dashCard.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Duplicate" }).click();
+
+    // A copy card should appear
+    await expect(page.getByText("Movie Analytics (copy)")).toBeVisible({ timeout: 15_000 });
+    // Original should still be visible
+    await expect(page.getByText("Movie Analytics").first()).toBeVisible();
+
+    // Clean up — delete the copy to avoid polluting other tests
+    const copyCard = page
+      .locator("div[class*='cursor-pointer']")
+      .filter({ hasText: "Movie Analytics (copy)" })
+      .first();
+    await copyCard.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await page.getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByText("Movie Analytics (copy)")).not.toBeVisible({ timeout: 5_000 });
+  });
 });

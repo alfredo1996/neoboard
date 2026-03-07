@@ -4,6 +4,8 @@ import {
   getChartConfig,
   chartRegistry,
   chartSupportsClickAction,
+  chartSupportsStyling,
+  getStylingTargets,
 } from "../chart-registry";
 import type { ChartType, ConnectorType } from "../chart-registry";
 
@@ -976,6 +978,69 @@ describe("transformToGraphData handles native number properties", () => {
     expect(result.edges).toHaveLength(1);
     const props = result.edges[0].properties as Record<string, unknown>;
     expect(props.weight).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chartSupportsStyling
+// ---------------------------------------------------------------------------
+describe("chartSupportsStyling", () => {
+  it.each(["bar", "line", "pie", "single-value", "table"] as const)(
+    "returns true for %s",
+    (type) => {
+      expect(chartSupportsStyling(type)).toBe(true);
+    },
+  );
+
+  it.each(["graph", "map", "json", "parameter-select", "form"] as const)(
+    "returns false for %s",
+    (type) => {
+      expect(chartSupportsStyling(type)).toBe(false);
+    },
+  );
+
+  it("returns false for unknown type", () => {
+    expect(chartSupportsStyling("unknown")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getStylingTargets
+// ---------------------------------------------------------------------------
+describe("getStylingTargets", () => {
+  it("returns [color] for bar", () => {
+    const targets = getStylingTargets("bar");
+    expect(targets).toEqual([{ value: "color", label: "Color" }]);
+  });
+
+  it("returns [color] for line", () => {
+    expect(getStylingTargets("line")).toEqual([{ value: "color", label: "Color" }]);
+  });
+
+  it("returns [color] for pie", () => {
+    expect(getStylingTargets("pie")).toEqual([{ value: "color", label: "Color" }]);
+  });
+
+  it("returns color + backgroundColor for single-value", () => {
+    const targets = getStylingTargets("single-value");
+    expect(targets).toHaveLength(2);
+    expect(targets).toContainEqual({ value: "color", label: "Text Color" });
+    expect(targets).toContainEqual({ value: "backgroundColor", label: "Background Color" });
+  });
+
+  it("returns backgroundColor + textColor for table", () => {
+    const targets = getStylingTargets("table");
+    expect(targets).toHaveLength(2);
+    expect(targets).toContainEqual({ value: "backgroundColor", label: "Background Color" });
+    expect(targets).toContainEqual({ value: "textColor", label: "Text Color" });
+  });
+
+  it("returns empty array for graph", () => {
+    expect(getStylingTargets("graph")).toEqual([]);
+  });
+
+  it("returns empty array for unknown type", () => {
+    expect(getStylingTargets("unknown")).toEqual([]);
   });
 });
 

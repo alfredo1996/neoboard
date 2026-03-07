@@ -1478,10 +1478,231 @@ async function main() {
       true
     );
 
+    const stylingLayout = buildStylingRulesDemo(neo4jConnId, pgConnId);
+    patchGridIds(stylingLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Styling Rules",
+      "Rule-based styling with operators, parameter comparison, and multi-target support on bar, line, pie, single-value, and table charts.",
+      stylingLayout,
+      true
+    );
+
     console.log("    Demo dashboards seeded.");
   } finally {
     await sql.end();
   }
+}
+
+function buildStylingRulesDemo(neo4jConnId, pgConnId) {
+  // Reusable styling configs for different chart types
+  const countStyling = {
+    enabled: true,
+    rules: [
+      { id: uuid(), operator: "<=", value: 2, color: "#ef4444", target: "color" },
+      { id: uuid(), operator: "<=", value: 5, color: "#f59e0b", target: "color" },
+      { id: uuid(), operator: "<=", value: 10, color: "#22c55e", target: "color" },
+    ],
+  };
+  const movieCountStyling = {
+    enabled: true,
+    rules: [
+      { id: uuid(), operator: "<=", value: 20, color: "#ef4444", target: "color" },
+      { id: uuid(), operator: "<=", value: 30, color: "#f59e0b", target: "color" },
+      { id: uuid(), operator: "<=", value: 50, color: "#22c55e", target: "color" },
+    ],
+  };
+  const peopleCountStyling = {
+    enabled: true,
+    rules: [
+      { id: uuid(), operator: "<=", value: 50, color: "#ef4444", target: "backgroundColor" },
+      { id: uuid(), operator: "<=", value: 100, color: "#f59e0b20", target: "backgroundColor" },
+      { id: uuid(), operator: "<=", value: 200, color: "#22c55e20", target: "backgroundColor" },
+    ],
+  };
+  const yearStyling = {
+    enabled: true,
+    targetColumn: "released",
+    rules: [
+      { id: uuid(), operator: "<=", value: 1995, color: "#3b82f620", target: "backgroundColor" },
+      { id: uuid(), operator: "<=", value: 2000, color: "#22c55e20", target: "backgroundColor" },
+      { id: uuid(), operator: "<=", value: 2010, color: "#f59e0b20", target: "backgroundColor" },
+    ],
+  };
+
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: Neo4j — Styling Rules ──
+      {
+        id: uuid(),
+        title: "Neo4j — Styling Rules",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade",
+            settings: {
+              title: "Movies by Decade (bar colors by count)",
+              stylingConfig: countStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "line",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
+            settings: {
+              title: "Releases Over Time (line color by last value)",
+              chartOptions: { showPoints: true },
+              stylingConfig: countStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "pie",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH ()-[r]->() RETURN type(r) AS type, count(*) AS count",
+            settings: {
+              title: "Relationship Types (slice colors by count)",
+              stylingConfig: countStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "single-value",
+            connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN count(m) AS value",
+            settings: {
+              title: "Total Movies",
+              stylingConfig: movieCountStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "single-value",
+            connectionId: neo4jConnId,
+            query: "MATCH (p:Person) RETURN count(p) AS value",
+            settings: {
+              title: "Total People (background color)",
+              stylingConfig: peopleCountStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN m.title AS title, m.released AS released, m.tagline AS tagline ORDER BY m.released DESC",
+            settings: {
+              title: "Movies (row color by release year)",
+              stylingConfig: yearStyling,
+            },
+          },
+        ],
+        gridLayout: [
+          // Row 1: bar + line
+          { i: null, x: 0, y: 0, w: 6, h: 4 },
+          { i: null, x: 6, y: 0, w: 6, h: 4 },
+          // Row 2: pie + 2 single-values
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          { i: null, x: 4, y: 4, w: 4, h: 2 },
+          { i: null, x: 8, y: 4, w: 4, h: 2 },
+          // Row 3: table
+          { i: null, x: 0, y: 8, w: 12, h: 4 },
+        ],
+      },
+
+      // ── Page 2: PostgreSQL — Styling Rules ──
+      {
+        id: uuid(),
+        title: "PostgreSQL — Styling Rules",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "bar",
+            connectionId: pgConnId,
+            query:
+              "SELECT (released / 10) * 10 AS decade, count(*) AS count FROM movies GROUP BY decade ORDER BY decade",
+            settings: {
+              title: "Movies by Decade (bar colors by count)",
+              stylingConfig: countStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "line",
+            connectionId: pgConnId,
+            query:
+              "SELECT released AS year, count(*) AS count FROM movies GROUP BY released ORDER BY released",
+            settings: {
+              title: "Releases Over Time (line color by last value)",
+              chartOptions: { showPoints: true },
+              stylingConfig: countStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "pie",
+            connectionId: pgConnId,
+            query:
+              "SELECT relationship AS type, count(*) AS count FROM roles GROUP BY relationship",
+            settings: {
+              title: "Roles Distribution (slice colors by count)",
+              stylingConfig: countStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "single-value",
+            connectionId: pgConnId,
+            query: "SELECT count(*) AS value FROM movies",
+            settings: {
+              title: "Total Movies",
+              stylingConfig: movieCountStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "single-value",
+            connectionId: pgConnId,
+            query: "SELECT count(*) AS value FROM people",
+            settings: {
+              title: "Total People (background color)",
+              stylingConfig: peopleCountStyling,
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "table",
+            connectionId: pgConnId,
+            query:
+              "SELECT m.title, m.released, m.tagline FROM movies m ORDER BY m.released DESC",
+            settings: {
+              title: "Movies (row color by release year)",
+              stylingConfig: yearStyling,
+            },
+          },
+        ],
+        gridLayout: [
+          // Row 1: bar + line
+          { i: null, x: 0, y: 0, w: 6, h: 4 },
+          { i: null, x: 6, y: 0, w: 6, h: 4 },
+          // Row 2: pie + 2 single-values
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          { i: null, x: 4, y: 4, w: 4, h: 2 },
+          { i: null, x: 8, y: 4, w: 4, h: 2 },
+          // Row 3: table
+          { i: null, x: 0, y: 8, w: 12, h: 4 },
+        ],
+      },
+    ],
+  };
 }
 
 /** Set gridLayout[n].i = widgets[n].id for each page. */

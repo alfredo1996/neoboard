@@ -3,7 +3,9 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { EMPTY_DATA_OPTION, getCompactState } from "./chart-utils";
+import { EMPTY_DATA_OPTION, getCompactState, resolveItemColor } from "./chart-utils";
+import { parseColorThresholds } from "./color-threshold";
+import type { StylingRule } from "./styling-rule";
 
 export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of `{ name, value }` slices */
@@ -22,6 +24,12 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   showPercentage?: boolean;
   /** Sort slices by value descending */
   sortSlices?: boolean;
+  /** @deprecated Use stylingRules instead. JSON string of thresholds */
+  colorThresholds?: string;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -41,6 +49,9 @@ function PieChart({
   labelPosition = "outside",
   showPercentage = true,
   sortSlices = false,
+  colorThresholds,
+  stylingRules,
+  paramValues,
   ...rest
 }: PieChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -57,6 +68,12 @@ function PieChart({
       ? [...data].sort((a, b) => b.value - a.value)
       : data;
 
+    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
+    const coloredData = sortedData.map((d) => {
+      const color = resolveItemColor(d.value, stylingRules, paramValues, thresholds);
+      return color ? { ...d, itemStyle: { color } } : d;
+    });
+
     // Build label formatter based on showPercentage option
     const labelFormatter = showPercentage ? "{b}: {d}%" : "{b}: {c}";
 
@@ -72,7 +89,7 @@ function PieChart({
           roseType: roseMode ? ("radius" as const) : undefined,
           radius: donut ? ["40%", "70%"] : "70%",
           center: ["50%", effectiveShowLegend ? "45%" : "50%"],
-          data: sortedData,
+          data: coloredData,
           label: {
             show: effectiveShowLabel,
             position: labelPosition,
@@ -93,7 +110,7 @@ function PieChart({
         },
       ],
     };
-  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, compact, hideLegend]);
+  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

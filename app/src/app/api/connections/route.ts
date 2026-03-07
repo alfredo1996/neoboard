@@ -1,22 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
-
-const createConnectionSchema = z.object({
-  name: z.string().min(1),
-  type: z.enum(["neo4j", "postgresql"]),
-  config: z.object({
-    uri: z.string().min(1),
-    username: z.string().min(1),
-    password: z.string().min(1),
-    database: z.string().optional(),
-  }),
-});
+import { createConnectionSchema } from "@/lib/schemas";
+import { validateBody, unauthorized, handleRouteError } from "@/lib/api-utils";
 
 export async function GET() {
   try {
@@ -35,7 +25,7 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }
 
@@ -43,16 +33,10 @@ export async function POST(request: Request) {
   try {
     const userId = await requireUserId();
     const body = await request.json();
-    const parsed = createConnectionSchema.safeParse(body);
+    const result = validateBody(createConnectionSchema, body);
+    if (!result.success) return result.response;
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
-    }
-
-    const { name, type, config } = parsed.data;
+    const { name, type, config } = result.data;
     const configEncrypted = encryptJson(config);
 
     const [connection] = await db
@@ -71,15 +55,10 @@ export async function POST(request: Request) {
       });
 
     // Fire-and-forget: pre-warm the schema cache for the new connection
-    prefetchSchema(type, parsed.data.config);
+    prefetchSchema(type, result.data.config);
 
     return NextResponse.json(connection, { status: 201 });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to create connection";
-    if (message.includes("Unauthorized") || message.includes("session")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleRouteError(error, "Failed to create connection");
   }
 }

@@ -199,6 +199,33 @@ export interface ClickActionRule {
   targetPageId?: string;
 }
 
+export type StylingOperator =
+  | "<=" | ">=" | "<" | ">" | "==" | "!="
+  | "between"
+  | "contains" | "not_contains" | "starts_with" | "ends_with"
+  | "is_null" | "is_not_null";
+
+export interface StylingRule {
+  id: string;
+  operator: StylingOperator;
+  value: number | string;
+  /** Upper bound for the "between" operator (inclusive) */
+  valueTo?: number | string;
+  /** When set, compare against $param_{parameterRef} instead of static value */
+  parameterRef?: string;
+  /** When set, resolve upper bound from parameter instead of static valueTo */
+  parameterRefTo?: string;
+  color: string;
+  target?: "color" | "backgroundColor" | "textColor";
+}
+
+export interface StylingConfig {
+  enabled: boolean;
+  rules: StylingRule[];
+  /** For tables: which column to evaluate rules against */
+  targetColumn?: string;
+}
+
 export interface ClickAction {
   type: "set-parameter" | "navigate-to-page" | "set-parameter-and-navigate";
   parameterMapping?: {

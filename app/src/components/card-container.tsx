@@ -3,8 +3,8 @@
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
-import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
-import { useParameterStore } from "@/stores/parameter-store";
+import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
+import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
@@ -19,6 +19,7 @@ import {
   ColumnMappingOverlay,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
+import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 
 /** Chart types that support column mapping. */
 const MAPPING_SUPPORTED_TYPES = new Set<ChartType>(["bar", "line", "pie"]);
@@ -141,6 +142,28 @@ export function CardContainer({
     [onWidgetSettingsChange, widget.settings]
   );
 
+  const chartOptions = useMemo(
+    () => (widget.settings?.chartOptions ?? {}) as Record<string, unknown>,
+    [widget.settings?.chartOptions],
+  );
+
+  // Resolve styling config (new format or migrated from legacy)
+  const allParamValues = useParameterValues();
+  const resolvedStylingConfig = useMemo<StylingConfig | undefined>(() => {
+    const sc = widget.settings?.stylingConfig as StylingConfig | undefined;
+    if (sc?.enabled) return sc;
+    // Try migrating from legacy colorThresholds
+    const legacyThresholds = chartOptions.colorThresholds;
+    if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
+      const legacyColumn = chartOptions.colorThresholdsColumn;
+      return migrateColorThresholds(
+        legacyThresholds,
+        typeof legacyColumn === "string" ? legacyColumn : undefined,
+      );
+    }
+    return undefined;
+  }, [widget.settings?.stylingConfig, chartOptions]);
+
   if (!chartConfig) {
     return (
       <EmptyState
@@ -151,8 +174,6 @@ export function CardContainer({
       />
     );
   }
-
-  const chartOptions = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
 
   // Use preview data directly if provided
   if (previewData !== undefined) {
@@ -181,6 +202,8 @@ export function CardContainer({
             connectionId={widget.connectionId}
             widgetId={widget.id}
             resultId={previewResultId}
+            stylingRules={resolvedStylingConfig?.rules}
+            paramValues={allParamValues}
           />
         </div>
         {showOverlay && (
@@ -323,6 +346,8 @@ export function CardContainer({
           connectionId={widget.connectionId}
           widgetId={widget.id}
           resultId={widgetQuery.data.resultId}
+          stylingRules={resolvedStylingConfig?.rules}
+          paramValues={allParamValues}
         />
       </div>
       {showOverlay && (

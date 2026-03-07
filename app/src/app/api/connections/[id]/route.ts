@@ -1,23 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
-
-const updateConnectionSchema = z.object({
-  name: z.string().min(1).optional(),
-  config: z
-    .object({
-      uri: z.string().min(1),
-      username: z.string().min(1),
-      password: z.string().min(1),
-      database: z.string().optional(),
-    })
-    .optional(),
-});
+import { updateConnectionSchema } from "@/lib/schemas";
+import { validateBody, unauthorized, notFound, handleRouteError } from "@/lib/api-utils";
 
 export async function PATCH(
   request: Request,
@@ -27,18 +16,12 @@ export async function PATCH(
     const userId = await requireUserId();
     const { id } = await params;
     const body = await request.json();
-    const parsed = updateConnectionSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
-    }
+    const result = validateBody(updateConnectionSchema, body);
+    if (!result.success) return result.response;
 
     const updates: Record<string, unknown> = {};
-    if (parsed.data.name) updates.name = parsed.data.name;
-    if (parsed.data.config) updates.configEncrypted = encryptJson(parsed.data.config);
+    if (result.data.name) updates.name = result.data.name;
+    if (result.data.config) updates.configEncrypted = encryptJson(result.data.config);
 
     const [connection] = await db
       .update(connections)
@@ -52,22 +35,17 @@ export async function PATCH(
       });
 
     if (!connection) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound();
     }
 
     // Fire-and-forget: re-warm the schema cache after credential update
-    if (parsed.data.config) {
-      prefetchSchema(connection.type as "neo4j" | "postgresql", parsed.data.config);
+    if (result.data.config) {
+      prefetchSchema(connection.type as "neo4j" | "postgresql", result.data.config);
     }
 
     return NextResponse.json(connection);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to update connection";
-    if (message.includes("Unauthorized") || message.includes("session")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleRouteError(error, "Failed to update connection");
   }
 }
 
@@ -79,17 +57,17 @@ export async function DELETE(
     const userId = await requireUserId();
     const { id } = await params;
 
-    const result = await db
+    const deleted = await db
       .delete(connections)
       .where(and(eq(connections.id, id), eq(connections.userId, userId)))
       .returning({ id: connections.id });
 
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (deleted.length === 0) {
+      return notFound();
     }
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }

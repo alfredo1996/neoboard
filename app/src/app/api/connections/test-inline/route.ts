@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { requireUserId } from "@/lib/auth/session";
 import { testConnection } from "@/lib/query-executor";
 import type { DbType } from "@/lib/query-executor";
-
-const testInlineSchema = z.object({
-  type: z.enum(["neo4j", "postgresql"]),
-  config: z.object({
-    uri: z.string().min(1),
-    username: z.string().min(1),
-    password: z.string().min(1),
-    database: z.string().optional(),
-  }),
-});
+import { testInlineSchema } from "@/lib/schemas";
 
 export async function POST(request: Request) {
   try {

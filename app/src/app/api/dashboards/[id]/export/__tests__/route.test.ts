@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,16 +8,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireSession = vi.fn<
   () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
 >();
-
-function makeSelectChain(rows: unknown[]) {
-  const resolved = Promise.resolve(rows);
-  const c = Object.assign(resolved, {
-    from: () => c,
-    where: () => c,
-    limit: () => Promise.resolve(rows),
-  });
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),

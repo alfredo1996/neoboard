@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import { makeRequest } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,25 +10,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireUserId = vi.fn<() => Promise<string>>();
 const mockEncryptJson = vi.fn((v: unknown) => `enc:${JSON.stringify(v)}`);
 const mockPrefetchSchema = vi.fn();
-
-// Chainable drizzle builder stubs
-function makeSelectChain(rows: unknown[]) {
-  const c = {
-    from: () => c,
-    where: () => c,
-    limit: () => Promise.resolve(rows),
-    then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve),
-  };
-  return c;
-}
-
-function makeInsertChain(returning: unknown[]) {
-  const c = {
-    values: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -36,15 +20,7 @@ vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ encryptJson: mockEncryptJson, decryptJson: vi.fn() }));
 vi.mock("@/lib/schema-prefetch", () => ({ prefetchSchema: mockPrefetchSchema }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -87,10 +63,6 @@ describe("POST /api/connections", () => {
     const mod = await import("../route");
     POST = mod.POST;
   });
-
-  function makeRequest(body: unknown) {
-    return { json: async () => body } as Request;
-  }
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));

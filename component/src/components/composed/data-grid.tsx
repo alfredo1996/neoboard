@@ -81,6 +81,8 @@ export interface DataGridProps<TData> {
   /** Restrict which columns are clickable. Empty/undefined = all columns. */
   clickableColumns?: string[];
   onSelectionChange?: (selectedRows: TData[]) => void;
+  /** Optional function to compute a row's inline style (e.g. background color from threshold). */
+  getRowStyle?: (row: TData) => React.CSSProperties | undefined;
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
   className?: string;
@@ -99,6 +101,7 @@ function DataGrid<TData>({
   onCellClick,
   clickableColumns,
   onSelectionChange,
+  getRowStyle,
   toolbar,
   pagination,
   className,
@@ -228,6 +231,7 @@ function DataGrid<TData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  style={getRowStyle?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const isDataCell = cell.column.id !== "select";

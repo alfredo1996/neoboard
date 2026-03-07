@@ -1,19 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeUpdateChain } from "@/__tests__/helpers/drizzle-mocks";
+import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 const mockRequireAdmin = vi.fn<() => Promise<{ userId: string; canWrite: boolean; tenantId: string }>>();
-
-function makeUpdateChain(returning: unknown[]) {
-  const c = {
-    set: () => c,
-    where: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   update: vi.fn(),
@@ -22,27 +16,7 @@ const mockDb = {
 
 vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeRequest(body: unknown) {
-  return { json: async () => body } as Request;
-}
-
-function makeParams(id: string) {
-  return { params: Promise.resolve({ id }) };
-}
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -57,15 +31,7 @@ describe("PATCH /api/users/[id]", () => {
     vi.clearAllMocks();
     vi.doMock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
-    vi.doMock("next/server", () => ({
-      NextResponse: {
-        json: (body: unknown, init?: ResponseInit) => ({
-          _body: body,
-          status: init?.status ?? 200,
-          json: async () => body,
-        }),
-      },
-    }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
     const mod = await import("../route");
     PATCH = mod.PATCH;
   });
@@ -143,15 +109,7 @@ describe("DELETE /api/users/[id]", () => {
     vi.clearAllMocks();
     vi.doMock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
-    vi.doMock("next/server", () => ({
-      NextResponse: {
-        json: (body: unknown, init?: ResponseInit) => ({
-          _body: body,
-          status: init?.status ?? 200,
-          json: async () => body,
-        }),
-      },
-    }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });

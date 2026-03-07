@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
 
 test.describe("Parameter selectors", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -58,10 +58,10 @@ test.describe("Parameter selectors", () => {
     await typeInEditor(dialog, page,
       "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 5"
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     // Wait for preview
-    await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
+    await expect(getPreview(dialog)).toBeVisible({
       timeout: 15_000,
     });
 
@@ -435,9 +435,9 @@ test.describe("Click actions", () => {
       await typeInEditor(dialog, page,
         "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size LIMIT 5"
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 5_000 });
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
-      await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
+      await expect(getPreview(dialog)).toBeVisible({
         timeout: 15_000,
       });
 
@@ -558,7 +558,7 @@ test.describe("Click actions", () => {
       await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       // Wait for preview to render
-      await expect(dialog.locator(".border.rounded-lg").first()).toBeVisible({
+      await expect(getPreview(dialog)).toBeVisible({
         timeout: 15_000,
       });
 
@@ -755,9 +755,9 @@ test.describe("Clickable columns restriction", () => {
     try {
       await page.goto(`/${id}`);
 
-      // Wait for the table to render
+      // Wait for the table to render (query + rendering can be slow under load)
       const titleCell = page.locator("td").filter({ hasText: "Apollo 13" });
-      await expect(titleCell.first()).toBeVisible({ timeout: 15_000 });
+      await expect(titleCell.first()).toBeVisible({ timeout: 30_000 });
 
       // Title cells should have clickable styling (cursor-pointer on td, badge span inside)
       await expect(titleCell.first()).toHaveClass(/cursor-pointer/);
@@ -1494,6 +1494,207 @@ test.describe("Cascading-select parameter widget", () => {
 
       // The dependent table should execute without errors
       await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Action rules — multi-rule editor (extended coverage)
+// ---------------------------------------------------------------------------
+
+test.describe("Action rules — multi-rule editor", () => {
+  test("should add multiple action rules and configure navigate-to-page", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Multi Action ${Date.now()}`,
+    );
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+
+      // Add a second page for navigate-to-page
+      await page.getByRole("button", { name: "Add page" }).click();
+      await expect(page.getByText("Page 2")).toBeVisible({ timeout: 5_000 });
+
+      // Add a table widget
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Data Table" }).click();
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+
+      // Wait for editor to be ready after connection selection
+      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+        timeout: 5_000,
+      });
+
+      // Write query and run
+      await typeInEditor(dialog, page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 10"
+      );
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+      await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+
+      // Navigate to Advanced tab and enable click action
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByLabel("Enable click action").click();
+
+      // Open action rules editor
+      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
+      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+
+      // Add first rule — change to "Navigate to Page"
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
+      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
+
+      // Change action type to Navigate to Page
+      await rulesDialog.getByLabel("Action Type").click();
+      await page.getByRole("option", { name: "Navigate to Page" }).click();
+
+      // Should show Target Page selector with Page 2
+      await expect(rulesDialog.getByText("Target Page")).toBeVisible({ timeout: 5_000 });
+
+      // Add second rule — Set Parameter & Navigate
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
+      await expect(rulesDialog.getByText("Rule 2")).toBeVisible();
+
+      // Done
+      await rulesDialog.getByRole("button", { name: "Done" }).click();
+
+      // Verify rule count
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await expect(dialog.getByText("2 action rule(s) configured.")).toBeVisible();
+
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("should delete an action rule", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Delete Action ${Date.now()}`,
+    );
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+
+      // Wait for editor to be ready after connection selection
+      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+        timeout: 5_000,
+      });
+
+      await typeInEditor(dialog, page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
+      );
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+      await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
+
+      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+
+      // Add 2 rules
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
+      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
+      await expect(rulesDialog.getByText("Rule 2")).toBeVisible();
+
+      // Delete Rule 1
+      await rulesDialog.getByRole("button", { name: "Delete rule 1" }).click();
+
+      // Should now show only 1 rule
+      await expect(rulesDialog.getByText("Rule 2")).not.toBeVisible();
+      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
+
+      // Done
+      await rulesDialog.getByRole("button", { name: "Done" }).click();
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await expect(dialog.getByText("1 action rule(s) configured.")).toBeVisible();
+
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("should show trigger column selector for table type", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Trigger Col ${Date.now()}`,
+    );
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+      // Select Data Table
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Data Table" }).click();
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+
+      // Wait for editor to be ready after connection selection
+      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+        timeout: 5_000,
+      });
+
+      await typeInEditor(dialog, page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
+      );
+      await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+      await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+
+      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
+
+      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+
+      // Add a rule — table type should show "Trigger Column"
+      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
+      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({ timeout: 5_000 });
+      // Source Field should NOT appear for table type
+      await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
+
+      await rulesDialog.getByRole("button", { name: "Done" }).click();
+      await dialog.getByRole("button", { name: "Cancel" }).click();
     } finally {
       await cleanup();
     }

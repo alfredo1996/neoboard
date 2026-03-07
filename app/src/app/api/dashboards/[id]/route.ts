@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
+import { validateBody, unauthorized, forbidden, notFound } from "@/lib/api-utils";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -109,12 +110,12 @@ export async function GET(
 
     const access = await canAccess(id, userId, tenantId, userRole, "viewer");
     if (!access) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound();
     }
 
     return NextResponse.json({ ...access.dashboard, role: access.role });
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }
 
@@ -127,33 +128,27 @@ export async function PUT(
     const { id } = await params;
 
     if (userRole === "reader") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden();
     }
 
     const access = await canAccess(id, userId, tenantId, userRole, "editor");
     if (!access) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound();
     }
 
     const body = await request.json();
-    const parsed = updateDashboardSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
-    }
+    const result = validateBody(updateDashboardSchema, body);
+    if (!result.success) return result.response;
 
     const [updated] = await db
       .update(dashboards)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({ ...result.data, updatedAt: new Date() })
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .returning();
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }
 
@@ -166,7 +161,7 @@ export async function DELETE(
     const { id } = await params;
 
     if (userRole === "reader") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden();
     }
 
     // Admin can delete any dashboard in the tenant; Creator only their own
@@ -178,12 +173,12 @@ export async function DELETE(
         .limit(1);
 
       if (!dashboard) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 });
+        return notFound();
       }
     } else {
       const access = await canAccess(id, userId, tenantId, userRole, "owner");
       if (!access) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 });
+        return notFound();
       }
     }
 
@@ -193,6 +188,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 }

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
+import { getChartOptions } from "../chart-options-schema";
 
 describe("ChartOptionsPanel", () => {
   it("renders options for bar chart", () => {
@@ -116,9 +117,9 @@ describe("ChartOptionsPanel", () => {
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
     const helpLabels = container.querySelectorAll("label.cursor-help");
-    // bar has 9 options, all with descriptions
+    // All bar options have descriptions — count should match schema
     expect(helpLabels.length).toBeGreaterThan(0);
-    expect(helpLabels.length).toBe(9);
+    expect(helpLabels.length).toBe(getChartOptions("bar").length);
   });
 
   it("does not render a HelpCircle icon — tooltip triggers on label text", () => {

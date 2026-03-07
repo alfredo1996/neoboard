@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import { makeRequest } from "@/__tests__/helpers/request-helpers";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -6,24 +9,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockRequireAdmin = vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
 const mockBcryptHash = vi.fn(async (pw: string) => `hashed:${pw}`);
-
-function makeSelectChain(rows: unknown[]) {
-  const c = {
-    from: () => c,
-    where: () => c,
-    limit: () => Promise.resolve(rows),
-    then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(rows).then(resolve),
-  };
-  return c;
-}
-
-function makeInsertChain(returning: unknown[]) {
-  const c = {
-    values: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -33,15 +18,7 @@ const mockDb = {
 vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -57,15 +34,7 @@ describe("GET /api/users", () => {
     vi.doMock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
-    vi.doMock("next/server", () => ({
-      NextResponse: {
-        json: (body: unknown, init?: ResponseInit) => ({
-          _body: body,
-          status: init?.status ?? 200,
-          json: async () => body,
-        }),
-      },
-    }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -100,25 +69,13 @@ describe("POST /api/users", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let POST: (req: Request) => Promise<any>;
 
-  function makeRequest(body: unknown) {
-    return { json: async () => body } as Request;
-  }
-
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.doMock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
-    vi.doMock("next/server", () => ({
-      NextResponse: {
-        json: (body: unknown, init?: ResponseInit) => ({
-          _body: body,
-          status: init?.status ?? 200,
-          json: async () => body,
-        }),
-      },
-    }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
     const mod = await import("../route");
     POST = mod.POST;
   });
