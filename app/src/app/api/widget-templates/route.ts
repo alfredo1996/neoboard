@@ -5,6 +5,15 @@ import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 
+/** Max size for preview image data URIs (500 KB). */
+const MAX_PREVIEW_SIZE = 500 * 1024;
+
+const previewImageUrlSchema = z
+  .string()
+  .refine((s) => s.startsWith("data:image/"), "Must be a data:image/ URI")
+  .refine((s) => s.length <= MAX_PREVIEW_SIZE, `Preview image must be under ${MAX_PREVIEW_SIZE / 1024}KB`)
+  .optional();
+
 const createTemplateSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
@@ -14,6 +23,7 @@ const createTemplateSchema = z.object({
   query: z.string().default(""),
   params: z.record(z.unknown()).optional(),
   settings: z.record(z.unknown()).optional(),
+  previewImageUrl: previewImageUrlSchema,
 });
 
 export async function GET(request: Request) {

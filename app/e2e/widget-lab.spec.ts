@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -13,12 +13,8 @@ async function addBarWidgetToDashboard(page: import("@playwright/test").Page) {
   await dialog.getByRole("combobox").nth(0).click();
   await page.getByRole("option").first().click();
 
-  // Type a query
-  const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-  await cm.click();
-  await page.keyboard.insertText(
-    "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5",
-  );
+  // Type a query using the reliable typeInEditor helper
+  await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
 
   // Add the widget
   await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -170,8 +166,10 @@ test.describe("Widget Lab", () => {
   test.describe("From Template in Add Widget modal", () => {
     let dashboardCleanup: (() => Promise<void>) | undefined;
     let templateId: string | undefined;
+    let templateName: string;
 
     test.beforeEach(async ({ page }) => {
+      templateName = `E2E Tmpl ${Date.now()}`;
       const { id, cleanup } = await createTestDashboard(
         page.request,
         `Widget Lab From Template ${Date.now()}`,
@@ -181,7 +179,7 @@ test.describe("Widget Lab", () => {
       // Create a template via API
       const res = await page.request.post("/api/widget-templates", {
         data: {
-          name: "E2E From Template",
+          name: templateName,
           description: "Picked in E2E test",
           chartType: "table",
           connectorType: "neo4j",
@@ -222,14 +220,14 @@ test.describe("Widget Lab", () => {
       ).toBeVisible();
 
       // The template we created should be listed
-      await expect(browseDialog.getByText("E2E From Template")).toBeVisible({
-        timeout: 10_000,
-      });
+      await expect(
+        browseDialog.locator("button").filter({ hasText: templateName }),
+      ).toBeVisible({ timeout: 10_000 });
 
       // Click to apply
       await browseDialog
         .locator("button")
-        .filter({ hasText: "E2E From Template" })
+        .filter({ hasText: templateName })
         .click();
 
       // Should return to main dialog step (title changes back)
@@ -242,6 +240,257 @@ test.describe("Widget Lab", () => {
       await expect(
         mainDialog.locator("[data-testid='codemirror-container']"),
       ).toBeVisible();
+    });
+
+    test("From Template picker shows preview images or placeholders for each template", async ({
+      page,
+    }) => {
+      // Open Add Widget dialog
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+      await expect(dialog).toBeVisible();
+
+      // Click "From Template"
+      await dialog.getByRole("button", { name: "From Template" }).click();
+      const browseDialog = page.getByRole("dialog", { name: "Browse Templates" });
+      await expect(browseDialog.getByRole("heading", { name: "Browse Templates" })).toBeVisible();
+
+      // Wait for templates to load — use button filter to avoid matching alt text
+      const card = browseDialog.locator("button").filter({ hasText: templateName });
+      await expect(card).toBeVisible({ timeout: 10_000 });
+
+      // The card should contain either a preview image or a placeholder
+      const hasImage = await card.locator("[data-testid='template-preview-image']").count();
+      const hasPlaceholder = await card.locator("[data-testid='template-preview-placeholder']").count();
+      expect(hasImage + hasPlaceholder).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ── Create / Edit templates directly in Widget Lab ──────────────────
+
+  test.describe("Widget Lab editor — create and edit templates", () => {
+    let templateId: string | undefined;
+
+    test.afterEach(async ({ page }) => {
+      if (templateId) {
+        await page.request.delete(`/api/widget-templates/${templateId}`);
+        templateId = undefined;
+      }
+    });
+
+    test("can create a new template directly from Widget Lab", async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.goto("/widget-lab");
+      await expect(page.getByRole("heading", { name: "Widget Lab" })).toBeVisible();
+
+      // Click "New Template" button
+      await page.getByRole("button", { name: "New Template" }).click();
+      const dialog = page.getByRole("dialog", { name: "Create Template" });
+      await expect(dialog).toBeVisible();
+
+      // Fill in template metadata
+      const templateName = `E2E Create ${Date.now()}`;
+      await dialog.locator("#lab-template-name").fill(templateName);
+      await dialog.locator("#lab-template-desc").fill("Created directly in Widget Lab");
+      await dialog.locator("#lab-template-tags").fill("e2e, test");
+
+      // Select a connection
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+
+      // Type a query
+      await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5");
+
+      // Run the query to populate the preview (use first() — there may be
+      // duplicate Run buttons when CM6 re-renders during mount)
+      await dialog.getByRole("button", { name: "Run" }).first().click();
+      const preview = getPreview(dialog);
+      await expect(preview.locator("canvas").or(preview.locator("table"))).toBeVisible({ timeout: 15_000 });
+
+      // Create the template
+      await dialog.getByRole("button", { name: "Create Template" }).click();
+      await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+      // Verify it appears in the Widget Lab list
+      await expect(page.getByText(templateName)).toBeVisible({ timeout: 10_000 });
+
+      // Capture template id for cleanup
+      const res = await page.request.get("/api/widget-templates");
+      const templates = await res.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const saved = templates.find((t: any) => t.name === templateName);
+      templateId = saved?.id;
+      expect(templateId).toBeDefined();
+    });
+
+    test("can edit an existing template in Widget Lab", async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+
+      // Create a template via API first
+      const origName = `E2E Edit Orig ${Date.now()}`;
+      const createRes = await page.request.post("/api/widget-templates", {
+        data: {
+          name: origName,
+          chartType: "bar",
+          connectorType: "neo4j",
+          query: "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5",
+          settings: { title: "Bar Chart" },
+        },
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const { id } = await createRes.json();
+      templateId = id;
+
+      // Go to Widget Lab and click edit on the template card
+      await page.goto("/widget-lab");
+      await expect(page.getByText(origName)).toBeVisible({ timeout: 10_000 });
+
+      const card = page.locator("[data-testid='template-card']").filter({ hasText: origName });
+      await card.getByRole("button", { name: "Edit template" }).click();
+
+      // Edit Template dialog should open
+      const dialog = page.getByRole("dialog", { name: "Edit Template" });
+      await expect(dialog).toBeVisible();
+
+      // Verify metadata is pre-filled
+      await expect(dialog.locator("#lab-template-name")).toHaveValue(origName);
+
+      // Change the name
+      const newName = `E2E Edit Updated ${Date.now()}`;
+      await dialog.locator("#lab-template-name").fill(newName);
+
+      // Save
+      await dialog.getByRole("button", { name: "Save Template" }).click();
+      await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+      // Verify updated name appears
+      await expect(page.getByText(newName)).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(origName)).not.toBeVisible();
+    });
+
+    test("template cards show preview image when available", async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+
+      // Create a template with a fake preview image via API
+      const templateName = `E2E Preview ${Date.now()}`;
+      // Minimal valid JPEG data URI (1x1 pixel)
+      const fakePreview = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYI4Q/SFhSRFJiSCcqDhkVFR0qH/2gAMAwEAAhEDEQA/AP/Z";
+
+      const createRes = await page.request.post("/api/widget-templates", {
+        data: {
+          name: templateName,
+          chartType: "bar",
+          connectorType: "neo4j",
+          query: "RETURN 1",
+          previewImageUrl: fakePreview,
+        },
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const { id } = await createRes.json();
+      templateId = id;
+
+      // Navigate to Widget Lab
+      await page.goto("/widget-lab");
+      await expect(page.getByText(templateName)).toBeVisible({ timeout: 10_000 });
+
+      // The template card should show the preview image (not the placeholder)
+      const card = page.locator("[data-testid='template-card']").filter({ hasText: templateName });
+      await expect(card.locator("[data-testid='template-preview-image']")).toBeVisible();
+      await expect(card.locator("[data-testid='template-preview-placeholder']")).not.toBeVisible();
+    });
+
+    test("editing a template does not affect widgets already on dashboards", async ({
+      page,
+    }) => {
+      test.setTimeout(90_000);
+
+      // 1. Create a template via API
+      const templateName = `E2E Isolation ${Date.now()}`;
+      const origQuery = "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5";
+      const createRes = await page.request.post("/api/widget-templates", {
+        data: {
+          name: templateName,
+          chartType: "bar",
+          connectorType: "neo4j",
+          query: origQuery,
+          settings: { title: "Original Title" },
+        },
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const { id: tId } = await createRes.json();
+      templateId = tId;
+
+      // 2. Create a dashboard and add a widget from that template
+      const { id: dashId, cleanup } = await createTestDashboard(
+        page.request,
+        `Isolation Test ${Date.now()}`,
+      );
+
+      try {
+        await page.goto(`/${dashId}/edit`);
+        await expect(page.getByText("Editing:")).toBeVisible();
+
+        // Add widget via "From Template"
+        await page.getByRole("button", { name: "Add Widget" }).first().click();
+        const addDialog = page.getByRole("dialog", { name: "Add Widget" });
+        await expect(addDialog).toBeVisible();
+
+        await addDialog.getByRole("button", { name: "From Template" }).click();
+        const browseDialog = page.getByRole("dialog", { name: "Browse Templates" });
+        await expect(browseDialog.getByText(templateName)).toBeVisible({ timeout: 10_000 });
+
+        // Apply the template
+        await browseDialog.locator("button").filter({ hasText: templateName }).click();
+
+        // Back on main dialog — select connection and add the widget
+        const mainDialog = page.getByRole("dialog", { name: "Add Widget" });
+        await expect(mainDialog).toBeVisible();
+
+        // Select a connection
+        await mainDialog.getByRole("combobox").nth(0).click();
+        await page.getByRole("option").first().click();
+
+        await mainDialog.getByRole("button", { name: "Add Widget" }).click();
+        await expect(mainDialog).not.toBeVisible();
+
+        // Save dashboard
+        await page.getByRole("button", { name: "Save" }).click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout
+        await page.waitForTimeout(1_000);
+
+        // 3. Edit the template in Widget Lab — change its name
+        await page.goto("/widget-lab");
+        await expect(page.getByText(templateName)).toBeVisible({ timeout: 10_000 });
+
+        const card = page.locator("[data-testid='template-card']").filter({ hasText: templateName });
+        await card.getByRole("button", { name: "Edit template" }).click();
+
+        const editDialog = page.getByRole("dialog", { name: "Edit Template" });
+        await expect(editDialog).toBeVisible();
+
+        const updatedName = `${templateName} UPDATED`;
+        await editDialog.locator("#lab-template-name").fill(updatedName);
+        await editDialog.getByRole("button", { name: "Save Template" }).click();
+        await expect(editDialog).not.toBeVisible({ timeout: 10_000 });
+
+        // 4. Go back to the dashboard — widget should still work with original data
+        await page.goto(`/${dashId}`);
+        await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible({ timeout: 15_000 });
+
+        // Widget should render (canvas for bar chart) — proving the dashboard copy is independent
+        await expect(
+          page.locator("[data-testid='widget-card'] canvas")
+            .or(page.locator("[data-testid='widget-card']").getByText("Original Title")),
+        ).toBeVisible({ timeout: 15_000 });
+      } finally {
+        await cleanup();
+      }
     });
   });
 });

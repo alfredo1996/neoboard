@@ -103,6 +103,7 @@ CREATE TABLE "widget_template" (
     "query" text NOT NULL DEFAULT '',
     "params" jsonb,
     "settings" jsonb,
+    "previewImageUrl" text,
     "createdBy" text NOT NULL,
     "tenant_id" text NOT NULL DEFAULT 'default',
     "createdAt" timestamp DEFAULT now(),

@@ -34,6 +34,19 @@ export interface CreateWidgetTemplateInput {
   query?: string;
   params?: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  previewImageUrl?: string;
+}
+
+export interface UpdateWidgetTemplateInput {
+  name?: string;
+  description?: string;
+  tags?: string[];
+  chartType?: string;
+  connectorType?: "neo4j" | "postgresql";
+  query?: string;
+  params?: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+  previewImageUrl?: string;
 }
 
 export function useCreateWidgetTemplate() {
@@ -49,6 +62,28 @@ export function useCreateWidgetTemplate() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { error?: string }).error ?? "Failed to create template");
+      }
+      return res.json() as Promise<WidgetTemplate>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["widget-templates"] });
+    },
+  });
+}
+
+export function useUpdateWidgetTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: UpdateWidgetTemplateInput & { id: string }) => {
+      const res = await fetch(`/api/widget-templates/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? "Failed to update template");
       }
       return res.json() as Promise<WidgetTemplate>;
     },

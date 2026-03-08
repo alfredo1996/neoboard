@@ -7,7 +7,8 @@ import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule, 
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import { collectParameterNames } from "@/lib/collect-parameter-names";
 import { AlertCircle, AlertTriangle, Play, FlaskConical } from "lucide-react";
-import { useWidgetTemplates } from "@/hooks/use-widget-templates";
+import { useWidgetTemplates, useCreateWidgetTemplate, useUpdateWidgetTemplate } from "@/hooks/use-widget-templates";
+import { capturePreview } from "@/lib/capture-preview";
 import {
   ChartOptionsPanel,
   ChartSettingsPanel,
@@ -59,13 +60,17 @@ import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 export interface WidgetEditorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: "add" | "edit";
+  mode: "add" | "edit" | "lab-edit" | "lab-create";
   /** Existing widget to edit (required for edit mode) */
   widget?: DashboardWidget;
+  /** Template to edit (required for lab-edit mode) */
+  template?: WidgetTemplate;
   /** Available connections */
   connections: ConnectionListItem[];
-  /** Called with the final widget data on save */
+  /** Called with the final widget data on save (add/edit modes) */
   onSave: (widget: DashboardWidget) => void;
+  /** Called after a lab-mode save completes successfully */
+  onLabSaved?: () => void;
   /** Dashboard layout — used for page list and parameter name suggestions */
   layout?: DashboardLayoutV2;
 }
@@ -75,10 +80,13 @@ export function WidgetEditorModal({
   onOpenChange,
   mode,
   widget,
+  template: templateProp,
   connections,
   onSave,
+  onLabSaved,
   layout,
 }: WidgetEditorModalProps) {
+  const isLabMode = mode === "lab-edit" || mode === "lab-create";
   const [chartType, setChartType] = useState(widget?.chartType ?? "bar");
   const [connectionId, setConnectionId] = useState(widget?.connectionId ?? "");
   const [query, setQuery] = useState(widget?.query ?? "");
@@ -129,6 +137,16 @@ export function WidgetEditorModal({
   );
 
   const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules" | "templates">("main");
+
+  // Lab-mode metadata state
+  const [labName, setLabName] = useState(templateProp?.name ?? "");
+  const [labDescription, setLabDescription] = useState(templateProp?.description ?? "");
+  const [labTagsInput, setLabTagsInput] = useState((templateProp?.tags ?? []).join(", "));
+
+  // Lab-mode mutations
+  const createTemplate = useCreateWidgetTemplate();
+  const updateTemplate = useUpdateWidgetTemplate();
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -394,15 +412,63 @@ export function WidgetEditorModal({
 
         seedQueryExecution.reset();
         previewQuery.reset();
+      } else if (mode === "lab-create") {
+        // Fresh lab-create: same as add but with metadata fields
+        setChartType("bar");
+        setConnectionId("");
+        setQuery("");
+        setTitle("");
+        setChartOptions(getDefaultChartSettings("bar"));
+        setClickActionEnabled(false);
+        setClickActionType("set-parameter");
+        setParameterName("");
+        setSourceField("");
+        setTargetPageId("");
+        setClickableColumns([]);
+        setEnableCache(true);
+        setCacheTtlMinutes(5);
+        setConnectorChanged(false);
+        setFormFields([]);
+        setActionRules([]);
+        setStylingEnabled(false);
+        setStylingRules([]);
+        setStylingTargetColumn("");
+        setLabName("");
+        setLabDescription("");
+        setLabTagsInput("");
+        setDialogStep("main");
+        seedQueryExecution.reset();
+        previewQuery.reset();
+      } else if (mode === "lab-edit" && templateProp) {
+        // Initialize from template
+        setChartType(templateProp.chartType);
+        setConnectionId(""); // templates don't store connectionId — user must select
+        setQuery(templateProp.query ?? "");
+        setTitle((templateProp.settings?.title as string) ?? "");
+        setChartOptions(
+          (templateProp.settings?.chartOptions as Record<string, unknown>) ??
+            getDefaultChartSettings(templateProp.chartType)
+        );
+        setLabName(templateProp.name);
+        setLabDescription(templateProp.description ?? "");
+        setLabTagsInput((templateProp.tags ?? []).join(", "));
+        setClickActionEnabled(false);
+        setStylingEnabled(false);
+        setStylingRules([]);
+        setStylingTargetColumn("");
+        setActionRules([]);
+        setDialogStep("main");
+        seedQueryExecution.reset();
+        previewQuery.reset();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode, widget]);
+  }, [open, mode, widget, templateProp]);
 
-  // Re-initialize chart options when chart type changes (add mode only).
+  // Re-initialize chart options when chart type changes (add/lab-create mode only).
   // Skip reset when the change comes from applyTemplate to preserve template settings.
   useEffect(() => {
-    if (mode === "add") {
+    if (mode === "add" || mode === "lab-create") {
       if (applyingTemplateRef.current) {
         applyingTemplateRef.current = false;
         return;
@@ -598,6 +664,57 @@ export function WidgetEditorModal({
     onOpenChange(false);
   }
 
+  const [labError, setLabError] = useState<string | null>(null);
+
+  async function handleLabSave() {
+    if (!labName.trim()) return;
+    setLabError(null);
+
+    const selectedConn = connections.find((c) => c.id === connectionId);
+    const connectorType: "neo4j" | "postgresql" = selectedConn?.type ?? "neo4j";
+
+    // Capture preview from the preview pane
+    let previewImageUrl: string | undefined;
+    if (previewRef.current) {
+      previewImageUrl = capturePreview(previewRef.current, chartType);
+    }
+
+    const tags = labTagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const templateData = {
+      name: labName.trim(),
+      description: labDescription.trim() || undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      chartType,
+      connectorType,
+      query,
+      settings: {
+        title: title || undefined,
+        chartOptions,
+        stylingConfig: buildStylingConfig(),
+        clickAction: buildClickAction(),
+      },
+      previewImageUrl,
+    };
+
+    try {
+      if (mode === "lab-edit" && templateProp) {
+        await updateTemplate.mutateAsync({ id: templateProp.id, ...templateData });
+      } else {
+        await createTemplate.mutateAsync(templateData);
+      }
+      onLabSaved?.();
+      onOpenChange(false);
+    } catch (err) {
+      setLabError(err instanceof Error ? err.message : "Failed to save template");
+    }
+  }
+
+  const labSaving = createTemplate.isPending || updateTemplate.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="full" className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden">
@@ -642,22 +759,34 @@ export function WidgetEditorModal({
                 </div>
               )}
               {!templatesLoading && templates && templates.length > 0 && (
-                <div className="space-y-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {templates.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => applyTemplate(t)}
-                      className="w-full text-left rounded-lg border p-3 hover:bg-accent transition-colors"
+                      className="text-left rounded-lg border p-3 hover:bg-accent transition-colors flex flex-col gap-2"
                     >
+                      {t.previewImageUrl ? (
+                        <img
+                          src={t.previewImageUrl}
+                          alt={`Preview of ${t.name}`}
+                          className="w-full aspect-[4/3] object-cover rounded bg-muted"
+                          data-testid="template-preview-image"
+                        />
+                      ) : (
+                        <div className="w-full aspect-[4/3] rounded bg-muted flex items-center justify-center" data-testid="template-preview-placeholder">
+                          <FlaskConical className="h-8 w-8 text-muted-foreground/40" />
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-sm">{t.name}</span>
-                        <div className="flex gap-1">
+                        <span className="font-medium text-sm truncate">{t.name}</span>
+                        <div className="flex gap-1 shrink-0">
                           <Badge variant="secondary" className="text-xs">{getChartConfig(t.chartType)?.label ?? t.chartType}</Badge>
                           <Badge variant="outline" className="text-xs">{t.connectorType}</Badge>
                         </div>
                       </div>
                       {t.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{t.description}</p>
                       )}
                     </button>
                   ))}
@@ -675,13 +804,46 @@ export function WidgetEditorModal({
         <>
         <DialogHeader>
           <DialogTitle>
-            {mode === "edit" ? "Edit Widget" : "Add Widget"}
+            {mode === "lab-edit" ? "Edit Template" : mode === "lab-create" ? "Create Template" : mode === "edit" ? "Edit Widget" : "Add Widget"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="py-4 min-h-[520px] flex-1 overflow-y-auto" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "1.5rem" }}>
           {/* Left column: tabs + settings */}
           <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
+            {/* Lab mode: template metadata */}
+            {isLabMode && (
+              <div className="space-y-3 mb-4 pb-4 border-b">
+                <div className="space-y-1.5">
+                  <Label htmlFor="lab-template-name">Template Name <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="lab-template-name"
+                    value={labName}
+                    onChange={(e) => setLabName(e.target.value)}
+                    placeholder="My chart template"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lab-template-desc">Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Input
+                    id="lab-template-desc"
+                    value={labDescription}
+                    onChange={(e) => setLabDescription(e.target.value)}
+                    placeholder="What does this template do?"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lab-template-tags">Tags <span className="text-muted-foreground text-xs">(comma-separated)</span></Label>
+                  <Input
+                    id="lab-template-tags"
+                    value={labTagsInput}
+                    onChange={(e) => setLabTagsInput(e.target.value)}
+                    placeholder="e.g. neo4j, monitoring, kpi"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Widget title — always visible above tabs */}
             <div className="space-y-1.5 mb-4">
               <Label htmlFor="widget-title">Widget Title</Label>
@@ -706,7 +868,7 @@ export function WidgetEditorModal({
                     showConnection={isForm || !isParamSelect || paramUIType === "select"}
                   />
 
-                  {mode === "add" && (
+                  {mode === "add" && !isLabMode && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -990,7 +1152,7 @@ export function WidgetEditorModal({
               </Alert>
             )}
 
-            <div data-testid="widget-preview" className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
+            <div ref={previewRef} data-testid="widget-preview" className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
               {isParamSelect ? (
                 <ParameterPreview
                   paramUIType={paramUIType}
@@ -1052,6 +1214,9 @@ export function WidgetEditorModal({
         </div>
 
         <DialogFooter>
+          {labError && (
+            <p className="text-sm text-destructive mr-auto">{labError}</p>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -1059,26 +1224,38 @@ export function WidgetEditorModal({
           >
             Cancel
           </Button>
-          <LoadingButton
-            type="button"
-            disabled={
-              isParamSelect
-                ? !paramWidgetName.trim() ||
-                  (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
-                : isForm
-                  ? !connectionId || !query.trim()
-                  : !query.trim()
-            }
-            loading={saveStatus === "saving"}
-            loadingText="Saving..."
-            onClick={handleSave}
-          >
-            {saveStatus === "saved"
-              ? "Saved!"
-              : mode === "edit"
-                ? "Save Changes"
-                : "Add Widget"}
-          </LoadingButton>
+          {isLabMode ? (
+            <LoadingButton
+              type="button"
+              disabled={!labName.trim() || !query.trim()}
+              loading={labSaving}
+              loadingText="Saving..."
+              onClick={handleLabSave}
+            >
+              {mode === "lab-edit" ? "Save Template" : "Create Template"}
+            </LoadingButton>
+          ) : (
+            <LoadingButton
+              type="button"
+              disabled={
+                isParamSelect
+                  ? !paramWidgetName.trim() ||
+                    (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
+                  : isForm
+                    ? !connectionId || !query.trim()
+                    : !query.trim()
+              }
+              loading={saveStatus === "saving"}
+              loadingText="Saving..."
+              onClick={handleSave}
+            >
+              {saveStatus === "saved"
+                ? "Saved!"
+                : mode === "edit"
+                  ? "Save Changes"
+                  : "Add Widget"}
+            </LoadingButton>
+          )}
         </DialogFooter>
         </>
         )}

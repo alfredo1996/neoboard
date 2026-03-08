@@ -147,6 +147,8 @@ export const widgetTemplates = pgTable("widget_template", {
   query: text("query").notNull().default(""),
   params: jsonb("params").$type<Record<string, unknown>>(),
   settings: jsonb("settings").$type<Record<string, unknown>>(),
+  /** Base64 data-URI PNG preview of the chart, captured on save */
+  previewImageUrl: text("previewImageUrl"),
   createdBy: text("createdBy")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

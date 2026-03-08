@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { FlaskConical, Trash2 } from "lucide-react";
+import { FlaskConical, Trash2, Pencil, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useWidgetTemplates, useDeleteWidgetTemplate } from "@/hooks/use-widget-templates";
+import { useConnections } from "@/hooks/use-connections";
 import { getChartConfig } from "@/lib/chart-registry";
 import {
   PageHeader,
@@ -20,64 +21,92 @@ import {
   ConfirmDialog,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
+import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({
   template,
+  canEdit,
   canDelete,
+  onEdit,
   onDelete,
 }: {
   readonly template: WidgetTemplate;
+  readonly canEdit: boolean;
   readonly canDelete: boolean;
+  readonly onEdit: () => void;
   readonly onDelete: () => void;
 }) {
   const chartLabel =
     getChartConfig(template.chartType)?.label ?? template.chartType;
 
   return (
-    <div className="rounded-lg border bg-card p-4 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{template.name}</p>
-          {template.description && (
-            <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-              {template.description}
-            </p>
-          )}
+    <div className="rounded-lg border bg-card flex flex-col gap-0 overflow-hidden" data-testid="template-card">
+      {/* Preview image or placeholder */}
+      {template.previewImageUrl ? (
+        <img
+          src={template.previewImageUrl}
+          alt={`Preview of ${template.name}`}
+          className="w-full aspect-[4/3] object-cover bg-muted"
+          data-testid="template-preview-image"
+        />
+      ) : (
+        <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center" data-testid="template-preview-placeholder">
+          <FlaskConical className="h-10 w-10 text-muted-foreground/30" />
         </div>
-        {canDelete && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-            onClick={onDelete}
-            aria-label="Delete template"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+      )}
+
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium truncate">{template.name}</p>
+            {template.description && (
+              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                {template.description}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-1 shrink-0">
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={onEdit}
+                aria-label="Edit template"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={onDelete}
+                aria-label="Delete template"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary">{chartLabel}</Badge>
+          <Badge variant="outline">{template.connectorType}</Badge>
+          {(template.tags ?? []).map((tag) => (
+            <Badge key={tag} variant="outline" className="text-xs font-normal">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+
+        {template.createdAt && (
+          <p className="text-xs text-muted-foreground">
+            Saved {new Date(template.createdAt).toLocaleDateString()}
+          </p>
         )}
       </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        <Badge variant="secondary">{chartLabel}</Badge>
-        <Badge variant="outline">{template.connectorType}</Badge>
-        {(template.tags ?? []).map((tag) => (
-          <Badge key={tag} variant="outline" className="text-xs font-normal">
-            {tag}
-          </Badge>
-        ))}
-      </div>
-
-      {template.query && (
-        <pre className="text-xs bg-muted rounded p-2 overflow-x-auto whitespace-pre-wrap line-clamp-3">
-          {template.query}
-        </pre>
-      )}
-
-      {template.createdAt && (
-        <p className="text-xs text-muted-foreground">
-          Saved {new Date(template.createdAt).toLocaleDateString()}
-        </p>
-      )}
     </div>
   );
 }
@@ -89,12 +118,18 @@ export default function WidgetLabPage() {
 
   const { data: templates, isLoading } = useWidgetTemplates();
   const deleteTemplate = useDeleteWidgetTemplate();
+  const { data: connections = [] } = useConnections();
 
   const [search, setSearch] = useState("");
   const [filterChartType, setFilterChartType] = useState<string>("all");
   const [filterConnector, setFilterConnector] = useState<string>("all");
   const [filterTag, setFilterTag] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // Editor modal state
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<WidgetTemplate | undefined>();
+  const editorMode = editingTemplate ? "lab-edit" as const : "lab-create" as const;
 
   const chartTypes = useMemo(() => {
     if (!templates) return [];
@@ -127,8 +162,18 @@ export default function WidgetLabPage() {
     });
   }, [templates, search, filterChartType, filterConnector, filterTag]);
 
-  function canDelete(template: WidgetTemplate) {
+  function canEditOrDelete(template: WidgetTemplate) {
     return role === "admin" || template.createdBy === userId;
+  }
+
+  function handleCreate() {
+    setEditingTemplate(undefined);
+    setEditorOpen(true);
+  }
+
+  function handleEdit(template: WidgetTemplate) {
+    setEditingTemplate(template);
+    setEditorOpen(true);
   }
 
   return (
@@ -136,6 +181,12 @@ export default function WidgetLabPage() {
       <PageHeader
         title="Widget Lab"
         description="Reusable widget templates you can apply to any dashboard"
+        actions={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Template
+          </Button>
+        }
       />
 
       <div className="mt-6 flex flex-col gap-4">
@@ -193,7 +244,7 @@ export default function WidgetLabPage() {
               <EmptyState
                 icon={<FlaskConical className="h-12 w-12" />}
                 title="No templates yet"
-                description='Save a widget as a template from any dashboard in edit mode using the "Save to Widget Lab" action.'
+                description='Create a new template or save a widget from any dashboard using the "Save to Widget Lab" action.'
               />
             ) : (
               <EmptyState
@@ -209,7 +260,9 @@ export default function WidgetLabPage() {
                 <TemplateCard
                   key={template.id}
                   template={template}
-                  canDelete={canDelete(template)}
+                  canEdit={canEditOrDelete(template)}
+                  canDelete={canEditOrDelete(template)}
+                  onEdit={() => handleEdit(template)}
                   onDelete={() => setDeleteTarget(template.id)}
                 />
               ))}
@@ -233,6 +286,16 @@ export default function WidgetLabPage() {
             setDeleteTarget(null);
           }
         }}
+      />
+
+      <WidgetEditorModal
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        mode={editorMode}
+        template={editingTemplate}
+        connections={connections}
+        onSave={() => {/* not used in lab mode */}}
+        onLabSaved={() => setEditorOpen(false)}
       />
     </div>
   );
