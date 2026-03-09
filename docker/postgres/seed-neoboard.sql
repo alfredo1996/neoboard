@@ -1,0 +1,47 @@
+-- =============================================================================
+-- Neoboard seed data for E2E tests
+-- Applied by global-setup.ts AFTER Drizzle migrations create the schema.
+-- =============================================================================
+
+-- Seed users (password: password123, bcrypt hash)
+-- Alice is admin so she can manage connections and all dashboards
+-- Bob is creator so he can create his own dashboards
+INSERT INTO "user" ("id", "name", "email", "passwordHash", "role", "can_write") VALUES
+    ('user-alice-001', 'Alice Demo', 'alice@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'admin', true),
+    ('user-bob-002',   'Bob Demo',   'bob@example.com',   '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'creator', true);
+
+-- Seed connections (configEncrypted values are placeholders — global-setup.ts re-encrypts them with real ports)
+INSERT INTO "connection" ("id", "userId", "name", "type", "configEncrypted") VALUES
+    ('conn-neo4j-001', 'user-alice-001', 'Movies Graph (Neo4j)',    'neo4j',      '{"host":"bolt://neo4j:7687","username":"neo4j","password":"neoboard123"}'),
+    ('conn-pg-001',    'user-alice-001', 'Movies DB (PostgreSQL)',  'postgresql', '{"host":"postgres","port":5432,"database":"movies","username":"neoboard","password":"neoboard"}');
+
+-- Seed dashboards (v2 layout with pages — matches current schema)
+-- dash-001 has TWO pages so the tab-switch performance test can run
+INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "isPublic", "layoutJson") VALUES
+    ('dash-001', 'user-alice-001', 'default', 'Movie Analytics', 'Explore the movies dataset across Neo4j and PostgreSQL', true,
+     '{"version":2,"pages":[
+       {"id":"page-overview","title":"Overview","widgets":[
+         {"id":"w1","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 10","settings":{"title":"Top 10 Movies by Cast Size"}},
+         {"id":"w2","chartType":"line","connectionId":"conn-pg-001","query":"SELECT released AS year, COUNT(*) AS movie_count FROM movies GROUP BY released ORDER BY released","settings":{"title":"Movies Released per Year"}}
+       ],"gridLayout":[
+         {"i":"w1","x":0,"y":0,"w":6,"h":4},
+         {"i":"w2","x":6,"y":0,"w":6,"h":4}
+       ]},
+       {"id":"page-details","title":"Details","widgets":[
+         {"id":"w3","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10","settings":{"title":"Most Prolific Directors"}}
+       ],"gridLayout":[
+         {"i":"w3","x":0,"y":0,"w":12,"h":5}
+       ]}
+     ]}'::jsonb),
+    ('dash-002', 'user-bob-002', 'default', 'Actor Network', 'Graph-based actor collaboration insights', false,
+     '{"version":2,"pages":[
+       {"id":"page-1","title":"Page 1","widgets":[
+         {"id":"w1","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10","settings":{"title":"Most Prolific Directors"}}
+       ],"gridLayout":[
+         {"i":"w1","x":0,"y":0,"w":12,"h":5}
+       ]}
+     ]}'::jsonb);
+
+-- Seed dashboard share (Alice shares her dashboard with Bob as viewer)
+INSERT INTO "dashboard_share" ("id", "dashboardId", "userId", "tenant_id", "role") VALUES
+    ('share-001', 'dash-001', 'user-bob-002', 'default', 'viewer');
