@@ -8,6 +8,15 @@ export interface WidgetTemplateFilters {
   connectorType?: string;
 }
 
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export function useWidgetTemplates(filters?: WidgetTemplateFilters) {
   const params = new URLSearchParams();
   if (filters?.chartType) params.set("chartType", filters.chartType);
@@ -16,11 +25,9 @@ export function useWidgetTemplates(filters?: WidgetTemplateFilters) {
 
   return useQuery<WidgetTemplate[]>({
     queryKey: ["widget-templates", filters],
-    queryFn: async () => {
+    queryFn: () => {
       const url = qs ? `/api/widget-templates?${qs}` : "/api/widget-templates";
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch widget templates");
-      return res.json();
+      return fetchJson<WidgetTemplate[]>(url);
     },
   });
 }
@@ -55,18 +62,12 @@ export function useCreateWidgetTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateWidgetTemplateInput) => {
-      const res = await fetch("/api/widget-templates", {
+    mutationFn: (input: CreateWidgetTemplateInput) =>
+      fetchJson<WidgetTemplate>("/api/widget-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { error?: string }).error ?? "Failed to create template");
-      }
-      return res.json() as Promise<WidgetTemplate>;
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["widget-templates"] });
     },
@@ -77,18 +78,12 @@ export function useUpdateWidgetTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...input }: UpdateWidgetTemplateInput & { id: string }) => {
-      const res = await fetch(`/api/widget-templates/${id}`, {
+    mutationFn: ({ id, ...input }: UpdateWidgetTemplateInput & { id: string }) =>
+      fetchJson<WidgetTemplate>(`/api/widget-templates/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { error?: string }).error ?? "Failed to update template");
-      }
-      return res.json() as Promise<WidgetTemplate>;
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["widget-templates"] });
     },
@@ -99,11 +94,8 @@ export function useDeleteWidgetTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/widget-templates/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete template");
-      return res.json();
-    },
+    mutationFn: (id: string) =>
+      fetchJson<{ success: boolean }>(`/api/widget-templates/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["widget-templates"] });
     },

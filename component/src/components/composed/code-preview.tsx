@@ -17,7 +17,7 @@ export interface CodePreviewProps {
  * in cards and thumbnails. Designed to be an accent element, not the
  * primary content of the card.
  */
-function CodePreview({ value, language, maxLines = 3, className }: CodePreviewProps) {
+function CodePreview({ value, language, maxLines = 3, className }: Readonly<CodePreviewProps>) {
   const [expanded, setExpanded] = React.useState(false);
   const text = value || "No query";
 

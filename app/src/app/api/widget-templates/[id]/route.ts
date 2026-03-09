@@ -4,15 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-
-/** Max size for preview image data URIs (500 KB). */
-const MAX_PREVIEW_SIZE = 500 * 1024;
-
-const previewImageUrlSchema = z
-  .string()
-  .refine((s) => s.startsWith("data:image/"), "Must be a data:image/ URI")
-  .refine((s) => s.length <= MAX_PREVIEW_SIZE, `Preview image must be under ${MAX_PREVIEW_SIZE / 1024}KB`)
-  .optional();
+import { previewImageUrlSchema, handleRouteError } from "../shared";
 
 const updateTemplateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -26,6 +18,32 @@ const updateTemplateSchema = z.object({
   settings: z.record(z.unknown()).optional(),
   previewImageUrl: previewImageUrlSchema,
 });
+
+/** Require a writable session and verify the caller owns the template (or is admin). */
+async function requireOwnedTemplate(id: string) {
+  const session = await requireSession();
+  const { userId, role, canWrite, tenantId } = session;
+
+  if (!canWrite) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) } as const;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(widgetTemplates)
+    .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
+    .limit(1);
+
+  if (!existing) {
+    return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) } as const;
+  }
+
+  if (existing.createdBy !== userId && role !== "admin") {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) } as const;
+  }
+
+  return { template: existing, session } as const;
+}
 
 export async function GET(
   _request: Request,
@@ -47,10 +65,7 @@ export async function GET(
 
     return NextResponse.json(template);
   } catch (err) {
-    if (err instanceof Error && err.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleRouteError(err);
   }
 }
 
@@ -59,26 +74,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role, canWrite, tenantId } = await requireSession();
     const { id } = await params;
-
-    if (!canWrite) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const [existing] = await db
-      .select()
-      .from(widgetTemplates)
-      .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
-      .limit(1);
-
-    if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    if (existing.createdBy !== userId && role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const result = await requireOwnedTemplate(id);
+    if ("error" in result) return result.error;
+    const { tenantId } = result.session;
 
     const body = await request.json();
     const parsed = updateTemplateSchema.safeParse(body);
@@ -103,10 +102,7 @@ export async function PUT(
 
     return NextResponse.json(updated);
   } catch (err) {
-    if (err instanceof Error && err.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleRouteError(err);
   }
 }
 
@@ -115,26 +111,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role, canWrite, tenantId } = await requireSession();
     const { id } = await params;
-
-    if (!canWrite) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const [existing] = await db
-      .select()
-      .from(widgetTemplates)
-      .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
-      .limit(1);
-
-    if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    if (existing.createdBy !== userId && role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const result = await requireOwnedTemplate(id);
+    if ("error" in result) return result.error;
+    const { tenantId } = result.session;
 
     await db
       .delete(widgetTemplates)
@@ -142,9 +122,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    if (err instanceof Error && err.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleRouteError(err);
   }
 }

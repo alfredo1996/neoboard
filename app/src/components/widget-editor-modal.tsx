@@ -819,7 +819,14 @@ export function WidgetEditorModal({
         <>
         <DialogHeader>
           <DialogTitle>
-            {mode === "lab-edit" ? "Edit Template" : mode === "lab-create" ? "Create Template" : mode === "edit" ? "Edit Widget" : "Add Widget"}
+            {(() => {
+              switch (mode) {
+                case "lab-edit": return "Edit Template";
+                case "lab-create": return "Create Template";
+                case "edit": return "Edit Widget";
+                default: return "Add Widget";
+              }
+            })()}
           </DialogTitle>
         </DialogHeader>
 

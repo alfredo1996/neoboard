@@ -195,7 +195,7 @@ function QueryEditor({
         viewRef.current = null;
       }
       // Remove leftover DOM nodes and clear the ready signal
-      containerRef.current.removeAttribute("data-editor-ready");
+      delete containerRef.current.dataset.editorReady;
       while (containerRef.current.firstChild) {
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
