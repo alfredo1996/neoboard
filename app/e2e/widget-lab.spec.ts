@@ -242,7 +242,7 @@ test.describe("Widget Lab", () => {
       ).toBeVisible();
     });
 
-    test("From Template picker shows preview images or placeholders for each template", async ({
+    test("From Template picker shows code preview for each template", async ({
       page,
     }) => {
       // Open Add Widget dialog
@@ -259,10 +259,8 @@ test.describe("Widget Lab", () => {
       const card = browseDialog.locator("button").filter({ hasText: templateName });
       await expect(card).toBeVisible({ timeout: 10_000 });
 
-      // The card should contain either a preview image or a placeholder
-      const hasImage = await card.locator("[data-testid='template-preview-image']").count();
-      const hasPlaceholder = await card.locator("[data-testid='template-preview-placeholder']").count();
-      expect(hasImage + hasPlaceholder).toBeGreaterThanOrEqual(1);
+      // The card should contain a code preview with the query text
+      await expect(card.locator("[data-testid='code-preview']")).toBeVisible();
     });
   });
 
@@ -372,23 +370,21 @@ test.describe("Widget Lab", () => {
       await expect(page.getByText(origName)).not.toBeVisible();
     });
 
-    test("template cards show preview image when available", async ({
+    test("template cards show code preview with query text", async ({
       page,
     }) => {
       test.setTimeout(60_000);
 
-      // Create a template with a fake preview image via API
+      // Create a template via API
       const templateName = `E2E Preview ${Date.now()}`;
-      // Minimal valid JPEG data URI (1x1 pixel)
-      const fakePreview = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYI4Q/SFhSRFJiSCcqDhkVFR0qH/2gAMAwEAAhEDEQA/AP/Z";
+      const queryText = "MATCH (n) RETURN n LIMIT 10";
 
       const createRes = await page.request.post("/api/widget-templates", {
         data: {
           name: templateName,
           chartType: "bar",
           connectorType: "neo4j",
-          query: "RETURN 1",
-          previewImageUrl: fakePreview,
+          query: queryText,
         },
       });
       expect(createRes.ok()).toBeTruthy();
@@ -399,10 +395,11 @@ test.describe("Widget Lab", () => {
       await page.goto("/widget-lab");
       await expect(page.getByText(templateName)).toBeVisible({ timeout: 10_000 });
 
-      // The template card should show the preview image (not the placeholder)
+      // The template card should show a code preview containing the query
       const card = page.locator("[data-testid='template-card']").filter({ hasText: templateName });
-      await expect(card.locator("[data-testid='template-preview-image']")).toBeVisible();
-      await expect(card.locator("[data-testid='template-preview-placeholder']")).not.toBeVisible();
+      const codePreview = card.locator("[data-testid='code-preview']");
+      await expect(codePreview).toBeVisible();
+      await expect(codePreview).toContainText(queryText);
     });
 
     test("editing a template does not affect widgets already on dashboards", async ({

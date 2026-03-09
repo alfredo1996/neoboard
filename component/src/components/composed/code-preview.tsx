@@ -27,6 +27,7 @@ function CodePreview({ value, language, maxLines = 3, className }: CodePreviewPr
 
   return (
     <div
+      data-testid="code-preview"
       className={cn(
         "relative rounded-md bg-muted/40 overflow-hidden",
         className,
