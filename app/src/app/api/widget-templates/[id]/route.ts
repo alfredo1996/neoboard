@@ -20,6 +20,7 @@ const updateTemplateSchema = z.object({
   tags: z.array(z.string()).optional(),
   chartType: z.string().min(1).optional(),
   connectorType: z.enum(["neo4j", "postgresql"]).optional(),
+  connectionId: z.string().nullable().optional(),
   query: z.string().optional(),
   params: z.record(z.unknown()).optional(),
   settings: z.record(z.unknown()).optional(),

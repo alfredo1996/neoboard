@@ -20,6 +20,7 @@ const createTemplateSchema = z.object({
   tags: z.array(z.string()).optional(),
   chartType: z.string().min(1),
   connectorType: z.enum(["neo4j", "postgresql"]),
+  connectionId: z.string().optional(),
   query: z.string().default(""),
   params: z.record(z.unknown()).optional(),
   settings: z.record(z.unknown()).optional(),
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
+    // Strip connectionId from settings (it's now a top-level column)
     const settings = data.settings
       ? { ...data.settings, connectionId: undefined }
       : data.settings;

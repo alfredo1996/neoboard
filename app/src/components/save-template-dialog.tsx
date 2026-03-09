@@ -68,6 +68,7 @@ export function SaveTemplateDialog({
         tags: tags.length > 0 ? tags : undefined,
         chartType: widget.chartType,
         connectorType,
+        connectionId: widget.connectionId || undefined,
         query: widget.query,
         params: widget.params,
         settings: widget.settings

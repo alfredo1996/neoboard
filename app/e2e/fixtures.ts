@@ -52,14 +52,14 @@ export function getPreview(dialog: import("@playwright/test").Locator) {
 /**
  * Safely type text into the CodeMirror editor inside a dialog.
  *
- * Waits for CM6 to mount and become writable, then uses browser-level
- * `keyboard.insertText()` which works in both dev and production builds
- * (unlike the CM6 internal `cmView` API which gets minified away).
+ * Uses CM6's `view.dispatch()` API via `page.evaluate()` to bypass the
+ * contenteditable layer entirely. This eliminates the race where React's
+ * `data-readonly` and the DOM's `contenteditable` both show "writable"
+ * but CM6's internal EditorState readonly compartment hasn't reconfigured
+ * yet, causing `keyboard.insertText()` to be silently dropped.
  *
- * Uses a retry loop because the React `data-readonly` attribute and even
- * CM6's `contenteditable` can briefly show "writable" during mount/remount
- * before the readonly compartment reconfiguration takes effect. The retry
- * verifies the text was actually inserted and clears stale state if needed.
+ * Falls back to keyboard insertion if the CM6 view is not accessible
+ * (e.g. in production builds where `cmView` may be inaccessible).
  */
 export async function typeInEditor(
   dialog: import("@playwright/test").Locator,
@@ -69,28 +69,63 @@ export async function typeInEditor(
   const cmContainer = dialog.locator("[data-testid='codemirror-container']");
   const cm = cmContainer.locator(".cm-content");
 
-  // Wait for CM6 to mount
-  await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 10_000 });
-
-  // Wait for the React wrapper to signal writable
-  await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 10_000 });
-
-  // Retry inserting text until it actually appears in the editor.
-  // CM6 readonly compartment reconfiguration can lag behind React attribute.
+  // Retry until text is successfully inserted via CM6 dispatch or keyboard fallback.
+  // All waits are inside the retry loop to handle chart-type changes that
+  // destroy and recreate the CM6 editor mid-flow.
   await expect(async () => {
-    // Ensure CM6 contenteditable is true before each attempt
-    await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 2_000 });
-    await cm.click();
-    // Select all + delete to clear any partial/stale content from previous attempts
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.insertText(query);
-    // Verify the text was actually inserted (check first 20 chars)
-    const text = await cm.textContent();
-    if (!text || !text.includes(query.substring(0, 20))) {
-      throw new Error("Query text not inserted — CM6 likely still readonly");
+    // Wait for CM6 to mount (re-checked each iteration in case of remount)
+    await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 5_000 });
+
+    // Wait for the React wrapper to signal writable
+    await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 5_000 });
+
+    // Wait for initEditor to complete (view + compartments fully initialized).
+    // This prevents the race where data-readonly is "false" but the CM6 view
+    // hasn't been created yet because async imports are still in progress.
+    await expect(cmContainer).toHaveAttribute("data-editor-ready", "true", { timeout: 5_000 });
+
+    // Strategy 1: Use CM6's internal dispatch API (most reliable).
+    // In CM6 v6.x, each DOM node managed by the editor has a `cmTile`
+    // property (Tile instance). The `.cm-content` element's cmTile is a
+    // DocTile whose `.root.view` yields the EditorView. This mirrors the
+    // logic of the static `EditorView.findFromDOM()` method.
+    const dispatched = await cmContainer.evaluate((el: HTMLElement, text: string) => {
+      const cmContent = el.querySelector(".cm-content");
+      if (!cmContent) return "no-editor";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tile = (cmContent as any).cmTile;
+      const view = tile?.root?.view ?? tile?.view;
+      if (!view) return "no-view";
+      if (view.state.readOnly) return "readonly";
+
+      // Replace entire document content
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+      });
+      return view.state.doc.toString().includes(text.substring(0, 20))
+        ? "ok"
+        : "dispatch-failed";
+    }, query);
+
+    if (dispatched === "ok") return;
+
+    // Strategy 2: Keyboard fallback (for environments where cmView is not accessible)
+    if (dispatched === "no-view") {
+      await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 2_000 });
+      await cm.click();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.press("Backspace");
+      await page.keyboard.insertText(query);
+      const text = await cm.textContent();
+      if (!text || !text.includes(query.substring(0, 20))) {
+        throw new Error("Keyboard fallback: text not inserted");
+      }
+      return;
     }
-  }).toPass({ timeout: 15_000 });
+
+    // Retry-worthy states: no-editor, readonly, dispatch-failed
+    throw new Error(`CM6 dispatch returned "${dispatched}" — retrying`);
+  }).toPass({ timeout: 20_000 });
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
   ConfirmDialog,
+  CodePreview,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
@@ -40,27 +41,13 @@ function TemplateCard({
     getChartConfig(template.chartType)?.label ?? template.chartType;
 
   return (
-    <div className="rounded-lg border bg-card flex flex-col gap-0 overflow-hidden" data-testid="template-card">
-      {/* Preview image or placeholder */}
-      {template.previewImageUrl ? (
-        <img
-          src={template.previewImageUrl}
-          alt={`Preview of ${template.name}`}
-          className="w-full aspect-[4/3] object-cover bg-muted"
-          data-testid="template-preview-image"
-        />
-      ) : (
-        <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center" data-testid="template-preview-placeholder">
-          <FlaskConical className="h-10 w-10 text-muted-foreground/30" />
-        </div>
-      )}
-
-      <div className="p-4 flex flex-col gap-3">
+    <div className="rounded-lg border bg-card flex flex-col overflow-hidden" data-testid="template-card">
+      <div className="p-3 flex flex-col gap-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{template.name}</p>
             {template.description && (
-              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                 {template.description}
               </p>
             )}
@@ -70,42 +57,48 @@ function TemplateCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
                 onClick={onEdit}
                 aria-label="Edit template"
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
             )}
             {canDelete && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 onClick={onDelete}
                 aria-label="Delete template"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="secondary">{chartLabel}</Badge>
-          <Badge variant="outline">{template.connectorType}</Badge>
-          {(template.tags ?? []).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs font-normal">
-              {tag}
-            </Badge>
-          ))}
-        </div>
+        <CodePreview
+          value={template.query}
+          language={template.connectorType === "postgresql" ? "SQL" : "Cypher"}
+        />
 
-        {template.createdAt && (
-          <p className="text-xs text-muted-foreground">
-            Saved {new Date(template.createdAt).toLocaleDateString()}
-          </p>
-        )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="secondary" className="text-xs">{chartLabel}</Badge>
+            <Badge variant="outline" className="text-xs">{template.connectorType}</Badge>
+            {(template.tags ?? []).map((tag) => (
+              <Badge key={tag} variant="outline" className="text-[10px] font-normal">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+          {template.createdAt && (
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              {new Date(template.createdAt).toLocaleDateString()}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -255,7 +248,7 @@ export default function WidgetLabPage() {
             )
           )}
           {!isLoading && filtered.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {filtered.map((template) => (
                 <TemplateCard
                   key={template.id}

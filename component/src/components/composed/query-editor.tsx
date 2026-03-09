@@ -194,7 +194,8 @@ function QueryEditor({
         viewRef.current.destroy();
         viewRef.current = null;
       }
-      // Remove leftover DOM nodes
+      // Remove leftover DOM nodes and clear the ready signal
+      containerRef.current.removeAttribute("data-editor-ready");
       while (containerRef.current.firstChild) {
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
@@ -260,6 +261,12 @@ function QueryEditor({
 
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
+
+      // Signal that the editor is fully initialized and ready for input.
+      // E2E tests use this to wait until CM6's view and compartments are set up,
+      // avoiding the race where data-readonly="false" but the view hasn't been
+      // created yet (causing dispatched text to be silently dropped).
+      containerRef.current?.setAttribute("data-editor-ready", "true");
     },
     // language and readOnly are captured at mount time; changes after mount
     // are handled by the compartment effects below (no remount needed).

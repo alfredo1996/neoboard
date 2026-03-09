@@ -144,6 +144,8 @@ export const widgetTemplates = pgTable("widget_template", {
   tags: text("tags").array().default([]),
   chartType: text("chartType").notNull(),
   connectorType: text("connectorType").notNull(),
+  /** Optional binding to a specific connection. Nullable — templates work without it. */
+  connectionId: text("connectionId"),
   query: text("query").notNull().default(""),
   params: jsonb("params").$type<Record<string, unknown>>(),
   settings: jsonb("settings").$type<Record<string, unknown>>(),

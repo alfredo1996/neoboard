@@ -8,7 +8,7 @@ import type { ConnectionListItem } from "@/hooks/use-connections";
 import { collectParameterNames } from "@/lib/collect-parameter-names";
 import { AlertCircle, AlertTriangle, Play, FlaskConical } from "lucide-react";
 import { useWidgetTemplates, useCreateWidgetTemplate, useUpdateWidgetTemplate } from "@/hooks/use-widget-templates";
-import { capturePreview } from "@/lib/capture-preview";
+
 import {
   ChartOptionsPanel,
   ChartSettingsPanel,
@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
   Checkbox,
+  CodePreview,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -137,6 +138,7 @@ export function WidgetEditorModal({
   );
 
   const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules" | "templates">("main");
+  const [templateSearch, setTemplateSearch] = useState("");
 
   // Lab-mode metadata state
   const [labName, setLabName] = useState(templateProp?.name ?? "");
@@ -247,6 +249,20 @@ export function WidgetEditorModal({
     setChartOptions(
       (t.settings?.chartOptions as Record<string, unknown>) ?? getDefaultChartSettings(t.chartType)
     );
+
+    // Auto-populate connector if none selected yet
+    if (!connectionId) {
+      if (t.connectionId && connections.some((c) => c.id === t.connectionId)) {
+        // Prefer the template's bound connection if it exists
+        setConnectionId(t.connectionId);
+      } else if (t.connectorType) {
+        // Fall back to first connection of matching type
+        const match = connections.find((c) => c.type === t.connectorType);
+        if (match) setConnectionId(match.id);
+      }
+    }
+
+    setTemplateSearch("");
     setDialogStep("main");
   }
   const editorLanguage: "cypher" | "sql" =
@@ -442,7 +458,7 @@ export function WidgetEditorModal({
       } else if (mode === "lab-edit" && templateProp) {
         // Initialize from template
         setChartType(templateProp.chartType);
-        setConnectionId(""); // templates don't store connectionId — user must select
+        setConnectionId(templateProp.connectionId ?? "");
         setQuery(templateProp.query ?? "");
         setTitle((templateProp.settings?.title as string) ?? "");
         setChartOptions(
@@ -673,12 +689,6 @@ export function WidgetEditorModal({
     const selectedConn = connections.find((c) => c.id === connectionId);
     const connectorType: "neo4j" | "postgresql" = selectedConn?.type ?? "neo4j";
 
-    // Capture preview from the preview pane
-    let previewImageUrl: string | undefined;
-    if (previewRef.current) {
-      previewImageUrl = capturePreview(previewRef.current, chartType);
-    }
-
     const tags = labTagsInput
       .split(",")
       .map((t) => t.trim())
@@ -690,6 +700,7 @@ export function WidgetEditorModal({
       tags: tags.length > 0 ? tags : undefined,
       chartType,
       connectorType,
+      connectionId: connectionId || undefined,
       query,
       settings: {
         title: title || undefined,
@@ -697,7 +708,6 @@ export function WidgetEditorModal({
         stylingConfig: buildStylingConfig(),
         clickAction: buildClickAction(),
       },
-      previewImageUrl,
     };
 
     try {
@@ -747,6 +757,14 @@ export function WidgetEditorModal({
               <DialogTitle>Browse Templates</DialogTitle>
             </DialogHeader>
             <div className="py-4 flex-1 overflow-y-auto min-h-[400px]">
+              {!templatesLoading && templates && templates.length > 0 && (
+                <Input
+                  placeholder="Search by name..."
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  className="mb-3 max-w-xs"
+                />
+              )}
               {templatesLoading && (
                 <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
                   <p className="text-sm">Loading templates...</p>
@@ -758,43 +776,40 @@ export function WidgetEditorModal({
                   <p className="text-sm">No templates available{selectedConnectorType ? ` for ${selectedConnectorType}` : ""}.</p>
                 </div>
               )}
-              {!templatesLoading && templates && templates.length > 0 && (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {templates.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => applyTemplate(t)}
-                      className="text-left rounded-lg border p-3 hover:bg-accent transition-colors flex flex-col gap-2"
-                    >
-                      {t.previewImageUrl ? (
-                        <img
-                          src={t.previewImageUrl}
-                          alt={`Preview of ${t.name}`}
-                          className="w-full aspect-[4/3] object-cover rounded bg-muted"
-                          data-testid="template-preview-image"
+              {!templatesLoading && templates && templates.length > 0 && (() => {
+                const filtered = templateSearch
+                  ? templates.filter((t) => t.name.toLowerCase().includes(templateSearch.toLowerCase()))
+                  : templates;
+                return filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
+                    <p className="text-sm">No templates match &ldquo;{templateSearch}&rdquo;</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {filtered.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => applyTemplate(t)}
+                        className="text-left rounded-lg border p-2 hover:bg-accent transition-colors flex flex-col gap-1.5"
+                      >
+                        <CodePreview
+                          value={t.query}
+                          language={t.connectorType === "postgresql" ? "SQL" : "Cypher"}
+                          maxLines={2}
                         />
-                      ) : (
-                        <div className="w-full aspect-[4/3] rounded bg-muted flex items-center justify-center" data-testid="template-preview-placeholder">
-                          <FlaskConical className="h-8 w-8 text-muted-foreground/40" />
+                        <span className="font-medium text-xs truncate w-full">{t.name}</span>
+                        <div className="flex gap-1 flex-wrap">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{getChartConfig(t.chartType)?.label ?? t.chartType}</Badge>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{t.connectorType}</Badge>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-sm truncate">{t.name}</span>
-                        <div className="flex gap-1 shrink-0">
-                          <Badge variant="secondary" className="text-xs">{getChartConfig(t.chartType)?.label ?? t.chartType}</Badge>
-                          <Badge variant="outline" className="text-xs">{t.connectorType}</Badge>
-                        </div>
-                      </div>
-                      {t.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{t.description}</p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogStep("main")}>
+              <Button variant="outline" onClick={() => { setTemplateSearch(""); setDialogStep("main"); }}>
                 Back
               </Button>
             </DialogFooter>

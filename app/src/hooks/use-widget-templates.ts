@@ -31,6 +31,7 @@ export interface CreateWidgetTemplateInput {
   tags?: string[];
   chartType: string;
   connectorType: "neo4j" | "postgresql";
+  connectionId?: string;
   query?: string;
   params?: Record<string, unknown>;
   settings?: Record<string, unknown>;
@@ -43,6 +44,7 @@ export interface UpdateWidgetTemplateInput {
   tags?: string[];
   chartType?: string;
   connectorType?: "neo4j" | "postgresql";
+  connectionId?: string | null;
   query?: string;
   params?: Record<string, unknown>;
   settings?: Record<string, unknown>;

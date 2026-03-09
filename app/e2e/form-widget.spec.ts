@@ -528,9 +528,20 @@ test.describe("Write permission enforcement", () => {
     });
 
     // Disable can_write for the creator
-    await page.request.patch(`/api/users/${creatorUserId}`, {
+    const patchRes = await page.request.patch(`/api/users/${creatorUserId}`, {
       data: { canWrite: false },
     });
+    expect(patchRes.ok()).toBeTruthy();
+
+    // Verify the patch committed before closing the context — avoids the
+    // race where context.close() fires before the DB write completes,
+    // causing the next login session to carry stale canWrite=true.
+    const verifyRes = await page.request.get("/api/users");
+    expect(verifyRes.ok()).toBeTruthy();
+    const updatedUsers = await verifyRes.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patched = updatedUsers.find((u: any) => u.id === creatorUserId);
+    expect(patched?.canWrite).toBe(false);
 
     await context.close();
   });
