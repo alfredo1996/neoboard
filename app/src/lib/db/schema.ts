@@ -135,6 +135,33 @@ export const dashboardShares = pgTable("dashboard_share", {
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
 });
 
+export const widgetTemplates = pgTable("widget_template", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  description: text("description"),
+  tags: text("tags").array().default([]),
+  chartType: text("chartType").notNull(),
+  connectorType: text("connectorType").notNull(),
+  /** Optional binding to a specific connection. Nullable — templates work without it. */
+  connectionId: text("connectionId"),
+  query: text("query").notNull().default(""),
+  params: jsonb("params").$type<Record<string, unknown>>(),
+  settings: jsonb("settings").$type<Record<string, unknown>>(),
+  /** Base64 data-URI PNG preview of the chart, captured on save */
+  previewImageUrl: text("previewImageUrl"),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
+  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+});
+
+export type WidgetTemplate = typeof widgetTemplates.$inferSelect;
+export type NewWidgetTemplate = typeof widgetTemplates.$inferInsert;
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export type UserRole = "admin" | "creator" | "reader";
@@ -177,6 +204,10 @@ export interface DashboardWidget {
   query: string;
   params?: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  /** ID of the Widget Lab template this widget was created from. */
+  templateId?: string;
+  /** ISO timestamp of the template snapshot at apply-time (= template.updatedAt). */
+  templateSyncedAt?: string;
 }
 
 export interface GridLayoutItem {

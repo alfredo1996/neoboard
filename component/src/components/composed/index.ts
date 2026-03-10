@@ -100,6 +100,7 @@ export { FormWidget, type FormWidgetProps, type FormFieldDef } from "./form-widg
 
 // Query
 export { QueryEditor, type QueryEditorProps } from "./query-editor";
+export { CodePreview, type CodePreviewProps } from "./code-preview";
 
 // Column Mapping
 export {

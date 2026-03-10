@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Database, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, Database, Users, LogOut, FlaskConical } from "lucide-react";
 import {
   AppShell,
   Sidebar,
@@ -76,6 +76,13 @@ export default function DashboardLayout({
             active={pathname === "/users"}
             collapsed={collapsed}
             onClick={() => router.push("/users")}
+          />
+          <SidebarItem
+            icon={<FlaskConical className="h-4 w-4" />}
+            label="Widget Lab"
+            active={pathname === "/widget-lab"}
+            collapsed={collapsed}
+            onClick={() => router.push("/widget-lab")}
           />
         </Sidebar>
       }

@@ -8,10 +8,11 @@ import type {
   DashboardPage,
   DashboardWidget,
   GridLayoutItem,
+  WidgetTemplate,
 } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
 import { formatParameterValue, filterParentParams } from "@/lib/format-parameter-value";
-import { LayoutDashboard, Maximize2 } from "lucide-react";
+import { LayoutDashboard, Maximize2, RefreshCw } from "lucide-react";
 import {
   WidgetCard,
   EmptyState,
@@ -21,6 +22,14 @@ import {
   Button,
   ParameterBar,
   CrossFilterTag,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@neoboard/components";
 
 interface DashboardContainerProps {
@@ -40,6 +49,14 @@ interface DashboardContainerProps {
   refetchInterval?: number | false;
   /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
+  /** Called when the user chooses "Save to Widget Lab" for a widget. */
+  onSaveAsTemplate?: (widget: DashboardWidget) => void;
+  /** Map of template ID → template for outdated-sync detection. */
+  templateMap?: Record<string, WidgetTemplate>;
+  /** Called when the user confirms "Sync with template". */
+  onSyncWidget?: (widget: DashboardWidget) => void;
+  /** Called when the user chooses "Detach from template". */
+  onDetachWidget?: (widgetId: string) => void;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -60,8 +77,14 @@ export function DashboardContainer({
   onWidgetSettingsChange,
   refetchInterval,
   onNavigateToPage,
+  onSaveAsTemplate,
+  templateMap,
+  onSyncWidget,
+  onDetachWidget,
 }: DashboardContainerProps) {
   const [fullscreenWidget, setFullscreenWidget] =
+    useState<DashboardWidget | null>(null);
+  const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
@@ -83,6 +106,13 @@ export function DashboardContainer({
     );
   }
 
+  function isWidgetOutdated(widget: DashboardWidget): boolean {
+    if (!widget.templateId || !widget.templateSyncedAt) return false;
+    const tmpl = templateMap?.[widget.templateId];
+    if (!tmpl?.updatedAt) return false;
+    return new Date(tmpl.updatedAt) > new Date(widget.templateSyncedAt);
+  }
+
   const buildActions = (widget: DashboardWidget) => {
     if (!editable) return undefined;
     const actions = [];
@@ -98,12 +128,26 @@ export function DashboardContainer({
         onClick: () => onDuplicateWidget(widget.id),
       });
     }
-    // Widget Lab is not yet built — option is visible but disabled.
-    actions.push({
-      label: "Save to Widget Lab",
-      onClick: () => undefined,
-      disabled: true,
-    });
+    if (onSaveAsTemplate) {
+      actions.push({
+        label: "Save to Widget Lab",
+        onClick: () => onSaveAsTemplate(widget),
+      });
+    }
+    if (widget.templateId) {
+      if (isWidgetOutdated(widget) && onSyncWidget) {
+        actions.push({
+          label: "Sync with template",
+          onClick: () => setPendingSyncWidget(widget),
+        });
+      }
+      if (onDetachWidget) {
+        actions.push({
+          label: "Detach from template",
+          onClick: () => onDetachWidget(widget.id),
+        });
+      }
+    }
     if (onRemoveWidget) {
       actions.push({
         label: "Remove",
@@ -135,7 +179,9 @@ export function DashboardContainer({
         isDraggable={editable}
         isResizable={editable}
       >
-        {page.widgets.map((widget) => (
+        {page.widgets.map((widget) => {
+          const outdated = editable && isWidgetOutdated(widget);
+          return (
           <div key={widget.id} data-testid="widget-card">
             <WidgetCard
               title={interpolateTitle(getWidgetTitle(widget), parameters)}
@@ -144,15 +190,29 @@ export function DashboardContainer({
               draggable={editable}
               actions={buildActions(widget)}
               headerExtra={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setFullscreenWidget(widget)}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                  <span className="sr-only">Fullscreen</span>
-                </Button>
+                <>
+                  {outdated && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-amber-500"
+                      onClick={() => setPendingSyncWidget(widget)}
+                      title="Template update available — click to sync"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      <span className="sr-only">Template update available</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFullscreenWidget(widget)}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                    <span className="sr-only">Fullscreen</span>
+                  </Button>
+                </>
               }
             >
               <CardContainer
@@ -168,7 +228,8 @@ export function DashboardContainer({
               />
             </WidgetCard>
           </div>
-        ))}
+          );
+        })}
       </DashboardGrid>
 
       <Dialog
@@ -190,6 +251,36 @@ export function DashboardContainer({
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={pendingSyncWidget !== null}
+        onOpenChange={(open) => { if (!open) setPendingSyncWidget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sync with template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace the widget&apos;s current query, chart type, and
+              chart options with the latest version from the template. The
+              connection will not change. You can still undo by discarding your
+              dashboard save.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSyncWidget && onSyncWidget) {
+                  onSyncWidget(pendingSyncWidget);
+                }
+                setPendingSyncWidget(null);
+              }}
+            >
+              Sync
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

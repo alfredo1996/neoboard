@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useCallback, useRef, useState } from "react";
+import { use, useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Plus, Save, LayoutDashboard, Users } from "lucide-react";
@@ -9,12 +9,14 @@ import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useParameterStore } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
+import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
+import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import { migrateLayout } from "@/lib/migrate-layout";
-import type { DashboardWidget, GridLayoutItem } from "@/lib/db/schema";
+import type { DashboardWidget, GridLayoutItem, WidgetTemplate } from "@/lib/db/schema";
 import {
   Button,
   Skeleton,
@@ -39,10 +41,10 @@ export default function DashboardEditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; templateId?: string }>;
 }) {
   const { id } = use(params);
-  const { page: pageParam } = use(searchParams);
+  const { page: pageParam, templateId: templateIdParam } = use(searchParams);
   const router = useRouter();
   const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
   const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
@@ -119,10 +121,49 @@ export default function DashboardEditorPage({
     [layout.pages, setActivePage]
   );
 
-  const [editorOpen, setEditorOpen] = useState(false);
+  // Template sync — fetch all tenant templates once; build lookup map
+  const { data: allTemplates } = useWidgetTemplates();
+  const templateMap = useMemo<Record<string, WidgetTemplate>>(
+    () => Object.fromEntries((allTemplates ?? []).map((t) => [t.id, t])),
+    [allTemplates]
+  );
+
+  const handleSyncWidget = useCallback(
+    (widget: DashboardWidget) => {
+      const tmpl = widget.templateId ? templateMap[widget.templateId] : undefined;
+      if (!tmpl) return; // template deleted — "Detach" will clean up
+      updateWidget(widget.id, {
+        ...widget,
+        chartType: tmpl.chartType,
+        query: tmpl.query ?? "",
+        settings: {
+          ...widget.settings,
+          ...(tmpl.settings ?? undefined),
+          // Never overwrite the widget's connection
+          connectionId: widget.settings?.connectionId,
+        },
+        templateSyncedAt: tmpl.updatedAt?.toISOString() ?? new Date().toISOString(),
+      });
+    },
+    [templateMap, updateWidget]
+  );
+
+  const handleDetachWidget = useCallback(
+    (widgetId: string) => {
+      const page = layout.pages.find((p) => p.widgets.some((w) => w.id === widgetId));
+      const widget = page?.widgets.find((w) => w.id === widgetId);
+      if (!widget) return;
+      updateWidget(widgetId, { ...widget, templateId: undefined, templateSyncedAt: undefined });
+    },
+    [layout.pages, updateWidget]
+  );
+
+  const [editorOpen, setEditorOpen] = useState(!!templateIdParam);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [templateWidget, setTemplateWidget] = useState<DashboardWidget | undefined>();
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | undefined>(templateIdParam);
 
   // Redirect Readers away from edit mode
   useEffect(() => {
@@ -296,13 +337,36 @@ export default function DashboardEditorPage({
 
           <WidgetEditorModal
             open={editorOpen}
-            onOpenChange={setEditorOpen}
+            onOpenChange={(open) => {
+              setEditorOpen(open);
+              if (!open && pendingTemplateId) {
+                setPendingTemplateId(undefined);
+                // Clean up the templateId search param from the URL
+                router.replace(`/${id}/edit`, { scroll: false });
+              }
+            }}
             mode={editorMode}
             widget={editingWidget}
             connections={connections ?? []}
             onSave={handleEditorSave}
             layout={layout}
+            initialTemplate={pendingTemplateId ? templateMap[pendingTemplateId] : undefined}
           />
+
+          {templateWidget && (() => {
+            const conn = (connections ?? []).find((c) => c.id === templateWidget.connectionId);
+            if (!conn) return null;
+            return (
+              <SaveTemplateDialog
+                open={true}
+                onOpenChange={(open) => {
+                  if (!open) setTemplateWidget(undefined);
+                }}
+                widget={templateWidget}
+                connectorType={conn.type === "postgresql" ? "postgresql" : "neo4j"}
+              />
+            );
+          })()}
 
           <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
             {layout.pages.map((page, index) => {
@@ -345,6 +409,10 @@ export default function DashboardEditorPage({
                       }
                     }}
                     onNavigateToPage={handleNavigateToPage}
+                    onSaveAsTemplate={setTemplateWidget}
+                    templateMap={templateMap}
+                    onSyncWidget={handleSyncWidget}
+                    onDetachWidget={handleDetachWidget}
                   />
                 </div>
               );

@@ -1,6 +1,8 @@
 import { test, expect, ALICE } from "./fixtures";
 
-test.describe("Auto-refresh", () => {
+// Serial: both tests mutate the same seeded "Movie Analytics" dashboard.
+// Running in parallel causes one test to see the other's interval setting.
+test.describe.serial("Auto-refresh", () => {
   test.beforeEach(async ({ authPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
   });

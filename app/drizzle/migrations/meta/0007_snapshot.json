@@ -1,6 +1,6 @@
 {
-  "id": "38eea08c-d8b6-498f-ae9e-bfaf9ab5e1b8",
-  "prevId": "aafe637b-2158-45ac-a07f-2f11be9bb256",
+  "id": "cc0fe4c6-cd8a-4709-9bb8-0985da8df09a",
+  "prevId": "9d3a3c18-65e7-46ff-9eba-d83a8299489f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -427,6 +427,13 @@
           "notNull": true,
           "default": "'creator'"
         },
+        "can_write": {
+          "name": "can_write",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "timestamp",
@@ -539,6 +546,12 @@
         "settings": {
           "name": "settings",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previewImageUrl": {
+          "name": "previewImageUrl",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
