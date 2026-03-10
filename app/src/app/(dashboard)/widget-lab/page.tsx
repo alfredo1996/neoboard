@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { FlaskConical, Trash2, Pencil, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FlaskConical, Trash2, Pencil, Plus, LayoutDashboard } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useWidgetTemplates, useDeleteWidgetTemplate } from "@/hooks/use-widget-templates";
 import { useConnections } from "@/hooks/use-connections";
 import { getChartConfig } from "@/lib/chart-registry";
+import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
   PageHeader,
   EmptyState,
@@ -30,12 +32,14 @@ function TemplateCard({
   canDelete,
   onEdit,
   onDelete,
+  onUseInDashboard,
 }: {
   readonly template: WidgetTemplate;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  readonly onUseInDashboard: () => void;
 }) {
   const chartLabel =
     getChartConfig(template.chartType)?.label ?? template.chartType;
@@ -53,6 +57,15 @@ function TemplateCard({
             )}
           </div>
           <div className="flex gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onUseInDashboard}
+              aria-label="Use in Dashboard"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+            </Button>
             {canEdit && (
               <Button
                 variant="ghost"
@@ -105,6 +118,7 @@ function TemplateCard({
 }
 
 export default function WidgetLabPage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.id ?? "";
   const role = session?.user?.role ?? "creator";
@@ -118,6 +132,7 @@ export default function WidgetLabPage() {
   const [filterConnector, setFilterConnector] = useState<string>("all");
   const [filterTag, setFilterTag] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [useTarget, setUseTarget] = useState<string | null>(null);
 
   // Editor modal state
   const [editorOpen, setEditorOpen] = useState(false);
@@ -257,6 +272,7 @@ export default function WidgetLabPage() {
                   canDelete={canEditOrDelete(template)}
                   onEdit={() => handleEdit(template)}
                   onDelete={() => setDeleteTarget(template.id)}
+                  onUseInDashboard={() => setUseTarget(template.id)}
                 />
               ))}
             </div>
@@ -289,6 +305,14 @@ export default function WidgetLabPage() {
         connections={connections}
         onSave={() => {/* not used in lab mode */}}
         onLabSaved={() => setEditorOpen(false)}
+      />
+
+      <DashboardPickerDialog
+        open={useTarget !== null}
+        onOpenChange={(open) => { if (!open) setUseTarget(null); }}
+        onSelect={(dashboardId) => {
+          router.push(`/${dashboardId}/edit?templateId=${useTarget}`);
+        }}
       />
     </div>
   );

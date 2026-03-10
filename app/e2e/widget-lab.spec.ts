@@ -402,6 +402,64 @@ test.describe("Widget Lab", () => {
       await expect(codePreview).toContainText(queryText);
     });
 
+    test("Use in Dashboard opens picker dialog and navigates to dashboard editor", async ({
+      page,
+    }) => {
+      test.setTimeout(90_000);
+
+      // Create a template via API
+      const templateName = `E2E UseInDash ${Date.now()}`;
+      const queryText = "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5";
+      const createRes = await page.request.post("/api/widget-templates", {
+        data: {
+          name: templateName,
+          chartType: "bar",
+          connectorType: "neo4j",
+          query: queryText,
+        },
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const { id: tId } = await createRes.json();
+      templateId = tId;
+
+      // Create a dashboard to use as target
+      const { id: dashId, cleanup: dashCleanup } = await createTestDashboard(
+        page.request,
+        `UseInDash Target ${Date.now()}`,
+      );
+
+      try {
+        // Go to Widget Lab
+        await page.goto("/widget-lab");
+        await expect(page.getByText(templateName)).toBeVisible({ timeout: 10_000 });
+
+        // Click "Use in Dashboard" on the template card
+        const card = page.locator("[data-testid='template-card']").filter({ hasText: templateName });
+        await card.getByRole("button", { name: "Use in Dashboard" }).click();
+
+        // Dashboard picker dialog should appear
+        const pickerDialog = page.getByRole("dialog", { name: "Choose a Dashboard" });
+        await expect(pickerDialog).toBeVisible({ timeout: 10_000 });
+
+        // Click the target dashboard
+        await pickerDialog.locator("button").filter({ hasText: /UseInDash Target/ }).click();
+
+        // Should navigate to the dashboard edit page with templateId param
+        await expect(page).toHaveURL(new RegExp(`/${dashId}/edit\\?templateId=${tId}`));
+
+        // The Add Widget dialog should auto-open with the template applied
+        const addDialog = page.getByRole("dialog", { name: "Add Widget" });
+        await expect(addDialog).toBeVisible({ timeout: 15_000 });
+
+        // The query from the template should be pre-filled in the editor
+        await expect(
+          addDialog.locator("[data-testid='codemirror-container']"),
+        ).toBeVisible({ timeout: 10_000 });
+      } finally {
+        await dashCleanup();
+      }
+    });
+
     test("editing a template does not affect widgets already on dashboards", async ({
       page,
     }) => {

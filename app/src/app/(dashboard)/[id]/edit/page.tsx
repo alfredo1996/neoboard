@@ -41,10 +41,10 @@ export default function DashboardEditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; templateId?: string }>;
 }) {
   const { id } = use(params);
-  const { page: pageParam } = use(searchParams);
+  const { page: pageParam, templateId: templateIdParam } = use(searchParams);
   const router = useRouter();
   const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
   const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
@@ -158,11 +158,12 @@ export default function DashboardEditorPage({
     [layout.pages, updateWidget]
   );
 
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(!!templateIdParam);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [templateWidget, setTemplateWidget] = useState<DashboardWidget | undefined>();
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | undefined>(templateIdParam);
 
   // Redirect Readers away from edit mode
   useEffect(() => {
@@ -336,12 +337,20 @@ export default function DashboardEditorPage({
 
           <WidgetEditorModal
             open={editorOpen}
-            onOpenChange={setEditorOpen}
+            onOpenChange={(open) => {
+              setEditorOpen(open);
+              if (!open && pendingTemplateId) {
+                setPendingTemplateId(undefined);
+                // Clean up the templateId search param from the URL
+                router.replace(`/${id}/edit`, { scroll: false });
+              }
+            }}
             mode={editorMode}
             widget={editingWidget}
             connections={connections ?? []}
             onSave={handleEditorSave}
             layout={layout}
+            initialTemplate={pendingTemplateId ? templateMap[pendingTemplateId] : undefined}
           />
 
           {templateWidget && (() => {

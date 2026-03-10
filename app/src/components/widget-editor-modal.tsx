@@ -74,6 +74,8 @@ export interface WidgetEditorModalProps {
   onLabSaved?: () => void;
   /** Dashboard layout — used for page list and parameter name suggestions */
   layout?: DashboardLayoutV2;
+  /** Template to auto-apply when opening in add mode (from Widget Lab "Use in Dashboard") */
+  initialTemplate?: WidgetTemplate;
 }
 
 export function WidgetEditorModal({
@@ -86,6 +88,7 @@ export function WidgetEditorModal({
   onSave,
   onLabSaved,
   layout,
+  initialTemplate,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
   const [chartType, setChartType] = useState(widget?.chartType ?? "bar");
@@ -480,6 +483,25 @@ export function WidgetEditorModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, widget, templateProp]);
+
+  // Auto-apply a template when opening in add mode with initialTemplate (Widget Lab → Dashboard flow)
+  const initialTemplateAppliedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (
+      open &&
+      mode === "add" &&
+      initialTemplate &&
+      initialTemplateAppliedRef.current !== initialTemplate.id
+    ) {
+      initialTemplateAppliedRef.current = initialTemplate.id;
+      // Use setTimeout to ensure the add-mode reset runs first
+      setTimeout(() => applyTemplate(initialTemplate), 0);
+    }
+    if (!open) {
+      initialTemplateAppliedRef.current = undefined;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mode, initialTemplate]);
 
   // Re-initialize chart options when chart type changes (add/lab-create mode only).
   // Skip reset when the change comes from applyTemplate to preserve template settings.
