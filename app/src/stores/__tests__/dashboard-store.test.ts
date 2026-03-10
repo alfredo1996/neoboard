@@ -478,4 +478,70 @@ describe("useDashboardStore", () => {
     const copyGrid = page.gridLayout[1];
     expect(copyGrid.i).toBe(copyWidget.id);
   });
+
+  // ── Template linking (snapshot + sync) ───────────────────────────
+
+  it("updateWidget can set templateId and templateSyncedAt on a widget", () => {
+    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const ts = new Date("2025-01-01T00:00:00.000Z").toISOString();
+    useDashboardStore.getState().updateWidget("w1", {
+      templateId: "tmpl-1",
+      templateSyncedAt: ts,
+    });
+    const updated = useDashboardStore.getState().layout.pages[0].widgets[0];
+    expect(updated.templateId).toBe("tmpl-1");
+    expect(updated.templateSyncedAt).toBe(ts);
+    // Other fields unchanged
+    expect(updated.chartType).toBe("bar");
+    expect(updated.query).toBe("q");
+  });
+
+  it("sync: updateWidget replaces chartType and query while keeping connectionId", () => {
+    const ts = new Date("2025-01-01T00:00:00.000Z").toISOString();
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "MATCH (n) RETURN n",
+      templateId: "tmpl-1",
+      templateSyncedAt: ts,
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+
+    const newTs = new Date("2025-06-01T00:00:00.000Z").toISOString();
+    useDashboardStore.getState().updateWidget("w1", {
+      chartType: "line",
+      query: "MATCH (n)-[r]->(m) RETURN n, r, m",
+      templateSyncedAt: newTs,
+    });
+
+    const synced = useDashboardStore.getState().layout.pages[0].widgets[0];
+    expect(synced.chartType).toBe("line");
+    expect(synced.query).toBe("MATCH (n)-[r]->(m) RETURN n, r, m");
+    expect(synced.connectionId).toBe("c1"); // preserved
+    expect(synced.templateSyncedAt).toBe(newTs);
+    expect(synced.templateId).toBe("tmpl-1"); // still linked
+  });
+
+  it("detach: updateWidget can clear templateId and templateSyncedAt", () => {
+    const ts = new Date("2025-01-01T00:00:00.000Z").toISOString();
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+      templateId: "tmpl-1",
+      templateSyncedAt: ts,
+    };
+    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore.getState().updateWidget("w1", {
+      templateId: undefined,
+      templateSyncedAt: undefined,
+    });
+    const detached = useDashboardStore.getState().layout.pages[0].widgets[0];
+    expect(detached.templateId).toBeUndefined();
+    expect(detached.templateSyncedAt).toBeUndefined();
+    expect(detached.chartType).toBe("bar"); // data unchanged
+  });
 });

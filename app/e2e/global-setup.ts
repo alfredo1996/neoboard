@@ -8,6 +8,8 @@ import * as crypto from "node:crypto";
 import * as http from "node:http";
 import { spawn } from "node:child_process";
 import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { initCoverage, loadNextcovConfig } from "nextcov/playwright";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
@@ -29,6 +31,25 @@ function encryptJson(data: unknown): string {
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   const authTag = cipher.getAuthTag();
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
+}
+
+const MIGRATIONS_FOLDER = path.resolve(__dirname, "..", "drizzle", "migrations");
+
+/** Run all Drizzle migrations against the neoboard database. */
+async function runDrizzleMigrations(connectionString: string) {
+  const client = postgres(connectionString, { max: 1 });
+  const db = drizzle(client);
+  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  await client.end();
+}
+
+/** Seed the neoboard database with test data (users, connections, dashboards). */
+async function seedNeoboard(connectionString: string) {
+  const seedFile = path.resolve(__dirname, "..", "..", "docker", "postgres", "seed-neoboard.sql");
+  const seedSql = fs.readFileSync(seedFile, "utf-8");
+  const client = postgres(connectionString, { max: 1 });
+  await client.unsafe(seedSql);
+  await client.end();
 }
 
 /** Update seeded connection rows with properly encrypted configs using the real ports. */
@@ -140,12 +161,22 @@ export default async function globalSetup() {
     }),
   );
 
+  // ── Run Drizzle migrations to create the neoboard schema ────────────────
+  const databaseUrl = `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`;
+  console.log("⏳ Running Drizzle migrations...");
+  await runDrizzleMigrations(databaseUrl);
+  console.log("✅ Drizzle migrations applied");
+
+  // ── Seed neoboard with test data (users, connections, dashboards) ──────
+  console.log("⏳ Seeding neoboard database...");
+  await seedNeoboard(databaseUrl);
+  console.log("✅ Neoboard seeded");
+
   // ── Encrypt real connection configs and update the seeded rows ──────────
   console.log("⏳ Updating seeded connection configs with encrypted values...");
   await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
 
   // ── Write .env.test for the Next.js dev server ──────────────────────────
-  const databaseUrl = `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`;
   const envContent = [
     `DATABASE_URL=${databaseUrl}`,
     `ENCRYPTION_KEY=${TEST_ENCRYPTION_KEY}`,

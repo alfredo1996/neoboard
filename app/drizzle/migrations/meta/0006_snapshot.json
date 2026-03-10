@@ -1,6 +1,6 @@
 {
-  "id": "38eea08c-d8b6-498f-ae9e-bfaf9ab5e1b8",
-  "prevId": "aafe637b-2158-45ac-a07f-2f11be9bb256",
+  "id": "9d3a3c18-65e7-46ff-9eba-d83a8299489f",
+  "prevId": "38eea08c-d8b6-498f-ae9e-bfaf9ab5e1b8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -568,6 +568,12 @@
           "primaryKey": false,
           "notNull": false,
           "default": "now()"
+        },
+        "previewImageUrl": {
+          "name": "previewImageUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

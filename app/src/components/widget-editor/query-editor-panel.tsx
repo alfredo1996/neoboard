@@ -91,9 +91,7 @@ export function QueryEditorPanel({
         language={editorLanguage}
         readOnly={!connectionId}
         placeholder={
-          !connectionId
-            ? "Select a connection first to write a query"
-            : editorLanguage === "sql"
+          editorLanguage === "sql"
             ? "SELECT * FROM users LIMIT 10"
             : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
         }
