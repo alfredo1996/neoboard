@@ -70,4 +70,47 @@ describe("DashboardMiniPreview", () => {
     const grid = container.firstChild as HTMLElement;
     expect(grid.style.gridTemplateColumns).toBe("repeat(12, 1fr)");
   });
+
+  it("renders <img> when thumbnailUrl is present", () => {
+    const { container } = render(
+      <DashboardMiniPreview
+        widgets={[
+          { x: 0, y: 0, w: 6, h: 2, chartType: "bar", thumbnailUrl: "data:image/jpeg;base64,abc" },
+        ]}
+      />
+    );
+    const img = container.querySelector("img");
+    expect(img).toBeInTheDocument();
+    expect(img?.getAttribute("src")).toBe("data:image/jpeg;base64,abc");
+    expect(img?.getAttribute("loading")).toBe("lazy");
+  });
+
+  it("does not apply color class when thumbnailUrl is present", () => {
+    const { container } = render(
+      <DashboardMiniPreview
+        widgets={[
+          { x: 0, y: 0, w: 6, h: 2, chartType: "bar", thumbnailUrl: "data:image/jpeg;base64,abc" },
+        ]}
+      />
+    );
+    const block = container.querySelector(".rounded-sm");
+    expect(block).not.toHaveClass("bg-blue-400/40");
+  });
+
+  it("renders mixed mode — some thumbnails, some fallback tiles", () => {
+    const { container } = render(
+      <DashboardMiniPreview
+        widgets={[
+          { x: 0, y: 0, w: 6, h: 2, chartType: "bar", thumbnailUrl: "data:image/jpeg;base64,abc" },
+          { x: 6, y: 0, w: 6, h: 2, chartType: "graph" },
+        ]}
+      />
+    );
+    const imgs = container.querySelectorAll("img");
+    expect(imgs).toHaveLength(1);
+    const blocks = container.querySelectorAll(".rounded-sm");
+    expect(blocks).toHaveLength(2);
+    // Second block should have the fallback color
+    expect(blocks[1]).toHaveClass("bg-cyan-400/40");
+  });
 });

@@ -113,6 +113,8 @@ export const dashboards = pgTable("dashboard", {
     version: 2,
     pages: [{ id: "page-1", title: "Page 1", widgets: [], gridLayout: [] }],
   }),
+  /** Per-widget JPEG data-URI thumbnails keyed by widget ID, captured on save. */
+  thumbnailJson: jsonb("thumbnailJson").$type<Record<string, string>>(),
   isPublic: boolean("isPublic").default(false),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),

@@ -6,7 +6,7 @@ import { requireUserId } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { updateConnectionSchema } from "@/lib/schemas";
-import { validateBody, unauthorized, notFound, handleRouteError } from "@/lib/api-utils";
+import { validateBody, notFound, handleRouteError } from "@/lib/api-utils";
 
 export async function PATCH(
   request: Request,
@@ -67,7 +67,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to delete connection");
   }
 }
