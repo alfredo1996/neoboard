@@ -94,4 +94,34 @@ describe("CrossFilterTag", () => {
     // The badge element should not have a title attribute
     expect(container.firstChild).not.toHaveAttribute("title");
   });
+
+  // ── Keyboard accessibility ────────────────────────────────────────────
+
+  it("is keyboard-accessible when onClick is provided", () => {
+    const onClick = vi.fn();
+    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    const badge = container.firstChild as HTMLElement;
+    expect(badge).toHaveAttribute("role", "button");
+    expect(badge).toHaveAttribute("tabindex", "0");
+  });
+
+  it("triggers onClick on Enter key", () => {
+    const onClick = vi.fn();
+    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    fireEvent.keyDown(container.firstChild!, { key: "Enter" });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("triggers onClick on Space key", () => {
+    const onClick = vi.fn();
+    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    fireEvent.keyDown(container.firstChild!, { key: " " });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not add role or tabIndex when onClick is not provided", () => {
+    const { container } = render(<CrossFilterTag {...defaultProps} />);
+    expect(container.firstChild).not.toHaveAttribute("role");
+    expect(container.firstChild).not.toHaveAttribute("tabindex");
+  });
 });

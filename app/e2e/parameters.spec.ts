@@ -1810,6 +1810,9 @@ test.describe("Collapsible parameter bar", () => {
     // "Reset" button should be hidden when collapsed
     await expect(page.getByRole("button", { name: "Reset" })).not.toBeVisible();
 
+    // Badge should show the parameter count
+    await expect(page.locator("[data-orientation] .inline-flex").filter({ hasText: "1" })).toBeVisible();
+
     // Expand toggle should now be visible
     const expandBtn = page.getByRole("button", { name: "Expand parameters" });
     await expect(expandBtn).toBeVisible();

@@ -85,6 +85,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
             <div className="flex items-center gap-1">
               {onRefresh && (
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
