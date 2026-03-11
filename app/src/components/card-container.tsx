@@ -122,16 +122,11 @@ export function CardContainer({
 
   // ── Manual Run mode ──────────────────────────────────────────────────────
   // When `manualRun` is enabled in chart options, the query starts disabled.
-  // The user must click "Run Query" to execute it. On parameter change the
-  // widget resets back to the overlay state.
+  // The user must click "Run Query" once. After that first run, parameter
+  // changes automatically re-execute the query (different queryKey = fresh
+  // fetch in TanStack Query), so no overlay re-appears.
   const isManualRun = chartOptions.manualRun === true;
-
-  // Track the parameter snapshot at the time the user clicked "Run Query".
-  // When params change after a run, the snapshot no longer matches and the
-  // widget resets to the "Run Query" overlay — no effect / setState needed.
-  const allParamValuesForReset = useParameterValues();
-  const [paramsAtLastRun, setParamsAtLastRun] = useState<Record<string, unknown> | null>(null);
-  const hasRun = paramsAtLastRun !== null && paramsAtLastRun === allParamValuesForReset;
+  const [hasEverRun, setHasEverRun] = useState(false);
 
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
@@ -141,7 +136,7 @@ export function CardContainer({
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const manualEnabled = isManualRun ? hasRun : true;
+  const manualEnabled = isManualRun ? hasEverRun : true;
   const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, gcTime, refetchInterval, enabled: manualEnabled });
 
   // Resolve the current column mapping from widget settings.
@@ -280,7 +275,7 @@ export function CardContainer({
   // ── Manual Run overlay ──────────────────────────────────────────────────
   // When manualRun is enabled and the user hasn't clicked "Run Query" yet,
   // show an overlay button instead of the loading skeleton.
-  if (isManualRun && !hasRun) {
+  if (isManualRun && !hasEverRun) {
     return (
       <div className="flex h-full items-center justify-center p-6" data-testid="manual-run-overlay">
         <div className="text-center space-y-3">
@@ -290,7 +285,7 @@ export function CardContainer({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setParamsAtLastRun(allParamValuesForReset)}
+            onClick={() => setHasEverRun(true)}
           >
             <Play className="mr-2 h-4 w-4" />
             Run Query

@@ -1022,12 +1022,13 @@ export function WidgetEditorModal({
                     onSettingsChange={setChartOptions}
                   />
                   {chartOptions.cacheMode === "forever" && (
-                    <Alert variant="default" className="py-2" data-testid="cache-forever-info">
-                      <Info className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        Data will be fetched once and cached until manually refreshed.
-                      </AlertDescription>
-                    </Alert>
+                    <div
+                      className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
+                      data-testid="cache-forever-info"
+                    >
+                      <Info className="h-4 w-4 shrink-0" />
+                      <span>Data will be fetched once and cached until manually refreshed.</span>
+                    </div>
                   )}
                 </div>
               }

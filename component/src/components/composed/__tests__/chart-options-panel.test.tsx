@@ -3,11 +3,17 @@ import { describe, it, expect, vi } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
 import { getChartOptions } from "../chart-options-schema";
 
+/** Expand all collapsed category sections so their content is in the DOM. */
+function expandAllCategories() {
+  screen.getAllByRole("button", { expanded: false }).forEach((btn) => fireEvent.click(btn));
+}
+
 describe("ChartOptionsPanel", () => {
   it("renders options for bar chart", () => {
     render(
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
+    expandAllCategories();
     expect(screen.getByText("Orientation")).toBeInTheDocument();
     expect(screen.getByText("Stacked")).toBeInTheDocument();
     expect(screen.getByText("Show Values")).toBeInTheDocument();
@@ -38,6 +44,7 @@ describe("ChartOptionsPanel", () => {
     render(
       <ChartOptionsPanel chartType="line" settings={{}} onSettingsChange={onChange} />
     );
+    expandAllCategories();
     const input = screen.getByLabelText("X-Axis Label");
     fireEvent.change(input, { target: { value: "Time" } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ xAxisLabel: "Time" }));
@@ -48,6 +55,7 @@ describe("ChartOptionsPanel", () => {
     render(
       <ChartOptionsPanel chartType="table" settings={{}} onSettingsChange={onChange} />
     );
+    expandAllCategories();
     const input = screen.getByLabelText("Page Size");
     fireEvent.change(input, { target: { value: "50" } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 50 }));
@@ -116,6 +124,7 @@ describe("ChartOptionsPanel", () => {
     const { container } = render(
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
+    expandAllCategories();
     const helpLabels = container.querySelectorAll("label.cursor-help");
     // All bar options have descriptions — count should match schema
     expect(helpLabels.length).toBeGreaterThan(0);
@@ -127,6 +136,7 @@ describe("ChartOptionsPanel", () => {
     const { container } = render(
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
+    expandAllCategories();
     // There should be no svg element with the lucide HelpCircle path inside the panel
     // Only Switch thumbs and other UI icons, no HelpCircle — check no icon has cursor-help
     const helpIcons = container.querySelectorAll("svg.cursor-help");
@@ -137,6 +147,7 @@ describe("ChartOptionsPanel", () => {
     const { container } = render(
       <ChartOptionsPanel chartType="bar" settings={{}} onSettingsChange={vi.fn()} />
     );
+    expandAllCategories();
     const helpLabels = container.querySelectorAll("label.cursor-help");
     expect(helpLabels.length).toBeGreaterThan(0);
     // All such labels should have the dotted underline class

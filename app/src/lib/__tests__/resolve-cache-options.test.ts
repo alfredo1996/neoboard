@@ -68,4 +68,16 @@ describe("shouldShowRefreshButton", () => {
   it("returns true when both showRefreshButton and cacheMode forever are set", () => {
     expect(shouldShowRefreshButton({ showRefreshButton: true, cacheMode: "forever" })).toBe(true);
   });
+
+  it("returns true when manualRun is true even if showRefreshButton is false", () => {
+    expect(shouldShowRefreshButton({ manualRun: true, showRefreshButton: false })).toBe(true);
+  });
+
+  it("returns true when manualRun is true and showRefreshButton is not set", () => {
+    expect(shouldShowRefreshButton({ manualRun: true })).toBe(true);
+  });
+
+  it("returns true when both manualRun and cacheMode forever are set", () => {
+    expect(shouldShowRefreshButton({ manualRun: true, cacheMode: "forever" })).toBe(true);
+  });
 });
