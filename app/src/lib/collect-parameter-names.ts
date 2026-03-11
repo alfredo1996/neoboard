@@ -7,7 +7,7 @@ export interface ParameterCollision {
   title: string;
 }
 
-function getWidgetParameterNames(widget: DashboardWidget): string[] {
+export function getWidgetParameterNames(widget: DashboardWidget): string[] {
   const names: string[] = [];
   const clickAction = widget.settings?.clickAction as ClickAction | undefined;
 
@@ -98,4 +98,25 @@ export function findParameterCollisions(
   }
 
   return collisions;
+}
+
+/**
+ * Aggregates all parameter names from a click action configuration.
+ * Collects from the top-level `parameterName` and from all `rules[].parameterMapping.parameterName`.
+ * Returns a deduplicated array.
+ */
+export function aggregateClickActionParamNames(
+  clickActionEnabled: boolean,
+  parameterName: string,
+  actionRules: ReadonlyArray<{ parameterMapping?: { parameterName?: string } }>,
+): string[] {
+  if (!clickActionEnabled) return [];
+  const names: string[] = [];
+  if (parameterName.trim()) names.push(parameterName.trim());
+  for (const rule of actionRules) {
+    if (rule.parameterMapping?.parameterName) {
+      names.push(rule.parameterMapping.parameterName);
+    }
+  }
+  return [...new Set(names)];
 }

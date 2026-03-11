@@ -13,6 +13,7 @@ import type {
 } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
 import { formatParameterValue, filterParentParams } from "@/lib/format-parameter-value";
+import { shouldShowRefreshButton } from "@/lib/resolve-cache-options";
 import { LayoutDashboard, Maximize2, RefreshCw } from "lucide-react";
 import {
   WidgetCard,
@@ -200,7 +201,7 @@ export function DashboardContainer({
         {page.widgets.map((widget) => {
           const outdated = editable && isWidgetOutdated(widget);
           const chartOpts = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
-          const showRefresh = chartOpts.showRefreshButton === true || chartOpts.cacheMode === "forever";
+          const showRefresh = shouldShowRefreshButton(chartOpts);
           return (
           <div key={widget.id} data-testid="widget-card" data-widget-id={widget.id}>
             <WidgetCard

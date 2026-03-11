@@ -22,3 +22,13 @@ export function resolveCacheOptions(
     forceRefreshButton: false,
   };
 }
+
+/**
+ * Determines whether a widget should show the refresh button in its card header.
+ * True when the user explicitly enabled it or when cache-forever mode is active.
+ */
+export function shouldShowRefreshButton(
+  chartOptions: Record<string, unknown>,
+): boolean {
+  return chartOptions.showRefreshButton === true || chartOptions.cacheMode === "forever";
+}
