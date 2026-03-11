@@ -155,9 +155,7 @@ describe("useParameterStore", () => {
     expect(entry.sourceWidgetId).toBeUndefined();
   });
 
-  it("preserves sourceWidgetId through save/restore cycle", () => {
-    // This test is in the localStorage describe block below; here we just verify
-    // that sourceWidgetId is part of the ParameterEntry interface
+  it("stores sourceWidgetId when provided and omits it when not", () => {
     const { setParameter } = useParameterStore.getState();
     setParameter("x", 1, "W", "x", "text", "click-action", "wid-1");
     setParameter("y", 2, "W", "y", "text", "selector-widget");
@@ -352,6 +350,21 @@ describe("useParameterStore", () => {
       expect(entry.field).toBe("tags");
       expect(entry.type).toBe("multi-select");
       expect(entry.sourceType).toBe("selector-widget");
+    });
+
+    it("preserves sourceWidgetId through save/restore cycle", () => {
+      const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
+        useParameterStore.getState();
+
+      setParameter("x", 1, "W", "x", "text", "click-action", "wid-1");
+      setParameter("y", 2, "W", "y", "text", "selector-widget");
+      saveToDashboard("dash-source-widget");
+      clearAll();
+
+      restoreFromDashboard("dash-source-widget");
+      const params = useParameterStore.getState().parameters;
+      expect(params["x"].sourceWidgetId).toBe("wid-1");
+      expect(params["y"].sourceWidgetId).toBeUndefined();
     });
   });
 });
