@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
 import { interpolateTitle } from "@/lib/interpolate-title";
@@ -12,6 +13,7 @@ import type {
 } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
 import { formatParameterValue, filterParentParams } from "@/lib/format-parameter-value";
+import { shouldShowRefreshButton } from "@/lib/resolve-cache-options";
 import { LayoutDashboard, Maximize2, RefreshCw } from "lucide-react";
 import {
   WidgetCard,
@@ -57,6 +59,8 @@ interface DashboardContainerProps {
   onSyncWidget?: (widget: DashboardWidget) => void;
   /** Called when the user chooses "Detach from template". */
   onDetachWidget?: (widgetId: string) => void;
+  /** When false, the parameter bar is hidden. Defaults to true. */
+  showParameterBar?: boolean;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -81,7 +85,9 @@ export function DashboardContainer({
   templateMap,
   onSyncWidget,
   onDetachWidget,
+  showParameterBar = true,
 }: DashboardContainerProps) {
+  const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
   const [pendingSyncWidget, setPendingSyncWidget] =
@@ -95,6 +101,13 @@ export function DashboardContainer({
     [allEntries]
   );
   const hasParameters = displayEntries.length > 0;
+
+  const scrollToSource = useCallback((sourceWidgetId?: string) => {
+    if (!sourceWidgetId) return;
+    document
+      .querySelector(`[data-widget-id="${sourceWidgetId}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
 
   if (page.widgets.length === 0) {
     return (
@@ -160,15 +173,20 @@ export function DashboardContainer({
 
   return (
     <>
-      {hasParameters && (
+      {hasParameters && showParameterBar && (
         <ParameterBar onReset={clearAll}>
           {displayEntries.map(([name, entry]) => (
             <CrossFilterTag
               key={name}
-              source={entry.source}
               field={entry.field}
               value={formatParameterValue(entry.value)}
               onRemove={() => clearParameter(name)}
+              onClick={
+                entry.sourceWidgetId
+                  ? () => scrollToSource(entry.sourceWidgetId)
+                  : undefined
+              }
+              tooltip={entry.source ? `Set by ${entry.source}` : undefined}
             />
           ))}
         </ParameterBar>
@@ -181,14 +199,27 @@ export function DashboardContainer({
       >
         {page.widgets.map((widget) => {
           const outdated = editable && isWidgetOutdated(widget);
+          const chartOpts = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
+          const showRefresh = shouldShowRefreshButton(chartOpts);
           return (
-          <div key={widget.id} data-testid="widget-card">
+          <div key={widget.id} data-testid="widget-card" data-widget-id={widget.id}>
             <WidgetCard
               title={interpolateTitle(getWidgetTitle(widget), parameters)}
               subtitle={undefined}
               className="h-full"
               draggable={editable}
               actions={buildActions(widget)}
+              onRefresh={
+                showRefresh
+                  ? () => {
+                      // Invalidate all TanStack Query entries matching this widget's
+                      // connection + query combo. This triggers a refetch.
+                      void queryClient.invalidateQueries({
+                        queryKey: ["widget-query", widget.connectionId, widget.query, widget.params],
+                      });
+                    }
+                  : undefined
+              }
               headerExtra={
                 <>
                   {outdated && (
@@ -245,7 +276,13 @@ export function DashboardContainer({
                 {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
               </h2>
               <div className="flex-1 min-h-0">
-                <CardContainer widget={fullscreenWidget} refetchInterval={refetchInterval} onNavigateToPage={onNavigateToPage} />
+                <CardContainer
+                  key={`${fullscreenWidget.id}-fullscreen`}
+                  widget={fullscreenWidget}
+                  refetchInterval={refetchInterval}
+                  onNavigateToPage={onNavigateToPage}
+                  autoFit
+                />
               </div>
             </>
           )}

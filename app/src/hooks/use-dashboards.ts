@@ -14,6 +14,8 @@ export interface WidgetPreviewItem {
   w: number;
   h: number;
   chartType: string;
+  /** JPEG data-URI thumbnail captured on last save. */
+  thumbnailUrl?: string;
 }
 
 export interface DashboardListItem {
@@ -110,6 +112,32 @@ export function useUpdateDashboard() {
       queryClient.invalidateQueries({
         queryKey: ["dashboards", variables.id],
       });
+      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+  });
+}
+
+/** Fire-and-forget mutation to persist widget thumbnails after a dashboard save. */
+export function useUpdateDashboardThumbnails() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      thumbnailJson,
+    }: {
+      id: string;
+      thumbnailJson: Record<string, string>;
+    }) => {
+      const res = await fetch(`/api/dashboards/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thumbnailJson }),
+      });
+      if (!res.ok) throw new Error("Failed to save thumbnails");
+      return res.json();
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });

@@ -3,11 +3,12 @@
 import { use, useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Plus, Save, LayoutDashboard, Users } from "lucide-react";
+import { ArrowLeft, Filter, Plus, Save, LayoutDashboard, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
+import { useDashboard, useUpdateDashboard, useUpdateDashboardThumbnails } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useParameterStore } from "@/stores/parameter-store";
+import { filterParentParams } from "@/lib/format-parameter-value";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -17,6 +18,7 @@ import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import { migrateLayout } from "@/lib/migrate-layout";
 import type { DashboardWidget, GridLayoutItem, WidgetTemplate } from "@/lib/db/schema";
+import { captureDashboardThumbnails } from "@/lib/capture-dashboard-thumbnails";
 import {
   Button,
   Skeleton,
@@ -61,6 +63,14 @@ export default function DashboardEditorPage({
     };
   }, [id, saveToDashboard, restoreFromDashboard]);
 
+  const parameters = useParameterStore((s) => s.parameters);
+  const parameterCount = useMemo(
+    () => filterParentParams(Object.entries(parameters)).length,
+    [parameters],
+  );
+  const hasParameters = parameterCount > 0;
+  const [showParameterBar, setShowParameterBar] = useState(true);
+
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([isNaN(initialPage) ? 0 : initialPage])
@@ -96,6 +106,8 @@ export default function DashboardEditorPage({
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
+  const updateThumbnails = useUpdateDashboardThumbnails();
+  const gridContainerRef = useRef<HTMLDivElement>(null);
   const layout = useDashboardStore((s) => s.layout);
   const activePageIndex = useDashboardStore((s) => s.activePageIndex);
   const setLayout = useDashboardStore((s) => s.setLayout);
@@ -187,12 +199,32 @@ export default function DashboardEditorPage({
     setSaveError(null);
     try {
       await updateDashboard.mutateAsync({ id, layoutJson: layout });
+
+      // Fire-and-forget: capture widget thumbnails from the live DOM and persist.
+      // Uses a short delay to let ECharts finish rendering after any layout changes.
+      const container = gridContainerRef.current;
+      const firstPage = layout.pages[0];
+      if (container && firstPage?.widgets.length) {
+        setTimeout(async () => {
+          try {
+            const thumbnails = await captureDashboardThumbnails(
+              container,
+              firstPage.widgets.map((w) => ({ id: w.id, chartType: w.chartType })),
+            );
+            if (Object.keys(thumbnails).length > 0) {
+              updateThumbnails.mutate({ id, thumbnailJson: thumbnails });
+            }
+          } catch {
+            // Thumbnail capture failure is non-critical — silently ignore
+          }
+        }, 500);
+      }
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Failed to save dashboard"
       );
     }
-  }, [id, layout, updateDashboard]);
+  }, [id, layout, updateDashboard, updateThumbnails]);
 
   function openAddWidget() {
     setEditorMode("add");
@@ -272,6 +304,18 @@ export default function DashboardEditorPage({
           )}
           {!isLoading && dashboard && (
             <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!hasParameters}
+                onClick={() => setShowParameterBar((prev) => !prev)}
+                aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                {!hasParameters || showParameterBar ? "Filters" : `Filters (${parameterCount})`}
+              </Button>
+              <ToolbarSeparator />
               <Button variant="outline" size="sm" onClick={openAddWidget}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Widget
@@ -368,7 +412,7 @@ export default function DashboardEditorPage({
             );
           })()}
 
-          <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
+          <div ref={gridContainerRef} className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
             {layout.pages.map((page, index) => {
               const isActive = index === activePageIndex;
               if (page.widgets.length === 0 && isActive) {
@@ -413,6 +457,7 @@ export default function DashboardEditorPage({
                     templateMap={templateMap}
                     onSyncWidget={handleSyncWidget}
                     onDetachWidget={handleDetachWidget}
+                    showParameterBar={showParameterBar}
                   />
                 </div>
               );

@@ -138,4 +138,66 @@ describe("WidgetCard", () => {
     await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     expect(onClick).toHaveBeenCalledOnce();
   });
+
+  // ── onRefresh prop ─────────────────────────────────────────────────────────
+
+  it("renders a refresh button in the header when onRefresh is provided", () => {
+    render(
+      <WidgetCard title="Sales" onRefresh={() => {}}>
+        Content
+      </WidgetCard>
+    );
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+  });
+
+  it("does not render a refresh button when onRefresh is not provided", () => {
+    render(<WidgetCard title="Sales">Content</WidgetCard>);
+    expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
+  });
+
+  it("calls onRefresh when the refresh button is clicked", async () => {
+    const user = userEvent.setup();
+    const onRefresh = vi.fn();
+    render(
+      <WidgetCard title="Sales" onRefresh={onRefresh}>
+        Content
+      </WidgetCard>
+    );
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("renders the refresh button disabled when refreshDisabled is true", () => {
+    render(
+      <WidgetCard title="Sales" onRefresh={() => {}} refreshDisabled>
+        Content
+      </WidgetCard>
+    );
+    const btn = screen.getByRole("button", { name: "Refresh" });
+    expect(btn).toBeDisabled();
+  });
+
+  it("renders the refresh button enabled by default", () => {
+    render(
+      <WidgetCard title="Sales" onRefresh={() => {}}>
+        Content
+      </WidgetCard>
+    );
+    const btn = screen.getByRole("button", { name: "Refresh" });
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("renders the refresh button alongside headerExtra", () => {
+    render(
+      <WidgetCard
+        title="Sales"
+        onRefresh={() => {}}
+        headerExtra={<button>Fullscreen</button>}
+      >
+        Content
+      </WidgetCard>
+    );
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(screen.getByText("Fullscreen")).toBeInTheDocument();
+  });
 });

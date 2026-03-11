@@ -2,9 +2,10 @@
 
 import React, { use, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, LayoutDashboard, RefreshCw } from "lucide-react";
+import { ArrowLeft, Filter, Pencil, LayoutDashboard, RefreshCw } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
+import { filterParentParams } from "@/lib/format-parameter-value";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
@@ -68,6 +69,13 @@ export default function DashboardViewerPage({
 
   const { data: dashboard, isLoading, isFetching } = useDashboard(id);
   const updateDashboard = useUpdateDashboard();
+  const parameters = useParameterStore((s) => s.parameters);
+  const parameterCount = useMemo(
+    () => filterParentParams(Object.entries(parameters)).length,
+    [parameters],
+  );
+  const hasParameters = parameterCount > 0;
+  const [showParameterBar, setShowParameterBar] = useState(true);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([0])
@@ -220,6 +228,17 @@ export default function DashboardViewerPage({
           <Badge variant="secondary">{dashboard.role}</Badge>
         </ToolbarSection>
         <ToolbarSection>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!hasParameters}
+            onClick={() => setShowParameterBar((prev) => !prev)}
+            aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
+          >
+            <Filter className="mr-2 h-4 w-4" />
+            {!hasParameters || showParameterBar ? "Filters" : `Filters (${parameterCount})`}
+          </Button>
           {canEdit && (
             <>
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
@@ -324,7 +343,7 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} />
+              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} showParameterBar={showParameterBar} />
             </div>
           );
         })}

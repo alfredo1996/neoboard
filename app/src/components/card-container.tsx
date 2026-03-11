@@ -1,18 +1,20 @@
 "use client";
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
+import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
 import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
-import React, { useMemo, useCallback } from "react";
-import { AlertCircle } from "lucide-react";
+import React, { useMemo, useCallback, useState } from "react";
+import { AlertCircle, Play } from "lucide-react";
 import {
   Skeleton,
   Alert,
   AlertDescription,
   AlertTitle,
+  Button,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -45,6 +47,8 @@ interface CardContainerProps {
   refetchInterval?: number | false;
   /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
+  /** When true, graph widgets trigger a fit-to-viewport after mount. */
+  autoFit?: boolean;
 }
 
 /**
@@ -75,6 +79,7 @@ export function CardContainer({
   onWidgetSettingsChange,
   refetchInterval,
   onNavigateToPage,
+  autoFit,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
@@ -86,7 +91,7 @@ export function CardContainer({
       const { parameterName, value, label, sourceField } = result.setParameter;
       useParameterStore
         .getState()
-        .setParameter(parameterName, value, label, sourceField, "text", "click-action");
+        .setParameter(parameterName, value, label, sourceField, "text", "click-action", widget.id);
     }
 
     if (result.navigateToPageId) {
@@ -100,11 +105,28 @@ export function CardContainer({
   // Cache settings from widget config. Default: cache enabled, 5-min TTL.
   const enableCache = widget.settings?.enableCache !== false;
   const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
-  const staleTime = enableCache ? cacheTtlMinutes * 60_000 : 0;
 
   // Parameter-select and form widgets are self-contained (no auto-query).
   const isParameterWidget = widget.chartType === "parameter-select";
   const isFormWidget = widget.chartType === "form";
+
+  const chartOptions = useMemo(
+    () => (widget.settings?.chartOptions ?? {}) as Record<string, unknown>,
+    [widget.settings?.chartOptions],
+  );
+
+  const { staleTime, gcTime } = useMemo(
+    () => resolveCacheOptions(chartOptions, enableCache, cacheTtlMinutes),
+    [chartOptions, enableCache, cacheTtlMinutes],
+  );
+
+  // ── Manual Run mode ──────────────────────────────────────────────────────
+  // When `manualRun` is enabled in chart options, the query starts disabled.
+  // The user must click "Run Query" once. After that first run, parameter
+  // changes automatically re-execute the query (different queryKey = fresh
+  // fetch in TanStack Query), so no overlay re-appears.
+  const isManualRun = chartOptions.manualRun === true;
+  const [hasEverRun, setHasEverRun] = useState(false);
 
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
@@ -114,7 +136,8 @@ export function CardContainer({
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
   };
-  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, refetchInterval });
+  const manualEnabled = isManualRun ? hasEverRun : true;
+  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, gcTime, refetchInterval, enabled: manualEnabled });
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
@@ -140,11 +163,6 @@ export function CardContainer({
       });
     },
     [onWidgetSettingsChange, widget.settings]
-  );
-
-  const chartOptions = useMemo(
-    () => (widget.settings?.chartOptions ?? {}) as Record<string, unknown>,
-    [widget.settings?.chartOptions],
   );
 
   // Resolve styling config (new format or migrated from legacy)
@@ -204,6 +222,7 @@ export function CardContainer({
             resultId={previewResultId}
             stylingRules={resolvedStylingConfig?.rules}
             paramValues={allParamValues}
+            autoFit={autoFit}
           />
         </div>
         {showOverlay && (
@@ -248,6 +267,29 @@ export function CardContainer({
             widgetId={widget.id}
             query={widget.query}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Manual Run overlay ──────────────────────────────────────────────────
+  // When manualRun is enabled and the user hasn't clicked "Run Query" yet,
+  // show an overlay button instead of the loading skeleton.
+  if (isManualRun && !hasEverRun) {
+    return (
+      <div className="flex h-full items-center justify-center p-6" data-testid="manual-run-overlay">
+        <div className="text-center space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Query execution is paused.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setHasEverRun(true)}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            Run Query
+          </Button>
         </div>
       </div>
     );
@@ -348,6 +390,7 @@ export function CardContainer({
           resultId={widgetQuery.data.resultId}
           stylingRules={resolvedStylingConfig?.rules}
           paramValues={allParamValues}
+          autoFit={autoFit}
         />
       </div>
       {showOverlay && (

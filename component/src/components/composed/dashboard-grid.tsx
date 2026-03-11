@@ -45,7 +45,9 @@ function DashboardGrid({
   className,
   children,
 }: DashboardGridProps) {
-  const { width, containerRef } = useContainerWidth();
+  const { width, mounted, containerRef } = useContainerWidth({
+    measureBeforeMount: true,
+  });
 
   const layouts = React.useMemo(
     () => ({ lg: layout, md: layout, sm: layout, xs: layout }),
@@ -54,21 +56,23 @@ function DashboardGrid({
 
   return (
     <div ref={containerRef} className={cn("w-full", className)}>
-      <ResponsiveGridLayout
-        width={width}
-        layouts={layouts}
-        breakpoints={defaultBreakpoints}
-        cols={{ ...defaultCols, lg: cols }}
-        rowHeight={rowHeight}
-        dragConfig={{ enabled: isDraggable, bounded: false, threshold: 3, handle: ".drag-handle" }}
-        resizeConfig={{ enabled: isResizable, handles: ["se"] }}
-        compactor={getCompactorByType(compactType)}
-        onLayoutChange={(currentLayout: Layout) => {
-          onLayoutChange?.(currentLayout as LayoutItem[]);
-        }}
-      >
-        {children}
-      </ResponsiveGridLayout>
+      {mounted && (
+        <ResponsiveGridLayout
+          width={width}
+          layouts={layouts}
+          breakpoints={defaultBreakpoints}
+          cols={{ ...defaultCols, lg: cols }}
+          rowHeight={rowHeight}
+          dragConfig={{ enabled: isDraggable, bounded: false, threshold: 3, handle: ".drag-handle" }}
+          resizeConfig={{ enabled: isResizable, handles: ["se"] }}
+          compactor={getCompactorByType(compactType)}
+          onLayoutChange={(currentLayout: Layout) => {
+            onLayoutChange?.(currentLayout as LayoutItem[]);
+          }}
+        >
+          {children}
+        </ResponsiveGridLayout>
+      )}
     </div>
   );
 }
