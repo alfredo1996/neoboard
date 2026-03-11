@@ -1,5 +1,5 @@
 import * as React from "react";
-import { GripVertical, MoreVertical } from "lucide-react";
+import { GripVertical, MoreVertical, RefreshCcw } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,8 @@ export interface WidgetCardProps {
   onDragHandleMouseDown?: React.MouseEventHandler;
   /** Extra elements rendered in the header before the actions dropdown */
   headerExtra?: React.ReactNode;
+  /** When provided, renders a refresh icon button in the header that calls this callback. */
+  onRefresh?: () => void;
 }
 
 const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
@@ -46,12 +48,13 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       children,
       onDragHandleMouseDown,
       headerExtra,
+      onRefresh,
     },
     ref
   ) => {
     return (
       <Card ref={ref} className={cn("flex flex-col h-full", className)}>
-        {(title || actions || headerExtra) && (
+        {(title || actions || headerExtra || onRefresh) && (
           <CardHeader
             className={cn(
               "flex flex-row items-center justify-between space-y-0 p-4 pb-2",
@@ -80,6 +83,17 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {onRefresh && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onRefresh}
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  <span className="sr-only">Refresh</span>
+                </Button>
+              )}
               {headerExtra}
               {actions && actions.length > 0 && (
               <DropdownMenu>

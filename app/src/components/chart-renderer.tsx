@@ -80,13 +80,15 @@ export interface ChartRendererProps {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /** When true, graph widgets trigger a fit-to-viewport after mount. */
+  autoFit?: boolean;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query, stylingRules, paramValues }: ChartRendererProps) {
+export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query, stylingRules, paramValues, autoFit }: ChartRendererProps) {
   const colorThresholds =
     typeof settings.colorThresholds === "string" ? settings.colorThresholds : undefined;
 
@@ -188,6 +190,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
             settings={settings}
             onChartClick={onChartClick}
             resultId={resultId}
+            autoFit={autoFit}
           />
         );
       }
@@ -198,6 +201,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           layout={settings.layout as "force" | "circular" | undefined}
           showLabels={settings.showLabels as boolean | undefined}
           onNodeSelect={onChartClick ? (ids) => { if (ids.length) onChartClick({ nodeId: ids[0] }); } : undefined}
+          autoFit={autoFit}
         />
       );
     }
@@ -252,7 +256,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
             rangeMax={(settings.rangeMax as number | undefined) ?? 100}
             rangeStep={(settings.rangeStep as number | undefined) ?? 1}
             placeholder={(settings.placeholder as string | undefined) || undefined}
-            searchable={(settings.searchable as boolean | undefined) ?? false}
+            searchable={(settings.searchable as boolean | undefined) ?? true}
+            widgetId={widgetId}
           />
         </div>
       );

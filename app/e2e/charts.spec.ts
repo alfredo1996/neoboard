@@ -813,6 +813,49 @@ test.describe("Graph chart exploration", () => {
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
+  test("graph chart — fullscreen dialog renders graph with correct viewport", async ({
+    page,
+  }) => {
+    await addGraphWidget(page);
+
+    // Save and go to view mode.
+    // waitForURL(/\/[\w-]+$/) would match /${id}/edit too (the word "edit" matches \w+),
+    // so we explicitly wait for a URL that does NOT end with /edit.
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.waitForURL((url) => !url.pathname.endsWith("/edit"), { timeout: 10_000 });
+
+    // Wait for graph exploration to render in view mode
+    const exploration = page.locator("[data-testid='graph-exploration']");
+    await expect(exploration).toBeVisible({ timeout: 15_000 });
+
+    // Click the fullscreen button (visible in both edit and view mode)
+    const fullscreenBtn = page.getByRole("button", { name: /fullscreen/i }).first();
+    if (!(await fullscreenBtn.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      return; // Skip if no fullscreen button
+    }
+    await fullscreenBtn.click();
+
+    // Fullscreen dialog should open
+    const dialog = page.locator("[role='dialog']").first();
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+
+    // Graph exploration wrapper should be visible inside the dialog.
+    // Use a generous timeout since TanStack Query needs one render cycle
+    // to return cached data to the fresh CardContainer instance.
+    const fsExploration = dialog.locator("[data-testid='graph-exploration']");
+    await expect(fsExploration).toBeVisible({ timeout: 15_000 });
+
+    // Status bar should be visible (proves NVL mounted with data)
+    await expect(dialog.locator("[data-testid='graph-status-bar']")).toBeVisible({ timeout: 10_000 });
+
+    // Close and verify no errors
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
   test("graph chart — collapse removes expanded neighbors", async ({
     page,
   }) => {

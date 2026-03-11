@@ -69,9 +69,9 @@ describe("ChartOptionsPanel", () => {
   });
 
   it("does not show search input for chart types with few options", () => {
-    // json has only 1 option, well below the threshold of 4
+    // parameter-select has only 2 options (no behavior options), below the threshold of 4
     render(
-      <ChartOptionsPanel chartType="json" settings={{}} onSettingsChange={vi.fn()} />
+      <ChartOptionsPanel chartType="parameter-select" settings={{}} onSettingsChange={vi.fn()} />
     );
     expect(screen.queryByPlaceholderText("Search options...")).not.toBeInTheDocument();
   });

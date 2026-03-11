@@ -40,6 +40,8 @@ export interface ParameterWidgetConfig {
   /** Enable search-as-you-type on select/multi-select (re-queries with $param_search) */
   searchable?: boolean;
   className?: string;
+  /** The widget ID that owns this renderer — propagated to sourceWidgetId on setParameter. */
+  widgetId?: string;
 }
 
 // ─── Main renderer ───────────────────────────────────────────────────────────
@@ -62,8 +64,9 @@ export function ParameterWidgetRenderer({
   rangeMax = 100,
   rangeStep = 1,
   placeholder,
-  searchable = false,
+  searchable = true,
   className,
+  widgetId,
 }: ParameterWidgetConfig) {
   const parameters = useParameterStore((s) => s.parameters);
   const setParameter = useParameterStore((s) => s.setParameter);
@@ -126,8 +129,8 @@ export function ParameterWidgetRenderer({
   // ── Convenience helpers ───────────────────────────────────────────────────
   const set = useCallback(
     (value: unknown) =>
-      setParameter(parameterName, value, "Parameter Selector", parameterName, parameterType, "selector-widget"),
-    [parameterName, parameterType, setParameter]
+      setParameter(parameterName, value, "Parameter Selector", parameterName, parameterType, "selector-widget", widgetId),
+    [parameterName, parameterType, setParameter, widgetId]
   );
 
   const clear = useCallback(
@@ -247,12 +250,12 @@ export function ParameterWidgetRenderer({
         }
         set({ from, to });
         if (from) {
-          setParameter(`${parameterName}_from`, from, "Parameter Selector", `${parameterName}_from`, "date", "selector-widget");
+          setParameter(`${parameterName}_from`, from, "Parameter Selector", `${parameterName}_from`, "date", "selector-widget", widgetId);
         } else {
           clearParameter(`${parameterName}_from`);
         }
         if (to) {
-          setParameter(`${parameterName}_to`, to, "Parameter Selector", `${parameterName}_to`, "date", "selector-widget");
+          setParameter(`${parameterName}_to`, to, "Parameter Selector", `${parameterName}_to`, "date", "selector-widget", widgetId);
         } else {
           clearParameter(`${parameterName}_to`);
         }
@@ -303,8 +306,8 @@ export function ParameterWidgetRenderer({
       const handleRangeChange = (vals: [number, number]) => {
         set(vals);
         // Also set flat _min/_max for direct query use
-        setParameter(`${parameterName}_min`, vals[0], "Parameter Selector", `${parameterName}_min`, "number-range", "selector-widget");
-        setParameter(`${parameterName}_max`, vals[1], "Parameter Selector", `${parameterName}_max`, "number-range", "selector-widget");
+        setParameter(`${parameterName}_min`, vals[0], "Parameter Selector", `${parameterName}_min`, "number-range", "selector-widget", widgetId);
+        setParameter(`${parameterName}_max`, vals[1], "Parameter Selector", `${parameterName}_max`, "number-range", "selector-widget", widgetId);
       };
 
       const handleClear = () => {
