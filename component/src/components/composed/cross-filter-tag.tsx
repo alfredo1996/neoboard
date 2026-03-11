@@ -32,6 +32,9 @@ function CrossFilterTag({
         className,
       )}
       onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? "button" : undefined}
       title={tooltip}
     >
       <Filter className="h-3 w-3 text-muted-foreground" />

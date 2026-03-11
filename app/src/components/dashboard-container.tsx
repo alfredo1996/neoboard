@@ -216,7 +216,7 @@ export function DashboardContainer({
                       // Invalidate all TanStack Query entries matching this widget's
                       // connection + query combo. This triggers a refetch.
                       void queryClient.invalidateQueries({
-                        queryKey: ["widget-query", widget.connectionId, widget.query],
+                        queryKey: ["widget-query", widget.connectionId, widget.query, widget.params],
                       });
                     }
                   : undefined
