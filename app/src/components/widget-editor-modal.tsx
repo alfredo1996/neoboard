@@ -5,7 +5,7 @@ import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule, WidgetTemplate, StylingRule, StylingConfig } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
-import { collectParameterNames, findParameterCollisions } from "@/lib/collect-parameter-names";
+import { collectParameterNames, findParameterCollisions, aggregateClickActionParamNames } from "@/lib/collect-parameter-names";
 import { AlertCircle, AlertTriangle, Info, Play, FlaskConical } from "lucide-react";
 import { useWidgetTemplates, useCreateWidgetTemplate, useUpdateWidgetTemplate } from "@/hooks/use-widget-templates";
 
@@ -198,17 +198,10 @@ export function WidgetEditorModal({
   );
 
   const clickActionCollisions = useMemo(() => {
-    if (!layout || !clickActionEnabled) return [];
-    const names: string[] = [];
-    if (parameterName.trim()) names.push(parameterName.trim());
-    for (const rule of actionRules) {
-      if (rule.parameterMapping?.parameterName) names.push(rule.parameterMapping.parameterName);
-    }
-    const seen = new Set<string>();
+    if (!layout) return [];
+    const names = aggregateClickActionParamNames(clickActionEnabled, parameterName, actionRules);
     const all: ReturnType<typeof findParameterCollisions> = [];
     for (const name of names) {
-      if (seen.has(name)) continue;
-      seen.add(name);
       for (const c of findParameterCollisions(layout, widget?.id ?? "", name)) {
         if (!all.some((x) => x.widgetId === c.widgetId)) all.push(c);
       }

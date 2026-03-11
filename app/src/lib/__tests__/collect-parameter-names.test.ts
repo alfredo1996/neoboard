@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collectParameterNames, findParameterCollisions } from "../collect-parameter-names";
+import { collectParameterNames, findParameterCollisions, getWidgetParameterNames, aggregateClickActionParamNames } from "../collect-parameter-names";
 import type { DashboardLayoutV2 } from "../db/schema";
 
 function makeLayout(pages: DashboardLayoutV2["pages"]): DashboardLayoutV2 {
@@ -430,5 +430,108 @@ describe("findParameterCollisions", () => {
     expect(findParameterCollisions(layout, "w1", "user")).toEqual([
       { widgetId: "w2", title: "User Picker 2" },
     ]);
+  });
+});
+
+describe("getWidgetParameterNames", () => {
+  it("returns empty array for widget with no click action or param-select", () => {
+    expect(getWidgetParameterNames({
+      id: "w1", chartType: "bar", connectionId: "c1", query: "RETURN 1", settings: {},
+    })).toEqual([]);
+  });
+
+  it("extracts parameterName from click action top-level parameterMapping", () => {
+    expect(getWidgetParameterNames({
+      id: "w1", chartType: "bar", connectionId: "c1", query: "RETURN 1",
+      settings: {
+        clickAction: { type: "set-parameter", parameterMapping: { parameterName: "foo", sourceField: "x" } },
+      },
+    })).toEqual(["foo"]);
+  });
+
+  it("extracts parameterName from click action rules", () => {
+    expect(getWidgetParameterNames({
+      id: "w1", chartType: "bar", connectionId: "c1", query: "RETURN 1",
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          rules: [
+            { id: "r1", type: "set-parameter", parameterMapping: { parameterName: "a", sourceField: "x" } },
+            { id: "r2", type: "set-parameter", parameterMapping: { parameterName: "b", sourceField: "y" } },
+          ],
+        },
+      },
+    })).toEqual(["a", "b"]);
+  });
+
+  it("extracts parameterName from param-select chartOptions", () => {
+    expect(getWidgetParameterNames({
+      id: "w1", chartType: "parameter-select", connectionId: "c1", query: "",
+      settings: { chartOptions: { parameterName: "region" } },
+    })).toEqual(["region"]);
+  });
+
+  it("does not extract param-select name from non-param-select chart type", () => {
+    expect(getWidgetParameterNames({
+      id: "w1", chartType: "bar", connectionId: "c1", query: "",
+      settings: { chartOptions: { parameterName: "region" } },
+    })).toEqual([]);
+  });
+
+  it("collects from both click action and rules", () => {
+    const result = getWidgetParameterNames({
+      id: "w1", chartType: "bar", connectionId: "c1", query: "RETURN 1",
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "top", sourceField: "x" },
+          rules: [
+            { id: "r1", type: "set-parameter", parameterMapping: { parameterName: "ruleParam", sourceField: "y" } },
+          ],
+        },
+      },
+    });
+    expect(result).toEqual(["top", "ruleParam"]);
+  });
+});
+
+describe("aggregateClickActionParamNames", () => {
+  it("returns empty array when click action is disabled", () => {
+    expect(aggregateClickActionParamNames(false, "foo", [])).toEqual([]);
+  });
+
+  it("returns top-level parameter name when set", () => {
+    expect(aggregateClickActionParamNames(true, "selected", [])).toEqual(["selected"]);
+  });
+
+  it("trims whitespace from top-level parameter name", () => {
+    expect(aggregateClickActionParamNames(true, "  name  ", [])).toEqual(["name"]);
+  });
+
+  it("skips empty top-level parameter name", () => {
+    expect(aggregateClickActionParamNames(true, "", [
+      { parameterMapping: { parameterName: "fromRule" } },
+    ])).toEqual(["fromRule"]);
+  });
+
+  it("collects from rules", () => {
+    expect(aggregateClickActionParamNames(true, "", [
+      { parameterMapping: { parameterName: "a" } },
+      { parameterMapping: { parameterName: "b" } },
+    ])).toEqual(["a", "b"]);
+  });
+
+  it("deduplicates names", () => {
+    expect(aggregateClickActionParamNames(true, "dup", [
+      { parameterMapping: { parameterName: "dup" } },
+      { parameterMapping: { parameterName: "other" } },
+    ])).toEqual(["dup", "other"]);
+  });
+
+  it("handles rules without parameterMapping", () => {
+    expect(aggregateClickActionParamNames(true, "top", [
+      { parameterMapping: undefined },
+      { parameterMapping: { parameterName: "rule1" } },
+    ])).toEqual(["top", "rule1"]);
   });
 });
