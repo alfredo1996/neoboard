@@ -33,6 +33,8 @@ interface GraphExplorationWrapperProps {
    *  Used to detect when the query changed so stale exploration state
    *  can be discarded. */
   resultId?: string;
+  /** When true, triggers a fit-to-viewport after mount with a short delay. */
+  autoFit?: boolean;
 }
 
 interface NodeMenu {
@@ -136,6 +138,7 @@ export function GraphExplorationWrapper({
   settings,
   onChartClick,
   resultId,
+  autoFit,
 }: GraphExplorationWrapperProps) {
   const [menu, setMenu] = useState<NodeMenu | null>(null);
   const [propertiesNode, setPropertiesNode] = useState<GraphNode | null>(null);
@@ -227,6 +230,7 @@ export function GraphExplorationWrapper({
         showLabels={settings.showLabels as boolean | undefined}
         onLayoutChange={(layout) => storeSetState(widgetId, { layout })}
         onCaptionMapChange={(captionMap) => storeSetState(widgetId, { captionMap })}
+        autoFit={autoFit}
       />
 
       {/* Status bar */}

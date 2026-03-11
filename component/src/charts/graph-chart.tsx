@@ -84,6 +84,11 @@ export interface GraphChartProps {
   onLayoutChange?: (layout: GraphLayout) => void;
   /** Called whenever the user changes a caption mapping */
   onCaptionMapChange?: (captionMap: Record<string, string>) => void;
+  /**
+   * When true, triggers a fit-to-viewport after mount with a short delay.
+   * Useful when the container size may change after initial render (e.g. fullscreen dialogs).
+   */
+  autoFit?: boolean;
   /** Additional CSS classes */
   className?: string;
 }
@@ -245,9 +250,11 @@ export function GraphChart({
   onNodeRightClick,
   onLayoutChange,
   onCaptionMapChange,
+  autoFit,
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const [layout, setLayout] = useState<GraphLayout>(initialLayout ?? layoutProp);
 
   // Build the label → property keys map from current nodes
@@ -306,6 +313,24 @@ export function GraphChart({
       nvlRef.current.fit(nodesRef.current.map((n) => n.id));
     }
   }, []);
+
+  // When autoFit is true, schedule a delayed fit after mount so that containers
+  // which animate to their final size (e.g. fullscreen dialogs) have settled.
+  useEffect(() => {
+    if (!autoFit) return;
+    const raf = requestAnimationFrame(() => {
+      const timer = setTimeout(() => {
+        fitGraph();
+      }, 150);
+      cleanupRef.current = () => clearTimeout(timer);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      cleanupRef.current?.();
+    };
+  // fitGraph is stable (useCallback with no deps), so this is safe
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFit]);
 
   const mouseEventCallbacks = useMemo((): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
     onHover: true,

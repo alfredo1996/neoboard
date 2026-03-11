@@ -5,8 +5,8 @@ import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule, WidgetTemplate, StylingRule, StylingConfig } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
-import { collectParameterNames } from "@/lib/collect-parameter-names";
-import { AlertCircle, AlertTriangle, Play, FlaskConical } from "lucide-react";
+import { collectParameterNames, findParameterCollisions } from "@/lib/collect-parameter-names";
+import { AlertCircle, AlertTriangle, Info, Play, FlaskConical } from "lucide-react";
 import { useWidgetTemplates, useCreateWidgetTemplate, useUpdateWidgetTemplate } from "@/hooks/use-widget-templates";
 
 import {
@@ -186,6 +186,35 @@ export function WidgetEditorModal({
   const [dateSub, setDateSub] = useState<DateSubType>("single");
   const [multiSelect, setMultiSelect] = useState(false);
   const [paramWidgetName, setParamWidgetName] = useState("");
+
+  // Widgets that already set the same parameter name (collision warning).
+  // Use widget?.id ?? "" so new widgets (no id yet) still get collision checks.
+  const paramSelectCollisions = useMemo(
+    () =>
+      layout
+        ? findParameterCollisions(layout, widget?.id ?? "", paramWidgetName)
+        : [],
+    [layout, widget?.id, paramWidgetName]
+  );
+
+  const clickActionCollisions = useMemo(() => {
+    if (!layout || !clickActionEnabled) return [];
+    const names: string[] = [];
+    if (parameterName.trim()) names.push(parameterName.trim());
+    for (const rule of actionRules) {
+      if (rule.parameterMapping?.parameterName) names.push(rule.parameterMapping.parameterName);
+    }
+    const seen = new Set<string>();
+    const all: ReturnType<typeof findParameterCollisions> = [];
+    for (const name of names) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      for (const c of findParameterCollisions(layout, widget?.id ?? "", name)) {
+        if (!all.some((x) => x.widgetId === c.widgetId)) all.push(c);
+      }
+    }
+    return all;
+  }, [layout, widget?.id, clickActionEnabled, parameterName, actionRules]);
 
   // Form fields state (only used when chartType === "form")
   const [formFields, setFormFields] = useState<FormFieldDef[]>(
@@ -956,6 +985,20 @@ export function WidgetEditorModal({
                     />
                   )}
 
+                  {/* Collision warning for param-select */}
+                  {isParamSelect && paramSelectCollisions.length > 0 && (
+                    <Alert variant="default" className="py-2" data-testid="param-collision-banner">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle className="text-sm">Parameter name already in use</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        {paramSelectCollisions.length === 1
+                          ? `"${paramWidgetName}" is also set by: ${paramSelectCollisions[0].title}.`
+                          : `"${paramWidgetName}" is also set by: ${paramSelectCollisions.map((c) => c.title).join(", ")}.`}
+                        {" "}Multiple widgets writing to the same parameter may conflict.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Query editor (non-parameter types) */}
                   {!isParamSelect && (
                     <QueryEditorPanel
@@ -979,11 +1022,21 @@ export function WidgetEditorModal({
                 </div>
               }
               styleTab={
-                <ChartOptionsPanel
-                  chartType={chartType}
-                  settings={chartOptions}
-                  onSettingsChange={setChartOptions}
-                />
+                <div className="space-y-4">
+                  <ChartOptionsPanel
+                    chartType={chartType}
+                    settings={chartOptions}
+                    onSettingsChange={setChartOptions}
+                  />
+                  {chartOptions.cacheMode === "forever" && (
+                    <Alert variant="default" className="py-2" data-testid="cache-forever-info">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Data will be fetched once and cached until manually refreshed.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
               }
               advancedTab={
                 isParamSelect ? (
@@ -1122,6 +1175,18 @@ export function WidgetEditorModal({
                           <Button variant="outline" size="sm" onClick={() => setDialogStep("rules")}>
                             Manage Action Rules
                           </Button>
+                          {clickActionCollisions.length > 0 && (
+                            <Alert variant="default" className="py-2" data-testid="click-action-collision-banner">
+                              <Info className="h-4 w-4" />
+                              <AlertTitle className="text-sm">Parameter name already in use</AlertTitle>
+                              <AlertDescription className="text-xs">
+                                {clickActionCollisions.length === 1
+                                  ? `A parameter set here is also set by: ${clickActionCollisions[0].title}.`
+                                  : `Parameters set here are also set by: ${clickActionCollisions.map((c) => c.title).join(", ")}.`}
+                                {" "}Multiple widgets writing to the same parameter may conflict.
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
                       )}
                     </div>

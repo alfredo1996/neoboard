@@ -121,7 +121,18 @@ export function extractReferencedParams(
  */
 export function useWidgetQuery(
   input: WidgetQueryInput | null,
-  options?: { staleTime?: number; refetchInterval?: number | false }
+  options?: {
+    staleTime?: number;
+    /** Overrides TanStack Query's default gcTime. Pass `Infinity` for cache-forever mode. */
+    gcTime?: number;
+    refetchInterval?: number | false;
+    /**
+     * When false, the query is disabled regardless of other conditions.
+     * Used by the manual-run feature to hold execution until the user clicks "Run Query".
+     * Defaults to true (query enabled as usual).
+     */
+    enabled?: boolean;
+  }
 ) {
   // Get parameters from store - using selector that returns stable value
   const parameters = useParameterStore((s) => s.parameters);
@@ -188,6 +199,7 @@ export function useWidgetQuery(
       return result;
     },
     enabled:
+      (options?.enabled ?? true) &&
       !!mergedInput?.connectionId &&
       !!mergedInput?.query &&
       allReferencedParamsReady(mergedInput.query, allParameters),
@@ -195,6 +207,7 @@ export function useWidgetQuery(
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
     staleTime: options?.staleTime ?? 0,
+    gcTime: options?.gcTime,
     refetchInterval: options?.refetchInterval,
     retry: false,
   });

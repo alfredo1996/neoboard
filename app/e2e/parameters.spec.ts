@@ -1746,3 +1746,188 @@ test.describe("Preview Run button", () => {
     await dialog.getByRole("button", { name: "Cancel" }).click();
   });
 });
+
+test.describe("Collapsible parameter bar", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("parameter bar can collapse and expand, showing badge count when collapsed", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+
+    // Create a dashboard via API with a click-action table widget
+    const res = await page.request.post("/api/dashboards", {
+      data: { name: `Collapsible ${Date.now()}` },
+    });
+    const { id } = await res.json();
+    dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
+
+    const layout = {
+      version: 2 as const,
+      pages: [{
+        id: "p1",
+        title: "Main",
+        widgets: [{
+          id: "w1",
+          chartType: "table",
+          connectionId: "conn-neo4j-001",
+          query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 10",
+          settings: {
+            title: "Movies",
+            clickAction: {
+              type: "set-parameter" as const,
+              parameterMapping: { parameterName: "selected_movie", sourceField: "" },
+            },
+          },
+        }],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 6 }],
+      }],
+    };
+    await page.request.put(`/api/dashboards/${id}`, { data: { layoutJson: layout } });
+
+    // Navigate to view mode
+    await page.goto(`/${id}`);
+    await expect(page.getByText("Movies")).toBeVisible({ timeout: 15_000 });
+
+    // Wait for table data to load and click a cell to set a parameter
+    const firstCell = page.locator("td").first();
+    await expect(firstCell).toBeVisible({ timeout: 15_000 });
+    await firstCell.click();
+
+    // Parameter bar should appear with "Reset" button
+    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({ timeout: 10_000 });
+
+    // Click the collapse toggle
+    const collapseBtn = page.getByRole("button", { name: "Collapse parameters" });
+    await expect(collapseBtn).toBeVisible();
+    await collapseBtn.click();
+
+    // "Reset" button should be hidden when collapsed
+    await expect(page.getByRole("button", { name: "Reset" })).not.toBeVisible();
+
+    // Expand toggle should now be visible
+    const expandBtn = page.getByRole("button", { name: "Expand parameters" });
+    await expect(expandBtn).toBeVisible();
+
+    // Expand again
+    await expandBtn.click();
+    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
+  });
+});
+
+test.describe("Param-select searchable default", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("param-select defaults to searchable (Command popover with search input)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Searchable Default ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}/edit`);
+    await expect(page.getByText("Editing:")).toBeVisible();
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    // Select "Parameter Selector" chart type
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
+
+    // Select Neo4j connection
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    // Fill seed query
+    await dialog.locator("#seed-query").fill(
+      "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
+    );
+
+    // Set parameter name
+    const paramInput = dialog.getByLabel("Parameter Name");
+    await expect(paramInput).toBeVisible({ timeout: 5_000 });
+    await paramInput.fill("year_searchable_default");
+
+    // Add widget WITHOUT toggling the searchable option — it should be on by default
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+    // The widget should render a combobox button (searchable ParamSelector),
+    // not a basic Radix Select trigger.
+    // The combobox button is rendered by ParamSelector when searchable=true.
+    const combobox = page.getByRole("combobox").last();
+    await expect(combobox).toBeVisible({ timeout: 10_000 });
+    await combobox.click();
+
+    // The Command popover should show a search input with placeholder "Search…"
+    await expect(page.getByPlaceholder("Search\u2026")).toBeVisible({ timeout: 5_000 });
+  });
+});
+
+test.describe("Parameter collision warning", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Collision ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("shows collision banner when two param-select widgets share the same parameter name", async ({
+    page,
+  }) => {
+    // --- Widget 1: param-select with name "season" ---
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog1 = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog1.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
+    await dialog1.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await dialog1.locator("#seed-query").fill("RETURN 1 AS x");
+    const paramInput1 = dialog1.getByLabel("Parameter Name");
+    await expect(paramInput1).toBeVisible({ timeout: 5_000 });
+    await paramInput1.fill("season");
+    await dialog1.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog1).not.toBeVisible();
+
+    // --- Widget 2: param-select with the same name "season" ---
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog2 = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog2.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
+    await dialog2.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await dialog2.locator("#seed-query").fill("RETURN 1 AS x");
+    const paramInput2 = dialog2.getByLabel("Parameter Name");
+    await expect(paramInput2).toBeVisible({ timeout: 5_000 });
+    await paramInput2.fill("season");
+
+    // The collision banner should appear
+    await expect(
+      dialog2.getByTestId("param-collision-banner")
+    ).toBeVisible({ timeout: 5_000 });
+  });
+});

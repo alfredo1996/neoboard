@@ -9,9 +9,9 @@ describe("CrossFilterTag", () => {
     value: "Electronics",
   };
 
-  it("renders source name", () => {
+  it("does not render source name (simplified display)", () => {
     render(<CrossFilterTag {...defaultProps} />);
-    expect(screen.getByText("Bar Chart")).toBeInTheDocument();
+    expect(screen.queryByText("Bar Chart")).not.toBeInTheDocument();
   });
 
   it("renders field name", () => {
@@ -56,5 +56,42 @@ describe("CrossFilterTag", () => {
       <CrossFilterTag {...defaultProps} className="custom-tag" />
     );
     expect(container.firstChild).toHaveClass("custom-tag");
+  });
+
+  // ── Simplified display (no source) ──────────────────────────────────
+
+  it("does not render the source prop (simplified display)", () => {
+    render(<CrossFilterTag {...defaultProps} />);
+    // Source should NOT appear in simplified display
+    expect(screen.queryByText("Bar Chart")).not.toBeInTheDocument();
+  });
+
+  // ── onClick handler ──────────────────────────────────────────────────
+
+  it("calls onClick when the tag badge is clicked", () => {
+    const onClick = vi.fn();
+    render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    // Click on the badge itself (not the remove button)
+    fireEvent.click(screen.getByText("category"));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when clicked without onClick handler", () => {
+    render(<CrossFilterTag {...defaultProps} />);
+    expect(() => fireEvent.click(screen.getByText("category"))).not.toThrow();
+  });
+
+  // ── Tooltip ──────────────────────────────────────────────────────────
+
+  it("renders tooltip content when tooltip prop is provided", () => {
+    render(<CrossFilterTag {...defaultProps} tooltip="Set by Bar Chart" />);
+    // The tooltip should be in the DOM (accessible via title attribute)
+    expect(screen.getByTitle("Set by Bar Chart")).toBeInTheDocument();
+  });
+
+  it("does not render a title when tooltip is not provided", () => {
+    const { container } = render(<CrossFilterTag {...defaultProps} />);
+    // The badge element should not have a title attribute
+    expect(container.firstChild).not.toHaveAttribute("title");
   });
 });

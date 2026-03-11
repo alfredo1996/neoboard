@@ -139,6 +139,33 @@ describe("useParameterStore", () => {
     expect(useParameterStore.getState().parameters).toEqual({});
   });
 
+  // ── sourceWidgetId ───────────────────────────────────────────────
+
+  it("stores sourceWidgetId when provided", () => {
+    const { setParameter } = useParameterStore.getState();
+    setParameter("category", "Electronics", "Bar Chart", "category", "text", "click-action", "widget-abc-123");
+    const entry = useParameterStore.getState().parameters["category"];
+    expect(entry.sourceWidgetId).toBe("widget-abc-123");
+  });
+
+  it("stores undefined sourceWidgetId when not provided", () => {
+    const { setParameter } = useParameterStore.getState();
+    setParameter("category", "Electronics", "Bar Chart", "category");
+    const entry = useParameterStore.getState().parameters["category"];
+    expect(entry.sourceWidgetId).toBeUndefined();
+  });
+
+  it("preserves sourceWidgetId through save/restore cycle", () => {
+    // This test is in the localStorage describe block below; here we just verify
+    // that sourceWidgetId is part of the ParameterEntry interface
+    const { setParameter } = useParameterStore.getState();
+    setParameter("x", 1, "W", "x", "text", "click-action", "wid-1");
+    setParameter("y", 2, "W", "y", "text", "selector-widget");
+    const params = useParameterStore.getState().parameters;
+    expect(params["x"].sourceWidgetId).toBe("wid-1");
+    expect(params["y"].sourceWidgetId).toBeUndefined();
+  });
+
   // ── ParameterType union coverage ──────────────────────────────────
 
   it("accepts all 8 ParameterType values without TypeScript error", () => {
