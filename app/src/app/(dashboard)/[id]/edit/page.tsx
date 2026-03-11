@@ -3,11 +3,12 @@
 import { use, useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Plus, Save, LayoutDashboard, Users } from "lucide-react";
+import { ArrowLeft, Filter, Plus, Save, LayoutDashboard, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useParameterStore } from "@/stores/parameter-store";
+import { filterParentParams } from "@/lib/format-parameter-value";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -60,6 +61,14 @@ export default function DashboardEditorPage({
       saveToDashboard(id);
     };
   }, [id, saveToDashboard, restoreFromDashboard]);
+
+  const parameters = useParameterStore((s) => s.parameters);
+  const parameterCount = useMemo(
+    () => filterParentParams(Object.entries(parameters)).length,
+    [parameters],
+  );
+  const hasParameters = parameterCount > 0;
+  const [showParameterBar, setShowParameterBar] = useState(true);
 
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -272,6 +281,18 @@ export default function DashboardEditorPage({
           )}
           {!isLoading && dashboard && (
             <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!hasParameters}
+                onClick={() => setShowParameterBar((prev) => !prev)}
+                aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                {!hasParameters || showParameterBar ? "Filters" : `Filters (${parameterCount})`}
+              </Button>
+              <ToolbarSeparator />
               <Button variant="outline" size="sm" onClick={openAddWidget}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Widget
@@ -413,6 +434,7 @@ export default function DashboardEditorPage({
                     templateMap={templateMap}
                     onSyncWidget={handleSyncWidget}
                     onDetachWidget={handleDetachWidget}
+                    showParameterBar={showParameterBar}
                   />
                 </div>
               );

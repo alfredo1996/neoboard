@@ -1747,14 +1747,14 @@ test.describe("Preview Run button", () => {
   });
 });
 
-test.describe("Collapsible parameter bar", () => {
+test.describe("Parameter bar filter toggle", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
   test.afterEach(async () => {
     await dashboardCleanup?.();
   });
 
-  test("parameter bar can collapse and expand, showing badge count when collapsed", async ({
+  test("filter button in toolbar toggles parameter bar visibility", async ({
     authPage,
     page,
   }) => {
@@ -1762,7 +1762,7 @@ test.describe("Collapsible parameter bar", () => {
 
     // Create a dashboard via API with a click-action table widget
     const res = await page.request.post("/api/dashboards", {
-      data: { name: `Collapsible ${Date.now()}` },
+      data: { name: `FilterToggle ${Date.now()}` },
     });
     const { id } = await res.json();
     dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
@@ -1802,23 +1802,22 @@ test.describe("Collapsible parameter bar", () => {
     // Parameter bar should appear with "Reset" button
     await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({ timeout: 10_000 });
 
-    // Click the collapse toggle
-    const collapseBtn = page.getByRole("button", { name: "Collapse parameters" });
-    await expect(collapseBtn).toBeVisible();
-    await collapseBtn.click();
+    // Filter button should be visible in the toolbar showing "Filters"
+    const filterBtn = page.getByRole("button", { name: "Hide parameters" });
+    await expect(filterBtn).toBeVisible();
 
-    // "Reset" button should be hidden when collapsed
+    // Click the filter button to hide the parameter bar
+    await filterBtn.click();
+
+    // Parameter bar "Reset" button should be hidden
     await expect(page.getByRole("button", { name: "Reset" })).not.toBeVisible();
 
-    // Badge should show the parameter count
-    await expect(page.locator("[data-orientation] .inline-flex").filter({ hasText: "1" })).toBeVisible();
+    // Filter button text should now show count (e.g. "Filters (1)")
+    const showBtn = page.getByRole("button", { name: "Show parameters" });
+    await expect(showBtn).toBeVisible();
 
-    // Expand toggle should now be visible
-    const expandBtn = page.getByRole("button", { name: "Expand parameters" });
-    await expect(expandBtn).toBeVisible();
-
-    // Expand again
-    await expandBtn.click();
+    // Click filter button again to show the parameter bar
+    await showBtn.click();
     await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   });
 });

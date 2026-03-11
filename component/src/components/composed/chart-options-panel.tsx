@@ -17,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ChartOptionsPanelProps {
@@ -126,6 +127,36 @@ function OptionField({
   }
 }
 
+function CategorySection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        className="flex w-full items-center gap-1 text-xs font-medium uppercase text-muted-foreground tracking-wider hover:text-foreground transition-colors"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        )}
+        {title}
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
 function ChartOptionsPanel({
   chartType,
   settings,
@@ -178,11 +209,8 @@ function ChartOptionsPanel({
       )}
 
       <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-        {Object.entries(grouped).map(([category, opts]) => (
-          <div key={category} className="space-y-3">
-            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-              {category}
-            </h4>
+        {Object.entries(grouped).map(([category, opts], index) => (
+          <CategorySection key={category} title={category} defaultOpen={index === 0}>
             {opts.map((opt) => (
               <OptionField
                 key={opt.key}
@@ -191,7 +219,7 @@ function ChartOptionsPanel({
                 onChange={handleChange}
               />
             ))}
-          </div>
+          </CategorySection>
         ))}
       </div>
     </div>

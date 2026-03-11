@@ -59,6 +59,8 @@ interface DashboardContainerProps {
   onSyncWidget?: (widget: DashboardWidget) => void;
   /** Called when the user chooses "Detach from template". */
   onDetachWidget?: (widgetId: string) => void;
+  /** When false, the parameter bar is hidden. Defaults to true. */
+  showParameterBar?: boolean;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -83,6 +85,7 @@ export function DashboardContainer({
   templateMap,
   onSyncWidget,
   onDetachWidget,
+  showParameterBar = true,
 }: DashboardContainerProps) {
   const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
@@ -170,12 +173,8 @@ export function DashboardContainer({
 
   return (
     <>
-      {hasParameters && (
-        <ParameterBar
-          collapsible
-          onReset={clearAll}
-          parameterCount={displayEntries.length}
-        >
+      {hasParameters && showParameterBar && (
+        <ParameterBar onReset={clearAll}>
           {displayEntries.map(([name, entry]) => (
             <CrossFilterTag
               key={name}
