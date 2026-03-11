@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
-import { validateBody, unauthorized, forbidden, notFound } from "@/lib/api-utils";
+import { validateBody, forbidden, notFound, handleRouteError } from "@/lib/api-utils";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -36,6 +36,11 @@ const dashboardSettingsSchema = z.object({
   refreshIntervalSeconds: z.number().min(5).optional(),
 });
 
+/** Each thumbnail must be a data-URI under 50 KB. */
+const thumbnailValueSchema = z.string()
+  .startsWith("data:image/")
+  .max(50_000);
+
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -47,6 +52,7 @@ const updateDashboardSchema = z.object({
     })
     .optional(),
   isPublic: z.boolean().optional(),
+  thumbnailJson: z.record(thumbnailValueSchema).optional(),
 });
 
 type DashboardAccessRole = "owner" | "editor" | "viewer" | "admin";
@@ -114,8 +120,8 @@ export async function GET(
     }
 
     return NextResponse.json({ ...access.dashboard, role: access.role });
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to fetch dashboard");
   }
 }
 
@@ -147,8 +153,8 @@ export async function PUT(
       .returning();
 
     return NextResponse.json(updated);
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to update dashboard");
   }
 }
 
@@ -187,7 +193,7 @@ export async function DELETE(
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)));
 
     return NextResponse.json({ success: true });
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to delete dashboard");
   }
 }

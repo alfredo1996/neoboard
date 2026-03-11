@@ -6,6 +6,8 @@ export interface MiniPreviewWidget {
   w: number;
   h: number;
   chartType: string;
+  /** JPEG data-URI thumbnail captured on last save. */
+  thumbnailUrl?: string;
 }
 
 export interface DashboardMiniPreviewProps {
@@ -63,14 +65,23 @@ export function DashboardMiniPreview({
         <div
           key={i}
           className={cn(
-            "rounded-sm border border-border/30",
-            chartTypeColors[w.chartType] ?? "bg-muted"
+            "rounded-sm border border-border/30 overflow-hidden",
+            !w.thumbnailUrl && (chartTypeColors[w.chartType] ?? "bg-muted")
           )}
           style={{
             gridColumn: `${w.x + 1} / span ${w.w}`,
             gridRow: `${w.y + 1} / span ${w.h}`,
           }}
-        />
+        >
+          {w.thumbnailUrl && (
+            <img
+              src={w.thumbnailUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
       ))}
     </div>
   );

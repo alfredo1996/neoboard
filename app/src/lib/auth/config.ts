@@ -69,16 +69,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.canWrite = (user as { canWrite?: boolean }).canWrite ?? true;
         token.tenantId = process.env.TENANT_ID ?? "default";
       }
-      // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions
+      // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
+      // Wrapped in try/catch so a transient DB hiccup (e.g. dev-server restart) doesn't
+      // destroy the session — existing token values are preserved as a fallback.
       if (token.id) {
-        const [dbUser] = await db
-          .select({ role: users.role, canWrite: users.canWrite })
-          .from(users)
-          .where(eq(users.id, token.id as string))
-          .limit(1);
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.canWrite = dbUser.canWrite;
+        try {
+          const [dbUser] = await db
+            .select({ role: users.role, canWrite: users.canWrite })
+            .from(users)
+            .where(eq(users.id, token.id as string))
+            .limit(1);
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.canWrite = dbUser.canWrite;
+          }
+        } catch {
+          // DB unavailable — keep existing token values (graceful degradation)
         }
       }
       return token;

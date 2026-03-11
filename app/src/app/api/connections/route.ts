@@ -6,7 +6,7 @@ import { requireUserId } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { createConnectionSchema } from "@/lib/schemas";
-import { validateBody, unauthorized, handleRouteError } from "@/lib/api-utils";
+import { validateBody, handleRouteError } from "@/lib/api-utils";
 
 export async function GET() {
   try {
@@ -24,8 +24,8 @@ export async function GET() {
       .where(eq(connections.userId, userId));
 
     return NextResponse.json(result);
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to fetch connections");
   }
 }
 

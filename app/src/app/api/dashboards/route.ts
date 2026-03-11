@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { validateBody, unauthorized, forbidden } from "@/lib/api-utils";
+import { validateBody, forbidden, handleRouteError } from "@/lib/api-utils";
 
 interface WidgetPreviewItem {
   x: number;
@@ -13,10 +13,12 @@ interface WidgetPreviewItem {
   w: number;
   h: number;
   chartType: string;
+  thumbnailUrl?: string;
 }
 
 function computePreview(
-  layout: DashboardLayoutV2 | null | undefined
+  layout: DashboardLayoutV2 | null | undefined,
+  thumbnails?: Record<string, string> | null,
 ): WidgetPreviewItem[] {
   if (!layout?.pages?.[0]) return [];
   const page = layout.pages[0];
@@ -27,6 +29,7 @@ function computePreview(
     w: g.w,
     h: g.h,
     chartType: typeMap.get(g.i) ?? "unknown",
+    ...(thumbnails?.[g.i] ? { thumbnailUrl: thumbnails[g.i] } : {}),
   }));
 }
 
@@ -56,17 +59,18 @@ export async function GET() {
           updatedAt: dashboards.updatedAt,
           ownerId: dashboards.userId,
           layoutJson: dashboards.layoutJson,
+          thumbnailJson: dashboards.thumbnailJson,
         })
         .from(dashboards)
         .where(eq(dashboards.tenantId, tenantId));
 
       return NextResponse.json(
         all.map((d) => {
-          const { layoutJson, ...rest } = d;
+          const { layoutJson, thumbnailJson, ...rest } = d;
           return {
             ...rest,
             role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
-            preview: computePreview(layoutJson),
+            preview: computePreview(layoutJson, thumbnailJson),
             widgetCount: countWidgets(layoutJson),
           };
         })
@@ -83,6 +87,7 @@ export async function GET() {
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
         layoutJson: dashboards.layoutJson,
+        thumbnailJson: dashboards.thumbnailJson,
       })
       .from(dashboards)
       .where(and(eq(dashboards.userId, userId), eq(dashboards.tenantId, tenantId)));
@@ -97,6 +102,7 @@ export async function GET() {
         updatedAt: dashboards.updatedAt,
         role: dashboardShares.role,
         layoutJson: dashboards.layoutJson,
+        thumbnailJson: dashboards.thumbnailJson,
       })
       .from(dashboardShares)
       .innerJoin(dashboards, eq(dashboardShares.dashboardId, dashboards.id))
@@ -116,17 +122,18 @@ export async function GET() {
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
         layoutJson: dashboards.layoutJson,
+        thumbnailJson: dashboards.thumbnailJson,
       })
       .from(dashboards)
       .where(and(eq(dashboards.tenantId, tenantId), eq(dashboards.isPublic, true)));
 
-    function addPreview<T extends { layoutJson: DashboardLayoutV2 | null }>(
+    function addPreview<T extends { layoutJson: DashboardLayoutV2 | null; thumbnailJson: Record<string, string> | null }>(
       d: T
     ) {
-      const { layoutJson, ...rest } = d;
+      const { layoutJson, thumbnailJson, ...rest } = d;
       return {
         ...rest,
-        preview: computePreview(layoutJson),
+        preview: computePreview(layoutJson, thumbnailJson),
         widgetCount: countWidgets(layoutJson),
       };
     }
@@ -152,8 +159,8 @@ export async function GET() {
     });
 
     return NextResponse.json(result);
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to fetch dashboards");
   }
 }
 
@@ -180,7 +187,7 @@ export async function POST(request: Request) {
       .returning();
 
     return NextResponse.json(dashboard, { status: 201 });
-  } catch {
-    return unauthorized();
+  } catch (error) {
+    return handleRouteError(error, "Failed to create dashboard");
   }
 }
