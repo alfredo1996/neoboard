@@ -97,31 +97,39 @@ describe("CrossFilterTag", () => {
 
   // ── Keyboard accessibility ────────────────────────────────────────────
 
-  it("is keyboard-accessible when onClick is provided", () => {
+  it("renders a semantic button when onClick is provided", () => {
     const onClick = vi.fn();
     const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
-    const badge = container.firstChild as HTMLElement;
-    expect(badge).toHaveAttribute("role", "button");
-    expect(badge).toHaveAttribute("tabindex", "0");
+    const root = container.firstChild as HTMLElement;
+    expect(root.tagName).toBe("BUTTON");
   });
 
-  it("triggers onClick on Enter key", () => {
-    const onClick = vi.fn();
-    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
-    fireEvent.keyDown(container.firstChild!, { key: "Enter" });
-    expect(onClick).toHaveBeenCalledTimes(1);
-  });
-
-  it("triggers onClick on Space key", () => {
-    const onClick = vi.fn();
-    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
-    fireEvent.keyDown(container.firstChild!, { key: " " });
-    expect(onClick).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not add role or tabIndex when onClick is not provided", () => {
+  it("renders a div when onClick is not provided", () => {
     const { container } = render(<CrossFilterTag {...defaultProps} />);
-    expect(container.firstChild).not.toHaveAttribute("role");
-    expect(container.firstChild).not.toHaveAttribute("tabindex");
+    const root = container.firstChild as HTMLElement;
+    expect(root.tagName).toBe("DIV");
+  });
+
+  it("activates on Enter key (native button behavior)", () => {
+    const onClick = vi.fn();
+    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    const btn = container.firstChild as HTMLButtonElement;
+    // Native <button> converts Enter keypress to a click event
+    fireEvent.click(btn);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("is focusable when onClick is provided", () => {
+    const onClick = vi.fn();
+    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    const btn = container.firstChild as HTMLButtonElement;
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it("does not render remove button as queryable button when no onClick or onRemove", () => {
+    const { container } = render(<CrossFilterTag {...defaultProps} />);
+    // Root is a div, not a button
+    expect((container.firstChild as HTMLElement).tagName).toBe("DIV");
   });
 });

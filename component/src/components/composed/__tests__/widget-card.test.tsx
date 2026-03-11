@@ -167,6 +167,26 @@ describe("WidgetCard", () => {
     expect(onRefresh).toHaveBeenCalledOnce();
   });
 
+  it("renders the refresh button disabled when refreshDisabled is true", () => {
+    render(
+      <WidgetCard title="Sales" onRefresh={() => {}} refreshDisabled>
+        Content
+      </WidgetCard>
+    );
+    const btn = screen.getByRole("button", { name: "Refresh" });
+    expect(btn).toBeDisabled();
+  });
+
+  it("renders the refresh button enabled by default", () => {
+    render(
+      <WidgetCard title="Sales" onRefresh={() => {}}>
+        Content
+      </WidgetCard>
+    );
+    const btn = screen.getByRole("button", { name: "Refresh" });
+    expect(btn).not.toBeDisabled();
+  });
+
   it("renders the refresh button alongside headerExtra", () => {
     render(
       <WidgetCard
