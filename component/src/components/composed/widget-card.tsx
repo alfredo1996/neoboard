@@ -33,6 +33,8 @@ export interface WidgetCardProps {
   headerExtra?: React.ReactNode;
   /** When provided, renders a refresh icon button in the header that calls this callback. */
   onRefresh?: () => void;
+  /** Keeps the refresh control visible but non-interactive. */
+  refreshDisabled?: boolean;
 }
 
 const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
@@ -49,6 +51,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       onDragHandleMouseDown,
       headerExtra,
       onRefresh,
+      refreshDisabled = false,
     },
     ref
   ) => {
@@ -90,6 +93,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   size="icon"
                   className="h-8 w-8"
                   onClick={onRefresh}
+                  disabled={refreshDisabled}
                 >
                   <RefreshCcw className="h-4 w-4" />
                   <span className="sr-only">Refresh</span>

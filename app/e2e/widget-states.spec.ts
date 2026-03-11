@@ -152,10 +152,18 @@ test.describe("Refresh button", () => {
     // Wait for data to load first
     await expect(page.locator("td").first()).toBeVisible({ timeout: 15_000 });
 
-    // Click refresh — data should still be visible after (no error)
+    // Intercept /api/query requests to detect a real re-fetch
+    let queryCount = 0;
+    await page.route("**/api/query", (route) => {
+      queryCount++;
+      return route.continue();
+    });
+
+    // Click refresh — should trigger a new /api/query request
     await refreshBtn.click();
     await expect(page.locator("td").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+    expect(queryCount).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -270,9 +278,17 @@ test.describe("Cache forever mode", () => {
     const refreshBtn = widgetCard.getByRole("button", { name: "Refresh" });
     await expect(refreshBtn).toBeVisible({ timeout: 10_000 });
 
-    // Click refresh — data should reload without error
+    // Intercept /api/query requests to detect a real re-fetch
+    let queryCount = 0;
+    await page.route("**/api/query", (route) => {
+      queryCount++;
+      return route.continue();
+    });
+
+    // Click refresh — should trigger a new /api/query request
     await refreshBtn.click();
     await expect(page.locator("td").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+    expect(queryCount).toBeGreaterThanOrEqual(1);
   });
 });

@@ -352,14 +352,23 @@ describe("useParameterStore", () => {
       expect(entry.sourceType).toBe("selector-widget");
     });
 
-    it("preserves sourceWidgetId through save/restore cycle", () => {
+    it("preserves sourceWidgetId through localStorage save/restore cycle", () => {
       const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
         useParameterStore.getState();
 
       setParameter("x", 1, "W", "x", "text", "click-action", "wid-1");
       setParameter("y", 2, "W", "y", "text", "selector-widget");
       saveToDashboard("dash-source-widget");
+
+      // Verify sourceWidgetId is actually serialized in localStorage
+      const stored = localStorage.getItem("nb-params:dash-source-widget");
+      expect(stored).not.toBeNull();
+      const parsed = JSON.parse(stored!);
+      expect(parsed["x"].sourceWidgetId).toBe("wid-1");
+      expect(parsed["y"].sourceWidgetId).toBeUndefined();
+
       clearAll();
+      expect(useParameterStore.getState().parameters).toEqual({});
 
       restoreFromDashboard("dash-source-widget");
       const params = useParameterStore.getState().parameters;

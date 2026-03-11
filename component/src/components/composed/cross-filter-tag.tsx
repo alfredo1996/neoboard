@@ -1,5 +1,5 @@
 import { X, Filter } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export interface CrossFilterTagProps {
@@ -23,20 +23,15 @@ function CrossFilterTag({
   tooltip,
   className,
 }: CrossFilterTagProps) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "gap-1.5 pr-1 font-normal",
-        onClick && "cursor-pointer",
-        className,
-      )}
-      onClick={onClick}
-      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      role={onClick ? "button" : undefined}
-      title={tooltip}
-    >
+  const classes = cn(
+    badgeVariants({ variant: "outline" }),
+    "gap-1.5 pr-1 font-normal",
+    onClick && "cursor-pointer hover:bg-accent",
+    className,
+  );
+
+  const content = (
+    <>
       <Filter className="h-3 w-3 text-muted-foreground" />
       <span className="font-medium">{field}</span>
       <span>=</span>
@@ -54,7 +49,21 @@ function CrossFilterTag({
           <span className="sr-only">Remove cross-filter</span>
         </button>
       )}
-    </Badge>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" className={classes} onClick={onClick} title={tooltip}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={classes} title={tooltip}>
+      {content}
+    </div>
   );
 }
 
