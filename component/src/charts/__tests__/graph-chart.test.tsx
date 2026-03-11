@@ -529,4 +529,30 @@ describe("GraphChart", () => {
     expect(nvlNodes[0].caption).toContain("x");
     expect(nvlNodes[0].caption).not.toBe("[object Object]");
   });
+
+  // --- autoFit ---
+
+  describe("autoFit", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("schedules a delayed fit via requestAnimationFrame when autoFit is true", () => {
+      const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} autoFit />);
+      expect(rafSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not call requestAnimationFrame for autoFit when prop is false", () => {
+      const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} autoFit={false} />);
+      expect(rafSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not call requestAnimationFrame for autoFit when prop is absent", () => {
+      const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      expect(rafSpy).not.toHaveBeenCalled();
+    });
+  });
 });

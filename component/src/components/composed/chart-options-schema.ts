@@ -199,7 +199,7 @@ const jsonOptions: ChartOptionDef[] = [
 
 const parameterSelectOptions: ChartOptionDef[] = [
   { key: "placeholder", label: "Placeholder", type: "text", default: "", category: "Parameter", description: "Hint text shown inside the selector when no value has been chosen." },
-  { key: "searchable", label: "Search-as-you-type", type: "boolean", default: false, category: "Parameter", description: "Allow the user to type to filter the option list in real time." },
+  { key: "searchable", label: "Search-as-you-type", type: "boolean", default: true, category: "Parameter", description: "Allow the user to type to filter the option list in real time." },
 ];
 
 const formOptions: ChartOptionDef[] = [
@@ -208,15 +208,49 @@ const formOptions: ChartOptionDef[] = [
   { key: "resetOnSuccess", label: "Reset on Success", type: "boolean", default: true, category: "Form", description: "Clear all form fields after a successful submission." },
 ];
 
+/** Shared behavior options available to all chart types except parameter-select and form. */
+const behaviorOptions: ChartOptionDef[] = [
+  {
+    key: "showRefreshButton",
+    label: "Show Refresh Button",
+    type: "boolean",
+    default: false,
+    category: "Behavior",
+    description: "Display a refresh button in the widget header to manually re-fetch the query.",
+  },
+  {
+    key: "manualRun",
+    label: "Manual Run",
+    type: "boolean",
+    default: false,
+    category: "Behavior",
+    description:
+      "Start with the query disabled. A 'Run Query' button must be clicked to execute. On parameter change the widget resets to the overlay.",
+  },
+  {
+    key: "cacheMode",
+    label: "Cache Mode",
+    type: "select",
+    default: "ttl",
+    category: "Behavior",
+    description:
+      "TTL re-fetches data based on the cache timeout. Forever fetches once and caches until manually refreshed.",
+    options: [
+      { label: "TTL (time-based)", value: "ttl" },
+      { label: "Forever (until refresh)", value: "forever" },
+    ],
+  },
+];
+
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: barOptions,
-  line: lineOptions,
-  pie: pieOptions,
-  "single-value": singleValueOptions,
-  graph: graphOptions,
-  map: mapOptions,
-  table: tableOptions,
-  json: jsonOptions,
+  bar: [...barOptions, ...behaviorOptions],
+  line: [...lineOptions, ...behaviorOptions],
+  pie: [...pieOptions, ...behaviorOptions],
+  "single-value": [...singleValueOptions, ...behaviorOptions],
+  graph: [...graphOptions, ...behaviorOptions],
+  map: [...mapOptions, ...behaviorOptions],
+  table: [...tableOptions, ...behaviorOptions],
+  json: [...jsonOptions, ...behaviorOptions],
   "parameter-select": parameterSelectOptions,
   form: formOptions,
 };

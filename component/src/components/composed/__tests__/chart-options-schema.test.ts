@@ -135,6 +135,11 @@ describe("getDefaultChartSettings", () => {
     expect(getDefaultChartSettings("unknown")).toEqual({});
   });
 
+  it("defaults searchable to true for parameter-select", () => {
+    const d = getDefaultChartSettings("parameter-select");
+    expect(d.searchable).toBe(true);
+  });
+
   it("includes a key for every defined option", () => {
     const types = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
     for (const type of types) {
@@ -144,5 +149,77 @@ describe("getDefaultChartSettings", () => {
         expect(defaults).toHaveProperty(opt.key);
       }
     }
+  });
+
+  // ── Behavior options (showRefreshButton, manualRun) ──────────────────────
+
+  it("includes showRefreshButton and manualRun for all chart types except parameter-select and form", () => {
+    const typesWithBehavior = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    for (const type of typesWithBehavior) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys).toContain("showRefreshButton");
+      expect(keys).toContain("manualRun");
+    }
+  });
+
+  it("does NOT include showRefreshButton or manualRun for parameter-select", () => {
+    const keys = getChartOptions("parameter-select").map((o) => o.key);
+    expect(keys).not.toContain("showRefreshButton");
+    expect(keys).not.toContain("manualRun");
+  });
+
+  it("does NOT include showRefreshButton or manualRun for form", () => {
+    const keys = getChartOptions("form").map((o) => o.key);
+    expect(keys).not.toContain("showRefreshButton");
+    expect(keys).not.toContain("manualRun");
+  });
+
+  it("behavior options have category 'Behavior'", () => {
+    const options = getChartOptions("bar");
+    const refresh = options.find((o) => o.key === "showRefreshButton");
+    const manual = options.find((o) => o.key === "manualRun");
+    expect(refresh?.category).toBe("Behavior");
+    expect(manual?.category).toBe("Behavior");
+  });
+
+  it("behavior options default to false", () => {
+    const defaults = getDefaultChartSettings("bar");
+    expect(defaults.showRefreshButton).toBe(false);
+    expect(defaults.manualRun).toBe(false);
+  });
+
+  // ── cacheMode ─────────────────────────────────────────────────────────────
+
+  it("includes cacheMode for all chart types except parameter-select and form", () => {
+    const types = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    for (const type of types) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys).toContain("cacheMode");
+    }
+  });
+
+  it("does NOT include cacheMode for parameter-select", () => {
+    const keys = getChartOptions("parameter-select").map((o) => o.key);
+    expect(keys).not.toContain("cacheMode");
+  });
+
+  it("does NOT include cacheMode for form", () => {
+    const keys = getChartOptions("form").map((o) => o.key);
+    expect(keys).not.toContain("cacheMode");
+  });
+
+  it("defaults cacheMode to 'ttl'", () => {
+    const defaults = getDefaultChartSettings("bar");
+    expect(defaults.cacheMode).toBe("ttl");
+  });
+
+  it("cacheMode is a select option in category 'Behavior' with ttl and forever values", () => {
+    const options = getChartOptions("bar");
+    const cacheMode = options.find((o) => o.key === "cacheMode");
+    expect(cacheMode?.type).toBe("select");
+    expect(cacheMode?.category).toBe("Behavior");
+    expect(cacheMode?.options).toHaveLength(2);
+    expect(cacheMode?.options).toContainEqual({ label: "TTL (time-based)", value: "ttl" });
+    expect(cacheMode?.options).toContainEqual({ label: "Forever (until refresh)", value: "forever" });
   });
 });

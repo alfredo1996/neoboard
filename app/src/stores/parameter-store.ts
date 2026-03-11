@@ -40,6 +40,8 @@ export interface ParameterEntry {
   type: ParameterType;
   /** Machine-readable source classification */
   sourceType: ParameterSource;
+  /** The widget ID that set this parameter — enables scroll-to-source on tag click. */
+  sourceWidgetId?: string;
 }
 
 interface ParameterState {
@@ -50,7 +52,8 @@ interface ParameterState {
     source: string,
     field: string,
     type?: ParameterType,
-    sourceType?: ParameterSource
+    sourceType?: ParameterSource,
+    sourceWidgetId?: string
   ) => void;
   clearParameter: (name: string) => void;
   clearAll: () => void;
@@ -71,12 +74,13 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
     source,
     field,
     type = "text",
-    sourceType = "click-action"
+    sourceType = "click-action",
+    sourceWidgetId?,
   ) =>
     set((state) => ({
       parameters: {
         ...state.parameters,
-        [name]: { value, source, field, type, sourceType },
+        [name]: { value, source, field, type, sourceType, sourceWidgetId },
       },
     })),
 

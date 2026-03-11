@@ -64,6 +64,13 @@
       "when": 1773230400000,
       "tag": "0008_template_connection_id",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773316800000,
+      "tag": "0009_dashboard_thumbnails",
+      "breakpoints": true
     }
   ]
 }

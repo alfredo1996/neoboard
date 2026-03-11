@@ -99,4 +99,17 @@ describe("ParameterBar", () => {
     );
     expect(container.firstChild).toHaveClass("custom-bar");
   });
+
+  it("always renders children (no collapse logic)", () => {
+    render(
+      <ParameterBar>
+        <span>Param 1</span>
+        <span>Param 2</span>
+      </ParameterBar>
+    );
+    expect(screen.getByText("Param 1")).toBeVisible();
+    expect(screen.getByText("Param 2")).toBeVisible();
+    // No toggle button should exist
+    expect(screen.queryByRole("button", { name: /collapse|expand/i })).not.toBeInTheDocument();
+  });
 });
