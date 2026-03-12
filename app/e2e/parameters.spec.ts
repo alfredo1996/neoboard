@@ -1140,16 +1140,19 @@ test.describe("Date-relative parameter widget", () => {
     try {
       await page.goto(`/${id}`);
 
+      // Scope to the widget card to avoid collision with parameter bar tags
+      const card = page.getByTestId("widget-card");
+
       // Wait for the relative date preset buttons to render
-      const todayBtn = page.getByRole("button", { name: "Today" });
+      const todayBtn = card.getByRole("button", { name: "Today" });
       await expect(todayBtn).toBeVisible({ timeout: 15_000 });
 
       // All presets should be visible
-      await expect(page.getByRole("button", { name: "Yesterday" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Last 7 days" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Last 30 days" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "This month" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "This year" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Yesterday" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Last 7 days" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Last 30 days" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "This month" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "This year" })).toBeVisible();
 
       // Initially none should be active
       await expect(todayBtn).toHaveAttribute("aria-pressed", "false");
@@ -1163,7 +1166,7 @@ test.describe("Date-relative parameter widget", () => {
       await expect(todayBtn).toHaveAttribute("aria-pressed", "false");
 
       // Click "Last 7 days" — should become active
-      const last7 = page.getByRole("button", { name: "Last 7 days" });
+      const last7 = card.getByRole("button", { name: "Last 7 days" });
       await last7.click();
       await expect(last7).toHaveAttribute("aria-pressed", "true");
       // "Today" should still be inactive
