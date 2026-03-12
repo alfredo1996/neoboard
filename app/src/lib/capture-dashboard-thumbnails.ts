@@ -73,7 +73,7 @@ export async function captureDashboardThumbnails(
 
   for (const widget of widgets) {
     const el = container.querySelector<HTMLElement>(
-      `[data-widget-id="${widget.id}"]`,
+      `[data-widget-id="${CSS.escape(widget.id)}"]`,
     );
     if (!el) continue;
 

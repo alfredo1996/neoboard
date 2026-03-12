@@ -200,16 +200,16 @@ export default function DashboardEditorPage({
     try {
       await updateDashboard.mutateAsync({ id, layoutJson: layout });
 
-      // Fire-and-forget: capture widget thumbnails from the live DOM and persist.
+      // Fire-and-forget: capture widget thumbnails from the active page's live DOM.
       // Uses a short delay to let ECharts finish rendering after any layout changes.
       const container = gridContainerRef.current;
-      const firstPage = layout.pages[0];
-      if (container && firstPage?.widgets.length) {
+      const currentPage = activePage;
+      if (container && currentPage?.widgets.length) {
         setTimeout(async () => {
           try {
             const thumbnails = await captureDashboardThumbnails(
               container,
-              firstPage.widgets.map((w) => ({ id: w.id, chartType: w.chartType })),
+              currentPage.widgets.map((w) => ({ id: w.id, chartType: w.chartType })),
             );
             if (Object.keys(thumbnails).length > 0) {
               updateThumbnails.mutate({ id, thumbnailJson: thumbnails });
