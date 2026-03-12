@@ -8,6 +8,7 @@ test.describe("Design system — Deep Ocean palette & accessibility", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
   test.beforeEach(async ({ authPage, page }) => {
+    dashboardCleanup = undefined;
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
@@ -19,7 +20,9 @@ test.describe("Design system — Deep Ocean palette & accessibility", () => {
   });
 
   test.afterEach(async () => {
-    await dashboardCleanup?.();
+    const cleanup = dashboardCleanup;
+    dashboardCleanup = undefined;
+    await cleanup?.();
   });
 
   /**
