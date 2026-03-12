@@ -56,6 +56,7 @@ export async function POST(
         description: source.description,
         layoutJson: source.layoutJson,
         isPublic: false,
+        updatedBy: userId,
       })
       .returning();
 

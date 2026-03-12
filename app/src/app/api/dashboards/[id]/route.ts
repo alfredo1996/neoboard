@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares } from "@/lib/db/schema";
+import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
 import { validateBody, forbidden, notFound, handleRouteError } from "@/lib/api-utils";
@@ -119,7 +119,18 @@ export async function GET(
       return notFound();
     }
 
-    return NextResponse.json({ ...access.dashboard, role: access.role });
+    // Look up the name of the user who last updated this dashboard
+    let updatedByName: string | null = null;
+    if (access.dashboard.updatedBy) {
+      const [updater] = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, access.dashboard.updatedBy))
+        .limit(1);
+      updatedByName = updater?.name ?? null;
+    }
+
+    return NextResponse.json({ ...access.dashboard, role: access.role, updatedByName });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");
   }
@@ -148,7 +159,7 @@ export async function PUT(
 
     const [updated] = await db
       .update(dashboards)
-      .set({ ...result.data, updatedAt: new Date() })
+      .set({ ...result.data, updatedAt: new Date(), updatedBy: userId })
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .returning();
 

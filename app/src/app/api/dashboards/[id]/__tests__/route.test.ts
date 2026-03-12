@@ -149,6 +149,29 @@ describe("GET /api/dashboards/[id]", () => {
     const body = res._body as { role: string };
     expect(body.role).toBe("admin");
   });
+
+  it("returns updatedByName when updatedBy is set", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const dashWithUpdater = { ...OWNER_DASHBOARD, updatedBy: "user-1" };
+    // First select: canAccess finds the dashboard
+    // Second select: look up updater name
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([dashWithUpdater]))
+      .mockReturnValueOnce(makeSelectChain([{ name: "Alice" }]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { updatedByName: string | null };
+    expect(body.updatedByName).toBe("Alice");
+  });
+
+  it("returns updatedByName as null when updatedBy is not set", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { updatedByName: string | null };
+    expect(body.updatedByName).toBeNull();
+  });
 });
 
 describe("PUT /api/dashboards/[id]", () => {
@@ -190,6 +213,17 @@ describe("PUT /api/dashboards/[id]", () => {
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(200);
     expect((res._body as { name: string }).name).toBe("New name");
+  });
+
+  it("sets updatedBy to session userId on update", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const updated = { ...OWNER_DASHBOARD, name: "Updated", updatedBy: "user-1" };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+
+    const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
+    expect(res.status).toBe(200);
+    expect(mockDb.update).toHaveBeenCalled();
   });
 
   it("returns 400 when request body is invalid", async () => {

@@ -28,6 +28,7 @@ import {
 } from "@neoboard/components";
 import {
   EmptyState,
+  TimeAgo,
   Toolbar,
   ToolbarSection,
   ToolbarSeparator,
@@ -226,6 +227,11 @@ export default function DashboardViewerPage({
         <ToolbarSection className="flex-1">
           <h1 className="text-lg font-bold">{dashboard.name}</h1>
           <Badge variant="secondary">{dashboard.role}</Badge>
+          {dashboard.updatedByName && (
+            <span className="text-xs text-muted-foreground">
+              · updated <TimeAgo date={dashboard.updatedAt} showTooltip={false} /> by {dashboard.updatedByName}
+            </span>
+          )}
         </ToolbarSection>
         <ToolbarSection>
           <Button
