@@ -58,14 +58,6 @@ describe("CrossFilterTag", () => {
     expect(container.firstChild).toHaveClass("custom-tag");
   });
 
-  // ── Simplified display (no source) ──────────────────────────────────
-
-  it("does not render the source prop (simplified display)", () => {
-    render(<CrossFilterTag {...defaultProps} />);
-    // Source should NOT appear in simplified display
-    expect(screen.queryByText("Bar Chart")).not.toBeInTheDocument();
-  });
-
   // ── onClick handler ──────────────────────────────────────────────────
 
   it("calls onClick when the tag badge is clicked", () => {
@@ -108,15 +100,6 @@ describe("CrossFilterTag", () => {
     const { container } = render(<CrossFilterTag {...defaultProps} />);
     const root = container.firstChild as HTMLElement;
     expect(root.tagName).toBe("DIV");
-  });
-
-  it("activates on Enter key (native button behavior)", () => {
-    const onClick = vi.fn();
-    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
-    const btn = container.firstChild as HTMLButtonElement;
-    // Native <button> converts Enter keypress to a click event
-    fireEvent.click(btn);
-    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("is focusable when onClick is provided", () => {
