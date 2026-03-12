@@ -119,18 +119,19 @@ export async function GET(
       return notFound();
     }
 
-    // Look up the name of the user who last updated this dashboard
-    let updatedByName: string | null = null;
-    if (access.dashboard.updatedBy) {
-      const [updater] = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, access.dashboard.updatedBy))
-        .limit(1);
-      updatedByName = updater?.name ?? null;
-    }
+    // Look up the name of the user who last updated this dashboard (tenant-scoped)
+    const [metadata] = await db
+      .select({ updatedByName: users.name })
+      .from(dashboards)
+      .leftJoin(users, eq(dashboards.updatedBy, users.id))
+      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
+      .limit(1);
 
-    return NextResponse.json({ ...access.dashboard, role: access.role, updatedByName });
+    return NextResponse.json({
+      ...access.dashboard,
+      role: access.role,
+      updatedByName: metadata?.updatedByName ?? null,
+    });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");
   }

@@ -49,9 +49,11 @@ const DASHBOARD = {
   name: "My Dashboard",
   description: "A test dashboard",
   layoutJson: LAYOUT,
+  thumbnailJson: null,
   isPublic: false,
   createdAt: new Date(),
   updatedAt: new Date(),
+  updatedBy: null,
 };
 
 describe("buildExportPayload", () => {

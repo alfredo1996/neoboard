@@ -18,10 +18,12 @@ test.describe("Dashboard metadata — updatedBy display", () => {
   });
 
   test("card footer shows 'by {name}' after creating a dashboard", async ({ page }) => {
+    const dashboardName = `Metadata E2E Test ${Date.now()}`;
+
     // Create a new dashboard with a unique name
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
-    await dialog.locator("#dashboard-name").fill("Metadata E2E Test");
+    await dialog.locator("#dashboard-name").fill(dashboardName);
     await dialog.getByRole("button", { name: "Create" }).click();
     await page.waitForURL(/\/edit/, { timeout: 10_000 });
 
@@ -29,7 +31,7 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await page.goto("/");
     const card = page
       .locator("div[class*='cursor-pointer']")
-      .filter({ hasText: "Metadata E2E Test" })
+      .filter({ hasText: dashboardName })
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
 
@@ -40,7 +42,7 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await card.getByRole("button", { name: "Dashboard options" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText("Metadata E2E Test")).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(dashboardName)).not.toBeVisible({ timeout: 5_000 });
   });
 
   test("viewer toolbar shows 'updated ... by {name}'", async ({ page }) => {

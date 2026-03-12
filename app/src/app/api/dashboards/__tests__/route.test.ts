@@ -222,12 +222,17 @@ describe("POST /api/dashboards", () => {
   it("sets updatedBy to session userId on create", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const created = { id: "d1", name: "Test", userId: "user-1", updatedBy: "user-1" };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const valuesSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain: any = {
+      values: (...args: unknown[]) => { valuesSpy(...args); return chain; },
+      returning: () => Promise.resolve([created]),
+    };
+    mockDb.insert.mockReturnValue(chain);
 
     const res = await POST(makeRequest({ name: "Test" }));
     expect(res.status).toBe(201);
-    // Verify insert was called (values are passed through mock chain)
-    expect(mockDb.insert).toHaveBeenCalled();
+    expect(valuesSpy).toHaveBeenCalledWith(expect.objectContaining({ updatedBy: "user-1" }));
   });
 });
 

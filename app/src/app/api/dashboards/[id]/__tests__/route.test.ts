@@ -154,10 +154,10 @@ describe("GET /api/dashboards/[id]", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const dashWithUpdater = { ...OWNER_DASHBOARD, updatedBy: "user-1" };
     // First select: canAccess finds the dashboard
-    // Second select: look up updater name
+    // Second select: tenant-scoped LEFT JOIN to resolve updater name
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([dashWithUpdater]))
-      .mockReturnValueOnce(makeSelectChain([{ name: "Alice" }]));
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: "Alice" }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = res._body as { updatedByName: string | null };
@@ -166,7 +166,10 @@ describe("GET /api/dashboards/[id]", () => {
 
   it("returns updatedByName as null when updatedBy is not set", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // First select: canAccess. Second select: LEFT JOIN returns null updatedByName
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = res._body as { updatedByName: string | null };
@@ -219,11 +222,18 @@ describe("PUT /api/dashboards/[id]", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const updated = { ...OWNER_DASHBOARD, name: "Updated", updatedBy: "user-1" };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const setSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain: any = {
+      set: (...args: unknown[]) => { setSpy(...args); return chain; },
+      where: () => chain,
+      returning: () => Promise.resolve([updated]),
+    };
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(mockDb.update).toHaveBeenCalled();
+    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ updatedBy: "user-1" }));
   });
 
   it("returns 400 when request body is invalid", async () => {
