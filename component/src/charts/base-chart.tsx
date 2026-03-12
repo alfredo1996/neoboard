@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
 import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart } from "echarts/charts";
 import {
@@ -69,6 +69,20 @@ function isDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
+/** Watch the `dark` class on `<html>` and re-render when it toggles. */
+function useDarkMode(): boolean {
+  const [dark, setDark] = useState(isDarkMode);
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return dark;
+}
+
 /**
  * Base chart wrapper that initializes ECharts, handles resizing,
  * theming, loading/error states, and event forwarding.
@@ -85,13 +99,14 @@ function BaseChart({
 }: BaseChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const dark = useDarkMode();
 
-  // Initialize / dispose ECharts instance
+  // Initialize / dispose ECharts instance — reinit when dark mode toggles
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    const themeName = isDarkMode() ? THEME_DARK : THEME_LIGHT;
+    const themeName = dark ? THEME_DARK : THEME_LIGHT;
     const instance = echarts.init(el, themeName, {
       renderer: "canvas",
     });
@@ -110,17 +125,18 @@ function BaseChart({
       chartRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dark]);
 
   // Update options
   useEffect(() => {
     const instance = chartRef.current;
     if (!instance || !options) return;
 
+    const ariaDefaults = { enabled: true, decal: { show: colorblindMode } };
     const merged: EChartsOption = {
       color: resolveChartColors(),
-      aria: { enabled: true, decal: { show: colorblindMode } },
       ...options,
+      aria: { ...ariaDefaults, ...(options?.aria as Record<string, unknown>) },
     };
     instance.setOption(merged, { notMerge: true });
   }, [options, colorblindMode]);
