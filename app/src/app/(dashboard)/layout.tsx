@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Database, Users, LogOut, FlaskConical } from "lucide-react";
+import { LayoutDashboard, Database, Users, LogOut, FlaskConical, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import {
   AppShell,
   Sidebar,
@@ -18,6 +19,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const { status } = useSession({
     required: true,
     onUnauthenticated() {
@@ -48,12 +50,26 @@ export default function DashboardLayout({
             )
           }
           footer={
-            <SidebarItem
-              icon={<LogOut className="h-4 w-4" />}
-              label="Sign out"
-              collapsed={collapsed}
-              onClick={() => signOut()}
-            />
+            <>
+              <SidebarItem
+                icon={
+                  theme === "dark" ? (
+                    <Sun className="h-4 w-4" />
+                  ) : (
+                    <Moon className="h-4 w-4" />
+                  )
+                }
+                label={theme === "dark" ? "Light mode" : "Dark mode"}
+                collapsed={collapsed}
+                onClick={toggleTheme}
+              />
+              <SidebarItem
+                icon={<LogOut className="h-4 w-4" />}
+                label="Sign out"
+                collapsed={collapsed}
+                onClick={() => signOut()}
+              />
+            </>
           }
         >
           <SidebarItem

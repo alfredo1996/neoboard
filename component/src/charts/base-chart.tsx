@@ -7,11 +7,18 @@ import {
   LegendComponent,
   GridComponent,
   DataZoomComponent,
+  AriaComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { cn } from "@/lib/utils";
 import type { BaseChartProps, EChartsClickEvent } from "./types";
+import {
+  registerNeoboardThemes,
+  THEME_LIGHT,
+  THEME_DARK,
+  DEEP_OCEAN_LIGHT,
+} from "./theme";
 
 echarts.use([
   EBarChart,
@@ -23,17 +30,17 @@ echarts.use([
   LegendComponent,
   GridComponent,
   DataZoomComponent,
+  AriaComponent,
   CanvasRenderer,
 ]);
 
-/**
- * Resolve CSS custom property chart colors into actual hsl() strings
- * that the ECharts canvas renderer can parse.
- * CSS var() is a DOM-only feature and does not work in canvas 2D context.
- */
+// Register NeoBoard themes once at module load
+registerNeoboardThemes(echarts.registerTheme);
+
 /**
  * Convert space-separated HSL values (e.g. "12 76% 61%") to
  * comma-separated format that ECharts' canvas color parser understands.
+ * CSS var() is a DOM-only feature and does not work in canvas 2D context.
  */
 function hslToComma(hslValues: string): string {
   const parts = hslValues.trim().split(/\s+/);
@@ -50,14 +57,17 @@ function resolveChartColors(): string[] {
   });
 }
 
-const CHART_COLOR_VARS = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5"];
-const CHART_COLORS_FALLBACK = [
-  "hsl(12, 76%, 61%)",
-  "hsl(173, 58%, 39%)",
-  "hsl(197, 37%, 24%)",
-  "hsl(43, 74%, 66%)",
-  "hsl(27, 87%, 67%)",
+const CHART_COLOR_VARS = [
+  "--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5",
+  "--chart-6", "--chart-7", "--chart-8", "--chart-9", "--chart-10",
 ];
+const CHART_COLORS_FALLBACK = DEEP_OCEAN_LIGHT;
+
+/** Detect whether the document is currently in dark mode. */
+function isDarkMode(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.classList.contains("dark");
+}
 
 /**
  * Base chart wrapper that initializes ECharts, handles resizing,
@@ -71,6 +81,7 @@ function BaseChart({
   onChartReady,
   onClick,
   onDataZoom,
+  colorblindMode = false,
 }: BaseChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
@@ -80,7 +91,8 @@ function BaseChart({
     const el = containerRef.current;
     if (!el) return;
 
-    const instance = echarts.init(el, undefined, {
+    const themeName = isDarkMode() ? THEME_DARK : THEME_LIGHT;
+    const instance = echarts.init(el, themeName, {
       renderer: "canvas",
     });
     chartRef.current = instance;
@@ -107,10 +119,11 @@ function BaseChart({
 
     const merged: EChartsOption = {
       color: resolveChartColors(),
+      aria: { enabled: true, decal: { show: colorblindMode } },
       ...options,
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options]);
+  }, [options, colorblindMode]);
 
   // Loading state
   useEffect(() => {
@@ -119,7 +132,9 @@ function BaseChart({
     if (loading) {
       instance.showLoading("default", {
         text: "",
-        maskColor: "rgba(255, 255, 255, 0.6)",
+        maskColor: isDarkMode()
+          ? "rgba(10, 15, 30, 0.6)"
+          : "rgba(255, 255, 255, 0.6)",
         zlevel: 0,
       });
     } else {
@@ -164,6 +179,7 @@ function BaseChart({
       ref={containerRef}
       className={cn("h-full w-full", className)}
       data-testid="base-chart"
+      role="img"
     />
   );
 }
