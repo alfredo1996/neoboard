@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { forbidden, notFound, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 export async function POST(
   _request: Request,
@@ -13,7 +14,7 @@ export async function POST(
     const { id } = await params;
 
     if (userRole === "reader") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden();
     }
 
     // Verify the caller can view the source dashboard
@@ -24,7 +25,7 @@ export async function POST(
       .limit(1);
 
     if (!source) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound();
     }
 
     // Non-admin Creators can only duplicate dashboards they own or are assigned to
@@ -43,7 +44,7 @@ export async function POST(
           .limit(1);
 
         if (!share) {
-          return NextResponse.json({ error: "Not found" }, { status: 404 });
+          return notFound();
         }
       }
     }
@@ -59,8 +60,8 @@ export async function POST(
       })
       .returning();
 
-    return NextResponse.json(copy, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiSuccess(copy, 201);
+  } catch (e) {
+    return handleRouteError(e);
   }
 }

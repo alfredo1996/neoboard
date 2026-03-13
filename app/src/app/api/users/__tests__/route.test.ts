@@ -26,7 +26,7 @@ vi.mock("next/server", () => nextResponseMockFactory());
 
 describe("GET /api/users", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let GET: () => Promise<any>;
+  let GET: (req: Request) => Promise<any>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -41,27 +41,49 @@ describe("GET /api/users", () => {
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireAdmin.mockRejectedValue(new Error("Unauthorized"));
-    const res = await GET();
+    const res = await GET(makeRequest({}, "http://localhost/api/users"));
     expect(res.status).toBe(401);
+    expect(res._body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns 403 when caller is not admin", async () => {
     mockRequireAdmin.mockRejectedValue(new Error("Forbidden"));
-    const res = await GET();
+    const res = await GET(makeRequest({}, "http://localhost/api/users"));
     expect(res.status).toBe(403);
+    expect(res._body.error.code).toBe("FORBIDDEN");
   });
 
-  it("includes canWrite field for each user", async () => {
+  it("returns users in envelope with pagination meta", async () => {
     mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
     const rows = [
       { id: "u1", name: "Alice", email: "alice@example.com", role: "creator", canWrite: true, createdAt: new Date() },
       { id: "u2", name: "Bob", email: "bob@example.com", role: "creator", canWrite: false, createdAt: new Date() },
     ];
-    mockDb.select.mockReturnValue(makeSelectChain(rows));
-    const res = await GET();
+    // Count query
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+    // Data query
+    mockDb.select.mockReturnValueOnce(makeSelectChain(rows));
+
+    const res = await GET(makeRequest({}, "http://localhost/api/users"));
     expect(res.status).toBe(200);
-    expect(res._body[0].canWrite).toBe(true);
-    expect(res._body[1].canWrite).toBe(false);
+    expect(res._body.data).toHaveLength(2);
+    expect(res._body.data[0].canWrite).toBe(true);
+    expect(res._body.data[1].canWrite).toBe(false);
+    expect(res._body.error).toBeNull();
+    expect(res._body.meta).toEqual({ total: 2, limit: 25, offset: 0 });
+  });
+
+  it("respects limit and offset query params", async () => {
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 10 }]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([
+      { id: "u3", name: "Charlie", email: "charlie@example.com", role: "reader", canWrite: false, createdAt: new Date() },
+    ]));
+
+    const res = await GET(makeRequest({}, "http://localhost/api/users?limit=1&offset=2"));
+    expect(res.status).toBe(200);
+    expect(res._body.data).toHaveLength(1);
+    expect(res._body.meta).toEqual({ total: 10, limit: 1, offset: 2 });
   });
 });
 
@@ -80,9 +102,8 @@ describe("POST /api/users", () => {
     POST = mod.POST;
   });
 
-  it("creates user with canWrite: false when specified", async () => {
+  it("creates user and returns 201 envelope", async () => {
     mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
-    // No existing user with this email
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const created = { id: "u1", name: "Test", email: "test@example.com", role: "creator", canWrite: false, createdAt: new Date() };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
@@ -96,7 +117,9 @@ describe("POST /api/users", () => {
     }));
 
     expect(res.status).toBe(201);
-    expect(res._body.canWrite).toBe(false);
+    expect(res._body.data.canWrite).toBe(false);
+    expect(res._body.data.id).toBe("u1");
+    expect(res._body.error).toBeNull();
   });
 
   it("defaults canWrite to true when omitted", async () => {
@@ -112,6 +135,29 @@ describe("POST /api/users", () => {
     }));
 
     expect(res.status).toBe(201);
-    expect(res._body.canWrite).toBe(true);
+    expect(res._body.data.canWrite).toBe(true);
+  });
+
+  it("returns 409 envelope when email already exists", async () => {
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockDb.select.mockReturnValue(makeSelectChain([{ id: "existing" }]));
+
+    const res = await POST(makeRequest({
+      name: "Dup",
+      email: "dup@example.com",
+      password: "password123",
+    }));
+
+    expect(res.status).toBe(409);
+    expect(res._body.error.code).toBe("CONFLICT");
+    expect(res._body.error.message).toMatch(/already exists/i);
+  });
+
+  it("returns 400 envelope for invalid body", async () => {
+    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+
+    const res = await POST(makeRequest({ name: "" }));
+    expect(res.status).toBe(400);
+    expect(res._body.error.code).toBe("VALIDATION_ERROR");
   });
 });

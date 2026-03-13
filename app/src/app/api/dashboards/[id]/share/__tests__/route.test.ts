@@ -88,8 +88,7 @@ describe("GET /api/dashboards/[id]/share", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain(shares));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as unknown[];
-    expect(body).toHaveLength(1);
+    expect(res._body.data).toHaveLength(1);
   });
 
   it("returns shares for admin accessing any dashboard", async () => {
@@ -98,7 +97,7 @@ describe("GET /api/dashboards/[id]/share", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body).toHaveLength(0);
+    expect(res._body.data).toHaveLength(0);
   });
 });
 
@@ -150,7 +149,7 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const res = await POST(makeRequest({ email: "unknown@example.com", role: "viewer" }), makeParams("d1"));
     expect(res.status).toBe(404);
-    expect((res._body as { error: string }).error).toBe("User not found");
+    expect(res._body.error.message).toBe("User not found");
   });
 
   it("returns 400 when sharing with yourself", async () => {
@@ -159,7 +158,7 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-1" }]));
     const res = await POST(makeRequest({ email: "self@example.com", role: "viewer" }), makeParams("d1"));
     expect(res.status).toBe(400);
-    expect((res._body as { error: string }).error).toBe("Cannot share with yourself");
+    expect(res._body.error.message).toBe("Cannot share with yourself");
   });
 
   it("creates new share when none exists", async () => {
@@ -170,7 +169,7 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockDb.insert.mockReturnValue(makeInsertChain());
     const res = await POST(makeRequest({ email: "other@example.com", role: "viewer" }), makeParams("d1"));
     expect(res.status).toBe(201);
-    expect((res._body as { success: boolean }).success).toBe(true);
+    expect(res._body.data.success).toBe(true);
   });
 
   it("updates existing share role (upsert)", async () => {
@@ -183,7 +182,7 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockDb.update.mockReturnValue(makeUpdateChain());
     const res = await POST(makeRequest({ email: "other@example.com", role: "editor" }), makeParams("d1"));
     expect(res.status).toBe(201);
-    expect((res._body as { success: boolean }).success).toBe(true);
+    expect(res._body.data.success).toBe(true);
   });
 });
 
@@ -240,6 +239,6 @@ describe("DELETE /api/dashboards/[id]/share", () => {
       makeParams("d1")
     );
     expect(res.status).toBe(200);
-    expect((res._body as { success: boolean }).success).toBe(true);
+    expect(res._body.data.success).toBe(true);
   });
 });

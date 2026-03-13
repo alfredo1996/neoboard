@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { validateBody, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess, apiList, apiError, parsePagination } from "@/lib/api-response";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
@@ -15,11 +15,16 @@ const createUserSchema = z.object({
   canWrite: z.boolean().optional().default(true),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireAdmin();
+    const { limit, offset } = parsePagination(request);
 
-    const result = await db
+    const [{ count: total }] = await db
+      .select({ count: count() })
+      .from(users);
+
+    const rows = await db
       .select({
         id: users.id,
         name: users.name,
@@ -28,9 +33,12 @@ export async function GET() {
         canWrite: users.canWrite,
         createdAt: users.createdAt,
       })
-      .from(users);
+      .from(users)
+      .limit(limit)
+      .orderBy(users.createdAt)
+      .offset(offset);
 
-    return NextResponse.json(result);
+    return apiList(rows, { total: Number(total), limit, offset });
   } catch (e) {
     return handleRouteError(e);
   }
@@ -53,10 +61,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existing.length > 0) {
-      return NextResponse.json(
-        { error: "A user with this email already exists" },
-        { status: 409 }
-      );
+      return apiError("CONFLICT", "A user with this email already exists");
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -73,7 +78,7 @@ export async function POST(request: Request) {
         createdAt: users.createdAt,
       });
 
-    return NextResponse.json(user, { status: 201 });
+    return apiSuccess(user, 201);
   } catch (e) {
     return handleRouteError(e);
   }

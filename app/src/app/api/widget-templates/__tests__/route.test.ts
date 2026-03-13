@@ -8,13 +8,18 @@ const mockRequireSession = vi.fn<
   () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
 >();
 
+/**
+ * Build a fluent Drizzle select chain that resolves to `rows`.
+ * The extra `.offset()` step is required by the paginated GET handler.
+ */
 function makeSelectChain(rows: unknown[]) {
   const resolved = Promise.resolve(rows);
   const c = Object.assign(resolved, {
     from: () => c,
     where: () => c,
     orderBy: () => c,
-    limit: () => Promise.resolve(rows),
+    limit: () => c,
+    offset: () => Promise.resolve(rows),
   });
   return c;
 }
@@ -76,27 +81,36 @@ describe("GET /api/widget-templates", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns all tenant templates", async () => {
+  it("returns all tenant templates with pagination meta", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const template = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j" };
-    mockDb.select.mockReturnValue(makeSelectChain([template]));
+    // First call → count query ([{ total: 1 }]), second call → rows
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 1 }]))
+      .mockReturnValueOnce(makeSelectChain([template]));
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
-    const body = res._body as unknown[];
-    expect(body).toHaveLength(1);
+    // envelope: data is the array, meta holds pagination
+    const body = res._body as { data: unknown[]; meta: { total: number; limit: number; offset: number } };
+    expect(body.data).toHaveLength(1);
+    expect(body.meta).toMatchObject({ total: 1, limit: 25, offset: 0 });
   });
 
   it("supports filtering by chartType", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
+      .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET(makeRequest({ chartType: "bar" }));
     expect(res.status).toBe(200);
   });
 
   it("supports filtering by connectorType", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
+      .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET(makeRequest({ connectorType: "neo4j" }));
     expect(res.status).toBe(200);
   });
@@ -131,6 +145,7 @@ describe("POST /api/widget-templates", () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(403);
+    expect(res._body.error.message).toBe("Forbidden");
   });
 
   it("returns 400 when name is missing", async () => {
@@ -151,13 +166,14 @@ describe("POST /api/widget-templates", () => {
     expect(res.status).toBe(400);
   });
 
-  it("creates template and returns 201", async () => {
+  it("creates template and returns 201 with envelope", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const created = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j", createdBy: "user-1" };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 
     const res = await POST(makeRequest({ name: "My Template", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(201);
-    expect(res._body).toEqual(created);
+    expect(res._body.data).toEqual(created);
+    expect(res._body.error).toBeNull();
   });
 });
