@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type Theme = "light" | "dark";
 
@@ -20,21 +20,26 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
 
+/**
+ * Initialise from localStorage on the client. Returns "light" on the
+ * server so the first SSR render is deterministic.
+ */
+function useInitialTheme(): Theme {
+  // Safe to call getStoredTheme lazily – useState initialiser runs once.
+  const [theme] = useState<Theme>(() => getStoredTheme());
+  return theme;
+}
+
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
+  const initial = useInitialTheme();
+  const [theme, setThemeState] = useState<Theme>(initial);
+  const isFirstRender = useRef(true);
 
-  // Hydrate from localStorage after mount to avoid SSR/client mismatch
+  // Apply theme on every change (including initial mount)
   useEffect(() => {
-    const stored = getStoredTheme();
-    setThemeState(stored);
-    applyTheme(stored);
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted) applyTheme(theme);
-  }, [theme, mounted]);
+    applyTheme(theme);
+    isFirstRender.current = false;
+  }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
     localStorage.setItem(STORAGE_KEY, t);
