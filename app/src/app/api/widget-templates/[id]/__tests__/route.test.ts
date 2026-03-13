@@ -84,15 +84,17 @@ describe("GET /api/widget-templates/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, { params: Promise.resolve({ id: "missing" }) });
     expect(res.status).toBe(404);
+    expect(res._body.error.message).toBe("Not found");
   });
 
-  it("returns template when found", async () => {
+  it("returns template wrapped in envelope when found", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const template = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j", createdBy: "user-1" };
     mockDb.select.mockReturnValue(makeSelectChain([template]));
     const res = await GET({} as Request, { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(200);
-    expect(res._body).toEqual(template);
+    expect(res._body.data).toEqual(template);
+    expect(res._body.error).toBeNull();
   });
 });
 
@@ -126,6 +128,7 @@ describe("PUT /api/widget-templates/[id]", () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: false, tenantId: "default" });
     const res = await PUT(makeRequest({ name: "Updated" }), { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(403);
+    expect(res._body.error.message).toBe("Forbidden");
   });
 
   it("returns 404 when template not found", async () => {
@@ -133,6 +136,7 @@ describe("PUT /api/widget-templates/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await PUT(makeRequest({ name: "Updated" }), { params: Promise.resolve({ id: "missing" }) });
     expect(res.status).toBe(404);
+    expect(res._body.error.message).toBe("Not found");
   });
 
   it("returns 403 when user is not the creator and not admin", async () => {
@@ -151,7 +155,8 @@ describe("PUT /api/widget-templates/[id]", () => {
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
     const res = await PUT(makeRequest({ name: "Updated" }), { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(200);
-    expect(res._body).toEqual(updated);
+    expect(res._body.data).toEqual(updated);
+    expect(res._body.error).toBeNull();
   });
 
   it("allows creator to update own template", async () => {
@@ -162,6 +167,7 @@ describe("PUT /api/widget-templates/[id]", () => {
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
     const res = await PUT(makeRequest({ name: "Updated" }), { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(200);
+    expect(res._body.data).toEqual(updated);
   });
 });
 
@@ -191,6 +197,7 @@ describe("DELETE /api/widget-templates/[id]", () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: false, tenantId: "default" });
     const res = await DELETE({} as Request, { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(403);
+    expect(res._body.error.message).toBe("Forbidden");
   });
 
   it("returns 404 when template not found", async () => {
@@ -198,6 +205,7 @@ describe("DELETE /api/widget-templates/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await DELETE({} as Request, { params: Promise.resolve({ id: "missing" }) });
     expect(res.status).toBe(404);
+    expect(res._body.error.message).toBe("Not found");
   });
 
   it("returns 403 when user is not the creator and not admin", async () => {
@@ -208,14 +216,15 @@ describe("DELETE /api/widget-templates/[id]", () => {
     expect(res.status).toBe(403);
   });
 
-  it("deletes template and returns success", async () => {
+  it("deletes template and returns { deleted: true } in envelope", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const existing = { id: "t1", name: "My Template", createdBy: "user-1", tenantId: "default" };
     mockDb.select.mockReturnValue(makeSelectChain([existing]));
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(200);
-    expect(res._body).toEqual({ success: true });
+    expect(res._body.data).toEqual({ deleted: true });
+    expect(res._body.error).toBeNull();
   });
 
   it("allows admin to delete any template", async () => {
@@ -225,5 +234,6 @@ describe("DELETE /api/widget-templates/[id]", () => {
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(200);
+    expect(res._body.data).toEqual({ deleted: true });
   });
 });

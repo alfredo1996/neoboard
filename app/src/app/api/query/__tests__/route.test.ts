@@ -71,7 +71,7 @@ describe("POST /api/query", () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500); // route catches and returns 500 with message
-    expect((res._body as { error: string }).error).toMatch(/Unauthorized/);
+    expect(res._body.error.message).toMatch(/Unauthorized/);
   });
 
   it("returns 400 for invalid body (missing query)", async () => {
@@ -95,7 +95,7 @@ describe("POST /api/query", () => {
       .mockReturnValueOnce(drizzleJoinChain([]));
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(404);
-    expect((res._body as { error: string }).error).toMatch(/not found/i);
+    expect(res._body.error.message).toMatch(/not found/i);
   });
 
   it("returns 403 when body tenantId does not match session tenantId", async () => {
@@ -104,7 +104,7 @@ describe("POST /api/query", () => {
       makeRequest({ connectionId: "c1", query: "SELECT 1", tenantId: "tenant-b" })
     );
     expect(res.status).toBe(403);
-    expect((res._body as { error: string }).error).toBe("Tenant mismatch");
+    expect(res._body.error.message).toBe("Tenant mismatch");
   });
 
   it("succeeds when body tenantId matches session tenantId", async () => {
@@ -131,10 +131,9 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(200);
-    const body = res._body as { resultId: string; data: unknown };
-    expect(body.resultId).toHaveLength(16);
-    expect(body.resultId).toMatch(/^[0-9a-f]{16}$/);
-    expect(body.data).toEqual([{ n: 1 }]);
+    expect(res._body.meta.resultId).toHaveLength(16);
+    expect(res._body.meta.resultId).toMatch(/^[0-9a-f]{16}$/);
+    expect(res._body.data.data).toEqual([{ n: 1 }]);
   });
 
   it("includes resultId in response and it matches computeResultId", async () => {
@@ -149,7 +148,7 @@ describe("POST /api/query", () => {
     const expected = computeResultId("c1", "MATCH (n) RETURN n");
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
-    expect((res._body as { resultId: string }).resultId).toBe(expected);
+    expect(res._body.meta.resultId).toBe(expected);
   });
 
   it("returns 500 when executeQuery throws", async () => {
@@ -162,7 +161,7 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500);
-    expect((res._body as { error: string }).error).toBe("Driver error");
+    expect(res._body.error.message).toBe("Driver error");
   });
 
   // --- Access fallback tests ---
@@ -211,7 +210,7 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(404);
-    expect((res._body as { error: string }).error).toMatch(/not found/i);
+    expect(res._body.error.message).toMatch(/not found/i);
   });
 
   it("non-admin with public dashboard can execute query on unowned connection", async () => {
@@ -259,9 +258,8 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }));
     expect(res.status).toBe(200);
-    const body = res._body as { data: unknown[]; truncated?: boolean };
-    expect(body.data).toHaveLength(10000);
-    expect(body.truncated).toBe(true);
+    expect(res._body.data.data).toHaveLength(10000);
+    expect(res._body.meta.truncated).toBe(true);
   });
 
   it("does not truncate and omits truncated flag when result is exactly 10,000 rows", async () => {
@@ -275,9 +273,8 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }));
     expect(res.status).toBe(200);
-    const body = res._body as { data: unknown[]; truncated?: boolean };
-    expect(body.data).toHaveLength(10000);
-    expect(body.truncated).toBeUndefined();
+    expect(res._body.data.data).toHaveLength(10000);
+    expect(res._body.meta.truncated).toBeUndefined();
   });
 
   it("does not truncate when result is well below 10,000 rows", async () => {
@@ -290,9 +287,8 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(200);
-    const body = res._body as { data: unknown[]; truncated?: boolean };
-    expect(body.data).toHaveLength(1);
-    expect(body.truncated).toBeUndefined();
+    expect(res._body.data.data).toHaveLength(1);
+    expect(res._body.meta.truncated).toBeUndefined();
   });
 
   it("does not apply MAX_ROWS truncation when result data is not an array", async () => {
@@ -306,8 +302,7 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(200);
-    const body = res._body as { data: unknown; truncated?: boolean };
-    expect(body.truncated).toBeUndefined();
-    expect(body.data).toEqual({ nodes: [], edges: [] });
+    expect(res._body.meta.truncated).toBeUndefined();
+    expect(res._body.data.data).toEqual({ nodes: [], edges: [] });
   });
 });

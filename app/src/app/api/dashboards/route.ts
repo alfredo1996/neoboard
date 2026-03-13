@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -6,6 +5,7 @@ import { dashboards, dashboardShares } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { validateBody, forbidden, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
 
 interface WidgetPreviewItem {
   x: number;
@@ -43,9 +43,10 @@ const createDashboardSchema = z.object({
   description: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { userId, role, tenantId } = await requireSession();
+    const { limit, offset } = parsePagination(request);
 
     if (role === "admin") {
       // Admin sees every dashboard in the tenant
@@ -64,17 +65,19 @@ export async function GET() {
         .from(dashboards)
         .where(eq(dashboards.tenantId, tenantId));
 
-      return NextResponse.json(
-        all.map((d) => {
-          const { layoutJson, thumbnailJson, ...rest } = d;
-          return {
-            ...rest,
-            role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
-            preview: computePreview(layoutJson, thumbnailJson),
-            widgetCount: countWidgets(layoutJson),
-          };
-        })
-      );
+      const mapped = all.map((d) => {
+        const { layoutJson, thumbnailJson, ...rest } = d;
+        return {
+          ...rest,
+          role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
+          preview: computePreview(layoutJson, thumbnailJson),
+          widgetCount: countWidgets(layoutJson),
+        };
+      });
+
+      const total = mapped.length;
+      const paginated = mapped.slice(offset, offset + limit);
+      return apiList(paginated, { total, limit, offset });
     }
 
     // Creator & Reader: owned dashboards + explicitly assigned/shared + public
@@ -143,8 +146,6 @@ export async function GET() {
     const sharedMapped = shared.map(addPreview);
     const publicMapped = publicDashboards.map((d) => addPreview({ ...d, role: "viewer" as const }));
 
-    // For Readers: shared + public (not owned, since Readers cannot create dashboards).
-    // For Creators: owned + shared + public.
     const combined =
       role === "reader"
         ? [...sharedMapped, ...publicMapped]
@@ -152,13 +153,15 @@ export async function GET() {
 
     // Deduplicate by ID (first occurrence wins — preserves owner/editor role over viewer)
     const seen = new Set<string>();
-    const result = combined.filter((d) => {
+    const deduped = combined.filter((d) => {
       if (seen.has(d.id)) return false;
       seen.add(d.id);
       return true;
     });
 
-    return NextResponse.json(result);
+    const total = deduped.length;
+    const paginated = deduped.slice(offset, offset + limit);
+    return apiList(paginated, { total, limit, offset });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboards");
   }
@@ -186,7 +189,7 @@ export async function POST(request: Request) {
       })
       .returning();
 
-    return NextResponse.json(dashboard, { status: 201 });
+    return apiSuccess(dashboard, 201);
   } catch (error) {
     return handleRouteError(error, "Failed to create dashboard");
   }

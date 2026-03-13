@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { unwrapResponse } from "@/lib/api-client";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
 export interface ImportDashboardInput {
@@ -49,8 +50,7 @@ export function useDashboards() {
     queryKey: ["dashboards"],
     queryFn: async () => {
       const res = await fetch("/api/dashboards");
-      if (!res.ok) throw new Error("Failed to fetch dashboards");
-      return res.json();
+      return unwrapResponse<DashboardListItem[]>(res);
     },
   });
 }
@@ -60,8 +60,7 @@ export function useDashboard(id: string) {
     queryKey: ["dashboards", id],
     queryFn: async () => {
       const res = await fetch(`/api/dashboards/${id}`);
-      if (!res.ok) throw new Error("Failed to fetch dashboard");
-      return res.json();
+      return unwrapResponse<DashboardDetail>(res);
     },
     enabled: !!id,
   });
@@ -77,8 +76,7 @@ export function useCreateDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) throw new Error("Failed to create dashboard");
-      return res.json() as Promise<DashboardDetail>;
+      return unwrapResponse<DashboardDetail>(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
@@ -105,8 +103,7 @@ export function useUpdateDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update dashboard");
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -134,8 +131,7 @@ export function useUpdateDashboardThumbnails() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ thumbnailJson }),
       });
-      if (!res.ok) throw new Error("Failed to save thumbnails");
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
@@ -149,8 +145,7 @@ export function useDeleteDashboard() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/dashboards/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete dashboard");
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
@@ -166,8 +161,7 @@ export function useDuplicateDashboard() {
       const res = await fetch(`/api/dashboards/${id}/duplicate`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error("Failed to duplicate dashboard");
-      return res.json() as Promise<DashboardDetail>;
+      return unwrapResponse<DashboardDetail>(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
@@ -187,8 +181,7 @@ export function useImportDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json() as Promise<DashboardDetail>;
+      return unwrapResponse<DashboardDetail>(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
@@ -203,8 +196,7 @@ export function useDashboardShares(dashboardId: string) {
     queryKey: ["dashboard-shares", dashboardId],
     queryFn: async () => {
       const res = await fetch(`/api/dashboards/${dashboardId}/share`);
-      if (!res.ok) throw new Error("Failed to fetch shares");
-      return res.json();
+      return unwrapResponse<DashboardShareItem[]>(res);
     },
     enabled: !!dashboardId,
   });
@@ -220,11 +212,7 @@ export function useAssignDashboard(dashboardId: string) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to assign user");
-      }
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -243,8 +231,7 @@ export function useRemoveDashboardShare(dashboardId: string) {
         `/api/dashboards/${dashboardId}/share?shareId=${shareId}`,
         { method: "DELETE" }
       );
-      if (!res.ok) throw new Error("Failed to remove assignment");
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

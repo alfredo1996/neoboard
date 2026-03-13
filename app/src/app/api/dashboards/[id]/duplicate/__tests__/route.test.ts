@@ -77,7 +77,7 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
     mockRequireSession.mockResolvedValue({ userId: "u1", role: "reader" });
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(403);
-    expect(res._body.error).toBe("Forbidden");
+    expect(res._body.error.message).toBe("Forbidden");
   });
 
   it("returns 404 when dashboard not found", async () => {
@@ -103,7 +103,7 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
 
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(201);
-    expect(res._body.name).toBe("My Dashboard (copy)");
+    expect(res._body.data.name).toBe("My Dashboard (copy)");
   });
 
   it("admin can duplicate any dashboard (bypasses ownership)", async () => {

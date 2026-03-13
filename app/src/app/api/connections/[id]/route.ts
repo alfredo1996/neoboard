@@ -1,19 +1,65 @@
-import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { updateConnectionSchema } from "@/lib/schemas";
 import { validateBody, notFound, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId, role } = await requireSession();
+    const { id } = await params;
+
+    // Owner check first
+    let [connection] = await db
+      .select({
+        id: connections.id,
+        name: connections.name,
+        type: connections.type,
+        createdAt: connections.createdAt,
+        updatedAt: connections.updatedAt,
+      })
+      .from(connections)
+      .where(and(eq(connections.id, id), eq(connections.userId, userId)))
+      .limit(1);
+
+    // Admin fallback: admin can view any connection
+    if (!connection && role === "admin") {
+      [connection] = await db
+        .select({
+          id: connections.id,
+          name: connections.name,
+          type: connections.type,
+          createdAt: connections.createdAt,
+          updatedAt: connections.updatedAt,
+        })
+        .from(connections)
+        .where(eq(connections.id, id))
+        .limit(1);
+    }
+
+    if (!connection) {
+      return notFound("Connection not found");
+    }
+
+    return apiSuccess(connection);
+  } catch (error) {
+    return handleRouteError(error, "Failed to fetch connection");
+  }
+}
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await requireUserId();
+    const { userId } = await requireSession();
     const { id } = await params;
     const body = await request.json();
     const result = validateBody(updateConnectionSchema, body);
@@ -43,7 +89,7 @@ export async function PATCH(
       prefetchSchema(connection.type as "neo4j" | "postgresql", result.data.config);
     }
 
-    return NextResponse.json(connection);
+    return apiSuccess(connection);
   } catch (error) {
     return handleRouteError(error, "Failed to update connection");
   }
@@ -54,7 +100,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await requireUserId();
+    const { userId } = await requireSession();
     const { id } = await params;
 
     const deleted = await db
@@ -66,7 +112,7 @@ export async function DELETE(
       return notFound();
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ deleted: true });
   } catch (error) {
     return handleRouteError(error, "Failed to delete connection");
   }

@@ -5,7 +5,7 @@
  * builders so tests can control what the "database" returns.
  */
 
-/** Chainable select builder that resolves to `rows`. Supports from/where/innerJoin/leftJoin/limit. */
+/** Chainable select builder that resolves to `rows`. Supports from/where/innerJoin/leftJoin/limit/orderBy/offset. */
 export function makeSelectChain(rows: unknown[]) {
   const resolved = Promise.resolve(rows);
   const c = Object.assign(resolved, {
@@ -13,7 +13,9 @@ export function makeSelectChain(rows: unknown[]) {
     where: () => c,
     innerJoin: () => c,
     leftJoin: () => c,
-    limit: () => Promise.resolve(rows),
+    limit: () => c,
+    orderBy: () => c,
+    offset: () => Promise.resolve(rows),
   });
   return c;
 }

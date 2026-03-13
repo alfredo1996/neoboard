@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { previewImageUrlSchema, handleRouteError } from "./shared";
+import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
+import { forbidden, badRequest, handleRouteError } from "@/lib/api-utils";
+import { previewImageUrlSchema } from "./shared";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1),
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const chartType = url.searchParams.get("chartType");
     const connectorType = url.searchParams.get("connectorType");
+    const { limit, offset } = parsePagination(request);
 
     const conditions = [eq(widgetTemplates.tenantId, tenantId)];
     if (chartType) {
@@ -34,13 +36,20 @@ export async function GET(request: Request) {
       conditions.push(eq(widgetTemplates.connectorType, connectorType));
     }
 
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(widgetTemplates)
+      .where(and(...conditions));
+
     const rows = await db
       .select()
       .from(widgetTemplates)
       .where(and(...conditions))
-      .orderBy(widgetTemplates.createdAt);
+      .orderBy(widgetTemplates.createdAt)
+      .limit(limit)
+      .offset(offset);
 
-    return NextResponse.json(rows);
+    return apiList(rows, { total, limit, offset });
   } catch (err) {
     return handleRouteError(err);
   }
@@ -51,17 +60,14 @@ export async function POST(request: Request) {
     const { userId, canWrite, tenantId } = await requireSession();
 
     if (!canWrite) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden();
     }
 
     const body = await request.json();
     const parsed = createTemplateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.errors[0].message);
     }
 
     const data = parsed.data;
@@ -80,7 +86,7 @@ export async function POST(request: Request) {
       })
       .returning();
 
-    return NextResponse.json(template, { status: 201 });
+    return apiSuccess(template, 201);
   } catch (err) {
     return handleRouteError(err);
   }

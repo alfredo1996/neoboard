@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { unwrapFullResponse } from "@/lib/api-client";
 import type { ParamSelectorOption } from "@neoboard/components";
 
-interface SeedQueryResult {
+interface SeedQueryData {
   data: unknown;
 }
 
@@ -22,7 +23,7 @@ export function useSeedQuery(
   extraParams?: Record<string, unknown>,
   tenantId?: string,
 ): { options: ParamSelectorOption[]; loading: boolean } {
-  const { data, isLoading } = useQuery<SeedQueryResult>({
+  const { data, isLoading } = useQuery<SeedQueryData>({
     queryKey: ["param-seed", connectionId, query, extraParams, tenantId],
     queryFn: async ({ signal }) => {
       const res = await fetch("/api/query", {
@@ -36,15 +37,8 @@ export function useSeedQuery(
           ...(tenantId ? { tenantId } : {}),
         }),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(
-          (body.error as string | undefined) || "Seed query failed",
-        );
-      }
-      return res.json() as Promise<SeedQueryResult>;
+      const { data: queryData } = await unwrapFullResponse<SeedQueryData>(res);
+      return queryData;
     },
     enabled: enabled && !!connectionId && !!query,
     staleTime: 30_000, // 30 s — options don't change often

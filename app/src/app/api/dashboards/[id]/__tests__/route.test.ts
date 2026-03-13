@@ -82,9 +82,8 @@ describe("GET /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { id: string; role: string };
-    expect(body.id).toBe("d1");
-    expect(body.role).toBe("owner");
+    expect(res._body.data.id).toBe("d1");
+    expect(res._body.data.role).toBe("owner");
   });
 
   it("returns dashboard for shared viewer", async () => {
@@ -96,8 +95,7 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([share]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { id: string; role: string };
-    expect(body.role).toBe("viewer");
+    expect(res._body.data.role).toBe("viewer");
   });
 
   it("returns 404 when user has no access", async () => {
@@ -127,8 +125,7 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { id: string; role: string };
-    expect(body.role).toBe("viewer");
+    expect(res._body.data.role).toBe("viewer");
   });
 
   it("returns 404 for private dashboard without share", async () => {
@@ -146,8 +143,7 @@ describe("GET /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { role: string };
-    expect(body.role).toBe("admin");
+    expect(res._body.data.role).toBe("admin");
   });
 });
 
@@ -189,7 +185,7 @@ describe("PUT /api/dashboards/[id]", () => {
 
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(200);
-    expect((res._body as { name: string }).name).toBe("New name");
+    expect(res._body.data.name).toBe("New name");
   });
 
   it("returns 400 when request body is invalid", async () => {
@@ -300,7 +296,7 @@ describe("DELETE /api/dashboards/[id]", () => {
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect((res._body as { success: boolean }).success).toBe(true);
+    expect(res._body.data.deleted).toBe(true);
   });
 
   it("returns 404 when dashboard belongs to different tenant", async () => {
