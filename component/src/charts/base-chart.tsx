@@ -148,7 +148,7 @@ function BaseChart({
     if (loading) {
       instance.showLoading("default", {
         text: "",
-        maskColor: isDarkMode()
+        maskColor: dark
           ? "rgba(10, 15, 30, 0.6)"
           : "rgba(255, 255, 255, 0.6)",
         zlevel: 0,
@@ -156,7 +156,7 @@ function BaseChart({
     } else {
       instance.hideLoading();
     }
-  }, [loading]);
+  }, [loading, dark]);
 
   // Event handlers
   useEffect(() => {

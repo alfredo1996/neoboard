@@ -70,17 +70,24 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 | `--input` | `0 0% 89.8%` (light gray) | Input borders |
 | `--ring` | `0 0% 3.9%` (near-black) | Focus rings |
 
-### Chart Colors (5-color palette)
+### Chart Colors (10-color "Deep Ocean" palette — colorblind-safe)
 
 ```css
---chart-1: hsl(12, 76%, 61%)   /* orange */
---chart-2: hsl(173, 58%, 39%)  /* teal */
---chart-3: hsl(197, 37%, 24%)  /* dark blue */
---chart-4: hsl(43, 74%, 66%)   /* yellow */
---chart-5: hsl(27, 87%, 67%)   /* warm orange */
+/* Light mode */
+--chart-1:  hsl(217, 91%, 60%)   /* Blue */
+--chart-2:  hsl(38, 92%, 50%)    /* Amber */
+--chart-3:  hsl(347, 77%, 50%)   /* Rose */
+--chart-4:  hsl(160, 84%, 39%)   /* Teal */
+--chart-5:  hsl(271, 81%, 56%)   /* Purple */
+--chart-6:  hsl(24, 90%, 48%)    /* Orange */
+--chart-7:  hsl(142, 71%, 45%)   /* Green */
+--chart-8:  hsl(199, 89%, 48%)   /* Sky */
+--chart-9:  hsl(326, 78%, 42%)   /* Wine */
+--chart-10: hsl(55, 70%, 45%)    /* Olive */
 ```
 
-Dark mode uses different chart colors (blues, greens, purples).
+Dark mode uses the same hues with higher lightness for contrast on dark backgrounds.
+Ordering maximises sequential contrast: the first 5 span Blue → Amber → Rose → Teal → Purple so typical 2–5-series charts are always distinguishable. Similar hues (e.g. Orange/Amber, Green/Teal) are placed far apart.
 
 ### Color Rules
 - NEVER use raw hex/hsl values in components. Always use CSS variable tokens.
@@ -95,8 +102,10 @@ Dark mode uses different chart colors (blues, greens, purples).
 
 ### ECharts Integration Pattern
 - Colors resolved at runtime from CSS variables via `resolveChartColors()` in `base-chart.tsx`.
-- Fallback array exists for SSR: `CHART_COLORS_FALLBACK`.
-- NO custom ECharts theme registered — all styling via option merging.
+- Fallback array exists for SSR: `CHART_COLORS_FALLBACK` (Deep Ocean light palette).
+- Two registered ECharts themes: `neoboard-light` and `neoboard-dark` (registered once at module load via `registerNeoboardThemes()`). Themes set axis, label, legend, and split-line colors for each mode.
+- Dark mode detection via `MutationObserver` on `<html class="dark">` — charts reinitialize on theme toggle.
+- Loading mask adapts to dark mode: `rgba(10, 15, 30, 0.6)` dark / `rgba(255, 255, 255, 0.6)` light.
 
 ### Chart Defaults
 
@@ -118,8 +127,8 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 - NEVER import `import * as echarts from 'echarts'` — use modular imports from `echarts/core`.
 - NEVER set chart colors inline — always use `resolveChartColors()`.
 - NEVER add title inside the chart — widget card header IS the title.
-- NEVER use ECharts' built-in theme — we control colors via CSS variables.
-- Dark mode chart colors are DIFFERENT from light mode — this is by design.
+- NEVER register additional ECharts themes — use `neoboard-light` / `neoboard-dark` only.
+- Dark mode chart colors are DIFFERENT from light mode — this is by design (higher lightness for contrast).
 
 ### Graph Chart (NVL)
 - Force-directed default layout.
