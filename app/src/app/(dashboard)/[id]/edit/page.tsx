@@ -224,7 +224,7 @@ export default function DashboardEditorPage({
         error instanceof Error ? error.message : "Failed to save dashboard"
       );
     }
-  }, [id, layout, updateDashboard, updateThumbnails]);
+  }, [id, layout, activePage, updateDashboard, updateThumbnails]);
 
   function openAddWidget() {
     setEditorMode("add");

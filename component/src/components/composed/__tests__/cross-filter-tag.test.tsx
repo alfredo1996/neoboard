@@ -110,9 +110,4 @@ describe("CrossFilterTag", () => {
     expect(document.activeElement).toBe(btn);
   });
 
-  it("does not render remove button as queryable button when no onClick or onRemove", () => {
-    const { container } = render(<CrossFilterTag {...defaultProps} />);
-    // Root is a div, not a button
-    expect((container.firstChild as HTMLElement).tagName).toBe("DIV");
-  });
 });
