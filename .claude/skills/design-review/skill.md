@@ -272,3 +272,67 @@ Before submitting any UI PR, verify:
 - [ ] Border radius matches component type (xl=cards, md=buttons/inputs, full=circles)
 - [ ] Empty states use the `EmptyState` component
 - [ ] Loading states use `LoadingButton` or `LoadingOverlay`
+
+---
+
+## 10. Anti-Patterns — Red Flags
+
+These are the fingerprints of careless or AI-generated UI work. Flag immediately in reviews.
+
+### Layout Anti-Patterns
+- **Nested cards**: Cards inside cards create visual noise — flatten the hierarchy
+- **Everything in cards**: Not every element needs a container — use whitespace and grouping instead
+- **Identical card grids**: Same-sized cards with icon + heading + text, repeated endlessly — vary the layout
+- **Everything centered**: Left-aligned text with asymmetric layouts feels more intentional
+- **Same spacing everywhere**: No rhythm — use tight groupings near related elements, generous separations between sections
+- **Modal overuse**: Modals when inline expansion, drawer, or page navigation would work better
+
+### Color Anti-Patterns
+- **Gray text on colored backgrounds**: Looks washed out — use a tinted shade of the background color or transparency instead
+- **Pure black/white**: `#000` or `#fff` never appear in nature — always use the semantic tokens (`--foreground`, `--background`)
+- **Hard-coded hex/hsl**: Bypasses theming and dark mode — use CSS variable tokens
+- **Gradient text on metrics**: Decorative, not meaningful — plain colored text is clearer
+- **Neon accents on dark backgrounds**: The "AI color palette" — cyan, purple-to-blue gradients
+
+### Typography Anti-Patterns
+- **Overused fonts**: Inter, Roboto, Arial as conscious choices (NeoBoard uses system font stack via shadcn — don't override it)
+- **Monospace as "technical" vibes**: Lazy shorthand — use it only for actual code/query content
+- **Big icons above headings**: Rounded-corner icons above every section title — rarely adds value, looks templated
+
+### Motion Anti-Patterns
+- **Bounce/elastic easing**: Feels dated — use smooth deceleration (ease-out)
+- **Animating layout properties**: width, height, padding, margin cause layout thrashing — use transform and opacity only
+- **Glassmorphism everywhere**: Blur effects and glass cards used decoratively rather than purposefully
+
+### Copy Anti-Patterns
+- **Redundant headers**: Title that restates the page name, description that repeats the heading
+- **Every button is primary**: Use ghost, outline, secondary — hierarchy matters
+- **Generic error messages**: "Error occurred" — say what happened and how to fix it
+
+---
+
+## 11. Design Critique Format
+
+When reviewing UI changes, structure feedback as:
+
+### Overall Impression
+One-sentence gut reaction — what works, what doesn't.
+
+### What's Working
+2-3 things done well and why they work. Be specific.
+
+### Priority Issues (top 3-5)
+For each:
+- **What**: Name the problem
+- **Why it matters**: Impact on users
+- **Fix**: Concrete recommendation
+- **Reference**: Which section of this document it violates
+
+### Minor Observations
+Quick notes on smaller issues.
+
+### Questions to Consider
+Provocative questions that might unlock better solutions:
+- "Does this need to feel this complex?"
+- "What would a more confident version look like?"
+- "Is the primary action obvious within 2 seconds?"
