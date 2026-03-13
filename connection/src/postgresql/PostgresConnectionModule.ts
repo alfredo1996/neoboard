@@ -2,6 +2,7 @@ import { ConnectionModule } from '../generalized/ConnectionModule';
 import { PostgresAuthenticationModule } from './PostgresAuthenticationModule';
 import {
   AuthConfig,
+  AdvancedConnectionOptions,
   ConnectionConfig,
   QueryCallback,
   QueryParams,
@@ -22,10 +23,11 @@ export class PostgresConnectionModule extends ConnectionModule {
   /**
    * Creates a new PostgreSQL connection module.
    * @param config - The authentication configuration
+   * @param advancedOptions - Optional advanced pool/timeout settings
    */
-  constructor(config: AuthConfig) {
+  constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
-    this.authModule = new PostgresAuthenticationModule(config);
+    this.authModule = new PostgresAuthenticationModule(config, advancedOptions);
     this.parser = new PostgresRecordParser();
   }
 

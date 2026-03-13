@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Database, Plus } from "lucide-react";
+import { Database, Plus, ChevronDown } from "lucide-react";
 import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
   useConnections,
@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Switch,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -42,6 +43,14 @@ const DEFAULT_FORM = {
   username: "",
   password: "",
   database: "",
+  // Advanced settings (stored as strings for form input, parsed to numbers on submit)
+  connectionTimeout: "",
+  queryTimeout: "",
+  maxPoolSize: "",
+  connectionAcquisitionTimeout: "",
+  idleTimeout: "",
+  statementTimeout: "",
+  sslRejectUnauthorized: false,
 };
 
 export default function ConnectionsPage() {
@@ -62,6 +71,7 @@ export default function ConnectionsPage() {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
 
   // Auto-test all connections on first load
@@ -77,6 +87,29 @@ export default function ConnectionsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [testErrors, setTestErrors] = useState<Record<string, string>>({});
 
+  /** Parse numeric string to number, or return undefined if empty. */
+  function parseOptionalInt(val: string): number | undefined {
+    if (!val.trim()) return undefined;
+    const n = parseInt(val, 10);
+    return Number.isNaN(n) ? undefined : n;
+  }
+
+  function buildConfig() {
+    return {
+      uri: form.uri,
+      username: form.username,
+      password: form.password,
+      database: form.database || undefined,
+      connectionTimeout: parseOptionalInt(form.connectionTimeout),
+      queryTimeout: parseOptionalInt(form.queryTimeout),
+      maxPoolSize: parseOptionalInt(form.maxPoolSize),
+      connectionAcquisitionTimeout: parseOptionalInt(form.connectionAcquisitionTimeout),
+      idleTimeout: parseOptionalInt(form.idleTimeout),
+      statementTimeout: parseOptionalInt(form.statementTimeout),
+      sslRejectUnauthorized: form.sslRejectUnauthorized || undefined,
+    };
+  }
+
   function openCreateDialog(type?: "neo4j" | "postgresql") {
     setForm({ ...DEFAULT_FORM, ...(type ? { type } : {}) });
     setDialogStep(type ? "fill-form" : "pick-type");
@@ -90,6 +123,7 @@ export default function ConnectionsPage() {
     setDialogStep("pick-type");
     setCreateError(null);
     setInlineTestResult(null);
+    setShowAdvanced(false);
   }
 
   function handlePickType(type: "neo4j" | "postgresql") {
@@ -104,12 +138,7 @@ export default function ConnectionsPage() {
       const newConn = await createConnection.mutateAsync({
         name: form.name,
         type: form.type,
-        config: {
-          uri: form.uri,
-          username: form.username,
-          password: form.password,
-          database: form.database || undefined,
-        },
+        config: buildConfig(),
       });
       closeCreateDialog();
       handleTest(newConn.id);
@@ -125,12 +154,7 @@ export default function ConnectionsPage() {
     try {
       const result = await testInline.mutateAsync({
         type: form.type,
-        config: {
-          uri: form.uri,
-          username: form.username,
-          password: form.password,
-          database: form.database || undefined,
-        },
+        config: buildConfig(),
       });
       setInlineTestResult(result);
     } catch {
@@ -309,6 +333,174 @@ export default function ConnectionsPage() {
                       setForm((f) => ({ ...f, database: e.target.value }))
                     }
                   />
+                </div>
+
+                {/* Advanced Settings */}
+                <div className="border-t pt-2">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                  >
+                    Advanced Settings
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="mt-3 space-y-4">
+                      {form.type === "neo4j" ? (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-connection-timeout">
+                                Connection Timeout (ms)
+                              </Label>
+                              <Input
+                                id="conn-connection-timeout"
+                                type="number"
+                                min={0}
+                                value={form.connectionTimeout}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, connectionTimeout: e.target.value }))
+                                }
+                                placeholder="30000"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-query-timeout">
+                                Query Timeout (ms)
+                              </Label>
+                              <Input
+                                id="conn-query-timeout"
+                                type="number"
+                                min={0}
+                                value={form.queryTimeout}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, queryTimeout: e.target.value }))
+                                }
+                                placeholder="2000"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-max-pool">
+                                Max Pool Size
+                              </Label>
+                              <Input
+                                id="conn-max-pool"
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={form.maxPoolSize}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, maxPoolSize: e.target.value }))
+                                }
+                                placeholder="driver default"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-acquisition-timeout">
+                                Acquisition Timeout (ms)
+                              </Label>
+                              <Input
+                                id="conn-acquisition-timeout"
+                                type="number"
+                                min={0}
+                                value={form.connectionAcquisitionTimeout}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, connectionAcquisitionTimeout: e.target.value }))
+                                }
+                                placeholder="driver default"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-connection-timeout">
+                                Connection Timeout (ms)
+                              </Label>
+                              <Input
+                                id="conn-connection-timeout"
+                                type="number"
+                                min={0}
+                                value={form.connectionTimeout}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, connectionTimeout: e.target.value }))
+                                }
+                                placeholder="10000"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-idle-timeout">
+                                Idle Timeout (ms)
+                              </Label>
+                              <Input
+                                id="conn-idle-timeout"
+                                type="number"
+                                min={0}
+                                value={form.idleTimeout}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, idleTimeout: e.target.value }))
+                                }
+                                placeholder="10000"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-max-pool">
+                                Max Pool Size
+                              </Label>
+                              <Input
+                                id="conn-max-pool"
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={form.maxPoolSize}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, maxPoolSize: e.target.value }))
+                                }
+                                placeholder="10"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="conn-statement-timeout">
+                                Statement Timeout (ms)
+                              </Label>
+                              <Input
+                                id="conn-statement-timeout"
+                                type="number"
+                                min={0}
+                                value={form.statementTimeout}
+                                onChange={(e) =>
+                                  setForm((f) => ({ ...f, statementTimeout: e.target.value }))
+                                }
+                                placeholder="30000"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="conn-ssl-reject">
+                              Reject Unauthorized SSL
+                            </Label>
+                            <Switch
+                              id="conn-ssl-reject"
+                              checked={form.sslRejectUnauthorized}
+                              onCheckedChange={(checked) =>
+                                setForm((f) => ({ ...f, sslRejectUnauthorized: checked }))
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               {createError && (

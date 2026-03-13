@@ -23,6 +23,13 @@ export async function POST(request: Request) {
       username: config.username,
       password: config.password,
       database: config.database,
+      connectionTimeout: config.connectionTimeout,
+      queryTimeout: config.queryTimeout,
+      maxPoolSize: config.maxPoolSize,
+      connectionAcquisitionTimeout: config.connectionAcquisitionTimeout,
+      idleTimeout: config.idleTimeout,
+      statementTimeout: config.statementTimeout,
+      sslRejectUnauthorized: config.sslRejectUnauthorized,
     });
 
     return NextResponse.json({ success });
