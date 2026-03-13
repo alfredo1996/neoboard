@@ -200,6 +200,12 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 403 when canWrite is false even for creator role", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "creator" });
+    const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when not owner/editor", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
@@ -327,6 +333,12 @@ describe("DELETE /api/dashboards/[id]", () => {
 
   it("returns 403 for reader role", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "reader" });
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when canWrite is false even for creator role", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "creator" });
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(403);
   });

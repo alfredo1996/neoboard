@@ -142,10 +142,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId, role: userRole } = await requireSession();
+    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
     const { id } = await params;
 
-    if (userRole === "reader") {
+    if (!canWrite) {
       return forbidden();
     }
 
@@ -175,10 +175,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId, role: userRole } = await requireSession();
+    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
     const { id } = await params;
 
-    if (userRole === "reader") {
+    if (!canWrite) {
       return forbidden();
     }
 
