@@ -1,5 +1,5 @@
 import { AuthenticationModule } from '../generalized/AuthenticationModule';
-import { AuthConfig, DEFAULT_AUTHENTICATION_CONFIG } from '../generalized/interfaces';
+import { AuthConfig, DEFAULT_AUTHENTICATION_CONFIG, AdvancedConnectionOptions } from '../generalized/interfaces';
 import { Pool } from 'pg';
 
 /**
@@ -9,16 +9,19 @@ import { Pool } from 'pg';
 export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
   protected _authConfig: AuthConfig;
+  private _advancedOptions?: AdvancedConnectionOptions;
 
   /**
    * Creates a new PostgreSQL authentication module.
    * @param config - The authentication configuration
+   * @param advancedOptions - Optional advanced pool/timeout settings
    */
-  constructor(config: AuthConfig) {
+  constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
     this._authConfig = DEFAULT_AUTHENTICATION_CONFIG;
     this._checkConfigurationConsistency(config);
     this._authConfig = config;
+    this._advancedOptions = advancedOptions;
     this.pool = this.createDriver();
   }
 
@@ -33,6 +36,11 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
       const url = new URL(this._authConfig.uri);
       const database = url.pathname.slice(1) || 'postgres';
 
+      // Build SSL config if specified
+      const ssl = this._advancedOptions?.pgSslRejectUnauthorized !== undefined
+        ? { rejectUnauthorized: this._advancedOptions.pgSslRejectUnauthorized }
+        : undefined;
+
       // Create connection pool
       const pool = new Pool({
         user: this._authConfig.username,
@@ -40,7 +48,10 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         host: url.hostname,
         port: parseInt(url.port || '5432', 10),
         database: database,
-        connectionTimeoutMillis: 10000,
+        connectionTimeoutMillis: this._advancedOptions?.pgConnectionTimeoutMillis ?? 10000,
+        idleTimeoutMillis: this._advancedOptions?.pgIdleTimeoutMillis ?? 10000,
+        max: this._advancedOptions?.pgMaxPoolSize ?? 10,
+        ...(ssl ? { ssl } : {}),
       });
 
       // Suppress unhandled errors from idle connections during shutdown
