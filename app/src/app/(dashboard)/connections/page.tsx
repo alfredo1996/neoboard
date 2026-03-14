@@ -50,7 +50,7 @@ const DEFAULT_FORM = {
   connectionAcquisitionTimeout: "",
   idleTimeout: "",
   statementTimeout: "",
-  sslRejectUnauthorized: false,
+  sslRejectUnauthorized: undefined as boolean | undefined,
 };
 
 export default function ConnectionsPage() {
@@ -87,11 +87,12 @@ export default function ConnectionsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [testErrors, setTestErrors] = useState<Record<string, string>>({});
 
-  /** Parse numeric string to number, or return undefined if empty. */
+  /** Parse numeric string to integer, or return undefined if empty/invalid. */
   function parseOptionalInt(val: string): number | undefined {
     if (!val.trim()) return undefined;
-    const n = parseInt(val, 10);
-    return Number.isNaN(n) ? undefined : n;
+    const n = Number(val);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) return undefined;
+    return n;
   }
 
   function buildConfig() {
@@ -106,8 +107,34 @@ export default function ConnectionsPage() {
       connectionAcquisitionTimeout: parseOptionalInt(form.connectionAcquisitionTimeout),
       idleTimeout: parseOptionalInt(form.idleTimeout),
       statementTimeout: parseOptionalInt(form.statementTimeout),
-      sslRejectUnauthorized: form.sslRejectUnauthorized || undefined,
+      sslRejectUnauthorized: form.sslRejectUnauthorized,
     };
+  }
+
+  /** Render a numeric input field for advanced settings. */
+  function numericField(
+    id: string,
+    label: string,
+    field: keyof typeof DEFAULT_FORM,
+    placeholder: string,
+    min: number,
+    max?: number,
+  ) {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          id={id}
+          type="number"
+          step={1}
+          min={min}
+          {...(max !== undefined ? { max } : {})}
+          value={form[field] as string}
+          onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+          placeholder={placeholder}
+        />
+      </div>
+    );
   }
 
   function openCreateDialog(type?: "neo4j" | "postgresql") {
@@ -353,137 +380,23 @@ export default function ConnectionsPage() {
                       {form.type === "neo4j" ? (
                         <>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-connection-timeout">
-                                Connection Timeout (ms)
-                              </Label>
-                              <Input
-                                id="conn-connection-timeout"
-                                type="number"
-                                min={0}
-                                value={form.connectionTimeout}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, connectionTimeout: e.target.value }))
-                                }
-                                placeholder="30000"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-query-timeout">
-                                Query Timeout (ms)
-                              </Label>
-                              <Input
-                                id="conn-query-timeout"
-                                type="number"
-                                min={0}
-                                value={form.queryTimeout}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, queryTimeout: e.target.value }))
-                                }
-                                placeholder="2000"
-                              />
-                            </div>
+                            {numericField("conn-connection-timeout", "Connection Timeout (ms)", "connectionTimeout", "30000", 0)}
+                            {numericField("conn-query-timeout", "Query Timeout (ms)", "queryTimeout", "2000", 0)}
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-max-pool">
-                                Max Pool Size
-                              </Label>
-                              <Input
-                                id="conn-max-pool"
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={form.maxPoolSize}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, maxPoolSize: e.target.value }))
-                                }
-                                placeholder="driver default"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-acquisition-timeout">
-                                Acquisition Timeout (ms)
-                              </Label>
-                              <Input
-                                id="conn-acquisition-timeout"
-                                type="number"
-                                min={0}
-                                value={form.connectionAcquisitionTimeout}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, connectionAcquisitionTimeout: e.target.value }))
-                                }
-                                placeholder="driver default"
-                              />
-                            </div>
+                            {numericField("conn-max-pool", "Max Pool Size", "maxPoolSize", "driver default", 1, 100)}
+                            {numericField("conn-acquisition-timeout", "Acquisition Timeout (ms)", "connectionAcquisitionTimeout", "driver default", 0)}
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-connection-timeout">
-                                Connection Timeout (ms)
-                              </Label>
-                              <Input
-                                id="conn-connection-timeout"
-                                type="number"
-                                min={0}
-                                value={form.connectionTimeout}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, connectionTimeout: e.target.value }))
-                                }
-                                placeholder="10000"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-idle-timeout">
-                                Idle Timeout (ms)
-                              </Label>
-                              <Input
-                                id="conn-idle-timeout"
-                                type="number"
-                                min={0}
-                                value={form.idleTimeout}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, idleTimeout: e.target.value }))
-                                }
-                                placeholder="10000"
-                              />
-                            </div>
+                            {numericField("conn-connection-timeout", "Connection Timeout (ms)", "connectionTimeout", "10000", 0)}
+                            {numericField("conn-idle-timeout", "Idle Timeout (ms)", "idleTimeout", "10000", 0)}
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-max-pool">
-                                Max Pool Size
-                              </Label>
-                              <Input
-                                id="conn-max-pool"
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={form.maxPoolSize}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, maxPoolSize: e.target.value }))
-                                }
-                                placeholder="10"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="conn-statement-timeout">
-                                Statement Timeout (ms)
-                              </Label>
-                              <Input
-                                id="conn-statement-timeout"
-                                type="number"
-                                min={0}
-                                value={form.statementTimeout}
-                                onChange={(e) =>
-                                  setForm((f) => ({ ...f, statementTimeout: e.target.value }))
-                                }
-                                placeholder="30000"
-                              />
-                            </div>
+                            {numericField("conn-max-pool", "Max Pool Size", "maxPoolSize", "10", 1, 100)}
+                            {numericField("conn-statement-timeout", "Statement Timeout (ms)", "statementTimeout", "30000", 0)}
                           </div>
                           <div className="flex items-center justify-between">
                             <Label htmlFor="conn-ssl-reject">
@@ -491,7 +404,7 @@ export default function ConnectionsPage() {
                             </Label>
                             <Switch
                               id="conn-ssl-reject"
-                              checked={form.sslRejectUnauthorized}
+                              checked={form.sslRejectUnauthorized ?? false}
                               onCheckedChange={(checked) =>
                                 setForm((f) => ({ ...f, sslRejectUnauthorized: checked }))
                               }
