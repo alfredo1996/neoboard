@@ -82,6 +82,43 @@ const paginationParams = [
 ];
 
 // ---------------------------------------------------------------------------
+// Reusable parameters and response fragments
+// ---------------------------------------------------------------------------
+
+const idPathParam = {
+  name: "id",
+  in: "path" as const,
+  required: true,
+  schema: { type: "string" as const },
+};
+
+const errorResponse = (description: string) => ({
+  description,
+  content: { "application/json": { schema: ENVELOPE_ERROR } },
+});
+
+const deletedResponse = envelopeSuccess({
+  type: "object" as const,
+  properties: { deleted: { type: "boolean" as const } },
+});
+
+const successEnvelope = envelopeSuccess({
+  type: "object" as const,
+  properties: { success: { type: "boolean" as const } },
+});
+
+const connectionConfigSchema = {
+  type: "object" as const,
+  required: ["uri", "username", "password"],
+  properties: {
+    uri: { type: "string" as const },
+    username: { type: "string" as const },
+    password: { type: "string" as const },
+    database: { type: "string" as const },
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Reusable schemas
 // ---------------------------------------------------------------------------
 
@@ -189,8 +226,7 @@ export const openapiSpec = {
             content: { "application/json": { schema: envelopeList(UserSchema) } },
           },
           "403": {
-            description: "Forbidden — admin role required",
-            content: { "application/json": { schema: ENVELOPE_ERROR } },
+            ...errorResponse("Forbidden — admin role required"),
           },
         },
       },
@@ -222,8 +258,7 @@ export const openapiSpec = {
             content: { "application/json": { schema: envelopeSuccess(UserSchema) } },
           },
           "409": {
-            description: "Email already exists",
-            content: { "application/json": { schema: ENVELOPE_ERROR } },
+            ...errorResponse("Email already exists"),
           },
         },
       },
@@ -232,15 +267,14 @@ export const openapiSpec = {
       get: {
         tags: ["Users"],
         summary: "Get user by ID",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "User details",
             content: { "application/json": { schema: envelopeSuccess(UserSchema) } },
           },
           "404": {
-            description: "User not found",
-            content: { "application/json": { schema: ENVELOPE_ERROR } },
+            ...errorResponse("User not found"),
           },
         },
       },
@@ -248,7 +282,7 @@ export const openapiSpec = {
         tags: ["Users"],
         summary: "Update user",
         description: "Update user role or write permission. At least one field required.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         requestBody: {
           required: true,
           content: {
@@ -273,17 +307,12 @@ export const openapiSpec = {
       delete: {
         tags: ["Users"],
         summary: "Delete user",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "User deleted",
             content: {
-              "application/json": {
-                schema: envelopeSuccess({
-                  type: "object",
-                  properties: { deleted: { type: "boolean" } },
-                }),
-              },
+              "application/json": { schema: deletedResponse },
             },
           },
         },
@@ -317,16 +346,7 @@ export const openapiSpec = {
                 properties: {
                   name: { type: "string", minLength: 1 },
                   type: { type: "string", enum: ["neo4j", "postgresql"] },
-                  config: {
-                    type: "object",
-                    required: ["uri", "username", "password"],
-                    properties: {
-                      uri: { type: "string" },
-                      username: { type: "string" },
-                      password: { type: "string" },
-                      database: { type: "string" },
-                    },
-                  },
+                  config: connectionConfigSchema,
                 },
               },
             },
@@ -345,22 +365,21 @@ export const openapiSpec = {
         tags: ["Connections"],
         summary: "Get connection by ID",
         description: "Returns connection metadata (never encrypted credentials).",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Connection details",
             content: { "application/json": { schema: envelopeSuccess(ConnectionSchema) } },
           },
           "404": {
-            description: "Connection not found",
-            content: { "application/json": { schema: ENVELOPE_ERROR } },
+            ...errorResponse("Connection not found"),
           },
         },
       },
       patch: {
         tags: ["Connections"],
         summary: "Update connection",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         requestBody: {
           required: true,
           content: {
@@ -369,16 +388,7 @@ export const openapiSpec = {
                 type: "object",
                 properties: {
                   name: { type: "string", minLength: 1 },
-                  config: {
-                    type: "object",
-                    required: ["uri", "username", "password"],
-                    properties: {
-                      uri: { type: "string" },
-                      username: { type: "string" },
-                      password: { type: "string" },
-                      database: { type: "string" },
-                    },
-                  },
+                  config: connectionConfigSchema,
                 },
               },
             },
@@ -394,17 +404,12 @@ export const openapiSpec = {
       delete: {
         tags: ["Connections"],
         summary: "Delete connection",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Connection deleted",
             content: {
-              "application/json": {
-                schema: envelopeSuccess({
-                  type: "object",
-                  properties: { deleted: { type: "boolean" } },
-                }),
-              },
+              "application/json": { schema: deletedResponse },
             },
           },
         },
@@ -415,7 +420,7 @@ export const openapiSpec = {
         tags: ["Connections"],
         summary: "Test saved connection",
         description: "Tests connectivity of a saved connection.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Test result",
@@ -448,16 +453,7 @@ export const openapiSpec = {
                 required: ["type", "config"],
                 properties: {
                   type: { type: "string", enum: ["neo4j", "postgresql"] },
-                  config: {
-                    type: "object",
-                    required: ["uri", "username", "password"],
-                    properties: {
-                      uri: { type: "string" },
-                      username: { type: "string" },
-                      password: { type: "string" },
-                      database: { type: "string" },
-                    },
-                  },
+                  config: connectionConfigSchema,
                 },
               },
             },
@@ -486,7 +482,7 @@ export const openapiSpec = {
         tags: ["Connections"],
         summary: "Get database schema",
         description: "Returns the schema (tables, labels, relationships) for a connection.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Database schema",
@@ -540,22 +536,21 @@ export const openapiSpec = {
       get: {
         tags: ["Dashboards"],
         summary: "Get dashboard by ID",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Dashboard details with layout",
             content: { "application/json": { schema: envelopeSuccess(DashboardSchema) } },
           },
           "404": {
-            description: "Dashboard not found",
-            content: { "application/json": { schema: ENVELOPE_ERROR } },
+            ...errorResponse("Dashboard not found"),
           },
         },
       },
       put: {
         tags: ["Dashboards"],
         summary: "Update dashboard",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         requestBody: {
           required: true,
           content: {
@@ -583,17 +578,12 @@ export const openapiSpec = {
       delete: {
         tags: ["Dashboards"],
         summary: "Delete dashboard",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Dashboard deleted",
             content: {
-              "application/json": {
-                schema: envelopeSuccess({
-                  type: "object",
-                  properties: { deleted: { type: "boolean" } },
-                }),
-              },
+              "application/json": { schema: deletedResponse },
             },
           },
         },
@@ -604,7 +594,7 @@ export const openapiSpec = {
         tags: ["Dashboards"],
         summary: "Duplicate dashboard",
         description: "Creates a copy of the dashboard. Requires write permission.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "201": {
             description: "Dashboard duplicated",
@@ -650,7 +640,7 @@ export const openapiSpec = {
         tags: ["Dashboards"],
         summary: "Export dashboard",
         description: "Downloads the dashboard as a JSON file.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Dashboard export file",
@@ -664,7 +654,7 @@ export const openapiSpec = {
         tags: ["Dashboards"],
         summary: "List shares",
         description: "List all users with whom the dashboard is shared.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Share list",
@@ -683,7 +673,7 @@ export const openapiSpec = {
         tags: ["Dashboards"],
         summary: "Share dashboard",
         description: "Share a dashboard with a user by email. Creates or updates the share.",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         requestBody: {
           required: true,
           content: {
@@ -704,10 +694,7 @@ export const openapiSpec = {
             description: "Share created/updated",
             content: {
               "application/json": {
-                schema: envelopeSuccess({
-                  type: "object",
-                  properties: { success: { type: "boolean" } },
-                }),
+                schema: successEnvelope,
               },
             },
           },
@@ -717,7 +704,7 @@ export const openapiSpec = {
         tags: ["Dashboards"],
         summary: "Remove share",
         parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          idPathParam,
           { name: "shareId", in: "query", required: true, schema: { type: "string" } },
         ],
         responses: {
@@ -725,10 +712,7 @@ export const openapiSpec = {
             description: "Share removed",
             content: {
               "application/json": {
-                schema: envelopeSuccess({
-                  type: "object",
-                  properties: { success: { type: "boolean" } },
-                }),
+                schema: successEnvelope,
               },
             },
           },
@@ -791,7 +775,7 @@ export const openapiSpec = {
       get: {
         tags: ["Widget Templates"],
         summary: "Get widget template by ID",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Template details",
@@ -802,7 +786,7 @@ export const openapiSpec = {
       put: {
         tags: ["Widget Templates"],
         summary: "Update widget template",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         requestBody: {
           required: true,
           content: {
@@ -835,17 +819,12 @@ export const openapiSpec = {
       delete: {
         tags: ["Widget Templates"],
         summary: "Delete widget template",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [idPathParam],
         responses: {
           "200": {
             description: "Template deleted",
             content: {
-              "application/json": {
-                schema: envelopeSuccess({
-                  type: "object",
-                  properties: { deleted: { type: "boolean" } },
-                }),
-              },
+              "application/json": { schema: deletedResponse },
             },
           },
         },
@@ -942,8 +921,7 @@ export const openapiSpec = {
             },
           },
           "403": {
-            description: "Write permission required",
-            content: { "application/json": { schema: ENVELOPE_ERROR } },
+            ...errorResponse("Write permission required"),
           },
         },
       },

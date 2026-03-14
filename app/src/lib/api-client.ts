@@ -52,8 +52,8 @@ export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
 
   // Raw format (legacy): check HTTP status
   if (!res.ok) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const msg = (body as any)?.error;
+    const rawBody = body as Record<string, unknown>;
+    const msg = rawBody?.error;
     if (typeof msg === "string" && msg) {
       throw new Error(msg);
     }
@@ -85,8 +85,8 @@ export async function unwrapFullResponse<T = unknown>(
 
   // Raw format: return body as data, no meta
   if (!res.ok) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const msg = (body as any)?.error;
+    const rawBody = body as Record<string, unknown>;
+    const msg = rawBody?.error;
     if (typeof msg === "string" && msg) {
       throw new Error(msg);
     }
