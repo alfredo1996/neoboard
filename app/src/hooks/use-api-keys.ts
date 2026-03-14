@@ -30,7 +30,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(body?.error?.message ?? body?.error ?? `Request failed: ${res.status}`);
   }
   // Support envelope format { data, error, meta }
-  return (body?.data !== undefined ? body.data : body) as T;
+  return (body?.data === undefined ? body : body.data) as T;
 }
 
 export function useApiKeys() {
