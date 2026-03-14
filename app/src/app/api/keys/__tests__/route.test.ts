@@ -262,6 +262,31 @@ describe("POST /api/keys", () => {
     expect(Object.values(capturedValues!)).not.toContain("nb_" + "a".repeat(64));
   });
 
+  it("passes expiresAt as Date when provided", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "creator",
+      canWrite: true,
+    });
+
+    let capturedValues: Record<string, unknown> | null = null;
+    const insertChain = {
+      values: (vals: Record<string, unknown>) => {
+        capturedValues = vals;
+        return insertChain;
+      },
+      returning: () =>
+        Promise.resolve([{ id: "k5", name: "Key", expiresAt: "2027-01-01T00:00:00.000Z", createdAt: new Date() }]),
+    };
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const res = await POST(makeRequest({ name: "Key", expiresAt: "2027-01-01T00:00:00.000Z" }));
+    expect(res.status).toBe(201);
+    expect(capturedValues).not.toBeNull();
+    expect(capturedValues!.expiresAt).toBeInstanceOf(Date);
+  });
+
   it("stores tenantId from session", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "user-1",
