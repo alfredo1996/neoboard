@@ -132,11 +132,16 @@ function BaseChart({
     const instance = chartRef.current;
     if (!instance || !options) return;
 
-    const ariaDefaults = { enabled: true, decal: { show: colorblindMode } };
+    const userAria = (options?.aria ?? {}) as Record<string, unknown>;
+    const userDecal = (userAria.decal ?? {}) as Record<string, unknown>;
     const merged: EChartsOption = {
       color: resolveChartColors(),
       ...options,
-      aria: { ...ariaDefaults, ...(options?.aria as Record<string, unknown>) },
+      aria: {
+        enabled: true,
+        ...userAria,
+        decal: { show: colorblindMode, ...userDecal },
+      },
     };
     instance.setOption(merged, { notMerge: true });
   }, [options, colorblindMode]);
