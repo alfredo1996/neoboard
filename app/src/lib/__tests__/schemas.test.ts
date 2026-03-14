@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { connectionConfigSchema } from "../schemas";
+import {
+  connectionConfigSchema,
+  createConnectionSchema,
+  updateConnectionSchema,
+  testInlineSchema,
+} from "../schemas";
 
 describe("connectionConfigSchema — advanced fields", () => {
   const baseConfig = {
@@ -113,5 +118,104 @@ describe("connectionConfigSchema — advanced fields", () => {
       sslRejectUnauthorized: true,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("createConnectionSchema", () => {
+  it("accepts valid neo4j connection", () => {
+    const result = createConnectionSchema.safeParse({
+      name: "My Neo4j",
+      type: "neo4j",
+      config: { uri: "bolt://localhost:7687", username: "neo4j", password: "test" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts valid postgresql connection", () => {
+    const result = createConnectionSchema.safeParse({
+      name: "My PG",
+      type: "postgresql",
+      config: { uri: "postgresql://localhost:5432", username: "pg", password: "test" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects missing name", () => {
+    const result = createConnectionSchema.safeParse({
+      type: "neo4j",
+      config: { uri: "bolt://localhost", username: "neo4j", password: "test" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid type", () => {
+    const result = createConnectionSchema.safeParse({
+      name: "My DB",
+      type: "mysql",
+      config: { uri: "localhost", username: "root", password: "test" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts connection with advanced settings", () => {
+    const result = createConnectionSchema.safeParse({
+      name: "Advanced Neo4j",
+      type: "neo4j",
+      config: {
+        uri: "bolt://localhost:7687",
+        username: "neo4j",
+        password: "test",
+        maxPoolSize: 50,
+        connectionTimeout: 5000,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("updateConnectionSchema", () => {
+  it("accepts name-only update", () => {
+    const result = updateConnectionSchema.safeParse({ name: "New Name" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts config-only update", () => {
+    const result = updateConnectionSchema.safeParse({
+      config: { uri: "bolt://localhost", username: "neo4j", password: "new" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts empty object (no fields required)", () => {
+    const result = updateConnectionSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty name", () => {
+    const result = updateConnectionSchema.safeParse({ name: "" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("testInlineSchema", () => {
+  it("accepts valid test request", () => {
+    const result = testInlineSchema.safeParse({
+      type: "neo4j",
+      config: { uri: "bolt://localhost:7687", username: "neo4j", password: "test" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects missing config", () => {
+    const result = testInlineSchema.safeParse({ type: "neo4j" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid type", () => {
+    const result = testInlineSchema.safeParse({
+      type: "redis",
+      config: { uri: "redis://localhost", username: "r", password: "p" },
+    });
+    expect(result.success).toBe(false);
   });
 });
