@@ -11,6 +11,7 @@ test.describe("API docs — /api/docs and /api/openapi.json", () => {
     expect(body.paths).toHaveProperty("/api/connections");
     expect(body.paths).toHaveProperty("/api/dashboards");
     expect(body.paths).toHaveProperty("/api/query");
+    expect(body.paths).toHaveProperty("/api/keys");
     expect(body.components.securitySchemes).toHaveProperty("BearerAuth");
   });
 
@@ -52,5 +53,6 @@ test.describe("API docs — /api/docs and /api/openapi.json", () => {
     await expect(page.getByRole("link", { name: "Dashboards", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Query", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Users", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "API Keys", exact: true })).toBeVisible();
   });
 });
