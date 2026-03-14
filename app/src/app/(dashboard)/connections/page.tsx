@@ -53,6 +53,14 @@ const DEFAULT_FORM = {
   sslRejectUnauthorized: undefined as boolean | undefined,
 };
 
+/** Parse numeric string to integer, or return undefined if empty/invalid. */
+function parseOptionalInt(val: string): number | undefined {
+  if (!val.trim()) return undefined;
+  const n = Number(val);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return undefined;
+  return n;
+}
+
 export default function ConnectionsPage() {
   const { data: connections, isLoading } = useConnections();
   const createConnection = useCreateConnection();
@@ -87,14 +95,6 @@ export default function ConnectionsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [testErrors, setTestErrors] = useState<Record<string, string>>({});
 
-  /** Parse numeric string to integer, or return undefined if empty/invalid. */
-  function parseOptionalInt(val: string): number | undefined {
-    if (!val.trim()) return undefined;
-    const n = Number(val);
-    if (!Number.isFinite(n) || !Number.isInteger(n)) return undefined;
-    return n;
-  }
-
   function buildConfig() {
     return {
       uri: form.uri,
@@ -128,7 +128,7 @@ export default function ConnectionsPage() {
           type="number"
           step={1}
           min={min}
-          {...(max !== undefined ? { max } : {})}
+          {...(max === undefined ? {} : { max })}
           value={form[field] as string}
           onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
           placeholder={placeholder}
