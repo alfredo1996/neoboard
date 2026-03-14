@@ -27,14 +27,15 @@ export function makeInsertChain(returning: unknown[] = []) {
   return c;
 }
 
-/** Chainable update builder. Resolves `returning()` to `returning` array. */
+/** Chainable update builder. Resolves `returning()` to `returning` array. Supports `.catch()` for fire-and-forget patterns. */
 export function makeUpdateChain(returning: unknown[] = []) {
+  const resolved = Promise.resolve(returning);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const c: any = {
+  const c: any = Object.assign(resolved, {
     set: () => c,
     where: () => c,
-    returning: () => Promise.resolve(returning),
-  };
+    returning: () => resolved,
+  });
   return c;
 }
 

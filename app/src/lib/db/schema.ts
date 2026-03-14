@@ -164,6 +164,24 @@ export const widgetTemplates = pgTable("widget_template", {
 export type WidgetTemplate = typeof widgetTemplates.$inferSelect;
 export type NewWidgetTemplate = typeof widgetTemplates.$inferInsert;
 
+export const apiKeys = pgTable("api_key", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
+  keyHash: text("key_hash").notNull().unique(),
+  name: text("name").notNull(),
+  lastUsedAt: timestamp("last_used_at", { mode: "date" }),
+  expiresAt: timestamp("expires_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export type UserRole = "admin" | "creator" | "reader";
