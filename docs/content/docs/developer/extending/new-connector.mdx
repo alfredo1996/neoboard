@@ -1,0 +1,116 @@
+---
+title: Adding a New Connector
+description: Step-by-step guide to implementing a new database connector.
+---
+
+This guide covers implementing a new database connector in the `connection/` package.
+
+## Overview
+
+A connector consists of four classes:
+1. **AuthenticationModule** — manages connection pool and credentials
+2. **ConnectionModule** — executes queries and tests connections
+3. **RecordParser** — transforms raw results into NeoBoard's format
+4. **SchemaManager** — introspects database schema
+
+## Step 1: Add Connection Type
+
+In `connection/src/ConnectionModuleConfig.ts`:
+
+```typescript
+export enum ConnectionTypes {
+  NEO4J = 1,
+  POSTGRESQL = 2,
+  YOUR_DB = 3, // Add here
+}
+```
+
+## Step 2: Implement AuthenticationModule
+
+```typescript
+// connection/src/yourdb/YourDbAuthenticationModule.ts
+import { AuthConfig, AdvancedConnectionOptions } from "../generalized/interfaces";
+
+export class YourDbAuthenticationModule {
+  private readonly pool: YourDbPool;
+
+  constructor(authConfig: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
+    this.pool = new YourDbPool({
+      host: authConfig.uri,
+      user: authConfig.username,
+      password: authConfig.password,
+      // Map advanced options...
+    });
+  }
+
+  getPool(): YourDbPool {
+    return this.pool;
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+```
+
+## Step 3: Implement ConnectionModule
+
+Extend the abstract `ConnectionModule`:
+
+```typescript
+// connection/src/yourdb/YourDbConnectionModule.ts
+import { ConnectionModule } from "../generalized/ConnectionModule";
+
+export class YourDbConnectionModule extends ConnectionModule {
+  async runQuery(params, callbacks, config) {
+    try {
+      const result = await this.auth.getPool().query(params.query);
+      callbacks.onSuccess(result);
+    } catch (error) {
+      callbacks.onFail(error);
+    }
+  }
+
+  async checkConnection(config): Promise<boolean> {
+    try {
+      await this.auth.getPool().query("SELECT 1");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+```
+
+## Step 4: Implement RecordParser
+
+Transform raw query results into NeoBoard's tabular format.
+
+## Step 5: Implement SchemaManager
+
+Provide schema introspection for the query editor.
+
+## Step 6: Register in Factory
+
+In `connection/src/adapters/factory.ts`:
+
+```typescript
+case ConnectionTypes.YOUR_DB:
+  return new YourDbConnectionModule(authConfig, advancedOptions);
+```
+
+## Step 7: Add Connection Form Fields
+
+Update `component/src/components/composed/connection-form.tsx` to include UI fields specific to your database.
+
+## Step 8: Write Tests
+
+Use **Testcontainers** for integration tests:
+
+```typescript
+import { GenericContainer } from "testcontainers";
+
+const container = await new GenericContainer("yourdb:latest")
+  .withExposedPorts(5555)
+  .start();
+```

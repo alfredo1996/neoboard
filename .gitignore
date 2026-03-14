@@ -53,3 +53,7 @@ app/coverage-e2e/
 .screenshots/after/
 .screenshots/diff/
 .playwright-mcp
+
+# Fumadocs generated
+docs/.source
+docs/.next
