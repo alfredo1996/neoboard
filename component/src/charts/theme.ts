@@ -52,42 +52,36 @@ export const DEEP_OCEAN_DARK = [
  *   to avoid importing echarts/core in this module (keeps it testable
  *   without full echarts mocking).
  */
+function axisStyle(line: string, label: string, split: string) {
+  return {
+    axisLine: { lineStyle: { color: line } },
+    axisLabel: { color: label },
+    splitLine: { lineStyle: { color: split } },
+  };
+}
+
 export function registerNeoboardThemes(
   registerTheme: (name: string, theme: Record<string, unknown>) => void,
 ) {
+  const lightAxis = axisStyle("#e5e5e5", "#737373", "#f5f5f5");
   registerTheme(THEME_LIGHT, {
     color: DEEP_OCEAN_LIGHT,
     backgroundColor: "transparent",
     textStyle: { color: "#1a1a1a" },
     title: { textStyle: { color: "#1a1a1a" } },
-    categoryAxis: {
-      axisLine: { lineStyle: { color: "#e5e5e5" } },
-      axisLabel: { color: "#737373" },
-      splitLine: { lineStyle: { color: "#f5f5f5" } },
-    },
-    valueAxis: {
-      axisLine: { lineStyle: { color: "#e5e5e5" } },
-      axisLabel: { color: "#737373" },
-      splitLine: { lineStyle: { color: "#f5f5f5" } },
-    },
+    categoryAxis: lightAxis,
+    valueAxis: lightAxis,
     legend: { textStyle: { color: "#737373" } },
   });
 
+  const darkAxis = axisStyle("#404040", "#a3a3a3", "#262626");
   registerTheme(THEME_DARK, {
     color: DEEP_OCEAN_DARK,
     backgroundColor: "transparent",
     textStyle: { color: "#fafafa" },
     title: { textStyle: { color: "#fafafa" } },
-    categoryAxis: {
-      axisLine: { lineStyle: { color: "#404040" } },
-      axisLabel: { color: "#a3a3a3" },
-      splitLine: { lineStyle: { color: "#262626" } },
-    },
-    valueAxis: {
-      axisLine: { lineStyle: { color: "#404040" } },
-      axisLabel: { color: "#a3a3a3" },
-      splitLine: { lineStyle: { color: "#262626" } },
-    },
+    categoryAxis: darkAxis,
+    valueAxis: darkAxis,
     legend: { textStyle: { color: "#a3a3a3" } },
   });
 }
