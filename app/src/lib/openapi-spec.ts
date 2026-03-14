@@ -26,6 +26,7 @@ const SPEC = {
     { name: "Query", description: "Query execution" },
     { name: "Users", description: "User management (admin only)" },
     { name: "Widget Templates", description: "Reusable widget template library" },
+    { name: "API Keys", description: "Programmatic API key management" },
   ],
   paths: {
     "/api/connections": {
@@ -676,6 +677,100 @@ const SPEC = {
         },
       },
     },
+    "/api/keys": {
+      get: {
+        tags: ["API Keys"],
+        summary: "List API keys",
+        description: "Returns all API keys for the authenticated user. Key hashes are never exposed.",
+        responses: {
+          200: {
+            description: "Envelope containing array of API key summaries",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/ApiKey" },
+                    },
+                    error: { type: "object", nullable: true },
+                    meta: { type: "object", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+      post: {
+        tags: ["API Keys"],
+        summary: "Create API key",
+        description:
+          "Creates a new API key. The plaintext key (prefixed `nb_`) is returned **only once** in the response — " +
+          "it cannot be retrieved again. Requires `canWrite` permission.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateApiKeyRequest" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Envelope containing the created key with plaintext (shown only once)",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    data: { $ref: "#/components/schemas/ApiKeyCreated" },
+                    error: { type: "object", nullable: true },
+                    meta: { type: "object", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: "#/components/responses/BadRequest" },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/api/keys/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      delete: {
+        tags: ["API Keys"],
+        summary: "Revoke API key",
+        description: "Permanently revokes an API key. Requires `canWrite` permission.",
+        responses: {
+          200: {
+            description: "Key revoked",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    data: {
+                      type: "object",
+                      properties: { success: { type: "boolean" } },
+                    },
+                    error: { type: "object", nullable: true },
+                    meta: { type: "object", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -979,6 +1074,43 @@ const SPEC = {
           params: { type: "object" },
           settings: { type: "object" },
           previewImageUrl: { type: "string" },
+        },
+      },
+      ApiKey: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          lastUsedAt: { type: "string", format: "date-time", nullable: true },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+        },
+      },
+      ApiKeyCreated: {
+        type: "object",
+        description: "Returned only once at creation time — includes the plaintext key.",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          key: {
+            type: "string",
+            description: "Plaintext API key (nb_ prefix + 64 hex chars). Shown only once.",
+            example: "nb_a1b2c3d4e5f6...",
+          },
+        },
+      },
+      CreateApiKeyRequest: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", minLength: 1, example: "CI/CD Pipeline" },
+          expiresAt: {
+            type: "string",
+            format: "date-time",
+            description: "Optional expiration date. Omit for non-expiring keys.",
+          },
         },
       },
     },

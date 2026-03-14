@@ -29,6 +29,8 @@ describe("GET /api/openapi.json", () => {
     expect(body.paths).toHaveProperty("/api/dashboards");
     expect(body.paths).toHaveProperty("/api/query");
     expect(body.paths).toHaveProperty("/api/users");
+    expect(body.paths).toHaveProperty("/api/keys");
+    expect(body.paths).toHaveProperty("/api/keys/{id}");
   });
 
   it("has BearerAuth security scheme", async () => {
