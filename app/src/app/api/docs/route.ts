@@ -33,6 +33,7 @@ const HTML = `<!DOCTYPE html>
         persistAuthorization: true,
         requestInterceptor: function (request) {
           // Strip cookies from try-it-out requests so API key auth can be tested cleanly
+          request.credentials = "omit";
           return request;
         },
       });
