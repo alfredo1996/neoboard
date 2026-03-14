@@ -1,11 +1,4 @@
-// Import from connection module source (CJS, no build step)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const connectionModule = require("connection/src/adapters/factory");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const connectionInterfaces = require("connection/src/generalized/interfaces");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const connectionConfig = require("connection/src/ConnectionModuleConfig");
-
+import { createConnectionModule, DEFAULT_CONNECTION_CONFIG, ConnectionTypes } from "./connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
 
 export interface ConnectionCredentials {
@@ -27,8 +20,8 @@ export type DbType = "neo4j" | "postgresql";
 
 function toConnectionType(type: DbType): number {
   return type === "neo4j"
-    ? connectionConfig.ConnectionTypes.NEO4J
-    : connectionConfig.ConnectionTypes.POSTGRESQL;
+    ? ConnectionTypes.NEO4J
+    : ConnectionTypes.POSTGRESQL;
 }
 
 /** Cache of connection modules keyed by type+uri+username+database. */
@@ -73,7 +66,7 @@ function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): un
       authType: 1, // NATIVE
     };
     const advancedOptions = buildAdvancedOptions(credentials);
-    module = connectionModule.createConnectionModule(connectionType, authConfig, advancedOptions);
+    module = createConnectionModule(connectionType, authConfig, advancedOptions);
     moduleCache.set(key, module);
   }
   return module;
@@ -97,7 +90,7 @@ export async function executeQuery(
   };
 
   const config = {
-    ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
+    ...DEFAULT_CONNECTION_CONFIG,
     connectionType: toConnectionType(type),
     database: credentials.database,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
@@ -137,7 +130,7 @@ export async function testConnection(
   };
 
   const config = {
-    ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
+    ...DEFAULT_CONNECTION_CONFIG,
     connectionType: toConnectionType(type),
     database: credentials.database,
   };
