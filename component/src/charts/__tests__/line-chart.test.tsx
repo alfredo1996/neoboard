@@ -17,7 +17,8 @@ vi.mock("echarts/core", () => {
     showLoading: vi.fn(),
     hideLoading: vi.fn(),
   }));
-  return { use, init, default: { use, init } };
+  const registerTheme = vi.fn();
+  return { use, init, registerTheme, default: { use, init, registerTheme } };
 });
 
 const sampleData = [
