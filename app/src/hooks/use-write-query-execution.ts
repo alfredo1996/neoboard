@@ -23,9 +23,10 @@ export function useWriteQueryExecution() {
         body: JSON.stringify(input),
       });
       const { data, meta } = await unwrapFullResponse(res);
+      const metaObj = (meta as Record<string, unknown>) ?? {};
       return {
         data,
-        ...((meta as Record<string, unknown>) ?? {}),
+        ...metaObj,
       } as WriteQueryResult;
     },
   });
