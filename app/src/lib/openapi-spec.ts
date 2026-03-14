@@ -5,6 +5,48 @@
  * Served at GET /api/openapi.json.
  */
 
+// ---------------------------------------------------------------------------
+// Helpers to reduce structural repetition in path definitions
+// ---------------------------------------------------------------------------
+
+/** JSON request body pointing to a $ref schema */
+function jsonBody(schemaRef: string) {
+  return {
+    required: true as const,
+    content: { "application/json": { schema: { $ref: schemaRef } } },
+  };
+}
+
+/** Single-object JSON response pointing to a $ref schema */
+function jsonResponse(description: string, schemaRef: string) {
+  return {
+    description,
+    content: { "application/json": { schema: { $ref: schemaRef } } },
+  };
+}
+
+/** Array JSON response pointing to a $ref schema */
+function arrayResponse(description: string, schemaRef: string) {
+  return {
+    description,
+    content: {
+      "application/json": {
+        schema: { type: "array" as const, items: { $ref: schemaRef } },
+      },
+    },
+  };
+}
+
+// Shorthand aliases for common $ref responses
+const R = {
+  unauthorized: { $ref: "#/components/responses/Unauthorized" },
+  forbidden: { $ref: "#/components/responses/Forbidden" },
+  notFound: { $ref: "#/components/responses/NotFound" },
+  badRequest: { $ref: "#/components/responses/BadRequest" },
+  serverError: { $ref: "#/components/responses/ServerError" },
+  deleteSuccess: { $ref: "#/components/responses/DeleteSuccess" },
+} as const;
+
 const SPEC = {
   openapi: "3.0.3",
   info: {
@@ -29,49 +71,26 @@ const SPEC = {
     { name: "API Keys", description: "Programmatic API key management" },
   ],
   paths: {
+    // ── Connections ────────────────────────────────────────────────────
     "/api/connections": {
       get: {
         tags: ["Connections"],
         summary: "List connections",
         description: "Returns all connections owned by the authenticated user.",
         responses: {
-          200: {
-            description: "Array of connection summaries (credentials excluded)",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/ConnectionSummary" },
-                },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          200: arrayResponse("Array of connection summaries (credentials excluded)", "#/components/schemas/ConnectionSummary"),
+          401: R.unauthorized,
         },
       },
       post: {
         tags: ["Connections"],
         summary: "Create connection",
         description: "Creates a new database connection. Credentials are encrypted at rest.",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateConnectionRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/CreateConnectionRequest"),
         responses: {
-          201: {
-            description: "Connection created",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/ConnectionSummary" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          201: jsonResponse("Connection created", "#/components/schemas/ConnectionSummary"),
+          400: R.badRequest,
+          401: R.unauthorized,
         },
       },
     },
@@ -81,36 +100,18 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Update connection",
         description: "Updates the name and/or credentials of a connection.",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/UpdateConnectionRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/UpdateConnectionRequest"),
         responses: {
-          200: {
-            description: "Updated connection summary",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/ConnectionSummary" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Updated connection summary", "#/components/schemas/ConnectionSummary"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          404: R.notFound,
         },
       },
       delete: {
         tags: ["Connections"],
         summary: "Delete connection",
-        responses: {
-          200: { $ref: "#/components/responses/DeleteSuccess" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
-        },
+        responses: { 200: R.deleteSuccess, 401: R.unauthorized, 404: R.notFound },
       },
     },
     "/api/connections/{id}/test": {
@@ -120,16 +121,9 @@ const SPEC = {
         summary: "Test saved connection",
         description: "Tests connectivity using the stored (encrypted) credentials.",
         responses: {
-          200: {
-            description: "Test result",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/ConnectionTestResult" },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Test result", "#/components/schemas/ConnectionTestResult"),
+          401: R.unauthorized,
+          404: R.notFound,
         },
       },
     },
@@ -138,25 +132,11 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Test inline credentials",
         description: "Tests connectivity using credentials provided directly in the request body (not saved).",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/TestInlineRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/TestInlineRequest"),
         responses: {
-          200: {
-            description: "Test result",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/ConnectionTestResult" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          200: jsonResponse("Test result", "#/components/schemas/ConnectionTestResult"),
+          400: R.badRequest,
+          401: R.unauthorized,
         },
       },
     },
@@ -182,11 +162,13 @@ const SPEC = {
               },
             },
           },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
+          401: R.unauthorized,
+          404: R.notFound,
         },
       },
     },
+
+    // ── Dashboards ────────────────────────────────────────────────────
     "/api/dashboards": {
       get: {
         tags: ["Dashboards"],
@@ -195,43 +177,19 @@ const SPEC = {
           "Returns dashboards visible to the authenticated user: owned, shared, and public. " +
           "Admins see all dashboards in the tenant.",
         responses: {
-          200: {
-            description: "Array of dashboard summaries",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/DashboardSummary" },
-                },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          200: arrayResponse("Array of dashboard summaries", "#/components/schemas/DashboardSummary"),
+          401: R.unauthorized,
         },
       },
       post: {
         tags: ["Dashboards"],
         summary: "Create dashboard",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateDashboardRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/CreateDashboardRequest"),
         responses: {
-          201: {
-            description: "Dashboard created",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Dashboard" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
+          201: jsonResponse("Dashboard created", "#/components/schemas/Dashboard"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
         },
       },
     },
@@ -242,53 +200,27 @@ const SPEC = {
         summary: "Get dashboard",
         description: "Returns the full dashboard including layout JSON.",
         responses: {
-          200: {
-            description: "Dashboard detail",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/DashboardDetail" },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Dashboard detail", "#/components/schemas/DashboardDetail"),
+          401: R.unauthorized,
+          404: R.notFound,
         },
       },
       put: {
         tags: ["Dashboards"],
         summary: "Update dashboard",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/UpdateDashboardRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/UpdateDashboardRequest"),
         responses: {
-          200: {
-            description: "Updated dashboard",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Dashboard" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Updated dashboard", "#/components/schemas/Dashboard"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
         },
       },
       delete: {
         tags: ["Dashboards"],
         summary: "Delete dashboard",
-        responses: {
-          200: { $ref: "#/components/responses/DeleteSuccess" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
-        },
+        responses: { 200: R.deleteSuccess, 401: R.unauthorized, 403: R.forbidden, 404: R.notFound },
       },
     },
     "/api/dashboards/{id}/duplicate": {
@@ -298,17 +230,10 @@ const SPEC = {
         summary: "Duplicate dashboard",
         description: "Creates a copy of the dashboard with '(copy)' appended to the name.",
         responses: {
-          201: {
-            description: "Duplicate created",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Dashboard" },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
+          201: jsonResponse("Duplicate created", "#/components/schemas/Dashboard"),
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
         },
       },
     },
@@ -319,12 +244,9 @@ const SPEC = {
         summary: "Export dashboard",
         description: "Exports the dashboard as a NeoDash-compatible JSON file.",
         responses: {
-          200: {
-            description: "Dashboard export file",
-            content: { "application/json": { schema: { type: "object" } } },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: { description: "Dashboard export file", content: { "application/json": { schema: { type: "object" } } } },
+          401: R.unauthorized,
+          404: R.notFound,
         },
       },
     },
@@ -333,21 +255,11 @@ const SPEC = {
         tags: ["Dashboards"],
         summary: "Import dashboard",
         description: "Imports a dashboard from a NeoDash-compatible JSON export.",
-        requestBody: {
-          required: true,
-          content: { "application/json": { schema: { type: "object" } } },
-        },
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
         responses: {
-          201: {
-            description: "Dashboard imported",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Dashboard" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          201: jsonResponse("Dashboard imported", "#/components/schemas/Dashboard"),
+          400: R.badRequest,
+          401: R.unauthorized,
         },
       },
     },
@@ -356,61 +268,34 @@ const SPEC = {
       get: {
         tags: ["Dashboards"],
         summary: "List dashboard shares",
-        responses: {
-          200: { description: "Share assignments" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
-        },
+        responses: { 200: { description: "Share assignments" }, 401: R.unauthorized, 404: R.notFound },
       },
       post: {
         tags: ["Dashboards"],
         summary: "Share dashboard with user",
-        responses: {
-          200: { description: "Share created or updated" },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-        },
+        responses: { 200: { description: "Share created or updated" }, 400: R.badRequest, 401: R.unauthorized, 403: R.forbidden },
       },
       delete: {
         tags: ["Dashboards"],
         summary: "Remove dashboard share",
-        responses: {
-          200: { description: "Share removed" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-        },
+        responses: { 200: { description: "Share removed" }, 401: R.unauthorized, 403: R.forbidden },
       },
     },
+
+    // ── Query ─────────────────────────────────────────────────────────
     "/api/query": {
       post: {
         tags: ["Query"],
         summary: "Execute read query",
-        description:
-          "Executes a read-only query against a connected database. " +
-          "Results are capped at 10,000 rows.",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/QueryRequest" },
-            },
-          },
-        },
+        description: "Executes a read-only query against a connected database. Results are capped at 10,000 rows.",
+        requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
-          200: {
-            description: "Query results",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/QueryResponse" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
-          500: { $ref: "#/components/responses/ServerError" },
+          200: jsonResponse("Query results", "#/components/schemas/QueryResponse"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+          500: R.serverError,
         },
       },
     },
@@ -418,81 +303,41 @@ const SPEC = {
       post: {
         tags: ["Query"],
         summary: "Execute write query",
-        description:
-          "Executes a write query against a connected database. " +
-          "Requires `canWrite` permission on the session.",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/QueryRequest" },
-            },
-          },
-        },
+        description: "Executes a write query against a connected database. Requires `canWrite` permission on the session.",
+        requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
-          200: {
-            description: "Query results",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/QueryResponse" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          500: { $ref: "#/components/responses/ServerError" },
+          200: jsonResponse("Query results", "#/components/schemas/QueryResponse"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          500: R.serverError,
         },
       },
     },
+
+    // ── Users ─────────────────────────────────────────────────────────
     "/api/users": {
       get: {
         tags: ["Users"],
         summary: "List users",
         description: "Returns all users. **Admin only.**",
         responses: {
-          200: {
-            description: "Array of users",
-            content: {
-              "application/json": {
-                schema: { type: "array", items: { $ref: "#/components/schemas/User" } },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
+          200: arrayResponse("Array of users", "#/components/schemas/User"),
+          401: R.unauthorized,
+          403: R.forbidden,
         },
       },
       post: {
         tags: ["Users"],
         summary: "Create user",
         description: "Creates a new user. **Admin only.**",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateUserRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/CreateUserRequest"),
         responses: {
-          201: {
-            description: "User created",
-            content: {
-              "application/json": { schema: { $ref: "#/components/schemas/User" } },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          409: {
-            description: "Email already in use",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
+          201: jsonResponse("User created", "#/components/schemas/User"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          409: jsonResponse("Email already in use", "#/components/schemas/Error"),
         },
       },
     },
@@ -502,95 +347,46 @@ const SPEC = {
         tags: ["Users"],
         summary: "Update user",
         description: "Updates user fields. **Admin only.**",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/UpdateUserRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/UpdateUserRequest"),
         responses: {
-          200: {
-            description: "Updated user",
-            content: {
-              "application/json": { schema: { $ref: "#/components/schemas/User" } },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Updated user", "#/components/schemas/User"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
         },
       },
       delete: {
         tags: ["Users"],
         summary: "Delete user",
         description: "Deletes a user. **Admin only.**",
-        responses: {
-          200: { $ref: "#/components/responses/DeleteSuccess" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
-        },
+        responses: { 200: R.deleteSuccess, 401: R.unauthorized, 403: R.forbidden, 404: R.notFound },
       },
     },
+
+    // ── Widget Templates ──────────────────────────────────────────────
     "/api/widget-templates": {
       get: {
         tags: ["Widget Templates"],
         summary: "List widget templates",
         parameters: [
-          {
-            name: "chartType",
-            in: "query",
-            schema: { type: "string" },
-            description: "Filter by chart type",
-          },
-          {
-            name: "connectorType",
-            in: "query",
-            schema: { type: "string", enum: ["neo4j", "postgresql"] },
-            description: "Filter by connector type",
-          },
+          { name: "chartType", in: "query", schema: { type: "string" }, description: "Filter by chart type" },
+          { name: "connectorType", in: "query", schema: { type: "string", enum: ["neo4j", "postgresql"] }, description: "Filter by connector type" },
         ],
         responses: {
-          200: {
-            description: "Array of widget templates",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/WidgetTemplate" },
-                },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          200: arrayResponse("Array of widget templates", "#/components/schemas/WidgetTemplate"),
+          401: R.unauthorized,
         },
       },
       post: {
         tags: ["Widget Templates"],
         summary: "Create widget template",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateWidgetTemplateRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/CreateWidgetTemplateRequest"),
         responses: {
-          201: {
-            description: "Template created",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/WidgetTemplate" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
+          201: jsonResponse("Template created", "#/components/schemas/WidgetTemplate"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
         },
       },
     },
@@ -600,70 +396,39 @@ const SPEC = {
         tags: ["Widget Templates"],
         summary: "Get widget template",
         responses: {
-          200: {
-            description: "Widget template",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/WidgetTemplate" },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Widget template", "#/components/schemas/WidgetTemplate"),
+          401: R.unauthorized,
+          404: R.notFound,
         },
       },
       put: {
         tags: ["Widget Templates"],
         summary: "Update widget template",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateWidgetTemplateRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/CreateWidgetTemplateRequest"),
         responses: {
-          200: {
-            description: "Updated template",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/WidgetTemplate" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Updated template", "#/components/schemas/WidgetTemplate"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
         },
       },
       delete: {
         tags: ["Widget Templates"],
         summary: "Delete widget template",
-        responses: {
-          200: { $ref: "#/components/responses/DeleteSuccess" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
-        },
+        responses: { 200: R.deleteSuccess, 401: R.unauthorized, 403: R.forbidden, 404: R.notFound },
       },
     },
+
+    // ── API Keys ──────────────────────────────────────────────────────
     "/api/keys": {
       get: {
         tags: ["API Keys"],
         summary: "List API keys",
         description: "Returns all API keys for the authenticated user. Key hashes are never exposed.",
         responses: {
-          200: {
-            description: "Envelope containing array of API key summaries",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/ApiKeyListEnvelope" },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
+          200: jsonResponse("Envelope containing array of API key summaries", "#/components/schemas/ApiKeyListEnvelope"),
+          401: R.unauthorized,
         },
       },
       post: {
@@ -672,26 +437,12 @@ const SPEC = {
         description:
           "Creates a new API key. The plaintext key (prefixed `nb_`) is returned **only once** in the response — " +
           "it cannot be retrieved again. Requires `canWrite` permission.",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateApiKeyRequest" },
-            },
-          },
-        },
+        requestBody: jsonBody("#/components/schemas/CreateApiKeyRequest"),
         responses: {
-          201: {
-            description: "Envelope containing the created key with plaintext (shown only once)",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/ApiKeyCreatedEnvelope" },
-              },
-            },
-          },
-          400: { $ref: "#/components/responses/BadRequest" },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
+          201: jsonResponse("Envelope containing the created key with plaintext (shown only once)", "#/components/schemas/ApiKeyCreatedEnvelope"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
         },
       },
     },
@@ -702,17 +453,10 @@ const SPEC = {
         summary: "Revoke API key",
         description: "Permanently revokes an API key. Requires `canWrite` permission.",
         responses: {
-          200: {
-            description: "Key revoked",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/EnvelopeSuccess" },
-              },
-            },
-          },
-          401: { $ref: "#/components/responses/Unauthorized" },
-          403: { $ref: "#/components/responses/Forbidden" },
-          404: { $ref: "#/components/responses/NotFound" },
+          200: jsonResponse("Key revoked", "#/components/schemas/EnvelopeSuccess"),
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
         },
       },
     },
@@ -742,80 +486,27 @@ const SPEC = {
       },
     },
     responses: {
-      Unauthorized: {
-        description: "Not authenticated",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/Error" },
-            example: { error: "Unauthorized" },
-          },
-        },
-      },
-      Forbidden: {
-        description: "Insufficient permissions",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/Error" },
-            example: { error: "Forbidden" },
-          },
-        },
-      },
-      NotFound: {
-        description: "Resource not found",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/Error" },
-            example: { error: "Not found" },
-          },
-        },
-      },
-      BadRequest: {
-        description: "Validation error",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/Error" },
-            example: { error: "Name is required" },
-          },
-        },
-      },
-      ServerError: {
-        description: "Internal server error",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/Error" },
-            example: { error: "Internal server error" },
-          },
-        },
-      },
-      DeleteSuccess: {
-        description: "Resource deleted",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/SuccessResult" },
-          },
-        },
-      },
+      Unauthorized: jsonResponse("Not authenticated", "#/components/schemas/Error"),
+      Forbidden: jsonResponse("Insufficient permissions", "#/components/schemas/Error"),
+      NotFound: jsonResponse("Resource not found", "#/components/schemas/Error"),
+      BadRequest: jsonResponse("Validation error", "#/components/schemas/Error"),
+      ServerError: jsonResponse("Internal server error", "#/components/schemas/Error"),
+      DeleteSuccess: jsonResponse("Resource deleted", "#/components/schemas/SuccessResult"),
     },
     schemas: {
       Error: {
         type: "object",
         required: ["error"],
-        properties: {
-          error: { type: "string" },
-        },
+        properties: { error: { type: "string" } },
       },
       SuccessResult: {
         type: "object",
-        properties: {
-          success: { type: "boolean" },
-        },
+        properties: { success: { type: "boolean" } },
       },
       EnvelopeError: {
         type: "object",
         nullable: true,
-        properties: {
-          message: { type: "string" },
-        },
+        properties: { message: { type: "string" } },
       },
       ConnectionSummary: {
         type: "object",
@@ -888,15 +579,9 @@ const SPEC = {
           {
             type: "object",
             properties: {
-              role: {
-                type: "string",
-                enum: ["owner", "editor", "viewer", "admin"],
-              },
+              role: { type: "string", enum: ["owner", "editor", "viewer", "admin"] },
               widgetCount: { type: "integer" },
-              preview: {
-                type: "array",
-                items: { $ref: "#/components/schemas/WidgetPreviewItem" },
-              },
+              preview: { type: "array", items: { $ref: "#/components/schemas/WidgetPreviewItem" } },
             },
           },
         ],
@@ -947,26 +632,14 @@ const SPEC = {
         required: ["connectionId", "query"],
         properties: {
           connectionId: { type: "string" },
-          query: {
-            type: "string",
-            example: "MATCH (n:Movie) RETURN n.title LIMIT 10",
-          },
-          params: {
-            type: "object",
-            additionalProperties: true,
-            description: "Named query parameters",
-          },
+          query: { type: "string", example: "MATCH (n:Movie) RETURN n.title LIMIT 10" },
+          params: { type: "object", additionalProperties: true, description: "Named query parameters" },
         },
       },
       QueryResponse: {
         type: "object",
         properties: {
-          data: {
-            oneOf: [
-              { type: "array", items: { type: "object" } },
-              { type: "object" },
-            ],
-          },
+          data: { oneOf: [{ type: "array", items: { type: "object" } }, { type: "object" }] },
           resultId: { type: "string", description: "Deterministic hash of connection + query + params" },
           serverDurationMs: { type: "integer" },
           truncated: { type: "boolean", description: "True when results were capped at 10,000 rows" },
@@ -990,11 +663,7 @@ const SPEC = {
           name: { type: "string", minLength: 1 },
           email: { type: "string", format: "email" },
           password: { type: "string", minLength: 6, format: "password" },
-          role: {
-            type: "string",
-            enum: ["admin", "creator", "reader"],
-            default: "creator",
-          },
+          role: { type: "string", enum: ["admin", "creator", "reader"], default: "creator" },
           canWrite: { type: "boolean", default: true },
         },
       },
@@ -1060,11 +729,7 @@ const SPEC = {
           name: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
           expiresAt: { type: "string", format: "date-time", nullable: true },
-          key: {
-            type: "string",
-            description: "Plaintext API key (nb_ prefix + 64 hex chars). Shown only once.",
-            example: "nb_a1b2c3d4e5f6...",
-          },
+          key: { type: "string", description: "Plaintext API key (nb_ prefix + 64 hex chars). Shown only once.", example: "nb_a1b2c3d4e5f6..." },
         },
       },
       CreateApiKeyRequest: {
@@ -1072,11 +737,7 @@ const SPEC = {
         required: ["name"],
         properties: {
           name: { type: "string", minLength: 1, example: "CI/CD Pipeline" },
-          expiresAt: {
-            type: "string",
-            format: "date-time",
-            description: "Optional expiration date. Omit for non-expiring keys.",
-          },
+          expiresAt: { type: "string", format: "date-time", description: "Optional expiration date. Omit for non-expiring keys." },
         },
       },
       ApiKeyListEnvelope: {
