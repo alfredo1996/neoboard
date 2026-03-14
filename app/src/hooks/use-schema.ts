@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { unwrapResponse } from "@/lib/api-client";
 import { useSchemaStore } from "@/stores/schema-store";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,8 +22,7 @@ export function useConnectionSchema(connectionId: string | null | undefined) {
     queryKey: ["connection-schema", connectionId],
     queryFn: async () => {
       const r = await fetch(`/api/connections/${connectionId}/schema`);
-      if (!r.ok) throw new Error(await r.text());
-      const schema: DatabaseSchema = await r.json();
+      const schema = await unwrapResponse<DatabaseSchema>(r);
       setSchema(connectionId!, schema);
       return schema;
     },

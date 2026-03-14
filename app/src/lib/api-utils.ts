@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
 import type { ZodSchema } from "zod";
+import { apiError } from "./api-response";
 
 /**
  * Shared API route utilities to reduce duplication across route handlers.
+ * All error responses use the standardized envelope format.
  */
 
 // ---------------------------------------------------------------------------
@@ -10,23 +11,23 @@ import type { ZodSchema } from "zod";
 // ---------------------------------------------------------------------------
 
 export function unauthorized(msg = "Unauthorized") {
-  return NextResponse.json({ error: msg }, { status: 401 });
+  return apiError("UNAUTHORIZED", msg);
 }
 
 export function forbidden(msg = "Forbidden") {
-  return NextResponse.json({ error: msg }, { status: 403 });
+  return apiError("FORBIDDEN", msg);
 }
 
 export function notFound(msg = "Not found") {
-  return NextResponse.json({ error: msg }, { status: 404 });
+  return apiError("NOT_FOUND", msg);
 }
 
 export function badRequest(msg: string) {
-  return NextResponse.json({ error: msg }, { status: 400 });
+  return apiError("BAD_REQUEST", msg);
 }
 
 export function serverError(msg = "Internal server error") {
-  return NextResponse.json({ error: msg }, { status: 500 });
+  return apiError("INTERNAL_ERROR", msg);
 }
 
 // ---------------------------------------------------------------------------
@@ -36,15 +37,12 @@ export function serverError(msg = "Internal server error") {
 export function validateBody<T>(
   schema: ZodSchema<T>,
   data: unknown,
-): { success: true; data: T } | { success: false; response: NextResponse } {
+): { success: true; data: T } | { success: false; response: ReturnType<typeof apiError> } {
   const parsed = schema.safeParse(data);
   if (!parsed.success) {
     return {
       success: false,
-      response: NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 },
-      ),
+      response: apiError("VALIDATION_ERROR", parsed.error.errors[0].message),
     };
   }
   return { success: true, data: parsed.data };
@@ -57,7 +55,7 @@ export function validateBody<T>(
 export function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
-): NextResponse {
+): ReturnType<typeof apiError> {
   const message = error instanceof Error ? error.message : fallbackMsg;
   if (message.includes("Unauthorized") || message.includes("session")) {
     return unauthorized();

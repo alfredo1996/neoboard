@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -6,6 +5,7 @@ import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
 import { validateBody, forbidden, notFound, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -119,7 +119,7 @@ export async function GET(
       return notFound();
     }
 
-    return NextResponse.json({ ...access.dashboard, role: access.role });
+    return apiSuccess({ ...access.dashboard, role: access.role });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");
   }
@@ -152,7 +152,7 @@ export async function PUT(
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .returning();
 
-    return NextResponse.json(updated);
+    return apiSuccess(updated);
   } catch (error) {
     return handleRouteError(error, "Failed to update dashboard");
   }
@@ -192,7 +192,7 @@ export async function DELETE(
       .delete(dashboards)
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)));
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ deleted: true });
   } catch (error) {
     return handleRouteError(error, "Failed to delete dashboard");
   }

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -8,6 +7,7 @@ import { decryptJson } from "@/lib/crypto";
 import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 import { validateBody, forbidden, notFound, serverError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
@@ -53,11 +53,7 @@ export async function POST(request: Request) {
     );
     const serverDurationMs = Math.round(performance.now() - queryStart);
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      serverDurationMs,
-    });
+    return apiSuccess(result.data, 200, { serverDurationMs });
   } catch (error) {
     console.error("[write-query]", error instanceof Error ? error.message : error);
     return serverError("Write query execution failed");

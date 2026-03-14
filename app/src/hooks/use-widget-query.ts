@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { unwrapFullResponse } from "@/lib/api-client";
 import { useParameterStore } from "@/stores/parameter-store";
 import { resolveRelativePreset } from "@/lib/date-utils";
 import type { RelativeDatePreset } from "@neoboard/components";
@@ -185,11 +186,14 @@ export function useWidgetQuery(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mergedInput),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Query execution failed");
-      }
-      const result: QueryResult = await res.json();
+      const { data, meta } = await unwrapFullResponse<{
+        data: unknown;
+        fields?: unknown;
+      }>(res);
+      const result: QueryResult = {
+        ...data,
+        ...meta,
+      } as QueryResult;
       if (process.env.NODE_ENV === "development") {
         const roundTripMs = Math.round(performance.now() - fetchStart);
         console.debug(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { unwrapFullResponse } from "@/lib/api-client";
 
 interface WriteQueryInput {
   connectionId: string;
@@ -9,7 +10,6 @@ interface WriteQueryInput {
 }
 
 interface WriteQueryResult {
-  success: boolean;
   data: unknown;
   serverDurationMs: number;
 }
@@ -22,11 +22,12 @@ export function useWriteQueryExecution() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Write query execution failed");
-      }
-      return res.json();
+      const { data, meta } = await unwrapFullResponse(res);
+      const metaObj = (meta as Record<string, unknown>) ?? {};
+      return {
+        data,
+        ...metaObj,
+      } as WriteQueryResult;
     },
   });
 }
