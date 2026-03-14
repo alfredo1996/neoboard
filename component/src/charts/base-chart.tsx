@@ -144,7 +144,7 @@ function BaseChart({
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, colorblindMode]);
+  }, [options, colorblindMode, dark]);
 
   // Loading state
   useEffect(() => {
@@ -179,7 +179,7 @@ function BaseChart({
       instance.off("click");
       instance.off("dataZoom");
     };
-  }, [onClick, onDataZoom]);
+  }, [onClick, onDataZoom, dark]);
 
   if (error) {
     return (
