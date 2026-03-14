@@ -200,7 +200,7 @@ function BaseChart({
       ref={containerRef}
       className={cn("h-full w-full", className)}
       data-testid="base-chart"
-      role="img"
+      aria-label="Chart visualization"
     />
   );
 }

@@ -21,11 +21,11 @@ function getServerSnapshot(): Theme {
 }
 
 function subscribe(callback: () => void): () => void {
-  window.addEventListener("storage", callback);
-  window.addEventListener(CHANGE_EVENT, callback);
+  globalThis.addEventListener("storage", callback);
+  globalThis.addEventListener(CHANGE_EVENT, callback);
   return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(CHANGE_EVENT, callback);
+    globalThis.removeEventListener("storage", callback);
+    globalThis.removeEventListener(CHANGE_EVENT, callback);
   };
 }
 
@@ -44,7 +44,7 @@ export function useTheme() {
   const setTheme = useCallback((t: Theme) => {
     localStorage.setItem(STORAGE_KEY, t);
     applyTheme(t);
-    window.dispatchEvent(new Event(CHANGE_EVENT));
+    globalThis.dispatchEvent(new Event(CHANGE_EVENT));
   }, []);
 
   const toggleTheme = useCallback(() => {
