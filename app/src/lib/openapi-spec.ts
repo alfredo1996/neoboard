@@ -107,14 +107,7 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Delete connection",
         responses: {
-          200: {
-            description: "Deleted",
-            content: {
-              "application/json": {
-                schema: { type: "object", properties: { success: { type: "boolean" } } },
-              },
-            },
-          },
+          200: { $ref: "#/components/responses/DeleteSuccess" },
           401: { $ref: "#/components/responses/Unauthorized" },
           404: { $ref: "#/components/responses/NotFound" },
         },
@@ -291,14 +284,7 @@ const SPEC = {
         tags: ["Dashboards"],
         summary: "Delete dashboard",
         responses: {
-          200: {
-            description: "Deleted",
-            content: {
-              "application/json": {
-                schema: { type: "object", properties: { success: { type: "boolean" } } },
-              },
-            },
-          },
+          200: { $ref: "#/components/responses/DeleteSuccess" },
           401: { $ref: "#/components/responses/Unauthorized" },
           403: { $ref: "#/components/responses/Forbidden" },
           404: { $ref: "#/components/responses/NotFound" },
@@ -542,14 +528,7 @@ const SPEC = {
         summary: "Delete user",
         description: "Deletes a user. **Admin only.**",
         responses: {
-          200: {
-            description: "Deleted",
-            content: {
-              "application/json": {
-                schema: { type: "object", properties: { success: { type: "boolean" } } },
-              },
-            },
-          },
+          200: { $ref: "#/components/responses/DeleteSuccess" },
           401: { $ref: "#/components/responses/Unauthorized" },
           403: { $ref: "#/components/responses/Forbidden" },
           404: { $ref: "#/components/responses/NotFound" },
@@ -663,14 +642,7 @@ const SPEC = {
         tags: ["Widget Templates"],
         summary: "Delete widget template",
         responses: {
-          200: {
-            description: "Deleted",
-            content: {
-              "application/json": {
-                schema: { type: "object", properties: { success: { type: "boolean" } } },
-              },
-            },
-          },
+          200: { $ref: "#/components/responses/DeleteSuccess" },
           401: { $ref: "#/components/responses/Unauthorized" },
           403: { $ref: "#/components/responses/Forbidden" },
           404: { $ref: "#/components/responses/NotFound" },
@@ -687,17 +659,7 @@ const SPEC = {
             description: "Envelope containing array of API key summaries",
             content: {
               "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    data: {
-                      type: "array",
-                      items: { $ref: "#/components/schemas/ApiKey" },
-                    },
-                    error: { type: "object", nullable: true },
-                    meta: { type: "object", nullable: true },
-                  },
-                },
+                schema: { $ref: "#/components/schemas/ApiKeyListEnvelope" },
               },
             },
           },
@@ -723,14 +685,7 @@ const SPEC = {
             description: "Envelope containing the created key with plaintext (shown only once)",
             content: {
               "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    data: { $ref: "#/components/schemas/ApiKeyCreated" },
-                    error: { type: "object", nullable: true },
-                    meta: { type: "object", nullable: true },
-                  },
-                },
+                schema: { $ref: "#/components/schemas/ApiKeyCreatedEnvelope" },
               },
             },
           },
@@ -751,17 +706,7 @@ const SPEC = {
             description: "Key revoked",
             content: {
               "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    data: {
-                      type: "object",
-                      properties: { success: { type: "boolean" } },
-                    },
-                    error: { type: "object", nullable: true },
-                    meta: { type: "object", nullable: true },
-                  },
-                },
+                schema: { $ref: "#/components/schemas/EnvelopeSuccess" },
               },
             },
           },
@@ -842,6 +787,14 @@ const SPEC = {
           },
         },
       },
+      DeleteSuccess: {
+        description: "Resource deleted",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SuccessResult" },
+          },
+        },
+      },
     },
     schemas: {
       Error: {
@@ -849,6 +802,19 @@ const SPEC = {
         required: ["error"],
         properties: {
           error: { type: "string" },
+        },
+      },
+      SuccessResult: {
+        type: "object",
+        properties: {
+          success: { type: "boolean" },
+        },
+      },
+      EnvelopeError: {
+        type: "object",
+        nullable: true,
+        properties: {
+          message: { type: "string" },
         },
       },
       ConnectionSummary: {
@@ -1111,6 +1077,30 @@ const SPEC = {
             format: "date-time",
             description: "Optional expiration date. Omit for non-expiring keys.",
           },
+        },
+      },
+      ApiKeyListEnvelope: {
+        type: "object",
+        properties: {
+          data: { type: "array", items: { $ref: "#/components/schemas/ApiKey" } },
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: { type: "object", nullable: true },
+        },
+      },
+      ApiKeyCreatedEnvelope: {
+        type: "object",
+        properties: {
+          data: { $ref: "#/components/schemas/ApiKeyCreated" },
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: { type: "object", nullable: true },
+        },
+      },
+      EnvelopeSuccess: {
+        type: "object",
+        properties: {
+          data: { $ref: "#/components/schemas/SuccessResult" },
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: { type: "object", nullable: true },
         },
       },
     },
