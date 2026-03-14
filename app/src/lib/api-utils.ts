@@ -59,7 +59,10 @@ export function handleRouteError(
   fallbackMsg = "Internal server error",
 ): NextResponse {
   const message = error instanceof Error ? error.message : fallbackMsg;
-  if (message.includes("Unauthorized") || message.includes("session")) {
+  if (
+    message.includes("Unauthorized") ||
+    message.includes("session")
+  ) {
     return unauthorized();
   }
   if (message === "Forbidden") {
