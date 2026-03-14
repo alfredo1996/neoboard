@@ -10,7 +10,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, canWrite } = await requireSession();
+    if (!canWrite) {
+      throw new Error("Forbidden");
+    }
     const { id } = await params;
 
     const deleted = await db

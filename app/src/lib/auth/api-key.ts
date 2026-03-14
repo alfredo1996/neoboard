@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from "crypto";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys, users } from "@/lib/db/schema";
 import type { UserRole } from "@/lib/db/schema";
@@ -78,7 +78,7 @@ export async function resolveApiKeyAuth(): Promise<{
   // Fire-and-forget lastUsedAt update — failure is acceptable (audit trail, not security)
   db.update(apiKeys)
     .set({ lastUsedAt: new Date() })
-    .where(eq(apiKeys.id, row.id))
+    .where(and(eq(apiKeys.id, row.id), eq(apiKeys.tenantId, row.tenantId)))
     .catch(() => {
       // intentionally silent — lastUsedAt is audit data
     });

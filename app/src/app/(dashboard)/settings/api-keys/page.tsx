@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Trash2, Copy, Check, Key } from "lucide-react";
 import {
   PageHeader,
@@ -63,16 +63,22 @@ function CreateKeyDialog({
   const [expiresAt, setExpiresAt] = useState("");
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   const createMutation = useCreateApiKey();
+  const closedRef = useRef(false);
 
   const handleCreate = async () => {
+    closedRef.current = false;
     const result = await createMutation.mutateAsync({
       name,
-      expiresAt: expiresAt || undefined,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
     });
-    setCreatedKey(result);
+    // Guard against late response after dialog was closed
+    if (!closedRef.current) {
+      setCreatedKey(result);
+    }
   };
 
   const handleClose = () => {
+    closedRef.current = true;
     setName("");
     setExpiresAt("");
     setCreatedKey(null);
