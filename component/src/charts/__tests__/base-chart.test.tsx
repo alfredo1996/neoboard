@@ -148,8 +148,8 @@ describe("BaseChart", () => {
     );
   });
 
-  it("chart container has role='img' for screen readers", () => {
+  it("chart container has aria-label for screen readers", () => {
     render(<BaseChart options={{}} />);
-    expect(screen.getByRole("img")).toBeInTheDocument();
+    expect(screen.getByLabelText("Chart visualization")).toBeInTheDocument();
   });
 });
