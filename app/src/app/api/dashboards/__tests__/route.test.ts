@@ -218,4 +218,74 @@ describe("POST /api/dashboards", () => {
     expect(res.status).toBe(201);
     expect(res._body).toEqual(created);
   });
+
+  it("sets updatedBy to session userId on create", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    const created = { id: "d1", name: "Test", userId: "user-1", updatedBy: "user-1" };
+    const valuesSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain: any = {
+      values: (...args: unknown[]) => { valuesSpy(...args); return chain; },
+      returning: () => Promise.resolve([created]),
+    };
+    mockDb.insert.mockReturnValue(chain);
+
+    const res = await POST(makeRequest({ name: "Test" }));
+    expect(res.status).toBe(201);
+    expect(valuesSpy).toHaveBeenCalledWith(expect.objectContaining({ updatedBy: "user-1" }));
+  });
+});
+
+describe("GET /api/dashboards — updatedByName", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let GET: () => Promise<any>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    const mod = await import("../route");
+    GET = mod.GET;
+  });
+
+  it("returns updatedByName from joined user for admin", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
+    const row = {
+      id: "d1",
+      name: "Dashboard",
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ownerId: "admin-1",
+      updatedByName: "Alice",
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([row]));
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ updatedByName: string | null }>;
+    expect(body[0].updatedByName).toBe("Alice");
+  });
+
+  it("returns updatedByName as null when no updater", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    const ownedRow = {
+      id: "d1",
+      name: "Dashboard",
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      updatedByName: null,
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([ownedRow]))
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = res._body as Array<{ updatedByName: string | null }>;
+    expect(body[0].updatedByName).toBeNull();
+  });
 });

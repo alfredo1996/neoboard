@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares } from "@/lib/db/schema";
+import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
 import { validateBody, forbidden, notFound, handleRouteError } from "@/lib/api-utils";
@@ -119,7 +119,19 @@ export async function GET(
       return notFound();
     }
 
-    return NextResponse.json({ ...access.dashboard, role: access.role });
+    // Look up the name of the user who last updated this dashboard (tenant-scoped)
+    const [metadata] = await db
+      .select({ updatedByName: users.name })
+      .from(dashboards)
+      .leftJoin(users, eq(dashboards.updatedBy, users.id))
+      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
+      .limit(1);
+
+    return NextResponse.json({
+      ...access.dashboard,
+      role: access.role,
+      updatedByName: metadata?.updatedByName ?? null,
+    });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");
   }
@@ -130,10 +142,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId, role: userRole } = await requireSession();
+    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
     const { id } = await params;
 
-    if (userRole === "reader") {
+    if (!canWrite) {
       return forbidden();
     }
 
@@ -148,7 +160,7 @@ export async function PUT(
 
     const [updated] = await db
       .update(dashboards)
-      .set({ ...result.data, updatedAt: new Date() })
+      .set({ ...result.data, updatedAt: new Date(), updatedBy: userId })
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .returning();
 
@@ -163,10 +175,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId, role: userRole } = await requireSession();
+    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
     const { id } = await params;
 
-    if (userRole === "reader") {
+    if (!canWrite) {
       return forbidden();
     }
 
