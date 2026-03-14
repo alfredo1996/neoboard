@@ -1,0 +1,55 @@
+---
+title: Adding a New Widget Type
+description: End-to-end guide for adding a completely new widget type.
+---
+
+This guide covers adding a new widget type that isn't just a chart variation but a fundamentally new kind of widget (like the Form widget or Graph widget).
+
+## When to Use This Guide
+
+Use this guide when:
+- Your widget has a unique data flow (e.g., writes data instead of reading)
+- Your widget doesn't fit the standard chart transform pipeline
+- Your widget needs custom editor UI
+
+For standard chart types, see [Adding a New Chart Type](/docs/developer/extending/new-chart-type).
+
+## Steps
+
+### 1. Define Widget Identity
+
+Add your widget type to the chart type system. Even non-chart widgets register through the chart registry for consistent handling.
+
+### 2. Create the Component
+
+Build the rendering component in `component/`. Follow existing patterns:
+- Accept standard widget props (data, loading, error, settings)
+- Handle empty states gracefully
+- Support responsive sizing within the grid
+
+### 3. Custom Editor (Optional)
+
+If your widget needs special configuration beyond the standard query + chart options:
+- Create editor step components
+- Register them in the widget editor modal flow
+
+### 4. Custom Query Handling (Optional)
+
+If your widget handles queries differently:
+- Override query execution in the page renderer
+- Handle write queries via the `/api/query/write` endpoint if needed
+
+### 5. Dynamic Loading
+
+All heavy dependencies must be lazy-loaded:
+
+```typescript
+const YourWidget = dynamic(() => import("./your-widget"), { ssr: false });
+```
+
+### 6. Testing
+
+Follow the standard testing pyramid:
+- **Unit tests** — pure logic (transforms, validators)
+- **Component tests** — rendering with mock data
+- **E2E tests** — full widget lifecycle in a real dashboard
