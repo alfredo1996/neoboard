@@ -44,7 +44,8 @@ describe("GET /api/users/[id]", () => {
     mockRequireAdmin.mockRejectedValue(new Error("Unauthorized"));
     const res = await GET(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(401);
-    expect(res._body.error.code).toBe("UNAUTHORIZED");
+    const body = await res.json();
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns single user in envelope", async () => {
@@ -54,9 +55,10 @@ describe("GET /api/users/[id]", () => {
 
     const res = await GET(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.id).toBe("u1");
-    expect(res._body.data.name).toBe("Alice");
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data.id).toBe("u1");
+    expect(body.data.name).toBe("Alice");
+    expect(body.error).toBeNull();
   });
 
   it("returns 404 when user not found", async () => {
@@ -65,7 +67,8 @@ describe("GET /api/users/[id]", () => {
 
     const res = await GET(makeRequest({}), makeParams("nonexistent"));
     expect(res.status).toBe(404);
-    expect(res._body.error.code).toBe("NOT_FOUND");
+    const body = await res.json();
+    expect(body.error.code).toBe("NOT_FOUND");
   });
 });
 
@@ -100,8 +103,9 @@ describe("PATCH /api/users/[id]", () => {
 
     const res = await PATCH(makeRequest({ canWrite: false }), makeParams("u1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.canWrite).toBe(false);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data.canWrite).toBe(false);
+    expect(body.error).toBeNull();
   });
 
   it("updates both role and canWrite", async () => {
@@ -111,8 +115,9 @@ describe("PATCH /api/users/[id]", () => {
 
     const res = await PATCH(makeRequest({ role: "creator", canWrite: false }), makeParams("u2"));
     expect(res.status).toBe(200);
-    expect(res._body.data.role).toBe("creator");
-    expect(res._body.data.canWrite).toBe(false);
+    const body = await res.json();
+    expect(body.data.role).toBe("creator");
+    expect(body.data.canWrite).toBe(false);
   });
 
   it("returns 400 when body is empty", async () => {
@@ -138,7 +143,8 @@ describe("PATCH /api/users/[id]", () => {
     mockRequireAdmin.mockResolvedValue(READONLY_ADMIN);
     const res = await PATCH(makeRequest({ role: "reader" }), makeParams("u1"));
     expect(res.status).toBe(403);
-    expect(res._body.error.message).toBe("Forbidden");
+    const body = await res.json();
+    expect(body.error.message).toBe("Forbidden");
   });
 });
 
@@ -170,7 +176,8 @@ describe("DELETE /api/users/[id]", () => {
     mockRequireAdmin.mockResolvedValue(READONLY_ADMIN);
     const res = await DELETE(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(403);
-    expect(res._body.error.message).toBe("Forbidden");
+    const body = await res.json();
+    expect(body.error.message).toBe("Forbidden");
   });
 
   it("returns 400 when self-deleting", async () => {
@@ -195,7 +202,8 @@ describe("DELETE /api/users/[id]", () => {
     });
     const res = await DELETE(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.deleted).toBe(true);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data.deleted).toBe(true);
+    expect(body.error).toBeNull();
   });
 });

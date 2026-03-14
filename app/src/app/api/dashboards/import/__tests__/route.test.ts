@@ -129,7 +129,8 @@ describe("POST /api/dashboards/import", () => {
       makeRequest({ payload: VALID_PAYLOAD, connectionMapping: { conn_0: "real-conn-id" } })
     );
     expect(res.status).toBe(201);
-    expect(res._body.data).toMatchObject({ id: "new-dash" });
+    const body = await res.json();
+    expect(body.data).toMatchObject({ id: "new-dash" });
   });
 
   it("auto-converts NeoDash format and returns 201", async () => {
@@ -162,6 +163,7 @@ describe("POST /api/dashboards/import", () => {
       makeRequest({ payload: VALID_PAYLOAD, connectionMapping: { conn_0: "real-conn-id" } })
     );
     expect(res.status).toBe(201);
-    expect(res._body.data.name).toContain("(imported)");
+    const body = await res.json();
+    expect(body.data.name).toContain("(imported)");
   });
 });

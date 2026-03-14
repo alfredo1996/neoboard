@@ -74,8 +74,8 @@ export function parsePagination(request: Request): {
   offset: number;
 } {
   const url = new URL(request.url);
-  let limit = parseInt(url.searchParams.get("limit") ?? "", 10);
-  let offset = parseInt(url.searchParams.get("offset") ?? "", 10);
+  let limit = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+  let offset = Number.parseInt(url.searchParams.get("offset") ?? "", 10);
 
   if (Number.isNaN(limit) || limit < 1) limit = DEFAULT_LIMIT;
   if (limit > MAX_LIMIT) limit = MAX_LIMIT;

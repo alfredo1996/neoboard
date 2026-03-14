@@ -15,9 +15,10 @@ import {
 import { z } from "zod";
 
 describe("error helpers return envelope format", () => {
-  it("unauthorized", () => {
+  it("unauthorized", async () => {
     const res = unauthorized();
-    expect(res._body).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       data: null,
       error: { code: "UNAUTHORIZED", message: "Unauthorized" },
       meta: null,
@@ -25,14 +26,16 @@ describe("error helpers return envelope format", () => {
     expect(res.status).toBe(401);
   });
 
-  it("unauthorized with custom message", () => {
+  it("unauthorized with custom message", async () => {
     const res = unauthorized("Session expired");
-    expect(res._body.error.message).toBe("Session expired");
+    const body = await res.json();
+    expect(body.error.message).toBe("Session expired");
   });
 
-  it("forbidden", () => {
+  it("forbidden", async () => {
     const res = forbidden();
-    expect(res._body).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       data: null,
       error: { code: "FORBIDDEN", message: "Forbidden" },
       meta: null,
@@ -40,48 +43,55 @@ describe("error helpers return envelope format", () => {
     expect(res.status).toBe(403);
   });
 
-  it("notFound", () => {
+  it("notFound", async () => {
     const res = notFound("User not found");
-    expect(res._body.error.code).toBe("NOT_FOUND");
+    const body = await res.json();
+    expect(body.error.code).toBe("NOT_FOUND");
     expect(res.status).toBe(404);
   });
 
-  it("badRequest", () => {
+  it("badRequest", async () => {
     const res = badRequest("Invalid email");
-    expect(res._body.error.code).toBe("BAD_REQUEST");
+    const body = await res.json();
+    expect(body.error.code).toBe("BAD_REQUEST");
     expect(res.status).toBe(400);
   });
 
-  it("serverError", () => {
+  it("serverError", async () => {
     const res = serverError();
-    expect(res._body.error.code).toBe("INTERNAL_ERROR");
+    const body = await res.json();
+    expect(body.error.code).toBe("INTERNAL_ERROR");
     expect(res.status).toBe(500);
   });
 });
 
 describe("handleRouteError", () => {
-  it("returns 401 for Unauthorized errors", () => {
+  it("returns 401 for Unauthorized errors", async () => {
     const res = handleRouteError(new Error("Unauthorized"));
     expect(res.status).toBe(401);
-    expect(res._body.error.code).toBe("UNAUTHORIZED");
+    const body = await res.json();
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
-  it("returns 403 for Forbidden errors", () => {
+  it("returns 403 for Forbidden errors", async () => {
     const res = handleRouteError(new Error("Forbidden"));
     expect(res.status).toBe(403);
-    expect(res._body.error.code).toBe("FORBIDDEN");
+    const body = await res.json();
+    expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns 500 for generic errors", () => {
+  it("returns 500 for generic errors", async () => {
     const res = handleRouteError(new Error("DB connection failed"));
     expect(res.status).toBe(500);
-    expect(res._body.error.code).toBe("INTERNAL_ERROR");
+    const body = await res.json();
+    expect(body.error.code).toBe("INTERNAL_ERROR");
   });
 
-  it("uses fallback message for non-Error", () => {
+  it("uses fallback message for non-Error", async () => {
     const res = handleRouteError("something", "Oops");
     expect(res.status).toBe(500);
-    expect(res._body.error.message).toBe("Oops");
+    const body = await res.json();
+    expect(body.error.message).toBe("Oops");
   });
 });
 
@@ -94,12 +104,13 @@ describe("validateBody", () => {
     if (result.success) expect(result.data.name).toBe("Test");
   });
 
-  it("returns envelope error on validation failure", () => {
+  it("returns envelope error on validation failure", async () => {
     const result = validateBody(schema, { name: "" });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.response.status).toBe(400);
-      expect(result.response._body.error.code).toBe("VALIDATION_ERROR");
+      const body = await result.response.json();
+      expect(body.error.code).toBe("VALIDATION_ERROR");
     }
   });
 });

@@ -61,10 +61,11 @@ describe("GET /api/dashboards", () => {
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);
-    expect(res._body.data).toHaveLength(1);
-    expect(res._body.data[0].role).toBe("owner");
-    expect(res._body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].role).toBe("owner");
+    expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
+    expect(body.error).toBeNull();
   });
 
   it("merges owned and shared dashboards (creator role)", async () => {
@@ -77,9 +78,10 @@ describe("GET /api/dashboards", () => {
       .mockReturnValueOnce(makeSelectChain([]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
-    expect(res._body.data).toHaveLength(2);
-    expect(res._body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe("owner");
-    expect(res._body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data).toHaveLength(2);
+    expect(body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe("owner");
+    expect(body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("viewer");
   });
 
   it("returns all tenant dashboards for admin role", async () => {
@@ -89,10 +91,11 @@ describe("GET /api/dashboards", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
-    expect(res._body.data).toHaveLength(2);
-    expect(res._body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe("owner");
-    expect(res._body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("admin");
-    expect(res._body.meta.total).toBe(2);
+    const body = await res.json();
+    expect(body.data).toHaveLength(2);
+    expect(body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe("owner");
+    expect(body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("admin");
+    expect(body.meta.total).toBe(2);
   });
 
   it("returns only assigned dashboards for reader role", async () => {
@@ -104,8 +107,9 @@ describe("GET /api/dashboards", () => {
       .mockReturnValueOnce(makeSelectChain([]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
-    expect(res._body.data).toHaveLength(1);
-    expect(res._body.data[0].id).toBe("d1");
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe("d1");
   });
 
   it("includes public dashboards for creator role", async () => {
@@ -118,9 +122,10 @@ describe("GET /api/dashboards", () => {
       .mockReturnValueOnce(makeSelectChain([publicRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
-    expect(res._body.data).toHaveLength(2);
-    expect(res._body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe("owner");
-    expect(res._body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data).toHaveLength(2);
+    expect(body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe("owner");
+    expect(body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("viewer");
   });
 
   it("deduplicates public dashboards already in owned or shared", async () => {
@@ -133,8 +138,9 @@ describe("GET /api/dashboards", () => {
       .mockReturnValueOnce(makeSelectChain([publicRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
-    expect(res._body.data).toHaveLength(1);
-    expect(res._body.data[0].id).toBe("d1");
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe("d1");
   });
 
   it("includes public dashboards for reader role", async () => {
@@ -146,9 +152,10 @@ describe("GET /api/dashboards", () => {
       .mockReturnValueOnce(makeSelectChain([publicRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
-    expect(res._body.data).toHaveLength(1);
-    expect(res._body.data[0].id).toBe("d1");
-    expect(res._body.data[0].role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe("d1");
+    expect(body.data[0].role).toBe("viewer");
   });
 });
 
@@ -188,7 +195,8 @@ describe("POST /api/dashboards", () => {
 
     const res = await POST(makeRequest({ name: "My Dashboard" }));
     expect(res.status).toBe(201);
-    expect(res._body.data).toEqual(created);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toEqual(created);
+    expect(body.error).toBeNull();
   });
 });

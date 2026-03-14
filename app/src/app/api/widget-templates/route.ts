@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       .select()
       .from(widgetTemplates)
       .where(and(...conditions))
-      .orderBy(widgetTemplates.createdAt)
+      .orderBy(asc(widgetTemplates.createdAt), asc(widgetTemplates.id))
       .limit(limit)
       .offset(offset);
 

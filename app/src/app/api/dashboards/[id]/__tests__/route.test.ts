@@ -82,8 +82,9 @@ describe("GET /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.id).toBe("d1");
-    expect(res._body.data.role).toBe("owner");
+    const body = await res.json();
+    expect(body.data.id).toBe("d1");
+    expect(body.data.role).toBe("owner");
   });
 
   it("returns dashboard for shared viewer", async () => {
@@ -95,7 +96,8 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([share]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data.role).toBe("viewer");
   });
 
   it("returns 404 when user has no access", async () => {
@@ -125,7 +127,8 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data.role).toBe("viewer");
   });
 
   it("returns 404 for private dashboard without share", async () => {
@@ -143,7 +146,8 @@ describe("GET /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.role).toBe("admin");
+    const body = await res.json();
+    expect(body.data.role).toBe("admin");
   });
 });
 
@@ -185,7 +189,8 @@ describe("PUT /api/dashboards/[id]", () => {
 
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.name).toBe("New name");
+    const body = await res.json();
+    expect(body.data.name).toBe("New name");
   });
 
   it("returns 400 when request body is invalid", async () => {
@@ -198,7 +203,7 @@ describe("PUT /api/dashboards/[id]", () => {
   it("returns 404 when public dashboard is edited by non-owner", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
     const publicDashboard = { ...OWNER_DASHBOARD, isPublic: true };
-    // canAccess with "editor" required: dashboard found, no share → public only grants viewer
+    // canAccess with "editor" required: dashboard found, no share -> public only grants viewer
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([publicDashboard]))
       .mockReturnValueOnce(makeSelectChain([]));
@@ -296,7 +301,8 @@ describe("DELETE /api/dashboards/[id]", () => {
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.deleted).toBe(true);
+    const body = await res.json();
+    expect(body.data.deleted).toBe(true);
   });
 
   it("returns 404 when dashboard belongs to different tenant", async () => {

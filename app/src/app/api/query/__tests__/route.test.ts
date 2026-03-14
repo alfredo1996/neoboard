@@ -71,7 +71,8 @@ describe("POST /api/query", () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500); // route catches and returns 500 with message
-    expect(res._body.error.message).toMatch(/Unauthorized/);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/Unauthorized/);
   });
 
   it("returns 400 for invalid body (missing query)", async () => {
@@ -88,14 +89,15 @@ describe("POST /api/query", () => {
 
   it("returns 404 when connection not found / not owned", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
-    // 1st call: ownership check → not found
-    // 2nd call: dashboard-access check → no access
+    // 1st call: ownership check -> not found
+    // 2nd call: dashboard-access check -> no access
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
       .mockReturnValueOnce(drizzleJoinChain([]));
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(404);
-    expect(res._body.error.message).toMatch(/not found/i);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/not found/i);
   });
 
   it("returns 403 when body tenantId does not match session tenantId", async () => {
@@ -104,7 +106,8 @@ describe("POST /api/query", () => {
       makeRequest({ connectionId: "c1", query: "SELECT 1", tenantId: "tenant-b" })
     );
     expect(res.status).toBe(403);
-    expect(res._body.error.message).toBe("Tenant mismatch");
+    const body = await res.json();
+    expect(body.error.message).toBe("Tenant mismatch");
   });
 
   it("succeeds when body tenantId matches session tenantId", async () => {
@@ -131,9 +134,10 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(200);
-    expect(res._body.meta.resultId).toHaveLength(16);
-    expect(res._body.meta.resultId).toMatch(/^[0-9a-f]{16}$/);
-    expect(res._body.data.data).toEqual([{ n: 1 }]);
+    const body = await res.json();
+    expect(body.meta.resultId).toHaveLength(16);
+    expect(body.meta.resultId).toMatch(/^[0-9a-f]{16}$/);
+    expect(body.data.data).toEqual([{ n: 1 }]);
   });
 
   it("includes resultId in response and it matches computeResultId", async () => {
@@ -148,7 +152,8 @@ describe("POST /api/query", () => {
     const expected = computeResultId("c1", "MATCH (n) RETURN n");
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
-    expect(res._body.meta.resultId).toBe(expected);
+    const body = await res.json();
+    expect(body.meta.resultId).toBe(expected);
   });
 
   it("returns 500 when executeQuery throws", async () => {
@@ -161,7 +166,8 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500);
-    expect(res._body.error.message).toBe("Driver error");
+    const body = await res.json();
+    expect(body.error.message).toBe("Driver error");
   });
 
   // --- Access fallback tests ---
@@ -169,8 +175,8 @@ describe("POST /api/query", () => {
   it("admin can execute query on unowned connection", async () => {
     mockRequireSession.mockResolvedValue({ ...defaultSession, role: "admin" });
     const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "other-user" };
-    // 1st call: ownership check → not found
-    // 2nd call: admin fallback → found
+    // 1st call: ownership check -> not found
+    // 2nd call: admin fallback -> found
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
       .mockReturnValueOnce(drizzleSelectChain([conn]));
@@ -185,8 +191,8 @@ describe("POST /api/query", () => {
   it("non-admin with dashboard share can execute query on unowned connection", async () => {
     mockRequireSession.mockResolvedValue({ ...defaultSession, role: "creator" });
     const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "other-user" };
-    // 1st call: ownership check → not found
-    // 2nd call: dashboard-access check (join) → found a matching dashboard
+    // 1st call: ownership check -> not found
+    // 2nd call: dashboard-access check (join) -> found a matching dashboard
     // 3rd call: fetch the connection by id
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
@@ -202,22 +208,23 @@ describe("POST /api/query", () => {
 
   it("non-admin without dashboard access gets 404", async () => {
     mockRequireSession.mockResolvedValue({ ...defaultSession, role: "creator" });
-    // 1st call: ownership check → not found
-    // 2nd call: dashboard-access check → no matching dashboard
+    // 1st call: ownership check -> not found
+    // 2nd call: dashboard-access check -> no matching dashboard
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
       .mockReturnValueOnce(drizzleJoinChain([]));
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(404);
-    expect(res._body.error.message).toMatch(/not found/i);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/not found/i);
   });
 
   it("non-admin with public dashboard can execute query on unowned connection", async () => {
     mockRequireSession.mockResolvedValue({ ...defaultSession, role: "creator" });
     const conn = { id: "c1", type: "postgresql", configEncrypted: "enc", userId: "other-user" };
-    // 1st call: ownership check → not found
-    // 2nd call: dashboard-access check (join) → found a public dashboard
+    // 1st call: ownership check -> not found
+    // 2nd call: dashboard-access check (join) -> found a public dashboard
     // 3rd call: fetch the connection by id
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
@@ -258,8 +265,9 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }));
     expect(res.status).toBe(200);
-    expect(res._body.data.data).toHaveLength(10000);
-    expect(res._body.meta.truncated).toBe(true);
+    const body = await res.json();
+    expect(body.data.data).toHaveLength(10000);
+    expect(body.meta.truncated).toBe(true);
   });
 
   it("does not truncate and omits truncated flag when result is exactly 10,000 rows", async () => {
@@ -273,8 +281,9 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }));
     expect(res.status).toBe(200);
-    expect(res._body.data.data).toHaveLength(10000);
-    expect(res._body.meta.truncated).toBeUndefined();
+    const body = await res.json();
+    expect(body.data.data).toHaveLength(10000);
+    expect(body.meta.truncated).toBeUndefined();
   });
 
   it("does not truncate when result is well below 10,000 rows", async () => {
@@ -287,8 +296,9 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
     expect(res.status).toBe(200);
-    expect(res._body.data.data).toHaveLength(1);
-    expect(res._body.meta.truncated).toBeUndefined();
+    const body = await res.json();
+    expect(body.data.data).toHaveLength(1);
+    expect(body.meta.truncated).toBeUndefined();
   });
 
   it("does not apply MAX_ROWS truncation when result data is not an array", async () => {
@@ -302,7 +312,8 @@ describe("POST /api/query", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(200);
-    expect(res._body.meta.truncated).toBeUndefined();
-    expect(res._body.data.data).toEqual({ nodes: [], edges: [] });
+    const body = await res.json();
+    expect(body.meta.truncated).toBeUndefined();
+    expect(body.data.data).toEqual({ nodes: [], edges: [] });
   });
 });
