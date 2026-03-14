@@ -1,0 +1,48 @@
+---
+title: Connectors
+description: How NeoBoard connects to Neo4j and PostgreSQL databases.
+---
+
+Connectors are the bridge between NeoBoard and your databases. Each connector stores encrypted credentials and manages a connection pool.
+
+## Supported Databases
+
+| Database | Protocol | Query Language |
+|----------|----------|---------------|
+| Neo4j | bolt://, neo4j:// | Cypher |
+| PostgreSQL | postgresql:// | SQL |
+
+## Connection Lifecycle
+
+1. **Create** — user provides URI, username, password via the Connections page
+2. **Encrypt** — credentials are encrypted with AES-256-GCM before storage
+3. **Test** — NeoBoard verifies connectivity before saving
+4. **Pool** — a connection pool is created on first query
+5. **Cache** — the pool is reused for subsequent queries to the same database
+
+## Credential Security
+
+- Credentials are encrypted at rest using AES-256-GCM with an envelope encryption scheme
+- The `ENCRYPTION_KEY` environment variable derives per-credential keys via HKDF-SHA256
+- Plaintext credentials are never logged or stored
+- If `ENCRYPTION_KEY` is lost, all stored credentials become unrecoverable
+
+## Advanced Settings
+
+Each connector supports optional pool and timeout settings:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Connection Timeout | Time to establish a connection | 30s |
+| Query Timeout | Maximum query execution time | 30s |
+| Max Pool Size | Maximum concurrent connections | 10 |
+| Idle Timeout | Time before idle connections close | 10s |
+| Statement Timeout | PostgreSQL statement timeout | (query timeout) |
+| SSL Reject Unauthorized | Verify SSL certificates | true |
+
+## Schema Introspection
+
+NeoBoard can introspect your database schema to help with query writing:
+
+- **Neo4j**: node labels, relationship types, property keys
+- **PostgreSQL**: tables, columns, data types

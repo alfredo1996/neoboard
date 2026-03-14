@@ -1,0 +1,57 @@
+---
+title: Parameters
+description: Interactive filters that drive queries across widgets.
+---
+
+Parameters enable interactive dashboards by letting users filter data dynamically without editing queries.
+
+## How Parameters Work
+
+1. A **parameter widget** collects a value from the user (dropdown, text input, date picker, etc.)
+2. The value is stored in NeoBoard's parameter store
+3. Other widgets reference the parameter using `$param_name` in their queries
+4. When the parameter value changes, dependent widgets automatically re-execute
+
+## Parameter Types
+
+| Type | Widget | Value Format |
+|------|--------|-------------|
+| `select` | Dropdown (seed query) | Single string |
+| `text` | Text input | String |
+| `number` | Number input | Number |
+| `date` | Date picker | ISO date string |
+| `dateRange` | Date range picker | `{start, end}` |
+| `boolean` | Toggle | `true`/`false` |
+| `multiselect` | Multi-select dropdown | Array of strings |
+| `slider` | Range slider | Number |
+
+## Query Substitution
+
+Use `$param_name` in your queries to reference parameter values:
+
+**Cypher (Neo4j)**:
+```cypher
+MATCH (m:Movie)
+WHERE m.year >= $param_start_year AND m.year <= $param_end_year
+RETURN m.title, m.year
+ORDER BY m.year
+```
+
+**SQL (PostgreSQL)**:
+```sql
+SELECT title, year
+FROM movies
+WHERE year >= $param_start_year AND year <= $param_end_year
+ORDER BY year
+```
+
+NeoBoard substitutes parameters safely using parameterized queries — values are never interpolated into query strings.
+
+## Parameter Sources
+
+Parameter values can come from:
+
+- **User input** — the default; user selects/types a value
+- **Seed query** — a query that populates dropdown options (for `select` and `multiselect` types)
+- **Default values** — initial values set during widget configuration
+- **Click actions** — clicking a chart element sets a parameter value

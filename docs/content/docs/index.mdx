@@ -1,0 +1,35 @@
+---
+title: Welcome to NeoBoard
+description: Open-source dashboarding for hybrid database architectures.
+---
+
+NeoBoard is an open-source dashboarding tool that connects **Neo4j** and **PostgreSQL** databases, letting you build interactive dashboards with charts, tables, graphs, and maps.
+
+## Key Features
+
+- **Hybrid databases** — query Neo4j (Cypher) and PostgreSQL (SQL) side by side
+- **Interactive dashboards** — drag-and-drop grid layout with multiple pages
+- **Rich visualizations** — bar, line, pie, single-value, table, graph, map, JSON viewer
+- **Parameters** — interactive filters that drive queries across widgets
+- **Multi-tenancy** — isolated tenants with role-based access control
+- **Import/Export** — share dashboards as portable JSON files
+- **Widget Lab** — save and reuse widget templates across dashboards
+- **API-first** — full REST API with Swagger UI documentation
+
+## Architecture
+
+NeoBoard is built as a monorepo with three packages:
+
+| Package | Purpose |
+|---------|---------|
+| `app/` | Next.js application — API routes, stores, hooks, pages |
+| `component/` | React UI library — charts, forms, composed components |
+| `connection/` | Database connector library — Neo4j and PostgreSQL drivers |
+
+## Getting Started
+
+<Cards>
+  <Card title="Installation" href="/docs/getting-started/installation" />
+  <Card title="Quick Start" href="/docs/getting-started/quick-start" />
+  <Card title="Configuration" href="/docs/getting-started/configuration" />
+</Cards>

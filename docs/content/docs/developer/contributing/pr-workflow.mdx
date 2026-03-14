@@ -1,0 +1,49 @@
+---
+title: PR Workflow
+description: Branch naming, labels, review process, and CI requirements.
+---
+
+## Branch Naming
+
+Branch from `dev`, not `main`:
+
+```
+feat/issue-<N>-<slug>    # New features
+fix/issue-<N>-<slug>     # Bug fixes
+chore/<slug>             # Maintenance
+```
+
+## Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): description
+
+feat(app): add API key authentication
+fix(component): correct pie chart tooltip overflow
+test(connection): add Neo4j pool timeout tests
+chore: update dependencies
+```
+
+## Pull Requests
+
+- PRs target `dev` (integration) before merging to `main`
+- Link the issue: `Closes #N` in the PR body
+- Add labels: type (`feat`, `fix`) + package (`pkg:app`) + area (`area:api`)
+- Set the correct milestone
+
+## CI Requirements
+
+All PRs must pass:
+
+1. **Lint & Type Check** — ESLint + `tsc --noEmit`
+2. **Unit Tests** — Vitest (app, component) + Jest (connection)
+3. **E2E Tests** — Playwright with real databases
+4. **SonarCloud** — Coverage ≥ 80%, duplication ≤ 3%, no bugs/vulnerabilities
+
+## Code Review
+
+- **CodeRabbit** automatically reviews PRs — address or dismiss all suggestions
+- **SonarQube** quality gate must pass
+- At least one human approval required before merge

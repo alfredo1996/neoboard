@@ -1,0 +1,57 @@
+---
+title: Quick Start
+description: Create your first dashboard in 5 minutes.
+---
+
+This guide walks you through creating your first NeoBoard dashboard.
+
+## 1. Add a Connection
+
+1. Navigate to **Connections** in the sidebar
+2. Click **Add Connection**
+3. Fill in your database details:
+   - **Name**: A descriptive label (e.g., "Movie Database")
+   - **Type**: Neo4j or PostgreSQL
+   - **URI**: Your database connection string
+   - **Username / Password**: Database credentials
+4. Click **Test Connection** to verify, then **Save**
+
+## 2. Create a Dashboard
+
+1. Navigate to **Dashboards** in the sidebar
+2. Click **New Dashboard**
+3. Give it a name and optional description
+4. Click **Create**
+
+## 3. Add Widgets
+
+1. Click **Edit** on your new dashboard
+2. Click **Add Widget**
+3. Choose a chart type (e.g., Bar Chart)
+4. Select your connection
+5. Write a query:
+
+For **Neo4j**:
+```cypher
+MATCH (m:Movie) RETURN m.year AS year, count(*) AS count ORDER BY year
+```
+
+For **PostgreSQL**:
+```sql
+SELECT year, count(*) FROM movies GROUP BY year ORDER BY year
+```
+
+6. Click **Run** to preview, then **Save**
+
+## 4. Arrange Your Layout
+
+- **Drag** widgets to reposition them
+- **Resize** by dragging widget edges
+- Add more widgets to build your dashboard
+- Click **Save** when done
+
+## Next Steps
+
+- Learn about [parameters](/docs/concepts/parameters) for interactive filters
+- Explore [chart types](/docs/charts) for different visualizations
+- Set up [dashboard sharing](/docs/guides/sharing-dashboards)

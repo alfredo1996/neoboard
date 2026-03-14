@@ -1,0 +1,52 @@
+---
+title: Widgets
+description: Widget types, lifecycle, and configuration.
+---
+
+Widgets are the building blocks of dashboards. Each widget displays data from a query result in a specific visualization.
+
+## Widget Types
+
+| Type | Description | Data Source |
+|------|-------------|-------------|
+| Bar Chart | Vertical/horizontal bars | Tabular data |
+| Line Chart | Time series and trends | Tabular data |
+| Pie Chart | Proportional breakdown | Tabular data |
+| Single Value | Large KPI number | Single row/column |
+| Table | Sortable data grid | Tabular data |
+| Graph | Neo4j node-relationship visualization | Graph data |
+| Map | Geographic markers | Lat/lng data |
+| JSON Viewer | Raw JSON tree | Any data |
+| Form | Input form for write queries | User input |
+
+## Widget Lifecycle
+
+1. **Create** — select chart type, connection, and write a query
+2. **Configure** — set column mappings, chart options, styling
+3. **Preview** — run the query and see a live preview
+4. **Save** — widget is added to the dashboard layout
+5. **Refresh** — data is fetched when the dashboard loads or auto-refreshes
+
+## Parameter Widgets
+
+Special widgets that act as interactive filters:
+
+- **Select** — dropdown backed by a seed query
+- **Text** — free-text input
+- **Number** — numeric input with optional range
+- **Date** — date picker
+- **Date Range** — start/end date picker
+- **Boolean** — toggle switch
+- **Multiselect** — multi-value dropdown
+- **Slider** — numeric range slider
+
+Parameter values are substituted into other widgets' queries using `$param_name` syntax.
+
+## Widget Templates
+
+Save widget configurations as reusable templates in the Widget Lab. Templates include:
+- Chart type and options
+- Query text
+- Column mappings and settings
+
+Templates can be browsed, previewed, and instantiated into any dashboard.

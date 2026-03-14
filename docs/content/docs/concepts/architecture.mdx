@@ -1,0 +1,67 @@
+---
+title: Architecture
+description: Three-package monorepo design and how the pieces fit together.
+---
+
+NeoBoard is structured as a monorepo with three packages, each with strict boundaries.
+
+## Package Overview
+
+```
+neoboard/
+├── app/          # Next.js application
+├── component/    # React UI library
+└── connection/   # Database connector library
+```
+
+### `app/` — Next.js Application
+
+The orchestration layer. Contains:
+- **API routes** — REST endpoints for CRUD operations
+- **Pages** — Dashboard viewer, editor, connections, settings
+- **Stores** — Zustand state management (parameters, graph widgets)
+- **Hooks** — TanStack Query data fetching
+
+### `component/` — React UI Library
+
+Pure UI components with **no business logic**:
+- Chart components (ECharts-based)
+- Form components (connection form, widget editor)
+- Composed components (data grid, query editor, chart options)
+- All components viewable in Storybook
+
+**Boundary rules**: No API calls, no stores, no imports from `app/`.
+
+### `connection/` — Database Connector Library
+
+Database driver abstraction:
+- Neo4j driver (bolt/neo4j protocols)
+- PostgreSQL driver (pg pool)
+- Schema introspection managers
+- Record parsers for query results
+
+**Boundary rules**: No UI, no React, no imports from `app/` or `component/`.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 (App Router) |
+| UI | React 19, shadcn/ui, Tailwind CSS |
+| Charts | ECharts (modular imports) |
+| Graph | Neo4j NVL |
+| Maps | Leaflet |
+| State | Zustand, TanStack Query |
+| Auth | Auth.js v5 |
+| ORM | Drizzle |
+| Testing | Vitest, Playwright, Testcontainers |
+
+## Data Flow
+
+```
+Browser → Next.js API Route → Query Executor → Connection Module → Database
+                                                      ↓
+Browser ← React Component ← Zustand Store ← API Response ← Query Result
+```
+
+All queries flow through the `query-executor` which enforces safety (read-only transactions, timeouts, row limits) and caches connection modules.

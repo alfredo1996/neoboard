@@ -1,0 +1,33 @@
+---
+title: Multi-Tenancy
+description: Tenant isolation and data security in NeoBoard.
+---
+
+NeoBoard supports multi-tenancy for SaaS deployments and team isolation.
+
+## How It Works
+
+- Every table in the metadata database has a `tenant_id` column
+- Every database query includes a tenant filter at the ORM level
+- JWT tokens include a `tenantId` claim, validated before any data access
+
+## Isolation Guarantees
+
+- Users in tenant A **cannot** see or modify data belonging to tenant B
+- Connections, dashboards, widgets, and API keys are all tenant-scoped
+- Admin users have full access within their tenant only
+
+## Roles
+
+| Role | Permissions |
+|------|------------|
+| **Admin** | Full access to all resources in the tenant |
+| **Creator** | Create/edit own dashboards and connections |
+| **Reader** | View-only access to shared dashboards |
+
+## Configuration
+
+Multi-tenancy is controlled by environment variables — no code branches:
+
+- `DEFAULT_TENANT_ID`: Used for single-tenant deployments
+- Tenant assignment happens at user creation time
