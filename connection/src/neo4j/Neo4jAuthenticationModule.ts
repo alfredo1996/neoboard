@@ -5,7 +5,7 @@ import { Driver } from 'neo4j-driver-core';
 
 export class Neo4jAuthenticationModule extends AuthenticationModule {
   private _authConfig: AuthConfig;
-  private _advancedOptions?: AdvancedConnectionOptions;
+  private readonly _advancedOptions?: AdvancedConnectionOptions;
   private driver: Driver;
 
   constructor(authConfig: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {

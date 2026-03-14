@@ -9,7 +9,7 @@ import { Pool } from 'pg';
 export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
   protected _authConfig: AuthConfig;
-  private _advancedOptions?: AdvancedConnectionOptions;
+  private readonly _advancedOptions?: AdvancedConnectionOptions;
 
   /**
    * Creates a new PostgreSQL authentication module.
@@ -37,9 +37,9 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
       const database = url.pathname.slice(1) || 'postgres';
 
       // Build SSL config if specified
-      const ssl = this._advancedOptions?.pgSslRejectUnauthorized !== undefined
-        ? { rejectUnauthorized: this._advancedOptions.pgSslRejectUnauthorized }
-        : undefined;
+      const ssl = this._advancedOptions?.pgSslRejectUnauthorized === undefined
+        ? undefined
+        : { rejectUnauthorized: this._advancedOptions.pgSslRejectUnauthorized };
 
       // Create connection pool
       const pool = new Pool({
