@@ -27,7 +27,7 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-function CopyButton({ value }: { value: string }) {
+function CopyButton({ value }: Readonly<{ value: string }>) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -55,10 +55,10 @@ function CopyButton({ value }: { value: string }) {
 function CreateKeyDialog({
   open,
   onClose,
-}: {
+}: Readonly<{
   open: boolean;
   onClose: () => void;
-}) {
+}>) {
   const [name, setName] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
@@ -162,10 +162,10 @@ function CreateKeyDialog({
 function ApiKeyRow({
   apiKey,
   onRevoke,
-}: {
+}: Readonly<{
   apiKey: ApiKeyListItem;
   onRevoke: (id: string) => void;
-}) {
+}>) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
@@ -229,11 +229,13 @@ export default function ApiKeysPage() {
         }
       />
 
-      {isLoading ? (
+      {isLoading && (
         <div className="flex items-center justify-center py-12">
           <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : keys.length === 0 ? (
+      )}
+
+      {!isLoading && keys.length === 0 && (
         <EmptyState
           icon={<Key className="h-8 w-8 text-muted-foreground" />}
           title="No API keys"
@@ -245,7 +247,9 @@ export default function ApiKeysPage() {
             </Button>
           }
         />
-      ) : (
+      )}
+
+      {!isLoading && keys.length > 0 && (
         <div className="rounded-lg border">
           <table className="w-full">
             <thead>
