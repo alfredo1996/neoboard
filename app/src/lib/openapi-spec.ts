@@ -955,6 +955,7 @@ export const openapiSpec = {
         tags: ["Auth"],
         summary: "Check bootstrap status",
         description: "Public endpoint. Returns whether initial admin setup is required.",
+        security: [],
         responses: {
           "200": {
             description: "Bootstrap status",

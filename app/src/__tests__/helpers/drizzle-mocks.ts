@@ -15,7 +15,7 @@ export function makeSelectChain(rows: unknown[]) {
     leftJoin: () => c,
     limit: () => c,
     orderBy: () => c,
-    offset: () => Promise.resolve(rows),
+    offset: () => c,
   });
   return c;
 }

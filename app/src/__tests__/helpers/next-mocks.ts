@@ -11,7 +11,6 @@ export function nextResponseMockFactory() {
   return {
     NextResponse: {
       json: (body: unknown, init?: ResponseInit) => ({
-        _body: body,
         status: init?.status ?? 200,
         json: async () => body,
       }),

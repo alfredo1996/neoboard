@@ -56,8 +56,9 @@ describe("GET /api/connections/[id]", () => {
 
     const res = await GET(makeRequest({}), makeParams("c1"));
     expect(res.status).toBe(200);
-    expect(res._body.data).toEqual(conn);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toEqual(conn);
+    expect(body.error).toBeNull();
   });
 
   it("admin can view any connection in tenant", async () => {
@@ -70,7 +71,8 @@ describe("GET /api/connections/[id]", () => {
 
     const res = await GET(makeRequest({}), makeParams("c1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.id).toBe("c1");
+    const body = await res.json();
+    expect(body.data.id).toBe("c1");
   });
 
   it("returns 404 when not found or not owned", async () => {
@@ -79,7 +81,8 @@ describe("GET /api/connections/[id]", () => {
 
     const res = await GET(makeRequest({}), makeParams("nonexistent"));
     expect(res.status).toBe(404);
-    expect(res._body.error.code).toBe("NOT_FOUND");
+    const body = await res.json();
+    expect(body.error.code).toBe("NOT_FOUND");
   });
 
   it("does not expose configEncrypted", async () => {
@@ -88,7 +91,8 @@ describe("GET /api/connections/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([conn]));
 
     const res = await GET(makeRequest({}), makeParams("c1"));
-    expect(res._body.data.configEncrypted).toBeUndefined();
+    const body = await res.json();
+    expect(body.data.configEncrypted).toBeUndefined();
   });
 });
 
@@ -127,8 +131,9 @@ describe("PATCH /api/connections/[id]", () => {
 
     const res = await PATCH(makeRequest({ name: "New name" }), makeParams("c1"));
     expect(res.status).toBe(200);
-    expect(res._body.data).toEqual(updated);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toEqual(updated);
+    expect(body.error).toBeNull();
   });
 
   it("re-encrypts config and triggers prefetch", async () => {
@@ -178,7 +183,8 @@ describe("DELETE /api/connections/[id]", () => {
     mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
     const res = await DELETE({} as Request, makeParams("c1"));
     expect(res.status).toBe(200);
-    expect(res._body.data.deleted).toBe(true);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data.deleted).toBe(true);
+    expect(body.error).toBeNull();
   });
 });

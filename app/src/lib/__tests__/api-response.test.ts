@@ -6,9 +6,10 @@ vi.mock("next/server", () => nextResponseMockFactory());
 import { apiSuccess, apiList, apiError, parsePagination } from "../api-response";
 
 describe("apiSuccess", () => {
-  it("wraps data in envelope with status 200", () => {
+  it("wraps data in envelope with status 200", async () => {
     const res = apiSuccess({ id: "1", name: "Test" });
-    expect(res._body).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       data: { id: "1", name: "Test" },
       error: null,
       meta: null,
@@ -16,23 +17,26 @@ describe("apiSuccess", () => {
     expect(res.status).toBe(200);
   });
 
-  it("accepts custom status code", () => {
+  it("accepts custom status code", async () => {
     const res = apiSuccess({ id: "1" }, 201);
     expect(res.status).toBe(201);
-    expect(res._body.data.id).toBe("1");
+    const body = await res.json();
+    expect(body.data.id).toBe("1");
   });
 
-  it("accepts custom meta", () => {
+  it("accepts custom meta", async () => {
     const res = apiSuccess({ id: "1" }, 200, { resultId: "abc" });
-    expect(res._body.meta).toEqual({ resultId: "abc" });
+    const body = await res.json();
+    expect(body.meta).toEqual({ resultId: "abc" });
   });
 });
 
 describe("apiList", () => {
-  it("wraps array with pagination meta", () => {
+  it("wraps array with pagination meta", async () => {
     const items = [{ id: "1" }, { id: "2" }];
     const res = apiList(items, { total: 50, limit: 25, offset: 0 });
-    expect(res._body).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       data: items,
       error: null,
       meta: { total: 50, limit: 25, offset: 0 },
@@ -42,9 +46,10 @@ describe("apiList", () => {
 });
 
 describe("apiError", () => {
-  it("returns NOT_FOUND with 404", () => {
+  it("returns NOT_FOUND with 404", async () => {
     const res = apiError("NOT_FOUND", "Dashboard not found");
-    expect(res._body).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       data: null,
       error: { code: "NOT_FOUND", message: "Dashboard not found" },
       meta: null,

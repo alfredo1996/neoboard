@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,30 +9,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireSession = vi.fn<
   () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
 >();
-
-/**
- * Build a fluent Drizzle select chain that resolves to `rows`.
- * The extra `.offset()` step is required by the paginated GET handler.
- */
-function makeSelectChain(rows: unknown[]) {
-  const resolved = Promise.resolve(rows);
-  const c = Object.assign(resolved, {
-    from: () => c,
-    where: () => c,
-    orderBy: () => c,
-    limit: () => c,
-    offset: () => Promise.resolve(rows),
-  });
-  return c;
-}
-
-function makeInsertChain(returning: unknown[]) {
-  const c = {
-    values: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -42,15 +20,7 @@ vi.mock("@/lib/auth/session", () => ({
   requireUserId: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests — GET /api/widget-templates
@@ -84,15 +54,14 @@ describe("GET /api/widget-templates", () => {
   it("returns all tenant templates with pagination meta", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const template = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j" };
-    // First call → count query ([{ total: 1 }]), second call → rows
+    // First call -> count query ([{ total: 1 }]), second call -> rows
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([{ total: 1 }]))
       .mockReturnValueOnce(makeSelectChain([template]));
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
-    // envelope: data is the array, meta holds pagination
-    const body = res._body as { data: unknown[]; meta: { total: number; limit: number; offset: number } };
+    const body = await res.json();
     expect(body.data).toHaveLength(1);
     expect(body.meta).toMatchObject({ total: 1, limit: 25, offset: 0 });
   });
@@ -145,7 +114,8 @@ describe("POST /api/widget-templates", () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(403);
-    expect(res._body.error.message).toBe("Forbidden");
+    const body = await res.json();
+    expect(body.error.message).toBe("Forbidden");
   });
 
   it("returns 400 when name is missing", async () => {
@@ -173,7 +143,8 @@ describe("POST /api/widget-templates", () => {
 
     const res = await POST(makeRequest({ name: "My Template", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(201);
-    expect(res._body.data).toEqual(created);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toEqual(created);
+    expect(body.error).toBeNull();
   });
 });

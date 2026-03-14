@@ -29,13 +29,15 @@ describe("GET /api/auth/bootstrap-status", () => {
     mockAreUsersEmpty.mockResolvedValue(true);
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(res._body.data).toEqual({ bootstrapRequired: true });
+    const body = await res.json();
+    expect(body.data).toEqual({ bootstrapRequired: true });
   });
 
   it("returns bootstrapRequired: false when users exist", async () => {
     mockAreUsersEmpty.mockResolvedValue(false);
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(res._body.data).toEqual({ bootstrapRequired: false });
+    const body = await res.json();
+    expect(body.data).toEqual({ bootstrapRequired: false });
   });
 });

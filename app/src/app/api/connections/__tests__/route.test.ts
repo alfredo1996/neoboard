@@ -56,9 +56,10 @@ describe("GET /api/connections", () => {
 
     const res = await GET(makeRequest({}, "http://localhost/api/connections"));
     expect(res.status).toBe(200);
-    expect(res._body.data).toEqual(rows);
-    expect(res._body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toEqual(rows);
+    expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
+    expect(body.error).toBeNull();
   });
 
   it("admin sees all connections in tenant", async () => {
@@ -72,7 +73,8 @@ describe("GET /api/connections", () => {
 
     const res = await GET(makeRequest({}, "http://localhost/api/connections"));
     expect(res.status).toBe(200);
-    expect(res._body.data).toHaveLength(2);
+    const body = await res.json();
+    expect(body.data).toHaveLength(2);
   });
 
   it("respects limit and offset", async () => {
@@ -81,7 +83,8 @@ describe("GET /api/connections", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "c5", name: "DB 5", type: "neo4j", createdAt: new Date(), updatedAt: new Date() }]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/connections?limit=1&offset=4"));
-    expect(res._body.meta).toEqual({ total: 10, limit: 1, offset: 4 });
+    const body = await res.json();
+    expect(body.meta).toEqual({ total: 10, limit: 1, offset: 4 });
   });
 });
 
@@ -110,7 +113,8 @@ describe("POST /api/connections", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const res = await POST(makeRequest({ type: "neo4j", config: { uri: "bolt://localhost", username: "neo4j", password: "pass" } }));
     expect(res.status).toBe(400);
-    expect(res._body.error.code).toBe("VALIDATION_ERROR");
+    const body = await res.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("creates connection and returns 201 envelope", async () => {
@@ -125,8 +129,9 @@ describe("POST /api/connections", () => {
     }));
 
     expect(res.status).toBe(201);
-    expect(res._body.data).toEqual(created);
-    expect(res._body.error).toBeNull();
+    const body = await res.json();
+    expect(body.data).toEqual(created);
+    expect(body.error).toBeNull();
     expect(mockEncryptJson).toHaveBeenCalled();
     expect(mockPrefetchSchema).toHaveBeenCalled();
   });
