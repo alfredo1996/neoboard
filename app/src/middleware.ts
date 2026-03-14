@@ -10,12 +10,13 @@ export async function middleware(req: NextRequest) {
   const isPublic = publicPaths.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
-  // Allow API key authenticated requests through.
+  // Allow API key authenticated requests through for API routes only.
   // The nb_ prefix check is lightweight — actual validation (hash lookup, expiry)
   // happens in route handlers via requireSession() → resolveApiKeyAuth().
   // Edge Middleware cannot use Node.js crypto/DB drivers, so we keep this minimal.
+  // Scoped to /api/ routes to prevent bypassing middleware auth checks for page routes.
   const authHeader = req.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer nb_")) {
+  if (pathname.startsWith("/api/") && authHeader?.startsWith("Bearer nb_")) {
     return NextResponse.next();
   }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createHmac } from "crypto";
 import { makeSelectChain, makeUpdateChain } from "@/__tests__/helpers/drizzle-mocks";
 
@@ -7,6 +7,10 @@ import { makeSelectChain, makeUpdateChain } from "@/__tests__/helpers/drizzle-mo
 // ---------------------------------------------------------------------------
 
 const TEST_HMAC_SECRET = "test-hmac-secret-for-unit-tests";
+
+// Snapshot original env values so each suite restores them deterministically
+const origEncryptionKey = process.env.ENCRYPTION_KEY;
+const origHmacSecret = process.env.API_KEY_HMAC_SECRET;
 
 const mockHeadersGet = vi.fn<(name: string) => string | null>();
 const mockHeaders = vi.fn(() => ({ get: mockHeadersGet }));
@@ -34,11 +38,19 @@ describe("generateApiKey", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    delete process.env.API_KEY_HMAC_SECRET;
     process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
     generateApiKey = mod.generateApiKey;
+  });
+
+  afterEach(() => {
+    if (origEncryptionKey !== undefined) process.env.ENCRYPTION_KEY = origEncryptionKey;
+    else delete process.env.ENCRYPTION_KEY;
+    if (origHmacSecret !== undefined) process.env.API_KEY_HMAC_SECRET = origHmacSecret;
+    else delete process.env.API_KEY_HMAC_SECRET;
   });
 
   it("returns a key with nb_ prefix", () => {
@@ -71,11 +83,19 @@ describe("hashApiKey", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    delete process.env.API_KEY_HMAC_SECRET;
     process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
     hashApiKey = mod.hashApiKey;
+  });
+
+  afterEach(() => {
+    if (origEncryptionKey !== undefined) process.env.ENCRYPTION_KEY = origEncryptionKey;
+    else delete process.env.ENCRYPTION_KEY;
+    if (origHmacSecret !== undefined) process.env.API_KEY_HMAC_SECRET = origHmacSecret;
+    else delete process.env.API_KEY_HMAC_SECRET;
   });
 
   it("returns a consistent HMAC-SHA256 hex digest", () => {
@@ -130,11 +150,19 @@ describe("resolveApiKeyAuth", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    delete process.env.API_KEY_HMAC_SECRET;
     process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
     resolveApiKeyAuth = mod.resolveApiKeyAuth;
+  });
+
+  afterEach(() => {
+    if (origEncryptionKey !== undefined) process.env.ENCRYPTION_KEY = origEncryptionKey;
+    else delete process.env.ENCRYPTION_KEY;
+    if (origHmacSecret !== undefined) process.env.API_KEY_HMAC_SECRET = origHmacSecret;
+    else delete process.env.API_KEY_HMAC_SECRET;
   });
 
   it("returns null when no Authorization header is present", async () => {

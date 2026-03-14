@@ -148,6 +148,17 @@ describe("POST /api/keys", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 when user lacks canWrite permission", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "reader",
+      canWrite: false,
+    });
+    const res = await POST(makeRequest({ name: "Test" }));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 400 when name is missing", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "user-1",

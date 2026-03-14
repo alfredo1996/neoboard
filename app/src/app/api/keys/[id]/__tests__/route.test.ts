@@ -41,6 +41,17 @@ describe("DELETE /api/keys/[id]", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 when user lacks canWrite permission", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "reader",
+      canWrite: false,
+    });
+    const res = await DELETE({} as Request, makeParams("key-1"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when key doesn't exist", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "user-1",

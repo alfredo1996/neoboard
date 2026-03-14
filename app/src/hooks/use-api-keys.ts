@@ -15,7 +15,11 @@ export interface CreateApiKeyInput {
   expiresAt?: string;
 }
 
-export interface CreatedApiKey extends ApiKeyListItem {
+export interface CreatedApiKey {
+  id: string;
+  name: string;
+  expiresAt: string | null;
+  createdAt: string;
   key: string;
 }
 

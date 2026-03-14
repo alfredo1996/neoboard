@@ -35,7 +35,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, canWrite } = await requireSession();
+    if (!canWrite) {
+      throw new Error("Forbidden");
+    }
 
     const body = await request.json();
     const validation = validateBody(createKeySchema, body);

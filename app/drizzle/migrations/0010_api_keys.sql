@@ -1,5 +1,6 @@
 DO $$
 BEGIN
+  PERFORM pg_advisory_lock(20260010);
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_name = 'api_key' AND table_schema = 'public'
@@ -16,4 +17,5 @@ BEGIN
     );
     CREATE INDEX "api_key_user_id_idx" ON "api_key" ("userId");
   END IF;
+  PERFORM pg_advisory_unlock(20260010);
 END $$;
