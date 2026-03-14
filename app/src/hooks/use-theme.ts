@@ -1,54 +1,56 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useSyncExternalStore, useEffect, useCallback } from "react";
 
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "neoboard-theme";
+const CHANGE_EVENT = "neoboard-theme-change";
 
 function isTheme(value: string | null): value is Theme {
   return value === "light" || value === "dark";
 }
 
-function getStoredTheme(): Theme {
-  if (typeof window === "undefined") return "light";
+function getSnapshot(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
   return isTheme(stored) ? stored : "light";
+}
+
+function getServerSnapshot(): Theme {
+  return "light";
+}
+
+function subscribe(callback: () => void): () => void {
+  window.addEventListener("storage", callback);
+  window.addEventListener(CHANGE_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(CHANGE_EVENT, callback);
+  };
 }
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
 
-/**
- * Initialise from localStorage on the client. Returns "light" on the
- * server so the first SSR render is deterministic.
- */
-function useInitialTheme(): Theme {
-  // Safe to call getStoredTheme lazily – useState initialiser runs once.
-  const [theme] = useState<Theme>(() => getStoredTheme());
-  return theme;
-}
-
 export function useTheme() {
-  const initial = useInitialTheme();
-  const [theme, setThemeState] = useState<Theme>(initial);
-  const isFirstRender = useRef(true);
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  // Apply theme on every change (including initial mount)
+  // Sync the CSS class to the document whenever theme changes
   useEffect(() => {
     applyTheme(theme);
-    isFirstRender.current = false;
   }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
     localStorage.setItem(STORAGE_KEY, t);
-    setThemeState(t);
+    applyTheme(t);
+    window.dispatchEvent(new Event(CHANGE_EVENT));
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "light" ? "dark" : "light");
-  }, [theme, setTheme]);
+    const next = getSnapshot() === "light" ? "dark" : "light";
+    setTheme(next);
+  }, [setTheme]);
 
   return { theme, setTheme, toggleTheme } as const;
 }

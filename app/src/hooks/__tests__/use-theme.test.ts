@@ -74,4 +74,10 @@ describe("useTheme", () => {
     renderHook(() => useTheme());
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
+
+  it("falls back to light for invalid localStorage values", () => {
+    localStorage.setItem("neoboard-theme", "invalid-value");
+    const { result } = renderHook(() => useTheme());
+    expect(result.current.theme).toBe("light");
+  });
 });
