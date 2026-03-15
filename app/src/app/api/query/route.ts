@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -9,6 +8,7 @@ import { executeQuery } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 import { computeResultId } from "@/lib/query-hash";
 import { validateBody, forbidden, notFound, serverError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 /** Maximum number of rows returned per query execution to prevent OOM. */
 const MAX_ROWS = 10_000;
@@ -101,7 +101,11 @@ export async function POST(request: Request) {
     const truncated = Array.isArray(rawData) && rawData.length > MAX_ROWS;
     const truncatedData = truncated ? (rawData as unknown[]).slice(0, MAX_ROWS) : rawData;
 
-    return NextResponse.json({ ...result, data: truncatedData, resultId, serverDurationMs, ...(truncated ? { truncated: true } : {}) });
+    return apiSuccess(
+      { ...result, data: truncatedData },
+      200,
+      { resultId, serverDurationMs, ...(truncated ? { truncated: true } : {}) },
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";

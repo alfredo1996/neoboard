@@ -64,14 +64,16 @@ describe("POST /api/query/write", () => {
     mockRequireSession.mockResolvedValue(readerSession);
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(403);
-    expect((res._body as { error: string }).error).toMatch(/write permission/i);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/write permission/i);
   });
 
   it("returns 500 when session retrieval fails", async () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(500);
-    expect((res._body as { error: string }).error).toBe("Write query execution failed");
+    const body = await res.json();
+    expect(body.error.message).toBe("Write query execution failed");
   });
 
   it("returns 400 for missing connectionId", async () => {
@@ -91,7 +93,8 @@ describe("POST /api/query/write", () => {
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(404);
-    expect((res._body as { error: string }).error).toMatch(/not found/i);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/not found/i);
   });
 
   it("returns 200 on success and calls executeQuery with accessMode WRITE", async () => {
@@ -103,10 +106,9 @@ describe("POST /api/query/write", () => {
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(200);
 
-    const body = res._body as { success: boolean; data: unknown; serverDurationMs: number };
-    expect(body.success).toBe(true);
+    const body = await res.json();
     expect(body.data).toEqual({ nodesCreated: 1 });
-    expect(typeof body.serverDurationMs).toBe("number");
+    expect(typeof body.meta.serverDurationMs).toBe("number");
 
     // Verify executeQuery was called with WRITE access mode
     expect(mockExecuteQuery).toHaveBeenCalledWith(
@@ -144,7 +146,8 @@ describe("POST /api/query/write", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(500);
-    expect((res._body as { error: string }).error).toBe("Write query execution failed");
+    const body = await res.json();
+    expect(body.error.message).toBe("Write query execution failed");
   });
 
   it("returns 404 when connection belongs to another user", async () => {
@@ -171,8 +174,8 @@ describe("POST /api/query/write", () => {
 
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(200);
-    const body = res._body as { data: unknown[]; truncated?: boolean };
+    const body = await res.json();
     expect(body.data).toHaveLength(15000);
-    expect(body).not.toHaveProperty("truncated");
+    expect(body.meta).not.toHaveProperty("truncated");
   });
 });
