@@ -88,6 +88,67 @@ describe("POST /api/connections/test-inline", () => {
     });
   });
 
+  it("passes advanced pool settings to testConnection", async () => {
+    mockRequireUserId.mockResolvedValue("user-1");
+    mockTestConnection.mockResolvedValue(true);
+    await POST(
+      makeRequest({
+        type: "neo4j",
+        config: {
+          uri: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "pass",
+          connectionTimeout: 5000,
+          queryTimeout: 30000,
+          maxPoolSize: 20,
+          connectionAcquisitionTimeout: 10000,
+          idleTimeout: 15000,
+          statementTimeout: 60000,
+          sslRejectUnauthorized: false,
+        },
+      })
+    );
+    expect(mockTestConnection).toHaveBeenCalledWith("neo4j", {
+      uri: "bolt://localhost:7687",
+      username: "neo4j",
+      password: "pass",
+      database: undefined,
+      connectionTimeout: 5000,
+      queryTimeout: 30000,
+      maxPoolSize: 20,
+      connectionAcquisitionTimeout: 10000,
+      idleTimeout: 15000,
+      statementTimeout: 60000,
+      sslRejectUnauthorized: false,
+    });
+  });
+
+  it("returns success:false when testConnection returns false", async () => {
+    mockRequireUserId.mockResolvedValue("user-1");
+    mockTestConnection.mockResolvedValue(false);
+    const res = await POST(
+      makeRequest({
+        type: "postgresql",
+        config: { uri: "pg://localhost", username: "pg", password: "pass" },
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(res._body.success).toBe(false);
+  });
+
+  it("returns 500 with fallback message for non-Error throws", async () => {
+    mockRequireUserId.mockResolvedValue("user-1");
+    mockTestConnection.mockRejectedValue("string error");
+    const res = await POST(
+      makeRequest({
+        type: "neo4j",
+        config: { uri: "bolt://localhost", username: "neo4j", password: "pass" },
+      })
+    );
+    expect(res.status).toBe(500);
+    expect(res._body.error).toBe("Connection test failed");
+  });
+
   it("returns 500 when testConnection throws", async () => {
     mockRequireUserId.mockResolvedValue("user-1");
     mockTestConnection.mockRejectedValue(new Error("Refused"));

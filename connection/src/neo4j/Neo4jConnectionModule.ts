@@ -2,7 +2,7 @@ import { ConnectionModule } from '../generalized/ConnectionModule';
 import neo4j, { ManagedTransaction } from 'neo4j-driver';
 import { Neo4jAuthenticationModule } from './Neo4jAuthenticationModule';
 import { Driver } from 'neo4j-driver-core';
-import { AuthConfig, ConnectionConfig, QueryCallback, QueryParams, QueryStatus } from '../generalized/interfaces';
+import { AuthConfig, AdvancedConnectionOptions, ConnectionConfig, QueryCallback, QueryParams, QueryStatus } from '../generalized/interfaces';
 import { Neo4jRecordParser } from './Neo4jRecordParser';
 import { extractNodeAndRelPropertiesFromRecords, errorHasMessage } from './utils';
 
@@ -17,10 +17,11 @@ export class Neo4jConnectionModule extends ConnectionModule {
   /**
    * Creates a new Neo4jConnectionModule instance.
    * @param config - The connection configuration object.
+   * @param advancedOptions - Optional advanced pool/timeout settings.
    */
-  constructor(config: AuthConfig) {
+  constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
-    this.authModule = new Neo4jAuthenticationModule(config);
+    this.authModule = new Neo4jAuthenticationModule(config, advancedOptions);
     this.parser = new Neo4jRecordParser();
   }
 

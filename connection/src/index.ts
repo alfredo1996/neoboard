@@ -3,7 +3,7 @@ export { createConnectionModule } from './adapters/factory';
 export { ConnectionTypes } from './ConnectionModuleConfig';
 
 /// Types
-export type { AuthConfig } from './generalized/interfaces';
+export type { AuthConfig, AdvancedConnectionOptions } from './generalized/interfaces';
 /// Schema
 export type { DatabaseSchema, TableDef, ColumnDef, PropertyDef } from './schema/types';
 export { Neo4jSchemaManager } from './schema/neo4j-schema';
