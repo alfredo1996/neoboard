@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { unwrapFullResponse } from "@/lib/api-client";
 
 interface QueryInput {
   connectionId: string;
@@ -23,11 +24,11 @@ export function useQueryExecution() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Query execution failed");
-      }
-      return res.json();
+      const { data, meta } = await unwrapFullResponse<{
+        data: unknown;
+        fields?: unknown;
+      }>(res);
+      return { ...data, ...meta } as QueryResult;
     },
   });
 }

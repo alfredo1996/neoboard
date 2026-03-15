@@ -32,14 +32,16 @@ describe("POST /api/connections/test-inline", () => {
     mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(500);
-    expect(res._body.error).toBe("Unauthorized");
+    const body = await res.json();
+    expect(body.error).toBe("Unauthorized");
   });
 
   it("returns 400 for invalid body (missing type)", async () => {
     mockRequireUserId.mockResolvedValue("user-1");
     const res = await POST(makeRequest({ config: { uri: "x", username: "u", password: "p" } }));
     expect(res.status).toBe(400);
-    expect(res._body.success).toBe(false);
+    const body = await res.json();
+    expect(body.success).toBe(false);
   });
 
   it("returns 400 for invalid type value", async () => {
@@ -68,7 +70,8 @@ describe("POST /api/connections/test-inline", () => {
       })
     );
     expect(res.status).toBe(200);
-    expect(res._body.success).toBe(true);
+    const body = await res.json();
+    expect(body.success).toBe(true);
   });
 
   it("passes optional database to testConnection", async () => {
@@ -159,6 +162,7 @@ describe("POST /api/connections/test-inline", () => {
       })
     );
     expect(res.status).toBe(500);
-    expect(res._body.error).toBe("Refused");
+    const body = await res.json();
+    expect(body.error).toBe("Refused");
   });
 });

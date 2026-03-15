@@ -1,18 +1,27 @@
-import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { createConnectionSchema } from "@/lib/schemas";
 import { validateBody, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const userId = await requireUserId();
+    const { userId, role } = await requireSession();
+    const { limit, offset } = parsePagination(request);
+    const isAdmin = role === "admin";
 
-    const result = await db
+    const whereClause = isAdmin ? undefined : eq(connections.userId, userId);
+
+    const [{ count: total }] = await db
+      .select({ count: count() })
+      .from(connections)
+      .where(whereClause);
+
+    const rows = await db
       .select({
         id: connections.id,
         name: connections.name,
@@ -21,9 +30,12 @@ export async function GET() {
         updatedAt: connections.updatedAt,
       })
       .from(connections)
-      .where(eq(connections.userId, userId));
+      .where(whereClause)
+      .limit(limit)
+      .orderBy(connections.createdAt)
+      .offset(offset);
 
-    return NextResponse.json(result);
+    return apiList(rows, { total: Number(total), limit, offset });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch connections");
   }
@@ -31,7 +43,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const userId = await requireUserId();
+    const { userId } = await requireSession();
     const body = await request.json();
     const result = validateBody(createConnectionSchema, body);
     if (!result.success) return result.response;
@@ -57,7 +69,7 @@ export async function POST(request: Request) {
     // Fire-and-forget: pre-warm the schema cache for the new connection
     prefetchSchema(type, result.data.config);
 
-    return NextResponse.json(connection, { status: 201 });
+    return apiSuccess(connection, 201);
   } catch (error) {
     return handleRouteError(error, "Failed to create connection");
   }

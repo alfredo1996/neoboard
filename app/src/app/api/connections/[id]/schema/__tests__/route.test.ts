@@ -47,7 +47,8 @@ describe("GET /api/connections/[id]/schema", () => {
     mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
     const res = await GET({} as Request, makeParams("c1"));
     expect(res.status).toBe(500);
-    expect(res._body.error).toBe("Unauthorized");
+    const body = await res.json();
+    expect(body.error).toBe("Unauthorized");
   });
 
   it("returns 404 when connection not found or not owned", async () => {
@@ -55,7 +56,8 @@ describe("GET /api/connections/[id]/schema", () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("c1"));
     expect(res.status).toBe(404);
-    expect(res._body.error).toBe("Not found");
+    const body = await res.json();
+    expect(body.error).toBe("Not found");
   });
 
   it("returns schema on success", async () => {
@@ -68,7 +70,8 @@ describe("GET /api/connections/[id]/schema", () => {
 
     const res = await GET({} as Request, makeParams("c1"));
     expect(res.status).toBe(200);
-    expect(res._body).toEqual(schema);
+    const body = await res.json();
+    expect(body).toEqual(schema);
   });
 
   it("returns 500 when fetchConnectionSchema throws", async () => {
@@ -80,6 +83,7 @@ describe("GET /api/connections/[id]/schema", () => {
 
     const res = await GET({} as Request, makeParams("c1"));
     expect(res.status).toBe(500);
-    expect(res._body.error).toBe("Schema fetch failed");
+    const body = await res.json();
+    expect(body.error).toBe("Schema fetch failed");
   });
 });

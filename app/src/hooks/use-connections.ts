@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { unwrapResponse } from "@/lib/api-client";
 
 export interface ConnectionListItem {
   id: string;
@@ -26,8 +27,7 @@ export function useConnections() {
     queryKey: ["connections"],
     queryFn: async () => {
       const res = await fetch("/api/connections");
-      if (!res.ok) throw new Error("Failed to fetch connections");
-      return res.json();
+      return unwrapResponse<ConnectionListItem[]>(res);
     },
   });
 }
@@ -42,11 +42,7 @@ export function useCreateConnection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to create connection");
-      }
-      return res.json();
+      return unwrapResponse<ConnectionListItem>(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["connections"] });
@@ -60,8 +56,7 @@ export function useDeleteConnection() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/connections/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete connection");
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["connections"] });

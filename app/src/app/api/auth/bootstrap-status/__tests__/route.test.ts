@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
-// Mocks — defined at module level so vi.doMock closures can reference them,
-// but registered only inside beforeEach (after vi.resetModules) to avoid the
-// redundant top-level vi.mock calls that are ignored when resetModules is used.
+// Mocks
 // ---------------------------------------------------------------------------
 
 const mockAreUsersEmpty = vi.fn<() => Promise<boolean>>();
+
+vi.mock("@/lib/auth/signup", () => ({ areUsersEmpty: mockAreUsersEmpty }));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -19,16 +21,6 @@ describe("GET /api/auth/bootstrap-status", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock("@/lib/auth/signup", () => ({ areUsersEmpty: mockAreUsersEmpty }));
-    vi.doMock("next/server", () => ({
-      NextResponse: {
-        json: (body: unknown, init?: ResponseInit) => ({
-          _body: body,
-          status: init?.status ?? 200,
-          json: async () => body,
-        }),
-      },
-    }));
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -37,13 +29,15 @@ describe("GET /api/auth/bootstrap-status", () => {
     mockAreUsersEmpty.mockResolvedValue(true);
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(res._body).toEqual({ bootstrapRequired: true });
+    const body = await res.json();
+    expect(body.data).toEqual({ bootstrapRequired: true });
   });
 
   it("returns bootstrapRequired: false when users exist", async () => {
     mockAreUsersEmpty.mockResolvedValue(false);
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(res._body).toEqual({ bootstrapRequired: false });
+    const body = await res.json();
+    expect(body.data).toEqual({ bootstrapRequired: false });
   });
 });
