@@ -84,6 +84,27 @@ export async function typeInEditor(
     // hasn't been created yet because async imports are still in progress.
     await expect(cmContainer).toHaveAttribute("data-editor-ready", "true", { timeout: 5_000 });
 
+    // Pre-dispatch stability: poll until the editor has been continuously
+    // ready for 3 consecutive checks (600ms stable window). Connection and
+    // chart-type selections trigger async operations (schema fetch, dynamic
+    // imports for Graph/NVL/Map) that can re-mount the editor. Polling
+    // detects re-mounts regardless of how long the async operation takes.
+    let stableCount = 0;
+    for (let poll = 0; poll < 15; poll++) {
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(200);
+      const ready = await cmContainer.getAttribute("data-editor-ready");
+      if (ready === "true") {
+        stableCount++;
+        if (stableCount >= 3) break;
+      } else {
+        stableCount = 0;
+      }
+    }
+    if (stableCount < 3) {
+      throw new Error("Editor not stable after polling — retrying");
+    }
+
     // Strategy 1: Use CM6's internal dispatch API (most reliable).
     // In CM6 v6.x, each DOM node managed by the editor has a `cmTile`
     // property (Tile instance). The `.cm-content` element's cmTile is a
@@ -107,7 +128,25 @@ export async function typeInEditor(
         : "dispatch-failed";
     }, query);
 
-    if (dispatched === "ok") return;
+    if (dispatched === "ok") {
+      // Post-dispatch stability: verify text survives any late re-renders.
+      // The pre-dispatch check handles most cases; this is a safety net.
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(300);
+      const stillPresent = await cmContainer.evaluate((el: HTMLElement, text: string) => {
+        const c = el.querySelector(".cm-content");
+        if (!c) return false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tile = (c as any).cmTile;
+        const view = tile?.root?.view ?? tile?.view;
+        if (!view) return false;
+        return view.state.doc.toString().includes(text.substring(0, 20));
+      }, query);
+      if (!stillPresent) {
+        throw new Error("Text overwritten after dispatch (editor re-mounted) — retrying");
+      }
+      return;
+    }
 
     // Strategy 2: Keyboard fallback (for environments where cmView is not accessible)
     if (dispatched === "no-view") {
@@ -142,7 +181,7 @@ export async function createTestDashboard(
   if (!res.ok()) {
     throw new Error(`Failed to create dashboard "${name}": ${res.status()}`);
   }
-  const { id } = await res.json();
+  const { id } = (await res.json()).data;
   return {
     id,
     cleanup: async () => {

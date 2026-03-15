@@ -229,7 +229,7 @@ test.describe("Click actions", () => {
       data: { name: `Click Actions ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -603,7 +603,7 @@ test.describe("Parameter interpolation in titles", () => {
       data: { name: `Interpolation ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -705,7 +705,7 @@ test.describe("Clickable columns restriction", () => {
       data: { name: `Restricted Cols ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -796,7 +796,7 @@ test.describe("Multi-rule click actions", () => {
       data: { name: `Multi Rule ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -899,7 +899,7 @@ test.describe("Date parameter widget", () => {
       data: { name: `Date Param ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -999,7 +999,7 @@ test.describe("Date-range parameter widget", () => {
       data: { name: `DateRange Param ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -1089,7 +1089,7 @@ test.describe("Date-relative parameter widget", () => {
       data: { name: `DateRelative Param ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -1185,7 +1185,7 @@ test.describe("Number-range parameter widget", () => {
       data: { name: `NumRange Param ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -1275,7 +1275,7 @@ test.describe("Multi-select parameter widget", () => {
       data: { name: `MultiSelect Param ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -1380,7 +1380,7 @@ test.describe("Cascading-select parameter widget", () => {
       data: { name: `Cascading Param ${Date.now()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
 
     const layout = {
       version: 2 as const,
@@ -1767,7 +1767,7 @@ test.describe("Parameter bar filter toggle", () => {
     const res = await page.request.post("/api/dashboards", {
       data: { name: `FilterToggle ${Date.now()}` },
     });
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
     dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
 
     const layout = {

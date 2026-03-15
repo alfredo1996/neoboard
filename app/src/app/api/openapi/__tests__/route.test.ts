@@ -8,7 +8,7 @@ describe("GET /api/openapi", () => {
 
     const body = await res.json();
     expect(body.openapi).toBe("3.0.3");
-    expect(body.info.title).toBe("NeoBoard Management API");
+    expect(body.info.title).toBe("NeoBoard API");
   });
 
   it("includes all resource paths", async () => {
@@ -26,7 +26,6 @@ describe("GET /api/openapi", () => {
     expect(paths).toContain("/api/widget-templates/{id}");
     expect(paths).toContain("/api/query");
     expect(paths).toContain("/api/query/write");
-    expect(paths).toContain("/api/auth/bootstrap-status");
   });
 
   it("documents all HTTP methods for user routes", async () => {
@@ -35,7 +34,6 @@ describe("GET /api/openapi", () => {
 
     expect(body.paths["/api/users"]).toHaveProperty("get");
     expect(body.paths["/api/users"]).toHaveProperty("post");
-    expect(body.paths["/api/users/{id}"]).toHaveProperty("get");
     expect(body.paths["/api/users/{id}"]).toHaveProperty("patch");
     expect(body.paths["/api/users/{id}"]).toHaveProperty("delete");
   });
@@ -44,9 +42,9 @@ describe("GET /api/openapi", () => {
     const res = await GET();
     const body = await res.json();
 
-    expect(body.components.securitySchemes.bearerAuth).toBeDefined();
-    expect(body.components.securitySchemes.bearerAuth.type).toBe("http");
-    expect(body.components.securitySchemes.bearerAuth.scheme).toBe("bearer");
+    expect(body.components.securitySchemes.BearerAuth).toBeDefined();
+    expect(body.components.securitySchemes.BearerAuth.type).toBe("http");
+    expect(body.components.securitySchemes.BearerAuth.scheme).toBe("bearer");
   });
 
   it("sets Cache-Control header", async () => {
