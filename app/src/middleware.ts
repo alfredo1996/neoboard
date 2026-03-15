@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const publicPaths = ["/login", "/signup", "/api/auth", "/api/docs", "/api/openapi"];
+/** Paths that use prefix matching (sub-routes allowed) */
+const publicPrefixes = ["/api/auth/"];
+
+/** Paths that require exact match */
+const publicExact = new Set(["/login", "/signup", "/api/docs", "/api/openapi.json"]);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isPublic = publicPaths.some((p) => pathname.startsWith(p));
+  const isPublic =
+    publicExact.has(pathname) || publicPrefixes.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
   // Allow API key authenticated requests through for API routes only.

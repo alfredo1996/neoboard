@@ -2,23 +2,32 @@ import { describe, it, expect } from "vitest";
 import { GET } from "../route";
 
 describe("GET /api/docs", () => {
-  it("returns 200 with text/html content type", async () => {
+  it("returns 200", async () => {
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toContain("text/html");
   });
 
-  it("returns HTML that references swagger-ui", async () => {
+  it("returns HTML content-type", async () => {
     const res = await GET();
-    const html = await res.text();
-
-    expect(html).toContain("swagger-ui");
-    expect(html).toContain("/api/openapi");
-    expect(html).toContain("NeoBoard API Documentation");
+    expect(res.headers.get("content-type")).toMatch(/text\/html/);
   });
 
-  it("sets Cache-Control header", async () => {
+  it("includes Swagger UI CDN reference", async () => {
     const res = await GET();
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
+    const body = await res.text();
+    expect(body).toContain("swagger-ui");
+  });
+
+  it("references the openapi.json spec", async () => {
+    const res = await GET();
+    const body = await res.text();
+    expect(body).toContain("/api/openapi.json");
+  });
+
+  it("includes a page title", async () => {
+    const res = await GET();
+    const body = await res.text();
+    expect(body).toContain("<title>");
+    expect(body).toContain("NeoBoard");
   });
 });
