@@ -85,11 +85,12 @@ describe("handleRouteError", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns 500 for generic errors", async () => {
+  it("returns 500 for generic errors with generic message", async () => {
     const res = handleRouteError(new Error("DB connection failed"));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
+    expect(body.error.message).toBe("Internal server error");
   });
 
   it("uses fallback message for non-Error", async () => {
