@@ -1,45 +1,49 @@
-import { NextResponse } from "next/server";
+export const dynamic = "force-static";
 
 const SWAGGER_UI_VERSION = "5.18.2";
 
-/**
- * Serves Swagger UI at /api/docs.
- *
- * Uses swagger-ui-dist from CDN to avoid adding npm dependencies.
- * Points to /api/openapi for the spec.
- */
-export async function GET() {
-  const html = `<!DOCTYPE html>
+const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NeoBoard API Documentation</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui.css" />
+  <title>NeoBoard API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui.css" />
   <style>
+    html { box-sizing: border-box; overflow-y: scroll; }
+    *, *::before, *::after { box-sizing: inherit; }
     body { margin: 0; background: #fafafa; }
-    .topbar { display: none !important; }
+    .swagger-ui .topbar { background-color: #0f172a; }
+    .swagger-ui .topbar .download-url-wrapper { display: none; }
   </style>
 </head>
 <body>
   <div id="swagger-ui"></div>
-  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-standalone-preset.js"></script>
   <script>
-    SwaggerUIBundle({
-      url: '/api/openapi',
-      dom_id: '#swagger-ui',
-      deepLinking: true,
-      presets: [
-        SwaggerUIBundle.presets.apis,
-        SwaggerUIBundle.SwaggerUIStandalonePreset,
-      ],
-      layout: 'BaseLayout',
-    });
+    window.onload = function () {
+      SwaggerUIBundle({
+        url: "/api/openapi.json",
+        dom_id: "#swagger-ui",
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+        deepLinking: true,
+        tryItOutEnabled: true,
+        persistAuthorization: true,
+        requestInterceptor: function (request) {
+          // Strip cookies from try-it-out requests so API key auth can be tested cleanly
+          request.credentials = "omit";
+          return request;
+        },
+      });
+    };
   </script>
 </body>
 </html>`;
 
-  return new NextResponse(html, {
+export function GET() {
+  return new Response(HTML, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
