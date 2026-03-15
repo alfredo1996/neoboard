@@ -1140,8 +1140,7 @@ test.describe("Date-relative parameter widget", () => {
     try {
       await page.goto(`/${id}`);
 
-      // Scope all locators to the widget card to avoid conflicts
-      // with ParameterBar CrossFilterTag buttons
+      // Scope to the widget card to avoid collision with parameter bar tags
       const card = page.getByTestId("widget-card");
 
       // Wait for the relative date preset buttons to render

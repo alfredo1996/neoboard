@@ -15,6 +15,8 @@ export interface BaseChartProps {
   onClick?: (params: EChartsClickEvent) => void;
   /** Called when data zoom changes */
   onDataZoom?: (params: unknown) => void;
+  /** Enable decal overlay patterns for colorblind accessibility */
+  colorblindMode?: boolean;
 }
 
 export interface EChartsClickEvent {

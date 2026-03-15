@@ -14,6 +14,7 @@ const mockHideLoading = vi.fn();
 
 vi.mock("echarts/core", () => {
   const use = vi.fn();
+  const registerTheme = vi.fn();
   const init = vi.fn(() => ({
     setOption: mockSetOption,
     resize: mockResize,
@@ -23,8 +24,17 @@ vi.mock("echarts/core", () => {
     showLoading: mockShowLoading,
     hideLoading: mockHideLoading,
   }));
-  return { use, init, default: { use, init } };
+  return { use, init, registerTheme, default: { use, init, registerTheme } };
 });
+
+vi.mock("echarts/components", () => ({
+  TitleComponent: vi.fn(),
+  TooltipComponent: vi.fn(),
+  LegendComponent: vi.fn(),
+  GridComponent: vi.fn(),
+  DataZoomComponent: vi.fn(),
+  AriaComponent: vi.fn(),
+}));
 
 describe("BaseChart", () => {
   beforeEach(() => {
@@ -102,9 +112,44 @@ describe("BaseChart", () => {
     render(<BaseChart options={{ title: { text: "Test" } }} />);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(12, 76%, 61%)"]),
+        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
       }),
       { notMerge: true },
     );
+  });
+
+  it("enables aria by default", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} />);
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aria: expect.objectContaining({ enabled: true }),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("decal patterns are off by default", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} />);
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aria: expect.objectContaining({ decal: { show: false } }),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("enables decal patterns in colorblind mode", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} colorblindMode />);
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aria: expect.objectContaining({ decal: { show: true } }),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("chart container has aria-label for screen readers", () => {
+    render(<BaseChart options={{}} />);
+    expect(screen.getByLabelText("Chart visualization")).toBeInTheDocument();
   });
 });
