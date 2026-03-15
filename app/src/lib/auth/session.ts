@@ -1,4 +1,5 @@
 import { auth } from "./config";
+import { resolveApiKeyAuth } from "./api-key";
 import type { UserRole } from "@/lib/db/schema";
 
 /**
@@ -18,9 +19,13 @@ export async function requireAdmin(): Promise<{
 }
 /**
  * Get the current authenticated user ID.
+ * Tries API key auth first; falls back to session-based auth.
  * Throws if not authenticated (use in protected API routes).
  */
 export async function requireUserId(): Promise<string> {
+  const apiKeyAuth = await resolveApiKeyAuth();
+  if (apiKeyAuth) return apiKeyAuth.userId;
+
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -30,6 +35,7 @@ export async function requireUserId(): Promise<string> {
 
 /**
  * Get the current authenticated user's ID and system role.
+ * Tries API key auth first; falls back to session-based auth.
  * Throws if not authenticated.
  */
 export async function requireSession(): Promise<{
@@ -38,6 +44,11 @@ export async function requireSession(): Promise<{
   canWrite: boolean;
   tenantId: string;
 }> {
+  // Try API key auth first (returns null if no nb_-prefixed Bearer header)
+  const apiKeyAuth = await resolveApiKeyAuth();
+  if (apiKeyAuth) return apiKeyAuth;
+
+  // Fall back to session-based auth
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");

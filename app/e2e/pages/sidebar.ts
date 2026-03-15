@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 export class SidebarPage {
   constructor(private page: Page) {}
 
-  async navigateTo(tab: "Dashboards" | "Connections" | "Users") {
+  async navigateTo(tab: "Dashboards" | "Connections" | "Users" | "Widget Lab" | "Settings") {
     await this.page.getByRole("button", { name: tab }).click();
     await this.page.waitForLoadState("networkidle");
   }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Database, Users, LogOut, FlaskConical, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, Database, Users, LogOut, FlaskConical, Moon, Sun, Settings } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import {
   AppShell,
@@ -99,6 +99,13 @@ export default function DashboardLayout({
             active={pathname === "/widget-lab"}
             collapsed={collapsed}
             onClick={() => router.push("/widget-lab")}
+          />
+          <SidebarItem
+            icon={<Settings className="h-4 w-4" />}
+            label="Settings"
+            active={pathname.startsWith("/settings")}
+            collapsed={collapsed}
+            onClick={() => router.push("/settings/api-keys")}
           />
         </Sidebar>
       }
