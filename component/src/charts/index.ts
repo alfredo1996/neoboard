@@ -1,4 +1,10 @@
 export { BaseChart, CHART_COLORS, resolveChartColors } from "./base-chart";
+export {
+  THEME_LIGHT,
+  THEME_DARK,
+  DEEP_OCEAN_LIGHT,
+  DEEP_OCEAN_DARK,
+} from "./theme";
 export type { ColorThreshold } from "./color-threshold";
 export { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 export type { StylingRule, StylingConfig, StylingOperator } from "./styling-rule";

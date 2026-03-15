@@ -208,6 +208,19 @@ const formOptions: ChartOptionDef[] = [
   { key: "resetOnSuccess", label: "Reset on Success", type: "boolean", default: true, category: "Form", description: "Clear all form fields after a successful submission." },
 ];
 
+/** Accessibility options for ECharts-based chart types. */
+const accessibilityOptions: ChartOptionDef[] = [
+  {
+    key: "colorblindMode",
+    label: "Colorblind Mode",
+    type: "boolean",
+    default: false,
+    category: "Accessibility",
+    description:
+      "Overlay distinct patterns on chart elements so data series are distinguishable without relying on color alone.",
+  },
+];
+
 /** Shared behavior options available to all chart types except parameter-select and form. */
 const behaviorOptions: ChartOptionDef[] = [
   {
@@ -243,9 +256,9 @@ const behaviorOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...behaviorOptions],
-  line: [...lineOptions, ...behaviorOptions],
-  pie: [...pieOptions, ...behaviorOptions],
+  bar: [...barOptions, ...behaviorOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...behaviorOptions, ...accessibilityOptions],
+  pie: [...pieOptions, ...behaviorOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],

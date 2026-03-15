@@ -222,4 +222,32 @@ describe("getDefaultChartSettings", () => {
     expect(cacheMode?.options).toContainEqual({ label: "TTL (time-based)", value: "ttl" });
     expect(cacheMode?.options).toContainEqual({ label: "Forever (until refresh)", value: "forever" });
   });
+
+  // ── Accessibility options (colorblindMode) ─────────────────────────────
+
+  it("includes colorblindMode for bar, line, and pie charts", () => {
+    for (const type of ["bar", "line", "pie"]) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys).toContain("colorblindMode");
+    }
+  });
+
+  it("does NOT include colorblindMode for non-ECharts chart types", () => {
+    for (const type of ["single-value", "graph", "map", "table", "json", "parameter-select", "form"]) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys).not.toContain("colorblindMode");
+    }
+  });
+
+  it("defaults colorblindMode to false", () => {
+    const defaults = getDefaultChartSettings("bar");
+    expect(defaults.colorblindMode).toBe(false);
+  });
+
+  it("colorblindMode has category 'Accessibility'", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorblindMode");
+    expect(opt?.category).toBe("Accessibility");
+    expect(opt?.type).toBe("boolean");
+  });
 });
