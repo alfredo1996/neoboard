@@ -1,0 +1,48 @@
+---
+title: Query Safety
+description: How NeoBoard protects your databases from harmful queries.
+---
+
+NeoBoard enforces multiple layers of safety to protect your databases.
+
+## Parameterized Queries
+
+User input is **never** interpolated into query strings. All parameters use the database driver's native parameterization:
+
+- **Neo4j**: Cypher parameters (`$param_name`)
+- **PostgreSQL**: Positional parameters (`$1`, `$2`)
+
+## Read-Only by Default
+
+Non-form widgets execute queries in read-only mode:
+
+- **PostgreSQL**: `BEGIN READ ONLY` transactions
+- **Neo4j**: Read access mode sessions
+
+Write operations are only allowed through **Form widgets** with the `can_write` permission, enforced server-side.
+
+## Timeouts
+
+Every query has a timeout enforced at the driver level:
+
+- Default: 30 seconds (configurable via `QUERY_TIMEOUT_MS`)
+- Uses `AbortSignal` for PostgreSQL
+- Native timeout for Neo4j driver
+
+## Row Limits
+
+Results are consumed with a `MAX_ROWS + 1` pattern:
+- The extra row detects if results were truncated
+- NeoBoard **never** adds `LIMIT` clauses to user queries
+- Default limit: 1000 rows
+
+## Concurrency Control
+
+Each connector uses a per-connection queue (`p-queue`) to prevent overwhelming the database with concurrent queries.
+
+## Credential Protection
+
+- AES-256-GCM encryption at rest
+- HKDF-SHA256 key derivation per credential
+- Decrypted credentials never logged
+- Lost `ENCRYPTION_KEY` = unrecoverable credentials

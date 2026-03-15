@@ -1,0 +1,46 @@
+---
+title: Code Style
+description: TypeScript conventions, lint rules, and coding standards.
+---
+
+## TypeScript
+
+- **Strict mode** enabled across all packages
+- No `any` without a comment explaining why
+- Prefer `unknown` over `any` for untyped values
+- Use explicit return types for exported functions
+
+## Linting
+
+```bash
+npm run lint                    # Lint all packages
+cd app && npx next lint --fix   # Auto-fix app/ lint errors
+```
+
+Run lint after every change to `app/`.
+
+## Naming Conventions
+
+| Item | Convention | Example |
+|------|-----------|---------|
+| Files | kebab-case | `chart-registry.ts` |
+| Components | PascalCase | `BaseChart` |
+| Functions | camelCase | `buildExportPayload` |
+| Constants | UPPER_SNAKE | `MAX_QUERY_ROWS` |
+| Types/Interfaces | PascalCase | `ConnectionCredentials` |
+| Test files | `*.test.ts` | `chart-registry.test.ts` |
+
+## Package Boundaries
+
+These are **strict** — violations will be caught in code review:
+
+- `component/` — NO API calls, NO stores, NO imports from `app/`
+- `connection/` — NO UI, NO React, NO imports from `app/` or `component/`
+- `app/` — CAN import from `component/` and `connection/`
+
+## Query Safety
+
+- **Always** use parameterized queries
+- **Never** interpolate user input into query strings
+- **Never** modify or wrap user queries
+- Enforce read-only at the driver/transaction level

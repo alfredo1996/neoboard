@@ -1,0 +1,102 @@
+---
+title: Adding a New Chart Type
+description: Step-by-step guide to registering a new chart type in NeoBoard.
+---
+
+This guide walks through adding a new chart type to NeoBoard, from registration to rendering.
+
+## Overview
+
+Adding a chart type involves:
+1. Define the chart type identifier
+2. Create the chart component in `component/`
+3. Register a transform function in the chart registry
+4. Add a data validator
+5. Add to the chart type picker UI
+6. Write tests
+
+## Step 1: Define the Chart Type
+
+Add your chart type to the `ChartType` union in `component/src/charts/types.ts`:
+
+```typescript
+export type ChartType =
+  | "bar"
+  | "line"
+  | "pie"
+  | "single-value"
+  | "table"
+  | "graph"
+  | "map"
+  | "json"
+  | "your-new-chart"; // Add here
+```
+
+## Step 2: Create the Chart Component
+
+Create a new file in `component/src/charts/`:
+
+```typescript
+// component/src/charts/your-new-chart.tsx
+import type { BaseChartProps } from "./types";
+
+interface YourNewChartProps extends BaseChartProps {
+  // Add chart-specific props
+}
+
+export function YourNewChart({ options, loading, error, className }: YourNewChartProps) {
+  // Use ECharts BaseChart or build a custom renderer
+  // ...
+}
+```
+
+**Important**: Use modular ECharts imports only:
+```typescript
+import * as echarts from "echarts/core";
+import { BarChart } from "echarts/charts";
+// Never: import * as echarts from "echarts"
+```
+
+## Step 3: Register in Chart Registry
+
+Add your chart to `app/src/lib/chart-registry.ts`:
+
+```typescript
+registry.set("your-new-chart", {
+  label: "Your New Chart",
+  icon: ChartIcon, // from lucide-react
+  transform: (data, settings) => {
+    // Transform query results into ECharts options
+    return { /* EChartsOption */ };
+  },
+  validate: (data) => {
+    // Return true if data shape is compatible
+    return data.length > 0 && data[0].hasOwnProperty("value");
+  },
+  defaultSettings: {
+    // Default chart options
+  },
+});
+```
+
+## Step 4: Add to Chart Type Picker
+
+Update the widget editor to include your chart in the type selection dropdown.
+
+## Step 5: Dynamic Import
+
+Charts must be lazy-loaded with SSR disabled:
+
+```typescript
+// In the page renderer
+const YourNewChart = dynamic(
+  () => import("@neoboard/components").then((m) => m.YourNewChart),
+  { ssr: false }
+);
+```
+
+## Step 6: Write Tests
+
+1. **Chart registry test** — verify transform and validate functions
+2. **Component test** — render the chart with mock data (in `component/`)
+3. **E2E test** — create a widget with the new chart type

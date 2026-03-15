@@ -1,0 +1,81 @@
+---
+title: Adding a New Parameter Type
+description: Step-by-step guide to implementing a new parameter type.
+---
+
+This guide covers adding a new interactive parameter type to NeoBoard.
+
+## Overview
+
+A parameter type requires:
+1. Add to the `ParameterType` union
+2. Handle in the parameter store
+3. Create the widget component
+4. Add formatting logic
+5. Wire into the renderer
+
+## Step 1: Define the Type
+
+Add your type to the parameter type union:
+
+```typescript
+export type ParameterType =
+  | "select"
+  | "text"
+  | "number"
+  | "date"
+  | "dateRange"
+  | "boolean"
+  | "multiselect"
+  | "slider"
+  | "your-type"; // Add here
+```
+
+## Step 2: Update Parameter Store
+
+In `app/src/stores/parameter-store.ts`, handle your type's default value and coercion:
+
+```typescript
+case "your-type":
+  return coerceYourType(rawValue);
+```
+
+The store manages parameter state, persistence, and cross-widget dependencies.
+
+## Step 3: Create Widget Component
+
+In `component/src/components/composed/parameter-widgets/`:
+
+```typescript
+export function YourTypeWidget({
+  value,
+  onChange,
+  label,
+  ...props
+}: YourTypeWidgetProps) {
+  return (
+    // Your input UI
+  );
+}
+```
+
+**Boundary rule**: The component must be pure UI — no API calls, no stores.
+
+## Step 4: Add Formatting
+
+In `app/src/lib/format-parameter-value.ts`, add formatting for query substitution:
+
+```typescript
+case "your-type":
+  return formatYourType(value);
+```
+
+## Step 5: Wire into Renderer
+
+Update `app/src/components/parameter-widget-renderer.tsx` to render your widget type.
+
+## Step 6: Write Tests
+
+1. **Store test** — verify coercion and state management
+2. **Component test** — render with mock props (in `component/`)
+3. **E2E test** — add parameter widget to a dashboard and verify it filters data
