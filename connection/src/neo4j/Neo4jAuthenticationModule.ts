@@ -1,17 +1,19 @@
 import { AuthenticationModule } from '../generalized/AuthenticationModule';
-import { AuthConfig, AuthType, DEFAULT_AUTHENTICATION_CONFIG } from '../generalized/interfaces';
+import { AuthConfig, AuthType, DEFAULT_AUTHENTICATION_CONFIG, AdvancedConnectionOptions } from '../generalized/interfaces';
 import neo4j from 'neo4j-driver';
 import { Driver } from 'neo4j-driver-core';
 
 export class Neo4jAuthenticationModule extends AuthenticationModule {
   private _authConfig: AuthConfig;
+  private readonly _advancedOptions?: AdvancedConnectionOptions;
   private driver: Driver;
 
-  constructor(authConfig: AuthConfig) {
+  constructor(authConfig: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
     this._authConfig = DEFAULT_AUTHENTICATION_CONFIG;
     this._checkConfigurationConsistency(authConfig);
     this._authConfig = authConfig;
+    this._advancedOptions = advancedOptions;
     this.driver = this.createDriver();
   }
 
@@ -56,6 +58,10 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
       this._authConfig.authType === AuthType.NATIVE
         ? neo4j.auth.basic(this._authConfig.username, this._authConfig.password)
         : undefined;
-    return neo4j.driver(this._authConfig.uri, auth);
+    return neo4j.driver(this._authConfig.uri, auth, {
+      connectionTimeout: this._advancedOptions?.neo4jConnectionTimeout ?? 30000,
+      maxConnectionPoolSize: this._advancedOptions?.neo4jMaxPoolSize,
+      connectionAcquisitionTimeout: this._advancedOptions?.neo4jAcquisitionTimeout,
+    });
   }
 }
