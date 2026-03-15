@@ -25,6 +25,7 @@ export interface DashboardListItem {
   isPublic: boolean | null;
   createdAt: string;
   updatedAt: string;
+  updatedByName: string | null;
   role: "owner" | "viewer" | "editor" | "admin";
   preview: WidgetPreviewItem[];
   widgetCount: number;

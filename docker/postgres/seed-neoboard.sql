@@ -17,8 +17,8 @@ INSERT INTO "connection" ("id", "userId", "name", "type", "configEncrypted") VAL
 
 -- Seed dashboards (v2 layout with pages — matches current schema)
 -- dash-001 has TWO pages so the tab-switch performance test can run
-INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "isPublic", "layoutJson") VALUES
-    ('dash-001', 'user-alice-001', 'default', 'Movie Analytics', 'Explore the movies dataset across Neo4j and PostgreSQL', true,
+INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "isPublic", "updated_by", "layoutJson") VALUES
+    ('dash-001', 'user-alice-001', 'default', 'Movie Analytics', 'Explore the movies dataset across Neo4j and PostgreSQL', true, 'user-alice-001',
      '{"version":2,"pages":[
        {"id":"page-overview","title":"Overview","widgets":[
          {"id":"w1","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 10","settings":{"title":"Top 10 Movies by Cast Size"}},
@@ -33,7 +33,7 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"w3","x":0,"y":0,"w":12,"h":5}
        ]}
      ]}'::jsonb),
-    ('dash-002', 'user-bob-002', 'default', 'Actor Network', 'Graph-based actor collaboration insights', false,
+    ('dash-002', 'user-bob-002', 'default', 'Actor Network', 'Graph-based actor collaboration insights', false, 'user-bob-002',
      '{"version":2,"pages":[
        {"id":"page-1","title":"Page 1","widgets":[
          {"id":"w1","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p.name AS director, count(m) AS movies_directed ORDER BY movies_directed DESC LIMIT 10","settings":{"title":"Most Prolific Directors"}}

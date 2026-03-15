@@ -84,6 +84,7 @@ export async function POST(request: Request) {
         description: exportData.dashboard.description ?? null,
         layoutJson: mappedLayout,
         isPublic: false,
+        updatedBy: userId,
       })
       .returning();
 

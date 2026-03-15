@@ -9,18 +9,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role: userRole } = await requireSession();
+    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
     const { id } = await params;
 
-    if (userRole === "reader") {
+    if (!canWrite) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Verify the caller can view the source dashboard
+    // Verify the caller can view the source dashboard (tenant-scoped)
     const [source] = await db
       .select()
       .from(dashboards)
-      .where(eq(dashboards.id, id))
+      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .limit(1);
 
     if (!source) {
@@ -37,7 +37,8 @@ export async function POST(
           .where(
             and(
               eq(dashboardShares.dashboardId, id),
-              eq(dashboardShares.userId, userId)
+              eq(dashboardShares.userId, userId),
+              eq(dashboardShares.tenantId, tenantId)
             )
           )
           .limit(1);
@@ -52,10 +53,12 @@ export async function POST(
       .insert(dashboards)
       .values({
         userId,
+        tenantId,
         name: `${source.name} (copy)`,
         description: source.description,
         layoutJson: source.layoutJson,
         isPublic: false,
+        updatedBy: userId,
       })
       .returning();
 

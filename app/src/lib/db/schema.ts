@@ -118,6 +118,7 @@ export const dashboards = pgTable("dashboard", {
   isPublic: boolean("isPublic").default(false),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+  updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
 });
 
 export const shareRoleEnum = pgEnum("share_role", ["viewer", "editor"]);
