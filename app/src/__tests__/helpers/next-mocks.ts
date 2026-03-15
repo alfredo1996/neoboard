@@ -13,6 +13,7 @@ export function nextResponseMockFactory() {
       json: (body: unknown, init?: ResponseInit) => ({
         status: init?.status ?? 200,
         json: async () => body,
+        _body: body,
       }),
     },
   };

@@ -483,7 +483,7 @@ test.describe("Write permission enforcement", () => {
 
     // Grab the user ID from the Users API so we can disable can_write later
     const usersRes = await page.request.get("/api/users");
-    const users = await usersRes.json();
+    const users = (await usersRes.json()).data;
     const creator = users.find(
       (u: { email: string }) => u.email === creatorEmail,
     );
@@ -493,7 +493,7 @@ test.describe("Write permission enforcement", () => {
     const dashRes = await page.request.post("/api/dashboards", {
       data: { name: `Write-Permission-Test-${Date.now()}` },
     });
-    const dash = await dashRes.json();
+    const dash = (await dashRes.json()).data;
     dashboardId = dash.id;
 
     // Update the dashboard with the form widget layout and make it public
@@ -538,7 +538,7 @@ test.describe("Write permission enforcement", () => {
     // causing the next login session to carry stale canWrite=true.
     const verifyRes = await page.request.get("/api/users");
     expect(verifyRes.ok()).toBeTruthy();
-    const updatedUsers = await verifyRes.json();
+    const updatedUsers = (await verifyRes.json()).data;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const patched = updatedUsers.find((u: any) => u.id === creatorUserId);
     expect(patched?.canWrite).toBe(false);

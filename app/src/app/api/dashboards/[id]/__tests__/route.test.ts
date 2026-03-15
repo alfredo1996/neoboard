@@ -160,8 +160,8 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: "Alice" }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { updatedByName: string | null };
-    expect(body.updatedByName).toBe("Alice");
+    const body = res._body as { data: { updatedByName: string | null } };
+    expect(body.data.updatedByName).toBe("Alice");
   });
 
   it("returns updatedByName as null when updatedBy is not set", async () => {
@@ -172,8 +172,8 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { updatedByName: string | null };
-    expect(body.updatedByName).toBeNull();
+    const body = res._body as { data: { updatedByName: string | null } };
+    expect(body.data.updatedByName).toBeNull();
   });
 });
 

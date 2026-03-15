@@ -116,7 +116,7 @@ test.describe("Widget Lab", () => {
 
       // Capture template id for cleanup
       const res = await page.request.get("/api/widget-templates");
-      const templates = await res.json();
+      const templates = (await res.json()).data;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const saved = templates.find((t: any) => t.name === templateName);
       templateId = saved?.id;
@@ -134,7 +134,7 @@ test.describe("Widget Lab", () => {
         },
       });
       expect(createRes.ok()).toBeTruthy();
-      const { id } = await createRes.json();
+      const { id } = (await createRes.json()).data;
       templateId = id;
 
       // Go to Widget Lab
@@ -187,7 +187,7 @@ test.describe("Widget Lab", () => {
         },
       });
       expect(res.ok()).toBeTruthy();
-      const { id: tId } = await res.json();
+      const { id: tId } = (await res.json()).data;
       templateId = tId;
 
       await page.goto(`/${id}/edit`);
@@ -316,7 +316,7 @@ test.describe("Widget Lab", () => {
 
       // Capture template id for cleanup
       const res = await page.request.get("/api/widget-templates");
-      const templates = await res.json();
+      const templates = (await res.json()).data;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const saved = templates.find((t: any) => t.name === templateName);
       templateId = saved?.id;
@@ -340,7 +340,7 @@ test.describe("Widget Lab", () => {
         },
       });
       expect(createRes.ok()).toBeTruthy();
-      const { id } = await createRes.json();
+      const { id } = (await createRes.json()).data;
       templateId = id;
 
       // Go to Widget Lab and click edit on the template card
@@ -388,7 +388,7 @@ test.describe("Widget Lab", () => {
         },
       });
       expect(createRes.ok()).toBeTruthy();
-      const { id } = await createRes.json();
+      const { id } = (await createRes.json()).data;
       templateId = id;
 
       // Navigate to Widget Lab
@@ -419,7 +419,7 @@ test.describe("Widget Lab", () => {
         },
       });
       expect(createRes.ok()).toBeTruthy();
-      const { id: tId } = await createRes.json();
+      const { id: tId } = (await createRes.json()).data;
       templateId = tId;
 
       // Create a dashboard to use as target
@@ -478,7 +478,7 @@ test.describe("Widget Lab", () => {
         },
       });
       expect(createRes.ok()).toBeTruthy();
-      const { id: tId } = await createRes.json();
+      const { id: tId } = (await createRes.json()).data;
       templateId = tId;
 
       // 2. Create a dashboard and add a widget from that template

@@ -54,7 +54,7 @@ test.describe("Dashboard import", () => {
     // Export "Movie Analytics" via API to get a valid export file
     const exportRes = await page.request.fetch("/api/dashboards");
     expect(exportRes.ok()).toBe(true);
-    const dashboards = await exportRes.json();
+    const dashboards = (await exportRes.json()).data;
     const movieAnalytics = (dashboards as { id: string; name: string }[]).find(
       (d) => d.name === "Movie Analytics",
     );

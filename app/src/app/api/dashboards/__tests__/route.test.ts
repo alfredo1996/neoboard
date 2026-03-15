@@ -219,7 +219,7 @@ describe("POST /api/dashboards", () => {
 
 describe("GET /api/dashboards — updatedByName", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let GET: () => Promise<any>;
+  let GET: (req: Request) => Promise<any>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -242,10 +242,10 @@ describe("GET /api/dashboards — updatedByName", () => {
     };
     mockDb.select.mockReturnValueOnce(makeSelectChain([row]));
 
-    const res = await GET();
+    const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);
-    const body = res._body as Array<{ updatedByName: string | null }>;
-    expect(body[0].updatedByName).toBe("Alice");
+    const body = res._body as { data: Array<{ updatedByName: string | null }> };
+    expect(body.data[0].updatedByName).toBe("Alice");
   });
 
   it("returns updatedByName as null when no updater", async () => {
@@ -264,9 +264,9 @@ describe("GET /api/dashboards — updatedByName", () => {
       .mockReturnValueOnce(makeSelectChain([]))
       .mockReturnValueOnce(makeSelectChain([]));
 
-    const res = await GET();
+    const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);
-    const body = res._body as Array<{ updatedByName: string | null }>;
-    expect(body[0].updatedByName).toBeNull();
+    const body = res._body as { data: Array<{ updatedByName: string | null }> };
+    expect(body.data[0].updatedByName).toBeNull();
   });
 });
