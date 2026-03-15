@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares } from "@/lib/db/schema";
+import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { validateBody, forbidden, handleRouteError } from "@/lib/api-utils";
@@ -60,8 +60,10 @@ export async function GET() {
           ownerId: dashboards.userId,
           layoutJson: dashboards.layoutJson,
           thumbnailJson: dashboards.thumbnailJson,
+          updatedByName: users.name,
         })
         .from(dashboards)
+        .leftJoin(users, eq(dashboards.updatedBy, users.id))
         .where(eq(dashboards.tenantId, tenantId));
 
       return NextResponse.json(
@@ -88,8 +90,10 @@ export async function GET() {
         updatedAt: dashboards.updatedAt,
         layoutJson: dashboards.layoutJson,
         thumbnailJson: dashboards.thumbnailJson,
+        updatedByName: users.name,
       })
       .from(dashboards)
+      .leftJoin(users, eq(dashboards.updatedBy, users.id))
       .where(and(eq(dashboards.userId, userId), eq(dashboards.tenantId, tenantId)));
 
     const shared = await db
@@ -103,9 +107,11 @@ export async function GET() {
         role: dashboardShares.role,
         layoutJson: dashboards.layoutJson,
         thumbnailJson: dashboards.thumbnailJson,
+        updatedByName: users.name,
       })
       .from(dashboardShares)
       .innerJoin(dashboards, eq(dashboardShares.dashboardId, dashboards.id))
+      .leftJoin(users, eq(dashboards.updatedBy, users.id))
       .where(
         and(
           eq(dashboardShares.userId, userId),
@@ -123,8 +129,10 @@ export async function GET() {
         updatedAt: dashboards.updatedAt,
         layoutJson: dashboards.layoutJson,
         thumbnailJson: dashboards.thumbnailJson,
+        updatedByName: users.name,
       })
       .from(dashboards)
+      .leftJoin(users, eq(dashboards.updatedBy, users.id))
       .where(and(eq(dashboards.tenantId, tenantId), eq(dashboards.isPublic, true)));
 
     function addPreview<T extends { layoutJson: DashboardLayoutV2 | null; thumbnailJson: Record<string, string> | null }>(
@@ -183,6 +191,7 @@ export async function POST(request: Request) {
         tenantId,
         name: result.data.name,
         description: result.data.description,
+        updatedBy: userId,
       })
       .returning();
 
