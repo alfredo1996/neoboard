@@ -66,6 +66,46 @@ describe("connectionConfigSchema — advanced fields", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects zero timeout (disables protection)", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...baseConfig,
+      connectionTimeout: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects timeout below 1000ms minimum", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...baseConfig,
+      queryTimeout: 999,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts timeout at 1000ms boundary", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...baseConfig,
+      connectionTimeout: 1000,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects timeout exceeding 300000ms (5 min) cap", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...baseConfig,
+      statementTimeout: 300_001,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts timeout at 300000ms boundary", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...baseConfig,
+      idleTimeout: 300_000,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("accepts connectionAcquisitionTimeout", () => {
     const result = connectionConfigSchema.safeParse({
       ...baseConfig,

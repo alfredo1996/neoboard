@@ -66,5 +66,6 @@ export function handleRouteError(
   if (message === "Forbidden") {
     return forbidden();
   }
-  return serverError(message);
+  console.error("[api-error]", error);
+  return serverError(fallbackMsg);
 }
