@@ -233,3 +233,73 @@ test.describe("Design system — Deep Ocean palette & accessibility", () => {
     await expect(dialog.getByText("Colorblind Mode")).not.toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Theme switching — light / dark / system
+// ---------------------------------------------------------------------------
+
+test.describe("Theme switching", () => {
+  test.beforeEach(async ({ authPage, page }) => {
+    // Clear any stored theme preference
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.evaluate(() => localStorage.removeItem("neoboard-theme"));
+  });
+
+  test("system default follows OS dark → html has .dark", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.evaluate(() => localStorage.removeItem("neoboard-theme"));
+    await page.reload();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+  });
+
+  test("system default follows OS light → no .dark", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(() => localStorage.removeItem("neoboard-theme"));
+    await page.reload();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+  });
+
+  test("theme dropdown has 3 options, System checked by default", async ({
+    page,
+  }) => {
+    await page.evaluate(() => localStorage.removeItem("neoboard-theme"));
+    await page.reload();
+    // Open theme dropdown in sidebar
+    await page.getByText("Theme").click();
+    await expect(page.getByRole("menuitemradio", { name: "Light" })).toBeVisible();
+    await expect(page.getByRole("menuitemradio", { name: "Dark" })).toBeVisible();
+    await expect(page.getByRole("menuitemradio", { name: "System" })).toBeVisible();
+    await expect(
+      page.getByRole("menuitemradio", { name: "System" }),
+    ).toHaveAttribute("data-state", "checked");
+  });
+
+  test("explicit Dark overrides OS light", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.reload();
+    // Open theme dropdown and select Dark
+    await page.getByText("Theme").click();
+    await page.getByRole("menuitemradio", { name: "Dark" }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+  });
+
+  test("explicit Light overrides OS dark", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.evaluate(() => localStorage.setItem("neoboard-theme", "light"));
+    await page.reload();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+  });
+
+  test("switching back to System re-follows OS", async ({ page }) => {
+    // Start with explicit light
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.evaluate(() => localStorage.setItem("neoboard-theme", "light"));
+    await page.reload();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+    // Switch to System — should follow OS dark
+    await page.getByText("Theme").click();
+    await page.getByRole("menuitemradio", { name: "System" }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+  });
+});
