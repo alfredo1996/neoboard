@@ -26,6 +26,8 @@ const mockCircleMarker = {
 
 const mockLatLngBounds = { isValid: () => true };
 
+const mockRemoveLayer = vi.fn();
+
 vi.mock("leaflet", () => ({
   default: {
     map: vi.fn(() => ({
@@ -33,6 +35,7 @@ vi.mock("leaflet", () => ({
       fitBounds: mockFitBounds,
       invalidateSize: mockInvalidateSize,
       remove: mockRemove,
+      removeLayer: mockRemoveLayer,
     })),
     tileLayer: vi.fn(() => ({ addTo: mockAddTo })),
     layerGroup: vi.fn(() => mockLayerGroup),
@@ -97,10 +100,10 @@ describe("MapChart", () => {
     expect(screen.getByTestId("map-chart")).toBeInTheDocument();
   });
 
-  it("uses OSM tile layer by default", () => {
+  it("uses carto-light tile layer by default in light mode", () => {
     render(<MapChart />);
     expect(L.tileLayer).toHaveBeenCalledWith(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      expect.stringContaining("basemaps.cartocdn.com/light_all"),
       expect.objectContaining({ attribution: expect.stringContaining("OpenStreetMap") }),
     );
   });

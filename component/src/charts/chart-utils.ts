@@ -4,18 +4,30 @@ import { resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 
+/** Detect whether the document is currently in dark mode. */
+export function isDark(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.classList.contains("dark");
+}
+
 /**
- * The ECharts "no data" title option, shared across all chart types.
- * Used when the data array is empty.
+ * Build the "No data" option with a theme-aware text color.
+ * Falls back to neutral gray when document is unavailable (SSR).
  */
-export const EMPTY_DATA_OPTION: EChartsOption = {
-  title: {
-    text: "No data",
-    left: "center",
-    top: "center",
-    textStyle: { color: "#999", fontSize: 14 },
-  },
-};
+function resolveEmptyDataColor(): string {
+  return isDark() ? "#a3a3a3" : "#737373";
+}
+
+export function buildEmptyDataOption(): EChartsOption {
+  return {
+    title: {
+      text: "No data",
+      left: "center",
+      top: "center",
+      textStyle: { color: resolveEmptyDataColor(), fontSize: 14 },
+    },
+  };
+}
 
 /**
  * Compact/responsive breakpoints used consistently across all ECharts components.
