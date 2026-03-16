@@ -59,12 +59,12 @@ const DEFAULT_ZOOM = 3;
 
 /** Resolve tile layer, auto-selecting carto-light/carto-dark when no explicit preset is given. */
 function resolveTileLayer(
-  tileLayer: TileLayerPreset | string | undefined,
+  tileLayer: string | undefined,
   dark: boolean,
   attribution?: string,
 ) {
   // When no tileLayer is specified, auto-select based on theme
-  const effectivePreset: TileLayerPreset | string = tileLayer ?? (dark ? "carto-dark" : "carto-light");
+  const effectivePreset = tileLayer ?? (dark ? "carto-dark" : "carto-light");
   if (effectivePreset in TILE_PRESETS) {
     const preset = TILE_PRESETS[effectivePreset as TileLayerPreset];
     return { url: preset.url, attribution: attribution ?? preset.attribution };
