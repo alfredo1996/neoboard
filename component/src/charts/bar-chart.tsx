@@ -4,7 +4,7 @@ import { BaseChart } from "./base-chart";
 import type { BaseChartProps, BarChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
-  EMPTY_DATA_OPTION,
+  buildEmptyDataOption,
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
@@ -71,7 +71,7 @@ function BarChart({
   const { compact, hideLegend } = getCompactState(width, height);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) return EMPTY_DATA_OPTION;
+    if (!data.length) return buildEmptyDataOption();
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "label");
     const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);

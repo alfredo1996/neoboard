@@ -3,7 +3,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { EMPTY_DATA_OPTION, getCompactState, resolveItemColor } from "./chart-utils";
+import { buildEmptyDataOption, getCompactState, isDark, resolveItemColor } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 
@@ -59,7 +59,7 @@ function PieChart({
   const { hideLegend } = getCompactState(width, height);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) return EMPTY_DATA_OPTION;
+    if (!data.length) return buildEmptyDataOption();
 
     const effectiveShowLabel = compact ? false : showLabel;
     const effectiveShowLegend = hideLegend ? false : showLegend;
@@ -104,7 +104,9 @@ function PieChart({
             itemStyle: {
               shadowBlur: 10,
               shadowOffsetX: 0,
-              shadowColor: "rgba(0, 0, 0, 0.5)",
+              shadowColor: isDark()
+                ? "rgba(255, 255, 255, 0.15)"
+                : "rgba(0, 0, 0, 0.5)",
             },
           },
         },

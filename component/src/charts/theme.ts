@@ -63,25 +63,27 @@ function axisStyle(line: string, label: string, split: string) {
 export function registerNeoboardThemes(
   registerTheme: (name: string, theme: Record<string, unknown>) => void,
 ) {
-  const lightAxis = axisStyle("#e5e5e5", "#737373", "#f5f5f5");
+  // Light axis: border hsl(214,20%,90%) ≈ #dfe4ea, muted-fg hsl(215,16%,47%) ≈ #657084
+  const lightAxis = axisStyle("#dfe4ea", "#657084", "#f0f2f5");
   registerTheme(THEME_LIGHT, {
     color: DEEP_OCEAN_LIGHT,
     backgroundColor: "transparent",
-    textStyle: { color: "#1a1a1a" },
-    title: { textStyle: { color: "#1a1a1a" } },
+    textStyle: { color: "#1e293b" },           // foreground hsl(222,47%,11%) ≈ #1e293b
+    title: { textStyle: { color: "#1e293b" } },
     categoryAxis: lightAxis,
     valueAxis: lightAxis,
-    legend: { textStyle: { color: "#737373" } },
+    legend: { textStyle: { color: "#657084" } }, // muted-foreground
   });
 
-  const darkAxis = axisStyle("#404040", "#a3a3a3", "#262626");
+  // Dark axis: border hsl(217,33%,17%) ≈ #1d2a3f, muted-fg hsl(215,20%,65%) ≈ #94a3b8
+  const darkAxis = axisStyle("#1d2a3f", "#94a3b8", "#162032");
   registerTheme(THEME_DARK, {
     color: DEEP_OCEAN_DARK,
     backgroundColor: "transparent",
-    textStyle: { color: "#fafafa" },
-    title: { textStyle: { color: "#fafafa" } },
+    textStyle: { color: "#f8fafc" },           // foreground hsl(210,40%,98%) ≈ #f8fafc
+    title: { textStyle: { color: "#f8fafc" } },
     categoryAxis: darkAxis,
     valueAxis: darkAxis,
-    legend: { textStyle: { color: "#a3a3a3" } },
+    legend: { textStyle: { color: "#94a3b8" } }, // muted-foreground
   });
 }
