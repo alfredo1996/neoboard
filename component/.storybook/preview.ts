@@ -12,25 +12,30 @@ const preview: Preview = {
   },
   globalTypes: {
     theme: {
-      description: "Toggle light / dark mode",
+      description: "Toggle light / dark / system mode",
       toolbar: {
         title: "Theme",
         icon: "circlehollow",
         items: [
           { value: "light", icon: "sun", title: "Light" },
           { value: "dark", icon: "moon", title: "Dark" },
+          { value: "system", icon: "mirror", title: "System" },
         ],
         dynamicTitle: true,
       },
     },
   },
   initialGlobals: {
-    theme: "light",
+    theme: "system",
   },
   decorators: [
     (Story, context) => {
-      const theme = context.globals.theme ?? "light";
-      document.documentElement.classList.toggle("dark", theme === "dark");
+      const theme = context.globals.theme ?? "system";
+      const isDark =
+        theme === "dark" ||
+        (theme === "system" &&
+          globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches);
+      document.documentElement.classList.toggle("dark", isDark);
       return Story();
     },
   ],
