@@ -13,6 +13,8 @@
  *  - Language label mapping
  *  - Language switching reinitialises editor
  *  - Abort signal prevents stale initEditor calls
+ *  - Schema prop passed to sql() for SQL mode
+ *  - Cypher mode uses createCypherEditor
  */
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -89,8 +91,34 @@ vi.mock("@codemirror/theme-one-dark", () => ({
   oneDark: { type: "oneDark" },
 }));
 
+const mockSql = vi.fn(() => ({ type: "sql" }));
 vi.mock("@codemirror/lang-sql", () => ({
-  sql: () => ({ type: "sql" }),
+  sql: (...args: unknown[]) => mockSql(...args),
+  PostgreSQL: { name: "PostgreSQL" },
+}));
+
+// Mock @neo4j-cypher/codemirror
+const mockCypherSetValue = vi.fn();
+const mockCypherSetReadOnly = vi.fn();
+const mockCypherSetSchema = vi.fn();
+const mockCypherDestroy = vi.fn();
+const mockCypherFocus = vi.fn();
+const mockCypherOnValueChanged = vi.fn();
+
+vi.mock("@neo4j-cypher/codemirror", () => ({
+  createCypherEditor: (_parent: Element, _opts: unknown) => ({
+    codemirror: {
+      state: { doc: { toString: () => "", length: 0 } },
+      dispatch: mockDispatch,
+      destroy: mockDestroy,
+    },
+    setValue: mockCypherSetValue,
+    setReadOnly: mockCypherSetReadOnly,
+    setSchema: mockCypherSetSchema,
+    destroy: mockCypherDestroy,
+    focus: mockCypherFocus,
+    onValueChanged: mockCypherOnValueChanged,
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -101,6 +129,13 @@ beforeEach(() => {
   mockDispatch.mockClear();
   mockDestroy.mockClear();
   mockFocus.mockClear();
+  mockSql.mockClear();
+  mockCypherSetValue.mockClear();
+  mockCypherSetReadOnly.mockClear();
+  mockCypherSetSchema.mockClear();
+  mockCypherDestroy.mockClear();
+  mockCypherFocus.mockClear();
+  mockCypherOnValueChanged.mockClear();
   capturedUpdateListener = null;
 });
 
@@ -187,18 +222,18 @@ describe("QueryEditor", () => {
     expect(onRun).toHaveBeenCalled();
   });
 
-  it("calls onChange via CodeMirror update listener", async () => {
+  it("calls onChange via CodeMirror update listener (SQL mode)", async () => {
     const onChange = vi.fn();
-    render(<QueryEditor onChange={onChange} />);
+    render(<QueryEditor language="sql" onChange={onChange} />);
     await flushAsync();
 
     if (capturedUpdateListener) {
       capturedUpdateListener({
         docChanged: true,
-        state: { doc: { toString: () => "MATCH" } },
+        state: { doc: { toString: () => "SELECT" } },
       });
     }
-    expect(onChange).toHaveBeenCalledWith("MATCH");
+    expect(onChange).toHaveBeenCalledWith("SELECT");
   });
 
   it("calls onChange with empty string when clear button is clicked", async () => {
@@ -215,12 +250,6 @@ describe("QueryEditor", () => {
     await flushAsync();
     expect(container.firstChild).toHaveClass("my-editor");
   });
-
-  // NOTE: Ctrl/Cmd+Enter is handled by a CodeMirror 6 keymap extension
-  // (`keymap.of([{ key: "Ctrl-Enter", mac: "Cmd-Enter", run: onRun }])`)
-  // which cannot be tested in jsdom with mocked CM modules. The shortcut
-  // is verified via E2E (Playwright). The run-and-save shortcut
-  // (CMD+Shift+Enter) is handled at the widget-editor-modal level.
 
   it("does not render the run-and-save hint by default", () => {
     render(<QueryEditor />);
@@ -244,23 +273,86 @@ describe("QueryEditor", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SQL schema completion
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — SQL schema completion", () => {
+  it("passes schema to sql() when schema prop is provided", async () => {
+    mockSql.mockClear();
+    render(
+      <QueryEditor
+        language="sql"
+        schema={{
+          type: "postgresql",
+          tables: [
+            { name: "users", columns: [{ name: "id", type: "integer", nullable: false }] },
+          ],
+        }}
+      />
+    );
+    await flushAsync();
+
+    expect(mockSql).toHaveBeenCalled();
+    const callWithSchema = mockSql.mock.calls.find(
+      (c) => c[0] && typeof c[0] === "object" && "schema" in c[0]
+    );
+    expect(callWithSchema).toBeDefined();
+    expect(callWithSchema![0].schema).toEqual({ users: ["id"] });
+  });
+
+  it("calls sql() with dialect only when no schema prop", async () => {
+    mockSql.mockClear();
+    render(<QueryEditor language="sql" />);
+    await flushAsync();
+
+    expect(mockSql).toHaveBeenCalled();
+    // The first call (from initSqlEditor) should have dialect but no schema
+    const firstCall = mockSql.mock.calls[0];
+    expect(firstCall[0]).toHaveProperty("dialect");
+    expect(firstCall[0]).not.toHaveProperty("schema");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cypher editor path
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — Cypher mode", () => {
+  it("uses createCypherEditor for cypher language", async () => {
+    render(<QueryEditor language="cypher" />);
+    await flushAsync();
+
+    // The Cypher editor registers onValueChanged listener
+    expect(mockCypherOnValueChanged).toHaveBeenCalled();
+  });
+
+  it("calls setReadOnly on Cypher editor when readOnly changes", async () => {
+    const { rerender } = render(<QueryEditor language="cypher" />);
+    await flushAsync();
+    mockCypherSetReadOnly.mockClear();
+
+    rerender(<QueryEditor language="cypher" readOnly />);
+    await flushAsync();
+
+    expect(mockCypherSetReadOnly).toHaveBeenCalledWith(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Language switching
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — language switching", () => {
-  it("reconfigures language compartment when language prop changes (no remount)", async () => {
-    const { rerender } = render(<QueryEditor language="cypher" />);
+  it("reconfigures language compartment when switching within SQL dialects", async () => {
+    const { rerender } = render(<QueryEditor language="sql" />);
     await flushAsync();
     mockDispatch.mockClear();
     mockDestroy.mockClear();
 
-    rerender(<QueryEditor language="sql" />);
+    rerender(<QueryEditor language="postgresql" />);
     await flushAsync();
 
-    // With Compartments, the editor dispatches a reconfigure effect in place.
-    // The old view must NOT be destroyed (no remount).
-    expect(mockDispatch).toHaveBeenCalled();
-    expect(mockDestroy).not.toHaveBeenCalled();
+    // Both sql and postgresql are SQL mode — no reinit, just compartment reconfigure
     expect(screen.getByText("SQL")).toBeInTheDocument();
   });
 });
@@ -282,19 +374,19 @@ describe("QueryEditor — readOnly", () => {
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — controlled value sync", () => {
-  it("dispatches changes to CM when controlled value prop changes", async () => {
-    const { rerender } = render(<QueryEditor value="MATCH (n)" />);
+  it("dispatches changes to CM when controlled value prop changes (SQL)", async () => {
+    const { rerender } = render(<QueryEditor language="sql" value="SELECT 1" />);
     await flushAsync();
     mockDispatch.mockClear();
 
-    rerender(<QueryEditor value="RETURN 1" />);
+    rerender(<QueryEditor language="sql" value="SELECT 2" />);
     await flushAsync();
 
     expect(mockDispatch).toHaveBeenCalled();
   });
 
   it("does not dispatch when value matches CM doc", async () => {
-    render(<QueryEditor value="" />);
+    render(<QueryEditor language="sql" value="" />);
     await flushAsync();
     mockDispatch.mockClear();
   });
