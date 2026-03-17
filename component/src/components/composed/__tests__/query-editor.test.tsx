@@ -95,7 +95,8 @@ vi.mock("@codemirror/theme-one-dark", () => ({
   oneDark: { type: "oneDark" },
 }));
 
-const mockSql = vi.fn(() => ({ type: "sql" }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockSql = vi.fn((..._args: any[]) => ({ type: "sql" }));
 vi.mock("@codemirror/lang-sql", () => ({
   sql: (...args: unknown[]) => mockSql(...args),
   PostgreSQL: { name: "PostgreSQL" },
@@ -145,11 +146,15 @@ beforeEach(() => {
   capturedUpdateListener = null;
 });
 
-// Helper: wait for async initEditor to resolve
+// Helper: wait for async initEditor to resolve.
+// initSqlEditor awaits multiple dynamic imports, so flush several microtask
+// rounds to ensure all promise chains settle.
 async function flushAsync() {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
+  for (let i = 0; i < 5; i++) {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
 }
 
 describe("QueryEditor", () => {
@@ -301,10 +306,14 @@ describe("QueryEditor — SQL schema completion", () => {
 
     expect(mockSql).toHaveBeenCalled();
     const callWithSchema = mockSql.mock.calls.find(
-      (c) => c[0] && typeof c[0] === "object" && "schema" in c[0],
+      (c: unknown[]) =>
+        c[0] &&
+        typeof c[0] === "object" &&
+        "schema" in (c[0] as Record<string, unknown>),
     );
     expect(callWithSchema).toBeDefined();
-    expect(callWithSchema![0].schema).toEqual({ users: ["id"] });
+    const arg = callWithSchema![0] as Record<string, unknown>;
+    expect(arg.schema).toEqual({ users: ["id"] });
   });
 
   it("calls sql() with dialect only when no schema prop", async () => {
@@ -314,7 +323,7 @@ describe("QueryEditor — SQL schema completion", () => {
 
     expect(mockSql).toHaveBeenCalled();
     // The first call (from initSqlEditor) should have dialect but no schema
-    const firstCall = mockSql.mock.calls[0];
+    const firstCall = mockSql.mock.calls[0] as unknown[];
     expect(firstCall[0]).toHaveProperty("dialect");
     expect(firstCall[0]).not.toHaveProperty("schema");
   });
