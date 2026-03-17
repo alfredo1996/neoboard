@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
 import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart } from "echarts/charts";
 import {
@@ -7,11 +7,18 @@ import {
   LegendComponent,
   GridComponent,
   DataZoomComponent,
+  AriaComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { cn } from "@/lib/utils";
 import type { BaseChartProps, EChartsClickEvent } from "./types";
+import {
+  registerNeoboardThemes,
+  THEME_LIGHT,
+  THEME_DARK,
+  DEEP_OCEAN_LIGHT,
+} from "./theme";
 
 echarts.use([
   EBarChart,
@@ -23,17 +30,17 @@ echarts.use([
   LegendComponent,
   GridComponent,
   DataZoomComponent,
+  AriaComponent,
   CanvasRenderer,
 ]);
 
-/**
- * Resolve CSS custom property chart colors into actual hsl() strings
- * that the ECharts canvas renderer can parse.
- * CSS var() is a DOM-only feature and does not work in canvas 2D context.
- */
+// Register NeoBoard themes once at module load
+registerNeoboardThemes(echarts.registerTheme);
+
 /**
  * Convert space-separated HSL values (e.g. "12 76% 61%") to
  * comma-separated format that ECharts' canvas color parser understands.
+ * CSS var() is a DOM-only feature and does not work in canvas 2D context.
  */
 function hslToComma(hslValues: string): string {
   const parts = hslValues.trim().split(/\s+/);
@@ -50,14 +57,31 @@ function resolveChartColors(): string[] {
   });
 }
 
-const CHART_COLOR_VARS = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5"];
-const CHART_COLORS_FALLBACK = [
-  "hsl(12, 76%, 61%)",
-  "hsl(173, 58%, 39%)",
-  "hsl(197, 37%, 24%)",
-  "hsl(43, 74%, 66%)",
-  "hsl(27, 87%, 67%)",
+const CHART_COLOR_VARS = [
+  "--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5",
+  "--chart-6", "--chart-7", "--chart-8", "--chart-9", "--chart-10",
 ];
+const CHART_COLORS_FALLBACK = DEEP_OCEAN_LIGHT;
+
+/** Detect whether the document is currently in dark mode. */
+function isDarkMode(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.classList.contains("dark");
+}
+
+/** Watch the `dark` class on `<html>` and re-render when it toggles. */
+function useDarkMode(): boolean {
+  const [dark, setDark] = useState(isDarkMode);
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return dark;
+}
 
 /**
  * Base chart wrapper that initializes ECharts, handles resizing,
@@ -71,16 +95,19 @@ function BaseChart({
   onChartReady,
   onClick,
   onDataZoom,
+  colorblindMode = false,
 }: BaseChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const dark = useDarkMode();
 
-  // Initialize / dispose ECharts instance
+  // Initialize / dispose ECharts instance — reinit when dark mode toggles
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    const instance = echarts.init(el, undefined, {
+    const themeName = dark ? THEME_DARK : THEME_LIGHT;
+    const instance = echarts.init(el, themeName, {
       renderer: "canvas",
     });
     chartRef.current = instance;
@@ -98,19 +125,26 @@ function BaseChart({
       chartRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dark]);
 
   // Update options
   useEffect(() => {
     const instance = chartRef.current;
     if (!instance || !options) return;
 
+    const userAria = (options?.aria ?? {}) as Record<string, unknown>;
+    const userDecal = (userAria.decal ?? {}) as Record<string, unknown>;
     const merged: EChartsOption = {
       color: resolveChartColors(),
       ...options,
+      aria: {
+        enabled: true,
+        ...userAria,
+        decal: { show: colorblindMode, ...userDecal },
+      },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options]);
+  }, [options, colorblindMode, dark]);
 
   // Loading state
   useEffect(() => {
@@ -119,13 +153,15 @@ function BaseChart({
     if (loading) {
       instance.showLoading("default", {
         text: "",
-        maskColor: "rgba(255, 255, 255, 0.6)",
+        maskColor: dark
+          ? "rgba(10, 15, 30, 0.6)"
+          : "rgba(255, 255, 255, 0.6)",
         zlevel: 0,
       });
     } else {
       instance.hideLoading();
     }
-  }, [loading]);
+  }, [loading, dark]);
 
   // Event handlers
   useEffect(() => {
@@ -143,7 +179,7 @@ function BaseChart({
       instance.off("click");
       instance.off("dataZoom");
     };
-  }, [onClick, onDataZoom]);
+  }, [onClick, onDataZoom, dark]);
 
   if (error) {
     return (
@@ -164,6 +200,7 @@ function BaseChart({
       ref={containerRef}
       className={cn("h-full w-full", className)}
       data-testid="base-chart"
+      aria-label="Chart visualization"
     />
   );
 }

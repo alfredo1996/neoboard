@@ -3,12 +3,33 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Database, Users, LogOut, FlaskConical } from "lucide-react";
+import { LayoutDashboard, Database, Users, LogOut, FlaskConical, Moon, Sun, Monitor, Settings } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
+import type { ThemePreference } from "@/hooks/use-theme";
 import {
   AppShell,
   Sidebar,
   SidebarItem,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@neoboard/components";
+
+const themeOptions = [
+  { value: "light" as const, icon: Sun, label: "Light" },
+  { value: "dark" as const, icon: Moon, label: "Dark" },
+  { value: "system" as const, icon: Monitor, label: "System" },
+];
+
+function getPreferenceIcon(preference: ThemePreference) {
+  const option = themeOptions.find((o) => o.value === preference);
+  const Icon = option?.icon ?? Monitor;
+  return <Icon className="h-4 w-4" />;
+}
 
 export default function DashboardLayout({
   children,
@@ -18,6 +39,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { preference, setTheme } = useTheme();
   const { status } = useSession({
     required: true,
     onUnauthenticated() {
@@ -48,12 +70,40 @@ export default function DashboardLayout({
             )
           }
           footer={
-            <SidebarItem
-              icon={<LogOut className="h-4 w-4" />}
-              label="Sign out"
-              collapsed={collapsed}
-              onClick={() => signOut()}
-            />
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div>
+                    <SidebarItem
+                      icon={getPreferenceIcon(preference)}
+                      label="Theme"
+                      collapsed={collapsed}
+                    />
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="end">
+                  <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={preference}
+                    onValueChange={(v) => setTheme(v as ThemePreference)}
+                  >
+                    {themeOptions.map(({ value, icon: Icon, label }) => (
+                      <DropdownMenuRadioItem key={value} value={value}>
+                        <Icon className="mr-2 h-4 w-4" />
+                        {label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <SidebarItem
+                icon={<LogOut className="h-4 w-4" />}
+                label="Sign out"
+                collapsed={collapsed}
+                onClick={() => signOut()}
+              />
+            </>
           }
         >
           <SidebarItem
@@ -83,6 +133,13 @@ export default function DashboardLayout({
             active={pathname === "/widget-lab"}
             collapsed={collapsed}
             onClick={() => router.push("/widget-lab")}
+          />
+          <SidebarItem
+            icon={<Settings className="h-4 w-4" />}
+            label="Settings"
+            active={pathname.startsWith("/settings")}
+            collapsed={collapsed}
+            onClick={() => router.push("/settings/api-keys")}
           />
         </Sidebar>
       }

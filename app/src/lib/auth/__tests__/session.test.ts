@@ -5,9 +5,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 
 const mockAuth = vi.fn();
+const mockResolveApiKeyAuth = vi.fn();
 
 vi.mock("../config", () => ({
   auth: mockAuth,
+}));
+
+vi.mock("../api-key", () => ({
+  resolveApiKeyAuth: mockResolveApiKeyAuth,
 }));
 
 // ---------------------------------------------------------------------------
@@ -20,26 +25,43 @@ describe("requireUserId", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    // Re-mock after resetModules
+    // Default: no API key header (session auth path)
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     vi.doMock("../config", () => ({ auth: mockAuth }));
+    vi.doMock("../api-key", () => ({ resolveApiKeyAuth: mockResolveApiKeyAuth }));
     const mod = await import("../session");
     requireUserId = mod.requireUserId;
   });
 
   it("returns userId when session is valid", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
     const id = await requireUserId();
     expect(id).toBe("user-1");
   });
 
   it("throws when session is null", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue(null);
     await expect(requireUserId()).rejects.toThrow("Unauthorized");
   });
 
   it("throws when user.id is missing", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue({ user: {} });
     await expect(requireUserId()).rejects.toThrow("Unauthorized");
+  });
+
+  it("returns userId from API key auth when header is present", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue({
+      userId: "api-user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const id = await requireUserId();
+    expect(id).toBe("api-user-1");
+    expect(mockAuth).not.toHaveBeenCalled();
   });
 });
 
@@ -49,12 +71,16 @@ describe("requireAdmin", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // Default: no API key header (session auth path)
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     vi.doMock("../config", () => ({ auth: mockAuth }));
+    vi.doMock("../api-key", () => ({ resolveApiKeyAuth: mockResolveApiKeyAuth }));
     const mod = await import("../session");
     requireAdmin = mod.requireAdmin;
   });
 
   it("returns userId and tenantId when caller is admin", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue({
       user: { id: "admin-1", role: "admin", tenantId: "tenant-x" },
     });
@@ -64,6 +90,7 @@ describe("requireAdmin", () => {
   });
 
   it("throws Forbidden when caller is creator", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue({
       user: { id: "user-1", role: "creator", tenantId: "t1" },
     });
@@ -71,6 +98,7 @@ describe("requireAdmin", () => {
   });
 
   it("throws Forbidden when caller is reader", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue({
       user: { id: "user-2", role: "reader", tenantId: "t1" },
     });
@@ -78,6 +106,7 @@ describe("requireAdmin", () => {
   });
 
   it("throws Unauthorized when session is null", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue(null);
     await expect(requireAdmin()).rejects.toThrow("Unauthorized");
   });
@@ -94,14 +123,35 @@ describe("requireSession", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // Default: no API key header (session auth path)
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     vi.doMock("../config", () => ({ auth: mockAuth }));
+    vi.doMock("../api-key", () => ({ resolveApiKeyAuth: mockResolveApiKeyAuth }));
     const mod = await import("../session");
     requireSession = mod.requireSession;
   });
 
   it("throws when session is null", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue(null);
     mockAuth.mockResolvedValue(null);
     await expect(requireSession()).rejects.toThrow("Unauthorized");
+  });
+
+  it("returns user context from API key auth when header is present", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue({
+      userId: "api-user-2",
+      role: "creator",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    const result = await requireSession();
+    expect(result).toMatchObject({
+      userId: "api-user-2",
+      role: "creator",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    expect(mockAuth).not.toHaveBeenCalled();
   });
 
   it("returns session with creator role", async () => {

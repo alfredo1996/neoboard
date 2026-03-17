@@ -9,21 +9,30 @@ import { Label } from "@/components/ui/label";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
 
-/**
- * A fixed palette of visually distinct colors for label-based node coloring.
- * Labels are sorted alphabetically then assigned colors by index,
- * making the mapping deterministic across renders.
- */
-const LABEL_COLOR_PALETTE = [
+/** Light-mode palette — moderate saturation, good contrast on white. */
+const LABEL_COLOR_PALETTE_LIGHT = [
   "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
   "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
 ];
+
+/** Dark-mode palette — same hues, boosted lightness for contrast on dark backgrounds. */
+const LABEL_COLOR_PALETTE_DARK = [
+  "#6B9BD2", "#F5A854", "#E8787A", "#8FD0CA", "#74C068",
+  "#F0D86A", "#C99ABF", "#FFB5BD", "#B89278", "#CFC5BF",
+];
+
+/** Detect dark mode for non-React contexts (NVL canvas). */
+function isDarkMode(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.classList.contains("dark");
+}
 
 /**
  * Builds a map of Neo4j label → palette color.
  * Labels are sorted so the same set of labels always yields the same colors.
  */
-function buildLabelColorMap(nodes: GraphNode[]): Map<string, string> {
+function buildLabelColorMap(nodes: GraphNode[], dark: boolean): Map<string, string> {
+  const palette = dark ? LABEL_COLOR_PALETTE_DARK : LABEL_COLOR_PALETTE_LIGHT;
   const labels = new Set<string>();
   for (const node of nodes) {
     if (node.labels) {
@@ -33,7 +42,7 @@ function buildLabelColorMap(nodes: GraphNode[]): Map<string, string> {
   const sorted = Array.from(labels).sort();
   const map = new Map<string, string>();
   sorted.forEach((lbl, i) => {
-    map.set(lbl, LABEL_COLOR_PALETTE[i % LABEL_COLOR_PALETTE.length]);
+    map.set(lbl, palette[i % palette.length]);
   });
   return map;
 }
@@ -256,12 +265,21 @@ export function GraphChart({
   const nvlRef = useRef<NVL>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const [layout, setLayout] = useState<GraphLayout>(initialLayout ?? layoutProp);
+  const [dark, setDark] = useState(isDarkMode);
+
+  // Watch dark mode changes
+  useEffect(() => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   // Build the label → property keys map from current nodes
   const labelPropertyMap = useMemo(() => buildLabelPropertyMap(nodes), [nodes]);
 
-  // Build the label → color map for palette-based coloring
-  const labelColorMap = useMemo(() => buildLabelColorMap(nodes), [nodes]);
+  // Build the label → color map for palette-based coloring (theme-aware)
+  const labelColorMap = useMemo(() => buildLabelColorMap(nodes, dark), [nodes, dark]);
 
   // Caption map: Neo4j label → chosen property key for display
   const [captionMap, setCaptionMap] = useState<Record<string, string>>(initialCaptionMap ?? {});

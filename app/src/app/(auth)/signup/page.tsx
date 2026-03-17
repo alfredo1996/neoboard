@@ -31,7 +31,11 @@ export default function SignupPage() {
   useEffect(() => {
     fetch("/api/auth/bootstrap-status")
       .then((r) => r.json())
-      .then((data) => setBootstrapRequired(data.bootstrapRequired === true))
+      .then((body) => {
+        // Supports envelope format: { data: { bootstrapRequired }, ... }
+        const payload = body?.data ?? body;
+        setBootstrapRequired(payload?.bootstrapRequired === true);
+      })
       .catch(() => {});
   }, []);
 

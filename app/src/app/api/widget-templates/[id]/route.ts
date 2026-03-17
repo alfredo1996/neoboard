@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { previewImageUrlSchema, handleRouteError } from "../shared";
+import { apiSuccess } from "@/lib/api-response";
+import { forbidden, notFound, badRequest, handleRouteError } from "@/lib/api-utils";
+import { previewImageUrlSchema } from "../shared";
 
 const updateTemplateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -25,7 +26,7 @@ async function requireOwnedTemplate(id: string) {
   const { userId, role, canWrite, tenantId } = session;
 
   if (!canWrite) {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) } as const;
+    return { error: forbidden() } as const;
   }
 
   const [existing] = await db
@@ -35,11 +36,11 @@ async function requireOwnedTemplate(id: string) {
     .limit(1);
 
   if (!existing) {
-    return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) } as const;
+    return { error: notFound() } as const;
   }
 
   if (existing.createdBy !== userId && role !== "admin") {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) } as const;
+    return { error: forbidden() } as const;
   }
 
   return { template: existing, session } as const;
@@ -60,10 +61,10 @@ export async function GET(
       .limit(1);
 
     if (!template) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound();
     }
 
-    return NextResponse.json(template);
+    return apiSuccess(template);
   } catch (err) {
     return handleRouteError(err);
   }
@@ -83,10 +84,7 @@ export async function PUT(
     const parsed = updateTemplateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.errors[0].message);
     }
 
     const data = parsed.data;
@@ -100,7 +98,7 @@ export async function PUT(
       .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
       .returning();
 
-    return NextResponse.json(updated);
+    return apiSuccess(updated);
   } catch (err) {
     return handleRouteError(err);
   }
@@ -120,7 +118,7 @@ export async function DELETE(
       .delete(widgetTemplates)
       .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)));
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ deleted: true });
   } catch (err) {
     return handleRouteError(err);
   }

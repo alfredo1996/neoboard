@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { unwrapResponse } from "@/lib/api-client";
 import type { UserRole } from "@/lib/db/schema";
 
 export interface UserListItem {
@@ -25,9 +26,7 @@ export function useUsers() {
     queryKey: ["users"],
     queryFn: async () => {
       const res = await fetch("/api/users");
-      if (res.status === 403) throw new Error("Forbidden");
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json();
+      return unwrapResponse<UserListItem[]>(res);
     },
     // Don't retry permission errors — retrying a 403 won't help.
     retry: (_count, error) =>
@@ -45,11 +44,7 @@ export function useCreateUser() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to create user");
-      }
-      return res.json();
+      return unwrapResponse<UserListItem>(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -67,11 +62,7 @@ export function useUpdateUserRole() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to update role");
-      }
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -89,11 +80,7 @@ export function useUpdateUserCanWrite() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ canWrite }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to update write permission");
-      }
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -107,11 +94,7 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to delete user");
-      }
-      return res.json();
+      return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });

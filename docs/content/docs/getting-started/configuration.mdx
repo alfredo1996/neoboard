@@ -1,0 +1,39 @@
+---
+title: Configuration
+description: Environment variables and configuration options for NeoBoard.
+---
+
+NeoBoard is configured through environment variables. Create a `.env.local` file in the project root.
+
+## Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string for metadata | `postgresql://user:pass@localhost:5432/neoboard` |
+| `NEXTAUTH_SECRET` | Secret for signing session tokens | `openssl rand -base64 32` |
+| `ENCRYPTION_KEY` | AES-256 key for encrypting stored credentials | `openssl rand -hex 32` |
+
+## Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXTAUTH_URL` | Public URL of the NeoBoard instance | `http://localhost:3000` |
+| `DEFAULT_TENANT_ID` | Default tenant for single-tenant deployments | `default` |
+| `MAX_QUERY_ROWS` | Maximum rows returned per query | `1000` |
+| `QUERY_TIMEOUT_MS` | Default query timeout in milliseconds | `30000` |
+
+## Enterprise Variables
+
+These enable enterprise features when set:
+
+| Variable | Description |
+|----------|-------------|
+| `SSO_ENABLED` | Enable SSO authentication providers |
+| `CUSTOM_ROLES_ENABLED` | Enable custom role definitions |
+| `CONNECTOR_LABELS_ENABLED` | Enable labeling connectors |
+
+## Security Notes
+
+- **`ENCRYPTION_KEY`** is critical — if lost, all stored database credentials become unrecoverable
+- Never commit `.env.local` to version control
+- Rotate `NEXTAUTH_SECRET` periodically in production

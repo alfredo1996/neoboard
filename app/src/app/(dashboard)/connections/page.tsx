@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Database, Plus } from "lucide-react";
+import { Database, Plus, ChevronDown } from "lucide-react";
 import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
   useConnections,
@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Switch,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -42,7 +43,23 @@ const DEFAULT_FORM = {
   username: "",
   password: "",
   database: "",
+  // Advanced settings (stored as strings for form input, parsed to numbers on submit)
+  connectionTimeout: "",
+  queryTimeout: "",
+  maxPoolSize: "",
+  connectionAcquisitionTimeout: "",
+  idleTimeout: "",
+  statementTimeout: "",
+  sslRejectUnauthorized: undefined as boolean | undefined,
 };
+
+/** Parse numeric string to integer, or return undefined if empty/invalid. */
+function parseOptionalInt(val: string): number | undefined {
+  if (!val.trim()) return undefined;
+  const n = Number(val);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return undefined;
+  return n;
+}
 
 export default function ConnectionsPage() {
   const { data: connections, isLoading } = useConnections();
@@ -62,6 +79,7 @@ export default function ConnectionsPage() {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
 
   // Auto-test all connections on first load
@@ -77,6 +95,48 @@ export default function ConnectionsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [testErrors, setTestErrors] = useState<Record<string, string>>({});
 
+  function buildConfig() {
+    return {
+      uri: form.uri,
+      username: form.username,
+      password: form.password,
+      database: form.database || undefined,
+      connectionTimeout: parseOptionalInt(form.connectionTimeout),
+      queryTimeout: parseOptionalInt(form.queryTimeout),
+      maxPoolSize: parseOptionalInt(form.maxPoolSize),
+      connectionAcquisitionTimeout: parseOptionalInt(form.connectionAcquisitionTimeout),
+      idleTimeout: parseOptionalInt(form.idleTimeout),
+      statementTimeout: parseOptionalInt(form.statementTimeout),
+      sslRejectUnauthorized: form.sslRejectUnauthorized,
+    };
+  }
+
+  /** Render a numeric input field for advanced settings. */
+  function numericField(
+    id: string,
+    label: string,
+    field: keyof typeof DEFAULT_FORM,
+    placeholder: string,
+    min: number,
+    max?: number,
+  ) {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          id={id}
+          type="number"
+          step={1}
+          min={min}
+          {...(max === undefined ? {} : { max })}
+          value={form[field] as string}
+          onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+          placeholder={placeholder}
+        />
+      </div>
+    );
+  }
+
   function openCreateDialog(type?: "neo4j" | "postgresql") {
     setForm({ ...DEFAULT_FORM, ...(type ? { type } : {}) });
     setDialogStep(type ? "fill-form" : "pick-type");
@@ -90,6 +150,7 @@ export default function ConnectionsPage() {
     setDialogStep("pick-type");
     setCreateError(null);
     setInlineTestResult(null);
+    setShowAdvanced(false);
   }
 
   function handlePickType(type: "neo4j" | "postgresql") {
@@ -104,12 +165,7 @@ export default function ConnectionsPage() {
       const newConn = await createConnection.mutateAsync({
         name: form.name,
         type: form.type,
-        config: {
-          uri: form.uri,
-          username: form.username,
-          password: form.password,
-          database: form.database || undefined,
-        },
+        config: buildConfig(),
       });
       closeCreateDialog();
       handleTest(newConn.id);
@@ -125,12 +181,7 @@ export default function ConnectionsPage() {
     try {
       const result = await testInline.mutateAsync({
         type: form.type,
-        config: {
-          uri: form.uri,
-          username: form.username,
-          password: form.password,
-          database: form.database || undefined,
-        },
+        config: buildConfig(),
       });
       setInlineTestResult(result);
     } catch {
@@ -309,6 +360,60 @@ export default function ConnectionsPage() {
                       setForm((f) => ({ ...f, database: e.target.value }))
                     }
                   />
+                </div>
+
+                {/* Advanced Settings */}
+                <div className="border-t pt-2">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                  >
+                    Advanced Settings
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="mt-3 space-y-4">
+                      {form.type === "neo4j" ? (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {numericField("conn-connection-timeout", "Connection Timeout (ms)", "connectionTimeout", "30000", 0)}
+                            {numericField("conn-query-timeout", "Query Timeout (ms)", "queryTimeout", "2000", 0)}
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {numericField("conn-max-pool", "Max Pool Size", "maxPoolSize", "driver default", 1, 100)}
+                            {numericField("conn-acquisition-timeout", "Acquisition Timeout (ms)", "connectionAcquisitionTimeout", "driver default", 0)}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {numericField("conn-connection-timeout", "Connection Timeout (ms)", "connectionTimeout", "10000", 0)}
+                            {numericField("conn-idle-timeout", "Idle Timeout (ms)", "idleTimeout", "10000", 0)}
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {numericField("conn-max-pool", "Max Pool Size", "maxPoolSize", "10", 1, 100)}
+                            {numericField("conn-statement-timeout", "Statement Timeout (ms)", "statementTimeout", "30000", 0)}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="conn-ssl-reject">
+                              Reject Unauthorized SSL
+                            </Label>
+                            <Switch
+                              id="conn-ssl-reject"
+                              checked={form.sslRejectUnauthorized ?? false}
+                              onCheckedChange={(checked) =>
+                                setForm((f) => ({ ...f, sslRejectUnauthorized: checked }))
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               {createError && (

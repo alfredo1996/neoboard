@@ -217,5 +217,21 @@ export interface QueryParams {
   params?: Record<string, any>; // Optional parameters for the Cypher query.
 }
 
+/** Optional advanced settings passed from the app layer to driver constructors. */
+export interface AdvancedConnectionOptions {
+  // Neo4j-specific
+  neo4jConnectionTimeout?: number;
+  neo4jQueryTimeout?: number;
+  neo4jMaxPoolSize?: number;
+  neo4jAcquisitionTimeout?: number;
+
+  // PostgreSQL-specific
+  pgConnectionTimeoutMillis?: number;
+  pgIdleTimeoutMillis?: number;
+  pgMaxPoolSize?: number;
+  pgStatementTimeout?: number;
+  pgSslRejectUnauthorized?: boolean;
+}
+
 // Re-export ConnectionTypes for convenience
 export { ConnectionTypes } from '../ConnectionModuleConfig';

@@ -52,7 +52,7 @@ export function FormWidget({
       ))}
 
       {successMessage && (
-        <p className="text-sm text-green-600">{successMessage}</p>
+        <p className="text-sm text-green-600 dark:text-green-400">{successMessage}</p>
       )}
       {errorMessage && (
         <p className="text-sm text-destructive">{errorMessage}</p>

@@ -1,30 +1,31 @@
-import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { forbidden, notFound, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role: userRole } = await requireSession();
+    const { userId, role: userRole, canWrite, tenantId } = await requireSession();
     const { id } = await params;
 
-    if (userRole === "reader") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!canWrite || userRole === "reader") {
+      return forbidden();
     }
 
-    // Verify the caller can view the source dashboard
+    // Verify the caller can view the source dashboard (scoped to tenant)
     const [source] = await db
       .select()
       .from(dashboards)
-      .where(eq(dashboards.id, id))
+      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
       .limit(1);
 
     if (!source) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound();
     }
 
     // Non-admin Creators can only duplicate dashboards they own or are assigned to
@@ -37,13 +38,14 @@ export async function POST(
           .where(
             and(
               eq(dashboardShares.dashboardId, id),
-              eq(dashboardShares.userId, userId)
+              eq(dashboardShares.userId, userId),
+              eq(dashboardShares.tenantId, tenantId)
             )
           )
           .limit(1);
 
         if (!share) {
-          return NextResponse.json({ error: "Not found" }, { status: 404 });
+          return notFound();
         }
       }
     }
@@ -52,15 +54,17 @@ export async function POST(
       .insert(dashboards)
       .values({
         userId,
+        tenantId,
         name: `${source.name} (copy)`,
         description: source.description,
         layoutJson: source.layoutJson,
         isPublic: false,
+        updatedBy: userId,
       })
       .returning();
 
-    return NextResponse.json(copy, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiSuccess(copy, 201);
+  } catch (e) {
+    return handleRouteError(e);
   }
 }

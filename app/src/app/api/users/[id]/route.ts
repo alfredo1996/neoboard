@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { validateBody, badRequest, notFound, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 const updateUserSchema = z
   .object({
@@ -14,6 +14,37 @@ const updateUserSchema = z
   .refine((d) => d.role !== undefined || d.canWrite !== undefined, {
     message: "At least one field must be provided",
   });
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        canWrite: users.canWrite,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    if (!user) {
+      return notFound("User not found");
+    }
+
+    return apiSuccess(user);
+  } catch (e) {
+    return handleRouteError(e);
+  }
+}
 
 export async function PATCH(
   request: Request,
@@ -53,7 +84,7 @@ export async function PATCH(
       return notFound("User not found");
     }
 
-    return NextResponse.json(updated);
+    return apiSuccess(updated);
   } catch (e) {
     return handleRouteError(e);
   }
@@ -81,7 +112,7 @@ export async function DELETE(
       return notFound("User not found");
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ deleted: true });
   } catch (e) {
     return handleRouteError(e);
   }

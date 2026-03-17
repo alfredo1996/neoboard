@@ -1,32 +1,30 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections, dashboards } from "@/lib/db/schema";
+import { requireSession } from "@/lib/auth/session";
+import { neoboardExportSchema, applyConnectionMapping } from "@/lib/dashboard-import";
+import { isNeoDashFormat, convertNeoDash } from "@/lib/neodash-converter";
+import type { DashboardLayoutV2 } from "@/lib/db/schema";
+import { forbidden, badRequest, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 const importRequestSchema = z.object({
   payload: z.unknown(),
   connectionMapping: z.record(z.string()).default({}),
 });
-import { requireSession } from "@/lib/auth/session";
-import { neoboardExportSchema, applyConnectionMapping } from "@/lib/dashboard-import";
-import { isNeoDashFormat, convertNeoDash } from "@/lib/neodash-converter";
-import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 export async function POST(request: Request) {
   try {
     const { userId, tenantId, canWrite } = await requireSession();
 
     if (!canWrite) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden();
     }
 
     const parsedBody = importRequestSchema.safeParse(await request.json());
     if (!parsedBody.success) {
-      return NextResponse.json(
-        { error: parsedBody.error.errors[0]?.message ?? "Invalid request body" },
-        { status: 400 }
-      );
+      return badRequest(parsedBody.error.errors[0]?.message ?? "Invalid request body");
     }
     const { payload, connectionMapping } = parsedBody.data;
 
@@ -37,10 +35,7 @@ export async function POST(request: Request) {
     } else {
       const parsed = neoboardExportSchema.safeParse(payload);
       if (!parsed.success) {
-        return NextResponse.json(
-          { error: parsed.error.errors[0].message },
-          { status: 400 }
-        );
+        return badRequest(parsed.error.errors[0].message);
       }
       exportData = parsed.data;
     }
@@ -53,7 +48,7 @@ export async function POST(request: Request) {
         .from(connections)
         .where(and(inArray(connections.id, mappedIds), eq(connections.userId, userId)));
       if (allowed.length !== mappedIds.length) {
-        return NextResponse.json({ error: "Invalid connection mapping" }, { status: 400 });
+        return badRequest("Invalid connection mapping");
       }
     }
 
@@ -84,14 +79,12 @@ export async function POST(request: Request) {
         description: exportData.dashboard.description ?? null,
         layoutJson: mappedLayout,
         isPublic: false,
+        updatedBy: userId,
       })
       .returning();
 
-    return NextResponse.json(created, { status: 201 });
+    return apiSuccess(created, 201);
   } catch (e) {
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return handleRouteError(e);
   }
 }

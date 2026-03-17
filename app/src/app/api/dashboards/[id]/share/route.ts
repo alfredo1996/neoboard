@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { validateBody, notFound, badRequest, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 const shareSchema = z.object({
   email: z.string().email(),
@@ -70,7 +70,7 @@ export async function GET(
       .innerJoin(users, eq(dashboardShares.userId, users.id))
       .where(eq(dashboardShares.dashboardId, id));
 
-    return NextResponse.json(shares);
+    return apiSuccess(shares);
   } catch (error) {
     return handleRouteError(error, "Failed to fetch shares");
   }
@@ -134,7 +134,7 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ success: true }, { status: 201 });
+    return apiSuccess({ success: true }, 201);
   } catch (error) {
     return handleRouteError(error, "Failed to create share");
   }
@@ -169,7 +169,7 @@ export async function DELETE(
         )
       );
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     return handleRouteError(error, "Failed to delete share");
   }

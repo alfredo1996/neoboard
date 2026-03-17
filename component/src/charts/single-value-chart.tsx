@@ -126,9 +126,9 @@ function SingleValueChart({
 
   const trendColor =
     trend?.direction === "up"
-      ? "text-green-600"
+      ? "text-green-600 dark:text-green-400"
       : trend?.direction === "down"
-        ? "text-red-600"
+        ? "text-red-600 dark:text-red-400"
         : "text-muted-foreground";
 
   const trendArrow =
