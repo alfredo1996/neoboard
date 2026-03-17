@@ -84,7 +84,10 @@ describe("toCypherSchema", () => {
       labels: ["Person", "Movie"],
       relationshipTypes: ["ACTED_IN", "DIRECTED"],
       nodeProperties: {
-        Person: [{ name: "name", type: "String" }, { name: "born", type: "Integer" }],
+        Person: [
+          { name: "name", type: "String" },
+          { name: "born", type: "Integer" },
+        ],
         Movie: [{ name: "title", type: "String" }],
       },
       relProperties: {
@@ -109,8 +112,14 @@ describe("toCypherSchema", () => {
       labels: ["Person", "Company"],
       relationshipTypes: [],
       nodeProperties: {
-        Person: [{ name: "name", type: "String" }, { name: "id", type: "Integer" }],
-        Company: [{ name: "name", type: "String" }, { name: "founded", type: "Integer" }],
+        Person: [
+          { name: "name", type: "String" },
+          { name: "id", type: "Integer" },
+        ],
+        Company: [
+          { name: "name", type: "String" },
+          { name: "founded", type: "Integer" },
+        ],
       },
       relProperties: {},
     };

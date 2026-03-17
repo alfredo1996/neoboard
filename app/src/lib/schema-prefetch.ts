@@ -1,4 +1,5 @@
 import type { ConnectionCredentials } from "@/lib/query-executor";
+import { ensureDatabaseInUri } from "@/lib/query-params";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { Neo4jSchemaManager } = require("connection/src/schema/neo4j-schema");
@@ -12,20 +13,24 @@ const { PostgresSchemaManager } = require("connection/src/schema/pg-schema");
  */
 export async function fetchConnectionSchema(
   type: "neo4j" | "postgresql",
-  credentials: ConnectionCredentials
+  credentials: ConnectionCredentials,
 ) {
   const authConfig = {
-    uri: credentials.uri,
+    uri: ensureDatabaseInUri(credentials.uri, credentials.database),
     username: credentials.username,
     password: credentials.password,
     authType: 1, // AuthType.NATIVE
   };
 
   if (type === "neo4j") {
-    const manager = new Neo4jSchemaManager() as { fetchSchema: (a: typeof authConfig) => Promise<unknown> };
+    const manager = new Neo4jSchemaManager() as {
+      fetchSchema: (a: typeof authConfig) => Promise<unknown>;
+    };
     return manager.fetchSchema(authConfig);
   } else {
-    const manager = new PostgresSchemaManager() as { fetchSchema: (a: typeof authConfig) => Promise<unknown> };
+    const manager = new PostgresSchemaManager() as {
+      fetchSchema: (a: typeof authConfig) => Promise<unknown>;
+    };
     return manager.fetchSchema(authConfig);
   }
 }
@@ -36,7 +41,7 @@ export async function fetchConnectionSchema(
  */
 export function prefetchSchema(
   type: "neo4j" | "postgresql",
-  credentials: ConnectionCredentials
+  credentials: ConnectionCredentials,
 ): void {
   fetchConnectionSchema(type, credentials).catch(() => {
     // Non-critical: schema prefetch failure should not surface to the user

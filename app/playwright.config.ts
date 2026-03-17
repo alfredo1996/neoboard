@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 import type { NextcovConfig } from "nextcov";
+import * as dotenv from "dotenv";
+import * as path from "node:path";
+
+// Load .env.test so TEST_SERVER_PORT (written by global-setup) is available.
+dotenv.config({ path: path.resolve(__dirname, ".env.test"), quiet: true });
+
+const serverPort = process.env.TEST_SERVER_PORT || "3100";
 
 /** Nextcov coverage config — read by loadNextcovConfig() in global-setup/teardown. */
 export const nextcov: NextcovConfig = {
@@ -34,7 +41,7 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
 
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: `http://localhost:${serverPort}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     navigationTimeout: 15_000,
@@ -47,5 +54,4 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-
 });

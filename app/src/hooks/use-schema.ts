@@ -1,6 +1,10 @@
 "use client";
 
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api-client";
 import { useSchemaStore } from "@/stores/schema-store";
 import type { DatabaseSchema } from "@/lib/schema-types";
