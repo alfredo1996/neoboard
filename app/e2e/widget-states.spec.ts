@@ -115,7 +115,7 @@ test.describe("Refresh button", () => {
     const res = await page.request.post("/api/dashboards", {
       data: { name: `Refresh ${Date.now()}` },
     });
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
     dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
 
     await page.request.put(`/api/dashboards/${id}`, {
@@ -182,7 +182,7 @@ test.describe("Manual run mode", () => {
     const res = await page.request.post("/api/dashboards", {
       data: { name: `ManualRun ${Date.now()}` },
     });
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
     dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
 
     await page.request.put(`/api/dashboards/${id}`, {
@@ -241,7 +241,7 @@ test.describe("Cache forever mode", () => {
     const res = await page.request.post("/api/dashboards", {
       data: { name: `CacheForever ${Date.now()}` },
     });
-    const { id } = await res.json();
+    const { id } = (await res.json()).data;
     dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
 
     await page.request.put(`/api/dashboards/${id}`, {

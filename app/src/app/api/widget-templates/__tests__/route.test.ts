@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,25 +9,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRequireSession = vi.fn<
   () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
 >();
-
-function makeSelectChain(rows: unknown[]) {
-  const resolved = Promise.resolve(rows);
-  const c = Object.assign(resolved, {
-    from: () => c,
-    where: () => c,
-    orderBy: () => c,
-    limit: () => Promise.resolve(rows),
-  });
-  return c;
-}
-
-function makeInsertChain(returning: unknown[]) {
-  const c = {
-    values: () => c,
-    returning: () => Promise.resolve(returning),
-  };
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -37,15 +20,7 @@ vi.mock("@/lib/auth/session", () => ({
   requireUserId: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: ResponseInit) => ({
-      _body: body,
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
 // Tests — GET /api/widget-templates
@@ -76,27 +51,35 @@ describe("GET /api/widget-templates", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns all tenant templates", async () => {
+  it("returns all tenant templates with pagination meta", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const template = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j" };
-    mockDb.select.mockReturnValue(makeSelectChain([template]));
+    // First call -> count query ([{ total: 1 }]), second call -> rows
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 1 }]))
+      .mockReturnValueOnce(makeSelectChain([template]));
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
-    const body = res._body as unknown[];
-    expect(body).toHaveLength(1);
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.meta).toMatchObject({ total: 1, limit: 25, offset: 0 });
   });
 
   it("supports filtering by chartType", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
+      .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET(makeRequest({ chartType: "bar" }));
     expect(res.status).toBe(200);
   });
 
   it("supports filtering by connectorType", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
+      .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET(makeRequest({ connectorType: "neo4j" }));
     expect(res.status).toBe(200);
   });
@@ -131,6 +114,8 @@ describe("POST /api/widget-templates", () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
     const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toBe("Forbidden");
   });
 
   it("returns 400 when name is missing", async () => {
@@ -151,13 +136,15 @@ describe("POST /api/widget-templates", () => {
     expect(res.status).toBe(400);
   });
 
-  it("creates template and returns 201", async () => {
+  it("creates template and returns 201 with envelope", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
     const created = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j", createdBy: "user-1" };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 
     const res = await POST(makeRequest({ name: "My Template", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(201);
-    expect(res._body).toEqual(created);
+    const body = await res.json();
+    expect(body.data).toEqual(created);
+    expect(body.error).toBeNull();
   });
 });

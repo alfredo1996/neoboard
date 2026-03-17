@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { unwrapResponse } from "@/lib/api-client";
 import type { WidgetTemplate } from "@/lib/db/schema";
 
 export interface WidgetTemplateFilters {
@@ -10,11 +11,7 @@ export interface WidgetTemplateFilters {
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  return unwrapResponse<T>(res);
 }
 
 export function useWidgetTemplates(filters?: WidgetTemplateFilters) {

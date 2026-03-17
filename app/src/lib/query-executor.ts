@@ -1,11 +1,4 @@
-// Import from connection module source (CJS, no build step)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const connectionModule = require("connection/src/adapters/factory");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const connectionInterfaces = require("connection/src/generalized/interfaces");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const connectionConfig = require("connection/src/ConnectionModuleConfig");
-
+import { createConnectionModule, DEFAULT_CONNECTION_CONFIG, ConnectionTypes } from "./connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
 
 export interface ConnectionCredentials {
@@ -13,21 +6,52 @@ export interface ConnectionCredentials {
   username: string;
   password: string;
   database?: string;
+  // Advanced pool/timeout settings (optional)
+  connectionTimeout?: number;
+  queryTimeout?: number;
+  maxPoolSize?: number;
+  connectionAcquisitionTimeout?: number;
+  idleTimeout?: number;
+  statementTimeout?: number;
+  sslRejectUnauthorized?: boolean;
 }
 
 export type DbType = "neo4j" | "postgresql";
 
 function toConnectionType(type: DbType): number {
   return type === "neo4j"
-    ? connectionConfig.ConnectionTypes.NEO4J
-    : connectionConfig.ConnectionTypes.POSTGRESQL;
+    ? ConnectionTypes.NEO4J
+    : ConnectionTypes.POSTGRESQL;
 }
 
 /** Cache of connection modules keyed by type+uri+username+database. */
 const moduleCache = new Map<string, unknown>();
 
 function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
-  return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}`;
+  const advancedKey = [
+    credentials.connectionTimeout,
+    credentials.queryTimeout,
+    credentials.maxPoolSize,
+    credentials.connectionAcquisitionTimeout,
+    credentials.idleTimeout,
+    credentials.statementTimeout,
+    credentials.sslRejectUnauthorized,
+  ].join(",");
+  return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}|${advancedKey}`;
+}
+
+function buildAdvancedOptions(credentials: ConnectionCredentials) {
+  return {
+    neo4jConnectionTimeout: credentials.connectionTimeout,
+    neo4jQueryTimeout: credentials.queryTimeout,
+    neo4jMaxPoolSize: credentials.maxPoolSize,
+    neo4jAcquisitionTimeout: credentials.connectionAcquisitionTimeout,
+    pgConnectionTimeoutMillis: credentials.connectionTimeout,
+    pgIdleTimeoutMillis: credentials.idleTimeout,
+    pgMaxPoolSize: credentials.maxPoolSize,
+    pgStatementTimeout: credentials.statementTimeout ?? credentials.queryTimeout,
+    pgSslRejectUnauthorized: credentials.sslRejectUnauthorized,
+  };
 }
 
 function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): unknown {
@@ -41,7 +65,8 @@ function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): un
       password: credentials.password,
       authType: 1, // NATIVE
     };
-    module = connectionModule.createConnectionModule(connectionType, authConfig);
+    const advancedOptions = buildAdvancedOptions(credentials);
+    module = createConnectionModule(connectionType, authConfig, advancedOptions);
     moduleCache.set(key, module);
   }
   return module;
@@ -65,10 +90,12 @@ export async function executeQuery(
   };
 
   const config = {
-    ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
+    ...DEFAULT_CONNECTION_CONFIG,
     connectionType: toConnectionType(type),
     database: credentials.database,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
+    ...(credentials.queryTimeout ? { timeout: credentials.queryTimeout } : {}),
+    ...(credentials.connectionTimeout ? { connectionTimeout: credentials.connectionTimeout } : {}),
   };
 
   // PostgreSQL uses positional $1, $2 params — rewrite $param_xxx tokens
@@ -103,7 +130,7 @@ export async function testConnection(
   };
 
   const config = {
-    ...connectionInterfaces.DEFAULT_CONNECTION_CONFIG,
+    ...DEFAULT_CONNECTION_CONFIG,
     connectionType: toConnectionType(type),
     database: credentials.database,
   };

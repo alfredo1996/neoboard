@@ -510,8 +510,11 @@ export default function DashboardListPage() {
                       <DashboardMiniPreview widgets={d.preview ?? []} />
                     </CardContent>
                     <CardFooter className="pt-0 text-xs text-muted-foreground justify-between">
-                      <TimeAgo date={d.updatedAt} />
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 truncate">
+                        <TimeAgo date={d.updatedAt} />
+                        {d.updatedByName && <span className="truncate">by {d.updatedByName}</span>}
+                      </span>
+                      <span className="flex items-center gap-1 shrink-0">
                         <Grid2X2 className="h-3 w-3" />
                         {d.widgetCount ?? 0} widget{(d.widgetCount ?? 0) !== 1 ? "s" : ""}
                       </span>

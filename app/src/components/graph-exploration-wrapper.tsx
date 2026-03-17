@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { unwrapFullResponse } from "@/lib/api-client";
 import {
   GraphChart,
   useGraphExploration,
@@ -166,11 +167,10 @@ export function GraphExplorationWrapper({
         }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to fetch neighbors: ${res.statusText}`);
-      }
-
-      const result = await res.json();
+      const { data: result } = await unwrapFullResponse<{
+        data: unknown;
+        fields?: unknown;
+      }>(res);
       const graphConfig = getChartConfig("graph");
       if (!graphConfig) return { nodes: [], edges: [] };
 

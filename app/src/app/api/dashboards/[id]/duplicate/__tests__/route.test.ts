@@ -74,21 +74,22 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
   });
 
   it("returns 403 when caller is reader", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "u1", role: "reader" });
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "reader", canWrite: false, tenantId: "default" });
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(403);
-    expect(res._body.error).toBe("Forbidden");
+    const body = await res.json();
+    expect(body.error.message).toBe("Forbidden");
   });
 
   it("returns 404 when dashboard not found", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "u1", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "creator", canWrite: true, tenantId: "default" });
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("returns 201 and copies dashboard for owner", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "u1", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "creator", canWrite: true, tenantId: "default" });
     const source = {
       id: "d1",
       userId: "u1",
@@ -103,11 +104,12 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
 
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(201);
-    expect(res._body.name).toBe("My Dashboard (copy)");
+    const body = await res.json();
+    expect(body.data.name).toBe("My Dashboard (copy)");
   });
 
   it("admin can duplicate any dashboard (bypasses ownership)", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin" });
+    mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
     const source = { id: "d1", userId: "other-user", name: "Other Dashboard" };
     const copy = { id: "d2", name: "Other Dashboard (copy)" };
     mockDb.select.mockReturnValueOnce(makeSelectChain([source]));
@@ -118,7 +120,7 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
   });
 
   it("returns 404 when creator is not owner and has no share", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "u2", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "u2", role: "creator", canWrite: true, tenantId: "default" });
     const source = { id: "d1", userId: "u1", name: "Other Dashboard" };
     // First select: dashboard found (owned by u1)
     mockDb.select.mockReturnValueOnce(makeSelectChain([source]));
@@ -130,7 +132,7 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
   });
 
   it("allows duplication when creator has share entry", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "u2", role: "creator" });
+    mockRequireSession.mockResolvedValue({ userId: "u2", role: "creator", canWrite: true, tenantId: "default" });
     const source = {
       id: "d1",
       userId: "u1",
@@ -147,5 +149,11 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
 
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(201);
+  });
+
+  it("returns 403 when canWrite is false", async () => {
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "creator", canWrite: false, tenantId: "default" });
+    const res = await POST({} as Request, makeParams("d1"));
+    expect(res.status).toBe(403);
   });
 });

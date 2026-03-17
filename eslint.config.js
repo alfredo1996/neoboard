@@ -16,6 +16,7 @@ export default defineConfig([
     "stress",
     ".claude",
     "**/e2e",
+    "docs",
   ]),
   {
     files: ["**/*.{ts,tsx}"],

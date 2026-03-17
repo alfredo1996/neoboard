@@ -16,6 +16,18 @@ reviews:
     base_branches:
       - "main"
       - "dev"
+  path_filters:
+    - "!docs/package-lock.json"
+    - "!docs/content/**/*.mdx"
+    - "!docs/.source/**"
+    - "!docs/next-env.d.ts"
+    - "!app/.screenshots/**"
+    - "!app/drizzle/migrations/**"
+    - "!app/tsconfig.tsbuildinfo"
+    - "!design-tokens.css"
+    - "!docker/**"
+    - "!.claude/**"
+    - "!claude_code_docs/**"
   path_instructions:
     - path: "app/src/**"
       instructions: |

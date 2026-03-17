@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
@@ -57,13 +57,20 @@ const TILE_PRESETS: Record<TileLayerPreset, { url: string; attribution: string }
 const DEFAULT_CENTER: [number, number] = [40, -3];
 const DEFAULT_ZOOM = 3;
 
-function resolveTileLayer(tileLayer: TileLayerPreset | string | undefined, attribution?: string) {
-  if (!tileLayer || tileLayer in TILE_PRESETS) {
-    const preset = TILE_PRESETS[(tileLayer as TileLayerPreset) ?? "osm"];
+/** Resolve tile layer, auto-selecting carto-light/carto-dark when no explicit preset is given. */
+function resolveTileLayer(
+  tileLayer: string | undefined,
+  dark: boolean,
+  attribution?: string,
+) {
+  // When no tileLayer is specified, auto-select based on theme
+  const effectivePreset = tileLayer ?? (dark ? "carto-dark" : "carto-light");
+  if (effectivePreset in TILE_PRESETS) {
+    const preset = TILE_PRESETS[effectivePreset as TileLayerPreset];
     return { url: preset.url, attribution: attribution ?? preset.attribution };
   }
   return {
-    url: tileLayer,
+    url: effectivePreset,
     attribution: attribution ?? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   };
 }
@@ -99,8 +106,20 @@ function MapChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  const tile = resolveTileLayer(tileLayer, attribution);
+  // Track dark mode for auto tile switching
+  const [dark, setDark] = useState(() =>
+    typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const tile = resolveTileLayer(tileLayer, dark, attribution);
 
   // Initialize map
   useEffect(() => {
@@ -114,7 +133,8 @@ function MapChart({
       maxZoom,
     });
 
-    L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(map);
+    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(map);
+    tileLayerRef.current = tl;
     markersLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
@@ -128,9 +148,21 @@ function MapChart({
       map.remove();
       mapRef.current = null;
       markersLayerRef.current = null;
+      tileLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Swap tile layer when theme changes (or when tileLayer prop changes)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(map);
+    tileLayerRef.current = tl;
+  }, [tile.url, tile.attribution]);
 
   // Update center/zoom (only when not auto-fitting)
   useEffect(() => {

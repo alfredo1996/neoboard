@@ -26,6 +26,7 @@ export const mockSetOption = vi.fn();
 export function registerEChartsMocks() {
   vi.mock("echarts/core", () => {
     const use = vi.fn();
+    const registerTheme = vi.fn();
     const init = vi.fn(() => ({
       setOption: mockSetOption,
       resize: vi.fn(),
@@ -35,7 +36,7 @@ export function registerEChartsMocks() {
       showLoading: vi.fn(),
       hideLoading: vi.fn(),
     }));
-    return { use, init, default: { use, init } };
+    return { use, init, registerTheme, default: { use, init, registerTheme } };
   });
 
   vi.mock("echarts/charts", () => ({
@@ -51,6 +52,7 @@ export function registerEChartsMocks() {
     LegendComponent: vi.fn(),
     GridComponent: vi.fn(),
     DataZoomComponent: vi.fn(),
+    AriaComponent: vi.fn(),
   }));
 
   vi.mock("echarts/renderers", () => ({

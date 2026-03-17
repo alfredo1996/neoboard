@@ -40,8 +40,8 @@ async function createTestConnections(request: APIRequestContext): Promise<{
   if (!neo4jRes.ok()) throw new Error(`Failed to create Neo4j connection: ${await neo4jRes.text()}`);
   if (!pgRes.ok()) throw new Error(`Failed to create PostgreSQL connection: ${await pgRes.text()}`);
 
-  const { id: neo4jConnId } = (await neo4jRes.json()) as { id: string };
-  const { id: pgConnId } = (await pgRes.json()) as { id: string };
+  const { id: neo4jConnId } = (await neo4jRes.json()).data as { id: string };
+  const { id: pgConnId } = (await pgRes.json()).data as { id: string };
 
   return {
     neo4jConnId,
@@ -189,7 +189,7 @@ test.describe("Performance — concurrent multi-connector queries", () => {
       data: { name: "Perf: Multi-Connector Concurrent (auto-cleanup)" },
     });
     expect(createRes.status()).toBe(201);
-    const { id: dashboardId } = (await createRes.json()) as { id: string };
+    const { id: dashboardId } = (await createRes.json()).data as { id: string };
 
     const updateRes = await page.request.put(`/api/dashboards/${dashboardId}`, {
       data: {
@@ -293,7 +293,7 @@ test.describe("Performance — large dashboard", () => {
       data: { name: "Perf: 100-Widget Dashboard (auto-cleanup)" },
     });
     expect(createRes.status()).toBe(201);
-    const { id: dashboardId } = (await createRes.json()) as { id: string };
+    const { id: dashboardId } = (await createRes.json()).data as { id: string };
 
     // ── 2. Build 100 single-value widgets (lightest renderer, real queries) ─
     const WIDGET_COUNT = 100;

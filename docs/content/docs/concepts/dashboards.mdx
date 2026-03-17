@@ -1,0 +1,45 @@
+---
+title: Dashboards
+description: Dashboard structure, layout system, and multi-page support.
+---
+
+Dashboards are the primary way to organize and display data in NeoBoard.
+
+## Structure
+
+Each dashboard contains:
+- **Name** and optional **description**
+- One or more **pages**, each with its own set of widgets
+- A **grid layout** that controls widget positioning and sizing
+- **Settings** like auto-refresh interval
+
+## Multi-Page Support
+
+Dashboards support multiple pages, each with independent widgets and layouts. Use pages to organize related views:
+
+- Page 1: Overview metrics
+- Page 2: Detailed analysis
+- Page 3: Graph exploration
+
+## Grid Layout
+
+Widgets are arranged on a 12-column responsive grid:
+- **Drag** to reposition widgets
+- **Resize** by dragging edges
+- Minimum widget size: 2 columns x 2 rows
+- Layout is saved per-page
+
+## Permissions
+
+| Role | View | Edit | Delete | Share |
+|------|------|------|--------|-------|
+| Admin | All | All | All | All |
+| Creator | Own + shared | Own + shared (editor) | Own only | Own only |
+| Reader | Shared only | No | No | No |
+
+## Import / Export
+
+Dashboards can be exported as JSON files and imported into other NeoBoard instances. The export format:
+- Replaces connection IDs with portable keys
+- Includes connection metadata (name, type) but **not credentials**
+- Preserves layout, widgets, and settings

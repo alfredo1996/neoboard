@@ -116,6 +116,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 
@@ -136,6 +137,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 
@@ -154,6 +156,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 

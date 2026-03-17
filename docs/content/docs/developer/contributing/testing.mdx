@@ -1,0 +1,71 @@
+---
+title: Testing
+description: TDD workflow, test boundaries, and testing patterns in NeoBoard.
+---
+
+NeoBoard follows a strict **Test-Driven Development** (TDD) workflow.
+
+## TDD Workflow (Mandatory)
+
+1. **Red** — Write a failing test describing expected behavior
+2. **Green** — Write the minimum code to make it pass
+3. **Refactor** — Clean up without breaking tests
+
+Every new behavior, bug fix, and edge case gets a test. No exceptions.
+
+## Test Boundaries
+
+| Layer | Tool | Package | Examples |
+|-------|------|---------|---------|
+| Pure functions | Vitest | `app/` | chart-registry, date-utils, query-hash |
+| API routes | Vitest (mocked DB/auth) | `app/` | Validation, permissions, error handling |
+| Zustand stores | Vitest (no mocks) | `app/` | State transitions, cascading logic |
+| UI components | Vitest + RTL | `component/` | Isolated rendering, props |
+| Integration | Jest + Testcontainers | `connection/` | Real DB queries |
+| Full flows | Playwright | `app/` | Real rendering, real data |
+
+**Important**: Do NOT add `@testing-library/react` render tests in `app/`. UI rendering is tested via Playwright E2E. Vitest in `app/` is for pure logic only.
+
+## Coverage Target
+
+**80% per package** (unit + E2E combined).
+
+Track coverage with:
+```bash
+cd app && npm run test:coverage
+cd component && npm run test:coverage
+cd connection && npm run test:coverage
+```
+
+## Test File Location
+
+Tests live in `__tests__/` directories next to the file under test:
+
+```
+src/lib/
+├── chart-registry.ts
+├── __tests__/
+│   └── chart-registry.test.ts
+```
+
+## Common Patterns
+
+### Mocking API Routes
+
+```typescript
+const mockDb = { select: vi.fn(), insert: vi.fn() };
+vi.mock("@/lib/db", () => ({ db: mockDb }));
+vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
+vi.mock("next/server", () => nextResponseMockFactory());
+```
+
+### E2E Test Fixtures
+
+```typescript
+import { test, expect } from "./fixtures";
+
+test("create dashboard", async ({ page, authPage }) => {
+  await authPage.login({ email: "alice@example.com", password: "password123" });
+  // ...
+});
+```

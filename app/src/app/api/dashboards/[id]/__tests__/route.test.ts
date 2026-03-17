@@ -82,9 +82,9 @@ describe("GET /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { id: string; role: string };
-    expect(body.id).toBe("d1");
-    expect(body.role).toBe("owner");
+    const body = await res.json();
+    expect(body.data.id).toBe("d1");
+    expect(body.data.role).toBe("owner");
   });
 
   it("returns dashboard for shared viewer", async () => {
@@ -96,8 +96,8 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([share]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { id: string; role: string };
-    expect(body.role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data.role).toBe("viewer");
   });
 
   it("returns 404 when user has no access", async () => {
@@ -127,8 +127,8 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { id: string; role: string };
-    expect(body.role).toBe("viewer");
+    const body = await res.json();
+    expect(body.data.role).toBe("viewer");
   });
 
   it("returns 404 for private dashboard without share", async () => {
@@ -146,8 +146,34 @@ describe("GET /api/dashboards/[id]", () => {
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { role: string };
-    expect(body.role).toBe("admin");
+    const body = await res.json();
+    expect(body.data.role).toBe("admin");
+  });
+
+  it("returns updatedByName when updatedBy is set", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const dashWithUpdater = { ...OWNER_DASHBOARD, updatedBy: "user-1" };
+    // First select: canAccess finds the dashboard
+    // Second select: tenant-scoped LEFT JOIN to resolve updater name
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([dashWithUpdater]))
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: "Alice" }]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { data: { updatedByName: string | null } };
+    expect(body.data.updatedByName).toBe("Alice");
+  });
+
+  it("returns updatedByName as null when updatedBy is not set", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // First select: canAccess. Second select: LEFT JOIN returns null updatedByName
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = res._body as { data: { updatedByName: string | null } };
+    expect(body.data.updatedByName).toBeNull();
   });
 });
 
@@ -174,6 +200,12 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 403 when canWrite is false even for creator role", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "creator" });
+    const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when not owner/editor", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
@@ -189,7 +221,26 @@ describe("PUT /api/dashboards/[id]", () => {
 
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(200);
-    expect((res._body as { name: string }).name).toBe("New name");
+    const body = await res.json();
+    expect(body.data.name).toBe("New name");
+  });
+
+  it("sets updatedBy to session userId on update", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const updated = { ...OWNER_DASHBOARD, name: "Updated", updatedBy: "user-1" };
+    const setSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain: any = {
+      set: (...args: unknown[]) => { setSpy(...args); return chain; },
+      where: () => chain,
+      returning: () => Promise.resolve([updated]),
+    };
+    mockDb.update.mockReturnValue(chain);
+
+    const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
+    expect(res.status).toBe(200);
+    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ updatedBy: "user-1" }));
   });
 
   it("returns 400 when request body is invalid", async () => {
@@ -202,7 +253,7 @@ describe("PUT /api/dashboards/[id]", () => {
   it("returns 404 when public dashboard is edited by non-owner", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
     const publicDashboard = { ...OWNER_DASHBOARD, isPublic: true };
-    // canAccess with "editor" required: dashboard found, no share → public only grants viewer
+    // canAccess with "editor" required: dashboard found, no share -> public only grants viewer
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([publicDashboard]))
       .mockReturnValueOnce(makeSelectChain([]));
@@ -287,6 +338,12 @@ describe("DELETE /api/dashboards/[id]", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 403 when canWrite is false even for creator role", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "creator" });
+    const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 when not owner (creator role)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
@@ -300,7 +357,8 @@ describe("DELETE /api/dashboards/[id]", () => {
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    expect((res._body as { success: boolean }).success).toBe(true);
+    const body = await res.json();
+    expect(body.data.deleted).toBe(true);
   });
 
   it("returns 404 when dashboard belongs to different tenant", async () => {

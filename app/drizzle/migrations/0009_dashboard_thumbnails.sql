@@ -1,5 +1,7 @@
 DO $$
 BEGIN
+  PERFORM pg_advisory_xact_lock(20260009);
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'dashboard' AND column_name = 'thumbnailJson'

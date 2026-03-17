@@ -47,7 +47,8 @@ describe("POST /api/connections/[id]/test", () => {
     mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(500);
-    expect(res._body.error).toBe("Unauthorized");
+    const body = await res.json();
+    expect(body.error).toBe("Unauthorized");
   });
 
   it("returns 404 when connection not found or not owned", async () => {
@@ -55,7 +56,8 @@ describe("POST /api/connections/[id]/test", () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(404);
-    expect(res._body.error).toBe("Not found");
+    const body = await res.json();
+    expect(body.error).toBe("Not found");
   });
 
   it("returns success:true when test passes", async () => {
@@ -67,7 +69,8 @@ describe("POST /api/connections/[id]/test", () => {
 
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(200);
-    expect(res._body.success).toBe(true);
+    const body = await res.json();
+    expect(body.success).toBe(true);
   });
 
   it("returns 500 when testConnection throws", async () => {
@@ -79,6 +82,7 @@ describe("POST /api/connections/[id]/test", () => {
 
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(500);
-    expect(res._body.error).toBe("Connection refused");
+    const body = await res.json();
+    expect(body.error).toBe("Connection refused");
   });
 });
