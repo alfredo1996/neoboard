@@ -27,11 +27,6 @@ function isDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-/** Returns the label color palette appropriate for the current theme. */
-function getLabelColorPalette(): string[] {
-  return isDarkMode() ? LABEL_COLOR_PALETTE_DARK : LABEL_COLOR_PALETTE_LIGHT;
-}
-
 /**
  * Builds a map of Neo4j label → palette color.
  * Labels are sorted so the same set of labels always yields the same colors.
