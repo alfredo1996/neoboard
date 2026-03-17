@@ -427,6 +427,7 @@ export function GraphChart({
       },
       onNodeRightClick: (node, _hit, event) => {
         if (!onNodeRightClickRef.current) return;
+        event.preventDefault();
         const graphNode = nodesRef.current.find((n) => n.id === node.id) ?? {
           id: node.id,
         };
