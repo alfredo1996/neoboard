@@ -74,7 +74,7 @@ async function buildExtensions(
   langCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
   readOnlyCompartmentExt: any,
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
@@ -107,7 +107,7 @@ async function buildExtensions(
       if (update.docChanged) {
         onUpdate(update.state.doc.toString());
       }
-    }
+    },
   );
 
   const baseTheme = EditorView.theme({
@@ -174,13 +174,30 @@ function QueryEditor({
   const languageRef = React.useRef(language);
   const readOnlyRef = React.useRef(readOnly);
   const schemaRef = React.useRef(schema);
-  React.useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
-  React.useEffect(() => { onRunRef.current = onRun; }, [onRun]);
-  React.useEffect(() => { runningRef.current = running; }, [running]);
-  React.useEffect(() => { currentValueRef.current = currentValue; }, [currentValue]);
-  React.useEffect(() => { languageRef.current = language; }, [language]);
-  React.useEffect(() => { readOnlyRef.current = readOnly; }, [readOnly]);
-  React.useEffect(() => { schemaRef.current = schema; }, [schema]);
+  React.useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  React.useEffect(() => {
+    onRunRef.current = onRun;
+  }, [onRun]);
+  React.useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
+  React.useEffect(() => {
+    currentValueRef.current = currentValue;
+  }, [currentValue]);
+  React.useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+  React.useEffect(() => {
+    readOnlyRef.current = readOnly;
+  }, [readOnly]);
+  React.useEffect(() => {
+    schemaRef.current = schema;
+  }, [schema]);
+
+  // Shared abort signal so any new initEditor call cancels the previous one.
+  const initAbortRef = React.useRef<{ aborted: boolean }>({ aborted: false });
 
   // Whether the component is in "controlled" mode (value prop provided)
   const isControlled = value !== undefined;
@@ -220,10 +237,7 @@ function QueryEditor({
     async (docValue: string, abortSignal: { aborted: boolean }) => {
       if (typeof window === "undefined" || !containerRef.current) return;
 
-      const [
-        { EditorView },
-        { EditorState, Compartment },
-      ] = await Promise.all([
+      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all([
         import("@codemirror/view"),
         import("@codemirror/state"),
       ]);
@@ -237,7 +251,9 @@ function QueryEditor({
       languageCompartmentRef.current = langCompartment;
       readOnlyCompartmentRef.current = readOnlyCompartment;
 
-      const langExts = await loadSqlExt(schemaRef.current);
+      // Capture the schema at the start — it may change while we await imports.
+      const initialSchema = schemaRef.current;
+      const langExts = await loadSqlExt(initialSchema);
       if (abortSignal.aborted) return;
 
       const onUpdate = (newValue: string) => {
@@ -247,7 +263,8 @@ function QueryEditor({
       };
 
       const onRunCallback = () => {
-        const v = viewRef.current?.state.doc.toString() ?? currentValueRef.current;
+        const v =
+          viewRef.current?.state.doc.toString() ?? currentValueRef.current;
         if (v.trim() && !runningRef.current) {
           onRunRef.current?.(v);
         }
@@ -258,7 +275,7 @@ function QueryEditor({
         onUpdate,
         onRunCallback,
         langCompartment.of(langExts),
-        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current))
+        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
@@ -266,10 +283,22 @@ function QueryEditor({
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
 
+      // If the schema arrived while we were awaiting imports, reconfigure now.
+      // The schema effect may have fired and found viewRef.current === null,
+      // so this catch-up ensures schema is applied.
+      if (schemaRef.current && schemaRef.current !== initialSchema) {
+        const updatedExts = await loadSqlExt(schemaRef.current);
+        if (!abortSignal.aborted && viewRef.current) {
+          viewRef.current.dispatch({
+            effects: langCompartment.reconfigure(updatedExts),
+          });
+        }
+      }
+
       containerRef.current?.setAttribute("data-editor-ready", "true");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [placeholder]
+    [placeholder],
   );
 
   // -------------------------------------------------------------------------
@@ -279,15 +308,12 @@ function QueryEditor({
     async (docValue: string, abortSignal: { aborted: boolean }) => {
       if (typeof window === "undefined" || !containerRef.current) return;
 
-      const [
-        { createCypherEditor },
-        { EditorView, keymap },
-        { oneDark },
-      ] = await Promise.all([
-        import("@neo4j-cypher/codemirror"),
-        import("@codemirror/view"),
-        import("@codemirror/theme-one-dark"),
-      ]);
+      const [{ createCypherEditor }, { EditorView, keymap }, { oneDark }] =
+        await Promise.all([
+          import("@neo4j-cypher/codemirror"),
+          import("@codemirror/view"),
+          import("@codemirror/theme-one-dark"),
+        ]);
 
       if (abortSignal.aborted || !containerRef.current) return;
 
@@ -297,7 +323,9 @@ function QueryEditor({
           key: "Ctrl-Enter",
           mac: "Cmd-Enter",
           run: () => {
-            const v = cypherApiRef.current?.codemirror?.state.doc.toString() ?? currentValueRef.current;
+            const v =
+              cypherApiRef.current?.codemirror?.state.doc.toString() ??
+              currentValueRef.current;
             if (v.trim() && !runningRef.current) {
               onRunRef.current?.(v);
             }
@@ -316,13 +344,16 @@ function QueryEditor({
         ".cm-content": { padding: "1rem" },
       });
 
-      const cypherSchema = schemaRef.current?.type === "neo4j"
-        ? toCypherSchema(schemaRef.current)
-        : undefined;
+      // Capture the schema at the start — it may change while we await imports.
+      const initialSchema = schemaRef.current;
+      const cypherSchema =
+        initialSchema?.type === "neo4j"
+          ? toCypherSchema(initialSchema)
+          : undefined;
 
       if (abortSignal.aborted || !containerRef.current) return;
 
-      const editor = createCypherEditor(containerRef.current, {
+      const { editor } = createCypherEditor(containerRef.current, {
         value: docValue,
         readOnly: readOnlyRef.current,
         theme: "dark",
@@ -345,10 +376,25 @@ function QueryEditor({
         onChangeRef.current?.(newValue);
       });
 
+      // If the schema arrived while we were awaiting imports, apply it now.
+      // The schema effect may have fired and found cypherApiRef.current === null,
+      // so this catch-up ensures schema is applied.
+      if (
+        schemaRef.current &&
+        schemaRef.current !== initialSchema &&
+        schemaRef.current.type === "neo4j"
+      ) {
+        try {
+          editor.setSchema(toCypherSchema(schemaRef.current));
+        } catch {
+          // Defensive: neo4j editor-support can crash on unexpected schema values
+        }
+      }
+
       containerRef.current?.setAttribute("data-editor-ready", "true");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [placeholder]
+    [placeholder],
   );
 
   // -------------------------------------------------------------------------
@@ -356,6 +402,10 @@ function QueryEditor({
   // -------------------------------------------------------------------------
   const initEditor = React.useCallback(
     async (docValue: string, abortSignal: { aborted: boolean }) => {
+      // Cancel any previous in-flight init so we don't end up with two editors.
+      initAbortRef.current.aborted = true;
+      initAbortRef.current = abortSignal;
+
       // Tear down any existing editor
       destroyEditor();
 
@@ -375,7 +425,7 @@ function QueryEditor({
         await initCypherEditor(docValue, abortSignal);
       }
     },
-    [initSqlEditor, initCypherEditor]
+    [initSqlEditor, initCypherEditor],
   );
 
   // Initial mount
@@ -401,14 +451,22 @@ function QueryEditor({
     const newMode = isSql(language) ? "sql" : "cypher";
     if (newMode === editorModeRef.current) {
       // Same mode family — for SQL, reconfigure the language compartment in place
-      if (newMode === "sql" && viewRef.current && languageCompartmentRef.current) {
+      if (
+        newMode === "sql" &&
+        viewRef.current &&
+        languageCompartmentRef.current
+      ) {
         let cancelled = false;
         loadSqlExt(schemaRef.current).then((exts) => {
           if (!cancelled && viewRef.current) {
-            viewRef.current.dispatch({ effects: languageCompartmentRef.current.reconfigure(exts) });
+            viewRef.current.dispatch({
+              effects: languageCompartmentRef.current.reconfigure(exts),
+            });
           }
         });
-        return () => { cancelled = true; };
+        return () => {
+          cancelled = true;
+        };
       }
       return;
     }
@@ -416,7 +474,9 @@ function QueryEditor({
     // Mode switch (SQL ↔ Cypher): full reinit
     const abortSignal = { aborted: false };
     initEditor(currentValueRef.current, abortSignal);
-    return () => { abortSignal.aborted = true; };
+    return () => {
+      abortSignal.aborted = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
@@ -441,13 +501,21 @@ function QueryEditor({
 
     if (editorModeRef.current === "cypher" && cypherApiRef.current) {
       if (schema.type === "neo4j") {
-        cypherApiRef.current.setSchema(toCypherSchema(schema));
+        try {
+          cypherApiRef.current.setSchema(toCypherSchema(schema));
+        } catch {
+          // Defensive: neo4j editor-support can crash on unexpected schema values
+        }
       }
       return;
     }
 
     // SQL mode: reconfigure language compartment with new schema
-    if (editorModeRef.current === "sql" && viewRef.current && languageCompartmentRef.current) {
+    if (
+      editorModeRef.current === "sql" &&
+      viewRef.current &&
+      languageCompartmentRef.current
+    ) {
       loadSqlExt(schema).then((exts) => {
         if (viewRef.current) {
           viewRef.current.dispatch({
@@ -466,7 +534,8 @@ function QueryEditor({
 
     if (editorModeRef.current === "cypher" && cypherApiRef.current) {
       // Use the EditorApi for Cypher
-      const current = cypherApiRef.current.codemirror?.state.doc.toString() ?? "";
+      const current =
+        cypherApiRef.current.codemirror?.state.doc.toString() ?? "";
       if (current !== value) {
         suppressUpdate.current = true;
         cypherApiRef.current.setValue(value);
@@ -494,7 +563,6 @@ function QueryEditor({
     }
   };
 
-
   const handleHistorySelect = (query: string) => {
     if (editorModeRef.current === "cypher" && cypherApiRef.current) {
       suppressUpdate.current = true;
@@ -504,7 +572,9 @@ function QueryEditor({
       const view = viewRef.current;
       if (view) {
         suppressUpdate.current = true;
-        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: query } });
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: query },
+        });
         suppressUpdate.current = false;
       }
     }
@@ -522,7 +592,9 @@ function QueryEditor({
       const view = viewRef.current;
       if (view) {
         suppressUpdate.current = true;
-        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: "" },
+        });
         suppressUpdate.current = false;
         view.focus();
       }
@@ -535,11 +607,13 @@ function QueryEditor({
     language === "sql" || language === "postgresql"
       ? "SQL"
       : language === "cypher"
-      ? "Cypher"
-      : (language ?? "Cypher");
+        ? "Cypher"
+        : (language ?? "Cypher");
 
   return (
-    <div className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}>
+    <div
+      className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}
+    >
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <div className="flex items-center gap-2">
@@ -554,7 +628,11 @@ function QueryEditor({
               </SelectTrigger>
               <SelectContent>
                 {history.map((query, i) => (
-                  <SelectItem key={i} value={query} className="text-xs font-mono">
+                  <SelectItem
+                    key={i}
+                    value={query}
+                    className="text-xs font-mono"
+                  >
                     {query.length > 60 ? query.slice(0, 60) + "..." : query}
                   </SelectItem>
                 ))}

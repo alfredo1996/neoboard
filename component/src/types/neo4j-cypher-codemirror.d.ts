@@ -49,7 +49,9 @@ declare module "@neo4j-cypher/codemirror" {
     setSchema(schema?: EditorSupportSchema): void;
     setTheme(theme?: Theme): void;
     setValue(value?: string, parseOnSetValue?: boolean): void;
-    onValueChanged(listener: (value: string, changes: unknown) => void): () => void;
+    onValueChanged(
+      listener: (value: string, changes: unknown) => void,
+    ): () => void;
     offValueChanged(listener: (value: string, changes: unknown) => void): void;
     codemirror: EditorView;
     setPreExtensions(preExtensions?: Extension[]): void;
@@ -59,5 +61,5 @@ declare module "@neo4j-cypher/codemirror" {
   export function createCypherEditor(
     parentDOMElement: Element | DocumentFragment,
     options: EditorOptions,
-  ): EditorApi;
+  ): { editor: EditorApi };
 }

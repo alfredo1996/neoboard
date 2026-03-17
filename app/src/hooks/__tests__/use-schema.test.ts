@@ -54,7 +54,11 @@ describe("createRefreshSchema utility", () => {
   it("clearSchema + queryClient.invalidateQueries combination", () => {
     // Test the two operations that refreshSchema performs independently.
     const mockInvalidate = vi.fn();
-    const fakeQueryClient = { invalidateQueries: mockInvalidate } as unknown as Parameters<typeof import("../use-schema").createRefreshSchema>[0];
+    const fakeQueryClient = {
+      invalidateQueries: mockInvalidate,
+    } as unknown as Parameters<
+      typeof import("../use-schema").createRefreshSchema
+    >[0];
 
     const connectionId = "conn-42";
     useSchemaStore.getState().setSchema(connectionId, neo4jSchema);

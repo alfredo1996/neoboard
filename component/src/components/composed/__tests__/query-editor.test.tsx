@@ -70,9 +70,13 @@ vi.mock("@codemirror/state", () => ({
   },
   Compartment: class MockCompartment {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    of(ext: any) { return { type: "compartment.of", ext }; }
+    of(ext: any) {
+      return { type: "compartment.of", ext };
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    reconfigure(ext: any) { return { type: "compartment.reconfigure", ext }; }
+    reconfigure(ext: any) {
+      return { type: "compartment.reconfigure", ext };
+    }
   },
 }));
 
@@ -107,17 +111,19 @@ const mockCypherOnValueChanged = vi.fn();
 
 vi.mock("@neo4j-cypher/codemirror", () => ({
   createCypherEditor: (_parent: Element, _opts: unknown) => ({
-    codemirror: {
-      state: { doc: { toString: () => "", length: 0 } },
-      dispatch: mockDispatch,
-      destroy: mockDestroy,
+    editor: {
+      codemirror: {
+        state: { doc: { toString: () => "", length: 0 } },
+        dispatch: mockDispatch,
+        destroy: mockDestroy,
+      },
+      setValue: mockCypherSetValue,
+      setReadOnly: mockCypherSetReadOnly,
+      setSchema: mockCypherSetSchema,
+      destroy: mockCypherDestroy,
+      focus: mockCypherFocus,
+      onValueChanged: mockCypherOnValueChanged,
     },
-    setValue: mockCypherSetValue,
-    setReadOnly: mockCypherSetReadOnly,
-    setSchema: mockCypherSetSchema,
-    destroy: mockCypherDestroy,
-    focus: mockCypherFocus,
-    onValueChanged: mockCypherOnValueChanged,
   }),
 }));
 
@@ -259,14 +265,12 @@ describe("QueryEditor", () => {
   it("renders the run-and-save hint when runAndSaveHint=true", () => {
     render(<QueryEditor runAndSaveHint />);
     expect(
-      screen.getByLabelText("Run and save shortcut: Command Shift Enter")
+      screen.getByLabelText("Run and save shortcut: Command Shift Enter"),
     ).toBeInTheDocument();
   });
 
   it("renders history select when history prop is provided", async () => {
-    render(
-      <QueryEditor history={["MATCH (n) RETURN n", "RETURN 1"]} />
-    );
+    render(<QueryEditor history={["MATCH (n) RETURN n", "RETURN 1"]} />);
     await flushAsync();
     expect(screen.getByText("History")).toBeInTheDocument();
   });
@@ -285,16 +289,19 @@ describe("QueryEditor — SQL schema completion", () => {
         schema={{
           type: "postgresql",
           tables: [
-            { name: "users", columns: [{ name: "id", type: "integer", nullable: false }] },
+            {
+              name: "users",
+              columns: [{ name: "id", type: "integer", nullable: false }],
+            },
           ],
         }}
-      />
+      />,
     );
     await flushAsync();
 
     expect(mockSql).toHaveBeenCalled();
     const callWithSchema = mockSql.mock.calls.find(
-      (c) => c[0] && typeof c[0] === "object" && "schema" in c[0]
+      (c) => c[0] && typeof c[0] === "object" && "schema" in c[0],
     );
     expect(callWithSchema).toBeDefined();
     expect(callWithSchema![0].schema).toEqual({ users: ["id"] });
@@ -375,7 +382,9 @@ describe("QueryEditor — readOnly", () => {
 
 describe("QueryEditor — controlled value sync", () => {
   it("dispatches changes to CM when controlled value prop changes (SQL)", async () => {
-    const { rerender } = render(<QueryEditor language="sql" value="SELECT 1" />);
+    const { rerender } = render(
+      <QueryEditor language="sql" value="SELECT 1" />,
+    );
     await flushAsync();
     mockDispatch.mockClear();
 
@@ -399,7 +408,7 @@ describe("QueryEditor — history select", () => {
       <QueryEditor
         history={["MATCH (n) RETURN n", "RETURN 1"]}
         onChange={onChange}
-      />
+      />,
     );
     await flushAsync();
 

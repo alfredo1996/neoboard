@@ -13,7 +13,10 @@ const neo4jSchema: DatabaseSchema = {
 const pgSchema: DatabaseSchema = {
   type: "postgresql",
   tables: [
-    { name: "users", columns: [{ name: "id", type: "integer", nullable: false }] },
+    {
+      name: "users",
+      columns: [{ name: "id", type: "integer", nullable: false }],
+    },
   ],
 };
 
@@ -68,7 +71,9 @@ describe("useSchemaStore", () => {
 
   it("clearSchema on unknown id is a no-op", () => {
     useSchemaStore.getState().setSchema("conn-1", neo4jSchema);
-    expect(() => useSchemaStore.getState().clearSchema("unknown")).not.toThrow();
+    expect(() =>
+      useSchemaStore.getState().clearSchema("unknown"),
+    ).not.toThrow();
     expect(useSchemaStore.getState().getSchema("conn-1")).toEqual(neo4jSchema);
   });
 });

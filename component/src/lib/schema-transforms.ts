@@ -80,15 +80,23 @@ export function toSqlSchema(schema: DatabaseSchema): Record<string, string[]> {
  * deduplicated (the Neo4j library uses a flat list, not per-label maps).
  */
 export function toCypherSchema(schema: DatabaseSchema): EditorSupportSchema {
-  const labels = schema.labels ?? [];
-  const relationshipTypes = schema.relationshipTypes ?? [];
+  // Filter null/undefined entries — the neo4j editor-support package
+  // calls ecsapeCypher() on each value and it crashes on null.
+  const labels = (schema.labels ?? []).filter(Boolean) as string[];
+  const relationshipTypes = (schema.relationshipTypes ?? []).filter(
+    Boolean,
+  ) as string[];
 
   const propertyKeySet = new Set<string>();
   for (const props of Object.values(schema.nodeProperties ?? {})) {
-    for (const p of props) propertyKeySet.add(p.name);
+    for (const p of props) {
+      if (p.name) propertyKeySet.add(p.name);
+    }
   }
   for (const props of Object.values(schema.relProperties ?? {})) {
-    for (const p of props) propertyKeySet.add(p.name);
+    for (const p of props) {
+      if (p.name) propertyKeySet.add(p.name);
+    }
   }
 
   return {
