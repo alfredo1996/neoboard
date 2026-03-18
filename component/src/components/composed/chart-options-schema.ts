@@ -1,3 +1,5 @@
+import { COLOR_PALETTES } from "@/charts/palettes";
+
 export interface ChartOptionDef {
   key: string;
   label: string;
@@ -231,6 +233,19 @@ const accessibilityOptions: ChartOptionDef[] = [
   },
 ];
 
+/** Appearance options (color palette) for ECharts-based chart types. */
+const appearanceOptions: ChartOptionDef[] = [
+  {
+    key: "colorPalette",
+    label: "Color Palette",
+    type: "select",
+    default: "deep-ocean",
+    category: "Appearance",
+    description: "Color scheme for chart series and data points.",
+    options: Object.entries(COLOR_PALETTES).map(([k, v]) => ({ value: k, label: v.label })),
+  },
+];
+
 /** Shared behavior options available to all chart types except parameter-select and form. */
 const behaviorOptions: ChartOptionDef[] = [
   {
@@ -349,9 +364,9 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...behaviorOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...behaviorOptions, ...accessibilityOptions],
-  pie: [...pieOptions, ...behaviorOptions, ...accessibilityOptions],
+  bar: [...barOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  pie: [...pieOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],
@@ -361,11 +376,11 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   form: formOptions,
   markdown: markdownOptions,
   iframe: iframeOptions,
-  gauge: [...gaugeOptions, ...behaviorOptions],
-  sankey: [...sankeyOptions, ...behaviorOptions],
-  sunburst: [...sunburstOptions, ...behaviorOptions],
-  radar: [...radarOptions, ...behaviorOptions],
-  treemap: [...treemapOptions, ...behaviorOptions],
+  gauge: [...gaugeOptions, ...behaviorOptions, ...appearanceOptions],
+  sankey: [...sankeyOptions, ...behaviorOptions, ...appearanceOptions],
+  sunburst: [...sunburstOptions, ...behaviorOptions, ...appearanceOptions],
+  radar: [...radarOptions, ...behaviorOptions, ...appearanceOptions],
+  treemap: [...treemapOptions, ...behaviorOptions, ...appearanceOptions],
 };
 
 export function getChartOptions(chartType: string): ChartOptionDef[] {

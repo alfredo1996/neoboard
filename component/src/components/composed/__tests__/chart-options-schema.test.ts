@@ -252,6 +252,60 @@ describe("getDefaultChartSettings", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// colorPalette option
+// ---------------------------------------------------------------------------
+describe("colorPalette option", () => {
+  const echartsTypes = ["bar", "line", "pie", "gauge", "sankey", "sunburst", "radar", "treemap"];
+  const nonEchartsTypes = ["single-value", "graph", "map", "table", "json", "parameter-select", "form"];
+
+  it("includes colorPalette for all ECharts chart types", () => {
+    for (const type of echartsTypes) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys, `${type} should have colorPalette`).toContain("colorPalette");
+    }
+  });
+
+  it("does NOT include colorPalette for non-ECharts chart types", () => {
+    for (const type of nonEchartsTypes) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys, `${type} should NOT have colorPalette`).not.toContain("colorPalette");
+    }
+  });
+
+  it("colorPalette defaults to 'deep-ocean'", () => {
+    for (const type of echartsTypes) {
+      const defaults = getDefaultChartSettings(type);
+      expect(defaults.colorPalette, `${type} default colorPalette`).toBe("deep-ocean");
+    }
+  });
+
+  it("colorPalette is a select option in the 'Appearance' category", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorPalette");
+    expect(opt?.type).toBe("select");
+    expect(opt?.category).toBe("Appearance");
+  });
+
+  it("colorPalette select options include 'deep-ocean' and 'warm-sunset'", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorPalette");
+    expect(opt?.options).toBeDefined();
+    expect(opt?.options!.map((o) => o.value)).toContain("deep-ocean");
+    expect(opt?.options!.map((o) => o.value)).toContain("warm-sunset");
+  });
+
+  it("colorPalette select options all have non-empty label and value", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorPalette");
+    expect(opt?.options).toBeDefined();
+    for (const item of opt!.options!) {
+      expect(item.label.length).toBeGreaterThan(0);
+      expect(item.value.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("markdown chart options", () => {
   it("returns content option for markdown", () => {
     const options = getChartOptions("markdown");
