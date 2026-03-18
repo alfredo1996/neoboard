@@ -26,6 +26,7 @@ vi.mock("echarts/charts", () => ({
   LineChart: vi.fn(),
   PieChart: vi.fn(),
   GraphChart: vi.fn(),
+  GaugeChart: vi.fn(),
 }));
 
 vi.mock("echarts/components", () => ({
