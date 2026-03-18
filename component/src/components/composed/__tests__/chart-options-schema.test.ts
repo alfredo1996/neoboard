@@ -308,3 +308,163 @@ describe("iframe chart options", () => {
     expect(defaults).toHaveProperty("sandbox");
   });
 });
+
+// ---------------------------------------------------------------------------
+// gauge chart options
+// ---------------------------------------------------------------------------
+describe("gauge chart options", () => {
+  it("returns options for gauge chart", () => {
+    const keys = getChartOptions("gauge").map((o) => o.key);
+    expect(keys).toContain("min");
+    expect(keys).toContain("max");
+    expect(keys).toContain("showProgress");
+  });
+
+  it("defaults min to 0 and max to 100", () => {
+    const defaults = getDefaultChartSettings("gauge");
+    expect(defaults.min).toBe(0);
+    expect(defaults.max).toBe(100);
+  });
+
+  it("includes behavior options (showRefreshButton, manualRun, cacheMode)", () => {
+    const keys = getChartOptions("gauge").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("manualRun");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("gauge")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sankey chart options
+// ---------------------------------------------------------------------------
+describe("sankey chart options", () => {
+  it("returns options for sankey chart", () => {
+    const keys = getChartOptions("sankey").map((o) => o.key);
+    expect(keys).toContain("orient");
+    expect(keys).toContain("showLabels");
+  });
+
+  it("orient option has horizontal and vertical values", () => {
+    const opts = getChartOptions("sankey");
+    const orient = opts.find((o) => o.key === "orient");
+    expect(orient?.type).toBe("select");
+    expect(orient?.options).toContainEqual({ label: "Horizontal", value: "horizontal" });
+    expect(orient?.options).toContainEqual({ label: "Vertical", value: "vertical" });
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("sankey").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("sankey")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sunburst chart options
+// ---------------------------------------------------------------------------
+describe("sunburst chart options", () => {
+  it("returns options for sunburst chart", () => {
+    const keys = getChartOptions("sunburst").map((o) => o.key);
+    expect(keys).toContain("showLabels");
+    expect(keys).toContain("sort");
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("sunburst").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("sunburst")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// radar chart options
+// ---------------------------------------------------------------------------
+describe("radar chart options", () => {
+  it("returns options for radar chart", () => {
+    const keys = getChartOptions("radar").map((o) => o.key);
+    expect(keys).toContain("shape");
+    expect(keys).toContain("showLegend");
+    expect(keys).toContain("filled");
+  });
+
+  it("shape option has polygon and circle values", () => {
+    const opts = getChartOptions("radar");
+    const shape = opts.find((o) => o.key === "shape");
+    expect(shape?.type).toBe("select");
+    expect(shape?.options).toContainEqual({ label: "Polygon", value: "polygon" });
+    expect(shape?.options).toContainEqual({ label: "Circle", value: "circle" });
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("radar").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("radar")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// treemap chart options
+// ---------------------------------------------------------------------------
+describe("treemap chart options", () => {
+  it("returns options for treemap chart", () => {
+    const keys = getChartOptions("treemap").map((o) => o.key);
+    expect(keys).toContain("showLabels");
+    expect(keys).toContain("showBreadcrumb");
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("treemap").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("treemap")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
