@@ -52,17 +52,13 @@ jobs:
           npm ci --prefix connection &
           wait
 
-      - name: Type-check app and component packages
-        run: |
-          cd app && npx tsc --noEmit &
-          APP_PID=$!
-          cd component && npx tsc --noEmit &
-          COMP_PID=$!
+      - name: Type-check component
+        working-directory: component
+        run: npx tsc --noEmit
 
-          FAIL=0
-          wait $APP_PID  || FAIL=1
-          wait $COMP_PID || FAIL=1
-          exit $FAIL
+      - name: Type-check app
+        working-directory: app
+        run: npx tsc --noEmit
 
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
   # All three packages run in parallel within a single job.

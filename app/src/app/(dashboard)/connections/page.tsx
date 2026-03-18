@@ -146,7 +146,7 @@ export default function ConnectionsPage() {
           min={min}
           {...(max === undefined ? {} : { max })}
           value={formState[field] as string}
-          onChange={(e) =>
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             setFormState((f) => ({ ...f, [field]: e.target.value }))
           }
           placeholder={placeholder}
@@ -356,7 +356,7 @@ export default function ConnectionsPage() {
 
       <Dialog
         open={showCreate}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) closeCreateDialog();
         }}
       >
@@ -421,7 +421,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="conn-name"
                     value={form.name}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setForm((f) => ({ ...f, name: e.target.value }))
                     }
                     required
@@ -434,7 +434,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="conn-uri"
                     value={form.uri}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setForm((f) => ({ ...f, uri: e.target.value }))
                     }
                     required
@@ -452,7 +452,7 @@ export default function ConnectionsPage() {
                     <Input
                       id="conn-username"
                       value={form.username}
-                      onChange={(e) =>
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm((f) => ({ ...f, username: e.target.value }))
                       }
                       required
@@ -464,7 +464,7 @@ export default function ConnectionsPage() {
                     <PasswordInput
                       id="conn-password"
                       value={form.password}
-                      onChange={(e) =>
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm((f) => ({ ...f, password: e.target.value }))
                       }
                       required
@@ -480,7 +480,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="conn-database"
                     value={form.database}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setForm((f) => ({ ...f, database: e.target.value }))
                     }
                   />
@@ -643,7 +643,7 @@ export default function ConnectionsPage() {
       {/* Edit dialog — advanced options + credentials (required to re-encrypt) */}
       <Dialog
         open={editTarget !== null}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) setEditTarget(null);
         }}
       >
@@ -662,7 +662,7 @@ export default function ConnectionsPage() {
                 <Input
                   id="edit-uri"
                   value={editForm.uri}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setEditForm((f) => ({ ...f, uri: e.target.value }))
                   }
                   required
@@ -680,7 +680,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="edit-username"
                     value={editForm.username}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setEditForm((f) => ({ ...f, username: e.target.value }))
                     }
                     required
@@ -691,7 +691,7 @@ export default function ConnectionsPage() {
                   <PasswordInput
                     id="edit-password"
                     value={editForm.password}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setEditForm((f) => ({ ...f, password: e.target.value }))
                     }
                     required
@@ -707,7 +707,7 @@ export default function ConnectionsPage() {
                 <Input
                   id="edit-database"
                   value={editForm.database}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setEditForm((f) => ({ ...f, database: e.target.value }))
                   }
                 />
@@ -847,7 +847,7 @@ export default function ConnectionsPage() {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) setDeleteTarget(null);
         }}
         title="Delete Connection"
