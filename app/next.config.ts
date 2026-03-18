@@ -57,6 +57,18 @@ const nextConfig: NextConfig = {
       };
     }
 
+    // When transpilePackages includes @neoboard/components, webpack resolves
+    // the component library's bare imports (echarts, @neo4j-nvl, etc.) from
+    // the app's node_modules context. In CI, each package runs `npm ci` in
+    // isolation, so deps installed only in component/node_modules/ aren't
+    // visible to the app's webpack resolver. Adding component/node_modules
+    // to resolve.modules fixes this without duplicating dependencies.
+    config.resolve.modules = [
+      ...(config.resolve.modules ?? []),
+      resolve(import.meta.dirname, "..", "component", "node_modules"),
+      "node_modules",
+    ];
+
     // The component library uses @/ as a path alias pointing to its own src/.
     // The app also uses @/ (via tsconfig paths) pointing to app/src/.
     // We need to resolve @/ differently based on which package the import originates from.
