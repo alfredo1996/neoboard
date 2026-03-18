@@ -6,6 +6,7 @@ import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
   useConnections,
   useCreateConnection,
+  useUpdateConnection,
   useDeleteConnection,
   useTestConnection,
   useTestInlineConnection,
@@ -64,6 +65,7 @@ function parseOptionalInt(val: string): number | undefined {
 export default function ConnectionsPage() {
   const { data: connections, isLoading } = useConnections();
   const createConnection = useCreateConnection();
+  const updateConnection = useUpdateConnection();
   const deleteConnection = useDeleteConnection();
   const testConnection = useTestConnection();
 
@@ -81,6 +83,16 @@ export default function ConnectionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
+
+  // Edit dialog state — only advanced settings are editable
+  const [editTarget, setEditTarget] = useState<{
+    id: string;
+    name: string;
+    type: "neo4j" | "postgresql";
+  } | null>(null);
+  const [editForm, setEditForm] = useState(DEFAULT_FORM);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [showEditAdvanced, setShowEditAdvanced] = useState(true);
 
   // Auto-test all connections on first load
   useEffect(() => {
@@ -104,7 +116,9 @@ export default function ConnectionsPage() {
       connectionTimeout: parseOptionalInt(form.connectionTimeout),
       queryTimeout: parseOptionalInt(form.queryTimeout),
       maxPoolSize: parseOptionalInt(form.maxPoolSize),
-      connectionAcquisitionTimeout: parseOptionalInt(form.connectionAcquisitionTimeout),
+      connectionAcquisitionTimeout: parseOptionalInt(
+        form.connectionAcquisitionTimeout,
+      ),
       idleTimeout: parseOptionalInt(form.idleTimeout),
       statementTimeout: parseOptionalInt(form.statementTimeout),
       sslRejectUnauthorized: form.sslRejectUnauthorized,
@@ -112,13 +126,15 @@ export default function ConnectionsPage() {
   }
 
   /** Render a numeric input field for advanced settings. */
-  function numericField(
+  function renderNumericField(
     id: string,
     label: string,
     field: keyof typeof DEFAULT_FORM,
     placeholder: string,
     min: number,
-    max?: number,
+    max: number | undefined,
+    formState: typeof DEFAULT_FORM,
+    setFormState: React.Dispatch<React.SetStateAction<typeof DEFAULT_FORM>>,
   ) {
     return (
       <div className="space-y-2">
@@ -129,11 +145,53 @@ export default function ConnectionsPage() {
           step={1}
           min={min}
           {...(max === undefined ? {} : { max })}
-          value={form[field] as string}
-          onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+          value={formState[field] as string}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setFormState((f) => ({ ...f, [field]: e.target.value }))
+          }
           placeholder={placeholder}
         />
       </div>
+    );
+  }
+
+  function numericField(
+    id: string,
+    label: string,
+    field: keyof typeof DEFAULT_FORM,
+    placeholder: string,
+    min: number,
+    max?: number,
+  ) {
+    return renderNumericField(
+      id,
+      label,
+      field,
+      placeholder,
+      min,
+      max,
+      form,
+      setForm,
+    );
+  }
+
+  function editNumericField(
+    id: string,
+    label: string,
+    field: keyof typeof DEFAULT_FORM,
+    placeholder: string,
+    min: number,
+    max?: number,
+  ) {
+    return renderNumericField(
+      id,
+      label,
+      field,
+      placeholder,
+      min,
+      max,
+      editForm,
+      setEditForm,
     );
   }
 
@@ -171,7 +229,7 @@ export default function ConnectionsPage() {
       handleTest(newConn.id);
     } catch (error) {
       setCreateError(
-        error instanceof Error ? error.message : "Failed to create connection"
+        error instanceof Error ? error.message : "Failed to create connection",
       );
     }
   }
@@ -191,7 +249,11 @@ export default function ConnectionsPage() {
 
   async function handleTest(id: string) {
     setTestResults((prev) => ({ ...prev, [id]: "connecting" }));
-    setTestErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setTestErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     try {
       const result = await testConnection.mutateAsync(id);
       setTestResults((prev) => ({
@@ -207,7 +269,10 @@ export default function ConnectionsPage() {
     }
   }
 
-  function handleDuplicate(conn: { name: string; type: "neo4j" | "postgresql" }) {
+  function handleDuplicate(conn: {
+    name: string;
+    type: "neo4j" | "postgresql";
+  }) {
     setForm({
       ...DEFAULT_FORM,
       type: conn.type,
@@ -217,6 +282,55 @@ export default function ConnectionsPage() {
     setCreateError(null);
     setInlineTestResult(null);
     setShowCreate(true);
+  }
+
+  function openEditDialog(conn: {
+    id: string;
+    name: string;
+    type: "neo4j" | "postgresql";
+  }) {
+    setEditTarget(conn);
+    // Reset the edit form — advanced fields start empty (user fills what they want to change)
+    setEditForm({ ...DEFAULT_FORM, type: conn.type, name: conn.name });
+    setEditError(null);
+    setShowEditAdvanced(true);
+  }
+
+  function buildEditConfig() {
+    return {
+      uri: editForm.uri,
+      username: editForm.username,
+      password: editForm.password,
+      database: editForm.database || undefined,
+      connectionTimeout: parseOptionalInt(editForm.connectionTimeout),
+      queryTimeout: parseOptionalInt(editForm.queryTimeout),
+      maxPoolSize: parseOptionalInt(editForm.maxPoolSize),
+      connectionAcquisitionTimeout: parseOptionalInt(
+        editForm.connectionAcquisitionTimeout,
+      ),
+      idleTimeout: parseOptionalInt(editForm.idleTimeout),
+      statementTimeout: parseOptionalInt(editForm.statementTimeout),
+      sslRejectUnauthorized: editForm.sslRejectUnauthorized,
+    };
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditError(null);
+
+    try {
+      await updateConnection.mutateAsync({
+        id: editTarget.id,
+        config: buildEditConfig(),
+      });
+      setEditTarget(null);
+      handleTest(editTarget.id);
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Failed to update connection",
+      );
+    }
   }
 
   function getConnectionStatus(id: string): ConnectionState {
@@ -240,7 +354,12 @@ export default function ConnectionsPage() {
         }
       />
 
-      <Dialog open={showCreate} onOpenChange={(open) => { if (!open) closeCreateDialog(); }}>
+      <Dialog
+        open={showCreate}
+        onOpenChange={(open: boolean) => {
+          if (!open) closeCreateDialog();
+        }}
+      >
         <DialogContent>
           {dialogStep === "pick-type" ? (
             <>
@@ -256,7 +375,9 @@ export default function ConnectionsPage() {
                   <Neo4jLogo className="h-10 w-10" />
                   <div>
                     <p className="font-semibold">Neo4j</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Graph database</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Graph database
+                    </p>
                   </div>
                 </button>
                 <button
@@ -267,7 +388,9 @@ export default function ConnectionsPage() {
                   <PostgreSQLLogo className="h-10 w-10" />
                   <div>
                     <p className="font-semibold">PostgreSQL</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Relational database</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Relational database
+                    </p>
                   </div>
                 </button>
               </div>
@@ -276,7 +399,8 @@ export default function ConnectionsPage() {
             <form onSubmit={handleCreate}>
               <DialogHeader>
                 <DialogTitle>
-                  New {form.type === "neo4j" ? "Neo4j" : "PostgreSQL"} Connection
+                  New {form.type === "neo4j" ? "Neo4j" : "PostgreSQL"}{" "}
+                  Connection
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -297,7 +421,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="conn-name"
                     value={form.name}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setForm((f) => ({ ...f, name: e.target.value }))
                     }
                     required
@@ -310,7 +434,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="conn-uri"
                     value={form.uri}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setForm((f) => ({ ...f, uri: e.target.value }))
                     }
                     required
@@ -328,7 +452,7 @@ export default function ConnectionsPage() {
                     <Input
                       id="conn-username"
                       value={form.username}
-                      onChange={(e) =>
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm((f) => ({ ...f, username: e.target.value }))
                       }
                       required
@@ -340,7 +464,7 @@ export default function ConnectionsPage() {
                     <PasswordInput
                       id="conn-password"
                       value={form.password}
-                      onChange={(e) =>
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm((f) => ({ ...f, password: e.target.value }))
                       }
                       required
@@ -356,7 +480,7 @@ export default function ConnectionsPage() {
                   <Input
                     id="conn-database"
                     value={form.database}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setForm((f) => ({ ...f, database: e.target.value }))
                     }
                   />
@@ -380,23 +504,73 @@ export default function ConnectionsPage() {
                       {form.type === "neo4j" ? (
                         <>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            {numericField("conn-connection-timeout", "Connection Timeout (ms)", "connectionTimeout", "30000", 0)}
-                            {numericField("conn-query-timeout", "Query Timeout (ms)", "queryTimeout", "2000", 0)}
+                            {numericField(
+                              "conn-connection-timeout",
+                              "Connection Timeout (ms)",
+                              "connectionTimeout",
+                              "30000",
+                              0,
+                            )}
+                            {numericField(
+                              "conn-query-timeout",
+                              "Query Timeout (ms)",
+                              "queryTimeout",
+                              "2000",
+                              0,
+                            )}
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            {numericField("conn-max-pool", "Max Pool Size", "maxPoolSize", "driver default", 1, 100)}
-                            {numericField("conn-acquisition-timeout", "Acquisition Timeout (ms)", "connectionAcquisitionTimeout", "driver default", 0)}
+                            {numericField(
+                              "conn-max-pool",
+                              "Max Pool Size",
+                              "maxPoolSize",
+                              "driver default",
+                              1,
+                              100,
+                            )}
+                            {numericField(
+                              "conn-acquisition-timeout",
+                              "Acquisition Timeout (ms)",
+                              "connectionAcquisitionTimeout",
+                              "driver default",
+                              0,
+                            )}
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            {numericField("conn-connection-timeout", "Connection Timeout (ms)", "connectionTimeout", "10000", 0)}
-                            {numericField("conn-idle-timeout", "Idle Timeout (ms)", "idleTimeout", "10000", 0)}
+                            {numericField(
+                              "conn-connection-timeout",
+                              "Connection Timeout (ms)",
+                              "connectionTimeout",
+                              "10000",
+                              0,
+                            )}
+                            {numericField(
+                              "conn-idle-timeout",
+                              "Idle Timeout (ms)",
+                              "idleTimeout",
+                              "10000",
+                              0,
+                            )}
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
-                            {numericField("conn-max-pool", "Max Pool Size", "maxPoolSize", "10", 1, 100)}
-                            {numericField("conn-statement-timeout", "Statement Timeout (ms)", "statementTimeout", "30000", 0)}
+                            {numericField(
+                              "conn-max-pool",
+                              "Max Pool Size",
+                              "maxPoolSize",
+                              "10",
+                              1,
+                              100,
+                            )}
+                            {numericField(
+                              "conn-statement-timeout",
+                              "Statement Timeout (ms)",
+                              "statementTimeout",
+                              "30000",
+                              0,
+                            )}
                           </div>
                           <div className="flex items-center justify-between">
                             <Label htmlFor="conn-ssl-reject">
@@ -406,7 +580,10 @@ export default function ConnectionsPage() {
                               id="conn-ssl-reject"
                               checked={form.sslRejectUnauthorized ?? false}
                               onCheckedChange={(checked) =>
-                                setForm((f) => ({ ...f, sslRejectUnauthorized: checked }))
+                                setForm((f) => ({
+                                  ...f,
+                                  sslRejectUnauthorized: checked,
+                                }))
                               }
                             />
                           </div>
@@ -422,7 +599,9 @@ export default function ConnectionsPage() {
                 </Alert>
               )}
               {inlineTestResult && (
-                <Alert variant={inlineTestResult.success ? "default" : "destructive"}>
+                <Alert
+                  variant={inlineTestResult.success ? "default" : "destructive"}
+                >
                   <AlertDescription>
                     {inlineTestResult.success
                       ? "Connection successful!"
@@ -461,9 +640,214 @@ export default function ConnectionsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit dialog — advanced options + credentials (required to re-encrypt) */}
+      <Dialog
+        open={editTarget !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) setEditTarget(null);
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={handleEdit}>
+            <DialogHeader>
+              <DialogTitle>Edit {editTarget?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Re-enter your credentials to update advanced settings.
+              </p>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-uri">URI</Label>
+                <Input
+                  id="edit-uri"
+                  value={editForm.uri}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setEditForm((f) => ({ ...f, uri: e.target.value }))
+                  }
+                  required
+                  placeholder={
+                    editTarget?.type === "neo4j"
+                      ? "bolt://localhost:7687"
+                      : "postgresql://localhost:5432"
+                  }
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-username">Username</Label>
+                  <Input
+                    id="edit-username"
+                    value={editForm.username}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditForm((f) => ({ ...f, username: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-password">Password</Label>
+                  <PasswordInput
+                    id="edit-password"
+                    value={editForm.password}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditForm((f) => ({ ...f, password: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-database">
+                  Database{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="edit-database"
+                  value={editForm.database}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setEditForm((f) => ({ ...f, database: e.target.value }))
+                  }
+                />
+              </div>
+
+              {/* Advanced Settings */}
+              <div className="border-t pt-2">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowEditAdvanced(!showEditAdvanced)}
+                >
+                  Advanced Settings
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${showEditAdvanced ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {showEditAdvanced && (
+                  <div className="mt-3 space-y-4">
+                    {editTarget?.type === "neo4j" ? (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {editNumericField(
+                            "edit-connection-timeout",
+                            "Connection Timeout (ms)",
+                            "connectionTimeout",
+                            "30000",
+                            0,
+                          )}
+                          {editNumericField(
+                            "edit-query-timeout",
+                            "Query Timeout (ms)",
+                            "queryTimeout",
+                            "2000",
+                            0,
+                          )}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {editNumericField(
+                            "edit-max-pool",
+                            "Max Pool Size",
+                            "maxPoolSize",
+                            "driver default",
+                            1,
+                            100,
+                          )}
+                          {editNumericField(
+                            "edit-acquisition-timeout",
+                            "Acquisition Timeout (ms)",
+                            "connectionAcquisitionTimeout",
+                            "driver default",
+                            0,
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {editNumericField(
+                            "edit-connection-timeout",
+                            "Connection Timeout (ms)",
+                            "connectionTimeout",
+                            "10000",
+                            0,
+                          )}
+                          {editNumericField(
+                            "edit-idle-timeout",
+                            "Idle Timeout (ms)",
+                            "idleTimeout",
+                            "10000",
+                            0,
+                          )}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {editNumericField(
+                            "edit-max-pool",
+                            "Max Pool Size",
+                            "maxPoolSize",
+                            "10",
+                            1,
+                            100,
+                          )}
+                          {editNumericField(
+                            "edit-statement-timeout",
+                            "Statement Timeout (ms)",
+                            "statementTimeout",
+                            "30000",
+                            0,
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="edit-ssl-reject">
+                            Reject Unauthorized SSL
+                          </Label>
+                          <Switch
+                            id="edit-ssl-reject"
+                            checked={editForm.sslRejectUnauthorized ?? false}
+                            onCheckedChange={(checked) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                sslRejectUnauthorized: checked,
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            {editError && (
+              <Alert variant="destructive">
+                <AlertDescription>{editError}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditTarget(null)}
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                type="submit"
+                loading={updateConnection.isPending}
+                loadingText="Saving..."
+              >
+                Save
+              </LoadingButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={deleteTarget !== null}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) setDeleteTarget(null);
         }}
         title="Delete Connection"
@@ -502,6 +886,7 @@ export default function ConnectionsPage() {
                   status={getConnectionStatus(c.id)}
                   statusText={testErrors[c.id]}
                   onTest={() => handleTest(c.id)}
+                  onEdit={() => openEditDialog(c)}
                   onDelete={() => setDeleteTarget(c.id)}
                   onDuplicate={() => handleDuplicate(c)}
                 />

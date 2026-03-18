@@ -9,13 +9,32 @@
     "test:components": "npm run test --prefix component",
     "lint": "eslint .",
     "docs:dev": "npm run dev --prefix docs",
-    "docs:build": "npm run build --prefix docs"
+    "docs:build": "npm run build --prefix docs",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "app/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "component/**/*.{ts,tsx}": [
+      "prettier --write"
+    ],
+    "connection/**/*.{ts,tsx}": [
+      "prettier --write"
+    ],
+    "**/*.{js,jsx,json,css,md}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4"
   }

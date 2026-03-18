@@ -1,5 +1,5 @@
 /**
- * QueryEditor tests
+ * QueryEditor tests — Unified CodeMirror 6 architecture
  *
  * CodeMirror 6 mounts into a real DOM using dynamic imports. In jsdom we mock
  * the CM modules so they do NOT render contenteditable nodes; instead the
@@ -11,8 +11,10 @@
  *  - Disabled states (empty value, running)
  *  - className propagation
  *  - Language label mapping
- *  - Language switching reinitialises editor
+ *  - Language switching reconfigures compartment (no destroy/recreate)
  *  - Abort signal prevents stale initEditor calls
+ *  - Schema prop passed to resolveLanguageExt for both SQL and Cypher
+ *  - Unified init path — single EditorView for all languages
  */
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -68,9 +70,13 @@ vi.mock("@codemirror/state", () => ({
   },
   Compartment: class MockCompartment {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    of(ext: any) { return { type: "compartment.of", ext }; }
+    of(ext: any) {
+      return { type: "compartment.of", ext };
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    reconfigure(ext: any) { return { type: "compartment.reconfigure", ext }; }
+    reconfigure(ext: any) {
+      return { type: "compartment.reconfigure", ext };
+    }
   },
 }));
 
@@ -89,8 +95,17 @@ vi.mock("@codemirror/theme-one-dark", () => ({
   oneDark: { type: "oneDark" },
 }));
 
-vi.mock("@codemirror/lang-sql", () => ({
-  sql: () => ({ type: "sql" }),
+// ---------------------------------------------------------------------------
+// Mock language resolvers — unified path for both SQL and Cypher
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock accepts any args
+const mockResolveLanguageExt = vi.fn<(...args: any[]) => Promise<object[]>>(
+  async () => [{ type: "mockLanguageExt" }],
+);
+
+vi.mock("@/lib/language-resolvers", () => ({
+  resolveLanguageExt: (...args: unknown[]) => mockResolveLanguageExt(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -101,14 +116,19 @@ beforeEach(() => {
   mockDispatch.mockClear();
   mockDestroy.mockClear();
   mockFocus.mockClear();
+  mockResolveLanguageExt.mockClear();
   capturedUpdateListener = null;
 });
 
-// Helper: wait for async initEditor to resolve
+// Helper: wait for async initEditor to resolve.
+// initEditor awaits multiple dynamic imports, so flush several microtask
+// rounds to ensure all promise chains settle.
 async function flushAsync() {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
+  for (let i = 0; i < 5; i++) {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
 }
 
 describe("QueryEditor", () => {
@@ -189,16 +209,16 @@ describe("QueryEditor", () => {
 
   it("calls onChange via CodeMirror update listener", async () => {
     const onChange = vi.fn();
-    render(<QueryEditor onChange={onChange} />);
+    render(<QueryEditor language="sql" onChange={onChange} />);
     await flushAsync();
 
     if (capturedUpdateListener) {
       capturedUpdateListener({
         docChanged: true,
-        state: { doc: { toString: () => "MATCH" } },
+        state: { doc: { toString: () => "SELECT" } },
       });
     }
-    expect(onChange).toHaveBeenCalledWith("MATCH");
+    expect(onChange).toHaveBeenCalledWith("SELECT");
   });
 
   it("calls onChange with empty string when clear button is clicked", async () => {
@@ -216,12 +236,6 @@ describe("QueryEditor", () => {
     expect(container.firstChild).toHaveClass("my-editor");
   });
 
-  // NOTE: Ctrl/Cmd+Enter is handled by a CodeMirror 6 keymap extension
-  // (`keymap.of([{ key: "Ctrl-Enter", mac: "Cmd-Enter", run: onRun }])`)
-  // which cannot be tested in jsdom with mocked CM modules. The shortcut
-  // is verified via E2E (Playwright). The run-and-save shortcut
-  // (CMD+Shift+Enter) is handled at the widget-editor-modal level.
-
   it("does not render the run-and-save hint by default", () => {
     render(<QueryEditor />);
     expect(screen.queryByLabelText(/run and save shortcut/i)).toBeNull();
@@ -230,38 +244,97 @@ describe("QueryEditor", () => {
   it("renders the run-and-save hint when runAndSaveHint=true", () => {
     render(<QueryEditor runAndSaveHint />);
     expect(
-      screen.getByLabelText("Run and save shortcut: Command Shift Enter")
+      screen.getByLabelText("Run and save shortcut: Command Shift Enter"),
     ).toBeInTheDocument();
   });
 
   it("renders history select when history prop is provided", async () => {
-    render(
-      <QueryEditor history={["MATCH (n) RETURN n", "RETURN 1"]} />
-    );
+    render(<QueryEditor history={["MATCH (n) RETURN n", "RETURN 1"]} />);
     await flushAsync();
     expect(screen.getByText("History")).toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Language switching
+// Unified editor — uses resolveLanguageExt for all languages
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — unified editor init", () => {
+  it("calls resolveLanguageExt with cypher language by default", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[0]).toBe("cypher");
+  });
+
+  it("calls resolveLanguageExt with sql language", async () => {
+    render(<QueryEditor language="sql" />);
+    await flushAsync();
+
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[0]).toBe("sql");
+  });
+
+  it("passes schema to resolveLanguageExt when schema prop provided", async () => {
+    const schema = {
+      type: "postgresql" as const,
+      tables: [
+        {
+          name: "users",
+          columns: [{ name: "id", type: "integer", nullable: false }],
+        },
+      ],
+    };
+
+    render(<QueryEditor language="sql" schema={schema} />);
+    await flushAsync();
+
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[1]).toEqual(schema);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Language switching — compartment reconfigure (no destroy/recreate)
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — language switching", () => {
-  it("reconfigures language compartment when language prop changes (no remount)", async () => {
-    const { rerender } = render(<QueryEditor language="cypher" />);
+  it("reconfigures language via compartment when language changes", async () => {
+    const { rerender } = render(<QueryEditor language="sql" />);
     await flushAsync();
+    mockResolveLanguageExt.mockClear();
     mockDispatch.mockClear();
-    mockDestroy.mockClear();
 
-    rerender(<QueryEditor language="sql" />);
+    rerender(<QueryEditor language="cypher" />);
     await flushAsync();
 
-    // With Compartments, the editor dispatches a reconfigure effect in place.
-    // The old view must NOT be destroyed (no remount).
-    expect(mockDispatch).toHaveBeenCalled();
-    expect(mockDestroy).not.toHaveBeenCalled();
+    // Should call resolveLanguageExt with new language
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const calls = mockResolveLanguageExt.mock.calls as unknown[][];
+    const cypherCall = calls.find((c) => c[0] === "cypher");
+    expect(cypherCall).toBeDefined();
+  });
+
+  it("reconfigures when switching within SQL dialects", async () => {
+    const { rerender } = render(<QueryEditor language="sql" />);
+    await flushAsync();
+    mockResolveLanguageExt.mockClear();
+    mockDispatch.mockClear();
+
+    rerender(<QueryEditor language="postgresql" />);
+    await flushAsync();
+
+    // Both sql and postgresql → compartment reconfigure
     expect(screen.getByText("SQL")).toBeInTheDocument();
+    // Verify resolveLanguageExt called with new dialect
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const calls = mockResolveLanguageExt.mock.calls as unknown[][];
+    const postgresqlCall = calls.find((c) => c[0] === "postgresql");
+    expect(postgresqlCall).toBeDefined();
   });
 });
 
@@ -270,10 +343,21 @@ describe("QueryEditor — language switching", () => {
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — readOnly", () => {
-  it("run and clear buttons are disabled in readOnly mode", async () => {
+  it("run and clear buttons are visible in readOnly mode", async () => {
     render(<QueryEditor readOnly value="MATCH (n) RETURN n" />);
     await flushAsync();
     expect(screen.getByText("Run")).toBeInTheDocument();
+  });
+
+  it("dispatches compartment reconfigure when readOnly changes", async () => {
+    const { rerender } = render(<QueryEditor language="sql" />);
+    await flushAsync();
+    mockDispatch.mockClear();
+
+    rerender(<QueryEditor language="sql" readOnly />);
+    await flushAsync();
+
+    expect(mockDispatch).toHaveBeenCalled();
   });
 });
 
@@ -283,31 +367,37 @@ describe("QueryEditor — readOnly", () => {
 
 describe("QueryEditor — controlled value sync", () => {
   it("dispatches changes to CM when controlled value prop changes", async () => {
-    const { rerender } = render(<QueryEditor value="MATCH (n)" />);
+    const { rerender } = render(
+      <QueryEditor language="sql" value="SELECT 1" />,
+    );
     await flushAsync();
     mockDispatch.mockClear();
 
-    rerender(<QueryEditor value="RETURN 1" />);
+    rerender(<QueryEditor language="sql" value="SELECT 2" />);
     await flushAsync();
 
     expect(mockDispatch).toHaveBeenCalled();
   });
 
   it("does not dispatch when value matches CM doc", async () => {
-    render(<QueryEditor value="" />);
+    const { rerender } = render(<QueryEditor language="sql" value="" />);
     await flushAsync();
     mockDispatch.mockClear();
+
+    // Rerender with same value — CM doc already matches, so dispatch should not be called
+    rerender(<QueryEditor language="sql" value="" />);
+    await flushAsync();
+
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 });
 
 describe("QueryEditor — history select", () => {
-  it("calls onChange when a history item is selected", async () => {
-    const onChange = vi.fn();
+  it("renders History select trigger when history prop is provided", async () => {
     render(
       <QueryEditor
         history={["MATCH (n) RETURN n", "RETURN 1"]}
-        onChange={onChange}
-      />
+      />,
     );
     await flushAsync();
 

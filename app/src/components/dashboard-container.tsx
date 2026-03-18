@@ -12,7 +12,10 @@ import type {
   WidgetTemplate,
 } from "@/lib/db/schema";
 import { useParameterStore } from "@/stores/parameter-store";
-import { formatParameterValue, filterParentParams } from "@/lib/format-parameter-value";
+import {
+  formatParameterValue,
+  filterParentParams,
+} from "@/lib/format-parameter-value";
 import { shouldShowRefreshButton } from "@/lib/resolve-cache-options";
 import { LayoutDashboard, Maximize2, RefreshCw } from "lucide-react";
 import {
@@ -46,7 +49,10 @@ interface DashboardContainerProps {
    * Called when a widget's settings are updated inline (e.g. column mapping).
    * The caller should persist the updated widget to the dashboard layout.
    */
-  onWidgetSettingsChange?: (widgetId: string, settings: Record<string, unknown>) => void;
+  onWidgetSettingsChange?: (
+    widgetId: string,
+    settings: Record<string, unknown>,
+  ) => void;
   /** TanStack Query refetchInterval — periodically re-executes all widget queries. */
   refetchInterval?: number | false;
   /** Called when a click action navigates to a different page. */
@@ -70,7 +76,6 @@ function getWidgetTitle(widget: DashboardWidget): string {
   return getChartConfig(widget.chartType)?.label ?? widget.chartType;
 }
 
-
 export function DashboardContainer({
   page,
   editable = false,
@@ -90,6 +95,19 @@ export function DashboardContainer({
   const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
+  // Defer fullscreen content render until the dialog animation (200ms zoom-in-95)
+  // settles.  Without this, NVL reads the canvas dimensions mid-animation
+  // (at ~95% of final size) and the hit-test coordinates are permanently offset.
+  const [fullscreenReady, setFullscreenReady] = useState(false);
+  const openFullscreen = useCallback((w: DashboardWidget) => {
+    setFullscreenReady(false);
+    setFullscreenWidget(w);
+    setTimeout(() => setFullscreenReady(true), 250);
+  }, []);
+  const closeFullscreen = useCallback(() => {
+    setFullscreenWidget(null);
+    setFullscreenReady(false);
+  }, []);
   const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
   const parameters = useParameterStore((s) => s.parameters);
@@ -98,7 +116,7 @@ export function DashboardContainer({
   const allEntries = Object.entries(parameters);
   const displayEntries = useMemo(
     () => filterParentParams(allEntries),
-    [allEntries]
+    [allEntries],
   );
   const hasParameters = displayEntries.length > 0;
 
@@ -199,66 +217,81 @@ export function DashboardContainer({
       >
         {page.widgets.map((widget) => {
           const outdated = editable && isWidgetOutdated(widget);
-          const chartOpts = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
+          const chartOpts = (widget.settings?.chartOptions ?? {}) as Record<
+            string,
+            unknown
+          >;
           const showRefresh = shouldShowRefreshButton(chartOpts);
           return (
-          <div key={widget.id} data-testid="widget-card" data-widget-id={widget.id}>
-            <WidgetCard
-              title={interpolateTitle(getWidgetTitle(widget), parameters)}
-              subtitle={undefined}
-              className="h-full"
-              draggable={editable}
-              actions={buildActions(widget)}
-              onRefresh={
-                showRefresh
-                  ? () => {
-                      // Invalidate all TanStack Query entries matching this widget's
-                      // connection + query combo. This triggers a refetch.
-                      void queryClient.invalidateQueries({
-                        queryKey: ["widget-query", widget.connectionId, widget.query, widget.params],
-                      });
-                    }
-                  : undefined
-              }
-              headerExtra={
-                <>
-                  {outdated && (
+            <div
+              key={widget.id}
+              data-testid="widget-card"
+              data-widget-id={widget.id}
+            >
+              <WidgetCard
+                title={interpolateTitle(getWidgetTitle(widget), parameters)}
+                subtitle={undefined}
+                className="h-full"
+                draggable={editable}
+                actions={buildActions(widget)}
+                onRefresh={
+                  showRefresh
+                    ? () => {
+                        // Invalidate all TanStack Query entries matching this widget's
+                        // connection + query combo. This triggers a refetch.
+                        void queryClient.invalidateQueries({
+                          queryKey: [
+                            "widget-query",
+                            widget.connectionId,
+                            widget.query,
+                            widget.params,
+                          ],
+                        });
+                      }
+                    : undefined
+                }
+                headerExtra={
+                  <>
+                    {outdated && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-amber-500"
+                        onClick={() => setPendingSyncWidget(widget)}
+                        title="Template update available — click to sync"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        <span className="sr-only">
+                          Template update available
+                        </span>
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-amber-500"
-                      onClick={() => setPendingSyncWidget(widget)}
-                      title="Template update available — click to sync"
+                      className="h-8 w-8"
+                      onClick={() => openFullscreen(widget)}
                     >
-                      <RefreshCw className="h-4 w-4" />
-                      <span className="sr-only">Template update available</span>
+                      <Maximize2 className="h-4 w-4" />
+                      <span className="sr-only">Fullscreen</span>
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setFullscreenWidget(widget)}
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                    <span className="sr-only">Fullscreen</span>
-                  </Button>
-                </>
-              }
-            >
-              <CardContainer
-                widget={widget}
-                isEditMode={editable}
-                onWidgetSettingsChange={
-                  onWidgetSettingsChange
-                    ? (settings) => onWidgetSettingsChange(widget.id, settings)
-                    : undefined
+                  </>
                 }
-                refetchInterval={refetchInterval}
-                onNavigateToPage={onNavigateToPage}
-              />
-            </WidgetCard>
-          </div>
+              >
+                <CardContainer
+                  widget={widget}
+                  isEditMode={editable}
+                  onWidgetSettingsChange={
+                    onWidgetSettingsChange
+                      ? (settings) =>
+                          onWidgetSettingsChange(widget.id, settings)
+                      : undefined
+                  }
+                  refetchInterval={refetchInterval}
+                  onNavigateToPage={onNavigateToPage}
+                />
+              </WidgetCard>
+            </div>
           );
         })}
       </DashboardGrid>
@@ -266,7 +299,7 @@ export function DashboardContainer({
       <Dialog
         open={fullscreenWidget !== null}
         onOpenChange={(open) => {
-          if (!open) setFullscreenWidget(null);
+          if (!open) closeFullscreen();
         }}
       >
         <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
@@ -276,13 +309,19 @@ export function DashboardContainer({
                 {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
               </h2>
               <div className="flex-1 min-h-0">
-                <CardContainer
-                  key={`${fullscreenWidget.id}-fullscreen`}
-                  widget={fullscreenWidget}
-                  refetchInterval={refetchInterval}
-                  onNavigateToPage={onNavigateToPage}
-                  autoFit
-                />
+                {fullscreenReady ? (
+                  <CardContainer
+                    key={`${fullscreenWidget.id}-fullscreen`}
+                    widget={fullscreenWidget}
+                    refetchInterval={refetchInterval}
+                    onNavigateToPage={onNavigateToPage}
+                    autoFit
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    Loading…
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -291,7 +330,9 @@ export function DashboardContainer({
 
       <AlertDialog
         open={pendingSyncWidget !== null}
-        onOpenChange={(open) => { if (!open) setPendingSyncWidget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingSyncWidget(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>

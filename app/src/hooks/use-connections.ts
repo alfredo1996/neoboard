@@ -64,6 +64,42 @@ export function useDeleteConnection() {
   });
 }
 
+export interface UpdateConnectionInput {
+  id: string;
+  name?: string;
+  config?: {
+    uri: string;
+    username: string;
+    password: string;
+    database?: string;
+    connectionTimeout?: number;
+    queryTimeout?: number;
+    maxPoolSize?: number;
+    connectionAcquisitionTimeout?: number;
+    idleTimeout?: number;
+    statementTimeout?: number;
+    sslRejectUnauthorized?: boolean;
+  };
+}
+
+export function useUpdateConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...body }: UpdateConnectionInput) => {
+      const res = await fetch(`/api/connections/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return unwrapResponse<ConnectionListItem>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
+    },
+  });
+}
+
 export function useTestConnection() {
   return useMutation({
     mutationFn: async (id: string) => {
