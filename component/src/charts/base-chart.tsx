@@ -19,6 +19,7 @@ import {
   THEME_DARK,
   DEEP_OCEAN_LIGHT,
 } from "./theme";
+import { getPaletteColors } from "./palettes";
 
 echarts.use([
   EBarChart,
@@ -96,6 +97,7 @@ function BaseChart({
   onClick,
   onDataZoom,
   colorblindMode = false,
+  colorPalette,
 }: BaseChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
@@ -132,10 +134,18 @@ function BaseChart({
     const instance = chartRef.current;
     if (!instance || !options) return;
 
+    // Resolve chart colors: use a custom palette when provided (and not deep-ocean),
+    // otherwise fall back to CSS-variable-based colors (theme default).
+    const paletteColors =
+      colorPalette && colorPalette !== "deep-ocean"
+        ? getPaletteColors(colorPalette)
+        : undefined;
+    const resolvedColors = paletteColors ?? resolveChartColors();
+
     const userAria = (options?.aria ?? {}) as Record<string, unknown>;
     const userDecal = (userAria.decal ?? {}) as Record<string, unknown>;
     const merged: EChartsOption = {
-      color: resolveChartColors(),
+      color: resolvedColors,
       ...options,
       aria: {
         enabled: true,
@@ -144,7 +154,7 @@ function BaseChart({
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, colorblindMode, dark]);
+  }, [options, colorblindMode, colorPalette, dark]);
 
   // Loading state
   useEffect(() => {

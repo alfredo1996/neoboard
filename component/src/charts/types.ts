@@ -17,6 +17,11 @@ export interface BaseChartProps {
   onDataZoom?: (params: unknown) => void;
   /** Enable decal overlay patterns for colorblind accessibility */
   colorblindMode?: boolean;
+  /**
+   * Color palette ID from COLOR_PALETTES. When set to a value other than
+   * "deep-ocean" (the default), overrides the ECharts theme colors.
+   */
+  colorPalette?: string;
 }
 
 export interface EChartsClickEvent {

@@ -5,6 +5,8 @@ export {
   DEEP_OCEAN_LIGHT,
   DEEP_OCEAN_DARK,
 } from "./theme";
+export { COLOR_PALETTES, getPaletteColors } from "./palettes";
+export type { ColorPalette } from "./palettes";
 export type { ColorThreshold } from "./color-threshold";
 export { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 export type { StylingRule, StylingConfig, StylingOperator } from "./styling-rule";

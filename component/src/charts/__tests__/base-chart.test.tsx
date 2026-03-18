@@ -152,4 +152,58 @@ describe("BaseChart", () => {
     render(<BaseChart options={{}} />);
     expect(screen.getByLabelText("Chart visualization")).toBeInTheDocument();
   });
+
+  it("uses default palette colors when no colorPalette is specified", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} />);
+    // Default uses resolveChartColors() which falls back to DEEP_OCEAN_LIGHT
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("uses default palette colors when colorPalette is 'deep-ocean'", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} colorPalette="deep-ocean" />);
+    // deep-ocean triggers the default CSS-var path (same as unset)
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("overrides colors with warm-sunset palette when colorPalette is set", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} colorPalette="warm-sunset" />);
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // warm-sunset first color is tomato red
+        color: expect.arrayContaining(["hsl(14, 90%, 55%)"]),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("overrides colors with neon palette when colorPalette is set", () => {
+    render(<BaseChart options={{}} colorPalette="neon" />);
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: expect.arrayContaining(["hsl(320, 100%, 60%)"]),
+      }),
+      { notMerge: true },
+    );
+  });
+
+  it("falls back to default colors when an unknown colorPalette is provided", () => {
+    render(<BaseChart options={{}} colorPalette="does-not-exist" />);
+    // getPaletteColors returns undefined for unknown IDs → falls back to resolveChartColors
+    expect(mockSetOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+      }),
+      { notMerge: true },
+    );
+  });
 });
