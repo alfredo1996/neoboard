@@ -28,6 +28,8 @@ import {
   DialogFooter,
   Checkbox,
   CodePreview,
+  MarkdownWidget,
+  IframeWidget,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -586,6 +588,8 @@ export function WidgetEditorModal({
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
+    // Content-only widgets (markdown, iframe) don't have a query — skip the run+save shortcut.
+    if (chartType === "markdown" || chartType === "iframe") return;
     if (!query.trim() || saveStatus === "saving") return;
     setSaveStatus("saving");
     previewQuery.mutate(
@@ -683,6 +687,10 @@ export function WidgetEditorModal({
 
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
+  const isMarkdown = chartType === "markdown";
+  const isIframe = chartType === "iframe";
+  /** True for widget types that don't need a query or connection. */
+  const isContentOnly = isMarkdown || isIframe;
 
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
@@ -699,8 +707,8 @@ export function WidgetEditorModal({
     onSave({
       id,
       chartType,
-      connectionId: isParamSelect && paramUIType !== "select" ? "" : connectionId,
-      query: isParamSelect ? "" : query,
+      connectionId: (isParamSelect && paramUIType !== "select") || isContentOnly ? "" : connectionId,
+      query: isParamSelect || isContentOnly ? "" : query,
       params: widget?.params,
       settings: {
         ...(widget?.settings ?? {}),
@@ -713,10 +721,10 @@ export function WidgetEditorModal({
             }
           : resolvedChartOptions,
         formFields: isForm ? formFields : undefined,
-        clickAction: (isParamSelect || isForm) ? undefined : clickAction,
-        stylingConfig: (isParamSelect || isForm) ? undefined : stylingConfig,
-        enableCache: (isParamSelect || isForm) ? undefined : enableCache,
-        cacheTtlMinutes: (isParamSelect || isForm) ? undefined : cacheTtlMinutes,
+        clickAction: (isParamSelect || isForm || isContentOnly) ? undefined : clickAction,
+        stylingConfig: (isParamSelect || isForm || isContentOnly) ? undefined : stylingConfig,
+        enableCache: (isParamSelect || isForm || isContentOnly) ? undefined : enableCache,
+        cacheTtlMinutes: (isParamSelect || isForm || isContentOnly) ? undefined : cacheTtlMinutes,
       },
       templateId,
       templateSyncedAt,
@@ -744,8 +752,8 @@ export function WidgetEditorModal({
       tags: tags.length > 0 ? tags : undefined,
       chartType,
       connectorType,
-      connectionId: connectionId || undefined,
-      query,
+      connectionId: isContentOnly ? undefined : (connectionId || undefined),
+      query: isContentOnly ? "" : query,
       settings: {
         title: title || undefined,
         chartOptions,
@@ -931,7 +939,7 @@ export function WidgetEditorModal({
                     onChartTypeChange={handleChartTypeChange}
                     compatibleChartTypes={compatibleChartTypes}
                     connections={connections}
-                    showConnection={isForm || !isParamSelect || paramUIType === "select"}
+                    showConnection={!isContentOnly && (isForm || !isParamSelect || paramUIType === "select")}
                   />
 
                   {mode === "add" && !isLabMode && (
@@ -948,7 +956,7 @@ export function WidgetEditorModal({
                   )}
 
                   {/* Connector-changed warning */}
-                  {!isParamSelect && connectorChanged && (
+                  {!isParamSelect && !isContentOnly && connectorChanged && (
                     <Alert variant="default" className="py-2">
                       <AlertTriangle className="h-4 w-4" />
                       <AlertTitle className="text-sm">Connector changed</AlertTitle>
@@ -992,8 +1000,8 @@ export function WidgetEditorModal({
                     </Alert>
                   )}
 
-                  {/* Query editor (non-parameter types) */}
-                  {!isParamSelect && (
+                  {/* Query editor (non-parameter and non-content types) */}
+                  {!isParamSelect && !isContentOnly && (
                     <QueryEditorPanel
                       chartType={chartType}
                       query={query}
@@ -1226,7 +1234,7 @@ export function WidgetEditorModal({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <Label className="mb-0">Preview</Label>
-              {!isParamSelect && !isForm && (
+              {!isParamSelect && !isForm && !isContentOnly && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1242,7 +1250,7 @@ export function WidgetEditorModal({
                 </Button>
               )}
             </div>
-            {!isParamSelect && !isForm && previewQuery.isError && (
+            {!isParamSelect && !isForm && !isContentOnly && previewQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Query Failed</AlertTitle>
@@ -1256,7 +1264,15 @@ export function WidgetEditorModal({
             )}
 
             <div ref={previewRef} data-testid="widget-preview" className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
-              {isParamSelect ? (
+              {isMarkdown ? (
+                <MarkdownWidget content={chartOptions.content as string | undefined} />
+              ) : isIframe ? (
+                <IframeWidget
+                  url={chartOptions.url as string | undefined}
+                  title={chartOptions.iframeTitle as string | undefined}
+                  sandbox={chartOptions.sandbox as string | undefined}
+                />
+              ) : isParamSelect ? (
                 <ParameterPreview
                   paramUIType={paramUIType}
                   dateSub={dateSub}
@@ -1330,7 +1346,7 @@ export function WidgetEditorModal({
           {isLabMode ? (
             <LoadingButton
               type="button"
-              disabled={!labName.trim() || !query.trim()}
+              disabled={!labName.trim() || (!isContentOnly && !query.trim())}
               loading={labSaving}
               loadingText="Saving..."
               onClick={handleLabSave}
@@ -1344,9 +1360,11 @@ export function WidgetEditorModal({
                 isParamSelect
                   ? !paramWidgetName.trim() ||
                     (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
-                  : isForm
-                    ? !connectionId || !query.trim()
-                    : !query.trim()
+                  : isContentOnly
+                    ? false
+                    : isForm
+                      ? !connectionId || !query.trim()
+                      : !query.trim()
               }
               loading={saveStatus === "saving"}
               loadingText="Saving..."
