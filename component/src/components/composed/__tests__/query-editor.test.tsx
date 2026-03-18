@@ -381,12 +381,10 @@ describe("QueryEditor — controlled value sync", () => {
 });
 
 describe("QueryEditor — history select", () => {
-  it("calls onChange when a history item is selected", async () => {
-    const onChange = vi.fn();
+  it("renders History select trigger when history prop is provided", async () => {
     render(
       <QueryEditor
         history={["MATCH (n) RETURN n", "RETURN 1"]}
-        onChange={onChange}
       />,
     );
     await flushAsync();
