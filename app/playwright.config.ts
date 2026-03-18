@@ -1,8 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
-import type { NextcovConfig } from "nextcov";
+
+// global-setup writes TEST_SERVER_PORT to process.env before tests run.
+const serverPort = process.env.TEST_SERVER_PORT || "3100";
 
 /** Nextcov coverage config — read by loadNextcovConfig() in global-setup/teardown. */
-export const nextcov: NextcovConfig = {
+export const nextcov: import("nextcov").NextcovConfig = {
   buildDir: ".next",
   outputDir: "coverage-e2e",
   sourceRoot: "./src",
@@ -34,7 +36,7 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
 
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: `http://localhost:${serverPort}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     navigationTimeout: 15_000,
