@@ -26,7 +26,12 @@ export type ChartType =
   | "parameter-select"
   | "form"
   | "markdown"
-  | "iframe";
+  | "iframe"
+  | "gauge"
+  | "sankey"
+  | "sunburst"
+  | "radar"
+  | "treemap";
 
 export type ConnectorType = "neo4j" | "postgresql";
 
@@ -346,6 +351,181 @@ function transformToSelectData(data: unknown): unknown {
   return records.map((r) => r[firstKey]).filter((v) => v !== null && v !== undefined);
 }
 
+// ─── New chart type transforms ──────────────────────────────────────────────
+
+/**
+ * Transform to gauge chart format: [{ value, name }]
+ * Extracts the first row. If two columns exist, first = value, second = name.
+ */
+function transformToGaugeData(data: unknown): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const first = records[0];
+  const keys = Object.keys(first);
+  if (!keys.length) return [];
+
+  // Look for explicit "value"/"name" keys, then fall back to positional
+  const valueKey = keys.find((k) => /^value$/i.test(k)) ?? keys[0];
+  const nameKey = keys.find((k) => /^name|label|title$/i.test(k) && k !== valueKey) ?? keys[1];
+
+  return [
+    {
+      value: Number(first[valueKey]) || 0,
+      name: nameKey ? String(normalizeValue(first[nameKey]) ?? "") : "",
+    },
+  ];
+}
+
+/**
+ * Transform to Sankey chart format: { nodes: [{ name }], links: [{ source, target, value }] }
+ * Expects records with source, target, and value columns.
+ */
+function transformToSankeyData(data: unknown): unknown {
+  const records = toRecords(data);
+  if (!records.length) return { nodes: [], links: [] };
+  const keys = Object.keys(records[0]);
+  if (keys.length < 2) return { nodes: [], links: [] };
+
+  // Resolve source/target/value columns heuristically
+  const sourceKey = keys.find((k) => /source|from|start/i.test(k)) ?? keys[0];
+  const targetKey = keys.find((k) => /target|to|end/i.test(k) && k !== sourceKey) ?? keys[1];
+  const valueKey = keys.find((k) => /value|count|weight|amount/i.test(k) && k !== sourceKey && k !== targetKey) ?? keys[2];
+
+  const nodeNames = new Set<string>();
+  const links: Array<{ source: string; target: string; value: number }> = [];
+
+  for (const r of records) {
+    const src = String(normalizeValue(r[sourceKey]) ?? "");
+    const tgt = String(normalizeValue(r[targetKey]) ?? "");
+    const val = valueKey ? Number(r[valueKey]) || 0 : 1;
+    if (src) nodeNames.add(src);
+    if (tgt) nodeNames.add(tgt);
+    links.push({ source: src, target: tgt, value: val });
+  }
+
+  return {
+    nodes: Array.from(nodeNames).map((name) => ({ name })),
+    links,
+  };
+}
+
+/**
+ * Transform to Sunburst/Treemap hierarchical format.
+ * Handles three cases:
+ * 1. Data already has `children` array — pass through.
+ * 2. Flat data with `parent` column — build hierarchy.
+ * 3. Flat data with name/value only — return flat array.
+ */
+function transformToHierarchicalData(data: unknown): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+
+  const first = records[0];
+  const keys = Object.keys(first);
+
+  // Case 1: pre-hierarchical (has children key on first record)
+  if ("children" in first) {
+    return records;
+  }
+
+  // Case 2: flat with parent column — build hierarchy
+  const hasParent = keys.includes("parent");
+  if (hasParent) {
+    const nameKey = keys.find((k) => /^name|label|title$/i.test(k)) ?? keys[0];
+    const valueKey = keys.find((k) => /^value|count|size$/i.test(k) && k !== nameKey) ?? keys.find((k) => k !== nameKey && k !== "parent");
+
+    type HierNode = { name: string; value: number; children?: HierNode[] };
+    const nodeMap = new Map<string, HierNode>();
+
+    // Build node map
+    for (const r of records) {
+      const name = String(normalizeValue(r[nameKey]) ?? "");
+      const value = valueKey ? Number(r[valueKey]) || 0 : 0;
+      nodeMap.set(name, { name, value });
+    }
+
+    const roots: HierNode[] = [];
+
+    // Link children to parents
+    for (const r of records) {
+      const name = String(normalizeValue(r[nameKey]) ?? "");
+      const parent = String(r.parent ?? "");
+      const node = nodeMap.get(name);
+      if (!node) continue;
+
+      if (!parent || !nodeMap.has(parent)) {
+        roots.push(node);
+      } else {
+        const parentNode = nodeMap.get(parent)!;
+        if (!parentNode.children) parentNode.children = [];
+        parentNode.children.push(node);
+      }
+    }
+
+    return roots;
+  }
+
+  // Case 3: flat name/value pairs
+  const nameKey = keys.find((k) => /^name|label|title|category$/i.test(k)) ?? keys[0];
+  const valueKey = keys.find((k) => k !== nameKey) ?? keys[1];
+
+  return records.map((r) => ({
+    name: String(normalizeValue(r[nameKey]) ?? ""),
+    value: valueKey ? Number(r[valueKey]) || 0 : 0,
+  }));
+}
+
+/**
+ * Transform to Radar chart format: { indicators: [{ name, max }], series: [{ name, values }] }
+ * Handles:
+ * 1. Records with indicator/value/max columns (optionally a series/group column).
+ * 2. Flat tabular records where column names become indicators.
+ */
+function transformToRadarData(data: unknown): unknown {
+  const records = toRecords(data);
+  if (!records.length) return { indicators: [], series: [] };
+
+  const keys = Object.keys(records[0]);
+  const indicatorKey = keys.find((k) => /^indicator|axis|dimension|category$/i.test(k));
+  const valueKey = keys.find((k) => /^value|score$/i.test(k) && k !== indicatorKey);
+  const maxKey = keys.find((k) => /^max|maximum$/i.test(k));
+  const seriesKey = keys.find((k) => /^series|group|name|label$/i.test(k) && k !== indicatorKey && k !== valueKey && k !== maxKey);
+
+  if (indicatorKey && valueKey) {
+    // Long-format: one row per (series, indicator) combination
+    const indicatorMap = new Map<string, number>(); // name -> max
+    const seriesMap = new Map<string, Map<string, number>>(); // seriesName -> { indicator -> value }
+
+    for (const r of records) {
+      const indName = String(normalizeValue(r[indicatorKey]) ?? "");
+      const val = Number(r[valueKey]) || 0;
+      const max = maxKey ? Number(r[maxKey]) || 100 : 100;
+      const serName = seriesKey ? String(normalizeValue(r[seriesKey]) ?? "Default") : "Default";
+
+      if (!indicatorMap.has(indName)) indicatorMap.set(indName, max);
+      if (!seriesMap.has(serName)) seriesMap.set(serName, new Map());
+      seriesMap.get(serName)!.set(indName, val);
+    }
+
+    const indicators = Array.from(indicatorMap.entries()).map(([name, max]) => ({ name, max }));
+    const series = Array.from(seriesMap.entries()).map(([name, valMap]) => ({
+      name,
+      values: indicators.map((ind) => valMap.get(ind.name) ?? 0),
+    }));
+
+    return { indicators, series };
+  }
+
+  // Wide-format: each column is an indicator, each row is a series
+  const indicators = keys.map((k) => ({ name: k, max: 100 }));
+  const series = records.map((r, i) => ({
+    name: String(i + 1),
+    values: keys.map((k) => Number(r[k]) || 0),
+  }));
+
+  return { indicators, series };
+}
+
 // ─── Validators ────────────────────────────────────────────────────────────
 // Each returns null if valid or empty, error string if rows exist but shape is wrong.
 
@@ -516,6 +696,51 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     label: "iFrame",
     transform: () => null,
     transformWithMapping: () => null,
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
+    supportsStyling: false,
+  },
+  gauge: {
+    type: "gauge",
+    label: "Gauge",
+    transform: transformToGaugeData,
+    transformWithMapping: (data) => transformToGaugeData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
+    supportsStyling: false,
+  },
+  sankey: {
+    type: "sankey",
+    label: "Sankey",
+    transform: transformToSankeyData,
+    transformWithMapping: (data) => transformToSankeyData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
+    supportsStyling: false,
+  },
+  sunburst: {
+    type: "sunburst",
+    label: "Sunburst",
+    transform: transformToHierarchicalData,
+    transformWithMapping: (data) => transformToHierarchicalData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
+    supportsStyling: false,
+  },
+  radar: {
+    type: "radar",
+    label: "Radar",
+    transform: transformToRadarData,
+    transformWithMapping: (data) => transformToRadarData(data),
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
+    supportsStyling: false,
+  },
+  treemap: {
+    type: "treemap",
+    label: "Treemap",
+    transform: transformToHierarchicalData,
+    transformWithMapping: (data) => transformToHierarchicalData(data),
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
     supportsStyling: false,

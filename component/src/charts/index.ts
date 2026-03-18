@@ -24,6 +24,21 @@ export type { GraphChartProps, GraphLayout } from "./graph-chart";
 export { MapChart } from "./map-chart";
 export type { MapChartProps, MapMarker, TileLayerPreset } from "./map-chart";
 
+export { GaugeChart } from "./gauge-chart";
+export type { GaugeChartProps, GaugeDataPoint } from "./gauge-chart";
+
+export { SankeyChart } from "./sankey-chart";
+export type { SankeyChartProps, SankeyNode, SankeyLink, SankeyChartData } from "./sankey-chart";
+
+export { SunburstChart } from "./sunburst-chart";
+export type { SunburstChartProps, SunburstDataItem } from "./sunburst-chart";
+
+export { RadarChart } from "./radar-chart";
+export type { RadarChartProps, RadarIndicator, RadarSeries, RadarChartData } from "./radar-chart";
+
+export { TreemapChart } from "./treemap-chart";
+export type { TreemapChartProps, TreemapDataItem } from "./treemap-chart";
+
 export type {
   BaseChartProps,
   ChartSize,
