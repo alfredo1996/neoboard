@@ -58,7 +58,8 @@ export interface QueryEditorPanelProps {
   onQueryChange: (q: string) => void;
   /** When omitted, the Ctrl/Cmd+Enter run shortcut is disabled (e.g. form widgets). */
   onRun?: () => void;
-  editorLanguage: "cypher" | "sql";
+  /** Connector type or language name — mapped to editor extension by the language resolver registry. */
+  editorLanguage: string;
   connectionId: string;
 }
 

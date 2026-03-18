@@ -5,7 +5,9 @@
  * returns CM6 extensions for that language. Resolvers use dynamic import()
  * so heavy grammar/parser code is only loaded when actually needed.
  *
- * Adding a new language = adding one entry to the `languageResolvers` registry.
+ * Adding a new connector = adding one entry to the `languageResolvers` registry.
+ * Connector types (e.g., "neo4j", "postgresql") can be used directly as
+ * language keys — the registry maps them to the right editor extension.
  */
 import type { Extension } from "@codemirror/state";
 import { toSqlSchema, toCypherDbSchema } from "./schema-transforms";
@@ -25,9 +27,14 @@ export type LanguageResolver = (
 ) => Promise<Extension[]>;
 
 /**
- * Registry of supported languages. Adding a new language = adding one entry.
+ * Registry of supported languages, keyed by language name OR connector type.
  *
- * Each resolver uses dynamic import() so the heavy grammar/parser code is
+ * Connector types ("neo4j", "postgresql") are registered as aliases so the
+ * widget editor can pass `selectedConnection.type` directly as the language
+ * prop — no manual mapping needed.
+ *
+ * Adding a new connector = adding one resolver entry (or alias).
+ * Each resolver uses dynamic import() so heavy grammar/parser code is
  * only loaded when the language is actually used.
  */
 export const languageResolvers: Record<string, LanguageResolver> = {
@@ -46,10 +53,9 @@ export const languageResolvers: Record<string, LanguageResolver> = {
     return [sql({ dialect: PostgreSQL })];
   },
 
-  postgresql: async (schema) => {
-    // Alias — delegates to sql resolver
-    return languageResolvers.sql(schema);
-  },
+  // Connector-type aliases — so connection.type can be passed directly
+  neo4j: async (schema) => languageResolvers.cypher(schema),
+  postgresql: async (schema) => languageResolvers.sql(schema),
 };
 
 /**

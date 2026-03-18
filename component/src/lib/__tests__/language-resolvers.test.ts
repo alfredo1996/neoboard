@@ -68,6 +68,12 @@ describe("resolveLanguageExt", () => {
     expect(mockCypher).not.toHaveBeenCalled();
   });
 
+  it("delegates neo4j connector type to the cypher resolver", async () => {
+    await resolveLanguageExt("neo4j");
+    expect(mockCypher).toHaveBeenCalled();
+    expect(mockSql).not.toHaveBeenCalled();
+  });
+
   it("falls back to sql resolver for unknown languages", async () => {
     await resolveLanguageExt("unknown-lang");
     expect(mockSql).toHaveBeenCalled();
