@@ -323,12 +323,18 @@ describe("QueryEditor — language switching", () => {
     const { rerender } = render(<QueryEditor language="sql" />);
     await flushAsync();
     mockResolveLanguageExt.mockClear();
+    mockDispatch.mockClear();
 
     rerender(<QueryEditor language="postgresql" />);
     await flushAsync();
 
     // Both sql and postgresql → compartment reconfigure
     expect(screen.getByText("SQL")).toBeInTheDocument();
+    // Verify resolveLanguageExt called with new dialect
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const calls = mockResolveLanguageExt.mock.calls as unknown[][];
+    const postgresqlCall = calls.find((c) => c[0] === "postgresql");
+    expect(postgresqlCall).toBeDefined();
   });
 });
 
@@ -374,9 +380,15 @@ describe("QueryEditor — controlled value sync", () => {
   });
 
   it("does not dispatch when value matches CM doc", async () => {
-    render(<QueryEditor language="sql" value="" />);
+    const { rerender } = render(<QueryEditor language="sql" value="" />);
     await flushAsync();
     mockDispatch.mockClear();
+
+    // Rerender with same value — CM doc already matches, so dispatch should not be called
+    rerender(<QueryEditor language="sql" value="" />);
+    await flushAsync();
+
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 });
 

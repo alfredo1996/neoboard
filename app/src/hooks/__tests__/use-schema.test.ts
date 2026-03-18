@@ -73,6 +73,9 @@ describe("schema store contract used by useConnectionSchema", () => {
 // ---------------------------------------------------------------------------
 
 describe("use-schema module exports", () => {
+  // Note: the hook uses queryKey ["connection-schema", connectionId].
+  // The full query key contract is validated via createRefreshSchema tests below,
+  // which call invalidateQueries with the same key pattern.
   it("exports useConnectionSchema as a function", async () => {
     const mod = await import("@/hooks/use-schema");
     expect(typeof mod.useConnectionSchema).toBe("function");

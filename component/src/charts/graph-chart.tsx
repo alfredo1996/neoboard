@@ -425,6 +425,16 @@ export function GraphChart({
           : [...current, id];
         onNodeSelectRef.current(next);
       },
+      onNodeDoubleClick: (node, _hit, event) => {
+        const graphNode = nodesRef.current.find((n) => n.id === node.id) ?? {
+          id: node.id,
+        };
+        onExpandRequestRef.current?.(graphNode as GraphNode);
+        onNodeDoubleClickRef.current?.({
+          node: graphNode as GraphNode,
+          position: { x: event.clientX, y: event.clientY },
+        });
+      },
       onNodeRightClick: (node, _hit, event) => {
         if (!onNodeRightClickRef.current) return;
         event.preventDefault();

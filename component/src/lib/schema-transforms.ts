@@ -66,8 +66,10 @@ export interface CypherDbSchema {
  * Result: `{ tableName: ['col1', 'col2', ...], ... }`
  */
 export function toSqlSchema(schema: DatabaseSchema): Record<string, string[]> {
-  if (!schema.tables?.length) return {};
-  const result: Record<string, string[]> = {};
+  // Use a null-prototype object to prevent prototype pollution for table names
+  // like "__proto__" or "constructor" that could taint the prototype chain.
+  const result = Object.create(null) as Record<string, string[]>;
+  if (!schema.tables?.length) return result;
   for (const table of schema.tables) {
     result[table.name] = table.columns.map((c) => c.name);
   }
