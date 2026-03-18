@@ -24,7 +24,9 @@ export type ChartType =
   | "map"
   | "json"
   | "parameter-select"
-  | "form";
+  | "form"
+  | "markdown"
+  | "iframe";
 
 export type ConnectorType = "neo4j" | "postgresql";
 
@@ -498,6 +500,24 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: () => [],
     transformWithMapping: () => [],
     compatibleWith: ["neo4j", "postgresql"],
+    supportsStyling: false,
+  },
+  markdown: {
+    type: "markdown",
+    label: "Markdown",
+    transform: () => null,
+    transformWithMapping: () => null,
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
+    supportsStyling: false,
+  },
+  iframe: {
+    type: "iframe",
+    label: "iFrame",
+    transform: () => null,
+    transformWithMapping: () => null,
+    compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
     supportsStyling: false,
   },
 };
