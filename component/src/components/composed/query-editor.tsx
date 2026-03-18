@@ -409,12 +409,13 @@ function QueryEditor({
     onChange?.("");
   };
 
-  const languageLabel =
-    language === "sql" || language === "postgresql"
-      ? "SQL"
-      : language === "cypher"
-        ? "Cypher"
-        : (language ?? "Cypher");
+  const languageLabelMap: Record<string, string> = {
+    sql: "SQL",
+    postgresql: "SQL",
+    cypher: "Cypher",
+    neo4j: "Cypher",
+  };
+  const languageLabel = languageLabelMap[language] ?? language;
 
   return (
     <div

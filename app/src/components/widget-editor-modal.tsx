@@ -292,8 +292,9 @@ export function WidgetEditorModal({
     setTemplateSearch("");
     setDialogStep("main");
   }
-  const editorLanguage: "cypher" | "sql" =
-    selectedConnection?.type === "postgresql" ? "sql" : "cypher";
+  // Pass connector type directly — the language resolver registry maps it
+  // to the right editor extension (e.g., "neo4j" → cypher, "postgresql" → sql).
+  const editorLanguage = selectedConnection?.type ?? "cypher";
 
   // Chart types compatible with the selected connector
   const compatibleChartTypes = useMemo(
