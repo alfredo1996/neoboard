@@ -38,11 +38,10 @@ describe("schema store contract used by useConnectionSchema", () => {
 });
 
 describe("useConnectionSchema — queryKey format", () => {
-  it("uses ['connection-schema', connectionId] as query key", async () => {
-    // Validate the query key pattern by importing the hook module and checking
-    // that the function exists and is callable (logic tested via E2E).
+  it("exports useConnectionSchema and createRefreshSchema", async () => {
     const mod = await import("../use-schema");
     expect(typeof mod.useConnectionSchema).toBe("function");
+    expect(typeof mod.createRefreshSchema).toBe("function");
   });
 });
 
@@ -51,7 +50,7 @@ describe("createRefreshSchema utility", () => {
     useSchemaStore.setState({ schemas: {} });
   });
 
-  it("clearSchema + queryClient.invalidateQueries combination", () => {
+  it("clearSchema + queryClient.invalidateQueries combination", async () => {
     // Test the two operations that refreshSchema performs independently.
     const mockInvalidate = vi.fn();
     const fakeQueryClient = {
@@ -63,14 +62,13 @@ describe("createRefreshSchema utility", () => {
     const connectionId = "conn-42";
     useSchemaStore.getState().setSchema(connectionId, neo4jSchema);
 
-    import("../use-schema").then(({ createRefreshSchema }) => {
-      const refresh = createRefreshSchema(fakeQueryClient);
-      refresh(connectionId);
+    const { createRefreshSchema } = await import("../use-schema");
+    const refresh = createRefreshSchema(fakeQueryClient);
+    refresh(connectionId);
 
-      expect(mockInvalidate).toHaveBeenCalledWith({
-        queryKey: ["connection-schema", connectionId],
-      });
-      expect(useSchemaStore.getState().getSchema(connectionId)).toBeUndefined();
+    expect(mockInvalidate).toHaveBeenCalledWith({
+      queryKey: ["connection-schema", connectionId],
     });
+    expect(useSchemaStore.getState().getSchema(connectionId)).toBeUndefined();
   });
 });

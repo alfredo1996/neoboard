@@ -98,6 +98,7 @@ export function QueryEditorPanel({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"

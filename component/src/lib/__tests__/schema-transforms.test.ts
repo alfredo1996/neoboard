@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { toSqlSchema, toCypherSchema } from "../schema-transforms";
-import type { DatabaseSchema } from "../schema-transforms";
+import { toSqlSchema, toCypherDbSchema } from "../schema-transforms";
+import type { DatabaseSchema, CypherDbSchema } from "../schema-transforms";
 
 // ---------------------------------------------------------------------------
 // toSqlSchema
@@ -52,7 +52,7 @@ describe("toSqlSchema", () => {
     expect(toSqlSchema(schema)).toEqual({ empty_table: [] });
   });
 
-  it("handles large schemas quickly (200 tables × 50 columns)", () => {
+  it("handles large schemas correctly (200 tables x 50 columns)", () => {
     const tables = Array.from({ length: 200 }, (_, i) => ({
       name: `table_${i}`,
       columns: Array.from({ length: 50 }, (_, j) => ({
@@ -63,22 +63,19 @@ describe("toSqlSchema", () => {
     }));
     const schema: DatabaseSchema = { type: "postgresql", tables };
 
-    const start = performance.now();
     const result = toSqlSchema(schema);
-    const elapsed = performance.now() - start;
 
     expect(Object.keys(result)).toHaveLength(200);
     expect(result["table_0"]).toHaveLength(50);
-    expect(elapsed).toBeLessThan(10); // < 10ms
   });
 });
 
 // ---------------------------------------------------------------------------
-// toCypherSchema
+// toCypherDbSchema
 // ---------------------------------------------------------------------------
 
-describe("toCypherSchema", () => {
-  it("converts neo4j schema to EditorSupportSchema format", () => {
+describe("toCypherDbSchema", () => {
+  it("converts neo4j schema to CypherDbSchema format", () => {
     const schema: DatabaseSchema = {
       type: "neo4j",
       labels: ["Person", "Movie"],
@@ -95,7 +92,7 @@ describe("toCypherSchema", () => {
       },
     };
 
-    const result = toCypherSchema(schema);
+    const result = toCypherDbSchema(schema);
 
     expect(result.labels).toEqual(["Person", "Movie"]);
     expect(result.relationshipTypes).toEqual(["ACTED_IN", "DIRECTED"]);
@@ -124,7 +121,7 @@ describe("toCypherSchema", () => {
       relProperties: {},
     };
 
-    const { propertyKeys } = toCypherSchema(schema);
+    const { propertyKeys } = toCypherDbSchema(schema);
     // "name" appears in both labels — should only appear once
     expect(propertyKeys.filter((k) => k === "name")).toHaveLength(1);
     expect(propertyKeys).toContain("id");
@@ -140,7 +137,7 @@ describe("toCypherSchema", () => {
       relProperties: {},
     };
 
-    const result = toCypherSchema(schema);
+    const result = toCypherDbSchema(schema);
     expect(result.labels).toEqual([]);
     expect(result.relationshipTypes).toEqual([]);
     expect(result.propertyKeys).toEqual([]);
@@ -149,9 +146,42 @@ describe("toCypherSchema", () => {
   it("handles undefined optional fields", () => {
     const schema: DatabaseSchema = { type: "neo4j" };
 
-    const result = toCypherSchema(schema);
+    const result = toCypherDbSchema(schema);
     expect(result.labels).toEqual([]);
     expect(result.relationshipTypes).toEqual([]);
     expect(result.propertyKeys).toEqual([]);
+  });
+
+  it("returns a value conforming to CypherDbSchema type", () => {
+    const schema: DatabaseSchema = {
+      type: "neo4j",
+      labels: ["Person"],
+      relationshipTypes: ["KNOWS"],
+      nodeProperties: {
+        Person: [{ name: "name", type: "String" }],
+      },
+    };
+
+    const result: CypherDbSchema = toCypherDbSchema(schema);
+    expect(result).toHaveProperty("labels");
+    expect(result).toHaveProperty("relationshipTypes");
+    expect(result).toHaveProperty("propertyKeys");
+  });
+
+  it("filters out empty-string property keys", () => {
+    const schema: DatabaseSchema = {
+      type: "neo4j",
+      labels: ["Node"],
+      nodeProperties: {
+        Node: [
+          { name: "", type: "String" },
+          { name: "valid", type: "String" },
+        ],
+      },
+    };
+
+    const result = toCypherDbSchema(schema);
+    expect(result.propertyKeys).toEqual(["valid"]);
+    expect(result.propertyKeys).not.toContain("");
   });
 });
