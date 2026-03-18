@@ -105,4 +105,29 @@ describe("GaugeChart", () => {
     render(<GaugeChart data={sampleData} error={new Error("Fail")} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Fail");
   });
+
+  // --- styling rules ---
+
+  it("applies styling rule color to gauge item when value matches rule", () => {
+    const stylingRules = [{ id: "r1", operator: ">" as const, value: 50, color: "#ff0000" }];
+    render(<GaugeChart data={[{ value: 75, name: "Score" }]} stylingRules={stylingRules} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const gaugeData = optionsCall.series[0].data[0];
+    expect(gaugeData.itemStyle?.color).toBe("#ff0000");
+  });
+
+  it("does not apply color when value does not match any styling rule", () => {
+    const stylingRules = [{ id: "r1", operator: ">" as const, value: 90, color: "#ff0000" }];
+    render(<GaugeChart data={[{ value: 75, name: "Score" }]} stylingRules={stylingRules} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const gaugeData = optionsCall.series[0].data[0];
+    expect(gaugeData.itemStyle).toBeUndefined();
+  });
+
+  it("accepts paramValues prop without error", () => {
+    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 50, color: "#00ff00" }];
+    const paramValues = { threshold: 50 };
+    render(<GaugeChart data={sampleData} stylingRules={stylingRules} paramValues={paramValues} />);
+    expect(screen.getByTestId("base-chart")).toBeInTheDocument();
+  });
 });
