@@ -27,12 +27,9 @@ vi.mock("@codemirror/lang-sql", () => ({
   PostgreSQL: { name: "PostgreSQL" },
 }));
 
-vi.mock(
-  "@neo4j-cypher/react-codemirror/dist/src/lang-cypher/langCypher",
-  () => ({
-    cypher: (...args: unknown[]) => mockCypher(...args),
-  }),
-);
+vi.mock("@/lib/cypher-lang", () => ({
+  cypher: (...args: unknown[]) => mockCypher(...args),
+}));
 
 // Import AFTER mocks
 const { resolveLanguageExt, languageResolvers } = await import(

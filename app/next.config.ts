@@ -44,19 +44,6 @@ const nextConfig: NextConfig = {
       mobx: mobxPath,
     };
 
-    // The @neo4j-cypher/react-codemirror package's syntaxValidation module
-    // imports workerpool which tries to require('child_process') and
-    // require('worker_threads'). These Node.js builtins aren't available
-    // in the browser bundle. We pass lint: false to cypher() so the linter
-    // (and thus workerpool) is never actually invoked at runtime.
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...(config.resolve.fallback ?? {}),
-        child_process: false,
-        worker_threads: false,
-      };
-    }
-
     // When transpilePackages includes @neoboard/components, webpack resolves
     // the component library's bare imports (echarts, @neo4j-nvl, etc.) from
     // the app's node_modules context. In CI, each package runs `npm ci` in
