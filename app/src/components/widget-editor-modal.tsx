@@ -588,6 +588,8 @@ export function WidgetEditorModal({
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
+    // Content-only widgets (markdown, iframe) don't have a query — skip the run+save shortcut.
+    if (chartType === "markdown" || chartType === "iframe") return;
     if (!query.trim() || saveStatus === "saving") return;
     setSaveStatus("saving");
     previewQuery.mutate(

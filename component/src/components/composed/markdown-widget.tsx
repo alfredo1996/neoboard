@@ -32,38 +32,55 @@ function isSafeUrl(url: string): boolean {
  * minimal. For a dashboard widget, the common subset is sufficient.
  */
 function parseMarkdown(md: string): string {
-  let html = md;
-
-  // Sanitize: strip <script> tags and event handlers (quoted and unquoted)
-  html = html.replace(
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    "",
-  );
-  html = html.replace(/on\w+\s*=\s*"[^"]*"/gi, "");
-  html = html.replace(/on\w+\s*=\s*'[^']*'/gi, "");
-  html = html.replace(/on\w+\s*=\s*[^\s>]+/gi, "");
-
-  // Fenced code blocks (```...```)
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, _lang, code) => {
-    return `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(code.trim())}</code></pre>`;
-  });
-
   // Process line-by-line for block elements
-  const lines = html.split("\n");
+  const lines = md.split("\n");
   const result: string[] = [];
-  let inList = false;
+  let listType: "ul" | "ol" | null = null;
   let inBlockquote = false;
+  let inFencedCode = false;
+  let fencedCodeLines: string[] = [];
+
+  const closeList = () => {
+    if (listType) {
+      result.push(`</${listType}>`);
+      listType = null;
+    }
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    // Fenced code blocks (```...```)
+    if (line.startsWith("```")) {
+      if (!inFencedCode) {
+        // Opening fence — start collecting code lines
+        closeList();
+        if (inBlockquote) {
+          result.push("</blockquote>");
+          inBlockquote = false;
+        }
+        inFencedCode = true;
+        fencedCodeLines = [];
+      } else {
+        // Closing fence — emit the block
+        inFencedCode = false;
+        result.push(
+          `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
+        );
+        fencedCodeLines = [];
+      }
+      continue;
+    }
+
+    if (inFencedCode) {
+      fencedCodeLines.push(line);
+      continue;
+    }
+
     // Headings
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      if (inList) {
-        result.push("</ul>");
-        inList = false;
-      }
+      closeList();
       if (inBlockquote) {
         result.push("</blockquote>");
         inBlockquote = false;
@@ -77,10 +94,7 @@ function parseMarkdown(md: string): string {
 
     // Blockquotes
     if (line.startsWith("> ")) {
-      if (inList) {
-        result.push("</ul>");
-        inList = false;
-      }
+      closeList();
       if (!inBlockquote) {
         result.push(
           '<blockquote class="border-l-4 border-muted-foreground/30 pl-4 my-2 text-muted-foreground italic">',
@@ -96,24 +110,25 @@ function parseMarkdown(md: string): string {
 
     // Unordered lists
     if (line.match(/^[-*+]\s+/)) {
-      if (!inList) {
+      if (listType !== "ul") {
+        closeList();
         result.push('<ul class="list-disc pl-6 my-2 space-y-1">');
-        inList = true;
+        listType = "ul";
       }
       result.push(
         `<li>${processInline(line.replace(/^[-*+]\s+/, ""))}</li>`,
       );
       continue;
-    } else if (inList) {
-      result.push("</ul>");
-      inList = false;
+    } else if (listType === "ul") {
+      closeList();
     }
 
     // Ordered lists
     if (line.match(/^\d+\.\s+/)) {
-      if (!inList) {
+      if (listType !== "ol") {
+        closeList();
         result.push('<ol class="list-decimal pl-6 my-2 space-y-1">');
-        inList = true;
+        listType = "ol";
       }
       result.push(
         `<li>${processInline(line.replace(/^\d+\.\s+/, ""))}</li>`,
@@ -127,10 +142,7 @@ function parseMarkdown(md: string): string {
       line.match(/^\*\*\*+$/) ||
       line.match(/^___+$/)
     ) {
-      if (inList) {
-        result.push("</ul>");
-        inList = false;
-      }
+      closeList();
       result.push('<hr class="my-4 border-border" />');
       continue;
     }
@@ -141,14 +153,18 @@ function parseMarkdown(md: string): string {
     }
 
     // Paragraphs (default)
-    if (inList) {
-      result.push("</ul>");
-      inList = false;
-    }
+    closeList();
     result.push(`<p class="my-1">${processInline(line)}</p>`);
   }
 
-  if (inList) result.push("</ul>");
+  // Close any open fenced code block (unterminated)
+  if (inFencedCode && fencedCodeLines.length > 0) {
+    result.push(
+      `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
+    );
+  }
+
+  closeList();
   if (inBlockquote) result.push("</blockquote>");
 
   return result.join("\n");
@@ -162,34 +178,47 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Escapes only the double-quote character for safe use in HTML attributes. */
+function escapeAttr(value: string): string {
+  return value.replace(/"/g, "&quot;");
+}
+
 /**
  * Process inline markdown: bold, italic, code, links, images.
  * URLs in links and images are validated against dangerous schemes.
+ *
+ * The input text is HTML-escaped at the start so that raw user-supplied HTML
+ * (e.g. `<a href="javascript:...">`) cannot reach dangerouslySetInnerHTML.
+ * Only tags generated by this function are rendered as real HTML.
  */
 function processInline(text: string): string {
-  let result = text;
+  // Escape user input so raw HTML tags become literal text.
+  // Subsequent regex captures are already escaped; only URLs need attribute-safe quoting.
+  let result = escapeHtml(text);
 
-  // Inline code
+  // Inline code — $1 is already HTML-escaped, safe to embed directly.
   result = result.replace(
     /`([^`]+)`/g,
     '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">$1</code>',
   );
 
-  // Images: ![alt](url) — validate URL
+  // Images: ![alt](url) — validate URL.
+  // alt is already HTML-escaped; url needs attribute-quoting via escapeAttr.
   result = result.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_match, alt: string, url: string) => {
       if (!isSafeUrl(url)) return `[image blocked: unsafe URL]`;
-      return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="max-w-full rounded my-1" />`;
+      return `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`;
     },
   );
 
-  // Links: [text](url) — validate URL
+  // Links: [text](url) — validate URL.
+  // linkText is already HTML-escaped; url needs attribute-quoting via escapeAttr.
   result = result.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_match, linkText: string, url: string) => {
-      if (!isSafeUrl(url)) return escapeHtml(linkText);
-      return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${processInline(linkText)}</a>`;
+      if (!isSafeUrl(url)) return linkText;
+      return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${linkText}</a>`;
     },
   );
 

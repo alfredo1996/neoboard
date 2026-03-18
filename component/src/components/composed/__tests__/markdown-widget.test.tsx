@@ -67,9 +67,11 @@ describe("MarkdownWidget", () => {
     render(
       <MarkdownWidget content='<script>alert("xss")</script>Hello' />,
     );
-    // Script should not be rendered
-    expect(screen.queryByText('alert("xss")')).not.toBeInTheDocument();
-    expect(screen.getByText("Hello")).toBeInTheDocument();
+    // Raw HTML is escaped — there should be no live <script> element in the DOM.
+    expect(document.querySelector("script")).toBeNull();
+    // The content is displayed as escaped text, not as live HTML.
+    const container = screen.getByTestId("markdown-widget");
+    expect(container.innerHTML).toContain("&lt;script&gt;");
   });
 
   it("renders blockquotes", () => {
@@ -102,7 +104,10 @@ describe("MarkdownWidget", () => {
   it("sanitizes unquoted event handlers", () => {
     render(<MarkdownWidget content="<img src=x onerror=alert(1)>" />);
     const container = screen.getByTestId("markdown-widget");
-    expect(container.innerHTML).not.toContain("onerror");
+    // Raw HTML is escaped — no actual <img> element with onerror attribute in the DOM.
+    expect(container.querySelector("img[onerror]")).toBeNull();
+    // The tag is displayed as escaped text, not executed.
+    expect(container.innerHTML).toContain("&lt;img");
   });
 
   it("sanitizes vbscript: URLs in links", () => {
@@ -338,7 +343,10 @@ describe("MarkdownWidget", () => {
   it("sanitizes single-quoted event handlers in HTML attributes", () => {
     render(<MarkdownWidget content="<img src=x onerror='alert(1)'>" />);
     const container = screen.getByTestId("markdown-widget");
-    expect(container.innerHTML).not.toContain("onerror=");
+    // Raw HTML is escaped — no actual <img> element with onerror attribute in the DOM.
+    expect(container.querySelector("img[onerror]")).toBeNull();
+    // The tag is displayed as escaped text, not executed.
+    expect(container.innerHTML).toContain("&lt;img");
   });
 
   // ── Link unsafe URL renders as plain text ────────────────────────────────

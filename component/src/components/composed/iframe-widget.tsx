@@ -65,7 +65,7 @@ function IframeWidget({
       >
         <EmptyState
           title="Invalid URL"
-          description="The provided URL is not allowed. Use an https:// URL."
+          description="The provided URL is not allowed. Use an http:// or https:// URL."
           className="py-6"
         />
       </div>
