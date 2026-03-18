@@ -265,6 +265,89 @@ const behaviorOptions: ChartOptionDef[] = [
   },
 ];
 
+const gaugeOptions: ChartOptionDef[] = [
+  { key: "min", label: "Min Value", type: "number", default: 0, category: "Range", description: "Minimum value on the gauge scale." },
+  { key: "max", label: "Max Value", type: "number", default: 100, category: "Range", description: "Maximum value on the gauge scale." },
+  { key: "showProgress", label: "Show Progress Arc", type: "boolean", default: true, category: "Style", description: "Fill the gauge arc to show progress toward the maximum." },
+  { key: "showPointer", label: "Show Pointer", type: "boolean", default: true, category: "Style", description: "Display a needle pointer on the gauge." },
+  { key: "showDetail", label: "Show Value Detail", type: "boolean", default: true, category: "Labels", description: "Show the numeric value and name below the gauge." },
+  { key: "startAngle", label: "Start Angle (°)", type: "number", default: 225, category: "Layout", description: "Starting angle of the gauge arc in degrees (0 = 3 o'clock)." },
+  { key: "endAngle", label: "End Angle (°)", type: "number", default: -45, category: "Layout", description: "Ending angle of the gauge arc in degrees." },
+];
+
+const sankeyOptions: ChartOptionDef[] = [
+  {
+    key: "orient",
+    label: "Orientation",
+    type: "select",
+    default: "horizontal",
+    category: "Layout",
+    description: "Direction of the flow: left-to-right (horizontal) or top-to-bottom (vertical).",
+    options: [
+      { label: "Horizontal", value: "horizontal" },
+      { label: "Vertical", value: "vertical" },
+    ],
+  },
+  { key: "showLabels", label: "Show Node Labels", type: "boolean", default: true, category: "Labels", description: "Show the node name alongside each block." },
+  { key: "nodeWidth", label: "Node Width (px)", type: "number", default: 20, category: "Layout", description: "Width of each node block in pixels." },
+  { key: "nodeGap", label: "Node Gap (px)", type: "number", default: 8, category: "Layout", description: "Vertical gap between nodes at the same level in pixels." },
+];
+
+const sunburstOptions: ChartOptionDef[] = [
+  { key: "showLabels", label: "Show Labels", type: "boolean", default: true, category: "Labels", description: "Show the name of each segment." },
+  {
+    key: "sort",
+    label: "Sort Segments",
+    type: "select",
+    default: "desc",
+    category: "Layout",
+    description: "Order in which segments are arranged around the chart.",
+    options: [
+      { label: "Largest First", value: "desc" },
+      { label: "Smallest First", value: "asc" },
+      { label: "Natural (data order)", value: "none" },
+    ],
+  },
+  { key: "highlightOnHover", label: "Highlight on Hover", type: "boolean", default: true, category: "Style", description: "Enlarge and emphasise a segment when hovered." },
+];
+
+const radarOptions: ChartOptionDef[] = [
+  {
+    key: "shape",
+    label: "Shape",
+    type: "select",
+    default: "polygon",
+    category: "Style",
+    description: "Outline shape of the radar grid.",
+    options: [
+      { label: "Polygon", value: "polygon" },
+      { label: "Circle", value: "circle" },
+    ],
+  },
+  { key: "filled", label: "Fill Area", type: "boolean", default: true, category: "Style", description: "Fill the area enclosed by the data polygon." },
+  { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the legend identifying each series." },
+  { key: "showValues", label: "Show Values on Points", type: "boolean", default: false, category: "Labels", description: "Display the numeric value at each data point on the radar." },
+];
+
+const treemapOptions: ChartOptionDef[] = [
+  { key: "showLabels", label: "Show Labels", type: "boolean", default: true, category: "Labels", description: "Show the name of each rectangle." },
+  { key: "showBreadcrumb", label: "Show Breadcrumb", type: "boolean", default: true, category: "Labels", description: "Show the navigation breadcrumb when drilling down into nested data." },
+  { key: "showValues", label: "Show Values", type: "boolean", default: false, category: "Labels", description: "Display the numeric value inside each rectangle." },
+  {
+    key: "colorSaturation",
+    label: "Color Saturation Range",
+    type: "select",
+    default: "medium",
+    category: "Style",
+    description: "Controls the saturation gradient used to shade child rectangles within a parent.",
+    options: [
+      { label: "Low", value: "low" },
+      { label: "Medium", value: "medium" },
+      { label: "High", value: "high" },
+    ],
+  },
+];
+
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   bar: [...barOptions, ...behaviorOptions, ...accessibilityOptions],
   line: [...lineOptions, ...behaviorOptions, ...accessibilityOptions],
@@ -278,6 +361,11 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   form: formOptions,
   markdown: markdownOptions,
   iframe: iframeOptions,
+  gauge: [...gaugeOptions, ...behaviorOptions],
+  sankey: [...sankeyOptions, ...behaviorOptions],
+  sunburst: [...sunburstOptions, ...behaviorOptions],
+  radar: [...radarOptions, ...behaviorOptions],
+  treemap: [...treemapOptions, ...behaviorOptions],
 };
 
 export function getChartOptions(chartType: string): ChartOptionDef[] {

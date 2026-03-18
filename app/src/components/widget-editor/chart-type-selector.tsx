@@ -13,6 +13,11 @@ import {
   FileEdit,
   FileText,
   Globe,
+  Gauge,
+  Workflow,
+  Sun,
+  Radar,
+  LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -40,6 +45,11 @@ export const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon 
   form: { label: "Form", Icon: FileEdit },
   markdown: { label: "Markdown", Icon: FileText },
   iframe: { label: "iFrame", Icon: Globe },
+  gauge: { label: "Gauge", Icon: Gauge },
+  sankey: { label: "Sankey", Icon: Workflow },
+  sunburst: { label: "Sunburst", Icon: Sun },
+  radar: { label: "Radar", Icon: Radar },
+  treemap: { label: "Treemap", Icon: LayoutGrid },
 };
 
 interface ConnectionOption {
