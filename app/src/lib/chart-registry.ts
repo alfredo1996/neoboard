@@ -706,8 +706,6 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToGaugeData,
     transformWithMapping: (data) => transformToGaugeData(data),
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
   },
   sankey: {
     type: "sankey",
@@ -715,8 +713,6 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToSankeyData,
     transformWithMapping: (data) => transformToSankeyData(data),
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
   },
   sunburst: {
     type: "sunburst",
@@ -724,8 +720,6 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToHierarchicalData,
     transformWithMapping: (data) => transformToHierarchicalData(data),
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
   },
   radar: {
     type: "radar",
@@ -733,8 +727,6 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToRadarData,
     transformWithMapping: (data) => transformToRadarData(data),
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
   },
   treemap: {
     type: "treemap",
@@ -742,8 +734,6 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToHierarchicalData,
     transformWithMapping: (data) => transformToHierarchicalData(data),
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
   },
 };
 
@@ -788,6 +778,16 @@ export function getStylingTargets(type: string): { value: string; label: string 
         { value: "backgroundColor", label: "Background Color" },
         { value: "textColor", label: "Text Color" },
       ];
+    case "gauge":
+      return [{ value: "color", label: "Gauge Color" }];
+    case "sankey":
+      return [{ value: "color", label: "Link Color" }];
+    case "sunburst":
+      return [{ value: "color", label: "Segment Color" }];
+    case "radar":
+      return [{ value: "color", label: "Area Color" }];
+    case "treemap":
+      return [{ value: "color", label: "Block Color" }];
     default:
       return [{ value: "color", label: "Color" }];
   }
