@@ -1055,3 +1055,87 @@ describe("line transform normalizes date x-axis", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// markdown chart type
+// ---------------------------------------------------------------------------
+describe("markdown chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.markdown).toBeDefined();
+    expect(chartRegistry.markdown.type).toBe("markdown");
+    expect(chartRegistry.markdown.label).toBe("Markdown");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.markdown.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.markdown.compatibleWith).toContain("postgresql");
+  });
+
+  it("transform returns null (content-only widget)", () => {
+    expect(chartRegistry.markdown.transform([])).toBeNull();
+    expect(chartRegistry.markdown.transform([{ a: 1 }])).toBeNull();
+  });
+
+  it("transformWithMapping returns null", () => {
+    expect(chartRegistry.markdown.transformWithMapping([{ a: 1 }], {})).toBeNull();
+  });
+
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("markdown")).toBe(false);
+  });
+
+  it("supportsStyling is false", () => {
+    expect(chartSupportsStyling("markdown")).toBe(false);
+  });
+
+  it("getStylingTargets returns empty array", () => {
+    expect(getStylingTargets("markdown")).toEqual([]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("markdown");
+    expect(getCompatibleChartTypes("postgresql")).toContain("markdown");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// iframe chart type
+// ---------------------------------------------------------------------------
+describe("iframe chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.iframe).toBeDefined();
+    expect(chartRegistry.iframe.type).toBe("iframe");
+    expect(chartRegistry.iframe.label).toBe("iFrame");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.iframe.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.iframe.compatibleWith).toContain("postgresql");
+  });
+
+  it("transform returns null (content-only widget)", () => {
+    expect(chartRegistry.iframe.transform([])).toBeNull();
+    expect(chartRegistry.iframe.transform([{ a: 1 }])).toBeNull();
+  });
+
+  it("transformWithMapping returns null", () => {
+    expect(chartRegistry.iframe.transformWithMapping([{ a: 1 }], {})).toBeNull();
+  });
+
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("iframe")).toBe(false);
+  });
+
+  it("supportsStyling is false", () => {
+    expect(chartSupportsStyling("iframe")).toBe(false);
+  });
+
+  it("getStylingTargets returns empty array", () => {
+    expect(getStylingTargets("iframe")).toEqual([]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("iframe");
+    expect(getCompatibleChartTypes("postgresql")).toContain("iframe");
+  });
+});
+
