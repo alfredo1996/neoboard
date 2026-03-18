@@ -71,7 +71,38 @@ describe("IframeWidget", () => {
   it("prevents javascript: URLs", () => {
     // eslint-disable-next-line no-script-url
     render(<IframeWidget url="javascript:alert(1)" />);
-    // Should show empty state or at least not render the dangerous URL
     expect(screen.getByText("Invalid URL")).toBeInTheDocument();
+  });
+
+  it("prevents data: URLs", () => {
+    render(<IframeWidget url="data:text/html,<h1>XSS</h1>" />);
+    expect(screen.getByText("Invalid URL")).toBeInTheDocument();
+  });
+
+  it("prevents vbscript: URLs", () => {
+    render(<IframeWidget url="vbscript:MsgBox(1)" />);
+    expect(screen.getByText("Invalid URL")).toBeInTheDocument();
+  });
+
+  it("prevents blob: URLs", () => {
+    render(<IframeWidget url="blob:http://example.com/foo" />);
+    expect(screen.getByText("Invalid URL")).toBeInTheDocument();
+  });
+
+  it("allows http: URLs", () => {
+    render(<IframeWidget url="http://example.com" />);
+    const iframe = screen.getByTitle("Embedded content");
+    expect(iframe).toHaveAttribute("src", "http://example.com");
+  });
+
+  it("rejects relative URLs without protocol", () => {
+    render(<IframeWidget url="/path/to/page" />);
+    expect(screen.getByText("Invalid URL")).toBeInTheDocument();
+  });
+
+  it("does not include allow-same-origin in default sandbox", () => {
+    render(<IframeWidget url="https://example.com" />);
+    const iframe = screen.getByTitle("Embedded content");
+    expect(iframe.getAttribute("sandbox")).not.toContain("allow-same-origin");
   });
 });

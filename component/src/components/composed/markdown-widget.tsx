@@ -11,6 +11,20 @@ export interface MarkdownWidgetProps {
 }
 
 /**
+ * Returns true if a URL uses a safe protocol (http, https, mailto).
+ * Blocks javascript:, data: (except data:image/), vbscript:, blob:, etc.
+ */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed.startsWith("javascript:")) return false;
+  if (trimmed.startsWith("vbscript:")) return false;
+  if (trimmed.startsWith("blob:")) return false;
+  if (trimmed.startsWith("data:") && !trimmed.startsWith("data:image/"))
+    return false;
+  return true;
+}
+
+/**
  * Simple markdown parser that converts a subset of markdown to HTML.
  * Handles: headings, bold, italic, code, links, lists, blockquotes, paragraphs.
  *
@@ -20,10 +34,14 @@ export interface MarkdownWidgetProps {
 function parseMarkdown(md: string): string {
   let html = md;
 
-  // Sanitize: strip <script> tags and event handlers
-  html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  // Sanitize: strip <script> tags and event handlers (quoted and unquoted)
+  html = html.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    "",
+  );
   html = html.replace(/on\w+\s*=\s*"[^"]*"/gi, "");
   html = html.replace(/on\w+\s*=\s*'[^']*'/gi, "");
+  html = html.replace(/on\w+\s*=\s*[^\s>]+/gi, "");
 
   // Fenced code blocks (```...```)
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, _lang, code) => {
@@ -37,23 +55,36 @@ function parseMarkdown(md: string): string {
   let inBlockquote = false;
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+    const line = lines[i];
 
     // Headings
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      if (inList) { result.push("</ul>"); inList = false; }
-      if (inBlockquote) { result.push("</blockquote>"); inBlockquote = false; }
+      if (inList) {
+        result.push("</ul>");
+        inList = false;
+      }
+      if (inBlockquote) {
+        result.push("</blockquote>");
+        inBlockquote = false;
+      }
       const level = headingMatch[1].length;
-      result.push(`<h${level} class="font-semibold mt-3 mb-1">${processInline(headingMatch[2])}</h${level}>`);
+      result.push(
+        `<h${level} class="font-semibold mt-3 mb-1">${processInline(headingMatch[2])}</h${level}>`,
+      );
       continue;
     }
 
     // Blockquotes
     if (line.startsWith("> ")) {
-      if (inList) { result.push("</ul>"); inList = false; }
+      if (inList) {
+        result.push("</ul>");
+        inList = false;
+      }
       if (!inBlockquote) {
-        result.push('<blockquote class="border-l-4 border-muted-foreground/30 pl-4 my-2 text-muted-foreground italic">');
+        result.push(
+          '<blockquote class="border-l-4 border-muted-foreground/30 pl-4 my-2 text-muted-foreground italic">',
+        );
         inBlockquote = true;
       }
       result.push(`<p>${processInline(line.slice(2))}</p>`);
@@ -69,7 +100,9 @@ function parseMarkdown(md: string): string {
         result.push('<ul class="list-disc pl-6 my-2 space-y-1">');
         inList = true;
       }
-      result.push(`<li>${processInline(line.replace(/^[-*+]\s+/, ""))}</li>`);
+      result.push(
+        `<li>${processInline(line.replace(/^[-*+]\s+/, ""))}</li>`,
+      );
       continue;
     } else if (inList) {
       result.push("</ul>");
@@ -82,13 +115,22 @@ function parseMarkdown(md: string): string {
         result.push('<ol class="list-decimal pl-6 my-2 space-y-1">');
         inList = true;
       }
-      result.push(`<li>${processInline(line.replace(/^\d+\.\s+/, ""))}</li>`);
+      result.push(
+        `<li>${processInline(line.replace(/^\d+\.\s+/, ""))}</li>`,
+      );
       continue;
     }
 
     // Horizontal rule
-    if (line.match(/^---+$/) || line.match(/^\*\*\*+$/) || line.match(/^___+$/)) {
-      if (inList) { result.push("</ul>"); inList = false; }
+    if (
+      line.match(/^---+$/) ||
+      line.match(/^\*\*\*+$/) ||
+      line.match(/^___+$/)
+    ) {
+      if (inList) {
+        result.push("</ul>");
+        inList = false;
+      }
       result.push('<hr class="my-4 border-border" />');
       continue;
     }
@@ -99,7 +141,10 @@ function parseMarkdown(md: string): string {
     }
 
     // Paragraphs (default)
-    if (inList) { result.push("</ul>"); inList = false; }
+    if (inList) {
+      result.push("</ul>");
+      inList = false;
+    }
     result.push(`<p class="my-1">${processInline(line)}</p>`);
   }
 
@@ -119,27 +164,40 @@ function escapeHtml(text: string): string {
 
 /**
  * Process inline markdown: bold, italic, code, links, images.
+ * URLs in links and images are validated against dangerous schemes.
  */
 function processInline(text: string): string {
   let result = text;
 
   // Inline code
-  result = result.replace(/`([^`]+)`/g, '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">$1</code>');
-
-  // Images: ![alt](url)
   result = result.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    '<img src="$2" alt="$1" class="max-w-full rounded my-1" />',
+    /`([^`]+)`/g,
+    '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">$1</code>',
   );
 
-  // Links: [text](url)
+  // Images: ![alt](url) — validate URL
+  result = result.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (_match, alt: string, url: string) => {
+      if (!isSafeUrl(url)) return `[image blocked: unsafe URL]`;
+      return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="max-w-full rounded my-1" />`;
+    },
+  );
+
+  // Links: [text](url) — validate URL
   result = result.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">$1</a>',
+    (_match, linkText: string, url: string) => {
+      if (!isSafeUrl(url)) return escapeHtml(linkText);
+      return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${processInline(linkText)}</a>`;
+    },
   );
 
   // Bold+Italic: ***text*** or ___text___
-  result = result.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+  result = result.replace(
+    /\*\*\*(.+?)\*\*\*/g,
+    "<strong><em>$1</em></strong>",
+  );
   result = result.replace(/___(.+?)___/g, "<strong><em>$1</em></strong>");
 
   // Bold: **text** or __text__

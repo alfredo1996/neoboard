@@ -77,4 +77,42 @@ describe("MarkdownWidget", () => {
     const blockquote = screen.getByText("This is a quote");
     expect(blockquote.closest("blockquote")).toBeTruthy();
   });
+
+  it("sanitizes javascript: URLs in links", () => {
+    // eslint-disable-next-line no-script-url
+    render(<MarkdownWidget content="[Click](javascript:alert(1))" />);
+    const link = screen.queryByRole("link");
+    // Link should either not exist or have safe href
+    if (link) {
+      expect(link).not.toHaveAttribute(
+        "href",
+        expect.stringMatching(/^javascript:/i),
+      );
+    }
+  });
+
+  it("sanitizes javascript: URLs in images", () => {
+    // eslint-disable-next-line no-script-url
+    render(<MarkdownWidget content="![alt](javascript:alert(1))" />);
+    const container = screen.getByTestId("markdown-widget");
+    expect(container.innerHTML).not.toContain("javascript:");
+    expect(container.innerHTML).toContain("[image blocked: unsafe URL]");
+  });
+
+  it("sanitizes unquoted event handlers", () => {
+    render(<MarkdownWidget content="<img src=x onerror=alert(1)>" />);
+    const container = screen.getByTestId("markdown-widget");
+    expect(container.innerHTML).not.toContain("onerror");
+  });
+
+  it("sanitizes vbscript: URLs in links", () => {
+    render(<MarkdownWidget content="[Click](vbscript:MsgBox(1))" />);
+    const link = screen.queryByRole("link");
+    if (link) {
+      expect(link).not.toHaveAttribute(
+        "href",
+        expect.stringMatching(/^vbscript:/i),
+      );
+    }
+  });
 });

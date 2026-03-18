@@ -750,8 +750,8 @@ export function WidgetEditorModal({
       tags: tags.length > 0 ? tags : undefined,
       chartType,
       connectorType,
-      connectionId: connectionId || undefined,
-      query,
+      connectionId: isContentOnly ? undefined : (connectionId || undefined),
+      query: isContentOnly ? "" : query,
       settings: {
         title: title || undefined,
         chartOptions,
@@ -1344,7 +1344,7 @@ export function WidgetEditorModal({
           {isLabMode ? (
             <LoadingButton
               type="button"
-              disabled={!labName.trim() || !query.trim()}
+              disabled={!labName.trim() || (!isContentOnly && !query.trim())}
               loading={labSaving}
               loadingText="Saving..."
               onClick={handleLabSave}
@@ -1358,9 +1358,11 @@ export function WidgetEditorModal({
                 isParamSelect
                   ? !paramWidgetName.trim() ||
                     (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
-                  : isForm
-                    ? !connectionId || !query.trim()
-                    : !query.trim()
+                  : isContentOnly
+                    ? false
+                    : isForm
+                      ? !connectionId || !query.trim()
+                      : !query.trim()
               }
               loading={saveStatus === "saving"}
               loadingText="Saving..."
