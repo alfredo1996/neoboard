@@ -19,6 +19,7 @@ import {
 import {
   EmptyState,
   ColumnMappingOverlay,
+  substituteParams,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
@@ -273,15 +274,30 @@ export function CardContainer({
     );
   }
 
-  // Content-only widgets (markdown, iframe) — no query, just render with settings
+  // Content-only widgets (markdown, iframe) — no query, just render with settings.
+  // Substitute $param_xxx placeholders in content/url so markdown and iframe
+  // widgets can reference dashboard parameters without executing a query.
   if (isContentOnly) {
+    const resolvedContentOptions: Record<string, unknown> = { ...chartOptions };
+    if (typeof chartOptions.content === "string") {
+      resolvedContentOptions.content = substituteParams(
+        chartOptions.content,
+        allParamValues,
+      );
+    }
+    if (typeof chartOptions.url === "string") {
+      resolvedContentOptions.url = substituteParams(
+        chartOptions.url,
+        allParamValues,
+      );
+    }
     return (
       <div className="h-full w-full flex flex-col">
         <div className="flex-1 min-h-0">
           <ChartRenderer
             type={chartConfig.type}
             data={null}
-            settings={chartOptions}
+            settings={resolvedContentOptions}
           />
         </div>
       </div>
