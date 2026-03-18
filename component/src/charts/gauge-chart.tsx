@@ -7,6 +7,8 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import { resolveItemColor } from "./chart-utils";
+import type { StylingRule } from "./styling-rule";
 
 echarts.use([EGaugeChart, TitleComponent, TooltipComponent, CanvasRenderer]);
 
@@ -32,6 +34,10 @@ export interface GaugeChartProps extends Omit<BaseChartProps, "options"> {
   startAngle?: number;
   /** End angle in degrees */
   endAngle?: number;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -50,6 +56,8 @@ function GaugeChart({
   showDetail = true,
   startAngle = 225,
   endAngle = -45,
+  stylingRules,
+  paramValues,
   ...rest
 }: GaugeChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -124,11 +132,23 @@ function GaugeChart({
             offsetCenter: [0, "90%"],
             fontSize: 14,
           },
-          data: [{ value: point.value, name: point.name ?? "" }],
+          data: [
+            {
+              value: point.value,
+              name: point.name ?? "",
+              ...(resolveItemColor(point.value, stylingRules, paramValues, [])
+                ? {
+                    itemStyle: {
+                      color: resolveItemColor(point.value, stylingRules, paramValues, []),
+                    },
+                  }
+                : {}),
+            },
+          ],
         },
       ],
     };
-  }, [data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, compact]);
+  }, [data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, compact, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

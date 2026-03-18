@@ -7,6 +7,8 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import { resolveItemColor } from "./chart-utils";
+import type { StylingRule } from "./styling-rule";
 
 echarts.use([ERadarChart, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
@@ -36,6 +38,10 @@ export interface RadarChartProps extends Omit<BaseChartProps, "options"> {
   showLegend?: boolean;
   /** Show values at data points */
   showValues?: boolean;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -51,6 +57,8 @@ function RadarChart({
   filled = true,
   showLegend = true,
   showValues = false,
+  stylingRules,
+  paramValues,
   ...rest
 }: RadarChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -87,21 +95,31 @@ function RadarChart({
       series: [
         {
           type: "radar",
-          data: data.series.map((s) => ({
-            name: s.name,
-            value: s.values,
-            label: showValues
-              ? { show: true, formatter: (params: unknown) => String((params as { value: number }).value) }
-              : { show: false },
-            areaStyle: filled ? { opacity: 0.3 } : undefined,
-          })),
+          data: data.series.map((s) => {
+            const seriesColor = resolveItemColor(
+              s.values.reduce((sum, v) => sum + v, 0) / (s.values.length || 1),
+              stylingRules,
+              paramValues,
+              [],
+            );
+            return {
+              name: s.name,
+              value: s.values,
+              label: showValues
+                ? { show: true, formatter: (params: unknown) => String((params as { value: number }).value) }
+                : { show: false },
+              areaStyle: filled ? { opacity: 0.3, ...(seriesColor ? { color: seriesColor } : {}) } : undefined,
+              lineStyle: seriesColor ? { color: seriesColor } : undefined,
+              itemStyle: seriesColor ? { color: seriesColor } : undefined,
+            };
+          }),
           emphasis: {
             lineStyle: { width: 3 },
           },
         },
       ],
     };
-  }, [data, shape, filled, showLegend, showValues, compact, hideLegend]);
+  }, [data, shape, filled, showLegend, showValues, compact, hideLegend, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

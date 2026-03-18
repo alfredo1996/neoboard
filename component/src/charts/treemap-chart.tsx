@@ -7,6 +7,8 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import { resolveItemColor } from "./chart-utils";
+import type { StylingRule } from "./styling-rule";
 
 echarts.use([ETreemapChart, TitleComponent, TooltipComponent, CanvasRenderer]);
 
@@ -27,6 +29,10 @@ export interface TreemapChartProps extends Omit<BaseChartProps, "options"> {
   showValues?: boolean;
   /** Color saturation gradient for child items */
   colorSaturation?: "low" | "medium" | "high";
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 const COLOR_SATURATION_MAP: Record<string, [number, number]> = {
@@ -48,6 +54,8 @@ function TreemapChart({
   showBreadcrumb = true,
   showValues = false,
   colorSaturation = "medium",
+  stylingRules,
+  paramValues,
   ...rest
 }: TreemapChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -78,7 +86,22 @@ function TreemapChart({
       series: [
         {
           type: "treemap",
-          data,
+          data: stylingRules?.length
+            ? data.map((item) => ({
+                ...item,
+                itemStyle: {
+                  ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
+                  ...(resolveItemColor(
+                    typeof item.value === "number" ? item.value : 0,
+                    stylingRules,
+                    paramValues,
+                    [],
+                  )
+                    ? { color: resolveItemColor(typeof item.value === "number" ? item.value : 0, stylingRules, paramValues, []) }
+                    : {}),
+                },
+              }))
+            : data,
           width: "100%",
           height: "100%",
           roam: false,
@@ -119,7 +142,7 @@ function TreemapChart({
         },
       ],
     };
-  }, [data, showLabels, showBreadcrumb, showValues, colorSaturation, compact]);
+  }, [data, showLabels, showBreadcrumb, showValues, colorSaturation, compact, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

@@ -7,6 +7,8 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import { resolveItemColor } from "./chart-utils";
+import type { StylingRule } from "./styling-rule";
 
 echarts.use([ESankeyChart, TitleComponent, TooltipComponent, CanvasRenderer]);
 
@@ -36,6 +38,10 @@ export interface SankeyChartProps extends Omit<BaseChartProps, "options"> {
   nodeWidth?: number;
   /** Gap between nodes in pixels */
   nodeGap?: number;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -48,6 +54,8 @@ function SankeyChart({
   showLabels = true,
   nodeWidth = 20,
   nodeGap = 8,
+  stylingRules,
+  paramValues,
   ...rest
 }: SankeyChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -75,7 +83,16 @@ function SankeyChart({
           type: "sankey",
           orient,
           data: data.nodes,
-          links: data.links,
+          links: stylingRules?.length
+            ? data.links.map((link) => ({
+                ...link,
+                lineStyle: {
+                  ...(resolveItemColor(link.value, stylingRules, paramValues, [])
+                    ? { color: resolveItemColor(link.value, stylingRules, paramValues, []) }
+                    : {}),
+                },
+              }))
+            : data.links,
           nodeWidth: compact ? Math.max(nodeWidth - 4, 10) : nodeWidth,
           nodeGap: compact ? Math.max(nodeGap - 2, 4) : nodeGap,
           label: {
@@ -92,7 +109,7 @@ function SankeyChart({
         },
       ],
     };
-  }, [data, orient, showLabels, nodeWidth, nodeGap, compact]);
+  }, [data, orient, showLabels, nodeWidth, nodeGap, compact, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

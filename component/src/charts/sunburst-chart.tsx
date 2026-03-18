@@ -7,6 +7,8 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
+import { resolveItemColor } from "./chart-utils";
+import type { StylingRule } from "./styling-rule";
 
 echarts.use([ESunburstChart, TitleComponent, TooltipComponent, CanvasRenderer]);
 
@@ -25,6 +27,10 @@ export interface SunburstChartProps extends Omit<BaseChartProps, "options"> {
   sort?: "desc" | "asc" | "none";
   /** Highlight segments on hover */
   highlightOnHover?: boolean;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
@@ -36,6 +42,8 @@ function SunburstChart({
   showLabels = true,
   sort = "desc",
   highlightOnHover = true,
+  stylingRules,
+  paramValues,
   ...rest
 }: SunburstChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -67,7 +75,22 @@ function SunburstChart({
       series: [
         {
           type: "sunburst",
-          data,
+          data: stylingRules?.length
+            ? data.map((item) => ({
+                ...item,
+                itemStyle: {
+                  ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
+                  ...(resolveItemColor(
+                    typeof item.value === "number" ? item.value : 0,
+                    stylingRules,
+                    paramValues,
+                    [],
+                  )
+                    ? { color: resolveItemColor(typeof item.value === "number" ? item.value : 0, stylingRules, paramValues, []) }
+                    : {}),
+                },
+              }))
+            : data,
           radius: compact ? ["0%", "90%"] : ["0%", "80%"],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sort: sortFn as any,
@@ -96,7 +119,7 @@ function SunburstChart({
         },
       ],
     };
-  }, [data, showLabels, sort, highlightOnHover, compact]);
+  }, [data, showLabels, sort, highlightOnHover, compact, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
