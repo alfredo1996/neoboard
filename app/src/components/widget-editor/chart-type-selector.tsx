@@ -11,6 +11,8 @@ import {
   Braces,
   SlidersHorizontal,
   FileEdit,
+  FileText,
+  Globe,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -36,6 +38,8 @@ export const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon 
   json: { label: "JSON Viewer", Icon: Braces },
   "parameter-select": { label: "Parameter Selector", Icon: SlidersHorizontal },
   form: { label: "Form", Icon: FileEdit },
+  markdown: { label: "Markdown", Icon: FileText },
+  iframe: { label: "iFrame", Icon: Globe },
 };
 
 interface ConnectionOption {
