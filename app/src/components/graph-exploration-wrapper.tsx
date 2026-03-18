@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { unwrapFullResponse } from "@/lib/api-client";
 import {
   GraphChart,
@@ -80,11 +79,11 @@ function NodeContextMenu({
     onCollapse && { label: "Collapse", action: onCollapse },
   ].filter(Boolean) as { label: string; action: () => void }[];
 
-  return createPortal(
+  return (
     <div
       ref={ref}
       data-testid="graph-context-menu"
-      className="fixed z-[500] min-w-[160px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md text-sm"
+      className="absolute z-[500] min-w-[160px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md text-sm"
       style={{ left: menu.x, top: menu.y }}
     >
       <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium border-b mb-1">
@@ -107,8 +106,7 @@ function NodeContextMenu({
           {item.label}
         </button>
       ))}
-    </div>,
-    document.body,
+    </div>
   );
 }
 
@@ -118,16 +116,23 @@ function nodeToSections(node: GraphNode): PropertySection[] {
     const normalized = normalizeValue(value) ?? value;
     return {
       key,
-      value: typeof normalized === "object" && normalized !== null ? JSON.stringify(normalized) : String(normalized ?? ""),
+      value:
+        typeof normalized === "object" && normalized !== null
+          ? JSON.stringify(normalized)
+          : String(normalized ?? ""),
     };
   });
   const metaItems = [
     { key: "id", value: node.id },
-    ...(node.labels?.length ? [{ key: "labels", value: node.labels.join(", ") }] : []),
+    ...(node.labels?.length
+      ? [{ key: "labels", value: node.labels.join(", ") }]
+      : []),
   ];
   return [
     { title: "Metadata", items: metaItems, collapsible: false as const },
-    ...(propertyItems.length > 0 ? [{ title: "Properties", items: propertyItems }] : []),
+    ...(propertyItems.length > 0
+      ? [{ title: "Properties", items: propertyItems }]
+      : []),
   ];
 }
 
@@ -141,6 +146,7 @@ export function GraphExplorationWrapper({
   resultId,
   autoFit,
 }: GraphExplorationWrapperProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<NodeMenu | null>(null);
   const [propertiesNode, setPropertiesNode] = useState<GraphNode | null>(null);
   const storeSetState = useGraphWidgetStore((s) => s.setState);
@@ -201,18 +207,22 @@ export function GraphExplorationWrapper({
       edges: exploration.edges,
       resultId,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploration.nodes, exploration.edges]);
 
-  const handleNodeRightClick = useCallback(
-    (e: GraphNodeEvent) => {
-      setMenu({ node: e.node, x: e.position.x, y: e.position.y });
-    },
-    [],
-  );
+  const handleNodeRightClick = useCallback((e: GraphNodeEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const x = e.position.x - (rect?.left ?? 0);
+    const y = e.position.y - (rect?.top ?? 0);
+    setMenu({ node: e.node, x, y });
+  }, []);
 
   return (
-    <div className="relative h-full w-full" data-testid="graph-exploration">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full"
+      data-testid="graph-exploration"
+    >
       <GraphChart
         nodes={exploration.nodes}
         edges={exploration.edges}
@@ -229,7 +239,9 @@ export function GraphExplorationWrapper({
         initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
         showLabels={settings.showLabels as boolean | undefined}
         onLayoutChange={(layout) => storeSetState(widgetId, { layout })}
-        onCaptionMapChange={(captionMap) => storeSetState(widgetId, { captionMap })}
+        onCaptionMapChange={(captionMap) =>
+          storeSetState(widgetId, { captionMap })
+        }
         autoFit={autoFit}
       />
 
@@ -281,10 +293,17 @@ export function GraphExplorationWrapper({
       )}
 
       {/* Node properties dialog */}
-      <Dialog open={propertiesNode !== null} onOpenChange={(open) => { if (!open) setPropertiesNode(null); }}>
+      <Dialog
+        open={propertiesNode !== null}
+        onOpenChange={(open) => {
+          if (!open) setPropertiesNode(null);
+        }}
+      >
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>{propertiesNode?.label ?? propertiesNode?.id ?? "Node Properties"}</DialogTitle>
+            <DialogTitle>
+              {propertiesNode?.label ?? propertiesNode?.id ?? "Node Properties"}
+            </DialogTitle>
           </DialogHeader>
           {propertiesNode && (
             <div className="overflow-y-auto max-h-[400px]">

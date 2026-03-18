@@ -1,20 +1,23 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Info } from "lucide-react";
+import { Info, RefreshCw } from "lucide-react";
 import {
   Label,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  Button,
 } from "@neoboard/components";
 import type { ChartType } from "@/lib/chart-registry";
+import { useConnectionSchema } from "@/hooks/use-schema";
+import { useSchemaStore } from "@/stores/schema-store";
 
 // CodeMirror accesses real DOM APIs — load it only client-side.
 const QueryEditor = dynamic(
   () =>
     import("@neoboard/components").then((m) => ({ default: m.QueryEditor })),
-  { ssr: false }
+  { ssr: false },
 );
 
 /** Per-chart-type hints shown next to the Query label to guide column conventions. */
@@ -67,6 +70,11 @@ export function QueryEditorPanel({
   editorLanguage,
   connectionId,
 }: QueryEditorPanelProps) {
+  // Prefetch schema for autocompletion. The hook caches for 10 min
+  // and also writes to the Zustand store for synchronous reads.
+  const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
+  const schema = useSchemaStore((s) => s.getSchema(connectionId));
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
@@ -78,8 +86,33 @@ export function QueryEditorPanel({
             <TooltipTrigger asChild>
               <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-line">
+            <TooltipContent
+              side="top"
+              className="max-w-sm text-xs whitespace-pre-line"
+            >
               {QUERY_HINTS[chartType as ChartType]}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {connectionId && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={() => refreshSchema()}
+                disabled={isFetching}
+                aria-label="Refresh schema"
+              >
+                <RefreshCw
+                  className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              Refresh schema for autocompletion
             </TooltipContent>
           </Tooltip>
         )}
@@ -90,6 +123,7 @@ export function QueryEditorPanel({
         onRun={onRun}
         language={editorLanguage}
         readOnly={!connectionId}
+        schema={schema}
         placeholder={
           editorLanguage === "sql"
             ? "SELECT * FROM users LIMIT 10"

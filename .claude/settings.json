@@ -1,17 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm *)", "Bash(npx *)", "Bash(gh *)", "Bash(git *)",
-      "Bash(node *)", "Bash(cat *)", "Bash(ls *)", "Bash(find *)",
-      "Bash(grep *)", "Bash(head *)", "Bash(tail *)", "Bash(wc *)",
-      "Bash(echo *)", "Bash(mkdir *)", "Bash(cp *)", "Bash(mv *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(echo *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
       "Bash(docker compose *)",
-      "Read(*)", "Edit(*)", "Write(*)"
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)"
     ],
-    "deny": [
-      "Bash(rm -rf /)", "Bash(rm -rf ~)",
-      "Edit(.env*)", "Write(.env*)"
-    ]
+    "deny": ["Bash(rm -rf /)", "Bash(rm -rf ~)", "Edit(.env*)", "Write(.env*)"]
   },
   "hooks": {
     "PreToolUse": [
@@ -60,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "printf 'CRITICAL RULES (re-injected after compaction):\\n- TDD mandatory: write failing test FIRST, then implement\\n- Package boundaries: component/ has NO business logic/API/stores; connection/ has NO React/UI\\n- Query safety: NEVER interpolate user input, ALWAYS parameterized queries\\n- Run cd app && npx next lint --fix after app/ changes\\n- Run npm run build before committing\\n- PRs target dev branch, not main\\n- Coverage target: 80%% per package'"
+            "command": "printf 'CRITICAL RULES (re-injected after compaction):\\n- TDD mandatory: write failing test FIRST, then implement\\n- Package boundaries: component/ has NO business logic/API/stores; connection/ has NO React/UI\\n- Query safety: NEVER interpolate user input, ALWAYS parameterized queries\\n- Run cd app && npx next lint --fix after app/ changes\\n- Run npm run build before committing\\n- PRs target dev branch, not main\\n- Coverage target: 80%% per package\\n- WORKTREE AGENTS: tests are safe to run locally (dynamic ports). CI is the source of truth.\\n- ORCHESTRATOR: max 3 concurrent workers. Never auto-merge. Track CONFLICT_FILES across workers.'"
           }
         ]
       }
