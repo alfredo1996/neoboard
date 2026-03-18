@@ -123,7 +123,7 @@ describe("toCypherDbSchema", () => {
 
     const { propertyKeys } = toCypherDbSchema(schema);
     // "name" appears in both labels — should only appear once
-    expect(propertyKeys.filter((k) => k === "name")).toHaveLength(1);
+    expect(propertyKeys!.filter((k) => k === "name")).toHaveLength(1);
     expect(propertyKeys).toContain("id");
     expect(propertyKeys).toContain("founded");
   });

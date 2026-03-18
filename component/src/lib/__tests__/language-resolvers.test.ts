@@ -17,8 +17,10 @@ import type { DatabaseSchema } from "../schema-transforms";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockSql = vi.fn(() => [{ type: "sqlLanguageSupport" }]);
-const mockCypher = vi.fn(() => ({ type: "cypherLanguageSupport" }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocks accept any args
+const mockSql = vi.fn<(...args: any[]) => object[]>(() => [{ type: "sqlLanguageSupport" }]);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocks accept any args
+const mockCypher = vi.fn<(...args: any[]) => object>(() => ({ type: "cypherLanguageSupport" }));
 
 vi.mock("@codemirror/lang-sql", () => ({
   sql: (...args: unknown[]) => mockSql(...args),

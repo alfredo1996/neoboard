@@ -99,13 +99,13 @@ vi.mock("@codemirror/theme-one-dark", () => ({
 // Mock language resolvers — unified path for both SQL and Cypher
 // ---------------------------------------------------------------------------
 
-const mockResolveLanguageExt = vi.fn(async () => [
-  { type: "mockLanguageExt" },
-]);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock accepts any args
+const mockResolveLanguageExt = vi.fn<(...args: any[]) => Promise<object[]>>(
+  async () => [{ type: "mockLanguageExt" }],
+);
 
 vi.mock("@/lib/language-resolvers", () => ({
-  resolveLanguageExt: (...args: unknown[]) =>
-    mockResolveLanguageExt(...args),
+  resolveLanguageExt: (...args: unknown[]) => mockResolveLanguageExt(...args),
 }));
 
 // ---------------------------------------------------------------------------
