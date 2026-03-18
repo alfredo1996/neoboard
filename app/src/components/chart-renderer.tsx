@@ -9,6 +9,8 @@ import {
   Skeleton,
   EmptyState,
   JsonViewer,
+  MarkdownWidget,
+  IframeWidget,
 } from "@neoboard/components";
 
 // Chart components use ECharts (browser APIs) — must be loaded client-side only
@@ -282,6 +284,22 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           connectionId={connectionId ?? ""}
           query={query ?? ""}
           settings={settings}
+        />
+      );
+
+    case "markdown":
+      return (
+        <MarkdownWidget
+          content={settings.content as string | undefined}
+        />
+      );
+
+    case "iframe":
+      return (
+        <IframeWidget
+          url={settings.url as string | undefined}
+          title={settings.iframeTitle as string | undefined}
+          sandbox={settings.sandbox as string | undefined}
         />
       );
 

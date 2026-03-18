@@ -106,9 +106,10 @@ export function CardContainer({
   const enableCache = widget.settings?.enableCache !== false;
   const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
 
-  // Parameter-select and form widgets are self-contained (no auto-query).
+  // Parameter-select, form, markdown, and iframe widgets are self-contained (no auto-query).
   const isParameterWidget = widget.chartType === "parameter-select";
   const isFormWidget = widget.chartType === "form";
+  const isContentOnly = widget.chartType === "markdown" || widget.chartType === "iframe";
 
   const chartOptions = useMemo(
     () => (widget.settings?.chartOptions ?? {}) as Record<string, unknown>,
@@ -131,7 +132,7 @@ export function CardContainer({
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
   // Parameter-select and form widgets skip query execution entirely.
-  const queryInput = (previewData !== undefined || isParameterWidget || isFormWidget) ? null : {
+  const queryInput = (previewData !== undefined || isParameterWidget || isFormWidget || isContentOnly) ? null : {
     connectionId: widget.connectionId,
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
@@ -266,6 +267,21 @@ export function CardContainer({
             connectionId={widget.connectionId}
             widgetId={widget.id}
             query={widget.query}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Content-only widgets (markdown, iframe) — no query, just render with settings
+  if (isContentOnly) {
+    return (
+      <div className="h-full w-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <ChartRenderer
+            type={chartConfig.type}
+            data={null}
+            settings={chartOptions}
           />
         </div>
       </div>

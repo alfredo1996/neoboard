@@ -98,6 +98,10 @@ export {
 // Form
 export { FormWidget, type FormWidgetProps, type FormFieldDef } from "./form-widget";
 
+// Content Widgets
+export { MarkdownWidget, type MarkdownWidgetProps } from "./markdown-widget";
+export { IframeWidget, type IframeWidgetProps } from "./iframe-widget";
+
 // Query
 export { QueryEditor, type QueryEditorProps } from "./query-editor";
 export { CodePreview, type CodePreviewProps } from "./code-preview";
