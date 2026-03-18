@@ -43,14 +43,16 @@ export interface DatabaseSchema {
 }
 
 // ---------------------------------------------------------------------------
-// EditorSupportSchema — format expected by @neo4j-cypher/editor-support
+// CypherDbSchema — format compatible with @neo4j-cypher/react-codemirror's
+// cypher() function (DbSchema type). This is a subset of the full DbSchema
+// containing only the fields we populate from our schema API.
 // ---------------------------------------------------------------------------
 
-export interface EditorSupportSchema {
-  labels: string[];
-  relationshipTypes: string[];
+export interface CypherDbSchema {
+  labels?: string[];
+  relationshipTypes?: string[];
   /** Flat deduplicated list of all property keys across all node + rel types */
-  propertyKeys: string[];
+  propertyKeys?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -73,13 +75,13 @@ export function toSqlSchema(schema: DatabaseSchema): Record<string, string[]> {
 }
 
 /**
- * Converts a Neo4j `DatabaseSchema` into the `EditorSupportSchema` format
- * expected by `@neo4j-cypher/codemirror`'s `setSchema()`.
+ * Converts a Neo4j `DatabaseSchema` into the `CypherDbSchema` format
+ * compatible with `@neo4j-cypher/react-codemirror`'s `cypher()` function.
  *
  * Property keys are flattened from all node + relationship property maps and
- * deduplicated (the Neo4j library uses a flat list, not per-label maps).
+ * deduplicated (the library uses a flat list, not per-label maps).
  */
-export function toCypherSchema(schema: DatabaseSchema): EditorSupportSchema {
+export function toCypherDbSchema(schema: DatabaseSchema): CypherDbSchema {
   // Filter null/undefined entries — the neo4j editor-support package
   // calls ecsapeCypher() on each value and it crashes on null.
   const labels = (schema.labels ?? []).filter(Boolean) as string[];

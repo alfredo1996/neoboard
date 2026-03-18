@@ -2,6 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 import type { NextcovConfig } from "nextcov";
 import * as dotenv from "dotenv";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// ESM-safe __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env.test so TEST_SERVER_PORT (written by global-setup) is available.
 dotenv.config({ path: path.resolve(__dirname, ".env.test"), quiet: true });

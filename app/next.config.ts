@@ -44,6 +44,19 @@ const nextConfig: NextConfig = {
       mobx: mobxPath,
     };
 
+    // The @neo4j-cypher/react-codemirror package's syntaxValidation module
+    // imports workerpool which tries to require('child_process') and
+    // require('worker_threads'). These Node.js builtins aren't available
+    // in the browser bundle. We pass lint: false to cypher() so the linter
+    // (and thus workerpool) is never actually invoked at runtime.
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...(config.resolve.fallback ?? {}),
+        child_process: false,
+        worker_threads: false,
+      };
+    }
+
     // The component library uses @/ as a path alias pointing to its own src/.
     // The app also uses @/ (via tsconfig paths) pointing to app/src/.
     // We need to resolve @/ differently based on which package the import originates from.

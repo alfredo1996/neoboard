@@ -1,5 +1,5 @@
 /**
- * QueryEditor tests
+ * QueryEditor tests — Unified CodeMirror 6 architecture
  *
  * CodeMirror 6 mounts into a real DOM using dynamic imports. In jsdom we mock
  * the CM modules so they do NOT render contenteditable nodes; instead the
@@ -11,10 +11,10 @@
  *  - Disabled states (empty value, running)
  *  - className propagation
  *  - Language label mapping
- *  - Language switching reinitialises editor
+ *  - Language switching reconfigures compartment (no destroy/recreate)
  *  - Abort signal prevents stale initEditor calls
- *  - Schema prop passed to sql() for SQL mode
- *  - Cypher mode uses createCypherEditor
+ *  - Schema prop passed to resolveLanguageExt for both SQL and Cypher
+ *  - Unified init path — single EditorView for all languages
  */
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -95,37 +95,17 @@ vi.mock("@codemirror/theme-one-dark", () => ({
   oneDark: { type: "oneDark" },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockSql = vi.fn((..._args: any[]) => ({ type: "sql" }));
-vi.mock("@codemirror/lang-sql", () => ({
-  sql: (...args: unknown[]) => mockSql(...args),
-  PostgreSQL: { name: "PostgreSQL" },
-}));
+// ---------------------------------------------------------------------------
+// Mock language resolvers — unified path for both SQL and Cypher
+// ---------------------------------------------------------------------------
 
-// Mock @neo4j-cypher/codemirror
-const mockCypherSetValue = vi.fn();
-const mockCypherSetReadOnly = vi.fn();
-const mockCypherSetSchema = vi.fn();
-const mockCypherDestroy = vi.fn();
-const mockCypherFocus = vi.fn();
-const mockCypherOnValueChanged = vi.fn();
+const mockResolveLanguageExt = vi.fn(async () => [
+  { type: "mockLanguageExt" },
+]);
 
-vi.mock("@neo4j-cypher/codemirror", () => ({
-  createCypherEditor: (_parent: Element, _opts: unknown) => ({
-    editor: {
-      codemirror: {
-        state: { doc: { toString: () => "", length: 0 } },
-        dispatch: mockDispatch,
-        destroy: mockDestroy,
-      },
-      setValue: mockCypherSetValue,
-      setReadOnly: mockCypherSetReadOnly,
-      setSchema: mockCypherSetSchema,
-      destroy: mockCypherDestroy,
-      focus: mockCypherFocus,
-      onValueChanged: mockCypherOnValueChanged,
-    },
-  }),
+vi.mock("@/lib/language-resolvers", () => ({
+  resolveLanguageExt: (...args: unknown[]) =>
+    mockResolveLanguageExt(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -136,18 +116,12 @@ beforeEach(() => {
   mockDispatch.mockClear();
   mockDestroy.mockClear();
   mockFocus.mockClear();
-  mockSql.mockClear();
-  mockCypherSetValue.mockClear();
-  mockCypherSetReadOnly.mockClear();
-  mockCypherSetSchema.mockClear();
-  mockCypherDestroy.mockClear();
-  mockCypherFocus.mockClear();
-  mockCypherOnValueChanged.mockClear();
+  mockResolveLanguageExt.mockClear();
   capturedUpdateListener = null;
 });
 
 // Helper: wait for async initEditor to resolve.
-// initSqlEditor awaits multiple dynamic imports, so flush several microtask
+// initEditor awaits multiple dynamic imports, so flush several microtask
 // rounds to ensure all promise chains settle.
 async function flushAsync() {
   for (let i = 0; i < 5; i++) {
@@ -233,7 +207,7 @@ describe("QueryEditor", () => {
     expect(onRun).toHaveBeenCalled();
   });
 
-  it("calls onChange via CodeMirror update listener (SQL mode)", async () => {
+  it("calls onChange via CodeMirror update listener", async () => {
     const onChange = vi.fn();
     render(<QueryEditor language="sql" onChange={onChange} />);
     await flushAsync();
@@ -282,93 +256,78 @@ describe("QueryEditor", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SQL schema completion
+// Unified editor — uses resolveLanguageExt for all languages
 // ---------------------------------------------------------------------------
 
-describe("QueryEditor — SQL schema completion", () => {
-  it("passes schema to sql() when schema prop is provided", async () => {
-    mockSql.mockClear();
-    render(
-      <QueryEditor
-        language="sql"
-        schema={{
-          type: "postgresql",
-          tables: [
-            {
-              name: "users",
-              columns: [{ name: "id", type: "integer", nullable: false }],
-            },
-          ],
-        }}
-      />,
-    );
+describe("QueryEditor — unified editor init", () => {
+  it("calls resolveLanguageExt with cypher language by default", async () => {
+    render(<QueryEditor />);
     await flushAsync();
 
-    expect(mockSql).toHaveBeenCalled();
-    const callWithSchema = mockSql.mock.calls.find(
-      (c: unknown[]) =>
-        c[0] &&
-        typeof c[0] === "object" &&
-        "schema" in (c[0] as Record<string, unknown>),
-    );
-    expect(callWithSchema).toBeDefined();
-    const arg = callWithSchema![0] as Record<string, unknown>;
-    expect(arg.schema).toEqual({ users: ["id"] });
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[0]).toBe("cypher");
   });
 
-  it("calls sql() with dialect only when no schema prop", async () => {
-    mockSql.mockClear();
+  it("calls resolveLanguageExt with sql language", async () => {
     render(<QueryEditor language="sql" />);
     await flushAsync();
 
-    expect(mockSql).toHaveBeenCalled();
-    // The first call (from initSqlEditor) should have dialect but no schema
-    const firstCall = mockSql.mock.calls[0] as unknown[];
-    expect(firstCall[0]).toHaveProperty("dialect");
-    expect(firstCall[0]).not.toHaveProperty("schema");
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[0]).toBe("sql");
+  });
+
+  it("passes schema to resolveLanguageExt when schema prop provided", async () => {
+    const schema = {
+      type: "postgresql" as const,
+      tables: [
+        {
+          name: "users",
+          columns: [{ name: "id", type: "integer", nullable: false }],
+        },
+      ],
+    };
+
+    render(<QueryEditor language="sql" schema={schema} />);
+    await flushAsync();
+
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[1]).toEqual(schema);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Cypher editor path
-// ---------------------------------------------------------------------------
-
-describe("QueryEditor — Cypher mode", () => {
-  it("uses createCypherEditor for cypher language", async () => {
-    render(<QueryEditor language="cypher" />);
-    await flushAsync();
-
-    // The Cypher editor registers onValueChanged listener
-    expect(mockCypherOnValueChanged).toHaveBeenCalled();
-  });
-
-  it("calls setReadOnly on Cypher editor when readOnly changes", async () => {
-    const { rerender } = render(<QueryEditor language="cypher" />);
-    await flushAsync();
-    mockCypherSetReadOnly.mockClear();
-
-    rerender(<QueryEditor language="cypher" readOnly />);
-    await flushAsync();
-
-    expect(mockCypherSetReadOnly).toHaveBeenCalledWith(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Language switching
+// Language switching — compartment reconfigure (no destroy/recreate)
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — language switching", () => {
-  it("reconfigures language compartment when switching within SQL dialects", async () => {
+  it("reconfigures language via compartment when language changes", async () => {
     const { rerender } = render(<QueryEditor language="sql" />);
     await flushAsync();
+    mockResolveLanguageExt.mockClear();
     mockDispatch.mockClear();
-    mockDestroy.mockClear();
+
+    rerender(<QueryEditor language="cypher" />);
+    await flushAsync();
+
+    // Should call resolveLanguageExt with new language
+    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    const calls = mockResolveLanguageExt.mock.calls as unknown[][];
+    const cypherCall = calls.find((c) => c[0] === "cypher");
+    expect(cypherCall).toBeDefined();
+  });
+
+  it("reconfigures when switching within SQL dialects", async () => {
+    const { rerender } = render(<QueryEditor language="sql" />);
+    await flushAsync();
+    mockResolveLanguageExt.mockClear();
 
     rerender(<QueryEditor language="postgresql" />);
     await flushAsync();
 
-    // Both sql and postgresql are SQL mode — no reinit, just compartment reconfigure
+    // Both sql and postgresql → compartment reconfigure
     expect(screen.getByText("SQL")).toBeInTheDocument();
   });
 });
@@ -378,10 +337,21 @@ describe("QueryEditor — language switching", () => {
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — readOnly", () => {
-  it("run and clear buttons are disabled in readOnly mode", async () => {
+  it("run and clear buttons are visible in readOnly mode", async () => {
     render(<QueryEditor readOnly value="MATCH (n) RETURN n" />);
     await flushAsync();
     expect(screen.getByText("Run")).toBeInTheDocument();
+  });
+
+  it("dispatches compartment reconfigure when readOnly changes", async () => {
+    const { rerender } = render(<QueryEditor language="sql" />);
+    await flushAsync();
+    mockDispatch.mockClear();
+
+    rerender(<QueryEditor language="sql" readOnly />);
+    await flushAsync();
+
+    expect(mockDispatch).toHaveBeenCalled();
   });
 });
 
@@ -390,7 +360,7 @@ describe("QueryEditor — readOnly", () => {
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — controlled value sync", () => {
-  it("dispatches changes to CM when controlled value prop changes (SQL)", async () => {
+  it("dispatches changes to CM when controlled value prop changes", async () => {
     const { rerender } = render(
       <QueryEditor language="sql" value="SELECT 1" />,
     );

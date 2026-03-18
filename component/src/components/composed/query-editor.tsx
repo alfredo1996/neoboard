@@ -9,16 +9,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { toSqlSchema, toCypherSchema } from "@/lib/schema-transforms";
+import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
+
 // ---------------------------------------------------------------------------
 // CodeMirror type aliases (dynamic imports — never imported at module level
 // so the heavy editor code is only loaded in the browser).
 // ---------------------------------------------------------------------------
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM view
 type CMEditorView = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque Cypher EditorApi
-type CypherEditorApi = any;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -45,25 +44,6 @@ export interface QueryEditorProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function isSql(language: string): boolean {
-  const l = (language ?? "cypher").toLowerCase();
-  return l === "sql" || l === "postgresql";
-}
-
-/**
- * Load the CodeMirror SQL language extension, optionally with schema completion.
- */
-async function loadSqlExt(
-  schema?: DatabaseSchema,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
-): Promise<any[]> {
-  const { sql, PostgreSQL } = await import("@codemirror/lang-sql");
-  if (schema?.tables) {
-    return [sql({ dialect: PostgreSQL, schema: toSqlSchema(schema) })];
-  }
-  return [sql({ dialect: PostgreSQL })];
-}
 
 async function buildExtensions(
   placeholder: string,
@@ -157,7 +137,6 @@ function QueryEditor({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<CMEditorView>(null);
-  const cypherApiRef = React.useRef<CypherEditorApi>(null);
   // Prevent the CM update listener from triggering onChange while we are
   // programmatically pushing a value into the editor.
   const suppressUpdate = React.useRef(false);
@@ -213,17 +192,10 @@ function QueryEditor({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
   const editorStateRef = React.useRef<any>(null);
 
-  // Track which editor mode is active so effects know which path to take
-  const editorModeRef = React.useRef<"sql" | "cypher">("cypher");
-
   // -------------------------------------------------------------------------
   // Cleanup helper
   // -------------------------------------------------------------------------
   function destroyEditor() {
-    if (cypherApiRef.current) {
-      cypherApiRef.current.destroy();
-      cypherApiRef.current = null;
-    }
     if (viewRef.current) {
       viewRef.current.destroy();
       viewRef.current = null;
@@ -231,16 +203,28 @@ function QueryEditor({
   }
 
   // -------------------------------------------------------------------------
-  // Create the CodeMirror editor — SQL path (runs once on mount)
+  // Create the CodeMirror editor — unified path for all languages
   // -------------------------------------------------------------------------
-  const initSqlEditor = React.useCallback(
+  const initEditor = React.useCallback(
     async (docValue: string, abortSignal: { aborted: boolean }) => {
+      // Cancel any previous in-flight init so we don't end up with two editors.
+      initAbortRef.current.aborted = true;
+      initAbortRef.current = abortSignal;
+
+      // Tear down any existing editor
+      destroyEditor();
+
       if (typeof window === "undefined" || !containerRef.current) return;
 
-      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all([
-        import("@codemirror/view"),
-        import("@codemirror/state"),
-      ]);
+      // Remove leftover DOM nodes and clear the ready signal
+      delete containerRef.current.dataset.editorReady;
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
+      }
+
+      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all(
+        [import("@codemirror/view"), import("@codemirror/state")],
+      );
 
       if (abortSignal.aborted) return;
 
@@ -253,7 +237,10 @@ function QueryEditor({
 
       // Capture the schema at the start — it may change while we await imports.
       const initialSchema = schemaRef.current;
-      const langExts = await loadSqlExt(initialSchema);
+      const langExts = await resolveLanguageExt(
+        languageRef.current,
+        initialSchema,
+      );
       if (abortSignal.aborted) return;
 
       const onUpdate = (newValue: string) => {
@@ -284,10 +271,11 @@ function QueryEditor({
       viewRef.current = new EditorView({ state, parent: containerRef.current });
 
       // If the schema arrived while we were awaiting imports, reconfigure now.
-      // The schema effect may have fired and found viewRef.current === null,
-      // so this catch-up ensures schema is applied.
       if (schemaRef.current && schemaRef.current !== initialSchema) {
-        const updatedExts = await loadSqlExt(schemaRef.current);
+        const updatedExts = await resolveLanguageExt(
+          languageRef.current,
+          schemaRef.current,
+        );
         if (!abortSignal.aborted && viewRef.current) {
           viewRef.current.dispatch({
             effects: langCompartment.reconfigure(updatedExts),
@@ -299,133 +287,6 @@ function QueryEditor({
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [placeholder],
-  );
-
-  // -------------------------------------------------------------------------
-  // Create the Cypher editor via @neo4j-cypher/codemirror
-  // -------------------------------------------------------------------------
-  const initCypherEditor = React.useCallback(
-    async (docValue: string, abortSignal: { aborted: boolean }) => {
-      if (typeof window === "undefined" || !containerRef.current) return;
-
-      const [{ createCypherEditor }, { EditorView, keymap }, { oneDark }] =
-        await Promise.all([
-          import("@neo4j-cypher/codemirror"),
-          import("@codemirror/view"),
-          import("@codemirror/theme-one-dark"),
-        ]);
-
-      if (abortSignal.aborted || !containerRef.current) return;
-
-      // Ctrl+Enter → run
-      const runKeymap = keymap.of([
-        {
-          key: "Ctrl-Enter",
-          mac: "Cmd-Enter",
-          run: () => {
-            const v =
-              cypherApiRef.current?.codemirror?.state.doc.toString() ??
-              currentValueRef.current;
-            if (v.trim() && !runningRef.current) {
-              onRunRef.current?.(v);
-            }
-            return true;
-          },
-        },
-      ]);
-
-      const baseTheme = EditorView.theme({
-        "&": { height: "100%", minHeight: "120px" },
-        ".cm-scroller": {
-          overflow: "auto",
-          fontFamily: "var(--font-mono, monospace)",
-          fontSize: "0.875rem",
-        },
-        ".cm-content": { padding: "1rem" },
-      });
-
-      // Capture the schema at the start — it may change while we await imports.
-      const initialSchema = schemaRef.current;
-      const cypherSchema =
-        initialSchema?.type === "neo4j"
-          ? toCypherSchema(initialSchema)
-          : undefined;
-
-      if (abortSignal.aborted || !containerRef.current) return;
-
-      const { editor } = createCypherEditor(containerRef.current, {
-        value: docValue,
-        readOnly: readOnlyRef.current,
-        theme: "dark",
-        autocomplete: true,
-        lint: false,
-        lineNumbers: false,
-        placeholder,
-        schema: cypherSchema,
-        autofocus: false,
-        preExtensions: [runKeymap, baseTheme, oneDark],
-      });
-
-      cypherApiRef.current = editor;
-      // Keep viewRef in sync so value-sync effects work for both modes
-      viewRef.current = editor.codemirror;
-
-      editor.onValueChanged((newValue: string) => {
-        if (suppressUpdate.current) return;
-        if (!isControlled) setInternalValue(newValue);
-        onChangeRef.current?.(newValue);
-      });
-
-      // If the schema arrived while we were awaiting imports, apply it now.
-      // The schema effect may have fired and found cypherApiRef.current === null,
-      // so this catch-up ensures schema is applied.
-      if (
-        schemaRef.current &&
-        schemaRef.current !== initialSchema &&
-        schemaRef.current.type === "neo4j"
-      ) {
-        try {
-          editor.setSchema(toCypherSchema(schemaRef.current));
-        } catch {
-          // Defensive: neo4j editor-support can crash on unexpected schema values
-        }
-      }
-
-      containerRef.current?.setAttribute("data-editor-ready", "true");
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [placeholder],
-  );
-
-  // -------------------------------------------------------------------------
-  // Unified init that picks the right editor path
-  // -------------------------------------------------------------------------
-  const initEditor = React.useCallback(
-    async (docValue: string, abortSignal: { aborted: boolean }) => {
-      // Cancel any previous in-flight init so we don't end up with two editors.
-      initAbortRef.current.aborted = true;
-      initAbortRef.current = abortSignal;
-
-      // Tear down any existing editor
-      destroyEditor();
-
-      if (!containerRef.current) return;
-      // Remove leftover DOM nodes and clear the ready signal
-      delete containerRef.current.dataset.editorReady;
-      while (containerRef.current.firstChild) {
-        containerRef.current.removeChild(containerRef.current.firstChild);
-      }
-
-      const useSql = isSql(languageRef.current);
-      editorModeRef.current = useSql ? "sql" : "cypher";
-
-      if (useSql) {
-        await initSqlEditor(docValue, abortSignal);
-      } else {
-        await initCypherEditor(docValue, abortSignal);
-      }
-    },
-    [initSqlEditor, initCypherEditor],
   );
 
   // Initial mount
@@ -446,46 +307,30 @@ function QueryEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Language change: reinit editor when switching between SQL and Cypher
+  // Language change: reconfigure the language compartment in place.
+  // No destroy/recreate — cursor position, undo history, and scroll are preserved.
   React.useEffect(() => {
-    const newMode = isSql(language) ? "sql" : "cypher";
-    if (newMode === editorModeRef.current) {
-      // Same mode family — for SQL, reconfigure the language compartment in place
-      if (
-        newMode === "sql" &&
-        viewRef.current &&
-        languageCompartmentRef.current
-      ) {
-        let cancelled = false;
-        loadSqlExt(schemaRef.current).then((exts) => {
-          if (!cancelled && viewRef.current) {
-            viewRef.current.dispatch({
-              effects: languageCompartmentRef.current.reconfigure(exts),
-            });
-          }
-        });
-        return () => {
-          cancelled = true;
-        };
-      }
-      return;
-    }
-
-    // Mode switch (SQL ↔ Cypher): full reinit
-    const abortSignal = { aborted: false };
-    initEditor(currentValueRef.current, abortSignal);
+    if (!viewRef.current || !languageCompartmentRef.current) return;
+    let cancelled = false;
+    resolveLanguageExt(language, schemaRef.current)
+      .then((exts) => {
+        if (!cancelled && viewRef.current) {
+          viewRef.current.dispatch({
+            effects: languageCompartmentRef.current.reconfigure(exts),
+          });
+        }
+      })
+      .catch(() => {
+        // Defensive: dynamic import or language extension init can fail
+      });
     return () => {
-      abortSignal.aborted = true;
+      cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  // readOnly: synchronous reconfigure for SQL path; Cypher uses EditorApi
+  // readOnly: synchronous compartment reconfigure — one path for all languages
   React.useEffect(() => {
-    if (editorModeRef.current === "cypher" && cypherApiRef.current) {
-      cypherApiRef.current.setReadOnly(readOnly);
-      return;
-    }
     const view = viewRef.current;
     const compartment = readOnlyCompartmentRef.current;
     const EditorState = editorStateRef.current;
@@ -495,55 +340,27 @@ function QueryEditor({
     });
   }, [readOnly]);
 
-  // Schema update: reconfigure SQL schema or update Cypher schema via API
+  // Schema update: reconfigure language compartment with new schema
   React.useEffect(() => {
-    if (!schema) return;
-
-    if (editorModeRef.current === "cypher" && cypherApiRef.current) {
-      if (schema.type === "neo4j") {
-        try {
-          cypherApiRef.current.setSchema(toCypherSchema(schema));
-        } catch {
-          // Defensive: neo4j editor-support can crash on unexpected schema values
-        }
-      }
-      return;
-    }
-
-    // SQL mode: reconfigure language compartment with new schema
-    if (
-      editorModeRef.current === "sql" &&
-      viewRef.current &&
-      languageCompartmentRef.current
-    ) {
-      loadSqlExt(schema).then((exts) => {
+    if (!schema || !viewRef.current || !languageCompartmentRef.current) return;
+    resolveLanguageExt(language, schema)
+      .then((exts) => {
         if (viewRef.current) {
           viewRef.current.dispatch({
             effects: languageCompartmentRef.current.reconfigure(exts),
           });
         }
+      })
+      .catch(() => {
+        // Defensive: dynamic import or language extension init can fail
       });
-    }
-  }, [schema]);
+  }, [schema, language]);
 
   // -------------------------------------------------------------------------
   // Sync controlled `value` into the editor when it changes externally
   // -------------------------------------------------------------------------
   React.useEffect(() => {
     if (!isControlled) return;
-
-    if (editorModeRef.current === "cypher" && cypherApiRef.current) {
-      // Use the EditorApi for Cypher
-      const current =
-        cypherApiRef.current.codemirror?.state.doc.toString() ?? "";
-      if (current !== value) {
-        suppressUpdate.current = true;
-        cypherApiRef.current.setValue(value);
-        suppressUpdate.current = false;
-      }
-      return;
-    }
-
     const view = viewRef.current;
     if (!view) return;
     const doc = view.state.doc.toString();
@@ -564,40 +381,27 @@ function QueryEditor({
   };
 
   const handleHistorySelect = (query: string) => {
-    if (editorModeRef.current === "cypher" && cypherApiRef.current) {
+    const view = viewRef.current;
+    if (view) {
       suppressUpdate.current = true;
-      cypherApiRef.current.setValue(query);
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: query },
+      });
       suppressUpdate.current = false;
-    } else {
-      const view = viewRef.current;
-      if (view) {
-        suppressUpdate.current = true;
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: query },
-        });
-        suppressUpdate.current = false;
-      }
     }
     if (!isControlled) setInternalValue(query);
     onChange?.(query);
   };
 
   const handleClear = () => {
-    if (editorModeRef.current === "cypher" && cypherApiRef.current) {
+    const view = viewRef.current;
+    if (view) {
       suppressUpdate.current = true;
-      cypherApiRef.current.setValue("");
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: "" },
+      });
       suppressUpdate.current = false;
-      cypherApiRef.current.focus();
-    } else {
-      const view = viewRef.current;
-      if (view) {
-        suppressUpdate.current = true;
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: "" },
-        });
-        suppressUpdate.current = false;
-        view.focus();
-      }
+      view.focus();
     }
     if (!isControlled) setInternalValue("");
     onChange?.("");
