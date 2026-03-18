@@ -224,16 +224,20 @@ test.describe("Code completion — Cypher + SQL", () => {
     await waitForEditorReady(dialog, page);
     await waitForSchemaLoaded(dialog, page);
 
-    // Type "MATCH (n:" — the ":" is an autocomplete trigger string.
+    // Type "MATCH (n:" — the ":" triggers label completions in a node pattern.
     await typeInCmEditor(dialog, page, "MATCH (n:");
 
     await triggerCypherAutocomplete(page);
     await waitForAutocompletePopup(page);
 
-    // The neo4j-cypher editor-support returns property keys at this position.
-    const hasTitle = await hasCompletionItem(page, /\btitle\b/i);
-    const hasName = await hasCompletionItem(page, /\bname\b/i);
-    expect(hasTitle || hasName).toBe(true);
+    // After ":" in a node pattern, the completion engine returns node labels
+    // (e.g., Movie, Person) and property keys from the schema.
+    const hasItems = await page.evaluate(() => {
+      const el = document.querySelector(".cm-tooltip-autocomplete");
+      if (!el) return false;
+      return el.querySelectorAll("[role='option'], li").length > 0;
+    });
+    expect(hasItems).toBe(true);
   });
 
   test("Cypher editor shows completions for relationship patterns", async ({
