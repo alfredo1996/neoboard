@@ -341,6 +341,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showDetail={settings.showDetail as boolean | undefined}
           startAngle={settings.startAngle as number | undefined}
           endAngle={settings.endAngle as number | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          onClick={handleEChartsClick}
         />
       );
 
@@ -353,6 +355,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showLabels={settings.showLabels as boolean | undefined}
           nodeWidth={settings.nodeWidth as number | undefined}
           nodeGap={settings.nodeGap as number | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          onClick={handleEChartsClick}
         />
       );
     }
@@ -364,6 +368,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showLabels={settings.showLabels as boolean | undefined}
           sort={settings.sort as "desc" | "asc" | "none" | undefined}
           highlightOnHover={settings.highlightOnHover as boolean | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          onClick={handleEChartsClick}
         />
       );
 
@@ -376,6 +382,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           filled={settings.filled as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          onClick={handleEChartsClick}
         />
       );
     }
@@ -388,6 +396,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showBreadcrumb={settings.showBreadcrumb as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
           colorSaturation={settings.colorSaturation as "low" | "medium" | "high" | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          onClick={handleEChartsClick}
         />
       );
 

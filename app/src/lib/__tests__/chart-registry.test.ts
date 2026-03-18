@@ -1154,12 +1154,16 @@ describe("gauge chart type", () => {
     expect(chartRegistry.gauge.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is false", () => {
-    expect(chartSupportsClickAction("gauge")).toBe(false);
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("gauge")).toBe(true);
   });
 
-  it("supportsStyling is false", () => {
-    expect(chartSupportsStyling("gauge")).toBe(false);
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("gauge")).toBe(true);
+  });
+
+  it("getStylingTargets returns Gauge Color target", () => {
+    expect(getStylingTargets("gauge")).toEqual([{ value: "color", label: "Gauge Color" }]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1236,12 +1240,16 @@ describe("sankey chart type", () => {
     expect(chartRegistry.sankey.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is false", () => {
-    expect(chartSupportsClickAction("sankey")).toBe(false);
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("sankey")).toBe(true);
   });
 
-  it("supportsStyling is false", () => {
-    expect(chartSupportsStyling("sankey")).toBe(false);
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("sankey")).toBe(true);
+  });
+
+  it("getStylingTargets returns Link Color target", () => {
+    expect(getStylingTargets("sankey")).toEqual([{ value: "color", label: "Link Color" }]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1325,12 +1333,16 @@ describe("sunburst chart type", () => {
     expect(chartRegistry.sunburst.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is false", () => {
-    expect(chartSupportsClickAction("sunburst")).toBe(false);
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("sunburst")).toBe(true);
   });
 
-  it("supportsStyling is false", () => {
-    expect(chartSupportsStyling("sunburst")).toBe(false);
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("sunburst")).toBe(true);
+  });
+
+  it("getStylingTargets returns Segment Color target", () => {
+    expect(getStylingTargets("sunburst")).toEqual([{ value: "color", label: "Segment Color" }]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1411,12 +1423,16 @@ describe("radar chart type", () => {
     expect(chartRegistry.radar.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is false", () => {
-    expect(chartSupportsClickAction("radar")).toBe(false);
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("radar")).toBe(true);
   });
 
-  it("supportsStyling is false", () => {
-    expect(chartSupportsStyling("radar")).toBe(false);
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("radar")).toBe(true);
+  });
+
+  it("getStylingTargets returns Area Color target", () => {
+    expect(getStylingTargets("radar")).toEqual([{ value: "color", label: "Area Color" }]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1511,12 +1527,16 @@ describe("treemap chart type", () => {
     expect(chartRegistry.treemap.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is false", () => {
-    expect(chartSupportsClickAction("treemap")).toBe(false);
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("treemap")).toBe(true);
   });
 
-  it("supportsStyling is false", () => {
-    expect(chartSupportsStyling("treemap")).toBe(false);
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("treemap")).toBe(true);
+  });
+
+  it("getStylingTargets returns Block Color target", () => {
+    expect(getStylingTargets("treemap")).toEqual([{ value: "color", label: "Block Color" }]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
