@@ -243,11 +243,15 @@ export default function DashboardEditorPage({
             (m, g) => (Number.isFinite(g.y) ? Math.max(m, g.y + g.h) : m),
             0,
           );
+          let nextY = maxY;
           return {
             ...page,
-            gridLayout: page.gridLayout.map((g) =>
-              Number.isFinite(g.y) ? g : { ...g, y: maxY },
-            ),
+            gridLayout: page.gridLayout.map((g) => {
+              if (Number.isFinite(g.y)) return g;
+              const placed = { ...g, y: nextY };
+              nextY += g.h;
+              return placed;
+            }),
           };
         }),
       };

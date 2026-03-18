@@ -77,6 +77,7 @@ export async function PATCH(
         id: connections.id,
         name: connections.name,
         type: connections.type,
+        createdAt: connections.createdAt,
         updatedAt: connections.updatedAt,
       });
 

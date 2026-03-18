@@ -272,15 +272,17 @@ function QueryEditor({
 
       // If the schema arrived while we were awaiting imports, reconfigure now.
       if (schemaRef.current && schemaRef.current !== initialSchema) {
-        const updatedExts = await resolveLanguageExt(
-          languageRef.current,
-          schemaRef.current,
-        );
-        if (!abortSignal.aborted && viewRef.current) {
-          viewRef.current.dispatch({
-            effects: langCompartment.reconfigure(updatedExts),
+        await resolveLanguageExt(languageRef.current, schemaRef.current)
+          .then((updatedExts) => {
+            if (!abortSignal.aborted && viewRef.current) {
+              viewRef.current.dispatch({
+                effects: langCompartment.reconfigure(updatedExts),
+              });
+            }
+          })
+          .catch(() => {
+            // Defensive: dynamic import or language extension init can fail
           });
-        }
       }
 
       containerRef.current?.setAttribute("data-editor-ready", "true");
