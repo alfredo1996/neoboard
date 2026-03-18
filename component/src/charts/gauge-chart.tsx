@@ -96,19 +96,21 @@ function GaugeChart({
           },
           axisTick: {
             show: !compact,
-            distance: -compact ? 0 : 15,
+            distance: compact ? 0 : -15,
+            splitNumber: 2,
             length: 8,
             lineStyle: { width: 2 },
           },
           splitLine: {
             show: !compact,
-            distance: compact ? 0 : -20,
+            distance: compact ? 0 : -25,
             length: compact ? 10 : 15,
             lineStyle: { width: 3 },
           },
           axisLabel: {
             show: !compact,
-            distance: compact ? 0 : 25,
+            distance: compact ? 0 : 35,
+            fontSize: 12,
           },
           detail: {
             show: showDetail && !compact,
