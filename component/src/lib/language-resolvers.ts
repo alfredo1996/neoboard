@@ -32,17 +32,10 @@ export type LanguageResolver = (
  */
 export const languageResolvers: Record<string, LanguageResolver> = {
   cypher: async (schema) => {
-    // Import from the specific lang-cypher subpath to avoid pulling in
-    // CypherEditor → syntaxValidation → workerpool → child_process,
-    // which breaks the Next.js/webpack build (no Node.js builtins in browser).
-    const { cypher } = await import(
-      "@neo4j-cypher/react-codemirror/dist/src/lang-cypher/langCypher"
-    );
+    const { cypher } = await import("./cypher-lang");
     const cypherSchema =
       schema?.type === "neo4j" ? toCypherDbSchema(schema) : undefined;
-    return [
-      cypher({ lint: false, schema: cypherSchema, useLightVersion: false }),
-    ];
+    return [cypher({ schema: cypherSchema })];
   },
 
   sql: async (schema) => {
