@@ -16,12 +16,24 @@ const mockDb = {
   insert: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
   requireUserId: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -39,7 +51,7 @@ describe("GET /api/dashboards", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(401);
   });
@@ -171,7 +183,7 @@ describe("POST /api/dashboards", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ name: "DB" }));
     expect(res.status).toBe(401);
   });

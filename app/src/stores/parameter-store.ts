@@ -118,12 +118,10 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
 /** Returns just name→value for query substitution. */
 export function useParameterValues(): Record<string, unknown> {
   return useParameterStore(
-    useShallow((s) => {
-      const result: Record<string, unknown> = {};
-      for (const [name, entry] of Object.entries(s.parameters)) {
-        result[name] = entry.value;
-      }
-      return result;
-    })
+    useShallow((s) =>
+      Object.fromEntries(
+        Object.entries(s.parameters).map(([k, e]) => [k, e.value]),
+      ),
+    ),
   );
 }

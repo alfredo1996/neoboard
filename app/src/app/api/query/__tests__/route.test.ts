@@ -16,6 +16,17 @@ const mockDb = {
 const mockDecryptJson = vi.fn();
 const mockExecuteQuery = vi.fn();
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson, encryptJson: vi.fn() }));
@@ -24,6 +35,7 @@ vi.mock("@/lib/schema-prefetch", () => ({ prefetchSchema: vi.fn() }));
 
 // Minimal Next.js server shim
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 /** Default authenticated session */
 const defaultSession = { userId: "user-1", tenantId: "tenant-a", role: "creator", canWrite: true };
@@ -68,7 +80,7 @@ describe("POST /api/query", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }));
     expect(res.status).toBe(500); // route catches and returns 500 with message
     const body = await res.json();

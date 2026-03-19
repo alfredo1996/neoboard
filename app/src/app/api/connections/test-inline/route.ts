@@ -1,23 +1,21 @@
-import { NextResponse } from "next/server";
-import { requireUserId } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { testConnection } from "@/lib/query-executor";
 import type { DbType } from "@/lib/query-executor";
 import { testInlineSchema } from "@/lib/schemas";
+import { apiSuccess } from "@/lib/api-response";
+import { handleRouteError, validateBody } from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   try {
-    await requireUserId();
+    await requireSession();
     const body = await request.json();
-    const parsed = testInlineSchema.safeParse(body);
+    const validation = validateBody(testInlineSchema, body);
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
+    if (!validation.success) {
+      return validation.response;
     }
 
-    const { type, config } = parsed.data;
+    const { type, config } = validation.data;
     const success = await testConnection(type as DbType, {
       uri: config.uri,
       username: config.username,
@@ -32,10 +30,8 @@ export async function POST(request: Request) {
       sslRejectUnauthorized: config.sslRejectUnauthorized,
     });
 
-    return NextResponse.json({ success });
+    return apiSuccess({ success });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connection test failed";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return handleRouteError(error, "Connection test failed");
   }
 }

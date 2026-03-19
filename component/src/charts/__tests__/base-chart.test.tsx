@@ -34,6 +34,7 @@ vi.mock("echarts/components", () => ({
   GridComponent: vi.fn(),
   DataZoomComponent: vi.fn(),
   AriaComponent: vi.fn(),
+  RadarComponent: vi.fn(),
 }));
 
 describe("BaseChart", () => {

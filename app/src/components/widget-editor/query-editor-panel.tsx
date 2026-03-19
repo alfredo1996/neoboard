@@ -61,6 +61,8 @@ export interface QueryEditorPanelProps {
   /** Connector type or language name — mapped to editor extension by the language resolver registry. */
   editorLanguage: string;
   connectionId: string;
+  /** When true, shows a running/loading indicator on the query editor. */
+  running?: boolean;
 }
 
 export function QueryEditorPanel({
@@ -70,6 +72,7 @@ export function QueryEditorPanel({
   onRun,
   editorLanguage,
   connectionId,
+  running,
 }: QueryEditorPanelProps) {
   // Prefetch schema for autocompletion. The hook caches for 10 min
   // and also writes to the Zustand store for synchronous reads.
@@ -122,6 +125,7 @@ export function QueryEditorPanel({
         value={query}
         onChange={onQueryChange}
         onRun={onRun}
+        running={running}
         language={editorLanguage}
         readOnly={!connectionId}
         schema={schema}

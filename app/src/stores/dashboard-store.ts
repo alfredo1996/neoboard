@@ -8,6 +8,7 @@ import type {
 
 interface DashboardState {
   layout: DashboardLayoutV2;
+  savedLayout: DashboardLayoutV2 | null;
   activePageIndex: number;
   editMode: boolean;
 
@@ -15,6 +16,10 @@ interface DashboardState {
   setLayout: (layout: DashboardLayoutV2, initialPageIndex?: number) => void;
   setEditMode: (editMode: boolean) => void;
   reset: () => void;
+
+  // Unsaved changes tracking
+  hasUnsavedChanges: () => boolean;
+  markSaved: () => void;
 
   // Page management
   setActivePage: (index: number) => void;
@@ -51,14 +56,28 @@ function updatePage(
   return pages.map((p, i) => (i === index ? updater(p) : p));
 }
 
-export const useDashboardStore = create<DashboardState>((set) => ({
+function withActivePage(
+  state: DashboardState,
+  updater: (p: DashboardPage) => DashboardPage,
+) {
+  return {
+    layout: {
+      ...state.layout,
+      pages: updatePage(state.layout.pages, state.activePageIndex, updater),
+    },
+  };
+}
+
+export const useDashboardStore = create<DashboardState>((set, get) => ({
   layout: emptyLayout,
+  savedLayout: null,
   activePageIndex: 0,
   editMode: false,
 
   setLayout: (layout, initialPageIndex = 0) =>
     set({
       layout,
+      savedLayout: JSON.parse(JSON.stringify(layout)) as DashboardLayoutV2,
       activePageIndex: Math.min(
         isNaN(initialPageIndex) ? 0 : initialPageIndex,
         layout.pages.length - 1
@@ -66,7 +85,20 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     }),
   setEditMode: (editMode) => set({ editMode }),
   reset: () =>
-    set({ layout: emptyLayout, activePageIndex: 0, editMode: false }),
+    set({ layout: emptyLayout, savedLayout: null, activePageIndex: 0, editMode: false }),
+
+  // Unsaved changes tracking
+  hasUnsavedChanges: () => {
+    const { layout, savedLayout } = get();
+    if (savedLayout === null) return false;
+    return JSON.stringify(layout) !== JSON.stringify(savedLayout);
+  },
+  markSaved: () =>
+    set((state) => ({
+      savedLayout: JSON.parse(
+        JSON.stringify(state.layout)
+      ) as DashboardLayoutV2,
+    })),
 
   // ── Page management ──────────────────────────────────────────────
 
@@ -144,69 +176,44 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   // ── Widget management (active page) ──────────────────────────────
 
   addWidget: (widget, gridItem) =>
-    set((state) => {
-      const idx = state.activePageIndex;
-      return {
-        layout: {
-          ...state.layout,
-          pages: updatePage(state.layout.pages, idx, (p) => ({
-            ...p,
-            widgets: [...p.widgets, widget],
-            gridLayout: [...p.gridLayout, gridItem],
-          })),
-        },
-      };
-    }),
+    set((state) =>
+      withActivePage(state, (p) => ({
+        ...p,
+        widgets: [...p.widgets, widget],
+        gridLayout: [...p.gridLayout, gridItem],
+      })),
+    ),
 
   removeWidget: (widgetId) =>
-    set((state) => {
-      const idx = state.activePageIndex;
-      return {
-        layout: {
-          ...state.layout,
-          pages: updatePage(state.layout.pages, idx, (p) => ({
-            ...p,
-            widgets: p.widgets.filter((w) => w.id !== widgetId),
-            gridLayout: p.gridLayout.filter((g) => g.i !== widgetId),
-          })),
-        },
-      };
-    }),
+    set((state) =>
+      withActivePage(state, (p) => ({
+        ...p,
+        widgets: p.widgets.filter((w) => w.id !== widgetId),
+        gridLayout: p.gridLayout.filter((g) => g.i !== widgetId),
+      })),
+    ),
 
   updateWidget: (widgetId, updates) =>
-    set((state) => {
-      const idx = state.activePageIndex;
-      return {
-        layout: {
-          ...state.layout,
-          pages: updatePage(state.layout.pages, idx, (p) => ({
-            ...p,
-            widgets: p.widgets.map((w) =>
-              w.id === widgetId ? { ...w, ...updates } : w
-            ),
-          })),
-        },
-      };
-    }),
+    set((state) =>
+      withActivePage(state, (p) => ({
+        ...p,
+        widgets: p.widgets.map((w) =>
+          w.id === widgetId ? { ...w, ...updates } : w,
+        ),
+      })),
+    ),
 
   updateGridLayout: (gridLayout) =>
-    set((state) => {
-      const idx = state.activePageIndex;
-      return {
-        layout: {
-          ...state.layout,
-          pages: updatePage(state.layout.pages, idx, (p) => ({
-            ...p,
-            gridLayout,
-          })),
-        },
-      };
-    }),
+    set((state) =>
+      withActivePage(state, (p) => ({
+        ...p,
+        gridLayout,
+      })),
+    ),
 
   duplicateWidget: (widgetId) =>
     set((state) => {
-      const idx = state.activePageIndex;
-      const page = state.layout.pages[idx];
+      const page = state.layout.pages[state.activePageIndex];
       const source = page.widgets.find((w) => w.id === widgetId);
       const sourceGrid = page.gridLayout.find((g) => g.i === widgetId);
       if (!source || !sourceGrid) return state;
@@ -223,24 +230,17 @@ export const useDashboardStore = create<DashboardState>((set) => ({
               : undefined,
         },
       };
-      // Place the clone at the next available slot using grid gravity
-      // (same strategy as addWidget) instead of x+1/y+1 which causes overlap.
       const clonedGrid: GridLayoutItem = {
         ...sourceGrid,
         i: newId,
         x: (page.gridLayout.length * sourceGrid.w) % 12,
-        y: Infinity, // react-grid-layout compacts to the first available slot
+        y: Infinity,
       };
 
-      return {
-        layout: {
-          ...state.layout,
-          pages: updatePage(state.layout.pages, idx, (p) => ({
-            ...p,
-            widgets: [...p.widgets, clonedWidget],
-            gridLayout: [...p.gridLayout, clonedGrid],
-          })),
-        },
-      };
+      return withActivePage(state, (p) => ({
+        ...p,
+        widgets: [...p.widgets, clonedWidget],
+        gridLayout: [...p.gridLayout, clonedGrid],
+      }));
     }),
 }));

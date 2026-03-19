@@ -15,6 +15,17 @@ const mockDb = {
   insert: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
@@ -40,7 +51,7 @@ describe("GET /api/users", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireAdmin.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireAdmin.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest({}, "http://localhost/api/users"));
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -48,7 +59,7 @@ describe("GET /api/users", () => {
   });
 
   it("returns 403 when caller is not admin", async () => {
-    mockRequireAdmin.mockRejectedValue(new Error("Forbidden"));
+    mockRequireAdmin.mockRejectedValue(new ForbiddenError());
     const res = await GET(makeRequest({}, "http://localhost/api/users"));
     expect(res.status).toBe(403);
     const body = await res.json();
@@ -102,6 +113,7 @@ describe("POST /api/users", () => {
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     const mod = await import("../route");
     POST = mod.POST;
   });

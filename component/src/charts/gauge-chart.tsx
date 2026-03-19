@@ -61,9 +61,13 @@ function GaugeChart({
   ...rest
 }: GaugeChartProps) {
   const { width, height, containerRef } = useContainerSize();
-  const compact = width > 0 && (width < 200 || height < 200);
+  const measured = width > 0;
+  const compact = measured && (width < 200 || height < 200);
 
-  const options = useMemo((): EChartsOption => {
+  const options = useMemo((): EChartsOption | undefined => {
+    // Defer rendering until the container has been measured to prevent
+    // a flash of tick marks / axis labels with incorrect sizing.
+    if (!measured) return undefined;
     if (!data.length) return buildEmptyDataOption();
 
     const point = data[0];
@@ -136,7 +140,7 @@ function GaugeChart({
         },
       ],
     };
-  }, [data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, compact, stylingRules, paramValues]);
+  }, [measured, data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, compact, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
