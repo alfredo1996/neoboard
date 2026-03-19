@@ -151,9 +151,8 @@ describe("MarkdownWidget", () => {
     expect(container.innerHTML).toContain("[image blocked: unsafe URL]");
   });
 
-  it("blocks file: URLs in links (allowlist rejects non-http/https/mailto)", () => {
+  it("blocks file: URLs in links", () => {
     render(<MarkdownWidget content="[secret](file:///etc/passwd)" />);
-    // file: is not in the allowlist — link should be plain text
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getByText("secret")).toBeInTheDocument();
   });
@@ -163,10 +162,10 @@ describe("MarkdownWidget", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("allows mailto: URLs in links", () => {
+  it("blocks mailto: URLs in links", () => {
     render(<MarkdownWidget content="[Email](mailto:user@example.com)" />);
-    const link = screen.getByRole("link", { name: "Email" });
-    expect(link).toHaveAttribute("href", "mailto:user@example.com");
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Email")).toBeInTheDocument();
   });
 
   // ── Fenced code blocks ───────────────────────────────────────────────────

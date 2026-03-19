@@ -12,14 +12,13 @@ export interface MarkdownWidgetProps {
 
 /**
  * Returns true if a URL uses a safe protocol.
- * Only allows http:, https:, mailto:, and data:image/ (for inline images).
- * All other schemes (javascript:, vbscript:, blob:, file:, intent:, etc.)
+ * Only allows http:, https:, and data:image/ (for inline images).
+ * All other schemes (javascript:, vbscript:, blob:, file:, mailto:, etc.)
  * are blocked.
  */
 function isSafeUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return true;
-  if (trimmed.startsWith("mailto:")) return true;
   if (trimmed.startsWith("data:image/")) return true;
   // Relative URLs (no scheme) are safe — they resolve against the page origin.
   if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) return true;
