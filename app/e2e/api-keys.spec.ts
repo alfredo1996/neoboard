@@ -80,8 +80,9 @@ test.describe("API Key management", () => {
 
     await dialog.getByRole("button", { name: "Done" }).click();
 
-    // Use the API key to make a programmatic request
-    const res = await request.get("http://localhost:3100/api/keys", {
+    // Use the API key to make a programmatic request.
+    // request.get() uses the baseURL from Playwright config, so we use a relative path.
+    const res = await request.get("/api/keys", {
       headers: {
         Authorization: `Bearer ${keyText}`,
       },
@@ -136,7 +137,8 @@ test.describe("API key authentication", () => {
   test("should return 401 when using an invalid API key", async ({
     request,
   }) => {
-    const res = await request.get("http://localhost:3100/api/keys", {
+    // request.get() uses the baseURL from Playwright config, so we use a relative path.
+    const res = await request.get("/api/keys", {
       headers: {
         Authorization: "Bearer nb_" + "f".repeat(64),
       },

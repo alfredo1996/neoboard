@@ -54,10 +54,19 @@ test.describe("Widget editor", () => {
       await expect(page.getByRole("option", { name: "Pie Chart" })).toBeVisible();
       await expect(page.getByRole("option", { name: "Data Table" })).toBeVisible();
       await expect(page.getByRole("option", { name: "Graph" })).toBeVisible();
-      await expect(page.getByRole("option", { name: "Map" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Map", exact: true })).toBeVisible();
       await expect(page.getByRole("option", { name: "Single Value" })).toBeVisible();
       await expect(page.getByRole("option", { name: "JSON Viewer" })).toBeVisible();
       await expect(page.getByRole("option", { name: "Form" })).toBeVisible();
+
+      // v0.8 chart types
+      await expect(page.getByRole("option", { name: "Gauge" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Sankey" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Sunburst" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Radar" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Treemap" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "Markdown" })).toBeVisible();
+      await expect(page.getByRole("option", { name: "iFrame" })).toBeVisible();
 
       // Close by pressing Escape
       await page.keyboard.press("Escape");
