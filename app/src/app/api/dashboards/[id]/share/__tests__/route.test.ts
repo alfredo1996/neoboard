@@ -32,12 +32,24 @@ const mockDb = {
   delete: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
   requireUserId: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,7 +79,7 @@ describe("GET /api/dashboards/[id]/share", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(401);
   });
@@ -119,7 +131,7 @@ describe("POST /api/dashboards/[id]/share", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ email: "a@b.com", role: "viewer" }), makeParams("d1"));
     expect(res.status).toBe(401);
   });
@@ -208,7 +220,7 @@ describe("DELETE /api/dashboards/[id]/share", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await DELETE(
       makeDeleteRequest("http://localhost/api/dashboards/d1/share"),
       makeParams("d1")

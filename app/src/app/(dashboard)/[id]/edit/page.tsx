@@ -18,6 +18,7 @@ import {
   useUpdateDashboardThumbnails,
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
 import { useDashboardStore } from "@/stores/dashboard-store";
@@ -46,6 +47,7 @@ import {
   SheetTrigger,
 } from "@neoboard/components";
 import {
+  ConfirmDialog,
   EmptyState,
   LoadingButton,
   Toolbar,
@@ -136,6 +138,14 @@ export default function DashboardEditorPage({
   const updateWidget = useDashboardStore((s) => s.updateWidget);
   const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
   const duplicateWidget = useDashboardStore((s) => s.duplicateWidget);
+  const markSaved = useDashboardStore((s) => s.markSaved);
+
+  const {
+    showNavWarning,
+    setShowNavWarning,
+    confirmNavigation,
+    cancelNavigation,
+  } = useUnsavedChangesWarning();
 
   const handleNavigateToPage = useCallback(
     (pageId: string) => {
@@ -256,6 +266,7 @@ export default function DashboardEditorPage({
         }),
       };
       await updateDashboard.mutateAsync({ id, layoutJson: sanitizedLayout });
+      markSaved();
 
       // Fire-and-forget: capture widget thumbnails from the active page's live DOM.
       // Uses a short delay to let ECharts finish rendering after any layout changes.
@@ -284,7 +295,7 @@ export default function DashboardEditorPage({
         error instanceof Error ? error.message : "Failed to save dashboard",
       );
     }
-  }, [id, layout, activePage, updateDashboard, updateThumbnails]);
+  }, [id, layout, activePage, updateDashboard, updateThumbnails, markSaved]);
 
   function openAddWidget() {
     setEditorMode("add");
@@ -545,6 +556,18 @@ export default function DashboardEditorPage({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={showNavWarning}
+        onOpenChange={setShowNavWarning}
+        title="Unsaved changes"
+        description="You have unsaved changes. Are you sure you want to leave? Your changes will be lost."
+        confirmText="Leave"
+        cancelText="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+        onCancel={cancelNavigation}
+      />
     </div>
   );
 }

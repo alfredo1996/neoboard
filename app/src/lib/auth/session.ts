@@ -1,6 +1,7 @@
 import { auth } from "./config";
 import { resolveApiKeyAuth } from "./api-key";
 import type { UserRole } from "@/lib/db/schema";
+import { UnauthorizedError, ForbiddenError } from "./errors";
 
 /**
  * Require the current user to be an admin.
@@ -13,7 +14,7 @@ export async function requireAdmin(): Promise<{
 }> {
   const { userId, role, canWrite, tenantId } = await requireSession();
   if (role !== "admin") {
-    throw new Error("Forbidden");
+    throw new ForbiddenError();
   }
   return { userId, canWrite, tenantId };
 }
@@ -28,7 +29,7 @@ export async function requireUserId(): Promise<string> {
 
   const session = await auth();
   if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+    throw new UnauthorizedError();
   }
   return session.user.id;
 }
@@ -51,7 +52,7 @@ export async function requireSession(): Promise<{
   // Fall back to session-based auth
   const session = await auth();
   if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+    throw new UnauthorizedError();
   }
   const role = session.user.role ?? "creator";
   // tenantId is stamped into the JWT at sign-in time from TENANT_ID env var.

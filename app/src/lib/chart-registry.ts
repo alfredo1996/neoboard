@@ -192,15 +192,6 @@ function transformToTableData(data: unknown): unknown {
   return toRecords(data);
 }
 
-/**
- * Safely extract a usable string ID from a value that may be a string,
- * number, or a serialized Neo4j Integer ({low, high} plain object).
- */
-function safeId(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (typeof v === "number") return String(v);
-  return String(v);
-}
 
 // ─── Graph helpers (extracted from transformToGraphData) ────────────────────
 
@@ -235,7 +226,7 @@ function transformToGraphData(data: unknown): unknown {
   const edgesMap = new Map<string, Record<string, unknown>>();
 
   function addNode(v: Record<string, unknown>) {
-    const id = safeId(v.elementId ?? v.identity ?? crypto.randomUUID());
+    const id = String(v.elementId ?? v.identity ?? crypto.randomUUID());
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
       const rawProps = (v.properties as Record<string, unknown>) ?? {};
@@ -251,14 +242,14 @@ function transformToGraphData(data: unknown): unknown {
   }
 
   function addEdge(v: Record<string, unknown>) {
-    const edgeId = safeId(
+    const edgeId = String(
       v.elementId ?? v.identity ?? `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`
     );
     if (!edgesMap.has(edgeId)) {
       const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
-        source: safeId(v.startNodeElementId ?? v.start),
-        target: safeId(v.endNodeElementId ?? v.end),
+        source: String(v.startNodeElementId ?? v.start),
+        target: String(v.endNodeElementId ?? v.end),
         label: String(v.type),
         properties: normalizeProps(rawProps),
       });
@@ -600,24 +591,24 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   bar: {
     type: "bar",
     label: "Bar Chart",
-    transform: (data) => transformToBarData(data),
-    transformWithMapping: (data, mapping) => transformToBarData(data, mapping),
+    transform: transformToBarData,
+    transformWithMapping: transformToBarData,
     validate: validateBarData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   line: {
     type: "line",
     label: "Line Chart",
-    transform: (data) => transformToLineData(data),
-    transformWithMapping: (data, mapping) => transformToLineData(data, mapping),
+    transform: transformToLineData,
+    transformWithMapping: transformToLineData,
     validate: validateLineData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   pie: {
     type: "pie",
     label: "Pie Chart",
-    transform: (data) => transformToPieData(data),
-    transformWithMapping: (data, mapping) => transformToPieData(data, mapping),
+    transform: transformToPieData,
+    transformWithMapping: transformToPieData,
     validate: validatePieData,
     compatibleWith: ["neo4j", "postgresql"],
   },
@@ -625,14 +616,14 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "table",
     label: "Data Table",
     transform: transformToTableData,
-    transformWithMapping: (data) => transformToTableData(data),
+    transformWithMapping: transformToTableData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   "single-value": {
     type: "single-value",
     label: "Single Value",
     transform: transformToValueData,
-    transformWithMapping: (data) => transformToValueData(data),
+    transformWithMapping: transformToValueData,
     validate: validateValueData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
@@ -642,7 +633,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "graph",
     label: "Graph",
     transform: transformToGraphData,
-    transformWithMapping: (data) => transformToGraphData(data),
+    transformWithMapping: transformToGraphData,
     validate: validateGraphData,
     compatibleWith: ["neo4j"],
     supportsStyling: false,
@@ -651,7 +642,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "map",
     label: "Map",
     transform: transformToMapData,
-    transformWithMapping: (data) => transformToMapData(data),
+    transformWithMapping: transformToMapData,
     validate: validateMapData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsStyling: false,
@@ -660,7 +651,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "json",
     label: "JSON Viewer",
     transform: transformToJsonData,
-    transformWithMapping: (data) => transformToJsonData(data),
+    transformWithMapping: transformToJsonData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
     supportsStyling: false,
@@ -669,7 +660,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "parameter-select",
     label: "Parameter Selector",
     transform: transformToSelectData,
-    transformWithMapping: (data) => transformToSelectData(data),
+    transformWithMapping: transformToSelectData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
     supportsStyling: false,
@@ -704,35 +695,35 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "gauge",
     label: "Gauge",
     transform: transformToGaugeData,
-    transformWithMapping: (data) => transformToGaugeData(data),
+    transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   sankey: {
     type: "sankey",
     label: "Sankey",
     transform: transformToSankeyData,
-    transformWithMapping: (data) => transformToSankeyData(data),
+    transformWithMapping: transformToSankeyData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   sunburst: {
     type: "sunburst",
     label: "Sunburst",
     transform: transformToHierarchicalData,
-    transformWithMapping: (data) => transformToHierarchicalData(data),
+    transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   radar: {
     type: "radar",
     label: "Radar",
     transform: transformToRadarData,
-    transformWithMapping: (data) => transformToRadarData(data),
+    transformWithMapping: transformToRadarData,
     compatibleWith: ["neo4j", "postgresql"],
   },
   treemap: {
     type: "treemap",
     label: "Treemap",
     transform: transformToHierarchicalData,
-    transformWithMapping: (data) => transformToHierarchicalData(data),
+    transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
   },
 };

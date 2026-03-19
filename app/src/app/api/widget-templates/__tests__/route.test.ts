@@ -15,12 +15,24 @@ const mockDb = {
   insert: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
   requireUserId: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 // ---------------------------------------------------------------------------
 // Tests — GET /api/widget-templates
@@ -46,7 +58,7 @@ describe("GET /api/widget-templates", () => {
   }
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest());
     expect(res.status).toBe(401);
   });
@@ -105,7 +117,7 @@ describe("POST /api/widget-templates", () => {
   }
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }));
     expect(res.status).toBe(401);
   });

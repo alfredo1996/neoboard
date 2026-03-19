@@ -6,6 +6,17 @@ import { GaugeChart } from "../gauge-chart";
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
 const mockSetOption = vi.fn();
 
+// Mock useContainerSize so we can control measured vs unmeasured state.
+// Default: simulates a measured non-compact container (400x300).
+const mockSize = { width: 400, height: 300 };
+vi.mock("@/hooks/useContainerSize", () => ({
+  useContainerSize: () => ({
+    width: mockSize.width,
+    height: mockSize.height,
+    containerRef: vi.fn(),
+  }),
+}));
+
 vi.mock("echarts/core", () => {
   const use = vi.fn();
   const init = vi.fn(() => ({
@@ -26,6 +37,9 @@ const sampleData = [{ value: 75, name: "Score" }];
 describe("GaugeChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset to measured non-compact container
+    mockSize.width = 400;
+    mockSize.height = 300;
   });
 
   it("renders without errors", () => {
@@ -129,5 +143,34 @@ describe("GaugeChart", () => {
     const paramValues = { threshold: 50 };
     render(<GaugeChart data={sampleData} stylingRules={stylingRules} paramValues={paramValues} />);
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
+  });
+
+  // --- tick flash bug fix ---
+  // When the container size is not yet known (width === 0, e.g. during page navigation
+  // or initial mount), the chart must not render with ticks/splitLines/axisLabels visible.
+  // Otherwise users see a brief flash of tick marks before the correct compact state is applied.
+
+  it("does not pass options to BaseChart when container size is unknown (prevents tick flash)", () => {
+    // Simulate unmeasured container
+    mockSize.width = 0;
+    mockSize.height = 0;
+    render(<GaugeChart data={sampleData} />);
+    // setOption should NOT be called when container is unmeasured
+    expect(mockSetOption).not.toHaveBeenCalled();
+  });
+
+  // --- compact mode ---
+
+  it("hides axisTick, splitLine, and axisLabel in compact mode (container < 200px)", () => {
+    mockSize.width = 150;
+    mockSize.height = 150;
+    render(<GaugeChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const series = optionsCall.series[0];
+    expect(series.axisTick.show).toBe(false);
+    expect(series.splitLine.show).toBe(false);
+    expect(series.axisLabel.show).toBe(false);
+    expect(series.detail.show).toBe(false);
+    expect(series.title.show).toBe(false);
   });
 });

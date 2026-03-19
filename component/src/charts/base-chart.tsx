@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
-import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart } from "echarts/charts";
+import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart, RadarChart as ERadarChart } from "echarts/charts";
 import {
   TitleComponent,
   TooltipComponent,
@@ -8,6 +8,7 @@ import {
   GridComponent,
   DataZoomComponent,
   AriaComponent,
+  RadarComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
@@ -26,12 +27,14 @@ echarts.use([
   ELineChart,
   EPieChart,
   EGraphChart,
+  ERadarChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
   DataZoomComponent,
   AriaComponent,
+  RadarComponent,
   CanvasRenderer,
 ]);
 

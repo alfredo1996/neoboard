@@ -18,6 +18,17 @@ const mockDb = {
   insert: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/auth/api-key", () => ({ generateApiKey: mockGenerateApiKey }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
@@ -43,7 +54,7 @@ describe("GET /api/keys", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest(null));
     expect(res.status).toBe(401);
   });
@@ -138,12 +149,13 @@ describe("POST /api/keys", () => {
     vi.doMock("@/lib/auth/api-key", () => ({ generateApiKey: mockGenerateApiKey }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     const mod = await import("../route");
     POST = mod.POST;
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ name: "Test" }));
     expect(res.status).toBe(401);
   });

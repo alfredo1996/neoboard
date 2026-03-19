@@ -12,6 +12,7 @@ import {
   handleRouteError,
   validateBody,
 } from "../api-utils";
+import { UnauthorizedError, ForbiddenError } from "../auth/errors";
 import { z } from "zod";
 
 describe("error helpers return envelope format", () => {
@@ -66,20 +67,15 @@ describe("error helpers return envelope format", () => {
 });
 
 describe("handleRouteError", () => {
-  it("returns 401 for Unauthorized errors", async () => {
-    const res = handleRouteError(new Error("Unauthorized"));
+  it("returns 401 for UnauthorizedError", async () => {
+    const res = handleRouteError(new UnauthorizedError());
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
-  it("returns 401 for session-related errors", async () => {
-    const res = handleRouteError(new Error("Invalid session"));
-    expect(res.status).toBe(401);
-  });
-
-  it("returns 403 for Forbidden errors", async () => {
-    const res = handleRouteError(new Error("Forbidden"));
+  it("returns 403 for ForbiddenError", async () => {
+    const res = handleRouteError(new ForbiddenError());
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error.code).toBe("FORBIDDEN");

@@ -40,6 +40,7 @@ vi.mock("echarts/components", () => ({
   GridComponent: vi.fn(),
   DataZoomComponent: vi.fn(),
   AriaComponent: vi.fn(),
+  RadarComponent: vi.fn(),
 }));
 
 vi.mock("echarts/renderers", () => ({

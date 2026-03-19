@@ -1010,6 +1010,7 @@ export function WidgetEditorModal({
                       onRun={isForm ? undefined : handlePreview}
                       editorLanguage={editorLanguage}
                       connectionId={connectionId}
+                      running={previewQuery.isPending}
                     />
                   )}
 
