@@ -7,7 +7,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { resolveItemColor } from "./chart-utils";
+import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ERadarChart, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -66,16 +66,7 @@ function RadarChart({
   const hideLegend = width > 0 && height < 200;
 
   const options = useMemo((): EChartsOption => {
-    if (!data.indicators.length || !data.series.length) {
-      return {
-        title: {
-          text: "No data",
-          left: "center",
-          top: "center",
-          textStyle: { color: "#999", fontSize: 14 },
-        },
-      };
-    }
+    if (!data.indicators.length || !data.series.length) return buildEmptyDataOption();
 
     const effectiveShowLegend = (hideLegend || compact) ? false : (showLegend && data.series.length > 1);
 
@@ -100,7 +91,6 @@ function RadarChart({
               s.values.reduce((sum, v) => sum + v, 0) / (s.values.length || 1),
               stylingRules,
               paramValues,
-              [],
             );
             return {
               name: s.name,

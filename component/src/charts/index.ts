@@ -1,4 +1,4 @@
-export { BaseChart, CHART_COLORS, resolveChartColors } from "./base-chart";
+export { BaseChart, CHART_COLORS, resolveChartColors, useDarkMode } from "./base-chart";
 export {
   THEME_LIGHT,
   THEME_DARK,

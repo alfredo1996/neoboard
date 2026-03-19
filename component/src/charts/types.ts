@@ -1,4 +1,5 @@
 import type { EChartsOption } from "echarts";
+import type { ECharts } from "echarts/core";
 
 export interface BaseChartProps {
   /** Additional CSS classes */
@@ -10,7 +11,7 @@ export interface BaseChartProps {
   /** Raw ECharts option object (advanced usage) */
   options?: EChartsOption;
   /** Called when chart instance is ready */
-  onChartReady?: (instance: unknown) => void;
+  onChartReady?: (instance: ECharts) => void;
   /** Called when a chart element is clicked */
   onClick?: (params: EChartsClickEvent) => void;
   /** Called when data zoom changes */

@@ -215,4 +215,4 @@ function BaseChart({
   );
 }
 
-export { BaseChart, CHART_COLORS_FALLBACK as CHART_COLORS, resolveChartColors };
+export { BaseChart, CHART_COLORS_FALLBACK as CHART_COLORS, resolveChartColors, useDarkMode };

@@ -87,7 +87,7 @@ export function resolveItemColor(
   value: number,
   stylingRules: StylingRule[] | undefined,
   paramValues: Record<string, unknown> | undefined,
-  thresholds: ColorThreshold[],
+  thresholds: ColorThreshold[] = [],
 ): string | undefined {
   if (stylingRules?.length) {
     return resolveStylingRuleColor(value, stylingRules, paramValues);

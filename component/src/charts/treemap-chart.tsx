@@ -7,7 +7,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { resolveItemColor } from "./chart-utils";
+import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ETreemapChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -62,16 +62,7 @@ function TreemapChart({
   const compact = width > 0 && (width < 300 || height < 200);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) {
-      return {
-        title: {
-          text: "No data",
-          left: "center",
-          top: "center",
-          textStyle: { color: "#999", fontSize: 14 },
-        },
-      };
-    }
+    if (!data.length) return buildEmptyDataOption();
 
     const satRange = COLOR_SATURATION_MAP[colorSaturation];
 
@@ -89,7 +80,7 @@ function TreemapChart({
           data: stylingRules?.length
             ? data.map((item) => {
                 const numericValue = typeof item.value === "number" ? item.value : 0;
-                const resolvedColor = resolveItemColor(numericValue, stylingRules, paramValues, []);
+                const resolvedColor = resolveItemColor(numericValue, stylingRules, paramValues);
                 return {
                   ...item,
                   itemStyle: {

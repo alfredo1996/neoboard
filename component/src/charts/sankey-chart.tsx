@@ -7,7 +7,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { resolveItemColor } from "./chart-utils";
+import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ESankeyChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -62,16 +62,7 @@ function SankeyChart({
   const compact = width > 0 && (width < 300 || height < 200);
 
   const options = useMemo((): EChartsOption => {
-    if (!data.nodes.length || !data.links.length) {
-      return {
-        title: {
-          text: "No data",
-          left: "center",
-          top: "center",
-          textStyle: { color: "#999", fontSize: 14 },
-        },
-      };
-    }
+    if (!data.nodes.length || !data.links.length) return buildEmptyDataOption();
 
     return {
       tooltip: {
@@ -85,7 +76,7 @@ function SankeyChart({
           data: data.nodes,
           links: stylingRules?.length
             ? data.links.map((link) => {
-                const resolvedColor = resolveItemColor(link.value, stylingRules, paramValues, []);
+                const resolvedColor = resolveItemColor(link.value, stylingRules, paramValues);
                 return {
                   ...link,
                   lineStyle: resolvedColor ? { color: resolvedColor } : {},
