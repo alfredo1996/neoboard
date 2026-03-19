@@ -146,6 +146,46 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
               "MATCH (c:City) RETURN c.name AS name, c.latitude AS latitude, c.longitude AS longitude, c.population AS population",
             settings: { title: "US Cities" },
           },
+          {
+            id: uuid(),
+            chartType: "gauge",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN count(m) AS value, 'Total Movies' AS name",
+            settings: { title: "Movie Gauge" },
+          },
+          {
+            id: uuid(),
+            chartType: "radar",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value, 100 AS max",
+            settings: { title: "Relationship Radar" },
+          },
+          {
+            id: uuid(),
+            chartType: "sankey",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN ['ACTED_IN','DIRECTED'] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20",
+            settings: { title: "People \u2192 Movies" },
+          },
+          {
+            id: uuid(),
+            chartType: "treemap",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15",
+            settings: { title: "Movies by Cast Size" },
+          },
+          {
+            id: uuid(),
+            chartType: "sunburst",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS parent, m.title AS name, 1 AS value LIMIT 30",
+            settings: { title: "Movies by Relationship" },
+          },
         ],
         gridLayout: [
           // Row 1: bar + line
@@ -161,6 +201,13 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
           // Row 4: graph + map
           { i: null, x: 0, y: 12, w: 6, h: 4 },
           { i: null, x: 6, y: 12, w: 6, h: 4 },
+          // Row 5: gauge + radar
+          { i: null, x: 0, y: 16, w: 4, h: 4 },
+          { i: null, x: 4, y: 16, w: 4, h: 4 },
+          // Row 6: sankey + treemap + sunburst
+          { i: null, x: 8, y: 16, w: 4, h: 4 },
+          { i: null, x: 0, y: 20, w: 4, h: 4 },
+          { i: null, x: 4, y: 20, w: 8, h: 4 },
         ],
       },
       {
@@ -221,6 +268,37 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
               "SELECT m.title, m.released, m.tagline FROM movies m ORDER BY m.released DESC LIMIT 10",
             settings: { title: "Raw Query" },
           },
+          {
+            id: uuid(),
+            chartType: "gauge",
+            connectionId: pgConnId,
+            query: "SELECT count(*) AS value, 'Total Movies' AS name FROM movies",
+            settings: { title: "PG Movie Gauge" },
+          },
+          {
+            id: uuid(),
+            chartType: "radar",
+            connectionId: pgConnId,
+            query:
+              "SELECT r.relationship AS indicator, count(*) AS value, 100 AS max FROM roles r GROUP BY r.relationship",
+            settings: { title: "Role Radar" },
+          },
+          {
+            id: uuid(),
+            chartType: "sankey",
+            connectionId: pgConnId,
+            query:
+              "SELECT p.name AS source, m.title AS target, 1 AS value FROM roles r JOIN people p ON p.id = r.person_id JOIN movies m ON m.id = r.movie_id WHERE r.relationship IN ('ACTED_IN','DIRECTED') LIMIT 20",
+            settings: { title: "PG People \u2192 Movies" },
+          },
+          {
+            id: uuid(),
+            chartType: "treemap",
+            connectionId: pgConnId,
+            query:
+              "SELECT m.title AS name, count(r.id) AS value FROM movies m JOIN roles r ON r.movie_id = m.id GROUP BY m.title ORDER BY value DESC LIMIT 15",
+            settings: { title: "PG Movies by Role Count" },
+          },
         ],
         gridLayout: [
           { i: null, x: 0, y: 0, w: 6, h: 4 },
@@ -230,6 +308,213 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
           { i: null, x: 8, y: 4, w: 4, h: 2 },
           { i: null, x: 0, y: 6, w: 6, h: 4 },
           { i: null, x: 6, y: 6, w: 6, h: 4 },
+          // Row 5: gauge + radar
+          { i: null, x: 0, y: 10, w: 4, h: 4 },
+          { i: null, x: 4, y: 10, w: 4, h: 4 },
+          // Row 6: sankey + treemap
+          { i: null, x: 8, y: 10, w: 4, h: 4 },
+          { i: null, x: 0, y: 14, w: 12, h: 4 },
+        ],
+      },
+    ],
+  };
+}
+
+function buildNewChartsShowcase(neo4jConnId, pgConnId) {
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: New Charts (Neo4j) ──
+      {
+        id: uuid(),
+        title: "New Charts (Neo4j)",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "gauge",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (m:Movie) RETURN count(m) AS value, 'Total Movies' AS name",
+            settings: {
+              title: "Movie Count",
+              clickAction: {
+                type: "set-parameter",
+                parameterName: "movie_count",
+                sourceField: "value",
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "treemap",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15",
+            settings: {
+              title: "Movies by Cast Size",
+              stylingConfig: {
+                rules: [
+                  {
+                    field: "value",
+                    operator: ">",
+                    value: 5,
+                    target: "color",
+                    style: "#ef4444",
+                  },
+                  {
+                    field: "value",
+                    operator: "<=",
+                    value: 3,
+                    target: "color",
+                    style: "#22c55e",
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "radar",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value, 100 AS max",
+            settings: { title: "Relationship Types", colorPalette: "warm-sunset" },
+          },
+          {
+            id: uuid(),
+            chartType: "sankey",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN ['ACTED_IN','DIRECTED'] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20",
+            settings: { title: "People \u2192 Movies Flow" },
+          },
+          {
+            id: uuid(),
+            chartType: "sunburst",
+            connectionId: neo4jConnId,
+            query:
+              "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS parent, m.title AS name, 1 AS value LIMIT 30",
+            settings: { title: "Movies by Relationship" },
+          },
+        ],
+        gridLayout: [
+          // Row 1: gauge(3×3) treemap(5×4) radar(4×4)
+          { i: null, x: 0, y: 0, w: 3, h: 3 },
+          { i: null, x: 3, y: 0, w: 5, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 4 },
+          // Row 2: sankey(6×4) sunburst(6×4)
+          { i: null, x: 0, y: 4, w: 6, h: 4 },
+          { i: null, x: 6, y: 4, w: 6, h: 4 },
+        ],
+      },
+
+      // ── Page 2: New Charts (PostgreSQL) ──
+      {
+        id: uuid(),
+        title: "New Charts (PostgreSQL)",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "gauge",
+            connectionId: pgConnId,
+            query: "SELECT count(*) AS value, 'Total Movies' AS name FROM movies",
+            settings: { title: "PG Movie Count" },
+          },
+          {
+            id: uuid(),
+            chartType: "treemap",
+            connectionId: pgConnId,
+            query:
+              "SELECT m.title AS name, count(r.id) AS value FROM movies m JOIN roles r ON r.movie_id = m.id GROUP BY m.title ORDER BY value DESC LIMIT 15",
+            settings: {
+              title: "Movies by Role Count",
+              stylingConfig: {
+                rules: [
+                  {
+                    field: "value",
+                    operator: ">",
+                    value: 5,
+                    target: "color",
+                    style: "#ef4444",
+                  },
+                  {
+                    field: "value",
+                    operator: "<=",
+                    value: 3,
+                    target: "color",
+                    style: "#22c55e",
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "radar",
+            connectionId: pgConnId,
+            query:
+              "SELECT r.relationship AS indicator, count(*) AS value, 100 AS max FROM roles r GROUP BY r.relationship",
+            settings: { title: "Role Distribution", colorPalette: "cool-breeze" },
+          },
+          {
+            id: uuid(),
+            chartType: "sankey",
+            connectionId: pgConnId,
+            query:
+              "SELECT p.name AS source, m.title AS target, 1 AS value FROM roles r JOIN people p ON p.id = r.person_id JOIN movies m ON m.id = r.movie_id WHERE r.relationship IN ('ACTED_IN','DIRECTED') LIMIT 20",
+            settings: { title: "PG People \u2192 Movies" },
+          },
+          {
+            id: uuid(),
+            chartType: "pie",
+            connectionId: pgConnId,
+            query:
+              "SELECT r.relationship AS name, count(*) AS value FROM roles r GROUP BY r.relationship",
+            settings: { title: "Roles Breakdown" },
+          },
+        ],
+        gridLayout: [
+          // Row 1: gauge(3×3) treemap(5×4) radar(4×4)
+          { i: null, x: 0, y: 0, w: 3, h: 3 },
+          { i: null, x: 3, y: 0, w: 5, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 4 },
+          // Row 2: sankey(6×4) pie(6×4)
+          { i: null, x: 0, y: 4, w: 6, h: 4 },
+          { i: null, x: 6, y: 4, w: 6, h: 4 },
+        ],
+      },
+
+      // ── Page 3: Content Widgets ──
+      {
+        id: uuid(),
+        title: "Content Widgets",
+        widgets: [
+          {
+            id: uuid(),
+            chartType: "markdown",
+            connectionId: "",
+            query: "",
+            settings: {
+              title: "Welcome",
+              content:
+                "# Movie Dashboard\n\nWelcome to the **NeoBoard** chart showcase.\n\n- Gauge, Treemap, Radar, Sankey, Sunburst\n- Styling rules and click actions\n- Color palette customization\n\n> Built with NeoBoard v0.8",
+            },
+          },
+          {
+            id: uuid(),
+            chartType: "iframe",
+            connectionId: "",
+            query: "",
+            settings: {
+              title: "Neo4j",
+              url: "https://neo4j.com/product/neo4j-graph-database/",
+            },
+          },
+        ],
+        gridLayout: [
+          // markdown(6×5) iframe(6×5)
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
         ],
       },
     ],
@@ -1486,6 +1771,17 @@ async function main() {
       "Styling Rules",
       "Rule-based styling with operators, parameter comparison, and multi-target support on bar, line, pie, single-value, and table charts.",
       stylingLayout,
+      true
+    );
+
+    const newChartsLayout = buildNewChartsShowcase(neo4jConnId, pgConnId);
+    patchGridIds(newChartsLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "New Charts (v0.8)",
+      "Gauge, Sankey, Sunburst, Radar, Treemap charts with styling rules, click actions, and color palettes.",
+      newChartsLayout,
       true
     );
 
