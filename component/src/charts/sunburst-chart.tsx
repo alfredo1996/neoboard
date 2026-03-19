@@ -76,20 +76,17 @@ function SunburstChart({
         {
           type: "sunburst",
           data: stylingRules?.length
-            ? data.map((item) => ({
-                ...item,
-                itemStyle: {
-                  ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
-                  ...(resolveItemColor(
-                    typeof item.value === "number" ? item.value : 0,
-                    stylingRules,
-                    paramValues,
-                    [],
-                  )
-                    ? { color: resolveItemColor(typeof item.value === "number" ? item.value : 0, stylingRules, paramValues, []) }
-                    : {}),
-                },
-              }))
+            ? data.map((item) => {
+                const numericValue = typeof item.value === "number" ? item.value : 0;
+                const resolvedColor = resolveItemColor(numericValue, stylingRules, paramValues, []);
+                return {
+                  ...item,
+                  itemStyle: {
+                    ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
+                    ...(resolvedColor ? { color: resolvedColor } : {}),
+                  },
+                };
+              })
             : data,
           radius: compact ? ["0%", "90%"] : ["0%", "80%"],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

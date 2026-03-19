@@ -132,19 +132,16 @@ function GaugeChart({
             offsetCenter: [0, "90%"],
             fontSize: 14,
           },
-          data: [
-            {
-              value: point.value,
-              name: point.name ?? "",
-              ...(resolveItemColor(point.value, stylingRules, paramValues, [])
-                ? {
-                    itemStyle: {
-                      color: resolveItemColor(point.value, stylingRules, paramValues, []),
-                    },
-                  }
-                : {}),
-            },
-          ],
+          data: (() => {
+            const resolvedColor = resolveItemColor(point.value, stylingRules, paramValues, []);
+            return [
+              {
+                value: point.value,
+                name: point.name ?? "",
+                ...(resolvedColor ? { itemStyle: { color: resolvedColor } } : {}),
+              },
+            ];
+          })(),
         },
       ],
     };

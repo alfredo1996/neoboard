@@ -84,14 +84,13 @@ function SankeyChart({
           orient,
           data: data.nodes,
           links: stylingRules?.length
-            ? data.links.map((link) => ({
-                ...link,
-                lineStyle: {
-                  ...(resolveItemColor(link.value, stylingRules, paramValues, [])
-                    ? { color: resolveItemColor(link.value, stylingRules, paramValues, []) }
-                    : {}),
-                },
-              }))
+            ? data.links.map((link) => {
+                const resolvedColor = resolveItemColor(link.value, stylingRules, paramValues, []);
+                return {
+                  ...link,
+                  lineStyle: resolvedColor ? { color: resolvedColor } : {},
+                };
+              })
             : data.links,
           nodeWidth: compact ? Math.max(nodeWidth - 4, 10) : nodeWidth,
           nodeGap: compact ? Math.max(nodeGap - 2, 4) : nodeGap,
