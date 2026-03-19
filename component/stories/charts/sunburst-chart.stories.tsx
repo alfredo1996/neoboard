@@ -95,9 +95,10 @@ export const FlatWithParent: Story = {
   },
 };
 
-export const CircleLayout: Story = {
+export const NoLabels: Story = {
   args: {
     data: hierarchicalData,
+    showLabels: false,
   },
 };
 

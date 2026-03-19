@@ -468,7 +468,13 @@ export default function DashboardEditorPage({
               const conn = (connections ?? []).find(
                 (c) => c.id === templateWidget.connectionId,
               );
-              if (!conn) return null;
+              // Content-only widgets (markdown, iframe) have no connection;
+              // default to "postgresql" so the template dialog still opens.
+              const connectorType: "neo4j" | "postgresql" = conn
+                ? conn.type === "postgresql"
+                  ? "postgresql"
+                  : "neo4j"
+                : "postgresql";
               return (
                 <SaveTemplateDialog
                   open={true}
@@ -476,9 +482,7 @@ export default function DashboardEditorPage({
                     if (!open) setTemplateWidget(undefined);
                   }}
                   widget={templateWidget}
-                  connectorType={
-                    conn.type === "postgresql" ? "postgresql" : "neo4j"
-                  }
+                  connectorType={connectorType}
                 />
               );
             })()}

@@ -345,9 +345,10 @@ function QueryEditor({
   // Schema update: reconfigure language compartment with new schema
   React.useEffect(() => {
     if (!schema || !viewRef.current || !languageCompartmentRef.current) return;
+    let cancelled = false;
     resolveLanguageExt(language, schema)
       .then((exts) => {
-        if (viewRef.current) {
+        if (!cancelled && viewRef.current) {
           viewRef.current.dispatch({
             effects: languageCompartmentRef.current.reconfigure(exts),
           });
@@ -356,6 +357,9 @@ function QueryEditor({
       .catch(() => {
         // Defensive: dynamic import or language extension init can fail
       });
+    return () => {
+      cancelled = true;
+    };
   }, [schema, language]);
 
   // -------------------------------------------------------------------------

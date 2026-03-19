@@ -80,6 +80,18 @@ describe("resolveLanguageExt", () => {
     expect(mockCypher).not.toHaveBeenCalled();
   });
 
+  it("falls back to sql for prototype-inherited keys like __proto__", async () => {
+    await resolveLanguageExt("__proto__");
+    expect(mockSql).toHaveBeenCalled();
+    expect(mockCypher).not.toHaveBeenCalled();
+  });
+
+  it("falls back to sql for constructor key", async () => {
+    await resolveLanguageExt("constructor");
+    expect(mockSql).toHaveBeenCalled();
+    expect(mockCypher).not.toHaveBeenCalled();
+  });
+
   it("is case-insensitive", async () => {
     await resolveLanguageExt("SQL");
     expect(mockSql).toHaveBeenCalled();

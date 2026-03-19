@@ -37,21 +37,38 @@ async function waitForEditorReady(dialog: Locator, page: Page): Promise<void> {
     stableCount = ready === "true" ? stableCount + 1 : 0;
     if (stableCount >= 3) break;
   }
+  if (stableCount < 3) {
+    throw new Error(
+      `Editor never stabilized: data-editor-ready was "true" for ${stableCount}/3 consecutive checks`,
+    );
+  }
 }
 
 /**
  * Wait for the schema API response to complete (watches the /schema network
  * request) and then allows time for the async reconfigure pipeline:
  *   Zustand store → React re-render → QueryEditor schema effect → loadSqlExt → dispatch
+ *
+ * Uses the Refresh button's enabled state as the primary readiness signal,
+ * then polls until no further CM6 reconfigurations are happening.
  */
 async function waitForSchemaLoaded(dialog: Locator, page: Page): Promise<void> {
   const refreshBtn = dialog.getByRole("button", { name: "Refresh schema" });
   await expect(refreshBtn).toBeVisible({ timeout: 10_000 });
   await expect(refreshBtn).toBeEnabled({ timeout: 20_000 });
-  // Schema prop pipeline: fetch → store → render → effect → async import → dispatch.
-  // The Cypher editor's schema application path involves multiple React renders
-  // and async imports, so we need extra settling time beyond the API response.
-  await page.waitForTimeout(3000);
+
+  // Wait for the editor to settle after the schema propagates through the
+  // async pipeline: fetch → store → render → effect → dynamic import → dispatch.
+  // Poll data-editor-ready to confirm the editor hasn't been torn down by a
+  // late-arriving reconfigure.
+  const container = dialog.locator("[data-testid='codemirror-container']");
+  let stableCount = 0;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(200);
+    const ready = await container.getAttribute("data-editor-ready");
+    stableCount = ready === "true" ? stableCount + 1 : 0;
+    if (stableCount >= 5) break; // 1 s stable window
+  }
 }
 
 /**

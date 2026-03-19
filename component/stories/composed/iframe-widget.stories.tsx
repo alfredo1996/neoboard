@@ -39,7 +39,7 @@ export const CustomTitle: Story = {
 
 export const InvalidUrl: Story = {
   args: {
-    url: "javascript:alert('xss')",
+    url: "not-a-valid-url://test",
   },
 };
 

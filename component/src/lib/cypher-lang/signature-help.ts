@@ -102,8 +102,7 @@ function getSignatureHelpTooltip(state: EditorState, config: CypherConfig): Tool
       if (
         activeSignature !== undefined &&
         activeSignature >= 0 &&
-        activeSignature < signatures.length &&
-        signatures[activeSignature].documentation !== undefined
+        activeSignature < signatures.length
       ) {
         return [
           {
