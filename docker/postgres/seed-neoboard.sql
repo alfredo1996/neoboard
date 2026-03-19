@@ -47,9 +47,9 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
     ('dash-003', 'user-alice-001', 'default', 'Chart Showcase', 'Exercises all v0.8 chart types across Neo4j and PostgreSQL', true, 'user-alice-001',
      '{"version":2,"pages":[
        {"id":"page-new-charts-neo4j","title":"New Charts (Neo4j)","widgets":[
-         {"id":"w1","chartType":"gauge","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value, ''Total Movies'' AS name","settings":{"title":"Movie Count"}},
-         {"id":"w2","chartType":"treemap","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15","settings":{"title":"Movies by Cast Size"}},
-         {"id":"w3","chartType":"radar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value, 100 AS max","settings":{"title":"Relationship Types"}},
+         {"id":"w1","chartType":"gauge","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value, ''Total Movies'' AS name","settings":{"title":"Movie Count","clickAction":{"type":"set-parameter","parameterName":"movie_count","sourceField":"value"}}},
+         {"id":"w2","chartType":"treemap","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15","settings":{"title":"Movies by Cast Size","stylingConfig":{"rules":[{"field":"value","operator":">","value":5,"target":"color","style":"#ef4444"},{"field":"value","operator":"<=","value":3,"target":"color","style":"#22c55e"}]}}},
+         {"id":"w3","chartType":"radar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value, 100 AS max","settings":{"title":"Relationship Types","colorPalette":"warm-sunset"}},
          {"id":"w4","chartType":"sankey","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN [''ACTED_IN'',''DIRECTED''] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20","settings":{"title":"People \u2192 Movies Flow"}},
          {"id":"w5","chartType":"sunburst","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS parent, m.title AS name, 1 AS value LIMIT 30","settings":{"title":"Movies by Relationship"}}
        ],"gridLayout":[
@@ -61,8 +61,8 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
        ]},
        {"id":"page-new-charts-pg","title":"New Charts (PostgreSQL)","widgets":[
          {"id":"w6","chartType":"gauge","connectionId":"conn-pg-001","query":"SELECT count(*) AS value, ''Total Movies'' AS name FROM movies","settings":{"title":"PG Movie Count"}},
-         {"id":"w7","chartType":"treemap","connectionId":"conn-pg-001","query":"SELECT m.title AS name, count(r.id) AS value FROM movies m JOIN roles r ON r.movie_id = m.id GROUP BY m.title ORDER BY value DESC LIMIT 15","settings":{"title":"Movies by Role Count"}},
-         {"id":"w8","chartType":"radar","connectionId":"conn-pg-001","query":"SELECT r.relationship AS indicator, count(*) AS value, 100 AS max FROM roles r GROUP BY r.relationship","settings":{"title":"Role Distribution"}},
+         {"id":"w7","chartType":"treemap","connectionId":"conn-pg-001","query":"SELECT m.title AS name, count(r.id) AS value FROM movies m JOIN roles r ON r.movie_id = m.id GROUP BY m.title ORDER BY value DESC LIMIT 15","settings":{"title":"Movies by Role Count","stylingConfig":{"rules":[{"field":"value","operator":">","value":5,"target":"color","style":"#ef4444"},{"field":"value","operator":"<=","value":3,"target":"color","style":"#22c55e"}]}}},
+         {"id":"w8","chartType":"radar","connectionId":"conn-pg-001","query":"SELECT r.relationship AS indicator, count(*) AS value, 100 AS max FROM roles r GROUP BY r.relationship","settings":{"title":"Role Distribution","colorPalette":"cool-breeze"}},
          {"id":"w9","chartType":"sankey","connectionId":"conn-pg-001","query":"SELECT p.name AS source, m.title AS target, 1 AS value FROM roles r JOIN people p ON p.id = r.person_id JOIN movies m ON m.id = r.movie_id WHERE r.relationship IN (''ACTED_IN'',''DIRECTED'') LIMIT 20","settings":{"title":"PG People \u2192 Movies"}},
          {"id":"w10","chartType":"pie","connectionId":"conn-pg-001","query":"SELECT r.relationship AS name, count(*) AS value FROM roles r GROUP BY r.relationship","settings":{"title":"Roles Breakdown"}}
        ],"gridLayout":[
