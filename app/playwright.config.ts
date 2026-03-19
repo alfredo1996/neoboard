@@ -11,7 +11,7 @@ export const nextcov: import("nextcov").NextcovConfig = {
   include: ["src/**/*.{ts,tsx}"],
   exclude: ["src/**/__tests__/**", "src/**/*.test.ts"],
   reporters: ["lcov", "json", "text-summary"],
-  collectServer: false,
+  collectServer: true,
 };
 
 export default defineConfig({

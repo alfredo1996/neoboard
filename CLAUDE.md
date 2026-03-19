@@ -61,7 +61,9 @@ Rules:
 
 **Coverage target: 80% per package** (unit + E2E combined). Track with `npm run test:coverage` in each package.
 
-**Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`.** Component rendering is tested via Playwright E2E with real data. Vitest in `app/` is for pure logic, API routes, stores, and hooks only. UI component tests belong in `component/` (isolated, no business logic) or as Playwright E2E specs.
+**Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`.** Component rendering is tested via Playwright E2E with real data and **server-side coverage collection** (`collectServer: true` in nextcov config). Vitest in `app/` is for pure logic, API routes, stores, and hooks only. UI component tests belong in `component/` (isolated, no business logic) or as Playwright E2E specs.
+
+**Vendored code** (e.g., `component/src/lib/cypher-lang/`) is excluded from SonarCloud coverage requirements but should have basic smoke tests to catch regressions from local modifications.
 
 ## Working Rules
 
