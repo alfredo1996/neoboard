@@ -235,7 +235,7 @@ function transformToGraphData(data: unknown): unknown {
   const edgesMap = new Map<string, Record<string, unknown>>();
 
   function addNode(v: Record<string, unknown>) {
-    const id = safeId(v.elementId ?? v.identity ?? Math.random());
+    const id = safeId(v.elementId ?? v.identity ?? crypto.randomUUID());
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
       const rawProps = (v.properties as Record<string, unknown>) ?? {};
@@ -366,7 +366,7 @@ function transformToGaugeData(data: unknown): unknown {
 
   // Look for explicit "value"/"name" keys, then fall back to positional
   const valueKey = keys.find((k) => /^value$/i.test(k)) ?? keys[0];
-  const nameKey = keys.find((k) => /^name|label|title$/i.test(k) && k !== valueKey) ?? keys[1];
+  const nameKey = keys.find((k) => /^(name|label|title)$/i.test(k) && k !== valueKey) ?? keys[1];
 
   return [
     {
@@ -431,8 +431,8 @@ function transformToHierarchicalData(data: unknown): unknown {
   // Case 2: flat with parent column — build hierarchy
   const hasParent = keys.includes("parent");
   if (hasParent) {
-    const nameKey = keys.find((k) => /^name|label|title$/i.test(k)) ?? keys[0];
-    const valueKey = keys.find((k) => /^value|count|size$/i.test(k) && k !== nameKey) ?? keys.find((k) => k !== nameKey && k !== "parent");
+    const nameKey = keys.find((k) => /^(name|label|title)$/i.test(k)) ?? keys[0];
+    const valueKey = keys.find((k) => /^(value|count|size)$/i.test(k) && k !== nameKey) ?? keys.find((k) => k !== nameKey && k !== "parent");
 
     type HierNode = { name: string; value: number; children?: HierNode[] };
     const nodeMap = new Map<string, HierNode>();
@@ -466,7 +466,7 @@ function transformToHierarchicalData(data: unknown): unknown {
   }
 
   // Case 3: flat name/value pairs
-  const nameKey = keys.find((k) => /^name|label|title|category$/i.test(k)) ?? keys[0];
+  const nameKey = keys.find((k) => /^(name|label|title|category)$/i.test(k)) ?? keys[0];
   const valueKey = keys.find((k) => k !== nameKey) ?? keys[1];
 
   return records.map((r) => ({
@@ -486,10 +486,10 @@ function transformToRadarData(data: unknown): unknown {
   if (!records.length) return { indicators: [], series: [] };
 
   const keys = Object.keys(records[0]);
-  const indicatorKey = keys.find((k) => /^indicator|axis|dimension|category$/i.test(k));
-  const valueKey = keys.find((k) => /^value|score$/i.test(k) && k !== indicatorKey);
-  const maxKey = keys.find((k) => /^max|maximum$/i.test(k));
-  const seriesKey = keys.find((k) => /^series|group|name|label$/i.test(k) && k !== indicatorKey && k !== valueKey && k !== maxKey);
+  const indicatorKey = keys.find((k) => /^(indicator|axis|dimension|category)$/i.test(k));
+  const valueKey = keys.find((k) => /^(value|score)$/i.test(k) && k !== indicatorKey);
+  const maxKey = keys.find((k) => /^(max|maximum)$/i.test(k));
+  const seriesKey = keys.find((k) => /^(series|group|name|label)$/i.test(k) && k !== indicatorKey && k !== valueKey && k !== maxKey);
 
   if (indicatorKey && valueKey) {
     // Long-format: one row per (series, indicator) combination

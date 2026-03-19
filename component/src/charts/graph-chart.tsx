@@ -65,7 +65,7 @@ function buildLabelColorMap(
       for (const lbl of node.labels) labels.add(lbl);
     }
   }
-  const sorted = Array.from(labels).sort();
+  const sorted = Array.from(labels).sort((a, b) => a.localeCompare(b));
   const map = new Map<string, string>();
   sorted.forEach((lbl, i) => {
     map.set(lbl, palette[i % palette.length]);
@@ -161,7 +161,7 @@ function buildLabelPropertyMap(nodes: GraphNode[]): Map<string, string[]> {
   }
   const result = new Map<string, string[]>();
   for (const [lbl, set] of map) {
-    result.set(lbl, Array.from(set).sort());
+    result.set(lbl, Array.from(set).sort((a, b) => a.localeCompare(b)));
   }
   return result;
 }
