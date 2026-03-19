@@ -68,7 +68,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     } else if (Array.isArray(value)) {
       return value.map((item) => this.__neo4jToNative(item));
     } else if (typeof value === 'object') {
-      return this.convertPlainObject(value);
+      return this.neo4jConvertPlainObject(value);
     }
 
     // Default: return as is
@@ -290,13 +290,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {object} value - The object to recursively process.
    * @returns {object} A fully converted JavaScript object.
    */
-  convertPlainObject(value: object): object {
-    const result = {};
-    for (const key in value) {
-      if (Object.hasOwn(value, key)) {
-        result[key] = this.__neo4jToNative(value[key]);
-      }
-    }
-    return result;
+  neo4jConvertPlainObject(value: object): object {
+    return super.convertPlainObject(value, (v) => this.__neo4jToNative(v));
   }
 }

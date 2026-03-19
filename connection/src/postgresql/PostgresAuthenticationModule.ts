@@ -1,5 +1,5 @@
 import { AuthenticationModule } from '../generalized/AuthenticationModule';
-import { AuthConfig, DEFAULT_AUTHENTICATION_CONFIG, AdvancedConnectionOptions } from '../generalized/interfaces';
+import { AuthConfig, AdvancedConnectionOptions } from '../generalized/interfaces';
 import { Pool } from 'pg';
 
 /**
@@ -8,7 +8,7 @@ import { Pool } from 'pg';
  */
 export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
-  protected _authConfig: AuthConfig;
+  protected _authConfig!: AuthConfig;
   private readonly _advancedOptions?: AdvancedConnectionOptions;
 
   /**
@@ -18,7 +18,6 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
    */
   constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
-    this._authConfig = DEFAULT_AUTHENTICATION_CONFIG;
     this._checkConfigurationConsistency(config);
     this._authConfig = config;
     this._advancedOptions = advancedOptions;
@@ -113,20 +112,6 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
 
     // Create new pool with updated config
     this.pool = this.createDriver();
-  }
-
-  /**
-   * Authenticates and establishes a connection pool to PostgreSQL.
-   * This is a convenience method that calls verifyAuthentication.
-   * @returns true if connection succeeds, false otherwise
-   */
-  async authenticate(): Promise<boolean> {
-    try {
-      return await this.verifyAuthentication();
-    } catch (error) {
-      console.error('PostgreSQL authentication failed:', error);
-      return false;
-    }
   }
 
   /**

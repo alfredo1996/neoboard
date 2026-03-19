@@ -28,27 +28,3 @@ export function createConnectionModule(
       throw new Error(`Unsupported connection type: ${type}`);
   }
 }
-
-/**
- * Gets the name of a connection type for display purposes.
- * @param type - The connection type
- * @returns Human-readable name
- */
-export function getConnectionTypeName(type: ConnectionTypes): string {
-  switch (type) {
-    case ConnectionTypes.NEO4J:
-      return 'Neo4j';
-    case ConnectionTypes.POSTGRESQL:
-      return 'PostgreSQL';
-    default:
-      return 'Unknown';
-  }
-}
-
-/**
- * Gets all supported connection types.
- * @returns Array of supported connection types
- */
-export function getSupportedConnectionTypes(): ConnectionTypes[] {
-  return [ConnectionTypes.NEO4J, ConnectionTypes.POSTGRESQL];
-}

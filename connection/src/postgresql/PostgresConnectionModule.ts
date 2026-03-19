@@ -65,7 +65,7 @@ export class PostgresConnectionModule extends ConnectionModule {
 
     // Ensure connection is established
     if (!this.authModule.getPool()) {
-      const authenticated = await this.authModule.authenticate();
+      const authenticated = await this.authModule.verifyAuthentication().catch(() => false);
       if (!authenticated) {
         callbacks.setStatus?.(QueryStatus.ERROR);
         callbacks.onFail?.(new Error('Failed to authenticate with PostgreSQL'));
@@ -89,13 +89,8 @@ export class PostgresConnectionModule extends ConnectionModule {
     config: ConnectionConfig,
     params: Record<string, any> = {}
   ): Promise<void> {
-    const pool = this.authModule.getPool();
-    if (!pool) {
-      callbacks.setStatus?.(QueryStatus.ERROR);
-      callbacks.onFail?.(new Error('Database connection pool not available'));
-      return;
-    }
-
+    // Pool is guaranteed to exist — runQuery ensures authentication before calling this method
+    const pool = this.authModule.getPool()!;
     const client = await pool.connect();
 
     try {
@@ -200,7 +195,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       const pool = this.authModule.getPool();
       if (!pool) {
         // Try to authenticate first
-        const authenticated = await this.authModule.authenticate();
+        const authenticated = await this.authModule.verifyAuthentication().catch(() => false);
         if (!authenticated) return false;
       }
 
