@@ -20,7 +20,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
     const parsed: Record<string, any> = {};
 
     for (const key in _record) {
-      if (Object.hasOwnProperty.call(_record, key)) {
+      if (Object.hasOwn(_record, key)) {
         parsed[key] = this._pgToNative(_record[key]);
       }
     }
@@ -30,33 +30,20 @@ export class PostgresRecordParser extends NeodashRecordParser {
 
   /**
    * Converts PostgreSQL data types to native JavaScript types.
+   * The pg driver already returns native JS types for primitives and temporals,
+   * so this only needs to handle nulls, arrays, and plain objects.
    * @param value - Value from PostgreSQL result
    * @returns Value converted to JavaScript native type
    */
-  private _pgToNative(value: any): any {
-    if (value === null || value === undefined) {
-      return value;
-    }
-
-    // Process based on type
-    if (this.isPrimitive(value)) {
-      return this.parsePrimitive(value);
-    } else if (this.isTemporal(value)) {
-      return this.parseTemporal(value);
-    } else if (Array.isArray(value)) {
-      return value.map((item) => this._pgToNative(item));
-    } else if (typeof value === 'object') {
-      return this.convertPlainObject(value);
-    }
-
-    // Default: return as is
+  private _pgToNative(value: unknown): unknown {
+    if (value == null) return value;
+    if (Array.isArray(value)) return value.map((item) => this._pgToNative(item));
+    if (typeof value === 'object') return this.pgConvertPlainObject(value as object);
     return value;
   }
 
   /**
-   * Determines if the provided value is a primitive type.
-   * @param value - The value to check
-   * @returns True if the value is a primitive type
+   * No-op: pg driver already returns native primitives.
    */
   isPrimitive(value: unknown): boolean {
     const type = typeof value;
@@ -64,33 +51,23 @@ export class PostgresRecordParser extends NeodashRecordParser {
   }
 
   /**
-   * Converts a primitive type to native JavaScript.
-   * @param value - The primitive value to convert
-   * @returns The JavaScript representation of the value
+   * No-op: pg driver already returns native primitives.
    */
-  parsePrimitive(value: unknown): number | string | boolean | bigint {
-    // PostgreSQL driver already converts most primitives correctly
+  parsePrimitive(value: unknown): unknown {
     return value;
   }
 
   /**
-   * Determines if the provided value is a temporal type (Date).
-   * @param value - The value to check
-   * @returns True if the value is a Date
+   * No-op: pg driver already returns native Date instances.
    */
   isTemporal(value: unknown): boolean {
     return value instanceof Date;
   }
 
   /**
-   * Converts temporal types to JavaScript Date or string representation.
-   * @param value - A temporal value from PostgreSQL
-   * @returns A native JS Date or ISO string
+   * No-op: pg driver already returns native Date instances.
    */
-  parseTemporal(value: unknown): Date | string {
-    if (value instanceof Date) {
-      return value;
-    }
+  parseTemporal(value: unknown): unknown {
     return value;
   }
 
@@ -99,13 +76,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @param value - The object to recursively process
    * @returns A fully converted JavaScript object
    */
-  private convertPlainObject(value: object): object {
-    const result: Record<string, any> = {};
-    for (const key in value) {
-      if (Object.hasOwnProperty.call(value, key)) {
-        result[key] = this._pgToNative(value[key]);
-      }
-    }
-    return result;
+  private pgConvertPlainObject(value: object): Record<string, unknown> {
+    return super.convertPlainObject(value, (v) => this._pgToNative(v));
   }
 }

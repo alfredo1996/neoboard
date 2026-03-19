@@ -1,5 +1,9 @@
-import { READ, WRITE } from 'neo4j-driver-core/lib/driver.js';
 import { ConnectionTypes } from '../ConnectionModuleConfig';
+
+/**
+ * Access mode for database connections: read-only or read-write.
+ */
+export type AccessMode = 'READ' | 'WRITE';
 
 /**
  * Types of supported authentication methods.
@@ -72,7 +76,7 @@ export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig = {
   /**
    * Default access mode: READ.
    */
-  accessMode: READ,
+  accessMode: 'READ',
 
   /**
    * Timeout (ms) for Cypher query execution.
@@ -108,7 +112,7 @@ export interface ConnectionConfig {
   /**
    * The access mode for the connection: READ or WRITE.
    */
-  accessMode: READ | WRITE;
+  accessMode: AccessMode;
 
   /**
    * Timeout in milliseconds for query execution.
@@ -203,10 +207,10 @@ export enum QueryStatus {
  */
 export interface QueryCallback<T> {
   onSuccess?: (result: T) => void;
-  onFail?: (error: any) => void;
+  onFail?: (error: unknown) => void;
   setStatus?: (status: QueryStatus) => void;
-  setFields?: (fields: any) => void;
-  setSchema?: (schema: any) => void;
+  setFields?: (fields: string[] | string[][]) => void;
+  setSchema?: (schema: string[][]) => void;
 }
 
 /**

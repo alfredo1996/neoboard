@@ -14,30 +14,8 @@ export { errorHasMessage } from '../generalized/utils';
  * @returns Array of [tableName, field1, field2, ...] arrays, or empty array
  */
 export function extractTableSchemaFromFields(fields: FieldDef[]): string[][] {
-  if (!fields || fields.length === 0) {
-    return [];
-  }
-
-  // Group fields by table (using table OID)
-  const tableDict: Record<string, Set<string>> = {};
-
-  fields.forEach((field) => {
-    // Use table name if available, otherwise use a generic key
-    const tableName = field.name ? 'result' : 'unknown';
-
-    if (!tableDict[tableName]) {
-      tableDict[tableName] = new Set();
-    }
-
-    tableDict[tableName].add(field.name);
-  });
-
-  // Convert to array format: [tableName, ...fieldNames]
-  const schema = Object.keys(tableDict).map((tableName) => {
-    return [tableName, ...Array.from(tableDict[tableName])];
-  });
-
-  return schema.length > 0 ? schema : [];
+  if (!fields || fields.length === 0) return [];
+  return [['result', ...fields.map((f) => f.name)]];
 }
 
 /**

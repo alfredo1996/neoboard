@@ -1,16 +1,15 @@
 import { AuthenticationModule } from '../generalized/AuthenticationModule';
-import { AuthConfig, AuthType, DEFAULT_AUTHENTICATION_CONFIG, AdvancedConnectionOptions } from '../generalized/interfaces';
+import { AuthConfig, AuthType, AdvancedConnectionOptions } from '../generalized/interfaces';
 import neo4j from 'neo4j-driver';
 import { Driver } from 'neo4j-driver-core';
 
 export class Neo4jAuthenticationModule extends AuthenticationModule {
-  private _authConfig: AuthConfig;
+  private _authConfig!: AuthConfig;
   private readonly _advancedOptions?: AdvancedConnectionOptions;
-  private driver: Driver;
+  private driver!: Driver;
 
   constructor(authConfig: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
-    this._authConfig = DEFAULT_AUTHENTICATION_CONFIG;
     this._checkConfigurationConsistency(authConfig);
     this._authConfig = authConfig;
     this._advancedOptions = advancedOptions;
@@ -18,9 +17,6 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
   }
 
   getDriver(): Driver {
-    if (!this.driver) {
-      return this.createDriver();
-    }
     return this.driver;
   }
 
