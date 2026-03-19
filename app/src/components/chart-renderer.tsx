@@ -342,7 +342,10 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           startAngle={settings.startAngle as number | undefined}
           endAngle={settings.endAngle as number | undefined}
           colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 
@@ -356,7 +359,10 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           nodeWidth={settings.nodeWidth as number | undefined}
           nodeGap={settings.nodeGap as number | undefined}
           colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
     }
@@ -369,7 +375,10 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           sort={settings.sort as "desc" | "asc" | "none" | undefined}
           highlightOnHover={settings.highlightOnHover as boolean | undefined}
           colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 
@@ -383,7 +392,10 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showLegend={settings.showLegend as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
           colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
     }
@@ -397,7 +409,10 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showValues={settings.showValues as boolean | undefined}
           colorSaturation={settings.colorSaturation as "low" | "medium" | "high" | undefined}
           colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 
