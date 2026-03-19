@@ -96,54 +96,62 @@ describe("createRefreshSchema utility", () => {
     useSchemaStore.setState({ schemas: {} });
   });
 
-  it("returns a function when called with a QueryClient", () => {
-    const mockQueryClient = {
-      invalidateQueries: vi.fn(),
+  /** Helper to create a minimal fake QueryClient with the methods refreshSchema uses. */
+  function makeFakeQueryClient(
+    overrides: Partial<{
+      cancelQueries: () => Promise<void>;
+      invalidateQueries: () => Promise<void>;
+    }> = {},
+  ) {
+    return {
+      cancelQueries: vi.fn().mockResolvedValue(undefined),
+      invalidateQueries: vi.fn().mockResolvedValue(undefined),
+      ...overrides,
     } as unknown as QueryClient;
+  }
 
+  it("returns a function when called with a QueryClient", () => {
+    const mockQueryClient = makeFakeQueryClient();
     const refresh = createRefreshSchema(mockQueryClient);
     expect(typeof refresh).toBe("function");
   });
 
-  it("calls invalidateQueries with the correct queryKey", () => {
-    const mockInvalidate = vi.fn();
-    const fakeQueryClient = {
-      invalidateQueries: mockInvalidate,
-    } as unknown as QueryClient;
+  it("calls cancelQueries then invalidateQueries with the correct queryKey", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
 
     const refresh = createRefreshSchema(fakeQueryClient);
-    refresh("conn-42");
+    await refresh("conn-42");
 
+    expect(fakeQueryClient.cancelQueries).toHaveBeenCalledWith({
+      queryKey: ["connection-schema", "conn-42"],
+    });
     expect(mockInvalidate).toHaveBeenCalledWith({
       queryKey: ["connection-schema", "conn-42"],
     });
   });
 
-  it("clears the schema from the store", () => {
-    const fakeQueryClient = {
-      invalidateQueries: vi.fn(),
-    } as unknown as QueryClient;
+  it("clears the schema from the store", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
 
     const connectionId = "conn-42";
     useSchemaStore.getState().setSchema(connectionId, neo4jSchema);
 
     const refresh = createRefreshSchema(fakeQueryClient);
-    refresh(connectionId);
+    await refresh(connectionId);
 
     expect(useSchemaStore.getState().getSchema(connectionId)).toBeUndefined();
   });
 
-  it("performs both operations: clears store AND invalidates query", () => {
-    const mockInvalidate = vi.fn();
-    const fakeQueryClient = {
-      invalidateQueries: mockInvalidate,
-    } as unknown as QueryClient;
+  it("performs both operations: clears store AND invalidates query", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
 
     const connectionId = "conn-42";
     useSchemaStore.getState().setSchema(connectionId, neo4jSchema);
 
     const refresh = createRefreshSchema(fakeQueryClient);
-    refresh(connectionId);
+    await refresh(connectionId);
 
     expect(mockInvalidate).toHaveBeenCalledWith({
       queryKey: ["connection-schema", connectionId],
@@ -151,57 +159,49 @@ describe("createRefreshSchema utility", () => {
     expect(useSchemaStore.getState().getSchema(connectionId)).toBeUndefined();
   });
 
-  it("uses the connectionId from the call, not from the factory", () => {
-    const mockInvalidate = vi.fn();
-    const fakeQueryClient = {
-      invalidateQueries: mockInvalidate,
-    } as unknown as QueryClient;
+  it("uses the connectionId from the call, not from the factory", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
 
     const refresh = createRefreshSchema(fakeQueryClient);
-    refresh("conn-abc");
+    await refresh("conn-abc");
 
     expect(mockInvalidate).toHaveBeenCalledWith({
       queryKey: ["connection-schema", "conn-abc"],
     });
   });
 
-  it("clears only the targeted connection, not others", () => {
-    const fakeQueryClient = {
-      invalidateQueries: vi.fn(),
-    } as unknown as QueryClient;
+  it("clears only the targeted connection, not others", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
 
     useSchemaStore.getState().setSchema("conn-1", neo4jSchema);
     useSchemaStore.getState().setSchema("conn-2", pgSchema);
 
     const refresh = createRefreshSchema(fakeQueryClient);
-    refresh("conn-1");
+    await refresh("conn-1");
 
     expect(useSchemaStore.getState().getSchema("conn-1")).toBeUndefined();
     expect(useSchemaStore.getState().getSchema("conn-2")).toEqual(pgSchema);
   });
 
-  it("is safe to call when no cached schema exists for the connectionId", () => {
-    const mockInvalidate = vi.fn();
-    const fakeQueryClient = {
-      invalidateQueries: mockInvalidate,
-    } as unknown as QueryClient;
+  it("is safe to call when no cached schema exists for the connectionId", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
 
     // No schema set for conn-99 — should not throw
     const refresh = createRefreshSchema(fakeQueryClient);
-    expect(() => refresh("conn-99")).not.toThrow();
+    await expect(refresh("conn-99")).resolves.not.toThrow();
     expect(mockInvalidate).toHaveBeenCalledWith({
       queryKey: ["connection-schema", "conn-99"],
     });
   });
 
-  it("uses the nested [connection-schema, id] key pattern", () => {
-    const mockInvalidate = vi.fn();
-    const fakeQueryClient = {
-      invalidateQueries: mockInvalidate,
-    } as unknown as QueryClient;
+  it("uses the nested [connection-schema, id] key pattern", async () => {
+    const fakeQueryClient = makeFakeQueryClient();
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
 
     const refresh = createRefreshSchema(fakeQueryClient);
-    refresh("test-id");
+    await refresh("test-id");
 
     const callArg = mockInvalidate.mock.calls[0][0] as { queryKey: unknown[] };
     expect(callArg.queryKey).toHaveLength(2);

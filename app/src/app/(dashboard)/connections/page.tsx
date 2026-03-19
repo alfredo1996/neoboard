@@ -297,10 +297,13 @@ export default function ConnectionsPage() {
   }
 
   function buildEditConfig() {
+    // Only include credential fields when the user has explicitly filled them in.
+    // Omitting them (undefined) tells the server to keep the existing stored values
+    // rather than overwriting them with blank strings.
     return {
-      uri: editForm.uri,
-      username: editForm.username,
-      password: editForm.password,
+      ...(editForm.uri ? { uri: editForm.uri } : {}),
+      ...(editForm.username ? { username: editForm.username } : {}),
+      ...(editForm.password ? { password: editForm.password } : {}),
       database: editForm.database || undefined,
       connectionTimeout: parseOptionalInt(editForm.connectionTimeout),
       queryTimeout: parseOptionalInt(editForm.queryTimeout),

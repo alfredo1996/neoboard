@@ -203,10 +203,12 @@ export default async function globalSetup() {
   await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
 
   // ── Resolve the server port ──────────────────────────────────────────────
-  // If TEST_SERVER_PORT is set, use it; otherwise pick a free port.
-  // This allows multiple Playwright runs to coexist without port conflicts.
+  // Use TEST_SERVER_PORT when set; otherwise default to 3100 to stay in sync
+  // with playwright.config.ts which uses the same env var and the same default.
+  // Using getFreePort() here would desync the server port from the baseURL that
+  // Playwright evaluates before globalSetup runs.
   const serverPort =
-    parseInt(process.env.TEST_SERVER_PORT || "0", 10) || (await getFreePort());
+    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) || (await getFreePort());
 
   // ── Write .env.test for the Next.js dev server ──────────────────────────
   const envContent = [

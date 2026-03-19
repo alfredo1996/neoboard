@@ -15,11 +15,12 @@ function getDocString(result: string | MarkupContent | undefined): string {
 }
 
 function getTriggerCharacter(query: string, caretPosition: number) {
+  if (caretPosition <= 0) return undefined;
   let i = caretPosition - 1;
-  let triggerCharacter = query.at(i);
+  let triggerCharacter = query[i];
   while (/\s/.test(triggerCharacter ?? "") && i > 0) {
     i -= 1;
-    triggerCharacter = query.at(i);
+    triggerCharacter = query[i];
   }
   return triggerCharacter;
 }

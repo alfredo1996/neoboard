@@ -69,7 +69,7 @@ function SunburstChart({
         trigger: "item",
         formatter: (params: unknown) => {
           const p = params as { name: string; value: unknown };
-          return `${p.name}: ${p.value ?? ""}`;
+          return `${echarts.format.encodeHTML(p.name)}: ${echarts.format.encodeHTML(String(p.value ?? ""))}`;
         },
       },
       series: [

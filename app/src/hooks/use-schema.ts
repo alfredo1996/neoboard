@@ -12,11 +12,17 @@ import type { DatabaseSchema } from "@/lib/schema-types";
 /**
  * Returns a refresh function for a given connectionId.
  * Exported separately so it can be tested in isolation (node environment).
+ *
+ * Cancels any in-flight query before invalidating the cache to prevent a
+ * late-arriving response from repopulating the store with stale schema.
  */
 export function createRefreshSchema(queryClient: QueryClient) {
-  return function refreshSchema(connectionId: string) {
+  return async function refreshSchema(connectionId: string) {
+    await queryClient.cancelQueries({
+      queryKey: ["connection-schema", connectionId],
+    });
     useSchemaStore.getState().clearSchema(connectionId);
-    queryClient.invalidateQueries({
+    return queryClient.invalidateQueries({
       queryKey: ["connection-schema", connectionId],
     });
   };
@@ -38,8 +44,10 @@ export function useConnectionSchema(connectionId: string | null | undefined) {
 
   const query = useQuery<DatabaseSchema>({
     queryKey: ["connection-schema", connectionId],
-    queryFn: async () => {
-      const r = await fetch(`/api/connections/${connectionId}/schema`);
+    queryFn: async ({ signal }) => {
+      const r = await fetch(`/api/connections/${connectionId}/schema`, {
+        signal,
+      });
       const schema = await unwrapResponse<DatabaseSchema>(r);
       setSchema(connectionId!, schema);
       return schema;
