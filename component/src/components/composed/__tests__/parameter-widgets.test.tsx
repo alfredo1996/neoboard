@@ -1104,7 +1104,7 @@ describe("CascadingSelector", () => {
     expect(onChange).toHaveBeenCalledWith("");
   });
 
-  it("shows loading skeleton with spinner when loading=true", () => {
+  it("shows loading skeleton when loading=true", () => {
     const { container } = render(
       <CascadingSelector
         parameterName="subCategory"
@@ -1116,8 +1116,8 @@ describe("CascadingSelector", () => {
     );
     // The select combobox should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
-    // The spinning refresh icon should be present (animate-spin class)
-    expect(container.querySelector(".animate-spin")).toBeInTheDocument();
+    // Skeleton placeholders should be rendered (animate-pulse divs)
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThanOrEqual(2);
   });
 
   it("does not show dependency hint when parentParameterName is not provided", () => {

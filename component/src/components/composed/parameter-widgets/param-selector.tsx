@@ -24,8 +24,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 
 export interface ParamSelectorOption {
   label: string;
@@ -70,12 +70,7 @@ function ParamSelector({
   const labelId = `param-select-label-${parameterName}`;
 
   if (loading) {
-    return (
-      <div className={cn("space-y-1.5", className)}>
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-9 w-full" />
-      </div>
-    );
+    return <ParamWidgetSkeleton className={className} />;
   }
 
   const selectedLabel = options.find((o) => o.value === value)?.label;

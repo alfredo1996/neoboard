@@ -12,3 +12,4 @@ export {
 } from "./date-relative-picker";
 export { NumberRangeSlider, type NumberRangeSliderProps } from "./number-range-slider";
 export { CascadingSelector, type CascadingSelectorProps, type CascadingSelectorOption } from "./cascading-selector";
+export { ParamWidgetSkeleton, type ParamWidgetSkeletonProps } from "./param-widget-skeleton";

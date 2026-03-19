@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
+import { useDarkMode } from "./base-chart";
 
 export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
 
@@ -108,16 +109,7 @@ function MapChart({
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  // Track dark mode for auto tile switching
-  const [dark, setDark] = useState(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
-  useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
-    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
+  const dark = useDarkMode();
 
   const tile = resolveTileLayer(tileLayer, dark, attribution);
 

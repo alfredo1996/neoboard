@@ -13,6 +13,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { useDarkMode } from "./base-chart";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
 
@@ -43,12 +44,6 @@ const LABEL_COLOR_PALETTE_DARK = [
   "#B89278",
   "#CFC5BF",
 ];
-
-/** Detect dark mode for non-React contexts (NVL canvas). */
-function isDarkMode(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.documentElement.classList.contains("dark");
-}
 
 /**
  * Builds a map of Neo4j label → palette color.
@@ -305,17 +300,7 @@ export function GraphChart({
   const [layout, setLayout] = useState<GraphLayout>(
     initialLayout ?? layoutProp,
   );
-  const [dark, setDark] = useState(isDarkMode);
-
-  // Watch dark mode changes
-  useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() =>
-      setDark(el.classList.contains("dark")),
-    );
-    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
+  const dark = useDarkMode();
 
   // Build the label → property keys map from current nodes
   const labelPropertyMap = useMemo(() => buildLabelPropertyMap(nodes), [nodes]);
