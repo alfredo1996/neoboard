@@ -79,8 +79,8 @@ function TreemapChart({
       tooltip: {
         formatter: (params: unknown) => {
           const p = params as { name: string; value: unknown; treePathInfo?: Array<{ name: string }> };
-          const path = p.treePathInfo?.map((t) => t.name).join(" / ") ?? p.name;
-          return `${path}: ${p.value ?? ""}`;
+          const path = p.treePathInfo?.map((t) => echarts.format.encodeHTML(t.name)).join(" / ") ?? echarts.format.encodeHTML(p.name);
+          return `${path}: ${echarts.format.encodeHTML(String(p.value ?? ""))}`;
         },
       },
       series: [

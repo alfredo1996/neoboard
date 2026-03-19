@@ -248,6 +248,7 @@ function processInline(text: string): string {
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
+  // useMemo must be declared before any early return to satisfy Rules of Hooks.
   const html = React.useMemo(
     () => (content ? parseMarkdown(content) : null),
     [content],

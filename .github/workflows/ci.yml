@@ -48,9 +48,17 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci --prefix app &
+          APP_CI_PID=$!
           npm ci --prefix component &
+          COMP_CI_PID=$!
           npm ci --prefix connection &
-          wait
+          CONN_CI_PID=$!
+
+          FAIL=0
+          wait $APP_CI_PID  || FAIL=1
+          wait $COMP_CI_PID || FAIL=1
+          wait $CONN_CI_PID || FAIL=1
+          exit $FAIL
 
       - name: Type-check component
         working-directory: component
@@ -114,9 +122,17 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci --prefix app &
+          APP_CI_PID=$!
           npm ci --prefix component &
+          COMP_CI_PID=$!
           npm ci --prefix connection &
-          wait
+          CONN_CI_PID=$!
+
+          FAIL=0
+          wait $APP_CI_PID  || FAIL=1
+          wait $COMP_CI_PID || FAIL=1
+          wait $CONN_CI_PID || FAIL=1
+          exit $FAIL
 
       - name: Run all tests in parallel
         run: |
@@ -177,11 +193,23 @@ jobs:
       - name: Install dependencies + pre-pull container images
         run: |
           npm ci --prefix connection &
+          CONN_CI_PID=$!
           npm ci --prefix component  &
+          COMP_CI_PID=$!
           npm ci --prefix app        &
+          APP_CI_PID=$!
           docker pull postgres:16-alpine  &
+          PG_PID=$!
           docker pull neo4j:5-community   &
-          wait
+          NEO4J_PID=$!
+
+          FAIL=0
+          wait $CONN_CI_PID  || FAIL=1
+          wait $COMP_CI_PID  || FAIL=1
+          wait $APP_CI_PID   || FAIL=1
+          wait $PG_PID       || FAIL=1
+          wait $NEO4J_PID    || FAIL=1
+          exit $FAIL
 
       - name: Cache Playwright browsers
         id: playwright-cache

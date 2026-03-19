@@ -145,14 +145,16 @@ async function hasCompletionItem(
   page: Page,
   pattern: RegExp,
 ): Promise<boolean> {
-  return page.evaluate((pat) => {
-    const el = document.querySelector(".cm-tooltip-autocomplete");
-    if (!el) return false;
-    const items = el.querySelectorAll("[role='option'], li");
-    return Array.from(items).some((item) =>
-      new RegExp(pat).test(item.textContent ?? ""),
-    );
-  }, pattern.source);
+  return page.evaluate(
+    ([source, flags]) => {
+      const el = document.querySelector(".cm-tooltip-autocomplete");
+      if (!el) return false;
+      const re = new RegExp(source, flags);
+      const items = el.querySelectorAll("[role='option'], li");
+      return Array.from(items).some((item) => re.test(item.textContent ?? ""));
+    },
+    [pattern.source, pattern.flags] as [string, string],
+  );
 }
 
 // ---------------------------------------------------------------------------
