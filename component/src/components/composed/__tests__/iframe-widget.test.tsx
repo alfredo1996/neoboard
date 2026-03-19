@@ -105,4 +105,18 @@ describe("IframeWidget", () => {
     const iframe = screen.getByTitle("Embedded content");
     expect(iframe.getAttribute("sandbox")).not.toContain("allow-same-origin");
   });
+
+  it("strips dangerous sandbox tokens like allow-same-origin", () => {
+    render(
+      <IframeWidget
+        url="https://example.com"
+        sandbox="allow-scripts allow-same-origin allow-forms"
+      />,
+    );
+    const iframe = screen.getByTitle("Embedded content");
+    const sandbox = iframe.getAttribute("sandbox")!;
+    expect(sandbox).toContain("allow-scripts");
+    expect(sandbox).toContain("allow-forms");
+    expect(sandbox).not.toContain("allow-same-origin");
+  });
 });

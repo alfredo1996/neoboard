@@ -56,6 +56,10 @@ jobs:
         working-directory: component
         run: npx tsc --noEmit
 
+      - name: Type-check connection
+        working-directory: connection
+        run: npx tsc --noEmit
+
       - name: Type-check app
         working-directory: app
         run: npx tsc --noEmit

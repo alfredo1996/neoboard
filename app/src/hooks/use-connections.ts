@@ -67,19 +67,19 @@ export function useDeleteConnection() {
 export interface UpdateConnectionInput {
   id: string;
   name?: string;
-  config?: {
+  config?: Partial<{
     uri: string;
     username: string;
     password: string;
-    database?: string;
-    connectionTimeout?: number;
-    queryTimeout?: number;
-    maxPoolSize?: number;
-    connectionAcquisitionTimeout?: number;
-    idleTimeout?: number;
-    statementTimeout?: number;
-    sslRejectUnauthorized?: boolean;
-  };
+    database: string;
+    connectionTimeout: number;
+    queryTimeout: number;
+    maxPoolSize: number;
+    connectionAcquisitionTimeout: number;
+    idleTimeout: number;
+    statementTimeout: number;
+    sslRejectUnauthorized: boolean;
+  }>;
 }
 
 export function useUpdateConnection() {

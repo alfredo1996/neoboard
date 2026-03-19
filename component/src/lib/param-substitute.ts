@@ -9,7 +9,7 @@ export function substituteParams(
   if (!params) return text;
   return text.replace(/\$param_(\w+)/g, (match, name) => {
     const key = "param_" + name;
-    if (key in params) {
+    if (Object.hasOwn(params, key)) {
       return String(params[key] ?? "");
     }
     return match; // leave unresolved

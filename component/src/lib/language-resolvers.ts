@@ -67,6 +67,8 @@ export async function resolveLanguageExt(
   schema?: DatabaseSchema,
 ): Promise<Extension[]> {
   const key = language.toLowerCase();
-  const resolver = languageResolvers[key] ?? languageResolvers.sql;
+  const resolver = Object.hasOwn(languageResolvers, key)
+    ? languageResolvers[key]
+    : languageResolvers.sql;
   return resolver(schema);
 }

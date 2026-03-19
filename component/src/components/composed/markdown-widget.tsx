@@ -11,16 +11,21 @@ export interface MarkdownWidgetProps {
 }
 
 /**
- * Returns true if a URL uses a safe protocol (http, https, mailto).
- * Blocks javascript:, data: (except data:image/), vbscript:, blob:, etc.
+ * Returns true if a URL uses a safe protocol.
+ * Only allows http:, https:, mailto:, and data:image/ (for inline images).
+ * All other schemes (javascript:, vbscript:, blob:, file:, intent:, etc.)
+ * are blocked.
  */
 function isSafeUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
-  if (trimmed.startsWith("javascript:")) return false;
-  if (trimmed.startsWith("vbscript:")) return false;
-  if (trimmed.startsWith("blob:")) return false;
-  if (trimmed.startsWith("data:") && !trimmed.startsWith("data:image/"))
-    return false;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return true;
+  if (trimmed.startsWith("mailto:")) return true;
+  if (trimmed.startsWith("data:image/")) return true;
+  // Relative URLs (no scheme) are safe — they resolve against the page origin.
+  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) return true;
+  // Reject anything with an explicit scheme that didn't match above.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return false;
+  // Bare text (e.g., "example.com") — treat as relative, safe.
   return true;
 }
 
@@ -244,6 +249,11 @@ function processInline(text: string): string {
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
+  const html = React.useMemo(
+    () => (content ? parseMarkdown(content) : null),
+    [content],
+  );
+
   if (!content) {
     return (
       <div
@@ -259,8 +269,6 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
     );
   }
 
-  const html = React.useMemo(() => parseMarkdown(content), [content]);
-
   return (
     <div
       data-testid="markdown-widget"
@@ -269,7 +277,7 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
         "text-sm text-foreground",
         className,
       )}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: html! }}
     />
   );
 }
