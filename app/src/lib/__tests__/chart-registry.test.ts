@@ -1154,8 +1154,8 @@ describe("gauge chart type", () => {
     expect(chartRegistry.gauge.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is true", () => {
-    expect(chartSupportsClickAction("gauge")).toBe(true);
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("gauge")).toBe(false);
   });
 
   it("supportsStyling is true", () => {
@@ -1423,8 +1423,8 @@ describe("radar chart type", () => {
     expect(chartRegistry.radar.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is true", () => {
-    expect(chartSupportsClickAction("radar")).toBe(true);
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("radar")).toBe(false);
   });
 
   it("supportsStyling is true", () => {
@@ -1491,10 +1491,11 @@ describe("radar transform", () => {
     expect(result.indicators[0].name).toBe("X");
   });
 
-  it("defaults max to 100 when max column is missing", () => {
+  it("auto-scales max from data when max column is missing", () => {
     const data = [{ indicator: "Speed", value: 80 }];
     const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: unknown[] };
-    expect(result.indicators[0].max).toBe(100);
+    // 80 * 1.1 = 88, ceil → 88
+    expect(result.indicators[0].max).toBe(88);
   });
 
   it("handles flat tabular data without indicator column (uses column names as indicators)", () => {

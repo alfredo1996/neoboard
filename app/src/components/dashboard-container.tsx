@@ -209,6 +209,7 @@ export function DashboardContainer({
           ))}
         </ParameterBar>
       )}
+      <div className="w-full min-w-0">
       <DashboardGrid
         layout={page.gridLayout as GridLayoutItem[]}
         onLayoutChange={(items) => onLayoutChange?.(items as GridLayoutItem[])}
@@ -295,6 +296,7 @@ export function DashboardContainer({
           );
         })}
       </DashboardGrid>
+      </div>
 
       <Dialog
         open={fullscreenWidget !== null}

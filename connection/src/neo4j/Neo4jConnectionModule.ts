@@ -81,7 +81,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
           const res = await tx.run(query, params); // Pass params to the run method
           return res.records;
         },
-        { timeout: config.connectionTimeout } // Pass connectionTimeout to the executeRead method
+        { timeout: config.timeout } // Transaction timeout (query-level), not connection timeout
       );
       // Set schema if provided
       callbacks.setSchema?.(extractNodeAndRelPropertiesFromRecords(result));

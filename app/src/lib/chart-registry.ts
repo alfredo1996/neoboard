@@ -484,21 +484,32 @@ function transformToRadarData(data: unknown): unknown {
 
   if (indicatorKey && valueKey) {
     // Long-format: one row per (series, indicator) combination
-    const indicatorMap = new Map<string, number>(); // name -> max
+    const indicatorMaxFromData = new Map<string, number>(); // name -> observed max value
+    const indicatorExplicitMax = new Map<string, number>(); // name -> explicit max from data
     const seriesMap = new Map<string, Map<string, number>>(); // seriesName -> { indicator -> value }
 
     for (const r of records) {
       const indName = String(normalizeValue(r[indicatorKey]) ?? "");
       const val = Number(r[valueKey]) || 0;
-      const max = maxKey ? Number(r[maxKey]) || 100 : 100;
       const serName = seriesKey ? String(normalizeValue(r[seriesKey]) ?? "Default") : "Default";
 
-      if (!indicatorMap.has(indName)) indicatorMap.set(indName, max);
+      if (maxKey) {
+        const explicitMax = Number(r[maxKey]) || 100;
+        if (!indicatorExplicitMax.has(indName)) indicatorExplicitMax.set(indName, explicitMax);
+      }
+      indicatorMaxFromData.set(indName, Math.max(indicatorMaxFromData.get(indName) ?? 0, val));
       if (!seriesMap.has(serName)) seriesMap.set(serName, new Map());
       seriesMap.get(serName)!.set(indName, val);
     }
 
-    const indicators = Array.from(indicatorMap.entries()).map(([name, max]) => ({ name, max }));
+    // Use explicit max if provided, otherwise auto-scale from observed values (+10% headroom)
+    const indicatorEntries = Array.from(indicatorMaxFromData.keys());
+    const indicators = indicatorEntries.map((name) => ({
+      name,
+      max: maxKey && indicatorExplicitMax.has(name)
+        ? indicatorExplicitMax.get(name)!
+        : Math.ceil((indicatorMaxFromData.get(name) ?? 100) * 1.1) || 100,
+    }));
     const series = Array.from(seriesMap.entries()).map(([name, valMap]) => ({
       name,
       values: indicators.map((ind) => valMap.get(ind.name) ?? 0),
@@ -508,7 +519,18 @@ function transformToRadarData(data: unknown): unknown {
   }
 
   // Wide-format: each column is an indicator, each row is a series
-  const indicators = keys.map((k) => ({ name: k, max: 100 }));
+  // Auto-scale max from observed values per column (+10% headroom)
+  const maxPerCol = new Map<string, number>();
+  for (const r of records) {
+    for (const k of keys) {
+      const v = Number(r[k]) || 0;
+      maxPerCol.set(k, Math.max(maxPerCol.get(k) ?? 0, v));
+    }
+  }
+  const indicators = keys.map((k) => ({
+    name: k,
+    max: Math.ceil((maxPerCol.get(k) ?? 100) * 1.1) || 100,
+  }));
   const series = records.map((r, i) => ({
     name: String(i + 1),
     values: keys.map((k) => Number(r[k]) || 0),
@@ -697,6 +719,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToGaugeData,
     transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
   },
   sankey: {
     type: "sankey",
@@ -718,6 +741,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToRadarData,
     transformWithMapping: transformToRadarData,
     compatibleWith: ["neo4j", "postgresql"],
+    supportsClickAction: false,
   },
   treemap: {
     type: "treemap",
