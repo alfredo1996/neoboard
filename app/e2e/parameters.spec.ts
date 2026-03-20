@@ -181,7 +181,7 @@ test.describe("Parameter-to-refresh cycle", () => {
     await page.getByRole("option").first().click();
 
     await typeInEditor(dialog, page,
-      "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5"
+      "MATCH (m:Movie) WHERE m.released = toInteger($param_year) RETURN m.title AS title LIMIT 5"
     );
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
@@ -193,7 +193,12 @@ test.describe("Parameter-to-refresh cycle", () => {
 
     // Navigate to view mode via the "Back" button
     await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    // Handle unsaved-changes dialog if it appears (grid compaction race)
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
     await expect(page.getByText("year", { exact: true })).toBeVisible({ timeout: 15_000 });

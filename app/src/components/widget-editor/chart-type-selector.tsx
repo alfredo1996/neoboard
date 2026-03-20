@@ -22,11 +22,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Combobox,
 } from "@neoboard/components";
 import type { ChartType } from "@/lib/chart-registry";
@@ -77,28 +72,23 @@ export function ChartTypeSelector({
   connections,
   showConnection,
 }: ChartTypeSelectorProps) {
+  const chartTypeOptions = compatibleChartTypes.map((type) => ({
+    value: type,
+    label: chartTypeMeta[type].label,
+  }));
+
   const chartTypeSelect = (
     <div className="space-y-1.5">
       <Label>Chart Type</Label>
-      <Select value={chartType} onValueChange={onChartTypeChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select chart type..." />
-        </SelectTrigger>
-        <SelectContent>
-          {compatibleChartTypes.map((type) => {
-            const meta = chartTypeMeta[type];
-            const Icon = meta.Icon;
-            return (
-              <SelectItem key={type} value={type}>
-                <span className="flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
-                  {meta.label}
-                </span>
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
-      </Select>
+      <Combobox
+        value={chartType}
+        onChange={onChartTypeChange}
+        options={chartTypeOptions}
+        placeholder="Select chart type..."
+        searchPlaceholder="Search chart types..."
+        emptyText="No chart types found."
+        className="w-full"
+      />
     </div>
   );
 

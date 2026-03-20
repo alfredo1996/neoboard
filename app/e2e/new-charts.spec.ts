@@ -171,18 +171,18 @@ test.describe("New chart types — creation flow", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Seed dashboard (dash-003) — verify Chart Showcase renders correctly
+// Seed dashboard — verify Widget Showcase renders correctly
 // ---------------------------------------------------------------------------
 
-test.describe("Chart Showcase seed dashboard", () => {
+test.describe("Widget Showcase seed dashboard", () => {
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Navigate to Chart Showcase dashboard
-    await page.getByText("Chart Showcase", { exact: true }).click();
+    // Navigate to Widget Showcase dashboard
+    await page.getByText("Widget Showcase", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
   });
 
-  test("should render the Chart Showcase dashboard with widget cards", async ({ page }) => {
+  test("should render the Widget Showcase dashboard with widget cards", async ({ page }) => {
     test.setTimeout(60_000);
 
     // At least one widget card should be visible on the page
@@ -191,45 +191,41 @@ test.describe("Chart Showcase seed dashboard", () => {
     });
   });
 
-  test("should show the New Charts (Neo4j) page tab", async ({ page }) => {
+  test("should show the Simple Charts page tab", async ({ page }) => {
     test.setTimeout(30_000);
 
-    // The dashboard should have a "New Charts (Neo4j)" tab/page
-    await expect(page.getByRole("tab", { name: "New Charts (Neo4j)" })).toBeVisible({
+    await expect(page.getByRole("tab", { name: "Simple Charts" })).toBeVisible({
       timeout: 10_000,
     });
   });
 
-  test("should show the New Charts (PostgreSQL) page tab", async ({ page }) => {
+  test("should show the Rule-Based Styling page tab", async ({ page }) => {
     test.setTimeout(30_000);
 
-    // The dashboard should have a "New Charts (PostgreSQL)" tab/page
-    await expect(page.getByRole("tab", { name: "New Charts (PostgreSQL)" })).toBeVisible({
+    await expect(page.getByRole("tab", { name: "Rule-Based Styling" })).toBeVisible({
       timeout: 10_000,
     });
   });
 
-  test("should render Neo4j chart widgets on the New Charts (Neo4j) page", async ({ page }) => {
+  test("should render widgets on the Simple Charts page", async ({ page }) => {
     test.setTimeout(60_000);
 
-    // Click the Neo4j page tab
-    await page.getByRole("tab", { name: "New Charts (Neo4j)" }).click();
+    // Click the Simple Charts page tab
+    await page.getByRole("tab", { name: "Simple Charts" }).click();
 
-    // Multiple widget cards should be present (gauge, treemap, radar, sankey, sunburst)
+    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, radar, sankey, treemap, sunburst)
     await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible({
       timeout: 15_000,
     });
 
-    // At least 5 widgets should be on this page
+    // At least 10 widgets should be on this page
     const widgetCount = await page.locator("[data-testid='widget-card']").count();
-    expect(widgetCount).toBeGreaterThanOrEqual(5);
+    expect(widgetCount).toBeGreaterThanOrEqual(10);
   });
 
-  test("should show PostgreSQL page tab in Chart Showcase", async ({ page }) => {
-    // Verify the PostgreSQL tab exists — the tab switch and widget rendering
-    // is covered by the general dashboard E2E suite, not here.
+  test("should show Color Palettes page tab", async ({ page }) => {
     await expect(
-      page.getByRole("tab", { name: "New Charts (PostgreSQL)" }),
+      page.getByRole("tab", { name: "Color Palettes" }),
     ).toBeVisible({ timeout: 10_000 });
   });
 });

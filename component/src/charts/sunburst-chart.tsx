@@ -79,18 +79,17 @@ function SunburstChart({
                 };
               })
             : data,
-          radius: compact ? ["0%", "90%"] : ["0%", "80%"],
+          center: ["50%", "50%"],
+          radius: ["15%", "95%"],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sort: sortFn as any,
           label: {
-            show: showLabels && !compact,
-            rotate: "radial",
-            minAngle: 5,
-            overflow: "truncate",
+            show: false,
           },
           emphasis: highlightOnHover
             ? {
                 focus: "ancestor",
+                label: { show: showLabels && !compact },
                 itemStyle: {
                   shadowBlur: 10,
                   shadowOffsetX: 0,
@@ -100,9 +99,21 @@ function SunburstChart({
             : {},
           levels: [
             {},
-            { r0: "15%", r: "35%", itemStyle: { borderWidth: 2 }, label: { rotate: "tangential" } },
-            { r0: "35%", r: "55%", label: { align: "right" } },
-            { r0: "55%", r: "75%", label: { position: "outside", padding: 3, silent: false } },
+            {
+              itemStyle: { borderWidth: 2 },
+              label: {
+                show: showLabels && !compact,
+                rotate: "tangential",
+                overflow: "truncate",
+                width: 60,
+              },
+            },
+            {
+              label: { show: false },
+            },
+            {
+              label: { show: false },
+            },
           ],
         },
       ],

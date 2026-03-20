@@ -95,11 +95,11 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
 
   saveToDashboard: (dashboardId) => {
     const { parameters } = get();
+    const key = `${STORAGE_PREFIX}${dashboardId}`;
     if (Object.keys(parameters).length > 0) {
-      localStorage.setItem(
-        `${STORAGE_PREFIX}${dashboardId}`,
-        JSON.stringify(parameters)
-      );
+      localStorage.setItem(key, JSON.stringify(parameters));
+    } else {
+      localStorage.removeItem(key);
     }
   },
 

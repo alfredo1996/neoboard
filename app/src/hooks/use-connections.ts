@@ -106,7 +106,7 @@ export function useTestConnection() {
       const res = await fetch(`/api/connections/${id}/test`, {
         method: "POST",
       });
-      return res.json() as Promise<{ success: boolean; error?: string }>;
+      return unwrapResponse<{ success: boolean; error?: string }>(res);
     },
   });
 }
@@ -129,7 +129,7 @@ export function useTestInlineConnection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      return res.json() as Promise<{ success: boolean; error?: string }>;
+      return unwrapResponse<{ success: boolean; error?: string }>(res);
     },
   });
 }

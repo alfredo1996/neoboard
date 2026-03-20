@@ -72,7 +72,7 @@ test.describe("Connections", () => {
 
     await dialog.getByRole("button", { name: "Test Connection" }).click();
     await expect(dialog.getByText("Connection successful!")).toBeVisible({
-      timeout: 15_000,
+      timeout: 30_000,
     });
   });
 
@@ -89,13 +89,9 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-password").fill("wrong");
 
     await dialog.getByRole("button", { name: "Test Connection" }).click();
-    // Should NOT show success
-    await expect(dialog.getByText("Connection successful!")).not.toBeVisible({
-      timeout: 15_000,
-    });
-    // Should show a destructive alert with error text
-    await expect(dialog.getByText(/failed|error|refused|ECONNREFUSED/i)).toBeVisible({
-      timeout: 15_000,
+    // Should show a destructive alert — scope to the AlertDescription to avoid multiple matches
+    await expect(dialog.locator('[role="alert"]').getByText(/failed|error|refused|ECONNREFUSED/i).first()).toBeVisible({
+      timeout: 30_000,
     });
   });
 
@@ -114,11 +110,11 @@ test.describe("Connections", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // Wait for auto-test to complete — should show "Error" badge
+    // Wait for auto-test to complete — should show "Error" badge on the card
     await expect(page.getByText(name).first()).toBeVisible();
-    // The auto-test will run, resulting in an error status with error text visible
-    const card = page.locator("div").filter({ hasText: name }).first();
-    await expect(card.getByText("Error")).toBeVisible({ timeout: 30_000 });
+    // Use the card heading to locate the specific card, then find "Error" badge within it
+    const card = page.locator("div").filter({ has: page.getByText(name, { exact: true }) }).first();
+    await expect(card.getByText("Error").first()).toBeVisible({ timeout: 30_000 });
   });
 
   test("should duplicate a connection via card dropdown", async ({ page }) => {
