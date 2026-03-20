@@ -1055,3 +1055,562 @@ describe("line transform normalizes date x-axis", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// markdown chart type
+// ---------------------------------------------------------------------------
+describe("markdown chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.markdown).toBeDefined();
+    expect(chartRegistry.markdown.type).toBe("markdown");
+    expect(chartRegistry.markdown.label).toBe("Markdown");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.markdown.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.markdown.compatibleWith).toContain("postgresql");
+  });
+
+  it("transform returns null (content-only widget)", () => {
+    expect(chartRegistry.markdown.transform([])).toBeNull();
+    expect(chartRegistry.markdown.transform([{ a: 1 }])).toBeNull();
+  });
+
+  it("transformWithMapping returns null", () => {
+    expect(chartRegistry.markdown.transformWithMapping([{ a: 1 }], {})).toBeNull();
+  });
+
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("markdown")).toBe(false);
+  });
+
+  it("supportsStyling is false", () => {
+    expect(chartSupportsStyling("markdown")).toBe(false);
+  });
+
+  it("getStylingTargets returns empty array", () => {
+    expect(getStylingTargets("markdown")).toEqual([]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("markdown");
+    expect(getCompatibleChartTypes("postgresql")).toContain("markdown");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// iframe chart type
+// ---------------------------------------------------------------------------
+describe("iframe chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.iframe).toBeDefined();
+    expect(chartRegistry.iframe.type).toBe("iframe");
+    expect(chartRegistry.iframe.label).toBe("iFrame");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.iframe.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.iframe.compatibleWith).toContain("postgresql");
+  });
+
+  it("transform returns null (content-only widget)", () => {
+    expect(chartRegistry.iframe.transform([])).toBeNull();
+    expect(chartRegistry.iframe.transform([{ a: 1 }])).toBeNull();
+  });
+
+  it("transformWithMapping returns null", () => {
+    expect(chartRegistry.iframe.transformWithMapping([{ a: 1 }], {})).toBeNull();
+  });
+
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("iframe")).toBe(false);
+  });
+
+  it("supportsStyling is false", () => {
+    expect(chartSupportsStyling("iframe")).toBe(false);
+  });
+
+  it("getStylingTargets returns empty array", () => {
+    expect(getStylingTargets("iframe")).toEqual([]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("iframe");
+    expect(getCompatibleChartTypes("postgresql")).toContain("iframe");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gauge chart type
+// ---------------------------------------------------------------------------
+describe("gauge chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.gauge).toBeDefined();
+    expect(chartRegistry.gauge.type).toBe("gauge");
+    expect(chartRegistry.gauge.label).toBe("Gauge");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.gauge.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.gauge.compatibleWith).toContain("postgresql");
+  });
+
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("gauge")).toBe(false);
+  });
+
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("gauge")).toBe(true);
+  });
+
+  it("getStylingTargets returns Gauge Color target", () => {
+    expect(getStylingTargets("gauge")).toEqual([{ value: "color", label: "Gauge Color" }]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("gauge");
+    expect(getCompatibleChartTypes("postgresql")).toContain("gauge");
+  });
+});
+
+describe("gauge transform", () => {
+  const { transform } = chartRegistry.gauge;
+
+  it("returns single { value, name } from first record", () => {
+    const data = [{ value: 75, name: "Score" }];
+    const result = transform(data) as Array<{ value: number; name: string }>;
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe(75);
+    expect(result[0].name).toBe("Score");
+  });
+
+  it("extracts value from first column, name from second column", () => {
+    const data = [{ score: 60, label: "CPU" }];
+    const result = transform(data) as Array<{ value: number; name: string }>;
+    expect(result[0].value).toBe(60);
+    expect(result[0].name).toBe("CPU");
+  });
+
+  it("uses first column as value when only one column exists", () => {
+    const data = [{ score: 80 }];
+    const result = transform(data) as Array<{ value: number; name: string }>;
+    expect(result[0].value).toBe(80);
+  });
+
+  it("coerces non-numeric values to 0", () => {
+    const data = [{ value: "bad", name: "Test" }];
+    const result = transform(data) as Array<{ value: number }>;
+    expect(result[0].value).toBe(0);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(transform([])).toEqual([]);
+  });
+
+  it("returns empty array for null/undefined input", () => {
+    expect(transform(null)).toEqual([]);
+    expect(transform(undefined)).toEqual([]);
+  });
+
+  it("handles postgresql { records } wrapper format", () => {
+    const data = { records: [{ value: 42, name: "Load" }] };
+    const result = transform(data) as Array<{ value: number; name: string }>;
+    expect(result[0].value).toBe(42);
+    expect(result[0].name).toBe("Load");
+  });
+
+  it("transformWithMapping returns same result as transform", () => {
+    const data = [{ value: 50, name: "Test" }];
+    const result = chartRegistry.gauge.transformWithMapping(data, {});
+    expect(result).toEqual(transform(data));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sankey chart type
+// ---------------------------------------------------------------------------
+describe("sankey chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.sankey).toBeDefined();
+    expect(chartRegistry.sankey.type).toBe("sankey");
+    expect(chartRegistry.sankey.label).toBe("Sankey");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.sankey.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.sankey.compatibleWith).toContain("postgresql");
+  });
+
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("sankey")).toBe(true);
+  });
+
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("sankey")).toBe(true);
+  });
+
+  it("getStylingTargets returns Link Color target", () => {
+    expect(getStylingTargets("sankey")).toEqual([{ value: "color", label: "Link Color" }]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("sankey");
+    expect(getCompatibleChartTypes("postgresql")).toContain("sankey");
+  });
+});
+
+describe("sankey transform", () => {
+  const { transform } = chartRegistry.sankey;
+
+  it("produces { nodes, links } from source/target/value records", () => {
+    const data = [
+      { source: "A", target: "B", value: 10 },
+      { source: "B", target: "C", value: 5 },
+    ];
+    const result = transform(data) as { nodes: Array<{ name: string }>; links: Array<{ source: string; target: string; value: number }> };
+    expect(result.nodes).toBeDefined();
+    expect(result.links).toBeDefined();
+    expect(result.links).toHaveLength(2);
+    expect(result.links[0].source).toBe("A");
+    expect(result.links[0].target).toBe("B");
+    expect(result.links[0].value).toBe(10);
+  });
+
+  it("deduplicates nodes from source and target columns", () => {
+    const data = [
+      { source: "A", target: "B", value: 10 },
+      { source: "A", target: "C", value: 5 },
+    ];
+    const result = transform(data) as { nodes: Array<{ name: string }>; links: unknown[] };
+    const nodeNames = result.nodes.map((n) => n.name);
+    expect(nodeNames.filter((n) => n === "A")).toHaveLength(1);
+    expect(nodeNames).toContain("B");
+    expect(nodeNames).toContain("C");
+  });
+
+  it("returns empty { nodes: [], links: [] } for empty input", () => {
+    const result = transform([]) as { nodes: unknown[]; links: unknown[] };
+    expect(result.nodes).toEqual([]);
+    expect(result.links).toEqual([]);
+  });
+
+  it("returns empty for null/undefined", () => {
+    const r1 = transform(null) as { nodes: unknown[]; links: unknown[] };
+    expect(r1.nodes).toEqual([]);
+    expect(r1.links).toEqual([]);
+  });
+
+  it("handles postgresql { records } wrapper format", () => {
+    const data = { records: [{ source: "X", target: "Y", value: 3 }] };
+    const result = transform(data) as { nodes: unknown[]; links: Array<{ value: number }> };
+    expect(result.links[0].value).toBe(3);
+  });
+
+  it("coerces non-numeric values to 0", () => {
+    const data = [{ source: "A", target: "B", value: "bad" }];
+    const result = transform(data) as { links: Array<{ value: number }> };
+    expect(result.links[0].value).toBe(0);
+  });
+
+  it("transformWithMapping returns same result as transform", () => {
+    const data = [{ source: "A", target: "B", value: 10 }];
+    const result = chartRegistry.sankey.transformWithMapping(data, {});
+    expect(result).toEqual(transform(data));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sunburst chart type
+// ---------------------------------------------------------------------------
+describe("sunburst chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.sunburst).toBeDefined();
+    expect(chartRegistry.sunburst.type).toBe("sunburst");
+    expect(chartRegistry.sunburst.label).toBe("Sunburst");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.sunburst.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.sunburst.compatibleWith).toContain("postgresql");
+  });
+
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("sunburst")).toBe(true);
+  });
+
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("sunburst")).toBe(true);
+  });
+
+  it("getStylingTargets returns Segment Color target", () => {
+    expect(getStylingTargets("sunburst")).toEqual([{ value: "color", label: "Segment Color" }]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("sunburst");
+    expect(getCompatibleChartTypes("postgresql")).toContain("sunburst");
+  });
+});
+
+describe("sunburst transform", () => {
+  const { transform } = chartRegistry.sunburst;
+
+  it("passes through hierarchical data unchanged", () => {
+    const data = [{ name: "Root", value: 100, children: [{ name: "Child", value: 50 }] }];
+    const result = transform(data) as Array<{ name: string; value: number; children?: unknown[] }>;
+    expect(result[0].name).toBe("Root");
+    expect(result[0].value).toBe(100);
+    expect(result[0].children).toHaveLength(1);
+  });
+
+  it("builds hierarchy from flat records with parent column", () => {
+    const data = [
+      { name: "root", parent: "", value: 0 },
+      { name: "A", parent: "root", value: 10 },
+      { name: "B", parent: "root", value: 20 },
+    ];
+    const result = transform(data) as Array<{ name: string; children?: Array<{ name: string }> }>;
+    // Top-level nodes (no parent or parent is "")
+    expect(result.some((r) => r.name === "root")).toBe(true);
+    const rootNode = result.find((r) => r.name === "root");
+    expect(rootNode?.children).toBeDefined();
+    expect(rootNode?.children?.some((c) => c.name === "A")).toBe(true);
+    expect(rootNode?.children?.some((c) => c.name === "B")).toBe(true);
+  });
+
+  it("returns flat array when no parent column or children key", () => {
+    const data = [
+      { name: "A", value: 10 },
+      { name: "B", value: 20 },
+    ];
+    const result = transform(data) as Array<{ name: string; value: number }>;
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("A");
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(transform([])).toEqual([]);
+  });
+
+  it("returns empty array for null input", () => {
+    expect(transform(null)).toEqual([]);
+  });
+
+  it("handles postgresql { records } wrapper format", () => {
+    const data = { records: [{ name: "X", value: 5 }] };
+    const result = transform(data) as Array<{ name: string }>;
+    expect(result[0].name).toBe("X");
+  });
+
+  it("transformWithMapping returns same result as transform", () => {
+    const data = [{ name: "A", value: 10 }];
+    const result = chartRegistry.sunburst.transformWithMapping(data, {});
+    expect(result).toEqual(transform(data));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// radar chart type
+// ---------------------------------------------------------------------------
+describe("radar chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.radar).toBeDefined();
+    expect(chartRegistry.radar.type).toBe("radar");
+    expect(chartRegistry.radar.label).toBe("Radar");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.radar.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.radar.compatibleWith).toContain("postgresql");
+  });
+
+  it("supportsClickAction is false", () => {
+    expect(chartSupportsClickAction("radar")).toBe(false);
+  });
+
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("radar")).toBe(true);
+  });
+
+  it("getStylingTargets returns Area Color target", () => {
+    expect(getStylingTargets("radar")).toEqual([{ value: "color", label: "Area Color" }]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("radar");
+    expect(getCompatibleChartTypes("postgresql")).toContain("radar");
+  });
+});
+
+describe("radar transform", () => {
+  const { transform } = chartRegistry.radar;
+
+  it("produces { indicators, series } from indicator/value/max records", () => {
+    const data = [
+      { indicator: "Speed", value: 80, max: 100 },
+      { indicator: "Strength", value: 60, max: 100 },
+      { indicator: "Agility", value: 90, max: 100 },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: Array<{ name: string; values: number[] }> };
+    expect(result.indicators).toBeDefined();
+    expect(result.series).toBeDefined();
+    expect(result.indicators).toHaveLength(3);
+    expect(result.indicators[0].name).toBe("Speed");
+    expect(result.indicators[0].max).toBe(100);
+    expect(result.series[0].values).toHaveLength(3);
+    expect(result.series[0].values[0]).toBe(80);
+  });
+
+  it("groups multiple series by seriesName column when present", () => {
+    const data = [
+      { indicator: "Speed", value: 80, max: 100, series: "Player A" },
+      { indicator: "Strength", value: 60, max: 100, series: "Player A" },
+      { indicator: "Speed", value: 70, max: 100, series: "Player B" },
+      { indicator: "Strength", value: 85, max: 100, series: "Player B" },
+    ];
+    const result = transform(data) as { indicators: unknown[]; series: Array<{ name: string; values: number[] }> };
+    expect(result.series).toHaveLength(2);
+    expect(result.series.map((s) => s.name)).toContain("Player A");
+    expect(result.series.map((s) => s.name)).toContain("Player B");
+  });
+
+  it("returns empty { indicators: [], series: [] } for empty input", () => {
+    const result = transform([]) as { indicators: unknown[]; series: unknown[] };
+    expect(result.indicators).toEqual([]);
+    expect(result.series).toEqual([]);
+  });
+
+  it("returns empty for null input", () => {
+    const r = transform(null) as { indicators: unknown[]; series: unknown[] };
+    expect(r.indicators).toEqual([]);
+    expect(r.series).toEqual([]);
+  });
+
+  it("handles postgresql { records } wrapper format", () => {
+    const data = { records: [{ indicator: "X", value: 50, max: 100 }] };
+    const result = transform(data) as { indicators: Array<{ name: string }>; series: unknown[] };
+    expect(result.indicators[0].name).toBe("X");
+  });
+
+  it("auto-scales max from data when max column is missing", () => {
+    const data = [{ indicator: "Speed", value: 80 }];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: unknown[] };
+    // 80 * 1.1 = 88, ceil → 88
+    expect(result.indicators[0].max).toBe(88);
+  });
+
+  it("handles flat tabular data without indicator column (uses column names as indicators)", () => {
+    const data = [{ Speed: 80, Strength: 60, Agility: 90 }];
+    const result = transform(data) as { indicators: Array<{ name: string }>; series: Array<{ values: number[] }> };
+    expect(result.indicators.map((i) => i.name)).toContain("Speed");
+    expect(result.indicators.map((i) => i.name)).toContain("Strength");
+    expect(result.series[0].values).toHaveLength(3);
+  });
+
+  it("transformWithMapping returns same result as transform", () => {
+    const data = [{ indicator: "Speed", value: 80, max: 100 }];
+    const result = chartRegistry.radar.transformWithMapping(data, {});
+    expect(result).toEqual(transform(data));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// treemap chart type
+// ---------------------------------------------------------------------------
+describe("treemap chart type", () => {
+  it("is registered in chartRegistry", () => {
+    expect(chartRegistry.treemap).toBeDefined();
+    expect(chartRegistry.treemap.type).toBe("treemap");
+    expect(chartRegistry.treemap.label).toBe("Treemap");
+  });
+
+  it("is compatible with both neo4j and postgresql", () => {
+    expect(chartRegistry.treemap.compatibleWith).toContain("neo4j");
+    expect(chartRegistry.treemap.compatibleWith).toContain("postgresql");
+  });
+
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("treemap")).toBe(true);
+  });
+
+  it("supportsStyling is true", () => {
+    expect(chartSupportsStyling("treemap")).toBe(true);
+  });
+
+  it("getStylingTargets returns Block Color target", () => {
+    expect(getStylingTargets("treemap")).toEqual([{ value: "color", label: "Block Color" }]);
+  });
+
+  it("is included in compatible chart types for both connectors", () => {
+    expect(getCompatibleChartTypes("neo4j")).toContain("treemap");
+    expect(getCompatibleChartTypes("postgresql")).toContain("treemap");
+  });
+});
+
+describe("treemap transform", () => {
+  const { transform } = chartRegistry.treemap;
+
+  it("converts flat records to { name, value } items", () => {
+    const data = [
+      { name: "A", value: 10 },
+      { name: "B", value: 30 },
+    ];
+    const result = transform(data) as Array<{ name: string; value: number }>;
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("A");
+    expect(result[0].value).toBe(10);
+    expect(result[1].name).toBe("B");
+    expect(result[1].value).toBe(30);
+  });
+
+  it("passes through hierarchical data with children", () => {
+    const data = [
+      { name: "Root", value: 100, children: [{ name: "Child", value: 50 }] },
+    ];
+    const result = transform(data) as Array<{ name: string; value: number; children?: unknown[] }>;
+    expect(result[0].children).toHaveLength(1);
+  });
+
+  it("builds hierarchy from flat records with parent column", () => {
+    const data = [
+      { name: "root", parent: "", value: 0 },
+      { name: "A", parent: "root", value: 10 },
+    ];
+    const result = transform(data) as Array<{ name: string; children?: unknown[] }>;
+    const rootNode = result.find((r) => r.name === "root");
+    expect(rootNode?.children).toBeDefined();
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(transform([])).toEqual([]);
+  });
+
+  it("returns empty array for null input", () => {
+    expect(transform(null)).toEqual([]);
+  });
+
+  it("handles postgresql { records } wrapper format", () => {
+    const data = { records: [{ name: "X", value: 5 }] };
+    const result = transform(data) as Array<{ name: string }>;
+    expect(result[0].name).toBe("X");
+  });
+
+  it("uses first column as name and second as value when no name/value columns present", () => {
+    const data = [{ category: "Alpha", count: 42 }];
+    const result = transform(data) as Array<{ name: string; value: number }>;
+    expect(result[0].name).toBe("Alpha");
+    expect(result[0].value).toBe(42);
+  });
+
+  it("coerces non-numeric values to 0", () => {
+    const data = [{ name: "A", value: "bad" }];
+    const result = transform(data) as Array<{ value: number }>;
+    expect(result[0].value).toBe(0);
+  });
+
+  it("transformWithMapping returns same result as transform", () => {
+    const data = [{ name: "A", value: 10 }];
+    const result = chartRegistry.treemap.transformWithMapping(data, {});
+    expect(result).toEqual(transform(data));
+  });
+});
+

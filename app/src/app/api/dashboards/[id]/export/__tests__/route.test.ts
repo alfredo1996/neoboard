@@ -13,10 +13,22 @@ const mockDb = {
   select: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,7 +82,7 @@ describe("GET /api/dashboards/[id]/export", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
 
     const res = await GET(new Request("http://localhost"), {
       params: Promise.resolve({ id: "dash-1" }),

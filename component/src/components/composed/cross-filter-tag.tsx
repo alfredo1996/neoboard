@@ -3,8 +3,6 @@ import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export interface CrossFilterTagProps {
-  /** @deprecated No longer rendered. Kept for API compat. */
-  source?: string;
   field: string;
   value: string;
   onRemove?: () => void;

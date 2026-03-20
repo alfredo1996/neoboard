@@ -106,7 +106,12 @@ test.describe("Form widget", () => {
 
     // Navigate to view mode
     await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    // Handle unsaved-changes dialog if it appears (grid compaction race)
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The form widget should render with the configured fields
     // Fields default to required=true, so the label includes an asterisk "*".
@@ -150,7 +155,12 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    // Handle unsaved-changes dialog if it appears (grid compaction race)
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // Wait for the form to render — the label "Name" should be visible
     // (fields default to required, so label renders as "Name*")
@@ -226,7 +236,12 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    // Handle unsaved-changes dialog if it appears (grid compaction race)
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The form widget should show the empty-state message
     await expect(
@@ -270,7 +285,12 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    // Handle unsaved-changes dialog if it appears (grid compaction race)
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // Label includes asterisk for required fields
     await expect(page.getByText(/^Full Name/)).toBeVisible({
@@ -372,7 +392,12 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
     await page.getByRole("button", { name: "Back" }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    // Handle unsaved-changes dialog if it appears (grid compaction race)
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // Wait for form to render (label includes asterisk for required fields)
     await expect(page.getByText(/^Name/)).toBeVisible({

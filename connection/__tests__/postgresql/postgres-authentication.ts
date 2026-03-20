@@ -36,7 +36,7 @@ describe('PostgreSQL Authentication', () => {
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
 
-    const result = await authModule.authenticate();
+    const result = await authModule.verifyAuthentication();
     expect(result).toBe(true);
     expect(authModule.getPool()).toBeDefined();
   });
@@ -49,7 +49,7 @@ describe('PostgreSQL Authentication', () => {
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
 
-    const result = await invalidAuthModule.authenticate();
+    const result = await invalidAuthModule.verifyAuthentication().catch(() => false);
     expect(result).toBe(false);
     // Pool is created in constructor, but authentication fails
     expect(invalidAuthModule.getPool()).toBeDefined();
@@ -66,7 +66,7 @@ describe('PostgreSQL Authentication', () => {
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
 
-    const result = await authModule.authenticate();
+    const result = await authModule.verifyAuthentication();
     expect(result).toBe(true);
   });
 
@@ -78,7 +78,7 @@ describe('PostgreSQL Authentication', () => {
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
 
-    await authModule.authenticate();
+    await authModule.verifyAuthentication();
     expect(authModule.getPool()).toBeDefined();
 
     await authModule.close();

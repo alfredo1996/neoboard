@@ -950,7 +950,7 @@ test.describe("Map widget", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Map" }).click();
+    await page.getByRole("option", { name: "Map", exact: true }).click();
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
@@ -974,7 +974,7 @@ test.describe("Map widget", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Map" }).click();
+    await page.getByRole("option", { name: "Map", exact: true }).click();
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/ }).click();
 
@@ -998,7 +998,7 @@ test.describe("Map widget", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Map" }).click();
+    await page.getByRole("option", { name: "Map", exact: true }).click();
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 

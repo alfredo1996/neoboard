@@ -19,6 +19,7 @@ import {
 import {
   EmptyState,
   ColumnMappingOverlay,
+  substituteParams,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
@@ -106,9 +107,10 @@ export function CardContainer({
   const enableCache = widget.settings?.enableCache !== false;
   const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
 
-  // Parameter-select and form widgets are self-contained (no auto-query).
+  // Parameter-select, form, markdown, and iframe widgets are self-contained (no auto-query).
   const isParameterWidget = widget.chartType === "parameter-select";
   const isFormWidget = widget.chartType === "form";
+  const isContentOnly = widget.chartType === "markdown" || widget.chartType === "iframe";
 
   const chartOptions = useMemo(
     () => (widget.settings?.chartOptions ?? {}) as Record<string, unknown>,
@@ -131,7 +133,7 @@ export function CardContainer({
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
   // Parameter-select and form widgets skip query execution entirely.
-  const queryInput = (previewData !== undefined || isParameterWidget || isFormWidget) ? null : {
+  const queryInput = (previewData !== undefined || isParameterWidget || isFormWidget || isContentOnly) ? null : {
     connectionId: widget.connectionId,
     query: widget.query,
     params: widget.params as Record<string, unknown> | undefined,
@@ -266,6 +268,36 @@ export function CardContainer({
             connectionId={widget.connectionId}
             widgetId={widget.id}
             query={widget.query}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Content-only widgets (markdown, iframe) — no query, just render with settings.
+  // Substitute $param_xxx placeholders in content/url so markdown and iframe
+  // widgets can reference dashboard parameters without executing a query.
+  if (isContentOnly) {
+    const resolvedContentOptions: Record<string, unknown> = { ...chartOptions };
+    if (typeof chartOptions.content === "string") {
+      resolvedContentOptions.content = substituteParams(
+        chartOptions.content,
+        allParamValues,
+      );
+    }
+    if (typeof chartOptions.url === "string") {
+      resolvedContentOptions.url = substituteParams(
+        chartOptions.url,
+        allParamValues,
+      );
+    }
+    return (
+      <div className="h-full w-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <ChartRenderer
+            type={chartConfig.type}
+            data={null}
+            settings={resolvedContentOptions}
           />
         </div>
       </div>

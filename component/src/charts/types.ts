@@ -1,4 +1,5 @@
 import type { EChartsOption } from "echarts";
+import type { ECharts } from "echarts/core";
 
 export interface BaseChartProps {
   /** Additional CSS classes */
@@ -10,13 +11,18 @@ export interface BaseChartProps {
   /** Raw ECharts option object (advanced usage) */
   options?: EChartsOption;
   /** Called when chart instance is ready */
-  onChartReady?: (instance: unknown) => void;
+  onChartReady?: (instance: ECharts) => void;
   /** Called when a chart element is clicked */
   onClick?: (params: EChartsClickEvent) => void;
   /** Called when data zoom changes */
   onDataZoom?: (params: unknown) => void;
   /** Enable decal overlay patterns for colorblind accessibility */
   colorblindMode?: boolean;
+  /**
+   * Color palette ID from COLOR_PALETTES. When set to a value other than
+   * "deep-ocean" (the default), overrides the ECharts theme colors.
+   */
+  colorPalette?: string;
 }
 
 export interface EChartsClickEvent {

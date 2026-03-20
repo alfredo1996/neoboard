@@ -17,7 +17,7 @@ describe('PostgreSQL Query Execution', () => {
     });
 
     // Authenticate before running tests
-    const authenticated = await connectionModule.authModule.authenticate();
+    const authenticated = await connectionModule.authModule.verifyAuthentication();
     expect(authenticated).toBe(true);
 
     // Create a test table
@@ -297,7 +297,7 @@ describe('PostgreSQL Query Execution', () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       connectionType: ConnectionTypes.POSTGRESQL,
-      accessMode: 'READ' as any,
+      accessMode: 'READ',
       parseToNeodashRecord: true,
     };
 
@@ -321,7 +321,7 @@ describe('PostgreSQL Query Execution', () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       connectionType: ConnectionTypes.POSTGRESQL,
-      accessMode: 'WRITE' as any,
+      accessMode: 'WRITE',
       parseToNeodashRecord: true,
     };
 
@@ -394,7 +394,7 @@ describe('PostgreSQL Query Execution', () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       connectionType: ConnectionTypes.POSTGRESQL,
-      accessMode: 'WRITE' as any,
+      accessMode: 'WRITE',
     };
 
     await connectionModule.runQuery(

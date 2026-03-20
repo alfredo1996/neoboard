@@ -3,10 +3,22 @@
 import { use, useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Filter, Plus, Save, LayoutDashboard, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Filter,
+  Plus,
+  Save,
+  LayoutDashboard,
+  Users,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDashboard, useUpdateDashboard, useUpdateDashboardThumbnails } from "@/hooks/use-dashboards";
+import {
+  useDashboard,
+  useUpdateDashboard,
+  useUpdateDashboardThumbnails,
+} from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
 import { useDashboardStore } from "@/stores/dashboard-store";
@@ -17,7 +29,11 @@ import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import { migrateLayout } from "@/lib/migrate-layout";
-import type { DashboardWidget, GridLayoutItem, WidgetTemplate } from "@/lib/db/schema";
+import type {
+  DashboardWidget,
+  GridLayoutItem,
+  WidgetTemplate,
+} from "@/lib/db/schema";
 import { captureDashboardThumbnails } from "@/lib/capture-dashboard-thumbnails";
 import {
   Button,
@@ -31,6 +47,7 @@ import {
   SheetTrigger,
 } from "@neoboard/components";
 import {
+  ConfirmDialog,
   EmptyState,
   LoadingButton,
   Toolbar,
@@ -73,7 +90,7 @@ export default function DashboardEditorPage({
 
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
-    () => new Set([isNaN(initialPage) ? 0 : initialPage])
+    () => new Set([isNaN(initialPage) ? 0 : initialPage]),
   );
 
   function markVisited(index: number) {
@@ -121,6 +138,14 @@ export default function DashboardEditorPage({
   const updateWidget = useDashboardStore((s) => s.updateWidget);
   const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
   const duplicateWidget = useDashboardStore((s) => s.duplicateWidget);
+  const markSaved = useDashboardStore((s) => s.markSaved);
+
+  const {
+    showNavWarning,
+    setShowNavWarning,
+    confirmNavigation,
+    cancelNavigation,
+  } = useUnsavedChangesWarning();
 
   const handleNavigateToPage = useCallback(
     (pageId: string) => {
@@ -130,19 +155,21 @@ export default function DashboardEditorPage({
         setActivePage(index);
       }
     },
-    [layout.pages, setActivePage]
+    [layout.pages, setActivePage],
   );
 
   // Template sync — fetch all tenant templates once; build lookup map
   const { data: allTemplates } = useWidgetTemplates();
   const templateMap = useMemo<Record<string, WidgetTemplate>>(
     () => Object.fromEntries((allTemplates ?? []).map((t) => [t.id, t])),
-    [allTemplates]
+    [allTemplates],
   );
 
   const handleSyncWidget = useCallback(
     (widget: DashboardWidget) => {
-      const tmpl = widget.templateId ? templateMap[widget.templateId] : undefined;
+      const tmpl = widget.templateId
+        ? templateMap[widget.templateId]
+        : undefined;
       if (!tmpl) return; // template deleted — "Detach" will clean up
       updateWidget(widget.id, {
         ...widget,
@@ -154,28 +181,41 @@ export default function DashboardEditorPage({
           // Never overwrite the widget's connection
           connectionId: widget.settings?.connectionId,
         },
-        templateSyncedAt: tmpl.updatedAt?.toISOString() ?? new Date().toISOString(),
+        templateSyncedAt:
+          tmpl.updatedAt?.toISOString() ?? new Date().toISOString(),
       });
     },
-    [templateMap, updateWidget]
+    [templateMap, updateWidget],
   );
 
   const handleDetachWidget = useCallback(
     (widgetId: string) => {
-      const page = layout.pages.find((p) => p.widgets.some((w) => w.id === widgetId));
+      const page = layout.pages.find((p) =>
+        p.widgets.some((w) => w.id === widgetId),
+      );
       const widget = page?.widgets.find((w) => w.id === widgetId);
       if (!widget) return;
-      updateWidget(widgetId, { ...widget, templateId: undefined, templateSyncedAt: undefined });
+      updateWidget(widgetId, {
+        ...widget,
+        templateId: undefined,
+        templateSyncedAt: undefined,
+      });
     },
-    [layout.pages, updateWidget]
+    [layout.pages, updateWidget],
   );
 
   const [editorOpen, setEditorOpen] = useState(!!templateIdParam);
   const [editorMode, setEditorMode] = useState<"add" | "edit">("add");
-  const [editingWidget, setEditingWidget] = useState<DashboardWidget | undefined>();
+  const [editingWidget, setEditingWidget] = useState<
+    DashboardWidget | undefined
+  >();
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [templateWidget, setTemplateWidget] = useState<DashboardWidget | undefined>();
-  const [pendingTemplateId, setPendingTemplateId] = useState<string | undefined>(templateIdParam);
+  const [templateWidget, setTemplateWidget] = useState<
+    DashboardWidget | undefined
+  >();
+  const [pendingTemplateId, setPendingTemplateId] = useState<
+    string | undefined
+  >(templateIdParam);
 
   // Redirect Readers away from edit mode
   useEffect(() => {
@@ -198,7 +238,35 @@ export default function DashboardEditorPage({
   const handleSave = useCallback(async () => {
     setSaveError(null);
     try {
-      await updateDashboard.mutateAsync({ id, layoutJson: layout });
+      // Sanitize: replace any y: Infinity from pending widget additions.
+      // react-grid-layout compacts these asynchronously, but if save fires
+      // before compaction completes the Infinity value gets persisted and
+      // all widgets collapse into a single vertical column on reload.
+      const sanitizedLayout = {
+        ...layout,
+        pages: layout.pages.map((page) => {
+          const hasInfinity = page.gridLayout.some(
+            (g) => !Number.isFinite(g.y),
+          );
+          if (!hasInfinity) return page;
+          const maxY = page.gridLayout.reduce(
+            (m, g) => (Number.isFinite(g.y) ? Math.max(m, g.y + g.h) : m),
+            0,
+          );
+          let nextY = maxY;
+          return {
+            ...page,
+            gridLayout: page.gridLayout.map((g) => {
+              if (Number.isFinite(g.y)) return g;
+              const placed = { ...g, y: nextY };
+              nextY += g.h;
+              return placed;
+            }),
+          };
+        }),
+      };
+      await updateDashboard.mutateAsync({ id, layoutJson: sanitizedLayout });
+      markSaved();
 
       // Fire-and-forget: capture widget thumbnails from the active page's live DOM.
       // Uses a short delay to let ECharts finish rendering after any layout changes.
@@ -209,7 +277,10 @@ export default function DashboardEditorPage({
           try {
             const thumbnails = await captureDashboardThumbnails(
               container,
-              currentPage.widgets.map((w) => ({ id: w.id, chartType: w.chartType })),
+              currentPage.widgets.map((w) => ({
+                id: w.id,
+                chartType: w.chartType,
+              })),
             );
             if (Object.keys(thumbnails).length > 0) {
               updateThumbnails.mutate({ id, thumbnailJson: thumbnails });
@@ -221,10 +292,10 @@ export default function DashboardEditorPage({
       }
     } catch (error) {
       setSaveError(
-        error instanceof Error ? error.message : "Failed to save dashboard"
+        error instanceof Error ? error.message : "Failed to save dashboard",
       );
     }
-  }, [id, layout, activePage, updateDashboard, updateThumbnails]);
+  }, [id, layout, activePage, updateDashboard, updateThumbnails, markSaved]);
 
   function openAddWidget() {
     setEditorMode("add");
@@ -310,10 +381,14 @@ export default function DashboardEditorPage({
                 size="sm"
                 disabled={!hasParameters}
                 onClick={() => setShowParameterBar((prev) => !prev)}
-                aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
+                aria-label={
+                  showParameterBar ? "Hide parameters" : "Show parameters"
+                }
               >
                 <Filter className="mr-2 h-4 w-4" />
-                {!hasParameters || showParameterBar ? "Filters" : `Filters (${parameterCount})`}
+                {!hasParameters || showParameterBar
+                  ? "Filters"
+                  : `Filters (${parameterCount})`}
               </Button>
               <ToolbarSeparator />
               <Button variant="outline" size="sm" onClick={openAddWidget}>
@@ -394,25 +469,39 @@ export default function DashboardEditorPage({
             connections={connections ?? []}
             onSave={handleEditorSave}
             layout={layout}
-            initialTemplate={pendingTemplateId ? templateMap[pendingTemplateId] : undefined}
+            initialTemplate={
+              pendingTemplateId ? templateMap[pendingTemplateId] : undefined
+            }
           />
 
-          {templateWidget && (() => {
-            const conn = (connections ?? []).find((c) => c.id === templateWidget.connectionId);
-            if (!conn) return null;
-            return (
-              <SaveTemplateDialog
-                open={true}
-                onOpenChange={(open) => {
-                  if (!open) setTemplateWidget(undefined);
-                }}
-                widget={templateWidget}
-                connectorType={conn.type === "postgresql" ? "postgresql" : "neo4j"}
-              />
-            );
-          })()}
+          {templateWidget &&
+            (() => {
+              const conn = (connections ?? []).find(
+                (c) => c.id === templateWidget.connectionId,
+              );
+              // Content-only widgets (markdown, iframe) have no connection;
+              // default to "postgresql" so the template dialog still opens.
+              const connectorType: "neo4j" | "postgresql" = conn
+                ? conn.type === "postgresql"
+                  ? "postgresql"
+                  : "neo4j"
+                : "postgresql";
+              return (
+                <SaveTemplateDialog
+                  open={true}
+                  onOpenChange={(open) => {
+                    if (!open) setTemplateWidget(undefined);
+                  }}
+                  widget={templateWidget}
+                  connectorType={connectorType}
+                />
+              );
+            })()}
 
-          <div ref={gridContainerRef} className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
+          <div
+            ref={gridContainerRef}
+            className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full"
+          >
             {layout.pages.map((page, index) => {
               const isActive = index === activePageIndex;
               if (page.widgets.length === 0 && isActive) {
@@ -447,7 +536,9 @@ export default function DashboardEditorPage({
                     onDuplicateWidget={duplicateWidget}
                     onLayoutChange={isActive ? updateGridLayout : undefined}
                     onWidgetSettingsChange={(widgetId, settings) => {
-                      const target = page.widgets.find((w) => w.id === widgetId);
+                      const target = page.widgets.find(
+                        (w) => w.id === widgetId,
+                      );
                       if (target) {
                         updateWidget(widgetId, { ...target, settings });
                       }
@@ -465,6 +556,18 @@ export default function DashboardEditorPage({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={showNavWarning}
+        onOpenChange={setShowNavWarning}
+        title="Unsaved changes"
+        description="You have unsaved changes. Are you sure you want to leave? Your changes will be lost."
+        confirmText="Leave"
+        cancelText="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+        onCancel={cancelNavigation}
+      />
     </div>
   );
 }

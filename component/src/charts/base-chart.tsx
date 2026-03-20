@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
-import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart } from "echarts/charts";
+import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart, RadarChart as ERadarChart } from "echarts/charts";
 import {
   TitleComponent,
   TooltipComponent,
@@ -8,6 +8,7 @@ import {
   GridComponent,
   DataZoomComponent,
   AriaComponent,
+  RadarComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
@@ -19,18 +20,21 @@ import {
   THEME_DARK,
   DEEP_OCEAN_LIGHT,
 } from "./theme";
+import { getPaletteColors } from "./palettes";
 
 echarts.use([
   EBarChart,
   ELineChart,
   EPieChart,
   EGraphChart,
+  ERadarChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
   DataZoomComponent,
   AriaComponent,
+  RadarComponent,
   CanvasRenderer,
 ]);
 
@@ -96,6 +100,7 @@ function BaseChart({
   onClick,
   onDataZoom,
   colorblindMode = false,
+  colorPalette,
 }: BaseChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
@@ -132,10 +137,18 @@ function BaseChart({
     const instance = chartRef.current;
     if (!instance || !options) return;
 
+    // Resolve chart colors: use a custom palette when provided (and not deep-ocean),
+    // otherwise fall back to CSS-variable-based colors (theme default).
+    const paletteColors =
+      colorPalette && colorPalette !== "deep-ocean"
+        ? getPaletteColors(colorPalette)
+        : undefined;
+    const resolvedColors = paletteColors ?? resolveChartColors();
+
     const userAria = (options?.aria ?? {}) as Record<string, unknown>;
     const userDecal = (userAria.decal ?? {}) as Record<string, unknown>;
     const merged: EChartsOption = {
-      color: resolveChartColors(),
+      color: resolvedColors,
       ...options,
       aria: {
         enabled: true,
@@ -144,7 +157,7 @@ function BaseChart({
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, colorblindMode, dark]);
+  }, [options, colorblindMode, colorPalette, dark]);
 
   // Loading state
   useEffect(() => {
@@ -205,4 +218,4 @@ function BaseChart({
   );
 }
 
-export { BaseChart, CHART_COLORS_FALLBACK as CHART_COLORS, resolveChartColors };
+export { BaseChart, CHART_COLORS_FALLBACK as CHART_COLORS, resolveChartColors, useDarkMode };

@@ -19,11 +19,23 @@ const mockDb = {
   delete: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ encryptJson: mockEncryptJson, decryptJson: vi.fn() }));
 vi.mock("@/lib/schema-prefetch", () => ({ prefetchSchema: mockPrefetchSchema }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "t1" };
 const ADMIN_SESSION = { userId: "admin-1", role: "admin", canWrite: true, tenantId: "t1" };
@@ -44,7 +56,7 @@ describe("GET /api/connections/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest({}), makeParams("c1"));
     expect(res.status).toBe(401);
   });
@@ -112,7 +124,7 @@ describe("PATCH /api/connections/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await PATCH(makeRequest({ name: "New name" }), makeParams("c1"));
     expect(res.status).toBe(401);
   });
@@ -166,7 +178,7 @@ describe("DELETE /api/connections/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await DELETE({} as Request, makeParams("c1"));
     expect(res.status).toBe(401);
   });

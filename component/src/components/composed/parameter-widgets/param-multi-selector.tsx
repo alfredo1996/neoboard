@@ -18,8 +18,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 
 export interface ParamMultiSelectorOption {
   label: string;
@@ -75,12 +75,7 @@ function ParamMultiSelector({
   };
 
   if (loading) {
-    return (
-      <div className={cn("space-y-1.5", className)}>
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-9 w-full" />
-      </div>
-    );
+    return <ParamWidgetSkeleton labelWidth="w-24" className={className} />;
   }
 
   return (

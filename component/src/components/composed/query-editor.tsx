@@ -9,6 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { resolveLanguageExt } from "@/lib/language-resolvers";
+import type { DatabaseSchema } from "@/lib/schema-transforms";
+
 // ---------------------------------------------------------------------------
 // CodeMirror type aliases (dynamic imports — never imported at module level
 // so the heavy editor code is only loaded in the browser).
@@ -34,26 +37,13 @@ export interface QueryEditorProps {
   className?: string;
   /** When provided, a hint for the run-and-save keyboard shortcut is displayed next to the Run button. */
   runAndSaveHint?: boolean;
+  /** Schema for autocompletion. Passed from the app layer. */
+  schema?: DatabaseSchema;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Load the CodeMirror language extension for the given language name.
- * Returns an array of extensions (empty for Cypher/plain text).
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
-async function loadLanguageExt(language: string): Promise<any[]> {
-  const lang = (language ?? "cypher").toLowerCase();
-  if (lang === "sql" || lang === "postgresql") {
-    const { sql } = await import("@codemirror/lang-sql");
-    return [sql()];
-  }
-  // Cypher: no first-party CM6 package on npm — plain text for now.
-  return [];
-}
 
 async function buildExtensions(
   placeholder: string,
@@ -64,7 +54,7 @@ async function buildExtensions(
   langCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
   readOnlyCompartmentExt: any,
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
@@ -97,7 +87,7 @@ async function buildExtensions(
       if (update.docChanged) {
         onUpdate(update.state.doc.toString());
       }
-    }
+    },
   );
 
   const baseTheme = EditorView.theme({
@@ -140,6 +130,7 @@ function QueryEditor({
   readOnly = false,
   className,
   runAndSaveHint = false,
+  schema,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
@@ -161,12 +152,31 @@ function QueryEditor({
   // it creates the editor, preventing a readOnly-stuck-on-true race condition.
   const languageRef = React.useRef(language);
   const readOnlyRef = React.useRef(readOnly);
-  React.useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
-  React.useEffect(() => { onRunRef.current = onRun; }, [onRun]);
-  React.useEffect(() => { runningRef.current = running; }, [running]);
-  React.useEffect(() => { currentValueRef.current = currentValue; }, [currentValue]);
-  React.useEffect(() => { languageRef.current = language; }, [language]);
-  React.useEffect(() => { readOnlyRef.current = readOnly; }, [readOnly]);
+  const schemaRef = React.useRef(schema);
+  React.useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  React.useEffect(() => {
+    onRunRef.current = onRun;
+  }, [onRun]);
+  React.useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
+  React.useEffect(() => {
+    currentValueRef.current = currentValue;
+  }, [currentValue]);
+  React.useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+  React.useEffect(() => {
+    readOnlyRef.current = readOnly;
+  }, [readOnly]);
+  React.useEffect(() => {
+    schemaRef.current = schema;
+  }, [schema]);
+
+  // Shared abort signal so any new initEditor call cancels the previous one.
+  const initAbortRef = React.useRef<{ aborted: boolean }>({ aborted: false });
 
   // Whether the component is in "controlled" mode (value prop provided)
   const isControlled = value !== undefined;
@@ -183,46 +193,54 @@ function QueryEditor({
   const editorStateRef = React.useRef<any>(null);
 
   // -------------------------------------------------------------------------
-  // Create the CodeMirror editor (runs once on mount)
+  // Cleanup helper
+  // -------------------------------------------------------------------------
+  function destroyEditor() {
+    if (viewRef.current) {
+      viewRef.current.destroy();
+      viewRef.current = null;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Create the CodeMirror editor — unified path for all languages
   // -------------------------------------------------------------------------
   const initEditor = React.useCallback(
     async (docValue: string, abortSignal: { aborted: boolean }) => {
+      // Cancel any previous in-flight init so we don't end up with two editors.
+      initAbortRef.current.aborted = true;
+      initAbortRef.current = abortSignal;
+
+      // Tear down any existing editor
+      destroyEditor();
+
       if (typeof window === "undefined" || !containerRef.current) return;
 
-      // Tear down any existing view
-      if (viewRef.current) {
-        viewRef.current.destroy();
-        viewRef.current = null;
-      }
       // Remove leftover DOM nodes and clear the ready signal
       delete containerRef.current.dataset.editorReady;
       while (containerRef.current.firstChild) {
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
 
-      const [
-        { EditorView },
-        { EditorState, Compartment },
-      ] = await Promise.all([
-        import("@codemirror/view"),
-        import("@codemirror/state"),
-      ]);
+      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all(
+        [import("@codemirror/view"), import("@codemirror/state")],
+      );
 
-      // Guard: a newer initEditor call may have superseded this one.
       if (abortSignal.aborted) return;
 
-      // Cache EditorState for synchronous readOnly reconfiguration later.
       editorStateRef.current = EditorState;
 
-      // Create compartments for in-place reconfiguration of language and readOnly.
       const langCompartment = new Compartment();
       const readOnlyCompartment = new Compartment();
       languageCompartmentRef.current = langCompartment;
       readOnlyCompartmentRef.current = readOnlyCompartment;
 
-      // Read the latest language/readOnly via refs — they may have changed
-      // while we were awaiting the module imports above.
-      const langExts = await loadLanguageExt(languageRef.current);
+      // Capture the schema at the start — it may change while we await imports.
+      const initialSchema = schemaRef.current;
+      const langExts = await resolveLanguageExt(
+        languageRef.current,
+        initialSchema,
+      );
       if (abortSignal.aborted) return;
 
       const onUpdate = (newValue: string) => {
@@ -232,7 +250,8 @@ function QueryEditor({
       };
 
       const onRunCallback = () => {
-        const v = viewRef.current?.state.doc.toString() ?? currentValueRef.current;
+        const v =
+          viewRef.current?.state.doc.toString() ?? currentValueRef.current;
         if (v.trim() && !runningRef.current) {
           onRunRef.current?.(v);
         }
@@ -243,35 +262,33 @@ function QueryEditor({
         onUpdate,
         onRunCallback,
         langCompartment.of(langExts),
-        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current))
+        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
       );
 
-      // Guard again after the second batch of dynamic imports.
       if (abortSignal.aborted || !containerRef.current) return;
-
-      // Final cleanup right before creating the view — prevents duplicates
-      // when two initEditor calls race (e.g. React 19 strict mode remount).
-      if (viewRef.current) {
-        viewRef.current.destroy();
-        viewRef.current = null;
-      }
-      while (containerRef.current.firstChild) {
-        containerRef.current.removeChild(containerRef.current.firstChild);
-      }
 
       const state = EditorState.create({ doc: docValue, extensions });
       viewRef.current = new EditorView({ state, parent: containerRef.current });
 
-      // Signal that the editor is fully initialized and ready for input.
-      // E2E tests use this to wait until CM6's view and compartments are set up,
-      // avoiding the race where data-readonly="false" but the view hasn't been
-      // created yet (causing dispatched text to be silently dropped).
+      // If the schema arrived while we were awaiting imports, reconfigure now.
+      if (schemaRef.current && schemaRef.current !== initialSchema) {
+        await resolveLanguageExt(languageRef.current, schemaRef.current)
+          .then((updatedExts) => {
+            if (!abortSignal.aborted && viewRef.current) {
+              viewRef.current.dispatch({
+                effects: langCompartment.reconfigure(updatedExts),
+              });
+            }
+          })
+          .catch(() => {
+            // Defensive: dynamic import or language extension init can fail
+          });
+      }
+
       containerRef.current?.setAttribute("data-editor-ready", "true");
     },
-    // language and readOnly are captured at mount time; changes after mount
-    // are handled by the compartment effects below (no remount needed).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [placeholder]
+    [placeholder],
   );
 
   // Initial mount
@@ -280,8 +297,7 @@ function QueryEditor({
     initEditor(currentValue, abortSignal);
     return () => {
       abortSignal.aborted = true;
-      viewRef.current?.destroy();
-      viewRef.current = null;
+      destroyEditor();
       // Clear leftover DOM children to prevent duplicate editors.
       if (containerRef.current) {
         while (containerRef.current.firstChild) {
@@ -289,28 +305,33 @@ function QueryEditor({
         }
       }
     };
-    // Only runs once; language/readOnly changes are handled by compartment effects.
+    // Only runs once; language/readOnly changes are handled by effects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Language: async reconfigure in place (no editor remount)
+  // Language change: reconfigure the language compartment in place.
+  // No destroy/recreate — cursor position, undo history, and scroll are preserved.
   React.useEffect(() => {
-    const view = viewRef.current;
-    const compartment = languageCompartmentRef.current;
-    if (!view || !compartment) return;
+    if (!viewRef.current || !languageCompartmentRef.current) return;
     let cancelled = false;
-    loadLanguageExt(language).then((exts) => {
-      if (!cancelled && viewRef.current) {
-        viewRef.current.dispatch({ effects: compartment.reconfigure(exts) });
-      }
-    });
-    return () => { cancelled = true; };
+    resolveLanguageExt(language, schemaRef.current)
+      .then((exts) => {
+        if (!cancelled && viewRef.current) {
+          viewRef.current.dispatch({
+            effects: languageCompartmentRef.current.reconfigure(exts),
+          });
+        }
+      })
+      .catch(() => {
+        // Defensive: dynamic import or language extension init can fail
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  // readOnly: synchronous reconfigure in place (no editor remount).
-  // Uses the cached EditorState ref (populated by initEditor) to avoid an
-  // extra async import tick that would leave the editor writable/read-only
-  // for one event-loop tick after a connection is selected.
+  // readOnly: synchronous compartment reconfigure — one path for all languages
   React.useEffect(() => {
     const view = viewRef.current;
     const compartment = readOnlyCompartmentRef.current;
@@ -320,6 +341,26 @@ function QueryEditor({
       effects: compartment.reconfigure(EditorState.readOnly.of(readOnly)),
     });
   }, [readOnly]);
+
+  // Schema update: reconfigure language compartment with new schema
+  React.useEffect(() => {
+    if (!schema || !viewRef.current || !languageCompartmentRef.current) return;
+    let cancelled = false;
+    resolveLanguageExt(language, schema)
+      .then((exts) => {
+        if (!cancelled && viewRef.current) {
+          viewRef.current.dispatch({
+            effects: languageCompartmentRef.current.reconfigure(exts),
+          });
+        }
+      })
+      .catch(() => {
+        // Defensive: dynamic import or language extension init can fail
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [schema, language]);
 
   // -------------------------------------------------------------------------
   // Sync controlled `value` into the editor when it changes externally
@@ -340,19 +381,18 @@ function QueryEditor({
   // UI handlers
   // -------------------------------------------------------------------------
   const handleRun = () => {
-    // Use React state (currentValue) as the authoritative source so the button
-    // always uses the same value that governs its disabled state.
     if (currentValue.trim() && !running) {
       onRun?.(currentValue);
     }
   };
 
-
   const handleHistorySelect = (query: string) => {
     const view = viewRef.current;
     if (view) {
       suppressUpdate.current = true;
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: query } });
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: query },
+      });
       suppressUpdate.current = false;
     }
     if (!isControlled) setInternalValue(query);
@@ -363,7 +403,9 @@ function QueryEditor({
     const view = viewRef.current;
     if (view) {
       suppressUpdate.current = true;
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: "" },
+      });
       suppressUpdate.current = false;
       view.focus();
     }
@@ -371,15 +413,18 @@ function QueryEditor({
     onChange?.("");
   };
 
-  const languageLabel =
-    language === "sql" || language === "postgresql"
-      ? "SQL"
-      : language === "cypher"
-      ? "Cypher"
-      : (language ?? "Cypher");
+  const languageLabelMap: Record<string, string> = {
+    sql: "SQL",
+    postgresql: "SQL",
+    cypher: "Cypher",
+    neo4j: "Cypher",
+  };
+  const languageLabel = languageLabelMap[language] ?? language;
 
   return (
-    <div className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}>
+    <div
+      className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}
+    >
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <div className="flex items-center gap-2">
@@ -394,7 +439,11 @@ function QueryEditor({
               </SelectTrigger>
               <SelectContent>
                 {history.map((query, i) => (
-                  <SelectItem key={i} value={query} className="text-xs font-mono">
+                  <SelectItem
+                    key={i}
+                    value={query}
+                    className="text-xs font-mono"
+                  >
                     {query.length > 60 ? query.slice(0, 60) + "..." : query}
                   </SelectItem>
                 ))}
