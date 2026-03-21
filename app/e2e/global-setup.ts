@@ -19,6 +19,8 @@ const TEST_ENCRYPTION_KEY =
   "b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9";
 const TEST_NEXTAUTH_SECRET =
   "d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65";
+const TEST_API_KEY_HMAC_SECRET =
+  "a1f3c9e2d47b6a85f0e12d3c4b5a6978f0e1d2c3b4a59687f0e1d2c3b4a59687";
 
 /** Encrypt JSON using the same algorithm as the app (aes-256-gcm). */
 function encryptJson(data: unknown): string {
@@ -214,6 +216,7 @@ export default async function globalSetup() {
   const envContent = [
     `DATABASE_URL=${databaseUrl}`,
     `ENCRYPTION_KEY=${TEST_ENCRYPTION_KEY}`,
+    `API_KEY_HMAC_SECRET=${TEST_API_KEY_HMAC_SECRET}`,
     `NEXTAUTH_SECRET=${TEST_NEXTAUTH_SECRET}`,
     `NEXTAUTH_URL=http://localhost:${serverPort}`,
     `TEST_SERVER_PORT=${serverPort}`,
@@ -230,6 +233,7 @@ export default async function globalSetup() {
   // Expose env vars to the current process (available to test workers).
   process.env.DATABASE_URL = databaseUrl;
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
+  process.env.API_KEY_HMAC_SECRET = TEST_API_KEY_HMAC_SECRET;
   process.env.NEXTAUTH_SECRET = TEST_NEXTAUTH_SECRET;
   process.env.NEXTAUTH_URL = `http://localhost:${serverPort}`;
   process.env.TEST_SERVER_PORT = String(serverPort);
@@ -252,6 +256,7 @@ export default async function globalSetup() {
       ...process.env,
       DATABASE_URL: databaseUrl,
       ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
+      API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
       NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
       NEXTAUTH_URL: `http://localhost:${serverPort}`,
     },
