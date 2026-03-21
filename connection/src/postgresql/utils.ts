@@ -23,11 +23,15 @@ export function extractTableSchemaFromFields(fields: FieldDef[]): string[][] {
  * @param error - The error object
  * @returns true if the error is a timeout
  */
-export function isTimeoutError(error: any): boolean {
-  if (!error) return false;
+export function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
 
-  const message = error.message || '';
-  const code = error.code || '';
+  const message = 'message' in error && typeof (error as { message: unknown }).message === 'string'
+    ? (error as { message: string }).message
+    : '';
+  const code = 'code' in error && typeof (error as { code: unknown }).code === 'string'
+    ? (error as { code: string }).code
+    : '';
 
   // PostgreSQL timeout error codes and messages
   return (
@@ -44,10 +48,12 @@ export function isTimeoutError(error: any): boolean {
  * @param error - The error object
  * @returns true if the error is an authentication issue
  */
-export function isAuthenticationError(error: any): boolean {
-  if (!error) return false;
+export function isAuthenticationError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
 
-  const code = error.code || '';
+  const code = 'code' in error && typeof (error as { code: unknown }).code === 'string'
+    ? (error as { code: string }).code
+    : '';
 
   // PostgreSQL authentication error codes
   return (

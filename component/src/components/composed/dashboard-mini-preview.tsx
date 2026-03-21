@@ -1,4 +1,5 @@
 import { cn } from "../../lib/utils";
+import { chartTypePreviewColors } from "../../lib/design-tokens";
 
 export interface MiniPreviewWidget {
   x: number;
@@ -14,18 +15,6 @@ export interface DashboardMiniPreviewProps {
   widgets: MiniPreviewWidget[];
   className?: string;
 }
-
-const chartTypeColors: Record<string, string> = {
-  bar: "bg-blue-400/40",
-  line: "bg-green-400/40",
-  pie: "bg-amber-400/40",
-  "single-value": "bg-purple-400/40",
-  graph: "bg-cyan-400/40",
-  map: "bg-emerald-400/40",
-  table: "bg-slate-400/40",
-  json: "bg-orange-400/40",
-  "parameter-select": "bg-pink-400/40",
-};
 
 export function DashboardMiniPreview({
   widgets,
@@ -66,7 +55,7 @@ export function DashboardMiniPreview({
           key={i}
           className={cn(
             "rounded-sm border border-border/30 overflow-hidden",
-            !w.thumbnailUrl && (chartTypeColors[w.chartType] ?? "bg-muted")
+            !w.thumbnailUrl && (chartTypePreviewColors[w.chartType] ?? "bg-muted")
           )}
           style={{
             gridColumn: `${w.x + 1} / span ${w.w}`,

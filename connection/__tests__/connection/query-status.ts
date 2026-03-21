@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../utils/setup';
 import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams, QueryStatus } from '../../src/generalized/interfaces';
+import { QueryCallback, QueryParams, QueryStatus } from '../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../utils/setup';
 
 describe('Query to Neo4j', () => {
   test('run MATCH (n) RETURN n LIMIT 1 and receive COMPLETE status', async () => {
@@ -27,7 +28,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
 
     expect(receivedStatus).toBe(QueryStatus.COMPLETE);
   });
@@ -59,7 +60,7 @@ describe('Query to Neo4j', () => {
 
     // Use a custom config with a low rowLimit to trigger truncation
     const configWithRowLimit = {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       rowLimit: 5,
     };
 
@@ -98,7 +99,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
 
     // Check that RUNNING was set before COMPLETE
     const runningIndex = statusSequence.indexOf(QueryStatus.RUNNING);
@@ -132,7 +133,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
 
     expect(receivedStatus).toBe(QueryStatus.NO_DATA);
   });
@@ -160,7 +161,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
 
     expect(receivedStatus).toBe(QueryStatus.ERROR);
   });
@@ -190,7 +191,7 @@ describe('Query to Neo4j', () => {
 
     // Set a very low timeout (e.g., 100 ms)
     const shortTimeoutConfig = {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       connectionTimeout: 100, // Timeout in milliseconds
     };
 
@@ -223,7 +224,7 @@ describe('Query to Neo4j', () => {
     };
 
     const shortTimeoutConfig = {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: 'WRITE',
       connectionTimeout: 100, // ms
     };
@@ -255,7 +256,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('Trying to run the query with an empty string should set the status to NO_QUERY', async () => {
@@ -279,7 +280,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('Trying to run the query undefined/null should set the status to NO_QUERY', async () => {
@@ -305,6 +306,6 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 });

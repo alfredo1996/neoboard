@@ -29,7 +29,9 @@ export async function GET(
       .where(and(eq(connections.id, id), eq(connections.userId, userId)))
       .limit(1);
 
-    // Admin fallback: admin can view any connection
+    // Admin fallback: admin can view any connection.
+    // TODO(multi-tenancy): connections table lacks tenant_id column, so
+    // this lookup is not tenant-scoped. Requires schema migration.
     if (!connection && role === "admin") {
       [connection] = await db
         .select({

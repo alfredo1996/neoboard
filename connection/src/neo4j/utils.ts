@@ -45,14 +45,14 @@ export function saveNodeAndRelPropertiesToDictionary(field: unknown, fieldsDict:
 }
 
 /* HELPER FUNCTIONS FOR DETERMINING TYPE OF FIELD RETURNED FROM NEO4J */
-export function valueIsNode(value: unknown): value is { labels: string[]; identity: unknown; properties: Record<string, unknown> } {
+function valueIsNode(value: unknown): value is { labels: string[]; identity: unknown; properties: Record<string, unknown> } {
   return typeof value === 'object' && value !== null && 'labels' in value && 'identity' in value && 'properties' in value;
 }
 
-export function valueIsRelationship(value: unknown): value is { type: string; start: unknown; end: unknown; identity: unknown; properties: Record<string, unknown> } {
+function valueIsRelationship(value: unknown): value is { type: string; start: unknown; end: unknown; identity: unknown; properties: Record<string, unknown> } {
   return typeof value === 'object' && value !== null && 'type' in value && 'start' in value && 'end' in value && 'identity' in value && 'properties' in value;
 }
 
-export function valueIsPath(value: unknown): value is { start: unknown; end: unknown; segments: Array<{ start: unknown; end: unknown }>; length: number } {
+function valueIsPath(value: unknown): value is { start: unknown; end: unknown; segments: Array<{ start: unknown; end: unknown }>; length: number } {
   return typeof value === 'object' && value !== null && 'start' in value && 'end' in value && 'segments' in value && 'length' in value;
 }

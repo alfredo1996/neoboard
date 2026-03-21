@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
 
 describe('Neo4jConnectionModule - setFields', () => {
@@ -31,7 +32,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: true,
       useNodePropsAsFields: false,
     });
@@ -66,7 +67,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
@@ -104,7 +105,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
@@ -142,7 +143,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
@@ -175,7 +176,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });

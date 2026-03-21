@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
 
 describe('Neo4jRecordParser - Primitive Parsing', () => {
@@ -23,7 +24,7 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j big int value', async () => {
@@ -45,7 +46,7 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j String value', async () => {
@@ -68,7 +69,7 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j Boolean true value', async () => {
@@ -91,7 +92,7 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j Boolean false value', async () => {
@@ -114,7 +115,7 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly find the movie "The Matrix"', async () => {
@@ -141,7 +142,7 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should return null', async () => {
@@ -167,6 +168,6 @@ describe('Neo4jRecordParser - Primitive Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 });

@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../utils/setup';
 import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../utils/setup';
 import { Neo4jError } from 'neo4j-driver-core';
 
 describe('Query to Neo4j', () => {
@@ -22,7 +23,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('Run MATCH (p:Person) RETURN p LIMIT 10 and get data', async () => {
@@ -43,7 +44,7 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('Triggering error by forcing query timeout', async () => {
@@ -64,7 +65,7 @@ describe('Query to Neo4j', () => {
         expect(err.message).toMatch(/^The transaction has been terminated/);
       },
     };
-    const connectionConfig = { ...DEFAULT_CONNECTION_CONFIG, connectionTimeout: 100 };
+    const connectionConfig = { ...NEO4J_TEST_CONNECTION_CONFIG, connectionTimeout: 100 };
     await connection.runQuery(queryParams, queryCallback, connectionConfig);
   });
 
@@ -86,7 +87,7 @@ describe('Query to Neo4j', () => {
         expect(err.message).toMatch(/^The transaction has been terminated/);
       },
     };
-    const connectionConfig = { ...DEFAULT_CONNECTION_CONFIG, connectionTimeout: 100, accessMode: 'WRITE' };
+    const connectionConfig = { ...NEO4J_TEST_CONNECTION_CONFIG, connectionTimeout: 100, accessMode: 'WRITE' };
     await connection.runQuery(queryParams, queryCallback, connectionConfig);
   });
 });

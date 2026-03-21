@@ -11,6 +11,7 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
   constructor(authConfig: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
     this._checkConfigurationConsistency(authConfig);
+    this._validateUri(authConfig.uri, ['bolt:', 'bolt+s:', 'bolt+ssc:', 'neo4j:', 'neo4j+s:', 'neo4j+ssc:']);
     this._authConfig = authConfig;
     this._advancedOptions = advancedOptions;
     this.driver = this.createDriver();
@@ -49,7 +50,9 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
    * @returns {Driver} The Neo4j driver instance.
    */
   createDriver(): Driver {
-    // TODO: Implement Neo4j SSO
+    if (this._authConfig.authType === AuthType.SINGLE_SIGN_ON) {
+      throw new Error('Neo4j SSO authentication is not yet supported');
+    }
     const auth =
       this._authConfig.authType === AuthType.NATIVE
         ? neo4j.auth.basic(this._authConfig.username, this._authConfig.password)

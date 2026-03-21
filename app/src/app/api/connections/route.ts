@@ -14,6 +14,10 @@ export async function GET(request: Request) {
     const { limit, offset } = parsePagination(request);
     const isAdmin = role === "admin";
 
+    // TODO(multi-tenancy): connections table lacks a tenant_id column.
+    // Admin path currently returns all connections in the DB, not scoped
+    // to the session tenant. Requires schema migration to add tenant_id
+    // to the connections table and backfill existing rows. See issue tracker.
     const whereClause = isAdmin ? undefined : eq(connections.userId, userId);
 
     const [{ count: total }] = await db

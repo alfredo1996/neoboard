@@ -217,8 +217,8 @@ export interface QueryCallback<T> {
  * Interface to define Cypher queries and their parameters.
  */
 export interface QueryParams {
-  query: string; // The Cypher query to be executed.
-  params?: Record<string, any>; // Optional parameters for the Cypher query.
+  query: string; // The query to be executed (Cypher for Neo4j, SQL for PostgreSQL).
+  params?: Record<string, unknown>; // Optional parameters for the query.
 }
 
 /** Optional advanced settings passed from the app layer to driver constructors. */

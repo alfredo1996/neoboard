@@ -96,10 +96,16 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
   saveToDashboard: (dashboardId) => {
     const { parameters } = get();
     const key = `${STORAGE_PREFIX}${dashboardId}`;
-    if (Object.keys(parameters).length > 0) {
-      localStorage.setItem(key, JSON.stringify(parameters));
-    } else {
-      localStorage.removeItem(key);
+    try {
+      if (Object.keys(parameters).length > 0) {
+        localStorage.setItem(key, JSON.stringify(parameters));
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      // localStorage may throw on quota exceeded (e.g. Safari Private Mode).
+      // Silently degrade — parameters will not persist across navigation.
+      console.warn("[parameter-store] Failed to save parameters to localStorage");
     }
   },
 
