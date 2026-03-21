@@ -189,16 +189,15 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    // Set a very low timeout (e.g., 100 ms)
     const shortTimeoutConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
-      connectionTimeout: 100, // Timeout in milliseconds
+      timeout: 2000, // Short transaction timeout to trigger TIMED_OUT
     };
 
     await connection.runQuery(queryParams, queryCallback, shortTimeoutConfig);
 
     expect(receivedStatus).toBe(QueryStatus.TIMED_OUT);
-  });
+  }, 30000);
 
   test('should set TIMED_OUT when write query exceeds timeout', async () => {
     const config = getNeo4jAuth();
@@ -226,13 +225,13 @@ describe('Query to Neo4j', () => {
     const shortTimeoutConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: 'WRITE',
-      connectionTimeout: 100, // ms
+      timeout: 2000, // Short transaction timeout to trigger TIMED_OUT
     };
 
     await connection.runQuery(queryParams, queryCallback, shortTimeoutConfig);
 
     expect(receivedStatus).toBe(QueryStatus.TIMED_OUT);
-  });
+  }, 30000);
 
   test('run MATCH (n:Test {name:“foobar”}) RETURN n and get NO_DATA', async () => {
     const config = getNeo4jAuth();
