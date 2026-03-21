@@ -170,7 +170,8 @@ export async function DELETE(
       .where(
         and(
           eq(dashboardShares.id, shareId),
-          eq(dashboardShares.dashboardId, id)
+          eq(dashboardShares.dashboardId, id),
+          eq(dashboardShares.tenantId, tenantId)
         )
       );
 
