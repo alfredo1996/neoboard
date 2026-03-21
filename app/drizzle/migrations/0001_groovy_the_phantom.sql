@@ -1,0 +1,1 @@
+ALTER TABLE "connection" ADD COLUMN "tenant_id" text DEFAULT 'default' NOT NULL;
