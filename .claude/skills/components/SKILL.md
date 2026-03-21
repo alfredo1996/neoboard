@@ -20,7 +20,7 @@ find component/src -name '*.tsx' -not -name '*.test.*' -not -name '*.stories.*' 
 find component/src -name '*.stories.tsx' | head -40
 
 # Read a story to understand a component's API and variants
-cat component/src/charts/BarChart.stories.tsx
+# (pick a relevant story from the list above)
 ```
 
 ## Step 2 — Check before creating

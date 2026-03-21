@@ -38,8 +38,7 @@ describe("generateApiKey", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete process.env.API_KEY_HMAC_SECRET;
-    process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
+    process.env.API_KEY_HMAC_SECRET = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
@@ -83,8 +82,7 @@ describe("hashApiKey", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete process.env.API_KEY_HMAC_SECRET;
-    process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
+    process.env.API_KEY_HMAC_SECRET = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
@@ -117,10 +115,9 @@ describe("hashApiKey", () => {
     expect(hashApiKey("nb_abc")).not.toBe(hashApiKey("nb_xyz"));
   });
 
-  it("uses API_KEY_HMAC_SECRET when available (over ENCRYPTION_KEY)", async () => {
+  it("uses API_KEY_HMAC_SECRET exclusively (no ENCRYPTION_KEY fallback)", async () => {
     vi.resetModules();
     process.env.API_KEY_HMAC_SECRET = "dedicated-hmac-secret";
-    process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
@@ -130,8 +127,6 @@ describe("hashApiKey", () => {
       .update("nb_abc")
       .digest("hex");
     expect(result).toBe(expected);
-
-    delete process.env.API_KEY_HMAC_SECRET;
   });
 });
 
@@ -150,8 +145,7 @@ describe("resolveApiKeyAuth", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete process.env.API_KEY_HMAC_SECRET;
-    process.env.ENCRYPTION_KEY = TEST_HMAC_SECRET;
+    process.env.API_KEY_HMAC_SECRET = TEST_HMAC_SECRET;
     vi.doMock("next/headers", () => ({ headers: mockHeaders }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     const mod = await import("../api-key");
@@ -191,13 +185,16 @@ describe("resolveApiKeyAuth", () => {
 
   it("throws generic Unauthorized when key is expired (no info disclosure)", async () => {
     const pastDate = new Date(Date.now() - 1000);
-    mockHeadersGet.mockReturnValue("Bearer nb_" + "a".repeat(64));
+    const token = "nb_" + "a".repeat(64);
+    const keyHash = createHmac("sha256", TEST_HMAC_SECRET).update(token).digest("hex");
+    mockHeadersGet.mockReturnValue("Bearer " + token);
     mockDb.select.mockReturnValue(
       makeSelectChain([
         {
           id: "key-1",
           userId: "user-1",
           tenantId: "default",
+          keyHash,
           role: "creator",
           canWrite: true,
           expiresAt: pastDate,
@@ -209,13 +206,16 @@ describe("resolveApiKeyAuth", () => {
 
   it("returns user context for a valid non-expired key", async () => {
     const futureDate = new Date(Date.now() + 86400_000);
-    mockHeadersGet.mockReturnValue("Bearer nb_" + "b".repeat(64));
+    const token = "nb_" + "b".repeat(64);
+    const keyHash = createHmac("sha256", TEST_HMAC_SECRET).update(token).digest("hex");
+    mockHeadersGet.mockReturnValue("Bearer " + token);
     mockDb.select.mockReturnValue(
       makeSelectChain([
         {
           id: "key-2",
           userId: "user-2",
           tenantId: "tenant-abc",
+          keyHash,
           role: "creator",
           canWrite: true,
           expiresAt: futureDate,
@@ -233,13 +233,16 @@ describe("resolveApiKeyAuth", () => {
   });
 
   it("returns user context for a key with no expiry (null expiresAt)", async () => {
-    mockHeadersGet.mockReturnValue("Bearer nb_" + "c".repeat(64));
+    const token = "nb_" + "c".repeat(64);
+    const keyHash = createHmac("sha256", TEST_HMAC_SECRET).update(token).digest("hex");
+    mockHeadersGet.mockReturnValue("Bearer " + token);
     mockDb.select.mockReturnValue(
       makeSelectChain([
         {
           id: "key-3",
           userId: "user-3",
           tenantId: "default",
+          keyHash,
           role: "admin",
           canWrite: true,
           expiresAt: null,
@@ -256,13 +259,16 @@ describe("resolveApiKeyAuth", () => {
   });
 
   it("calls db.update to set lastUsedAt on successful resolution", async () => {
-    mockHeadersGet.mockReturnValue("Bearer nb_" + "d".repeat(64));
+    const token = "nb_" + "d".repeat(64);
+    const keyHash = createHmac("sha256", TEST_HMAC_SECRET).update(token).digest("hex");
+    mockHeadersGet.mockReturnValue("Bearer " + token);
     mockDb.select.mockReturnValue(
       makeSelectChain([
         {
           id: "key-4",
           userId: "user-4",
           tenantId: "default",
+          keyHash,
           role: "creator",
           canWrite: false,
           expiresAt: null,

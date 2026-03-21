@@ -7,11 +7,11 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *)
 ---
 ## State
 - Branch: !`git branch --show-current`
-- Commits: !`git log origin/main..HEAD --oneline 2>/dev/null || echo 'No upstream'`
-- Changed: !`git diff origin/main --name-only 2>/dev/null || git diff --name-only`
+- Commits: !`git log origin/dev..HEAD --oneline 2>/dev/null || echo 'No upstream'`
+- Changed: !`git diff origin/dev --name-only 2>/dev/null || git diff --name-only`
 
 ## Pre-flight (fix failures before creating PR)
-1. `git fetch origin && git rebase origin/dev`
+1. `git fetch origin && git rebase origin/dev` (PRs always target `dev`)
 2. `npm run lint`
 3. `npm run build`
 4. Run tests for affected packages (`cd app && npm test`, `cd component && npm test`)

@@ -13,10 +13,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, tenantId, role } = await requireSession();
     const { id } = await params;
 
-    // Owner check first
+    // Owner check first (tenant-scoped)
     let [connection] = await db
       .select({
         id: connections.id,
@@ -26,12 +26,10 @@ export async function GET(
         updatedAt: connections.updatedAt,
       })
       .from(connections)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId)))
+      .where(and(eq(connections.id, id), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
       .limit(1);
 
-    // Admin fallback: admin can view any connection.
-    // TODO(multi-tenancy): connections table lacks tenant_id column, so
-    // this lookup is not tenant-scoped. Requires schema migration.
+    // Admin fallback: admin can view any connection in the same tenant.
     if (!connection && role === "admin") {
       [connection] = await db
         .select({
@@ -42,7 +40,7 @@ export async function GET(
           updatedAt: connections.updatedAt,
         })
         .from(connections)
-        .where(eq(connections.id, id))
+        .where(and(eq(connections.id, id), eq(connections.tenantId, tenantId)))
         .limit(1);
     }
 
@@ -61,7 +59,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await requireSession();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
     const body = await request.json();
     const result = validateBody(updateConnectionSchema, body);
@@ -74,7 +72,7 @@ export async function PATCH(
     const [connection] = await db
       .update(connections)
       .set(updates)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId)))
+      .where(and(eq(connections.id, id), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
       .returning({
         id: connections.id,
         name: connections.name,
@@ -103,12 +101,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await requireSession();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
 
     const deleted = await db
       .delete(connections)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId)))
+      .where(and(eq(connections.id, id), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
       .returning({ id: connections.id });
 
     if (deleted.length === 0) {

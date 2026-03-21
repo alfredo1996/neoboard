@@ -38,7 +38,7 @@ cd app && npm test
 
 **App integration tests** (if app/ changed):
 ```bash
-cd app && npm test:e2e
+cd app && npx playwright test
 ```
 
 **Component tests** (if component/ changed):

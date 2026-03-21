@@ -14,7 +14,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash(npm *), Bash(npx *), Bash(git 
 1. If issue number: `gh issue view <number>`
 2. If existing PR: `gh pr view <number> --comments` — check CodeRabbit & SonarQube feedback
 3. Identify package: component/ (UI only), connection/ (DB only), app/ (orchestration)
-4. Read relevant docs in `claude_code_docs/` (especially `v04-widget-power.md` for v0.4 issues)
+4. Read relevant docs in `claude_code_docs/`
 
 ## TDD Workflow (mandatory — no exceptions)
 1. **Red** — Write a failing test describing the expected behavior. Run it. Confirm it fails.
