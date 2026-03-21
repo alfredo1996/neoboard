@@ -69,9 +69,11 @@ export async function GET(
         .select({ id: connections.id, name: connections.name, type: connections.type })
         .from(connections)
         .where(
-          role === "admin"
-            ? inArray(connections.id, [...connectionIds])
-            : and(inArray(connections.id, [...connectionIds]), eq(connections.userId, userId))
+          and(
+            inArray(connections.id, [...connectionIds]),
+            eq(connections.tenantId, tenantId),
+            role === "admin" ? undefined : eq(connections.userId, userId),
+          )
         );
     }
 
