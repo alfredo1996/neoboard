@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
@@ -49,8 +49,14 @@ export async function GET(request: Request) {
     const { limit, offset } = parsePagination(request);
 
     if (role === "admin") {
-      // Admin sees every dashboard in the tenant
-      const all = await db
+      // Admin sees every dashboard in the tenant — use DB-level pagination
+      // to avoid loading all dashboards into memory for large deployments.
+      const [{ count: total }] = await db
+        .select({ count: count() })
+        .from(dashboards)
+        .where(eq(dashboards.tenantId, tenantId));
+
+      const rows = await db
         .select({
           id: dashboards.id,
           name: dashboards.name,
@@ -65,9 +71,12 @@ export async function GET(request: Request) {
         })
         .from(dashboards)
         .leftJoin(users, eq(dashboards.updatedBy, users.id))
-        .where(eq(dashboards.tenantId, tenantId));
+        .where(eq(dashboards.tenantId, tenantId))
+        .orderBy(dashboards.updatedAt)
+        .limit(limit)
+        .offset(offset);
 
-      const mapped = all.map((d) => {
+      const mapped = rows.map((d) => {
         const { layoutJson, thumbnailJson, ...rest } = d;
         return {
           ...rest,
@@ -77,9 +86,7 @@ export async function GET(request: Request) {
         };
       });
 
-      const total = mapped.length;
-      const paginated = mapped.slice(offset, offset + limit);
-      return apiList(paginated, { total, limit, offset });
+      return apiList(mapped, { total: Number(total), limit, offset });
     }
 
     // Creator & Reader: owned dashboards + explicitly assigned/shared + public

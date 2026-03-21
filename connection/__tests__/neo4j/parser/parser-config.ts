@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
 
 describe('Neo4jRecordParser - config parseToNeodashRecord', () => {
@@ -25,7 +26,7 @@ describe('Neo4jRecordParser - config parseToNeodashRecord', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, { ...DEFAULT_CONNECTION_CONFIG, parseToNeodashRecord: true });
+    await connection.runQuery(queryParams, queryCallback, { ...NEO4J_TEST_CONNECTION_CONFIG, parseToNeodashRecord: true });
   });
 
   test('should return raw result when parseToNeodashRecord is false', async () => {
@@ -49,7 +50,7 @@ describe('Neo4jRecordParser - config parseToNeodashRecord', () => {
     };
 
     await connection.runQuery(queryParams, queryCallback, {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: false,
     });
   });

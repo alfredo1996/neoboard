@@ -17,7 +17,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
       return _record;
     }
 
-    const parsed: Record<string, any> = {};
+    const parsed: Record<string, unknown> = {};
 
     for (const key in _record) {
       if (Object.hasOwn(_record, key)) {

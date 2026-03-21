@@ -49,8 +49,11 @@ describe('Neo4jAuthenticationModule with native auth', () => {
 
   test('creating an authenticationModule with native auth, but wrong URI throws', async () => {
     const config = getNeo4jAuth();
-    config.uri = 'bolt://localhosta:7687';
-    const authModule = new Neo4jAuthenticationModule(config);
+    // Use RFC 5737 TEST-NET-1 (non-routable) to guarantee a connection failure.
+    // 'localhosta' can resolve to localhost on some systems (macOS mDNS),
+    // causing the driver to connect to a local Neo4j instance instead of failing.
+    config.uri = 'bolt://192.0.2.1:7687';
+    const authModule = new Neo4jAuthenticationModule(config, { neo4jConnectionTimeout: 2000 });
     await expect(authModule.verifyAuthentication()).rejects.toThrow();
   });
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
+import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
 import { useDarkMode } from "./base-chart";
 
 export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
@@ -174,8 +175,8 @@ function MapChart({
     markers.forEach((m) => {
       const circleMarker = L.circleMarker([m.lat, m.lng], {
         radius: m.value ? Math.min(Math.max(m.value, 4), 30) : markerSize,
-        fillColor: m.color ?? "#3b82f6",
-        color: m.color ?? "#3b82f6",
+        fillColor: m.color ?? MAP_MARKER_DEFAULT_COLOR,
+        color: m.color ?? MAP_MARKER_DEFAULT_COLOR,
         weight: 1,
         opacity: 0.8,
         fillOpacity: 0.6,

@@ -100,7 +100,10 @@ describe("GET /api/dashboards", () => {
     mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
     const ownedRow = { id: "d1", name: "My Dashboard", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), ownerId: "admin-1" };
     const otherRow = { id: "d2", name: "Other Dashboard", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), ownerId: "user-1" };
-    mockDb.select.mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
+    // Admin path now does: 1) count query, 2) paginated select
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
+      .mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -252,7 +255,10 @@ describe("GET /api/dashboards — updatedByName", () => {
       ownerId: "admin-1",
       updatedByName: "Alice",
     };
-    mockDb.select.mockReturnValueOnce(makeSelectChain([row]));
+    // Admin path now does: 1) count query, 2) paginated select
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ count: 1 }]))
+      .mockReturnValueOnce(makeSelectChain([row]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);

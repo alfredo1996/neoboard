@@ -130,7 +130,9 @@ export default function DashboardViewerPage({
         persistQueueRef.current = persistQueueRef.current
           .catch(() => undefined)
           .then(() => updateDashboard.mutateAsync(payload))
-          .catch(() => undefined);
+          .catch((err: unknown) => {
+            console.error("[auto-save] Failed to persist dashboard settings:", err);
+          });
       }
     },
     [id, layout, updateDashboard],

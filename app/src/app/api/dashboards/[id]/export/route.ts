@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections, dashboards } from "@/lib/db/schema";
+import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { buildExportPayload } from "@/lib/dashboard-export";
+import { notFound, handleRouteError } from "@/lib/api-utils";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 export async function GET(
@@ -11,9 +11,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, role } = await requireSession();
     const { id } = await params;
 
+    // Fetch the dashboard with tenant scoping
     const [dashboard] = await db
       .select()
       .from(dashboards)
@@ -21,7 +22,28 @@ export async function GET(
       .limit(1);
 
     if (!dashboard) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound("Dashboard not found");
+    }
+
+    // Access control: admin can export any dashboard in the tenant;
+    // owners and shared users (viewer or editor) can export;
+    // public dashboards are exportable by any tenant user.
+    if (role !== "admin" && dashboard.userId !== userId) {
+      const [share] = await db
+        .select({ id: dashboardShares.id })
+        .from(dashboardShares)
+        .where(
+          and(
+            eq(dashboardShares.dashboardId, id),
+            eq(dashboardShares.userId, userId),
+            eq(dashboardShares.tenantId, tenantId),
+          )
+        )
+        .limit(1);
+
+      if (!share && !dashboard.isPublic) {
+        return notFound("Dashboard not found");
+      }
     }
 
     const layout = dashboard.layoutJson as DashboardLayoutV2 | null;
@@ -38,13 +60,19 @@ export async function GET(
       }
     }
 
-    // Load connection name + type (no credentials)
+    // Load connection name + type (no credentials).
+    // Include connections owned by the user OR referenced by dashboards
+    // they have access to (admin sees all in tenant context).
     let connectionRows: { id: string; name: string; type: string }[] = [];
     if (connectionIds.size > 0) {
       connectionRows = await db
         .select({ id: connections.id, name: connections.name, type: connections.type })
         .from(connections)
-        .where(and(inArray(connections.id, [...connectionIds]), eq(connections.userId, userId)));
+        .where(
+          role === "admin"
+            ? inArray(connections.id, [...connectionIds])
+            : and(inArray(connections.id, [...connectionIds]), eq(connections.userId, userId))
+        );
     }
 
     const payload = buildExportPayload(dashboard, connectionRows);
@@ -62,10 +90,7 @@ export async function GET(
         "Content-Disposition": `attachment; filename="dashboard-${slug}.json"`,
       },
     });
-  } catch (e) {
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error) {
+    return handleRouteError(error, "Failed to export dashboard");
   }
 }

@@ -45,7 +45,9 @@ export async function POST(request: Request) {
       )
       .limit(1);
 
-    // 2. Admin fallback: admin can use any connection in the tenant
+    // 2. Admin fallback: admin can use any connection in the tenant.
+    // TODO(multi-tenancy): connections table lacks tenant_id column, so
+    // this lookup is not tenant-scoped. Requires schema migration.
     if (!connection && role === "admin") {
       [connection] = await db
         .select()

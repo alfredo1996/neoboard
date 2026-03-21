@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { connectionStatusColors } from "@/lib/design-tokens";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -17,10 +18,10 @@ export interface ConnectionStatusProps {
 }
 
 const statusConfig: Record<ConnectionState, { label: string; dotClass: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  connected: { label: "Connected", dotClass: "bg-green-500", variant: "default" },
-  disconnected: { label: "Disconnected", dotClass: "bg-gray-400", variant: "secondary" },
-  connecting: { label: "Connecting...", dotClass: "bg-yellow-500 animate-pulse", variant: "outline" },
-  error: { label: "Error", dotClass: "bg-red-500", variant: "destructive" },
+  connected: { label: "Connected", dotClass: connectionStatusColors.connected, variant: "default" },
+  disconnected: { label: "Disconnected", dotClass: connectionStatusColors.disconnected, variant: "secondary" },
+  connecting: { label: "Connecting...", dotClass: connectionStatusColors.connecting, variant: "outline" },
+  error: { label: "Error", dotClass: connectionStatusColors.error, variant: "destructive" },
 };
 
 function ConnectionStatus({ status, errorMessage, className }: ConnectionStatusProps) {
