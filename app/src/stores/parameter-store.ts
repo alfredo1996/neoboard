@@ -95,11 +95,17 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
 
   saveToDashboard: (dashboardId) => {
     const { parameters } = get();
-    if (Object.keys(parameters).length > 0) {
-      localStorage.setItem(
-        `${STORAGE_PREFIX}${dashboardId}`,
-        JSON.stringify(parameters)
-      );
+    const key = `${STORAGE_PREFIX}${dashboardId}`;
+    try {
+      if (Object.keys(parameters).length > 0) {
+        localStorage.setItem(key, JSON.stringify(parameters));
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      // localStorage may throw on quota exceeded (e.g. Safari Private Mode).
+      // Silently degrade — parameters will not persist across navigation.
+      console.warn("[parameter-store] Failed to save parameters to localStorage");
     }
   },
 
@@ -118,12 +124,10 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
 /** Returns just name→value for query substitution. */
 export function useParameterValues(): Record<string, unknown> {
   return useParameterStore(
-    useShallow((s) => {
-      const result: Record<string, unknown> = {};
-      for (const [name, entry] of Object.entries(s.parameters)) {
-        result[name] = entry.value;
-      }
-      return result;
-    })
+    useShallow((s) =>
+      Object.fromEntries(
+        Object.entries(s.parameters).map(([k, e]) => [k, e.value]),
+      ),
+    ),
   );
 }

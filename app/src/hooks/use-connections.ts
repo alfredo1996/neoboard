@@ -22,11 +22,11 @@ export interface CreateConnectionInput {
   };
 }
 
-export function useConnections() {
+export function useConnections(limit = 100, offset = 0) {
   return useQuery<ConnectionListItem[]>({
-    queryKey: ["connections"],
+    queryKey: ["connections", limit, offset],
     queryFn: async () => {
-      const res = await fetch("/api/connections");
+      const res = await fetch(`/api/connections?limit=${limit}&offset=${offset}`);
       return unwrapResponse<ConnectionListItem[]>(res);
     },
   });
@@ -64,13 +64,49 @@ export function useDeleteConnection() {
   });
 }
 
+export interface UpdateConnectionInput {
+  id: string;
+  name?: string;
+  config?: Partial<{
+    uri: string;
+    username: string;
+    password: string;
+    database: string;
+    connectionTimeout: number;
+    queryTimeout: number;
+    maxPoolSize: number;
+    connectionAcquisitionTimeout: number;
+    idleTimeout: number;
+    statementTimeout: number;
+    sslRejectUnauthorized: boolean;
+  }>;
+}
+
+export function useUpdateConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...body }: UpdateConnectionInput) => {
+      const res = await fetch(`/api/connections/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return unwrapResponse<ConnectionListItem>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
+    },
+  });
+}
+
 export function useTestConnection() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/connections/${id}/test`, {
         method: "POST",
       });
-      return res.json() as Promise<{ success: boolean; error?: string }>;
+      return unwrapResponse<{ success: boolean; error?: string }>(res);
     },
   });
 }
@@ -93,7 +129,7 @@ export function useTestInlineConnection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      return res.json() as Promise<{ success: boolean; error?: string }>;
+      return unwrapResponse<{ success: boolean; error?: string }>(res);
     },
   });
 }

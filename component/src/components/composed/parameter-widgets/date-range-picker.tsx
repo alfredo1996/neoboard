@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
 
 export interface DateRangeParameterProps {
   parameterName: string;
@@ -51,13 +52,7 @@ const DATE_PRESETS = [
   },
 ];
 
-function toIso(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
+const toIso = formatIsoDate;
 
 /**
  * Date range picker parameter widget.
@@ -74,16 +69,8 @@ function DateRangeParameter({
   const [open, setOpen] = React.useState(false);
   const labelId = `param-daterange-label-${parameterName}`;
 
-  // Parse "YYYY-MM-DD" in local time to avoid UTC midnight shift in west-of-UTC timezones.
-  // Guard against malformed strings to prevent format() errors.
-  const parseDateLocal = (s: string): Date | undefined => {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-    if (!match) return undefined;
-    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-    return Number.isNaN(date.getTime()) ? undefined : date;
-  };
-  const fromDate = from ? parseDateLocal(from) : undefined;
-  const toDate = to ? parseDateLocal(to) : undefined;
+  const fromDate = parseIsoDate(from);
+  const toDate = parseIsoDate(to);
   const rangeValue: DateRange | undefined =
     fromDate || toDate ? { from: fromDate, to: toDate } : undefined;
 

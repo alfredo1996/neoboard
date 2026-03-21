@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
+import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
+import { useDarkMode } from "./base-chart";
 
 export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
 
@@ -75,12 +77,20 @@ function resolveTileLayer(
   };
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function buildPropertiesTooltip(marker: MapMarker): string {
   const parts: string[] = [];
-  if (marker.label) parts.push(`<b>${marker.label}</b>`);
+  if (marker.label) parts.push(`<b>${escapeHtml(marker.label)}</b>`);
   if (marker.properties && Object.keys(marker.properties).length > 0) {
     for (const [k, v] of Object.entries(marker.properties)) {
-      parts.push(`<b>${k}:</b> ${String(v)}`);
+      parts.push(`<b>${escapeHtml(k)}:</b> ${escapeHtml(String(v))}`);
     }
   }
   return parts.join("<br/>");
@@ -108,16 +118,7 @@ function MapChart({
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  // Track dark mode for auto tile switching
-  const [dark, setDark] = useState(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
-  useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
-    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
+  const dark = useDarkMode();
 
   const tile = resolveTileLayer(tileLayer, dark, attribution);
 
@@ -182,8 +183,8 @@ function MapChart({
     markers.forEach((m) => {
       const circleMarker = L.circleMarker([m.lat, m.lng], {
         radius: m.value ? Math.min(Math.max(m.value, 4), 30) : markerSize,
-        fillColor: m.color ?? "#3b82f6",
-        color: m.color ?? "#3b82f6",
+        fillColor: m.color ?? MAP_MARKER_DEFAULT_COLOR,
+        color: m.color ?? MAP_MARKER_DEFAULT_COLOR,
         weight: 1,
         opacity: 0.8,
         fillOpacity: 0.6,

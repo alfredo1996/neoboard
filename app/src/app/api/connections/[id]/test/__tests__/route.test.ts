@@ -6,7 +6,9 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireUserId = vi.fn<() => Promise<string>>();
+const mockRequireSession = vi.fn<
+  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
+>();
 const mockDecryptJson = vi.fn();
 const mockTestConnection = vi.fn();
 
@@ -22,11 +24,25 @@ function makeSelectChain(rows: unknown[]) {
 
 const mockDb = { select: vi.fn() };
 
-vi.mock("@/lib/auth/session", () => ({ requireUserId: mockRequireUserId }));
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
+vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson }));
 vi.mock("@/lib/query-executor", () => ({ testConnection: mockTestConnection }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+
+const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "t1" };
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -43,25 +59,25 @@ describe("POST /api/connections/[id]/test", () => {
     POST = mod.POST;
   });
 
-  it("returns 500 with 'Unauthorized' when unauthenticated", async () => {
-    mockRequireUserId.mockRejectedValue(new Error("Unauthorized"));
+  it("returns 401 when unauthenticated", async () => {
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST({} as Request, makeParams("c1"));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns 404 when connection not found or not owned", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toBe("Not found");
+    expect(body.error.code).toBe("NOT_FOUND");
   });
 
   it("returns success:true when test passes", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     const conn = { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" };
     mockDb.select.mockReturnValue(makeSelectChain([conn]));
     mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
@@ -70,11 +86,12 @@ describe("POST /api/connections/[id]/test", () => {
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.success).toBe(true);
+    expect(body.data.success).toBe(true);
+    expect(body.error).toBeNull();
   });
 
   it("returns 500 when testConnection throws", async () => {
-    mockRequireUserId.mockResolvedValue("user-1");
+    mockRequireSession.mockResolvedValue(SESSION);
     const conn = { id: "c1", userId: "user-1", type: "postgresql", configEncrypted: "enc" };
     mockDb.select.mockReturnValue(makeSelectChain([conn]));
     mockDecryptJson.mockReturnValue({ uri: "pg://localhost", username: "pg", password: "pass" });
@@ -83,6 +100,7 @@ describe("POST /api/connections/[id]/test", () => {
     const res = await POST({} as Request, makeParams("c1"));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Connection refused");
+    expect(body.error.code).toBe("INTERNAL_ERROR");
+    expect(body.error.message).toBe("Connection test failed");
   });
 });

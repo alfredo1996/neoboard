@@ -1,6 +1,6 @@
 "use client";
 
-import { X, RefreshCw } from "lucide-react";
+import { X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 
 export interface CascadingSelectorOption {
   label: string;
@@ -59,15 +59,7 @@ function CascadingSelector({
       : "Select a value…");
 
   if (loading) {
-    return (
-      <div className={cn("space-y-1.5", className)}>
-        <Skeleton className="h-3 w-24" />
-        <div className="flex items-center gap-1">
-          <Skeleton className="flex-1 h-9" />
-          <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
+    return <ParamWidgetSkeleton labelWidth="w-24" className={className} />;
   }
 
   return (

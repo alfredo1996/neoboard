@@ -13,7 +13,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    source: 'Bar Chart',
     field: 'category',
     value: 'Electronics',
   },
@@ -21,7 +20,6 @@ export const Default: Story = {
 
 export const WithRemove: Story = {
   args: {
-    source: 'Pie Chart',
     field: 'region',
     value: 'North America',
     onRemove: () => console.log('Remove'),
@@ -29,23 +27,20 @@ export const WithRemove: Story = {
 };
 
 export const Multiple: Story = {
-  args: { source: '', field: '', value: '' },
+  args: { field: '', value: '' },
   render: () => (
     <div className="flex flex-wrap gap-2">
       <CrossFilterTag
-        source="Bar Chart"
         field="category"
         value="Electronics"
         onRemove={() => {}}
       />
       <CrossFilterTag
-        source="Line Chart"
         field="year"
         value="2024"
         onRemove={() => {}}
       />
       <CrossFilterTag
-        source="Pie Chart"
         field="region"
         value="Europe"
         onRemove={() => {}}
@@ -56,7 +51,6 @@ export const Multiple: Story = {
 
 export const ReadOnly: Story = {
   args: {
-    source: 'Dashboard',
     field: 'status',
     value: 'Active',
   },

@@ -15,6 +15,17 @@ const mockDb = {
   delete: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
@@ -41,7 +52,7 @@ describe("GET /api/users/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireAdmin.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireAdmin.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -91,7 +102,7 @@ describe("PATCH /api/users/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireAdmin.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireAdmin.mockRejectedValue(new UnauthorizedError());
     const res = await PATCH(makeRequest({ canWrite: false }), makeParams("u1"));
     expect(res.status).toBe(401);
   });
@@ -162,12 +173,13 @@ describe("DELETE /api/users/[id]", () => {
     vi.doMock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireAdmin.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireAdmin.mockRejectedValue(new UnauthorizedError());
     const res = await DELETE(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(401);
   });

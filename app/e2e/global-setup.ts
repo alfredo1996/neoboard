@@ -1,10 +1,8 @@
-import {
-  GenericContainer,
-  Wait,
-} from "testcontainers";
+import { GenericContainer, Wait } from "testcontainers";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
+import * as net from "node:net";
 import * as http from "node:http";
 import { spawn } from "node:child_process";
 import postgres from "postgres";
@@ -21,6 +19,8 @@ const TEST_ENCRYPTION_KEY =
   "b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9";
 const TEST_NEXTAUTH_SECRET =
   "d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65";
+const TEST_API_KEY_HMAC_SECRET =
+  "a1f3c9e2d47b6a85f0e12d3c4b5a6978f0e1d2c3b4a59687f0e1d2c3b4a59687";
 
 /** Encrypt JSON using the same algorithm as the app (aes-256-gcm). */
 function encryptJson(data: unknown): string {
@@ -33,7 +33,25 @@ function encryptJson(data: unknown): string {
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
 }
 
-const MIGRATIONS_FOLDER = path.resolve(__dirname, "..", "drizzle", "migrations");
+/** Bind to port 0 to let the OS assign an available port, then release it. */
+function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.listen(0, () => {
+      const addr = srv.address();
+      const port = typeof addr === "object" && addr ? addr.port : 0;
+      srv.close(() => resolve(port));
+    });
+    srv.on("error", reject);
+  });
+}
+
+const MIGRATIONS_FOLDER = path.resolve(
+  __dirname,
+  "..",
+  "drizzle",
+  "migrations",
+);
 
 /** Run all Drizzle migrations against the neoboard database. */
 async function runDrizzleMigrations(connectionString: string) {
@@ -45,7 +63,14 @@ async function runDrizzleMigrations(connectionString: string) {
 
 /** Seed the neoboard database with test data (users, connections, dashboards). */
 async function seedNeoboard(connectionString: string) {
-  const seedFile = path.resolve(__dirname, "..", "..", "docker", "postgres", "seed-neoboard.sql");
+  const seedFile = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "docker",
+    "postgres",
+    "seed-neoboard.sql",
+  );
   const seedSql = fs.readFileSync(seedFile, "utf-8");
   const client = postgres(connectionString, { max: 1 });
   await client.unsafe(seedSql);
@@ -142,9 +167,12 @@ export default async function globalSetup() {
   console.log("⏳ Seeding Neo4j with movies dataset...");
   const seedResult = await neo4jContainer.exec([
     "cypher-shell",
-    "-u", "neo4j",
-    "-p", "neoboard123",
-    "-f", "/var/lib/neo4j/import/init.cypher",
+    "-u",
+    "neo4j",
+    "-p",
+    "neoboard123",
+    "-f",
+    "/var/lib/neo4j/import/init.cypher",
   ]);
   if (seedResult.exitCode !== 0) {
     console.error("❌ Neo4j seed failed:", seedResult.output);
@@ -176,12 +204,22 @@ export default async function globalSetup() {
   console.log("⏳ Updating seeded connection configs with encrypted values...");
   await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
 
+  // ── Resolve the server port ──────────────────────────────────────────────
+  // Use TEST_SERVER_PORT when set; otherwise default to 3100 to stay in sync
+  // with playwright.config.ts which uses the same env var and the same default.
+  // Using getFreePort() here would desync the server port from the baseURL that
+  // Playwright evaluates before globalSetup runs.
+  const serverPort =
+    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) || (await getFreePort());
+
   // ── Write .env.test for the Next.js dev server ──────────────────────────
   const envContent = [
     `DATABASE_URL=${databaseUrl}`,
     `ENCRYPTION_KEY=${TEST_ENCRYPTION_KEY}`,
+    `API_KEY_HMAC_SECRET=${TEST_API_KEY_HMAC_SECRET}`,
     `NEXTAUTH_SECRET=${TEST_NEXTAUTH_SECRET}`,
-    `NEXTAUTH_URL=http://localhost:3100`,
+    `NEXTAUTH_URL=http://localhost:${serverPort}`,
+    `TEST_SERVER_PORT=${serverPort}`,
     `# Test container ports (for reference in tests)`,
     `TEST_NEO4J_BOLT_URL=bolt://localhost:${neo4jBoltPort}`,
     `TEST_NEO4J_HTTP_PORT=${neo4jHttpPort}`,
@@ -195,18 +233,21 @@ export default async function globalSetup() {
   // Expose env vars to the current process (available to test workers).
   process.env.DATABASE_URL = databaseUrl;
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
+  process.env.API_KEY_HMAC_SECRET = TEST_API_KEY_HMAC_SECRET;
   process.env.NEXTAUTH_SECRET = TEST_NEXTAUTH_SECRET;
-  process.env.NEXTAUTH_URL = "http://localhost:3100";
+  process.env.NEXTAUTH_URL = `http://localhost:${serverPort}`;
+  process.env.TEST_SERVER_PORT = String(serverPort);
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
 
-  // ── Start the Next.js server on a dedicated test port ───────────────────
-  // Port 3100 avoids conflicts with the dev server on 3000.
+  // ── Start the Next.js server on a dynamically allocated port ────────────
   // Env vars are passed directly to the process — .env.local is never touched.
   const appDir = path.resolve(__dirname, "..");
   const serverCmd = process.env.CI ? "start" : "dev";
-  console.log(`⏳ Starting Next.js ${serverCmd} server on port 3100...`);
-  const args = ["next", serverCmd, "--port", "3100"];
+  console.log(
+    `⏳ Starting Next.js ${serverCmd} server on port ${serverPort}...`,
+  );
+  const args = ["next", serverCmd, "--port", String(serverPort)];
   if (serverCmd === "dev") args.push("--turbopack");
   const server = spawn("npx", args, {
     cwd: appDir,
@@ -215,8 +256,9 @@ export default async function globalSetup() {
       ...process.env,
       DATABASE_URL: databaseUrl,
       ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
+      API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
       NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
-      NEXTAUTH_URL: "http://localhost:3100",
+      NEXTAUTH_URL: `http://localhost:${serverPort}`,
     },
     detached: true,
   });
@@ -233,9 +275,9 @@ export default async function globalSetup() {
   // Save PID so globalTeardown can kill it.
   fs.writeFileSync(SERVER_PID_FILE, String(server.pid));
 
-  // Wait for port 3100 to accept connections (up to 60 s).
-  await waitForPort(3100, 60_000);
-  console.log("✅ Next.js server ready on port 3100");
+  // Wait for the server to accept connections (up to 60 s).
+  await waitForPort(serverPort, 60_000);
+  console.log(`✅ Next.js server ready on port ${serverPort}`);
 
   // ── Initialize E2E coverage collection (nextcov) ────────────────────────
   if (process.env.E2E_COVERAGE) {

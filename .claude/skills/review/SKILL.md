@@ -3,7 +3,7 @@ name: review
 description: Review changes for code quality, security, and NeoBoard conventions.
 model: sonnet
 context: fork
-allowed-tools: Read, Bash(gh *), Bash(git *), Grep(*), Glob(*)
+allowed-tools: Read, Write, Bash(gh *), Bash(git *), Grep(*), Glob(*)
 ---
 ## State
 - Branch: !`git branch --show-current`

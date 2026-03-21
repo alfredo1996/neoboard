@@ -2,6 +2,7 @@ import React from "react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
+import { successTextColor } from "../../lib/design-tokens";
 
 export interface FormFieldDef {
   name: string;
@@ -52,7 +53,7 @@ export function FormWidget({
       ))}
 
       {successMessage && (
-        <p className="text-sm text-green-600 dark:text-green-400">{successMessage}</p>
+        <p className={`text-sm ${successTextColor}`}>{successMessage}</p>
       )}
       {errorMessage && (
         <p className="text-sm text-destructive">{errorMessage}</p>

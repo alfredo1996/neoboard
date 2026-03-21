@@ -26,6 +26,11 @@ vi.mock("echarts/charts", () => ({
   LineChart: vi.fn(),
   PieChart: vi.fn(),
   GraphChart: vi.fn(),
+  GaugeChart: vi.fn(),
+  SankeyChart: vi.fn(),
+  SunburstChart: vi.fn(),
+  RadarChart: vi.fn(),
+  TreemapChart: vi.fn(),
 }));
 
 vi.mock("echarts/components", () => ({
@@ -35,6 +40,7 @@ vi.mock("echarts/components", () => ({
   GridComponent: vi.fn(),
   DataZoomComponent: vi.fn(),
   AriaComponent: vi.fn(),
+  RadarComponent: vi.fn(),
 }));
 
 vi.mock("echarts/renderers", () => ({

@@ -16,6 +16,17 @@ const mockDb = {
 const mockDecryptJson = vi.fn();
 const mockExecuteQuery = vi.fn();
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson, encryptJson: vi.fn() }));
@@ -23,6 +34,7 @@ vi.mock("@/lib/query-executor", () => ({ executeQuery: mockExecuteQuery }));
 
 // Minimal Next.js server shim
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 /** Chainable drizzle query builder stub that resolves to `rows`. */
 function drizzleSelectChain(rows: unknown[]) {
@@ -69,7 +81,7 @@ describe("POST /api/query/write", () => {
   });
 
   it("returns 500 when session retrieval fails", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
     expect(res.status).toBe(500);
     const body = await res.json();

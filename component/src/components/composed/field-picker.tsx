@@ -1,6 +1,7 @@
 import { GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { fieldTypeColors } from "@/lib/design-tokens";
 
 export interface FieldOption {
   name: string;
@@ -14,14 +15,6 @@ export interface FieldPickerProps {
   onRemove?: (field: string) => void;
   className?: string;
 }
-
-const typeColors: Record<string, string> = {
-  string: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  number: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  date: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  boolean: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  object: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-};
 
 function FieldPicker({
   fields,
@@ -55,7 +48,7 @@ function FieldPicker({
                 variant="secondary"
                 className={cn(
                   "text-[10px] px-1.5 py-0 font-normal",
-                  typeColors[field.type]
+                  fieldTypeColors[field.type]
                 )}
               >
                 {field.type}

@@ -13,6 +13,17 @@ const mockDb = {
   delete: vi.fn(),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
@@ -31,12 +42,13 @@ describe("DELETE /api/keys/[id]", () => {
     vi.doMock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await DELETE({} as Request, makeParams("key-1"));
     expect(res.status).toBe(401);
   });

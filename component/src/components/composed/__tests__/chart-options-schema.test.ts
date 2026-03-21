@@ -251,3 +251,274 @@ describe("getDefaultChartSettings", () => {
     expect(opt?.type).toBe("boolean");
   });
 });
+
+// ---------------------------------------------------------------------------
+// colorPalette option
+// ---------------------------------------------------------------------------
+describe("colorPalette option", () => {
+  const echartsTypes = ["bar", "line", "pie", "gauge", "sankey", "sunburst", "radar", "treemap"];
+  const nonEchartsTypes = ["single-value", "graph", "map", "table", "json", "parameter-select", "form"];
+
+  it("includes colorPalette for all ECharts chart types", () => {
+    for (const type of echartsTypes) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys, `${type} should have colorPalette`).toContain("colorPalette");
+    }
+  });
+
+  it("does NOT include colorPalette for non-ECharts chart types", () => {
+    for (const type of nonEchartsTypes) {
+      const keys = getChartOptions(type).map((o) => o.key);
+      expect(keys, `${type} should NOT have colorPalette`).not.toContain("colorPalette");
+    }
+  });
+
+  it("colorPalette defaults to 'deep-ocean'", () => {
+    for (const type of echartsTypes) {
+      const defaults = getDefaultChartSettings(type);
+      expect(defaults.colorPalette, `${type} default colorPalette`).toBe("deep-ocean");
+    }
+  });
+
+  it("colorPalette is a select option in the 'Appearance' category", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorPalette");
+    expect(opt?.type).toBe("select");
+    expect(opt?.category).toBe("Appearance");
+  });
+
+  it("colorPalette select options include 'deep-ocean' and 'warm-sunset'", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorPalette");
+    expect(opt?.options).toBeDefined();
+    expect(opt?.options!.map((o) => o.value)).toContain("deep-ocean");
+    expect(opt?.options!.map((o) => o.value)).toContain("warm-sunset");
+  });
+
+  it("colorPalette select options all have non-empty label and value", () => {
+    const options = getChartOptions("bar");
+    const opt = options.find((o) => o.key === "colorPalette");
+    expect(opt?.options).toBeDefined();
+    for (const item of opt!.options!) {
+      expect(item.label.length).toBeGreaterThan(0);
+      expect(item.value.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("markdown chart options", () => {
+  it("returns content option for markdown", () => {
+    const options = getChartOptions("markdown");
+    expect(options.map((o) => o.key)).toContain("content");
+  });
+
+  it("content option is text type with empty default", () => {
+    const options = getChartOptions("markdown");
+    const content = options.find((o) => o.key === "content");
+    expect(content?.type).toBe("text");
+    expect(content?.default).toBe("");
+    expect(content?.category).toBe("Content");
+  });
+
+  it("defaults include empty content", () => {
+    const defaults = getDefaultChartSettings("markdown");
+    expect(defaults).toHaveProperty("content", "");
+  });
+});
+
+describe("iframe chart options", () => {
+  it("returns url, iframeTitle, and sandbox options", () => {
+    const options = getChartOptions("iframe");
+    const keys = options.map((o) => o.key);
+    expect(keys).toContain("url");
+    expect(keys).toContain("iframeTitle");
+    expect(keys).toContain("sandbox");
+  });
+
+  it("url option is text type in Content category", () => {
+    const options = getChartOptions("iframe");
+    const url = options.find((o) => o.key === "url");
+    expect(url?.type).toBe("text");
+    expect(url?.default).toBe("");
+    expect(url?.category).toBe("Content");
+  });
+
+  it("iframeTitle defaults to 'Embedded content'", () => {
+    const options = getChartOptions("iframe");
+    const title = options.find((o) => o.key === "iframeTitle");
+    expect(title?.default).toBe("Embedded content");
+  });
+
+  it("sandbox option is in Security category", () => {
+    const options = getChartOptions("iframe");
+    const sandbox = options.find((o) => o.key === "sandbox");
+    expect(sandbox?.category).toBe("Security");
+  });
+
+  it("defaults include all iframe settings", () => {
+    const defaults = getDefaultChartSettings("iframe");
+    expect(defaults).toHaveProperty("url", "");
+    expect(defaults).toHaveProperty("iframeTitle", "Embedded content");
+    expect(defaults).toHaveProperty("sandbox");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gauge chart options
+// ---------------------------------------------------------------------------
+describe("gauge chart options", () => {
+  it("returns options for gauge chart", () => {
+    const keys = getChartOptions("gauge").map((o) => o.key);
+    expect(keys).toContain("min");
+    expect(keys).toContain("max");
+    expect(keys).toContain("showProgress");
+  });
+
+  it("defaults min to 0 and max to 100", () => {
+    const defaults = getDefaultChartSettings("gauge");
+    expect(defaults.min).toBe(0);
+    expect(defaults.max).toBe(100);
+  });
+
+  it("includes behavior options (showRefreshButton, manualRun, cacheMode)", () => {
+    const keys = getChartOptions("gauge").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("manualRun");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("gauge")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sankey chart options
+// ---------------------------------------------------------------------------
+describe("sankey chart options", () => {
+  it("returns options for sankey chart", () => {
+    const keys = getChartOptions("sankey").map((o) => o.key);
+    expect(keys).toContain("orient");
+    expect(keys).toContain("showLabels");
+  });
+
+  it("orient option has horizontal and vertical values", () => {
+    const opts = getChartOptions("sankey");
+    const orient = opts.find((o) => o.key === "orient");
+    expect(orient?.type).toBe("select");
+    expect(orient?.options).toContainEqual({ label: "Horizontal", value: "horizontal" });
+    expect(orient?.options).toContainEqual({ label: "Vertical", value: "vertical" });
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("sankey").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("sankey")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sunburst chart options
+// ---------------------------------------------------------------------------
+describe("sunburst chart options", () => {
+  it("returns options for sunburst chart", () => {
+    const keys = getChartOptions("sunburst").map((o) => o.key);
+    expect(keys).toContain("showLabels");
+    expect(keys).toContain("sort");
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("sunburst").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("sunburst")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// radar chart options
+// ---------------------------------------------------------------------------
+describe("radar chart options", () => {
+  it("returns options for radar chart", () => {
+    const keys = getChartOptions("radar").map((o) => o.key);
+    expect(keys).toContain("shape");
+    expect(keys).toContain("showLegend");
+    expect(keys).toContain("filled");
+  });
+
+  it("shape option has polygon and circle values", () => {
+    const opts = getChartOptions("radar");
+    const shape = opts.find((o) => o.key === "shape");
+    expect(shape?.type).toBe("select");
+    expect(shape?.options).toContainEqual({ label: "Polygon", value: "polygon" });
+    expect(shape?.options).toContainEqual({ label: "Circle", value: "circle" });
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("radar").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("radar")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// treemap chart options
+// ---------------------------------------------------------------------------
+describe("treemap chart options", () => {
+  it("returns options for treemap chart", () => {
+    const keys = getChartOptions("treemap").map((o) => o.key);
+    expect(keys).toContain("showLabels");
+    expect(keys).toContain("showBreadcrumb");
+  });
+
+  it("includes behavior options", () => {
+    const keys = getChartOptions("treemap").map((o) => o.key);
+    expect(keys).toContain("showRefreshButton");
+    expect(keys).toContain("cacheMode");
+  });
+
+  it("every option has required fields", () => {
+    for (const opt of getChartOptions("treemap")) {
+      expect(opt).toHaveProperty("key");
+      expect(opt).toHaveProperty("label");
+      expect(opt).toHaveProperty("type");
+      expect(opt).toHaveProperty("default");
+      expect(opt).toHaveProperty("category");
+    }
+  });
+});

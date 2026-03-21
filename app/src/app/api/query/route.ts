@@ -45,12 +45,12 @@ export async function POST(request: Request) {
       )
       .limit(1);
 
-    // 2. Admin fallback: admin can use any connection in the tenant
+    // 2. Admin fallback: admin can use any connection in the same tenant.
     if (!connection && role === "admin") {
       [connection] = await db
         .select()
         .from(connections)
-        .where(eq(connections.id, connectionId))
+        .where(and(eq(connections.id, connectionId), eq(connections.tenantId, sessionTenantId)))
         .limit(1);
     }
 
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
         [connection] = await db
           .select()
           .from(connections)
-          .where(eq(connections.id, connectionId))
+          .where(and(eq(connections.id, connectionId), eq(connections.tenantId, sessionTenantId)))
           .limit(1);
       }
     }

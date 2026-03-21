@@ -92,6 +92,7 @@ export const connections = pgTable("connection", {
   userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: text("tenant_id").notNull().default("default"),
   name: text("name").notNull(),
   type: connectionTypeEnum("type").notNull(),
   configEncrypted: text("configEncrypted").notNull(),

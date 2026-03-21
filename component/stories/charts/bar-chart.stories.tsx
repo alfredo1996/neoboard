@@ -84,3 +84,11 @@ export const EmptyState: Story = {
     data: [],
   },
 };
+
+export const WithPalette: Story = {
+  args: {
+    data: stackedData,
+    showLegend: true,
+    colorPalette: "warm-sunset",
+  },
+};

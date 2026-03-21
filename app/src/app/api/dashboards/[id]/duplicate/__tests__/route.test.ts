@@ -47,9 +47,21 @@ const mockDb = {
   insert: vi.fn(() => makeInsertChain([])),
 };
 
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -68,7 +80,7 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(401);
   });

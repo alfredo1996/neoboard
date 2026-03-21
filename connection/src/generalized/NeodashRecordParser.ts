@@ -70,4 +70,22 @@ export abstract class NeodashRecordParser {
   parseGraphObject(value: unknown): unknown {
     return value;
   }
+
+  /**
+   * Recursively converts all properties of a plain JavaScript object
+   * using the provided converter function.
+   *
+   * @param value - The object to recursively process.
+   * @param convert - A function to apply to each property value.
+   * @returns A fully converted JavaScript object.
+   */
+  protected convertPlainObject(value: object, convert: (v: unknown) => unknown): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const key in value) {
+      if (Object.hasOwn(value, key)) {
+        result[key] = convert((value as Record<string, unknown>)[key]);
+      }
+    }
+    return result;
+  }
 }

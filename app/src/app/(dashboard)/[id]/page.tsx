@@ -130,7 +130,9 @@ export default function DashboardViewerPage({
         persistQueueRef.current = persistQueueRef.current
           .catch(() => undefined)
           .then(() => updateDashboard.mutateAsync(payload))
-          .catch(() => undefined);
+          .catch((err: unknown) => {
+            console.error("[auto-save] Failed to persist dashboard settings:", err);
+          });
       }
     },
     [id, layout, updateDashboard],
@@ -277,8 +279,8 @@ export default function DashboardViewerPage({
                         min={5}
                         placeholder="e.g. 5"
                         value={customSeconds}
-                        onChange={(e) => setCustomSeconds(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleCustomApply(); }}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomSeconds(e.target.value)}
+                        onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter") handleCustomApply(); }}
                         className="h-7 text-xs"
                         data-testid="custom-interval-input"
                       />

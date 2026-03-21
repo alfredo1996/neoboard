@@ -1,0 +1,130 @@
+import { useMemo } from "react";
+import * as echarts from "echarts/core";
+import { SunburstChart as ESunburstChart } from "echarts/charts";
+import { TitleComponent, TooltipComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type { EChartsOption } from "echarts";
+import { BaseChart } from "./base-chart";
+import type { BaseChartProps } from "./types";
+import { useContainerSize } from "@/hooks/useContainerSize";
+import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import type { StylingRule } from "./styling-rule";
+
+echarts.use([ESunburstChart, TitleComponent, TooltipComponent, CanvasRenderer]);
+
+export interface SunburstDataItem {
+  name: string;
+  value?: number;
+  children?: SunburstDataItem[];
+}
+
+export interface SunburstChartProps extends Omit<BaseChartProps, "options"> {
+  /** Hierarchical data for the sunburst chart */
+  data: SunburstDataItem[];
+  /** Show segment labels */
+  showLabels?: boolean;
+  /** Sort order for segments */
+  sort?: "desc" | "asc" | "none";
+  /** Highlight segments on hover */
+  highlightOnHover?: boolean;
+  /** Rule-based styling rules */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for parameterRef comparisons */
+  paramValues?: Record<string, unknown>;
+}
+
+/**
+ * Sunburst chart for displaying hierarchical data as nested arcs.
+ * Accepts `data` as a tree: `[{ name, value, children: [...] }]`.
+ */
+function SunburstChart({
+  data,
+  showLabels = true,
+  sort = "desc",
+  highlightOnHover = true,
+  stylingRules,
+  paramValues,
+  ...rest
+}: SunburstChartProps) {
+  const { width, height, containerRef } = useContainerSize();
+  const compact = width > 0 && (width < 250 || height < 200);
+
+  const options = useMemo((): EChartsOption => {
+    if (!data.length) return buildEmptyDataOption();
+
+    // Sort function for echarts sunburst
+    const sortFn = sort === "none" ? null : sort === "asc" ? "asc" : "desc";
+
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (params: unknown) => {
+          const p = params as { name: string; value: unknown };
+          return `${echarts.format.encodeHTML(p.name)}: ${echarts.format.encodeHTML(String(p.value ?? ""))}`;
+        },
+      },
+      series: [
+        {
+          type: "sunburst",
+          data: stylingRules?.length
+            ? data.map((item) => {
+                const numericValue = typeof item.value === "number" ? item.value : 0;
+                const resolvedColor = resolveItemColor(numericValue, stylingRules, paramValues);
+                return {
+                  ...item,
+                  itemStyle: {
+                    ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
+                    ...(resolvedColor ? { color: resolvedColor } : {}),
+                  },
+                };
+              })
+            : data,
+          center: ["50%", "50%"],
+          radius: ["15%", "95%"],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          sort: sortFn as any,
+          label: {
+            show: false,
+          },
+          emphasis: highlightOnHover
+            ? {
+                focus: "ancestor",
+                label: { show: showLabels && !compact },
+                itemStyle: {
+                  shadowBlur: 10,
+                  shadowOffsetX: 0,
+                  shadowColor: "rgba(0, 0, 0, 0.5)",
+                },
+              }
+            : {},
+          levels: [
+            {},
+            {
+              itemStyle: { borderWidth: 2 },
+              label: {
+                show: showLabels && !compact,
+                rotate: "tangential",
+                overflow: "truncate",
+                width: 60,
+              },
+            },
+            {
+              label: { show: false },
+            },
+            {
+              label: { show: false },
+            },
+          ],
+        },
+      ],
+    };
+  }, [data, showLabels, sort, highlightOnHover, compact, stylingRules, paramValues]);
+
+  return (
+    <div ref={containerRef} className="h-full w-full">
+      <BaseChart options={options} {...rest} />
+    </div>
+  );
+}
+
+export { SunburstChart };

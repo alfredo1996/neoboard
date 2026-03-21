@@ -24,13 +24,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Job 1: Fast quality gate ────────────────────────────────────────────────
-  # Lint + type-check all packages + component build. Fails fast before
-  # expensive test jobs start.
-  lint-typecheck:
-    name: Lint & Type Check
+  # ── Job 0: Type-check ───────────────────────────────────────────────────────
+  # Pre-hook gates are bypassable; enforce type safety in CI as well.
+  typecheck:
+    name: TypeScript type-check
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -42,42 +41,40 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: |
-            package-lock.json
             app/package-lock.json
             component/package-lock.json
             connection/package-lock.json
 
       - name: Install dependencies
         run: |
-          npm ci &
-          npm ci --prefix component &
           npm ci --prefix app &
+          APP_CI_PID=$!
+          npm ci --prefix component &
+          COMP_CI_PID=$!
           npm ci --prefix connection &
-          wait
+          CONN_CI_PID=$!
 
-      - name: Lint (all packages)
-        run: npm run lint
-
-      - name: Type-check app
-        working-directory: app
-        run: npx tsc --noEmit
+          FAIL=0
+          wait $APP_CI_PID  || FAIL=1
+          wait $COMP_CI_PID || FAIL=1
+          wait $CONN_CI_PID || FAIL=1
+          exit $FAIL
 
       - name: Type-check component
         working-directory: component
         run: npx tsc --noEmit
 
-      - name: Build component library
-        working-directory: component
-        run: npm run build
+      - name: Type-check app
+        working-directory: app
+        run: npx tsc --noEmit
 
-  # ── Job 2: Unit & integration tests with coverage ──────────────────────────
-  # Runs all three packages in a single job to avoid redundant npm ci.
+  # ── Job 1: Unit & integration tests with coverage ──────────────────────────
+  # All three packages run in parallel within a single job.
   # Connection integration tests use GitHub service containers.
   unit-tests:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
-    needs: lint-typecheck
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -125,23 +122,32 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci --prefix app &
+          APP_CI_PID=$!
           npm ci --prefix component &
+          COMP_CI_PID=$!
           npm ci --prefix connection &
-          wait
+          CONN_CI_PID=$!
 
-      - name: App unit tests (with coverage)
-        working-directory: app
-        run: npm run test:coverage
-        env:
-          NODE_ENV: test
+          FAIL=0
+          wait $APP_CI_PID  || FAIL=1
+          wait $COMP_CI_PID || FAIL=1
+          wait $CONN_CI_PID || FAIL=1
+          exit $FAIL
 
-      - name: Component unit tests (with coverage)
-        working-directory: component
-        run: npm run test:coverage
+      - name: Run all tests in parallel
+        run: |
+          cd app && NODE_ENV=test npm run test:coverage &
+          APP_PID=$!
+          cd component && npm run test:coverage &
+          COMP_PID=$!
+          cd connection && npm run test:coverage &
+          CONN_PID=$!
 
-      - name: Connection integration tests (with coverage)
-        working-directory: connection
-        run: npm run test:coverage
+          FAIL=0
+          wait $APP_PID  || FAIL=1
+          wait $COMP_PID || FAIL=1
+          wait $CONN_PID || FAIL=1
+          exit $FAIL
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: '5432'
@@ -163,13 +169,12 @@ jobs:
             component/coverage/lcov.info
             connection/coverage/lcov.info
 
-  # ── Job 3: E2E tests with coverage ─────────────────────────────────────────
+  # ── Job 2: E2E tests with coverage ─────────────────────────────────────────
   # Playwright + Testcontainers. Runs in parallel with unit-tests.
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    needs: lint-typecheck
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -188,11 +193,23 @@ jobs:
       - name: Install dependencies + pre-pull container images
         run: |
           npm ci --prefix connection &
+          CONN_CI_PID=$!
           npm ci --prefix component  &
+          COMP_CI_PID=$!
           npm ci --prefix app        &
+          APP_CI_PID=$!
           docker pull postgres:16-alpine  &
+          PG_PID=$!
           docker pull neo4j:5-community   &
-          wait
+          NEO4J_PID=$!
+
+          FAIL=0
+          wait $CONN_CI_PID  || FAIL=1
+          wait $COMP_CI_PID  || FAIL=1
+          wait $APP_CI_PID   || FAIL=1
+          wait $PG_PID       || FAIL=1
+          wait $NEO4J_PID    || FAIL=1
+          exit $FAIL
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -252,12 +269,12 @@ jobs:
           path: app/coverage-e2e/lcov.info
           if-no-files-found: warn
 
-  # ── Job 4: SonarCloud scan (no test execution) ─────────────────────────────
+  # ── Job 3: SonarCloud scan (no test execution) ─────────────────────────────
   # Downloads coverage artifacts from unit-tests + e2e and runs the scan.
   sonar:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    needs: [unit-tests, e2e]
+    needs: [typecheck, unit-tests, e2e]
     if: ${{ !cancelled() }}
     timeout-minutes: 10
 

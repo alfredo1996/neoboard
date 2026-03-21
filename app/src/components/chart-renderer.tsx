@@ -9,6 +9,8 @@ import {
   Skeleton,
   EmptyState,
   JsonViewer,
+  MarkdownWidget,
+  IframeWidget,
 } from "@neoboard/components";
 
 // Chart components use ECharts (browser APIs) — must be loaded client-side only
@@ -37,6 +39,11 @@ import type {
   MapMarker,
   EChartsClickEvent,
   StylingRule,
+  GaugeDataPoint,
+  SankeyChartData,
+  SunburstDataItem,
+  RadarChartData,
+  TreemapDataItem,
 } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
 import type { ParameterType } from "@/stores/parameter-store";
@@ -63,6 +70,28 @@ const MapChart = dynamic(
       </div>
     ),
   }
+);
+
+// New ECharts chart types — loaded client-side only
+const GaugeChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const SankeyChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.SankeyChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const SunburstChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.SunburstChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const RadarChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+);
+const TreemapChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.TreemapChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
 );
 
 export interface ChartRendererProps {
@@ -116,6 +145,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorPalette={settings.colorPalette as string | undefined}
           colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
@@ -137,6 +167,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorPalette={settings.colorPalette as string | undefined}
           colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
@@ -156,6 +187,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          colorPalette={settings.colorPalette as string | undefined}
           colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
@@ -282,6 +314,106 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           connectionId={connectionId ?? ""}
           query={query ?? ""}
           settings={settings}
+        />
+      );
+
+    case "markdown":
+      return (
+        <MarkdownWidget
+          content={settings.content as string | undefined}
+        />
+      );
+
+    case "iframe":
+      return (
+        <IframeWidget
+          url={settings.url as string | undefined}
+          title={settings.iframeTitle as string | undefined}
+          sandbox={settings.sandbox as string | undefined}
+        />
+      );
+
+    case "gauge":
+      return (
+        <GaugeChart
+          data={(data as GaugeDataPoint[]) ?? []}
+          min={settings.min as number | undefined}
+          max={settings.max as number | undefined}
+          showProgress={settings.showProgress as boolean | undefined}
+          showPointer={settings.showPointer as boolean | undefined}
+          showDetail={settings.showDetail as boolean | undefined}
+          startAngle={settings.startAngle as number | undefined}
+          endAngle={settings.endAngle as number | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
+        />
+      );
+
+    case "sankey": {
+      const sankeyData = (data as SankeyChartData) ?? { nodes: [], links: [] };
+      return (
+        <SankeyChart
+          data={sankeyData}
+          orient={settings.orient as "horizontal" | "vertical" | undefined}
+          showLabels={settings.showLabels as boolean | undefined}
+          nodeWidth={settings.nodeWidth as number | undefined}
+          nodeGap={settings.nodeGap as number | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
+          onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
+        />
+      );
+    }
+
+    case "sunburst":
+      return (
+        <SunburstChart
+          data={(data as SunburstDataItem[]) ?? []}
+          showLabels={settings.showLabels as boolean | undefined}
+          sort={settings.sort as "desc" | "asc" | "none" | undefined}
+          highlightOnHover={settings.highlightOnHover as boolean | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
+          onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
+        />
+      );
+
+    case "radar": {
+      const radarData = (data as RadarChartData) ?? { indicators: [], series: [] };
+      return (
+        <RadarChart
+          data={radarData}
+          shape={settings.shape as "polygon" | "circle" | undefined}
+          filled={settings.filled as boolean | undefined}
+          showLegend={settings.showLegend as boolean | undefined}
+          showValues={settings.showValues as boolean | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
+        />
+      );
+    }
+
+    case "treemap":
+      return (
+        <TreemapChart
+          data={(data as TreemapDataItem[]) ?? []}
+          showLabels={settings.showLabels as boolean | undefined}
+          showBreadcrumb={settings.showBreadcrumb as boolean | undefined}
+          showValues={settings.showValues as boolean | undefined}
+          colorSaturation={settings.colorSaturation as "low" | "medium" | "high" | undefined}
+          colorPalette={settings.colorPalette as string | undefined}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
+          onClick={handleEChartsClick}
+          colorblindMode={settings.colorblindMode as boolean | undefined}
         />
       );
 

@@ -13,8 +13,20 @@ const mockRequireSession = vi.fn<
 
 const mockDb = {
   select: vi.fn(),
+  selectDistinctOn: vi.fn(),
   insert: vi.fn(),
 };
+
+class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+  }
+}
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
 
 vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
@@ -22,6 +34,7 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -39,25 +52,21 @@ describe("GET /api/dashboards", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(401);
   });
 
   it("returns owned dashboards with role=owner in envelope (creator role)", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const ownedRow = {
-      id: "d1",
-      name: "My Dashboard",
-      description: null,
-      isPublic: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const row = {
+      id: "d1", name: "My Dashboard", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "user-1", shareRole: null, updatedByName: null,
     };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([ownedRow]))
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([]));
+    // Non-admin: 1) count, 2) selectDistinctOn
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);
@@ -70,12 +79,18 @@ describe("GET /api/dashboards", () => {
 
   it("merges owned and shared dashboards (creator role)", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date() };
-    const sharedRow = { id: "d2", name: "Shared", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([ownedRow]))
-      .mockReturnValueOnce(makeSelectChain([sharedRow]))
-      .mockReturnValueOnce(makeSelectChain([]));
+    const ownedRow = {
+      id: "d1", name: "Own", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "user-1", shareRole: null, updatedByName: null,
+    };
+    const sharedRow = {
+      id: "d2", name: "Shared", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "other-user", shareRole: "viewer", updatedByName: null,
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([ownedRow, sharedRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -88,7 +103,10 @@ describe("GET /api/dashboards", () => {
     mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
     const ownedRow = { id: "d1", name: "My Dashboard", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), ownerId: "admin-1" };
     const otherRow = { id: "d2", name: "Other Dashboard", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), ownerId: "user-1" };
-    mockDb.select.mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
+    // Admin path: 1) count query, 2) paginated select
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
+      .mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -100,11 +118,13 @@ describe("GET /api/dashboards", () => {
 
   it("returns only assigned dashboards for reader role", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
-    const assignedRow = { id: "d1", name: "Assigned", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date(), role: "viewer" };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([assignedRow]))
-      .mockReturnValueOnce(makeSelectChain([]));
+    const assignedRow = {
+      id: "d1", name: "Assigned", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "other-user", shareRole: "viewer", updatedByName: null,
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([assignedRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -114,12 +134,18 @@ describe("GET /api/dashboards", () => {
 
   it("includes public dashboards for creator role", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: false, createdAt: new Date(), updatedAt: new Date() };
-    const publicRow = { id: "d2", name: "Public Demo", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([ownedRow]))
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([publicRow]));
+    const ownedRow = {
+      id: "d1", name: "Own", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "user-1", shareRole: null, updatedByName: null,
+    };
+    const publicRow = {
+      id: "d2", name: "Public Demo", description: null, isPublic: true,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "other-user", shareRole: null, updatedByName: null,
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([ownedRow, publicRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -128,14 +154,16 @@ describe("GET /api/dashboards", () => {
     expect(body.data.find((d: { id: string }) => d.id === "d2")?.role).toBe("viewer");
   });
 
-  it("deduplicates public dashboards already in owned or shared", async () => {
+  it("deduplication handled by DB DISTINCT ON", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const ownedRow = { id: "d1", name: "Own", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
-    const publicRow = { id: "d1", name: "Own", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([ownedRow]))
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([publicRow]));
+    // DB returns only 1 row (DISTINCT ON deduplicates at DB level)
+    const row = {
+      id: "d1", name: "Own", description: null, isPublic: true,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "user-1", shareRole: null, updatedByName: null,
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -145,11 +173,13 @@ describe("GET /api/dashboards", () => {
 
   it("includes public dashboards for reader role", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
-    const publicRow = { id: "d1", name: "Public Demo", description: null, isPublic: true, createdAt: new Date(), updatedAt: new Date() };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([publicRow]));
+    const publicRow = {
+      id: "d1", name: "Public Demo", description: null, isPublic: true,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "other-user", shareRole: null, updatedByName: null,
+    };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([publicRow]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -171,7 +201,7 @@ describe("POST /api/dashboards", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({ name: "DB" }));
     expect(res.status).toBe(401);
   });
@@ -231,16 +261,13 @@ describe("GET /api/dashboards — updatedByName", () => {
   it("returns updatedByName from joined user for admin", async () => {
     mockRequireSession.mockResolvedValue({ userId: "admin-1", role: "admin", canWrite: true, tenantId: "default" });
     const row = {
-      id: "d1",
-      name: "Dashboard",
-      description: null,
-      isPublic: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      ownerId: "admin-1",
-      updatedByName: "Alice",
+      id: "d1", name: "Dashboard", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "admin-1", updatedByName: "Alice",
     };
-    mockDb.select.mockReturnValueOnce(makeSelectChain([row]));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ count: 1 }]))
+      .mockReturnValueOnce(makeSelectChain([row]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);
@@ -250,19 +277,13 @@ describe("GET /api/dashboards — updatedByName", () => {
 
   it("returns updatedByName as null when no updater", async () => {
     mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const ownedRow = {
-      id: "d1",
-      name: "Dashboard",
-      description: null,
-      isPublic: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      updatedByName: null,
+    const row = {
+      id: "d1", name: "Dashboard", description: null, isPublic: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      ownerId: "user-1", shareRole: null, updatedByName: null,
     };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([ownedRow]))
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);

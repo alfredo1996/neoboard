@@ -14,30 +14,8 @@ export { errorHasMessage } from '../generalized/utils';
  * @returns Array of [tableName, field1, field2, ...] arrays, or empty array
  */
 export function extractTableSchemaFromFields(fields: FieldDef[]): string[][] {
-  if (!fields || fields.length === 0) {
-    return [];
-  }
-
-  // Group fields by table (using table OID)
-  const tableDict: Record<string, Set<string>> = {};
-
-  fields.forEach((field) => {
-    // Use table name if available, otherwise use a generic key
-    const tableName = field.name ? 'result' : 'unknown';
-
-    if (!tableDict[tableName]) {
-      tableDict[tableName] = new Set();
-    }
-
-    tableDict[tableName].add(field.name);
-  });
-
-  // Convert to array format: [tableName, ...fieldNames]
-  const schema = Object.keys(tableDict).map((tableName) => {
-    return [tableName, ...Array.from(tableDict[tableName])];
-  });
-
-  return schema.length > 0 ? schema : [];
+  if (!fields || fields.length === 0) return [];
+  return [['result', ...fields.map((f) => f.name)]];
 }
 
 /**
@@ -45,11 +23,15 @@ export function extractTableSchemaFromFields(fields: FieldDef[]): string[][] {
  * @param error - The error object
  * @returns true if the error is a timeout
  */
-export function isTimeoutError(error: any): boolean {
-  if (!error) return false;
+export function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
 
-  const message = error.message || '';
-  const code = error.code || '';
+  const message = 'message' in error && typeof (error as { message: unknown }).message === 'string'
+    ? (error as { message: string }).message
+    : '';
+  const code = 'code' in error && typeof (error as { code: unknown }).code === 'string'
+    ? (error as { code: string }).code
+    : '';
 
   // PostgreSQL timeout error codes and messages
   return (
@@ -66,10 +48,12 @@ export function isTimeoutError(error: any): boolean {
  * @param error - The error object
  * @returns true if the error is an authentication issue
  */
-export function isAuthenticationError(error: any): boolean {
-  if (!error) return false;
+export function isAuthenticationError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
 
-  const code = error.code || '';
+  const code = 'code' in error && typeof (error as { code: unknown }).code === 'string'
+    ? (error as { code: string }).code
+    : '';
 
   // PostgreSQL authentication error codes
   return (

@@ -1,7 +1,7 @@
 export class NeodashRecord {
-  private record: { [key: string | symbol]: any };
+  private record: Record<string, unknown>;
 
-  constructor(record: Record<string, any>) {
+  constructor(record: Record<string, unknown>) {
     /**
      * @type {Object<string, any>}
      * private
@@ -15,7 +15,7 @@ export class NeodashRecord {
   /**
    * Returns the underlying record as a plain JavaScript object.
    */
-  toObject(): Record<string, any> {
+  toObject(): Record<string, unknown> {
     return { ...this.record };
   }
 
@@ -47,23 +47,24 @@ export class NeodashRecord {
     const fieldsDict: Record<string, Set<string>> = {};
 
     // Extract properties from a Neo4j node and group them by label.
-    const handleNode = (node: any) => {
-      if (node?.labels && node?.properties) {
-        node.labels.forEach((label: string) => {
+    const handleNode = (node: unknown) => {
+      if (typeof node === 'object' && node !== null && 'labels' in node && 'properties' in node) {
+        const typed = node as { labels: string[]; properties: Record<string, unknown> };
+        typed.labels.forEach((label: string) => {
           if (!fieldsDict[label]) fieldsDict[label] = new Set();
-          Object.keys(node.properties).forEach((prop) => fieldsDict[label].add(prop));
+          Object.keys(typed.properties).forEach((prop) => fieldsDict[label].add(prop));
         });
       }
     };
 
     // Recursively traverse nested values: arrays, paths, nodes.
-    const traverse = (val: any) => {
+    const traverse = (val: unknown) => {
       if (!val) return;
 
       if (Array.isArray(val)) {
         val.forEach(traverse);
-      } else if (val?.segments && Array.isArray(val.segments)) {
-        val.segments.forEach((segment: any) => {
+      } else if (typeof val === 'object' && val !== null && 'segments' in val && Array.isArray((val as { segments: unknown[] }).segments)) {
+        (val as { segments: Array<{ start: unknown; end: unknown }> }).segments.forEach((segment) => {
           traverse(segment.start);
           traverse(segment.end);
         });

@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { generateApiKey } from "@/lib/auth/api-key";
-import { validateBody, handleRouteError } from "@/lib/api-utils";
+import { validateBody, forbidden, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess } from "@/lib/api-response";
 
 const createKeySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -27,7 +27,7 @@ export async function GET() {
       .from(apiKeys)
       .where(and(eq(apiKeys.userId, userId), eq(apiKeys.tenantId, tenantId)));
 
-    return NextResponse.json({ data: rows, error: null, meta: null });
+    return apiSuccess(rows);
   } catch (e) {
     return handleRouteError(e, "Failed to list API keys");
   }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   try {
     const { userId, tenantId, canWrite } = await requireSession();
     if (!canWrite) {
-      throw new Error("Forbidden");
+      return forbidden();
     }
 
     const body = await request.json();
@@ -63,10 +63,7 @@ export async function POST(request: Request) {
         createdAt: apiKeys.createdAt,
       });
 
-    return NextResponse.json(
-      { data: { ...inserted, key: plaintext }, error: null, meta: null },
-      { status: 201 }
-    );
+    return apiSuccess({ ...inserted, key: plaintext }, 201);
   } catch (e) {
     return handleRouteError(e, "Failed to create API key");
   }
