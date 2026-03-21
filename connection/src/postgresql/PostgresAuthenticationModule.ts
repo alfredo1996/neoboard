@@ -9,6 +9,7 @@ import { isAuthenticationError } from './utils';
  */
 export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
+  private _poolInitPromise: Promise<boolean> | null = null;
   protected _authConfig!: AuthConfig;
   private readonly _advancedOptions?: AdvancedConnectionOptions;
 
@@ -78,6 +79,19 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
    * @throws Error for connection issues other than authentication
    */
   async verifyAuthentication(): Promise<boolean> {
+    // Prevent concurrent callers from creating duplicate pools.
+    // The first caller creates the promise; subsequent callers await the same one.
+    if (this._poolInitPromise) return this._poolInitPromise;
+
+    this._poolInitPromise = this._verifyAuthenticationImpl();
+    try {
+      return await this._poolInitPromise;
+    } finally {
+      this._poolInitPromise = null;
+    }
+  }
+
+  private async _verifyAuthenticationImpl(): Promise<boolean> {
     try {
       if (!this.pool) {
         this.pool = this.createDriver();
@@ -91,11 +105,9 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         client.release();
       }
     } catch (error: unknown) {
-      // Check if this is an authentication error using the shared utility
       if (isAuthenticationError(error)) {
         return false;
       }
-      // For other errors, throw
       throw error;
     }
   }

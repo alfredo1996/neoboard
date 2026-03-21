@@ -77,12 +77,20 @@ function resolveTileLayer(
   };
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function buildPropertiesTooltip(marker: MapMarker): string {
   const parts: string[] = [];
-  if (marker.label) parts.push(`<b>${marker.label}</b>`);
+  if (marker.label) parts.push(`<b>${escapeHtml(marker.label)}</b>`);
   if (marker.properties && Object.keys(marker.properties).length > 0) {
     for (const [k, v] of Object.entries(marker.properties)) {
-      parts.push(`<b>${k}:</b> ${String(v)}`);
+      parts.push(`<b>${escapeHtml(k)}:</b> ${escapeHtml(String(v))}`);
     }
   }
   return parts.join("<br/>");

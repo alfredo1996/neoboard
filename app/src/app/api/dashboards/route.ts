@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, countDistinct, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
@@ -89,94 +89,75 @@ export async function GET(request: Request) {
       return apiList(mapped, { total: Number(total), limit, offset });
     }
 
-    // Creator & Reader: owned dashboards + explicitly assigned/shared + public
-    const owned = await db
-      .select({
-        id: dashboards.id,
-        name: dashboards.name,
-        description: dashboards.description,
-        isPublic: dashboards.isPublic,
-        createdAt: dashboards.createdAt,
-        updatedAt: dashboards.updatedAt,
-        layoutJson: dashboards.layoutJson,
-        thumbnailJson: dashboards.thumbnailJson,
-        updatedByName: users.name,
-      })
-      .from(dashboards)
-      .leftJoin(users, eq(dashboards.updatedBy, users.id))
-      .where(and(eq(dashboards.userId, userId), eq(dashboards.tenantId, tenantId)));
-
-    const shared = await db
-      .select({
-        id: dashboards.id,
-        name: dashboards.name,
-        description: dashboards.description,
-        isPublic: dashboards.isPublic,
-        createdAt: dashboards.createdAt,
-        updatedAt: dashboards.updatedAt,
-        role: dashboardShares.role,
-        layoutJson: dashboards.layoutJson,
-        thumbnailJson: dashboards.thumbnailJson,
-        updatedByName: users.name,
-      })
-      .from(dashboardShares)
-      .innerJoin(dashboards, eq(dashboardShares.dashboardId, dashboards.id))
-      .leftJoin(users, eq(dashboards.updatedBy, users.id))
-      .where(
-        and(
-          eq(dashboardShares.userId, userId),
-          eq(dashboards.tenantId, tenantId)
+    // Creator & Reader: single query with LEFT JOIN + OR for owned/shared/public.
+    // DB-level deduplication via DISTINCT ON, pagination via LIMIT/OFFSET.
+    const accessFilter = role === "reader"
+      ? or(
+          sql`${dashboardShares.id} IS NOT NULL`,
+          eq(dashboards.isPublic, true),
         )
-      );
+      : or(
+          eq(dashboards.userId, userId),
+          sql`${dashboardShares.id} IS NOT NULL`,
+          eq(dashboards.isPublic, true),
+        );
 
-    const publicDashboards = await db
-      .select({
+    const [{ count: total }] = await db
+      .select({ count: countDistinct(dashboards.id) })
+      .from(dashboards)
+      .leftJoin(
+        dashboardShares,
+        and(
+          eq(dashboardShares.dashboardId, dashboards.id),
+          eq(dashboardShares.userId, userId),
+          eq(dashboardShares.tenantId, tenantId),
+        ),
+      )
+      .where(and(eq(dashboards.tenantId, tenantId), accessFilter));
+
+    const rows = await db
+      .selectDistinctOn([dashboards.id], {
         id: dashboards.id,
         name: dashboards.name,
         description: dashboards.description,
         isPublic: dashboards.isPublic,
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
+        ownerId: dashboards.userId,
+        shareRole: dashboardShares.role,
         layoutJson: dashboards.layoutJson,
         thumbnailJson: dashboards.thumbnailJson,
         updatedByName: users.name,
       })
       .from(dashboards)
+      .leftJoin(
+        dashboardShares,
+        and(
+          eq(dashboardShares.dashboardId, dashboards.id),
+          eq(dashboardShares.userId, userId),
+          eq(dashboardShares.tenantId, tenantId),
+        ),
+      )
       .leftJoin(users, eq(dashboards.updatedBy, users.id))
-      .where(and(eq(dashboards.tenantId, tenantId), eq(dashboards.isPublic, true)));
+      .where(and(eq(dashboards.tenantId, tenantId), accessFilter))
+      .orderBy(dashboards.id, dashboards.updatedAt)
+      .limit(limit)
+      .offset(offset);
 
-    function addPreview<T extends { layoutJson: DashboardLayoutV2 | null; thumbnailJson: Record<string, string> | null }>(
-      d: T
-    ) {
-      const { layoutJson, thumbnailJson, ...rest } = d;
+    const mapped = rows.map((d) => {
+      const { layoutJson, thumbnailJson, ownerId, shareRole, ...rest } = d;
+      const dashRole = ownerId === userId
+        ? ("owner" as const)
+        : shareRole ?? ("viewer" as const);
       return {
         ...rest,
+        role: dashRole,
         preview: computePreview(layoutJson, thumbnailJson),
         widgetCount: countWidgets(layoutJson),
       };
-    }
-
-    // Build combined list: owned + shared + public, deduplicated by ID
-    const ownedMapped = owned.map((d) => addPreview({ ...d, role: "owner" as const }));
-    const sharedMapped = shared.map(addPreview);
-    const publicMapped = publicDashboards.map((d) => addPreview({ ...d, role: "viewer" as const }));
-
-    const combined =
-      role === "reader"
-        ? [...sharedMapped, ...publicMapped]
-        : [...ownedMapped, ...sharedMapped, ...publicMapped];
-
-    // Deduplicate by ID (first occurrence wins — preserves owner/editor role over viewer)
-    const seen = new Set<string>();
-    const deduped = combined.filter((d) => {
-      if (seen.has(d.id)) return false;
-      seen.add(d.id);
-      return true;
     });
 
-    const total = deduped.length;
-    const paginated = deduped.slice(offset, offset + limit);
-    return apiList(paginated, { total, limit, offset });
+    return apiList(mapped, { total: Number(total), limit, offset });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboards");
   }
