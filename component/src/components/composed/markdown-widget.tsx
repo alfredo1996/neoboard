@@ -112,6 +112,39 @@ function parseMarkdown(md: string): string {
       inBlockquote = false;
     }
 
+    // GFM tables: pipe-delimited rows where the next line is the alignment row
+    if (
+      line.includes("|") &&
+      i + 1 < lines.length &&
+      /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(lines[i + 1])
+    ) {
+      closeList();
+      const parseCells = (row: string) =>
+        row.split("|").map((c) => c.trim()).filter((c) => c.length > 0);
+      const headers = parseCells(line);
+      i++; // skip alignment row
+      const bodyRows: string[][] = [];
+      while (i + 1 < lines.length && lines[i + 1].includes("|")) {
+        i++;
+        bodyRows.push(parseCells(lines[i]));
+      }
+      result.push('<table class="w-full border-collapse my-2 text-sm">');
+      result.push("<thead><tr>");
+      for (const h of headers) {
+        result.push(`<th class="border border-border px-3 py-1.5 font-semibold text-left bg-muted/30">${escapeHtml(h)}</th>`);
+      }
+      result.push("</tr></thead><tbody>");
+      for (const row of bodyRows) {
+        result.push("<tr>");
+        for (let c = 0; c < headers.length; c++) {
+          result.push(`<td class="border border-border px-3 py-1.5">${escapeHtml(row[c] ?? "")}</td>`);
+        }
+        result.push("</tr>");
+      }
+      result.push("</tbody></table>");
+      continue;
+    }
+
     // Unordered lists
     if (line.match(/^[-*+]\s+/)) {
       if (listType !== "ul") {
