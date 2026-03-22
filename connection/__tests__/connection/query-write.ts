@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../utils/setup';
 import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../utils/setup';
 import { Neo4jError, toNumber } from 'neo4j-driver-core';
 import { NeodashRecord } from '../../src/generalized/NeodashRecord';
 
@@ -41,7 +42,7 @@ describe('Advanced Query to Neo4j', () => {
     };
 
     const writeConfig = {
-      ...DEFAULT_CONNECTION_CONFIG,
+      ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: 'WRITE',
       connectionTimeout: 30 * 1000, // ms
     };
@@ -67,7 +68,7 @@ describe('Advanced Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(matchQueryParams, matchCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(matchQueryParams, matchCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should fail to create a Person named "Neo4jTest" because of READ accessMode', async () => {
@@ -92,7 +93,7 @@ describe('Advanced Query to Neo4j', () => {
         expect(err.message).toMatch(/^Writing in read access mode not allowed/);
       },
     };
-    await connection.runQuery(createQueryParams, createCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(createQueryParams, createCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 });
 
@@ -128,7 +129,7 @@ test('should create, delete, and verify the deletion of the Person "Nodename"', 
   };
 
   const writeConfig = {
-    ...DEFAULT_CONNECTION_CONFIG,
+    ...NEO4J_TEST_CONNECTION_CONFIG,
     accessMode: 'WRITE',
     connectionTimeout: 30 * 1000, // ms
   };
@@ -198,7 +199,7 @@ test('should update born and nationality properties for a Person', async () => {
   };
 
   const writeConfig = {
-    ...DEFAULT_CONNECTION_CONFIG,
+    ...NEO4J_TEST_CONNECTION_CONFIG,
     accessMode: 'WRITE',
     connectionTimeout: 30 * 1000, // ms
   };
@@ -259,7 +260,7 @@ test('should update born and nationality properties for a Person', async () => {
     },
   };
 
-  await connection.runQuery(verifyQuery, verifyCallback, DEFAULT_CONNECTION_CONFIG);
+  await connection.runQuery(verifyQuery, verifyCallback, NEO4J_TEST_CONNECTION_CONFIG);
   } finally {
     await connection.getDriver().close();
   }
@@ -272,7 +273,7 @@ test('should delete a Person node and verify it is no longer present', async () 
   try {
 
   const writeConfig = {
-    ...DEFAULT_CONNECTION_CONFIG,
+    ...NEO4J_TEST_CONNECTION_CONFIG,
     accessMode: 'WRITE',
     connectionTimeout: 30 * 1000, // ms
   };
@@ -329,7 +330,7 @@ test('should delete a Person node and verify it is no longer present', async () 
     },
   };
 
-  await connection.runQuery(verifyQuery, verifyCallback, DEFAULT_CONNECTION_CONFIG);
+  await connection.runQuery(verifyQuery, verifyCallback, NEO4J_TEST_CONNECTION_CONFIG);
   } finally {
     await connection.getDriver().close();
   }

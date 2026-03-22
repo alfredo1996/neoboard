@@ -5,6 +5,7 @@ import { Driver } from 'neo4j-driver-core';
 import { AuthConfig, AdvancedConnectionOptions, ConnectionConfig, QueryCallback, QueryParams, QueryStatus } from '../generalized/interfaces';
 import { Neo4jRecordParser } from './Neo4jRecordParser';
 import { extractNodeAndRelPropertiesFromRecords, errorHasMessage } from './utils';
+import { determineQueryStatus } from '../generalized/utils';
 
 /**
  * Neo4jConnectionModule
@@ -43,14 +44,8 @@ export class Neo4jConnectionModule extends ConnectionModule {
     callbacks: QueryCallback<T>, // Accept the callbacks as an object
     config: ConnectionConfig
   ) {
-    const { query, params = {} } = queryParams; // Destructure query and params
-    if (callbacks.setStatus) {
-      if (!query || query.trim() === '') {
-        callbacks.setStatus(QueryStatus.NO_QUERY);
-        return;
-      }
-      callbacks.setStatus(QueryStatus.RUNNING);
-    }
+    const { query, params = {} } = queryParams;
+    if (this.handleEmptyQuery(query, callbacks)) return;
     return this._runCypherQuery(query, callbacks, config, params);
   }
 
@@ -67,7 +62,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
     query: string,
     callbacks: QueryCallback<T>,
     config: ConnectionConfig,
-    params: Record<string, any> = {}
+    params: Record<string, unknown> = {}
   ) {
     const session = this.getDriver().session({
       defaultAccessMode: neo4j.session[config.accessMode],
@@ -81,19 +76,19 @@ export class Neo4jConnectionModule extends ConnectionModule {
           const res = await tx.run(query, params); // Pass params to the run method
           return res.records;
         },
-        { timeout: config.timeout } // Transaction timeout (query-level), not connection timeout
+        {
+          timeout: config.timeout, // Sets dbms.transaction.timeout for this transaction.
+          // Note: this covers the entire transaction lifecycle, not just query execution.
+          // Very long-running queries within the timeout window will still complete.
+        }
       );
       // Set schema if provided
       callbacks.setSchema?.(extractNodeAndRelPropertiesFromRecords(result));
 
       // TODO: Truncation should happen at db level
       const toTruncate = result.length > config.rowLimit;
-      let status = QueryStatus.COMPLETE;
-      if (result.length === 0) status = QueryStatus.NO_DATA;
-      else if (result.length > config.rowLimit) status = QueryStatus.COMPLETE_TRUNCATED;
-
-      callbacks.setStatus?.(status);
-      const limitedResult = toTruncate ? (result.slice(0, config.rowLimit) as any) : result;
+      callbacks.setStatus?.(determineQueryStatus(result.length, config.rowLimit));
+      const limitedResult = toTruncate ? result.slice(0, config.rowLimit) : result;
       const parsedResult = config.parseToNeodashRecord ? this.parser.bulkParse(limitedResult) : limitedResult;
       // Calls `setFields` only if explicitly enabled (e.g., via `toSetFields`).
       // This avoids redundant updates for reports like Graph Interactivity
@@ -111,6 +106,8 @@ export class Neo4jConnectionModule extends ConnectionModule {
       if (errorHasMessage(err)) {
         const isTimeout = err.message.startsWith('The transaction has been terminated');
         callbacks.setStatus?.(isTimeout ? QueryStatus.TIMED_OUT : QueryStatus.ERROR);
+      } else {
+        callbacks.setStatus?.(QueryStatus.ERROR);
       }
       callbacks.onFail?.(err);
     } finally {
@@ -123,17 +120,19 @@ export class Neo4jConnectionModule extends ConnectionModule {
    * @returns Promise<boolean> - true if connection is valid, otherwise throws.
    * @param connectionConfig
    */
-  async checkConnection(connectionConfig: ConnectionConfig): Promise<boolean> {
+  async checkConnection(connectionConfig?: ConnectionConfig): Promise<boolean> {
     const driver = this.authModule.getDriver();
     const session = driver.session({
-      defaultAccessMode: neo4j.session[connectionConfig.accessMode],
-      database: connectionConfig.database,
+      defaultAccessMode: neo4j.session[connectionConfig?.accessMode ?? 'READ'],
+      database: connectionConfig?.database,
     });
     try {
       await session.run('RETURN 1 AS connected');
       return true;
     } catch (error) {
-      console.warn('Connection check failed:', error);
+      // Log only error type/code — never the full error object which may contain credentials
+      const code = error instanceof Error ? error.message.split(':')[0] : 'unknown';
+      console.warn('Connection check failed:', code);
       throw error;
     } finally {
       await session.close();

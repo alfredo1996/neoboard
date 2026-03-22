@@ -9,6 +9,9 @@ import type {
 interface DashboardState {
   layout: DashboardLayoutV2;
   savedLayout: DashboardLayoutV2 | null;
+  /** Tracks whether any mutation has occurred since the last save/load.
+   *  Avoids O(n) JSON.stringify comparison on every check. */
+  _dirty: boolean;
   activePageIndex: number;
   editMode: boolean;
 
@@ -71,6 +74,7 @@ function withActivePage(
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   layout: emptyLayout,
   savedLayout: null,
+  _dirty: false,
   activePageIndex: 0,
   editMode: false,
 
@@ -78,6 +82,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set({
       layout,
       savedLayout: JSON.parse(JSON.stringify(layout)) as DashboardLayoutV2,
+      _dirty: false,
       activePageIndex: Math.min(
         isNaN(initialPageIndex) ? 0 : initialPageIndex,
         layout.pages.length - 1
@@ -85,19 +90,20 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }),
   setEditMode: (editMode) => set({ editMode }),
   reset: () =>
-    set({ layout: emptyLayout, savedLayout: null, activePageIndex: 0, editMode: false }),
+    set({ layout: emptyLayout, savedLayout: null, _dirty: false, activePageIndex: 0, editMode: false }),
 
-  // Unsaved changes tracking
+  // Unsaved changes tracking — uses dirty flag for O(1) checks
   hasUnsavedChanges: () => {
-    const { layout, savedLayout } = get();
+    const { savedLayout, _dirty } = get();
     if (savedLayout === null) return false;
-    return JSON.stringify(layout) !== JSON.stringify(savedLayout);
+    return _dirty;
   },
   markSaved: () =>
     set((state) => ({
       savedLayout: JSON.parse(
         JSON.stringify(state.layout)
       ) as DashboardLayoutV2,
+      _dirty: false,
     })),
 
   // ── Page management ──────────────────────────────────────────────
@@ -116,6 +122,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       return {
         layout: { ...state.layout, pages: [...state.layout.pages, newPage] },
         activePageIndex: state.layout.pages.length,
+        _dirty: true,
       };
     }),
 
@@ -127,7 +134,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         state.activePageIndex,
         pages.length - 1
       );
-      return { layout: { ...state.layout, pages }, activePageIndex };
+      return { layout: { ...state.layout, pages }, activePageIndex, _dirty: true };
     }),
 
   renamePage: (index, title) =>
@@ -139,6 +146,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
           title,
         })),
       },
+      _dirty: true,
     })),
 
   reorderPages: (fromIndex, toIndex) =>
@@ -170,46 +178,50 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       ) {
         newActive = state.activePageIndex + 1;
       }
-      return { layout: { ...state.layout, pages }, activePageIndex: newActive };
+      return { layout: { ...state.layout, pages }, activePageIndex: newActive, _dirty: true };
     }),
 
   // ── Widget management (active page) ──────────────────────────────
 
   addWidget: (widget, gridItem) =>
-    set((state) =>
-      withActivePage(state, (p) => ({
+    set((state) => ({
+      ...withActivePage(state, (p) => ({
         ...p,
         widgets: [...p.widgets, widget],
         gridLayout: [...p.gridLayout, gridItem],
       })),
-    ),
+      _dirty: true,
+    })),
 
   removeWidget: (widgetId) =>
-    set((state) =>
-      withActivePage(state, (p) => ({
+    set((state) => ({
+      ...withActivePage(state, (p) => ({
         ...p,
         widgets: p.widgets.filter((w) => w.id !== widgetId),
         gridLayout: p.gridLayout.filter((g) => g.i !== widgetId),
       })),
-    ),
+      _dirty: true,
+    })),
 
   updateWidget: (widgetId, updates) =>
-    set((state) =>
-      withActivePage(state, (p) => ({
+    set((state) => ({
+      ...withActivePage(state, (p) => ({
         ...p,
         widgets: p.widgets.map((w) =>
           w.id === widgetId ? { ...w, ...updates } : w,
         ),
       })),
-    ),
+      _dirty: true,
+    })),
 
   updateGridLayout: (gridLayout) =>
-    set((state) =>
-      withActivePage(state, (p) => ({
+    set((state) => ({
+      ...withActivePage(state, (p) => ({
         ...p,
         gridLayout,
       })),
-    ),
+      _dirty: true,
+    })),
 
   duplicateWidget: (widgetId) =>
     set((state) => {
@@ -237,10 +249,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         y: Infinity,
       };
 
-      return withActivePage(state, (p) => ({
-        ...p,
-        widgets: [...p.widgets, clonedWidget],
-        gridLayout: [...p.gridLayout, clonedGrid],
-      }));
+      return {
+        ...withActivePage(state, (p) => ({
+          ...p,
+          widgets: [...p.widgets, clonedWidget],
+          gridLayout: [...p.gridLayout, clonedGrid],
+        })),
+        _dirty: true,
+      };
     }),
 }));

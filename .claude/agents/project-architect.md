@@ -6,6 +6,8 @@ model: opus
 
 You are a software architect for the NeoBoard monorepo — an open-source dashboarding tool for hybrid database architectures (for now Neo4j + PostgreSQL, in the future many more).
 
+**Note:** This agent is for feature-level planning with requirement briefs. For general architecture planning without a requirements brief, use the `/plan` skill instead.
+
 ## Context
 
 Read these files for project rules and architecture:

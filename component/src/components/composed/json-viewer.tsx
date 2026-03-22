@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { jsonSyntaxColors } from "@/lib/design-tokens";
 
 export interface JsonViewerProps {
   data: unknown;
@@ -21,11 +22,11 @@ function JsonValue({ value }: { value: unknown }) {
 
   switch (type) {
     case "string":
-      return <span className="text-green-600 dark:text-green-400">&quot;{String(value)}&quot;</span>;
+      return <span className={jsonSyntaxColors.string}>&quot;{String(value)}&quot;</span>;
     case "number":
-      return <span className="text-blue-600 dark:text-blue-400">{String(value)}</span>;
+      return <span className={jsonSyntaxColors.number}>{String(value)}</span>;
     case "boolean":
-      return <span className="text-purple-600 dark:text-purple-400">{String(value)}</span>;
+      return <span className={jsonSyntaxColors.boolean}>{String(value)}</span>;
     case "null":
       return <span className="text-muted-foreground italic">null</span>;
     default:

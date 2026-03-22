@@ -17,7 +17,7 @@ const writeQuerySchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const { userId, canWrite } = await requireSession();
+    const { userId, canWrite, tenantId } = await requireSession();
 
     if (!canWrite) {
       return forbidden("Write permission required");
@@ -29,11 +29,11 @@ export async function POST(request: Request) {
 
     const { connectionId, query, params } = validation.data;
 
-    // Only connection owners can execute write queries
+    // Only connection owners can execute write queries (tenant-scoped)
     const [connection] = await db
       .select()
       .from(connections)
-      .where(and(eq(connections.id, connectionId), eq(connections.userId, userId)))
+      .where(and(eq(connections.id, connectionId), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
       .limit(1);
 
     if (!connection) {

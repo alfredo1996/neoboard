@@ -1,8 +1,18 @@
-import { AuthType } from '../../src/generalized/interfaces';
+import { AuthType, DEFAULT_CONNECTION_CONFIG } from '../../src/generalized/interfaces';
 import { GenericContainer, Wait } from 'testcontainers';
 import fs from 'fs';
 import path from 'path';
 import neo4j from 'neo4j-driver';
+
+/**
+ * Connection config for integration tests. Uses a longer transaction timeout
+ * than DEFAULT_CONNECTION_CONFIG (10s vs 2s) because parallel testcontainers
+ * compete for CPU/memory, causing Neo4j managed transactions to exceed 2s.
+ */
+export const NEO4J_TEST_CONNECTION_CONFIG = {
+  ...DEFAULT_CONNECTION_CONFIG,
+  timeout: 10_000,
+};
 
 /**
  * Polls the Neo4j Bolt port until a simple query succeeds, or throws after timeoutMs.

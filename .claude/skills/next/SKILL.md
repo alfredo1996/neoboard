@@ -27,7 +27,7 @@ If $ARGUMENTS is a number, use that issue instead of picking.
 
 ```bash
 gh issue edit <number> --add-assignee @me
-git checkout main && git pull origin main
+git checkout dev && git pull origin dev
 git checkout -b <type>/<short-description>
 ```
 
@@ -64,6 +64,7 @@ Reference the issue: `Closes #<number>`
 git push -u origin HEAD
 gh pr create \
   --title '<conventional commit title>' \
+  --base dev \
   --body '## Summary\n...\n\n## Changes\n...\n\n## Testing\n- [x] Unit tests\n- [x] Lint passes\n- [x] Build passes\n\nCloses #<number>' \
   --label '<labels from the issue>'
 ```

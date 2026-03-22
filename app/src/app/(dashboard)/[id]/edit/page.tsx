@@ -145,6 +145,7 @@ export default function DashboardEditorPage({
     setShowNavWarning,
     confirmNavigation,
     cancelNavigation,
+    requestNavigation,
   } = useUnsavedChangesWarning();
 
   const handleNavigateToPage = useCallback(
@@ -334,7 +335,9 @@ export default function DashboardEditorPage({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push(`/${id}`)}
+            onClick={() => {
+              if (requestNavigation(`/${id}`)) router.push(`/${id}`);
+            }}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back

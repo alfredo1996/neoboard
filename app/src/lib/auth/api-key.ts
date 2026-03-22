@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -7,12 +7,12 @@ import type { UserRole } from "@/lib/db/schema";
 
 /**
  * Server-side secret for HMAC-SHA256 key hashing.
- * Falls back to ENCRYPTION_KEY if no dedicated secret is set.
- * Without this secret, a DB dump cannot be used to reconstruct keys.
+ * Requires a dedicated API_KEY_HMAC_SECRET — never shares the ENCRYPTION_KEY
+ * to prevent key rotation from invalidating all API key hashes.
  */
 function getHmacSecret(): string {
-  const secret = process.env.API_KEY_HMAC_SECRET ?? process.env.ENCRYPTION_KEY;
-  if (!secret) throw new Error("API_KEY_HMAC_SECRET or ENCRYPTION_KEY must be set");
+  const secret = process.env.API_KEY_HMAC_SECRET;
+  if (!secret) throw new Error("API_KEY_HMAC_SECRET must be set");
   return secret;
 }
 
@@ -57,6 +57,7 @@ export async function resolveApiKeyAuth(): Promise<{
       id: apiKeys.id,
       userId: apiKeys.userId,
       tenantId: apiKeys.tenantId,
+      keyHash: apiKeys.keyHash,
       role: users.role,
       canWrite: users.canWrite,
       expiresAt: apiKeys.expiresAt,
@@ -66,6 +67,14 @@ export async function resolveApiKeyAuth(): Promise<{
     .where(eq(apiKeys.keyHash, keyHash));
 
   if (rows.length === 0) {
+    throw new Error("Unauthorized");
+  }
+
+  // Constant-time comparison to prevent timing attacks that could
+  // distinguish valid key hashes from invalid ones via response latency.
+  const storedHash = Buffer.from(rows[0].keyHash, "hex");
+  const computedHash = Buffer.from(keyHash, "hex");
+  if (storedHash.length !== computedHash.length || !timingSafeEqual(storedHash, computedHash)) {
     throw new Error("Unauthorized");
   }
 
@@ -79,8 +88,8 @@ export async function resolveApiKeyAuth(): Promise<{
   db.update(apiKeys)
     .set({ lastUsedAt: new Date() })
     .where(and(eq(apiKeys.id, row.id), eq(apiKeys.tenantId, row.tenantId)))
-    .catch(() => {
-      // intentionally silent — lastUsedAt is audit data
+    .catch((err: unknown) => {
+      console.warn("[api-key] Failed to update lastUsedAt:", err instanceof Error ? err.message : "unknown");
     });
 
   const role: UserRole = row.role;
