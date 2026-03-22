@@ -164,6 +164,7 @@ const tableOptions: ChartOptionDef[] = [
   { key: "enableSelection", label: "Row Selection", type: "boolean", default: false, category: "Features", description: "Allow selecting individual rows by clicking them." },
   { key: "enableGlobalFilter", label: "Global Search", type: "boolean", default: true, category: "Features", description: "Show a search box that filters all rows across all columns." },
   { key: "enableColumnFilters", label: "Column Filters", type: "boolean", default: true, category: "Features", description: "Show per-column filter inputs below each column header." },
+  { key: "enableColumnResizing", label: "Column Resizing", type: "boolean", default: false, category: "Features", description: "Allow drag-to-resize column borders. Double-click to auto-fit." },
   { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination", description: "Show Previous / Next controls to page through large result sets." },
   { key: "pageSize", label: "Page Size", type: "number", default: 10, category: "Pagination", description: "Number of rows shown per page when pagination is enabled." },
   { key: "emptyMessage", label: "Empty Message", type: "text", default: "No results", category: "Display", description: "Text displayed when the query returns no rows." },
