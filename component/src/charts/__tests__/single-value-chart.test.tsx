@@ -123,6 +123,28 @@ describe("SingleValueChart", () => {
     expect(container.querySelector("[style]")).not.toBeInTheDocument();
   });
 
+  // --- decimalPlaces ---
+
+  it("formats value with decimalPlaces", () => {
+    render(<SingleValueChart value={3.14159} decimalPlaces={2} />);
+    expect(screen.getByText("3.14")).toBeInTheDocument();
+  });
+
+  it("pads with zeros when decimalPlaces exceeds precision", () => {
+    render(<SingleValueChart value={5} decimalPlaces={2} />);
+    expect(screen.getByText("5.00")).toBeInTheDocument();
+  });
+
+  it("combines decimalPlaces with numberFormat comma", () => {
+    render(<SingleValueChart value={1234567.891} decimalPlaces={1} numberFormat="comma" />);
+    expect(screen.getByText("1,234,567.9")).toBeInTheDocument();
+  });
+
+  it("ignores decimalPlaces of -1 (automatic)", () => {
+    render(<SingleValueChart value={3.14159} decimalPlaces={-1} />);
+    expect(screen.getByText("3.14159")).toBeInTheDocument();
+  });
+
   it("handles invalid JSON in colorThresholds gracefully", () => {
     expect(() =>
       render(<SingleValueChart value={10} colorThresholds="not-json" />),
