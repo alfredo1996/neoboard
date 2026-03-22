@@ -16,6 +16,8 @@ export interface BaseChartProps {
   onClick?: (params: EChartsClickEvent) => void;
   /** Called when data zoom changes */
   onDataZoom?: (params: unknown) => void;
+  /** Enable scroll-to-zoom on the data axis (DataZoom type: 'inside') */
+  enableDataZoom?: boolean;
   /** Enable decal overlay patterns for colorblind accessibility */
   colorblindMode?: boolean;
   /**

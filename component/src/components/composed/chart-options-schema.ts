@@ -12,6 +12,11 @@ export interface ChartOptionDef {
   description?: string;
 }
 
+/** DataZoom option for axis-based charts (bar, line). */
+const dataZoomOptions: ChartOptionDef[] = [
+  { key: "enableDataZoom", label: "Enable Scroll Zoom", type: "boolean", default: false, category: "Interaction", description: "Allow scroll-to-zoom on the data axis to explore large datasets." },
+];
+
 const barOptions: ChartOptionDef[] = [
   {
     key: "orientation",
@@ -364,8 +369,8 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  bar: [...barOptions, ...dataZoomOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...dataZoomOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   pie: [...pieOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],

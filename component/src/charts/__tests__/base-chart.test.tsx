@@ -207,4 +207,30 @@ describe("BaseChart", () => {
       { notMerge: true },
     );
   });
+
+  // --- DataZoom ---
+
+  it("does not include dataZoom by default", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} />);
+    const call = mockSetOption.mock.calls[0][0];
+    expect(call.dataZoom).toBeUndefined();
+  });
+
+  it("injects dataZoom config when enableDataZoom is true", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} enableDataZoom />);
+    const call = mockSetOption.mock.calls[0][0];
+    expect(call.dataZoom).toBeDefined();
+    expect(Array.isArray(call.dataZoom)).toBe(true);
+    expect(call.dataZoom).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "inside" }),
+      ]),
+    );
+  });
+
+  it("does not inject dataZoom when enableDataZoom is false", () => {
+    render(<BaseChart options={{ title: { text: "Test" } }} enableDataZoom={false} />);
+    const call = mockSetOption.mock.calls[0][0];
+    expect(call.dataZoom).toBeUndefined();
+  });
 });
