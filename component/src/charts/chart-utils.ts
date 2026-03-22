@@ -4,6 +4,87 @@ import { resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 
+// ---------------------------------------------------------------------------
+// Number formatting
+// ---------------------------------------------------------------------------
+
+export type NumberFormat = "plain" | "comma" | "compact" | "percent";
+
+export interface NumberFormatConfig {
+  numberFormat?: NumberFormat;
+  decimalPlaces?: number;
+  prefix?: string;
+  suffix?: string;
+}
+
+/**
+ * Format a numeric value with optional decimal places, locale formatting,
+ * compact notation, prefix, and suffix. Non-numeric values pass through as-is.
+ */
+export function formatNumber(value: number | string, config: NumberFormatConfig = {}): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+
+  const { numberFormat = "plain", decimalPlaces, prefix = "", suffix = "" } = config;
+
+  let formatted: string;
+
+  switch (numberFormat) {
+    case "comma":
+      formatted = decimalPlaces !== undefined
+        ? value.toLocaleString("en-US", { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces })
+        : value.toLocaleString("en-US");
+      break;
+    case "compact":
+      formatted = Intl.NumberFormat("en", {
+        notation: "compact",
+        ...(decimalPlaces !== undefined ? { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces } : {}),
+      }).format(value);
+      break;
+    case "percent":
+      formatted = decimalPlaces !== undefined
+        ? `${value.toFixed(decimalPlaces)}%`
+        : `${value}%`;
+      break;
+    default: // "plain"
+      formatted = decimalPlaces !== undefined ? value.toFixed(decimalPlaces) : String(value);
+      break;
+  }
+
+  return `${prefix}${formatted}${suffix}`;
+}
+
+// ---------------------------------------------------------------------------
+// ECharts tooltip formatter
+// ---------------------------------------------------------------------------
+
+interface TooltipParam {
+  seriesName?: string;
+  name?: string;
+  value?: number | string | (number | string)[];
+  marker?: string;
+}
+
+/**
+ * Build an ECharts tooltip formatter function that applies consistent number
+ * formatting across all chart types. Works with both single and array params
+ * (item trigger vs axis trigger).
+ */
+export function buildTooltipFormatter(config: NumberFormatConfig): (params: TooltipParam | TooltipParam[]) => string {
+  // Tooltip always uses comma format for readability unless explicitly set
+  const tooltipConfig: NumberFormatConfig = { numberFormat: "comma", ...config };
+
+  return (params: TooltipParam | TooltipParam[]) => {
+    const items = Array.isArray(params) ? params : [params];
+    const header = items[0]?.name ?? "";
+    const lines = items.map((p) => {
+      const raw = Array.isArray(p.value) ? p.value[1] : p.value;
+      const val = typeof raw === "number" ? formatNumber(raw, tooltipConfig) : String(raw ?? "");
+      return `${p.marker ?? ""} ${p.seriesName ?? ""}: <b>${val}</b>`;
+    });
+    return header ? `${header}<br/>${lines.join("<br/>")}` : lines.join("<br/>");
+  };
+}
+
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
   if (typeof document === "undefined") return false;
