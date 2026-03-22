@@ -7,7 +7,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import { buildEmptyDataOption, resolveItemColor, parseGaugeThresholdZones } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([EGaugeChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -34,6 +34,8 @@ export interface GaugeChartProps extends Omit<BaseChartProps, "options"> {
   startAngle?: number;
   /** End angle in degrees */
   endAngle?: number;
+  /** JSON string of threshold zones: [{ value, color }] */
+  thresholdZones?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -56,6 +58,7 @@ function GaugeChart({
   showDetail = true,
   startAngle = 225,
   endAngle = -45,
+  thresholdZones: thresholdZonesJson,
   stylingRules,
   paramValues,
   ...rest
@@ -95,6 +98,7 @@ function GaugeChart({
           axisLine: {
             lineStyle: {
               width: compact ? 8 : 12,
+              color: parseGaugeThresholdZones(thresholdZonesJson, min, max) as never,
             },
           },
           axisTick: {
@@ -140,7 +144,7 @@ function GaugeChart({
         },
       ],
     };
-  }, [measured, data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, compact, stylingRules, paramValues]);
+  }, [measured, data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, thresholdZonesJson, compact, stylingRules, paramValues]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
