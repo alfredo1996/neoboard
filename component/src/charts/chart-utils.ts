@@ -97,3 +97,34 @@ export function resolveItemColor(
   }
   return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// Gauge threshold zones
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse gauge threshold zones from a JSON string into the ECharts
+ * axisLine.lineStyle.color format: [[percentage, color], ...]
+ * Each zone's value is normalized to a 0-1 percentage of the min-max range.
+ */
+export function parseGaugeThresholdZones(
+  input: string | undefined,
+  min: number,
+  max: number,
+): [number, string][] {
+  const DEFAULT_ZONE: [number, string][] = [[1, "#E6EBF8"]];
+  if (!input) return DEFAULT_ZONE;
+  try {
+    const parsed = JSON.parse(input);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_ZONE;
+    const range = max - min;
+    if (range <= 0) return DEFAULT_ZONE;
+    const zones = parsed.filter(
+      (z: unknown): z is { value: number; color: string } =>
+        typeof z === "object" && z !== null && "value" in z && "color" in z,
+    );
+    return zones.map((z) => [(z.value - min) / range, z.color] as [number, string]);
+  } catch {
+    return DEFAULT_ZONE;
+  }
+}
