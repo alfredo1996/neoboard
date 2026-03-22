@@ -4,6 +4,59 @@ import { resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 
+// ---------------------------------------------------------------------------
+// Reference lines (markLine)
+// ---------------------------------------------------------------------------
+
+export interface ReferenceLine {
+  value: number;
+  label?: string;
+  color?: string;
+}
+
+/**
+ * Parse a JSON string of reference lines. Returns empty array on
+ * invalid input or missing values.
+ */
+export function parseReferenceLines(input: string | undefined): ReferenceLine[] {
+  if (!input) return [];
+  try {
+    const parsed = JSON.parse(input);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item: unknown): item is ReferenceLine =>
+        typeof item === "object" &&
+        item !== null &&
+        "value" in item &&
+        typeof (item as ReferenceLine).value === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Build ECharts markLine data from reference lines.
+ */
+export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
+  if (!lines.length) return undefined;
+  return {
+    silent: true,
+    symbol: "none",
+    data: lines.map((line) => ({
+      yAxis: line.value,
+      label: {
+        formatter: line.label ?? String(line.value),
+        position: "insideEndTop" as const,
+      },
+      lineStyle: {
+        color: line.color ?? "#888",
+        type: "dashed" as const,
+      },
+    })),
+  };
+}
+
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
   if (typeof document === "undefined") return false;
