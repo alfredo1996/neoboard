@@ -66,6 +66,8 @@ export interface DataGridProps<TData> {
    * Whether to show pagination controls.  Defaults to `true`.
    * When `false` all rows are rendered on a single page.
    */
+  /** Allow drag-to-resize column borders. */
+  enableColumnResizing?: boolean;
   enablePagination?: boolean;
   /**
    * Fixed fallback page size used when `containerHeight` is not provided or
@@ -96,6 +98,7 @@ function DataGrid<TData>({
   enableSelection = false,
   enableGlobalFilter = false,
   enableColumnFilters = false,
+  enableColumnResizing = false,
   enablePagination = true,
   pageSize = 10,
   containerHeight,
@@ -162,6 +165,8 @@ function DataGrid<TData>({
     columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
     enableSorting,
+    enableColumnResizing,
+    columnResizeMode: enableColumnResizing ? "onChange" as const : undefined,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,
@@ -214,13 +219,31 @@ function DataGrid<TData>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className="relative"
+                    style={enableColumnResizing ? { width: header.getSize() } : undefined}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
                           header.column.columnDef.header,
                           header.getContext()
                         )}
+                    {enableColumnResizing && header.column.getCanResize() && (
+                      <div
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        onDoubleClick={() => header.column.resetSize()}
+                        className={cn(
+                          "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                          header.column.getIsResizing()
+                            ? "bg-primary opacity-100"
+                            : "bg-border opacity-0 hover:opacity-100"
+                        )}
+                      />
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
