@@ -8,6 +8,13 @@
       "when": 1773765270786,
       "tag": "0000_wooden_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774104530432,
+      "tag": "0001_groovy_the_phantom",
+      "breakpoints": true
     }
   ]
 }

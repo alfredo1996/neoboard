@@ -22,11 +22,11 @@ export interface CreateConnectionInput {
   };
 }
 
-export function useConnections() {
+export function useConnections(limit = 100, offset = 0) {
   return useQuery<ConnectionListItem[]>({
-    queryKey: ["connections"],
+    queryKey: ["connections", limit, offset],
     queryFn: async () => {
-      const res = await fetch("/api/connections");
+      const res = await fetch(`/api/connections?limit=${limit}&offset=${offset}`);
       return unwrapResponse<ConnectionListItem[]>(res);
     },
   });

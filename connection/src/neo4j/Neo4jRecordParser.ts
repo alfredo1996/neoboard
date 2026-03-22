@@ -33,26 +33,26 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param _record - A single Neo4j record to parse.
    * @returns A parsed JavaScript object representing the record.
    */
-  _parse(_record: Record<string, unknown> | NeodashRecord | Neo4jRecord<any, any>): NeodashRecord {
+  _parse(_record: Record<string, unknown> | NeodashRecord | Neo4jRecord<PropertyKey, Record<string, unknown>>): NeodashRecord {
     // Parsing the record twice should return the same record
     if (_record instanceof NeodashRecord) {
       return _record;
     }
-    const parsed: Record<string, any> = {};
+    const parsed: Record<string, unknown> = {};
 
     for (const key of _record.keys) {
       const value = _record.get(key);
-      parsed[key] = this.__neo4jToNative(value);
+      parsed[key as string] = this.__neo4jToNative(value);
     }
     return new NeodashRecord(parsed);
   }
 
   /**
    * Converts Neo4j data types to native JavaScript types
-   * @param {any} value - Value from Neo4j result
-   * @return {any} - Value converted to JavaScript native type
+   * @param {unknown} value - Value from Neo4j result
+   * @return {unknown} - Value converted to JavaScript native type
    */
-  private __neo4jToNative(value: any): any {
+  private __neo4jToNative(value: unknown): unknown {
     // Main dispatcher function
     if (value === null || value === undefined) {
       return value;
@@ -138,19 +138,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {object} value - A temporal value from Neo4j, possibly with fields like year, month, hour, etc.
    * @returns {Date|string|object} A native JS object or string, depending on the type.
    */
-  parseTemporal(value: {
-    year: any;
-    month: number;
-    day: any;
-    hour: any;
-    minute: any;
-    second: any;
-    nanosecond: number;
-    months: any;
-    days: any;
-    seconds: any;
-    nanoseconds: any;
-  }) {
+  parseTemporal(value: Neo4jDate | Time | LocalTime | DateTime | LocalDateTime | Duration): unknown {
     if (value instanceof Neo4jDate) {
       const y = value.year.toNumber();
       const m = String(value.month.toNumber()).padStart(2, '0');
@@ -164,7 +152,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       const offsetMinutes = Math.floor((Math.abs(offsetSeconds) % 3600) / 60);
       const sign = offsetSeconds >= 0 ? '+' : '-';
 
-      const pad = (num) => String(num).padStart(2, '0');
+      const pad = (num: number | string) => String(num).padStart(2, '0');
 
       return `${pad(value.hour)}:${pad(value.minute)}:${pad(value.second)}.${value.nanosecond
         .toString()
@@ -241,7 +229,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
         identity: this.__neo4jToNative(value.identity),
         elementId: value.elementId,
         labels: value.labels,
-        properties: this.convertPlainObject(value.properties as object),
+        properties: this.neo4jConvertPlainObject(value.properties as object),
       };
     }
 
@@ -254,7 +242,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
         end: this.__neo4jToNative(value.end),
         endNodeElementId: value.endNodeElementId,
         type: value.type,
-        properties: this.convertPlainObject(value.properties as object),
+        properties: this.neo4jConvertPlainObject(value.properties as object),
       };
     }
 

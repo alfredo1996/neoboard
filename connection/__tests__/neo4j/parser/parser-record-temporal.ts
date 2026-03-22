@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
 
 describe('Neo4jRecordParser - Temporal Parsing', () => {
   test('should correctly parse a Neo4j Date value to YYYY-MM-DD string', async () => {
@@ -26,7 +27,7 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j DateTime value to formatted string', async () => {
@@ -53,7 +54,7 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j LocalDateTime value', async () => {
@@ -80,7 +81,7 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j Duration value', async () => {
@@ -110,7 +111,7 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j LocalTime value', async () => {
@@ -138,7 +139,7 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j Time value with offset', async () => {
@@ -166,6 +167,6 @@ describe('Neo4jRecordParser - Temporal Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 });

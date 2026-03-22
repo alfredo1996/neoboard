@@ -90,7 +90,7 @@ describe("GET /api/dashboards/[id]/export", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns 404 when dashboard is not found", async () => {
@@ -103,7 +103,7 @@ describe("GET /api/dashboards/[id]/export", () => {
 
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toBe("Not found");
+    expect(body.error.code).toBe("NOT_FOUND");
   });
 
   it("returns 200 with export payload and download headers", async () => {
@@ -195,7 +195,7 @@ describe("GET /api/dashboards/[id]/export", () => {
 
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Internal Server Error");
+    expect(body.error.code).toBe("INTERNAL_ERROR");
   });
 
   it("scopes connection query to userId", async () => {

@@ -46,11 +46,11 @@ export interface DashboardShareItem {
   userEmail: string | null;
 }
 
-export function useDashboards() {
+export function useDashboards(limit = 100, offset = 0) {
   return useQuery<DashboardListItem[]>({
-    queryKey: ["dashboards"],
+    queryKey: ["dashboards", limit, offset],
     queryFn: async () => {
-      const res = await fetch("/api/dashboards");
+      const res = await fetch(`/api/dashboards?limit=${limit}&offset=${offset}`);
       return unwrapResponse<DashboardListItem[]>(res);
     },
   });

@@ -5,7 +5,8 @@ import { useDashboardStore } from "../../stores/dashboard-store";
 // The hook itself is a thin React wrapper that:
 //  1. subscribes to hasUnsavedChanges()
 //  2. registers/unregisters beforeunload
-//  3. intercepts pushState for in-app nav with ConfirmDialog
+//  3. guards in-app navigation via requestNavigation() + ConfirmDialog
+//  4. intercepts browser back/forward via popstate
 // Full browser integration (beforeunload, navigation interception) is covered by Playwright E2E.
 
 function resetStore() {

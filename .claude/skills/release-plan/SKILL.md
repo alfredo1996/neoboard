@@ -3,7 +3,6 @@ name: release-plan
 description: Read a product spec or feature doc, break it into milestones and GitHub issues with proper labels, dependencies, and ordering. Use when turning a product spec into an actionable backlog.
 model: opus
 context: fork
-disable-model-invocation: true
 allowed-tools: Read, Bash(gh *), Bash(cat *), Bash(find *), Bash(grep *), Bash(ls *)
 ---
 # Release Plan — Opus

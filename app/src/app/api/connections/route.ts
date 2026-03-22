@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -10,11 +10,14 @@ import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
 
 export async function GET(request: Request) {
   try {
-    const { userId, role } = await requireSession();
+    const { userId, tenantId, role } = await requireSession();
     const { limit, offset } = parsePagination(request);
     const isAdmin = role === "admin";
 
-    const whereClause = isAdmin ? undefined : eq(connections.userId, userId);
+    // Admin sees all connections in the tenant; non-admin sees only own.
+    const whereClause = isAdmin
+      ? eq(connections.tenantId, tenantId)
+      : and(eq(connections.userId, userId), eq(connections.tenantId, tenantId));
 
     const [{ count: total }] = await db
       .select({ count: count() })
@@ -43,7 +46,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await requireSession();
+    const { userId, tenantId } = await requireSession();
     const body = await request.json();
     const result = validateBody(createConnectionSchema, body);
     if (!result.success) return result.response;
@@ -55,6 +58,7 @@ export async function POST(request: Request) {
       .insert(connections)
       .values({
         userId,
+        tenantId,
         name,
         type,
         configEncrypted,

@@ -1,6 +1,7 @@
 import { getNeo4jAuth } from '../../utils/setup';
 import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
+import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
 import { toNumber } from 'neo4j-driver-core';
 
 import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
@@ -39,7 +40,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly find the relation "ACTED_IN" for movie "The Matrix"', async () => {
@@ -76,7 +77,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j Path with ordered nodes', async () => {
@@ -96,7 +97,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse complex array structures from Movie DB', async () => {
@@ -136,7 +137,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a plain object with mixed types', async () => {
@@ -172,7 +173,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('Run MATCH (p:Person {name: $name}) RETURN p with parameter', async () => {
@@ -201,7 +202,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a Neo4j Point value', async () => {
@@ -233,7 +234,7 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 
   test('should correctly parse a 3D Neo4j Point with z coordinate', async () => {
@@ -262,6 +263,6 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, DEFAULT_CONNECTION_CONFIG);
+    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
   });
 });

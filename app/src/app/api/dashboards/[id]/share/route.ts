@@ -68,7 +68,12 @@ export async function GET(
       })
       .from(dashboardShares)
       .innerJoin(users, eq(dashboardShares.userId, users.id))
-      .where(eq(dashboardShares.dashboardId, id));
+      .where(
+        and(
+          eq(dashboardShares.dashboardId, id),
+          eq(dashboardShares.tenantId, tenantId),
+        )
+      );
 
     return apiSuccess(shares);
   } catch (error) {
@@ -165,7 +170,8 @@ export async function DELETE(
       .where(
         and(
           eq(dashboardShares.id, shareId),
-          eq(dashboardShares.dashboardId, id)
+          eq(dashboardShares.dashboardId, id),
+          eq(dashboardShares.tenantId, tenantId)
         )
       );
 

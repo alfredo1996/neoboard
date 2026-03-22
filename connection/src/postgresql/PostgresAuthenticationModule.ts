@@ -1,6 +1,7 @@
 import { AuthenticationModule } from '../generalized/AuthenticationModule';
 import { AuthConfig, AdvancedConnectionOptions } from '../generalized/interfaces';
 import { Pool } from 'pg';
+import { isAuthenticationError } from './utils';
 
 /**
  * PostgreSQL Authentication Module
@@ -8,6 +9,7 @@ import { Pool } from 'pg';
  */
 export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
+  private _poolInitPromise: Promise<boolean> | null = null;
   protected _authConfig!: AuthConfig;
   private readonly _advancedOptions?: AdvancedConnectionOptions;
 
@@ -19,6 +21,7 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
   constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
     super();
     this._checkConfigurationConsistency(config);
+    this._validateUri(config.uri, ['postgresql:', 'postgres:']);
     this._authConfig = config;
     this._advancedOptions = advancedOptions;
     this.pool = this.createDriver();
@@ -55,15 +58,17 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
 
       // Suppress unhandled errors from idle connections during shutdown
       pool.on('error', (err) => {
-        // Only log if this is not a shutdown error
+        // Only log error code/type if this is not a shutdown error — never log the full error
         if (!err.message?.includes('terminating connection')) {
-          console.error('Pool error:', err);
+          console.error('Pool error:', err.code ?? 'unknown');
         }
       });
 
       return pool;
     } catch (error) {
-      console.error('Failed to create PostgreSQL pool:', error);
+      // Log only error type — never the full error which may contain credentials
+      const code = error instanceof Error ? error.message.split(':')[0] : 'unknown';
+      console.error('Failed to create PostgreSQL pool:', code);
       throw error;
     }
   }
@@ -74,6 +79,19 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
    * @throws Error for connection issues other than authentication
    */
   async verifyAuthentication(): Promise<boolean> {
+    // Prevent concurrent callers from creating duplicate pools.
+    // The first caller creates the promise; subsequent callers await the same one.
+    if (this._poolInitPromise) return this._poolInitPromise;
+
+    this._poolInitPromise = this._verifyAuthenticationImpl();
+    try {
+      return await this._poolInitPromise;
+    } finally {
+      this._poolInitPromise = null;
+    }
+  }
+
+  private async _verifyAuthenticationImpl(): Promise<boolean> {
     try {
       if (!this.pool) {
         this.pool = this.createDriver();
@@ -86,13 +104,10 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
       } finally {
         client.release();
       }
-    } catch (error: any) {
-      // Check if this is an authentication error
-      if (error.code === '28P01' || error.code === '28000') {
-        // Invalid password or invalid authorization specification
+    } catch (error: unknown) {
+      if (isAuthenticationError(error)) {
         return false;
       }
-      // For other errors, throw
       throw error;
     }
   }
@@ -135,9 +150,10 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         // End the pool - drains existing connections and rejects new ones
         await this.pool.end();
       } catch (error) {
-        // Suppress "terminating connection" errors during shutdown
-        if (!error?.message?.includes('terminating connection')) {
-          console.error('Error closing PostgreSQL pool:', error);
+        // Suppress "terminating connection" errors during shutdown — never log full error
+        const msg = error instanceof Error ? error.message : '';
+        if (!msg.includes('terminating connection')) {
+          console.error('Error closing PostgreSQL pool:', msg.split(':')[0] || 'unknown');
         }
       } finally {
         this.pool = null;
