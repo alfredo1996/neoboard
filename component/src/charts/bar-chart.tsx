@@ -9,6 +9,7 @@ import {
   resolveShowLegend,
   buildCompactGrid,
   resolveItemColor,
+  buildCategoryAxisLabel,
 } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
@@ -34,6 +35,8 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   xAxisLabel?: string;
   /** Y-axis name label */
   yAxisLabel?: string;
+  /** Override axis label rotation angle (0-90). Omit for automatic. */
+  axisLabelRotation?: number;
   /** @deprecated Use stylingRules instead. JSON string of thresholds for per-bar coloring */
   colorThresholds?: string;
   /** Rule-based styling rules */
@@ -62,6 +65,7 @@ function BarChart({
   showGridLines = true,
   xAxisLabel,
   yAxisLabel,
+  axisLabelRotation,
   colorThresholds,
   stylingRules,
   paramValues,
@@ -80,13 +84,20 @@ function BarChart({
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
     const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
 
+    const categoryLabels = data.map((d) => d.label);
+    const axisLabelConfig = buildCategoryAxisLabel(categoryLabels.length, {
+      compact,
+      rotateOverride: axisLabelRotation,
+    });
+
     const categoryAxis = {
       type: "category" as const,
-      data: data.map((d) => d.label),
-      axisLabel: { show: !compact },
+      data: categoryLabels,
+      axisLabel: axisLabelConfig,
+      axisPointer: { type: "shadow" as const },
       name: compact ? undefined : (isHorizontal ? yAxisLabel : xAxisLabel),
       nameLocation: "middle" as const,
-      nameGap: 30,
+      nameGap: axisLabelConfig.rotate > 0 ? 50 : 30,
     };
     const valueAxis = {
       type: "value" as const,
@@ -123,7 +134,7 @@ function BarChart({
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
       })),
     };
-  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
+  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, axisLabelRotation, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

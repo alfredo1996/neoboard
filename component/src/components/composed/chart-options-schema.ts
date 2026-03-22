@@ -33,6 +33,7 @@ const barOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the bars." },
+  { key: "axisLabelRotation", label: "Axis Label Rotation (°)", type: "number", default: -1, category: "Labels", description: "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories)." },
 ];
 
 const lineOptions: ChartOptionDef[] = [
