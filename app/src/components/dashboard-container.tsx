@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
+import { buildCsvString, triggerDownload } from "@neoboard/components";
 import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
@@ -144,9 +145,31 @@ export function DashboardContainer({
     return new Date(tmpl.updatedAt) > new Date(widget.templateSyncedAt);
   }
 
+  function exportWidgetCsv(widget: DashboardWidget) {
+    const cached = queryClient.getQueryData<{ data: unknown }>([
+      "widget-query",
+      widget.connectionId,
+      widget.query,
+      widget.params,
+    ]);
+    const rawData = cached?.data;
+    if (!Array.isArray(rawData) || rawData.length === 0) return;
+    const csv = buildCsvString(rawData as Record<string, unknown>[]);
+    const title = (widget.settings?.title as string) || widget.chartType;
+    const slug = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-|-$/g, "");
+    triggerDownload(csv, `${slug}.csv`);
+  }
+
   const buildActions = (widget: DashboardWidget) => {
-    if (!editable) return undefined;
     const actions = [];
+
+    // Export CSV — available for data-producing widgets in both edit and view mode
+    const isDataWidget = !["markdown", "iframe", "form", "parameter-select"].includes(widget.chartType);
+    if (isDataWidget) {
+      actions.push({ label: "Export CSV", onClick: () => exportWidgetCsv(widget) });
+    }
+
+    if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {
       actions.push({
         label: "Edit",
