@@ -33,6 +33,7 @@ const barOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the bars." },
+  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
 ];
 
 const lineOptions: ChartOptionDef[] = [
@@ -45,6 +46,7 @@ const lineOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each data series." },
+  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
 ];
 
 const pieOptions: ChartOptionDef[] = [
