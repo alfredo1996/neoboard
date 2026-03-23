@@ -1970,21 +1970,27 @@ function buildStylingRulesDemo(neo4jConnId, pgConnId) {
 /** Set gridLayout[n].i = widgets[n].id for each page. */
 // ─── Chart Catalog — comprehensive per-chart-type showcase ──────────
 function buildChartCatalog(neo4jId) {
-  const palettes = ["deep-ocean", "warm-sunset", "cool-breeze", "earth-tones", "neon", "monochrome"];
+  const P = ["deep-ocean", "warm-sunset", "cool-breeze", "earth-tones", "neon", "monochrome"];
   const detailPageId = uuid();
+  const behaviorPageId = uuid();
 
   // Reusable queries (Neo4j movie dataset)
   const Q = {
     barData: "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS label, count(*) AS count ORDER BY label",
+    barMulti: "MATCH (p:Person)-[r]->(m:Movie) WITH (m.released / 10) * 10 AS decade, type(r) AS rel, count(*) AS cnt RETURN decade AS label, rel, cnt ORDER BY decade",
     lineData: "MATCH (m:Movie) RETURN m.released AS x, count(*) AS count ORDER BY x",
     pieData: "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
     singleVal: "MATCH (m:Movie) RETURN count(m) AS value",
+    singleTrend: "MATCH (m:Movie) RETURN count(m) AS value, count(m) - 5 AS previous",
     tableData: "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p.name AS name, m.title AS movie, m.released AS year ORDER BY year DESC LIMIT 30",
     gaugeData: "MATCH (m:Movie) RETURN count(m) AS value, 'Movies' AS name",
     radarData: "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value",
     sankeyData: "MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN ['ACTED_IN','DIRECTED'] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20",
     sunburstData: "MATCH ()-[r]->() WITH type(r) AS relType, count(*) AS cnt RETURN '' AS parent, relType AS name, cnt AS value UNION ALL MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS relType, m.title AS movie, count(p) AS cnt RETURN relType AS parent, movie AS name, cnt AS value LIMIT 30",
     treemapData: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15",
+    graphData: "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 25",
+    graphSmall: "MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p, r, m LIMIT 10",
+    selectSeed: "MATCH (p:Person) RETURN DISTINCT p.name AS value, p.name AS label ORDER BY p.name LIMIT 20",
   };
 
   // Styling rules reusable across pages
@@ -2026,7 +2032,7 @@ function buildChartCatalog(neo4jId) {
 
   // Helper to make a palette row of widgets for a given chart type
   function paletteRow(chartType, query, baseSettings = {}) {
-    return palettes.map((p) => ({
+    return P.map((p) => ({
       id: uuid(),
       chartType,
       connectionId: neo4jId,
@@ -2037,7 +2043,7 @@ function buildChartCatalog(neo4jId) {
 
   function paletteGrid(yStart = 0) {
     // 3×2 grid for 6 palettes, each 4×4
-    return palettes.map((_, i) => ({
+    return P.map((_, i) => ({
       i: null,
       x: (i % 3) * 4,
       y: yStart + Math.floor(i / 3) * 4,
@@ -2334,7 +2340,211 @@ function buildChartCatalog(neo4jId) {
         ],
       },
 
-      // ── Page 12: Detail (click target) ─────────────────────────────
+      // ── Page 12: Graph Chart ─────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Graph Chart",
+        widgets: [
+          { id: uuid(), chartType: "graph", connectionId: neo4jId, query: Q.graphData,
+            settings: { title: "Force Layout (default)", chartOptions: { layout: "force", showLabels: true, showRelationshipLabels: true, physics: true } } },
+          { id: uuid(), chartType: "graph", connectionId: neo4jId, query: Q.graphData,
+            settings: { title: "Circular Layout", chartOptions: { layout: "circular", showLabels: true } } },
+          { id: uuid(), chartType: "graph", connectionId: neo4jId, query: Q.graphData,
+            settings: { title: "Hierarchical", chartOptions: { layout: "hierarchical", showLabels: true } } },
+          { id: uuid(), chartType: "graph", connectionId: neo4jId, query: Q.graphData,
+            settings: { title: "Small Nodes", chartOptions: { nodeSize: "small", showLabels: true } } },
+          { id: uuid(), chartType: "graph", connectionId: neo4jId, query: Q.graphData,
+            settings: { title: "Large Nodes", chartOptions: { nodeSize: "large", showLabels: true } } },
+          { id: uuid(), chartType: "graph", connectionId: neo4jId, query: Q.graphData,
+            settings: { title: "No Labels / No Physics", chartOptions: { showLabels: false, showRelationshipLabels: false, physics: false } } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 5 },
+          { i: null, x: 4, y: 0, w: 4, h: 5 },
+          { i: null, x: 8, y: 0, w: 4, h: 5 },
+          { i: null, x: 0, y: 5, w: 4, h: 5 },
+          { i: null, x: 4, y: 5, w: 4, h: 5 },
+          { i: null, x: 8, y: 5, w: 4, h: 5 },
+        ],
+      },
+
+      // ── Page 13: Parameter Widgets ─────────────────────────────────
+      {
+        id: uuid(),
+        title: "Parameter Widgets",
+        widgets: [
+          { id: uuid(), chartType: "parameter-select", connectionId: neo4jId, query: "",
+            settings: { title: "Select (Searchable)", chartOptions: { parameterType: "select", parameterName: "cat_person", seedQuery: Q.selectSeed, searchable: true, placeholder: "Choose a person\u2026" } } },
+          { id: uuid(), chartType: "parameter-select", connectionId: neo4jId, query: "",
+            settings: { title: "Select (Not Searchable)", chartOptions: { parameterType: "select", parameterName: "cat_person2", seedQuery: Q.selectSeed, searchable: false } } },
+          { id: uuid(), chartType: "parameter-select", connectionId: "", query: "",
+            settings: { title: "Free Text", chartOptions: { parameterType: "text", parameterName: "cat_text", placeholder: "Type anything\u2026" } } },
+          { id: uuid(), chartType: "parameter-select", connectionId: "", query: "",
+            settings: { title: "Date Picker", chartOptions: { parameterType: "date", parameterName: "cat_date" } } },
+          { id: uuid(), chartType: "parameter-select", connectionId: "", query: "",
+            settings: { title: "Date Range", chartOptions: { parameterType: "date-range", parameterName: "cat_daterange" } } },
+          { id: uuid(), chartType: "parameter-select", connectionId: "", query: "",
+            settings: { title: "Relative Date", chartOptions: { parameterType: "date-relative", parameterName: "cat_reldate" } } },
+          // Bound widget showing parameter in use
+          { id: uuid(), chartType: "table", connectionId: neo4jId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WHERE p.name = $param_cat_person RETURN m.title AS movie, m.released AS year ORDER BY year",
+            settings: { title: "Movies for $param_cat_person" } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 2 },
+          { i: null, x: 4, y: 0, w: 4, h: 2 },
+          { i: null, x: 8, y: 0, w: 4, h: 2 },
+          { i: null, x: 0, y: 2, w: 4, h: 2 },
+          { i: null, x: 4, y: 2, w: 4, h: 2 },
+          { i: null, x: 8, y: 2, w: 4, h: 2 },
+          { i: null, x: 0, y: 4, w: 12, h: 4 },
+        ],
+      },
+
+      // ── Page 14: Form Widget ───────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Form Widget",
+        widgets: [
+          { id: uuid(), chartType: "form", connectionId: neo4jId,
+            query: "CREATE (n:Feedback {author: $param_cat_author, message: $param_cat_msg}) RETURN n.author AS author",
+            settings: {
+              title: "Default Form",
+              formFields: [
+                { id: uuid(), label: "Author", parameterName: "cat_author", parameterType: "text", placeholder: "Your name" },
+                { id: uuid(), label: "Message", parameterName: "cat_msg", parameterType: "text", placeholder: "Your message" },
+              ],
+              chartOptions: { submitButtonText: "Submit", successMessage: "Feedback submitted!", resetOnSuccess: true },
+            },
+          },
+          { id: uuid(), chartType: "form", connectionId: neo4jId,
+            query: "CREATE (p:Person {name: $param_cat_name, born: toInteger($param_cat_born_min)}) RETURN p.name AS name",
+            settings: {
+              title: "Custom Button + No Reset",
+              formFields: [
+                { id: uuid(), label: "Name", parameterName: "cat_name", parameterType: "text", placeholder: "Full name" },
+                { id: uuid(), label: "Born", parameterName: "cat_born", parameterType: "number-range", rangeMin: 1900, rangeMax: 2010, rangeStep: 1 },
+              ],
+              chartOptions: { submitButtonText: "Create Person", successMessage: "Person created!", resetOnSuccess: false },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+        ],
+      },
+
+      // ── Page 15: Behavior Options ──────────────────────────────────
+      {
+        id: behaviorPageId,
+        title: "Behavior Options",
+        widgets: [
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Refresh Button", chartOptions: { showRefreshButton: true } } },
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Manual Run", chartOptions: { manualRun: true } } },
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Cache Forever", chartOptions: { cacheMode: "forever", showRefreshButton: true } } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Line + Refresh", chartOptions: { showRefreshButton: true } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Pie + Manual Run", chartOptions: { manualRun: true } } },
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "Table + Cache Forever", chartOptions: { cacheMode: "forever", showRefreshButton: true } } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 4 },
+          { i: null, x: 4, y: 0, w: 4, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 4 },
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          { i: null, x: 4, y: 4, w: 4, h: 4 },
+          { i: null, x: 8, y: 4, w: 4, h: 4 },
+        ],
+      },
+
+      // ── Page 16: Missing Options — Axis, Grid, Legend ──────────────
+      {
+        id: uuid(),
+        title: "Axis & Grid Options",
+        widgets: [
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "With Axis Labels", chartOptions: { xAxisLabel: "Decade", yAxisLabel: "Count" } } },
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "No Grid Lines", chartOptions: { showGridLines: false } } },
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Custom Bar Width/Gap", chartOptions: { barWidth: 20, barGap: "50%" } } },
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barMulti,
+            settings: { title: "No Legend", chartOptions: { showLegend: false, stacked: true } } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Line + Axis Labels", chartOptions: { xAxisLabel: "Year", yAxisLabel: "Movies", showGridLines: false } } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Line No Legend", chartOptions: { showLegend: false } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "No Labels", chartOptions: { showLabel: false } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "No % + Sorted", chartOptions: { showPercentage: false, sortSlices: true } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "No Legend", chartOptions: { showLegend: false } } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 4 },
+          { i: null, x: 4, y: 0, w: 4, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 4 },
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          { i: null, x: 4, y: 4, w: 4, h: 4 },
+          { i: null, x: 8, y: 4, w: 4, h: 4 },
+          { i: null, x: 0, y: 8, w: 4, h: 4 },
+          { i: null, x: 4, y: 8, w: 4, h: 4 },
+          { i: null, x: 8, y: 8, w: 4, h: 4 },
+        ],
+      },
+
+      // ── Page 17: Missing Options — Table, Gauge, Others ────────────
+      {
+        id: uuid(),
+        title: "Advanced Options",
+        widgets: [
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "No Pagination (pageSize=100)", chartOptions: { enablePagination: false, pageSize: 100 } } },
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "Page Size 5", chartOptions: { pageSize: 5 } } },
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "Min=0 Max=200", chartOptions: { min: 0, max: 200 } } },
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "No Progress Arc", chartOptions: { showProgress: false } } },
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "No Detail", chartOptions: { showDetail: false } } },
+          { id: uuid(), chartType: "radar", connectionId: neo4jId, query: Q.radarData,
+            settings: { title: "Radar No Legend", chartOptions: { showLegend: false } } },
+          { id: uuid(), chartType: "sankey", connectionId: neo4jId, query: Q.sankeyData,
+            settings: { title: "No Labels + Wide Nodes", chartOptions: { showLabels: false, nodeWidth: 30, nodeGap: 12 } } },
+          { id: uuid(), chartType: "sunburst", connectionId: neo4jId, query: Q.sunburstData,
+            settings: { title: "Sort Asc + No Highlight", chartOptions: { sort: "asc", highlightOnHover: false } } },
+          { id: uuid(), chartType: "treemap", connectionId: neo4jId, query: Q.treemapData,
+            settings: { title: "No Labels + Low Saturation", chartOptions: { showLabels: false, colorSaturation: "low" } } },
+          { id: uuid(), chartType: "treemap", connectionId: neo4jId, query: Q.treemapData,
+            settings: { title: "No Breadcrumb + High Saturation", chartOptions: { showBreadcrumb: false, colorSaturation: "high" } } },
+          { id: uuid(), chartType: "json", connectionId: neo4jId,
+            query: "MATCH (m:Movie) RETURN m ORDER BY m.released DESC LIMIT 3",
+            settings: { title: "JSON Large + Light Theme", chartOptions: { initialExpanded: 3, fontSize: "lg", theme: "light", showCopyButton: false } } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          { i: null, x: 0, y: 5, w: 3, h: 4 },
+          { i: null, x: 3, y: 5, w: 3, h: 4 },
+          { i: null, x: 6, y: 5, w: 3, h: 4 },
+          { i: null, x: 9, y: 5, w: 3, h: 4 },
+          { i: null, x: 0, y: 9, w: 4, h: 4 },
+          { i: null, x: 4, y: 9, w: 4, h: 4 },
+          { i: null, x: 8, y: 9, w: 4, h: 4 },
+          { i: null, x: 0, y: 13, w: 6, h: 4 },
+          { i: null, x: 6, y: 13, w: 6, h: 4 },
+        ],
+      },
+
+      // ── Page 18: Detail (click target) ─────────────────────────────
       {
         id: detailPageId,
         title: "Detail View",
