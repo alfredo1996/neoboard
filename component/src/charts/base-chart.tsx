@@ -10,6 +10,7 @@ import {
   AriaComponent,
   RadarComponent,
   MarkLineComponent,
+  GraphicComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
@@ -37,6 +38,7 @@ echarts.use([
   AriaComponent,
   RadarComponent,
   MarkLineComponent,
+  GraphicComponent,
   CanvasRenderer,
 ]);
 
