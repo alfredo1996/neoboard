@@ -9,6 +9,7 @@ import {
   DataZoomComponent,
   AriaComponent,
   RadarComponent,
+  MarkLineComponent,
   GraphicComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
@@ -36,6 +37,7 @@ echarts.use([
   DataZoomComponent,
   AriaComponent,
   RadarComponent,
+  MarkLineComponent,
   GraphicComponent,
   CanvasRenderer,
 ]);
