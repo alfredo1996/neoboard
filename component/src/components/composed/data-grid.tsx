@@ -1,4 +1,6 @@
 import * as React from "react";
+import type { CellFormattingRule } from "@/lib/cell-formatting";
+import { resolveCellStyle } from "@/lib/cell-formatting";
 import {
   flexRender,
   getCoreRowModel,
@@ -86,6 +88,8 @@ export interface DataGridProps<TData> {
   onSelectionChange?: (selectedRows: TData[]) => void;
   /** Optional function to compute a row's inline style (e.g. background color from threshold). */
   getRowStyle?: (row: TData) => React.CSSProperties | undefined;
+  /** Cell-level conditional formatting rules applied to individual cells. */
+  cellFormattingRules?: CellFormattingRule[];
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
   className?: string;
@@ -106,6 +110,7 @@ function DataGrid<TData>({
   clickableColumns,
   onSelectionChange,
   getRowStyle,
+  cellFormattingRules,
   toolbar,
   pagination,
   className,
@@ -261,10 +266,14 @@ function DataGrid<TData>({
                     const isDataCell = cell.column.id !== "select";
                     const isInClickableColumns = !clickableColumns?.length || clickableColumns.includes(cell.column.id);
                     const cellClickable = onCellClick && isDataCell && isInClickableColumns;
+                    const cellStyle = cellFormattingRules?.length && isDataCell
+                      ? resolveCellStyle(cellFormattingRules, cell.getValue())
+                      : undefined;
                     return (
                     <TableCell
                       key={cell.id}
                       className={cellClickable ? "cursor-pointer" : undefined}
+                      style={cellStyle}
                       onClick={cellClickable ? (e) => {
                         e.stopPropagation();
                         onCellClick({ column: cell.column.id, value: cell.getValue() });
