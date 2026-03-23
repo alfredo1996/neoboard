@@ -99,6 +99,7 @@ function BaseChart({
   onChartReady,
   onClick,
   onDataZoom,
+  ariaDescription,
   colorblindMode = false,
   colorPalette,
 }: BaseChartProps) {
@@ -152,6 +153,7 @@ function BaseChart({
       ...options,
       aria: {
         enabled: true,
+        ...(ariaDescription ? { label: { description: ariaDescription } } : {}),
         ...userAria,
         decal: { show: colorblindMode, ...userDecal },
       },
@@ -213,7 +215,9 @@ function BaseChart({
       ref={containerRef}
       className={cn("h-full w-full", className)}
       data-testid="base-chart"
-      aria-label="Chart visualization"
+      role="img"
+      aria-label={ariaDescription ?? "Chart visualization"}
+      tabIndex={0}
     />
   );
 }
