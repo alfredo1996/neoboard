@@ -2322,7 +2322,7 @@ function buildChartCatalog(neo4jId) {
             settings: {
               title: "Markdown Widget",
               chartOptions: {
-                content: "# NeoBoard Chart Catalog\\n\\nThis dashboard showcases **every chart type** with all feature variants.\\n\\n## Features\\n- Rule-based styling\\n- Click actions\\n- Color palettes\\n- Accessibility modes\\n\\n| Chart | Variants |\\n| --- | --- |\\n| Bar | Vertical, Horizontal, Stacked |\\n| Line | Smooth, Area, Stepped |\\n| Pie | Donut, Rose, Labels Inside |",
+                content: "# NeoBoard Chart Catalog\n\nThis dashboard showcases **every chart type** with all feature variants.\n\n## Features\n- Rule-based styling\n- Click actions\n- Color palettes\n- Accessibility modes\n\n| Chart | Variants |\n| --- | --- |\n| Bar | Vertical, Horizontal, Stacked |\n| Line | Smooth, Area, Stepped |\n| Pie | Donut, Rose, Labels Inside |",
               },
             },
           },
@@ -2332,7 +2332,7 @@ function buildChartCatalog(neo4jId) {
           { id: uuid(), chartType: "iframe", connectionId: "", query: "",
             settings: {
               title: "Embedded Content",
-              chartOptions: { url: "https://echarts.apache.org/examples/en/index.html", iframeTitle: "ECharts Examples" },
+              chartOptions: { url: "https://en.wikipedia.org/wiki/Data_visualization", iframeTitle: "Data Visualization — Wikipedia" },
             },
           },
         ],
