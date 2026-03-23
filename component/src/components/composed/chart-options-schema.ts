@@ -168,6 +168,7 @@ const tableOptions: ChartOptionDef[] = [
   { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination", description: "Show Previous / Next controls to page through large result sets." },
   { key: "pageSize", label: "Page Size", type: "number", default: 10, category: "Pagination", description: "Number of rows shown per page when pagination is enabled." },
   { key: "emptyMessage", label: "Empty Message", type: "text", default: "No results", category: "Display", description: "Text displayed when the query returns no rows." },
+  { key: "cellFormattingRules", label: "Cell Formatting Rules (JSON)", type: "text", default: "", category: "Display", description: 'Conditional cell styles: [{"operator":">","value":80,"style":{"backgroundColor":"#c6efce"}}]' },
 ];
 
 const jsonOptions: ChartOptionDef[] = [
