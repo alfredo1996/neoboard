@@ -1740,6 +1740,17 @@ async function main() {
       true
     );
 
+    const catalogLayout = buildChartCatalog(neo4jConnId);
+    patchGridIds(catalogLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Chart Catalog",
+      "One page per chart type. Each page shows every palette, feature variant, rule-based styling, click actions, and accessibility modes.",
+      catalogLayout,
+      true
+    );
+
     console.log("    Demo dashboards seeded.");
   } finally {
     await sql.end();
@@ -1957,6 +1968,393 @@ function buildStylingRulesDemo(neo4jConnId, pgConnId) {
 }
 
 /** Set gridLayout[n].i = widgets[n].id for each page. */
+// ─── Chart Catalog — comprehensive per-chart-type showcase ──────────
+function buildChartCatalog(neo4jId) {
+  const palettes = ["deep-ocean", "warm-sunset", "cool-breeze", "earth-tones", "neon", "monochrome"];
+  const detailPageId = uuid();
+
+  // Reusable queries (Neo4j movie dataset)
+  const Q = {
+    barData: "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS label, count(*) AS count ORDER BY label",
+    lineData: "MATCH (m:Movie) RETURN m.released AS x, count(*) AS count ORDER BY x",
+    pieData: "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
+    singleVal: "MATCH (m:Movie) RETURN count(m) AS value",
+    tableData: "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p.name AS name, m.title AS movie, m.released AS year ORDER BY year DESC LIMIT 30",
+    gaugeData: "MATCH (m:Movie) RETURN count(m) AS value, 'Movies' AS name",
+    radarData: "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value",
+    sankeyData: "MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN ['ACTED_IN','DIRECTED'] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20",
+    sunburstData: "MATCH ()-[r]->() WITH type(r) AS relType, count(*) AS cnt RETURN '' AS parent, relType AS name, cnt AS value UNION ALL MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS relType, m.title AS movie, count(p) AS cnt RETURN relType AS parent, movie AS name, cnt AS value LIMIT 30",
+    treemapData: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15",
+  };
+
+  // Styling rules reusable across pages
+  const barStyling = {
+    enabled: true,
+    rules: [
+      { id: uuid(), operator: "<=", value: 5, color: "#ef4444", target: "color" },
+      { id: uuid(), operator: ">=", value: 15, color: "#22c55e", target: "color" },
+    ],
+  };
+  const singleValueStyling = {
+    enabled: true,
+    rules: [
+      { id: uuid(), operator: "<", value: 20, color: "#ef4444", target: "color" },
+      { id: uuid(), operator: ">=", value: 20, color: "#22c55e", target: "color" },
+      { id: uuid(), operator: ">=", value: 20, color: "#dcfce7", target: "backgroundColor" },
+    ],
+  };
+
+  // Click action: set parameter on click
+  const clickSetParam = (triggerCol, paramName) => ({
+    type: "set-parameter",
+    rules: [{
+      id: uuid(), type: "set-parameter",
+      triggerColumn: triggerCol,
+      parameterMapping: { parameterName: paramName, sourceField: triggerCol },
+    }],
+  });
+
+  // Click action: navigate to page
+  const clickNavPage = (triggerCol, pageId) => ({
+    type: "navigate-to-page",
+    rules: [{
+      id: uuid(), type: "navigate-to-page",
+      triggerColumn: triggerCol,
+      navigateToPageId: pageId,
+    }],
+  });
+
+  // Helper to make a palette row of widgets for a given chart type
+  function paletteRow(chartType, query, baseSettings = {}) {
+    return palettes.map((p) => ({
+      id: uuid(),
+      chartType,
+      connectionId: neo4jId,
+      query,
+      settings: { ...baseSettings, title: p, chartOptions: { ...baseSettings.chartOptions, colorPalette: p } },
+    }));
+  }
+
+  function paletteGrid(yStart = 0) {
+    // 3×2 grid for 6 palettes, each 4×4
+    return palettes.map((_, i) => ({
+      i: null,
+      x: (i % 3) * 4,
+      y: yStart + Math.floor(i / 3) * 4,
+      w: 4,
+      h: 4,
+    }));
+  }
+
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: Bar Chart ──────────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Bar Chart",
+        widgets: [
+          // Vertical bar (default)
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Vertical (default)" } },
+          // Horizontal bar
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Horizontal", chartOptions: { orientation: "horizontal" } } },
+          // Stacked bar
+          { id: uuid(), chartType: "bar", connectionId: neo4jId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) WITH (m.released / 10) * 10 AS decade, type(r) AS rel, count(*) AS cnt RETURN decade AS label, rel, cnt ORDER BY decade",
+            settings: { title: "Stacked", chartOptions: { stacked: true } } },
+          // Bar with values shown
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Show Values", chartOptions: { showValues: true } } },
+          // Bar with styling rules
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Rule-Based Styling", stylingConfig: barStyling } },
+          // Bar with click action
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Click → Set Parameter", clickAction: clickSetParam("label", "bar_decade") } },
+          // Bar with colorblind mode
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
+            settings: { title: "Colorblind Mode", chartOptions: { colorblindMode: true } } },
+          // 6 palette variants
+          ...paletteRow("bar", Q.barData),
+        ],
+        gridLayout: [
+          // Row 1: feature variants (4 widgets, 3×4 each)
+          { i: null, x: 0, y: 0, w: 3, h: 4 },
+          { i: null, x: 3, y: 0, w: 3, h: 4 },
+          { i: null, x: 6, y: 0, w: 3, h: 4 },
+          { i: null, x: 9, y: 0, w: 3, h: 4 },
+          // Row 2: styling, click, accessibility
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          { i: null, x: 4, y: 4, w: 4, h: 4 },
+          { i: null, x: 8, y: 4, w: 4, h: 4 },
+          // Rows 3-4: palette grid
+          ...paletteGrid(8),
+        ],
+      },
+
+      // ── Page 2: Line Chart ─────────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Line Chart",
+        widgets: [
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Default" } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Smooth + Area", chartOptions: { smooth: true, area: true } } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Stepped", chartOptions: { stepped: true } } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Show Points", chartOptions: { showPoints: true, lineWidth: 3 } } },
+          { id: uuid(), chartType: "line", connectionId: neo4jId, query: Q.lineData,
+            settings: { title: "Colorblind Mode", chartOptions: { colorblindMode: true, area: true } } },
+          ...paletteRow("line", Q.lineData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 3, h: 4 },
+          { i: null, x: 3, y: 0, w: 3, h: 4 },
+          { i: null, x: 6, y: 0, w: 3, h: 4 },
+          { i: null, x: 9, y: 0, w: 3, h: 4 },
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          ...paletteGrid(8),
+        ],
+      },
+
+      // ── Page 3: Pie Chart ──────────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Pie Chart",
+        widgets: [
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Default Pie" } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Donut", chartOptions: { donut: true } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Rose / Nightingale", chartOptions: { roseMode: true } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Labels Inside", chartOptions: { labelPosition: "inside" } } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Click → Set Param", clickAction: clickSetParam("name", "pie_type") } },
+          { id: uuid(), chartType: "pie", connectionId: neo4jId, query: Q.pieData,
+            settings: { title: "Colorblind Mode", chartOptions: { colorblindMode: true } } },
+          ...paletteRow("pie", Q.pieData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 4 },
+          { i: null, x: 4, y: 0, w: 4, h: 4 },
+          { i: null, x: 8, y: 0, w: 4, h: 4 },
+          { i: null, x: 0, y: 4, w: 4, h: 4 },
+          { i: null, x: 4, y: 4, w: 4, h: 4 },
+          { i: null, x: 8, y: 4, w: 4, h: 4 },
+          ...paletteGrid(8),
+        ],
+      },
+
+      // ── Page 4: Single Value ───────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Single Value",
+        widgets: [
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId, query: Q.singleVal,
+            settings: { title: "Default", chartOptions: { fontSize: "lg" } } },
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId, query: Q.singleVal,
+            settings: { title: "With Prefix/Suffix", chartOptions: { prefix: "$", suffix: "M", fontSize: "xl" } } },
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId, query: Q.singleVal,
+            settings: { title: "Comma Format", chartOptions: { numberFormat: "comma", fontSize: "lg" } } },
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId, query: Q.singleVal,
+            settings: { title: "Compact Format", chartOptions: { numberFormat: "compact", fontSize: "lg" } } },
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId, query: Q.singleVal,
+            settings: { title: "Rule-Based Styling", stylingConfig: singleValueStyling, chartOptions: { fontSize: "xl" } } },
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId,
+            query: "MATCH (m:Movie) RETURN count(m) AS value, count(m) - 5 AS previous",
+            settings: { title: "With Trend", chartOptions: { fontSize: "lg", trendEnabled: true } } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 3 },
+          { i: null, x: 4, y: 0, w: 4, h: 3 },
+          { i: null, x: 8, y: 0, w: 4, h: 3 },
+          { i: null, x: 0, y: 3, w: 4, h: 3 },
+          { i: null, x: 4, y: 3, w: 4, h: 3 },
+          { i: null, x: 8, y: 3, w: 4, h: 3 },
+        ],
+      },
+
+      // ── Page 5: Table ──────────────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Table",
+        widgets: [
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "Default Table" } },
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "With Sorting + Filters", chartOptions: { enableSorting: true, enableColumnFilters: true, enableGlobalFilter: true } } },
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "Row Selection", chartOptions: { enableSelection: true } } },
+          { id: uuid(), chartType: "table", connectionId: neo4jId, query: Q.tableData,
+            settings: { title: "Click → Set Parameter", clickAction: clickSetParam("name", "table_actor") } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          { i: null, x: 0, y: 5, w: 6, h: 5 },
+          { i: null, x: 6, y: 5, w: 6, h: 5 },
+        ],
+      },
+
+      // ── Page 6: Gauge Chart ────────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Gauge Chart",
+        widgets: [
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "Default Gauge" } },
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "No Pointer", chartOptions: { showPointer: false } } },
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "Half Gauge", chartOptions: { startAngle: 180, endAngle: 0 } } },
+          { id: uuid(), chartType: "gauge", connectionId: neo4jId, query: Q.gaugeData,
+            settings: { title: "Rule-Based Styling", stylingConfig: singleValueStyling } },
+          ...paletteRow("gauge", Q.gaugeData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 3, h: 4 },
+          { i: null, x: 3, y: 0, w: 3, h: 4 },
+          { i: null, x: 6, y: 0, w: 3, h: 4 },
+          { i: null, x: 9, y: 0, w: 3, h: 4 },
+          ...paletteGrid(4),
+        ],
+      },
+
+      // ── Page 7: Radar Chart ────────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Radar Chart",
+        widgets: [
+          { id: uuid(), chartType: "radar", connectionId: neo4jId, query: Q.radarData,
+            settings: { title: "Default Radar" } },
+          { id: uuid(), chartType: "radar", connectionId: neo4jId, query: Q.radarData,
+            settings: { title: "Circle Shape", chartOptions: { shape: "circle" } } },
+          { id: uuid(), chartType: "radar", connectionId: neo4jId, query: Q.radarData,
+            settings: { title: "Filled + Values", chartOptions: { filled: true, showValues: true } } },
+          { id: uuid(), chartType: "radar", connectionId: neo4jId, query: Q.radarData,
+            settings: { title: "Colorblind Mode", chartOptions: { colorblindMode: true } } },
+          ...paletteRow("radar", Q.radarData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 3, h: 4 },
+          { i: null, x: 3, y: 0, w: 3, h: 4 },
+          { i: null, x: 6, y: 0, w: 3, h: 4 },
+          { i: null, x: 9, y: 0, w: 3, h: 4 },
+          ...paletteGrid(4),
+        ],
+      },
+
+      // ── Page 8: Sankey Chart ───────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Sankey Chart",
+        widgets: [
+          { id: uuid(), chartType: "sankey", connectionId: neo4jId, query: Q.sankeyData,
+            settings: { title: "Horizontal (default)" } },
+          { id: uuid(), chartType: "sankey", connectionId: neo4jId, query: Q.sankeyData,
+            settings: { title: "Vertical", chartOptions: { orient: "vertical" } } },
+          ...paletteRow("sankey", Q.sankeyData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          ...paletteGrid(5),
+        ],
+      },
+
+      // ── Page 9: Treemap Chart ──────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Treemap Chart",
+        widgets: [
+          { id: uuid(), chartType: "treemap", connectionId: neo4jId, query: Q.treemapData,
+            settings: { title: "Default Treemap" } },
+          { id: uuid(), chartType: "treemap", connectionId: neo4jId, query: Q.treemapData,
+            settings: { title: "With Values", chartOptions: { showValues: true } } },
+          ...paletteRow("treemap", Q.treemapData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          ...paletteGrid(5),
+        ],
+      },
+
+      // ── Page 10: Sunburst Chart ────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Sunburst Chart",
+        widgets: [
+          { id: uuid(), chartType: "sunburst", connectionId: neo4jId, query: Q.sunburstData,
+            settings: { title: "Default Sunburst" } },
+          { id: uuid(), chartType: "sunburst", connectionId: neo4jId, query: Q.sunburstData,
+            settings: { title: "No Labels", chartOptions: { showLabels: false } } },
+          ...paletteRow("sunburst", Q.sunburstData),
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          ...paletteGrid(5),
+        ],
+      },
+
+      // ── Page 11: Content Widgets ───────────────────────────────────
+      {
+        id: uuid(),
+        title: "Content Widgets",
+        widgets: [
+          { id: uuid(), chartType: "markdown", connectionId: "", query: "",
+            settings: {
+              title: "Markdown Widget",
+              chartOptions: {
+                content: "# NeoBoard Chart Catalog\\n\\nThis dashboard showcases **every chart type** with all feature variants.\\n\\n## Features\\n- Rule-based styling\\n- Click actions\\n- Color palettes\\n- Accessibility modes\\n\\n| Chart | Variants |\\n| --- | --- |\\n| Bar | Vertical, Horizontal, Stacked |\\n| Line | Smooth, Area, Stepped |\\n| Pie | Donut, Rose, Labels Inside |",
+              },
+            },
+          },
+          { id: uuid(), chartType: "json", connectionId: neo4jId,
+            query: "MATCH (m:Movie) RETURN m ORDER BY m.released DESC LIMIT 3",
+            settings: { title: "JSON Viewer", chartOptions: { initialExpanded: 2 } } },
+          { id: uuid(), chartType: "iframe", connectionId: "", query: "",
+            settings: {
+              title: "Embedded Content",
+              chartOptions: { url: "https://echarts.apache.org/examples/en/index.html", iframeTitle: "ECharts Examples" },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 6 },
+          { i: null, x: 6, y: 0, w: 6, h: 6 },
+          { i: null, x: 0, y: 6, w: 12, h: 5 },
+        ],
+      },
+
+      // ── Page 12: Detail (click target) ─────────────────────────────
+      {
+        id: detailPageId,
+        title: "Detail View",
+        widgets: [
+          { id: uuid(), chartType: "single-value", connectionId: neo4jId,
+            query: "RETURN $param_bar_decade AS value",
+            settings: { title: "Selected Decade", chartOptions: { fontSize: "xl", prefix: "Decade: " } } },
+          { id: uuid(), chartType: "table", connectionId: neo4jId,
+            query: "MATCH (m:Movie) WHERE (m.released / 10) * 10 = toInteger($param_bar_decade) RETURN m.title AS title, m.released AS year ORDER BY year",
+            settings: { title: "Movies in Decade" } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 3 },
+          { i: null, x: 4, y: 0, w: 8, h: 6 },
+        ],
+      },
+    ],
+  };
+}
+
 function patchGridIds(layout) {
   for (const page of layout.pages) {
     for (let idx = 0; idx < page.gridLayout.length; idx++) {
