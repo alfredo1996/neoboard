@@ -1991,6 +1991,9 @@ function buildChartCatalog(neo4jId) {
     graphData: "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 25",
     graphSmall: "MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p, r, m LIMIT 10",
     selectSeed: "MATCH (p:Person) RETURN DISTINCT p.name AS value, p.name AS label ORDER BY p.name LIMIT 20",
+    mapCities: "MATCH (c:City) RETURN c.name AS name, c.latitude AS lat, c.longitude AS lng, c.population AS value",
+    mapFilming: "MATCH (m:Movie)-[:FILMED_IN]->(c:City) RETURN c.name AS name, c.latitude AS lat, c.longitude AS lng, count(m) AS value",
+    mapBirthplaces: "MATCH (p:Person)-[:BORN_IN]->(c:City) RETURN c.name AS name, c.latitude AS lat, c.longitude AS lng, count(p) AS value, collect(p.name)[0..3] AS people",
   };
 
   // Styling rules reusable across pages
@@ -2340,7 +2343,41 @@ function buildChartCatalog(neo4jId) {
         ],
       },
 
-      // ── Page 12: Graph Chart ─────────────────────────────────────
+      // ── Page 12: Map Chart ──────────────────────────────────────
+      {
+        id: uuid(),
+        title: "Map Chart",
+        widgets: [
+          // OSM — cities by population
+          { id: uuid(), chartType: "map", connectionId: neo4jId, query: Q.mapCities,
+            settings: { title: "Cities (OSM)", chartOptions: { tileLayer: "osm", autoFitBounds: true, markerSize: 8, showPopup: true } } },
+          // Carto Light — filming locations
+          { id: uuid(), chartType: "map", connectionId: neo4jId, query: Q.mapFilming,
+            settings: { title: "Filming Locations (Carto Light)", chartOptions: { tileLayer: "carto-light", autoFitBounds: true, markerSize: 10 } } },
+          // Carto Dark — birthplaces
+          { id: uuid(), chartType: "map", connectionId: neo4jId, query: Q.mapBirthplaces,
+            settings: { title: "Birthplaces (Carto Dark)", chartOptions: { tileLayer: "carto-dark", autoFitBounds: true } } },
+          // Cluster markers
+          { id: uuid(), chartType: "map", connectionId: neo4jId, query: Q.mapCities,
+            settings: { title: "Clustered Markers", chartOptions: { clusterMarkers: true, autoFitBounds: true } } },
+          // Custom zoom + no popup
+          { id: uuid(), chartType: "map", connectionId: neo4jId, query: Q.mapCities,
+            settings: { title: "Zoom 4 / No Popup", chartOptions: { zoom: 4, minZoom: 2, maxZoom: 10, showPopup: false, autoFitBounds: false } } },
+          // Large markers + click action
+          { id: uuid(), chartType: "map", connectionId: neo4jId, query: Q.mapCities,
+            settings: { title: "Large Markers + Click", chartOptions: { markerSize: 14, autoFitBounds: true }, clickAction: clickSetParam("name", "map_city") } },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 4, h: 5 },
+          { i: null, x: 4, y: 0, w: 4, h: 5 },
+          { i: null, x: 8, y: 0, w: 4, h: 5 },
+          { i: null, x: 0, y: 5, w: 4, h: 5 },
+          { i: null, x: 4, y: 5, w: 4, h: 5 },
+          { i: null, x: 8, y: 5, w: 4, h: 5 },
+        ],
+      },
+
+      // ── Page 13: Graph Chart ─────────────────────────────────────
       {
         id: uuid(),
         title: "Graph Chart",
