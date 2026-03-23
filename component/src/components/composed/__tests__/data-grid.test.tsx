@@ -303,4 +303,52 @@ describe("DataGrid", () => {
     );
     expect(container.firstChild).toHaveClass("custom-class");
   });
+
+  describe("getCellStyle", () => {
+    it("applies inline styles to individual cells", () => {
+      const getCellStyle = (_row: TestRow, columnId: string) => {
+        if (columnId === "status") return { backgroundColor: "#22c55e" };
+        return undefined;
+      };
+      render(<DataGrid columns={columns} data={data} getCellStyle={getCellStyle} />);
+      // All status cells should have the background color
+      const rows = screen.getAllByRole("row").slice(1); // skip header
+      for (const row of rows) {
+        const cells = row.querySelectorAll("td");
+        // status is the 3rd column (index 2)
+        expect(cells[2].style.backgroundColor).toBe("rgb(34, 197, 94)");
+        // other cells should not have it
+        expect(cells[0].style.backgroundColor).toBe("");
+      }
+    });
+
+    it("applies bold style via font-weight", () => {
+      const getCellStyle = (_row: TestRow, columnId: string) => {
+        if (columnId === "name") return { fontWeight: "bold" };
+        return undefined;
+      };
+      render(<DataGrid columns={columns} data={data} getCellStyle={getCellStyle} />);
+      const rows = screen.getAllByRole("row").slice(1);
+      for (const row of rows) {
+        const cells = row.querySelectorAll("td");
+        expect(cells[0].style.fontWeight).toBe("bold");
+      }
+    });
+
+    it("does not interfere with row styles", () => {
+      const getRowStyle = () => ({ backgroundColor: "#eee" });
+      const getCellStyle = (_row: TestRow, columnId: string) => {
+        if (columnId === "status") return { color: "red" };
+        return undefined;
+      };
+      render(
+        <DataGrid columns={columns} data={data} getRowStyle={getRowStyle} getCellStyle={getCellStyle} />
+      );
+      const rows = screen.getAllByRole("row").slice(1);
+      // Row has background, cell has text color
+      expect(rows[0].style.backgroundColor).toBe("rgb(238, 238, 238)");
+      const statusCell = rows[0].querySelectorAll("td")[2];
+      expect(statusCell.style.color).toBe("red");
+    });
+  });
 });

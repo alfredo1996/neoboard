@@ -5,6 +5,7 @@ import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
+import type { CellFormatRule, ColorScaleConfig } from "@neoboard/components";
 import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback, useState } from "react";
@@ -184,6 +185,13 @@ export function CardContainer({
     return undefined;
   }, [widget.settings?.stylingConfig, chartOptions]);
 
+  // Resolve conditional formatting config
+  const conditionalFormatting = widget.settings?.conditionalFormatting as
+    | { rules?: CellFormatRule[]; colorScales?: ColorScaleConfig[] }
+    | undefined;
+  const cellFormatRules = conditionalFormatting?.rules;
+  const colorScales = conditionalFormatting?.colorScales;
+
   if (!chartConfig) {
     return (
       <EmptyState
@@ -225,6 +233,8 @@ export function CardContainer({
             stylingRules={resolvedStylingConfig?.rules}
             paramValues={allParamValues}
             autoFit={autoFit}
+            cellFormatRules={cellFormatRules}
+            colorScales={colorScales}
           />
         </div>
         {showOverlay && (
@@ -423,6 +433,8 @@ export function CardContainer({
           stylingRules={resolvedStylingConfig?.rules}
           paramValues={allParamValues}
           autoFit={autoFit}
+          cellFormatRules={cellFormatRules}
+          colorScales={colorScales}
         />
       </div>
       {showOverlay && (
