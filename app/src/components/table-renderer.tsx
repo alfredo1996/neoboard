@@ -61,29 +61,55 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   }, []);
 
   const enableSorting = settings.enableSorting !== false;
+  const enableGrouping = settings.enableGrouping === true;
+  const initialGrouping = useMemo(() => {
+    if (!enableGrouping) return undefined;
+    const raw = typeof settings.groupBy === "string" ? settings.groupBy : "";
+    if (!raw.trim()) return undefined;
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }, [enableGrouping, settings.groupBy]);
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
-    return Object.keys(records[0]).map((key) => ({
-      id: key,
-      accessorFn: (row: Record<string, unknown>) => row[key],
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title={key} />
-      ),
-      cell: ({ getValue }) => {
-        const v = getValue();
-        if (v === null || v === undefined)
-          return <span className="text-muted-foreground">null</span>;
-        const display =
-          typeof v === "object" ? JSON.stringify(v) : String(v);
-        return (
-          <span className="block truncate max-w-[240px]" title={display}>
-            {display}
-          </span>
-        );
-      },
-    }));
-  }, [records]);
+    return Object.keys(records[0]).map((key) => {
+      // Detect numeric columns for automatic aggregation in grouped mode
+      const isNumeric = records.some(
+        (r) => typeof (r as Record<string, unknown>)[key] === "number",
+      );
+      return {
+        id: key,
+        accessorFn: (row: Record<string, unknown>) => row[key],
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title={key} />
+        ),
+        cell: ({ getValue }) => {
+          const v = getValue();
+          if (v === null || v === undefined)
+            return <span className="text-muted-foreground">null</span>;
+          const display =
+            typeof v === "object" ? JSON.stringify(v) : String(v);
+          return (
+            <span className="block truncate max-w-[240px]" title={display}>
+              {display}
+            </span>
+          );
+        },
+        ...(enableGrouping && isNumeric
+          ? {
+              aggregationFn: "sum" as const,
+              aggregatedCell: ({ getValue }: { getValue: () => unknown }) => {
+                const v = getValue();
+                return v != null ? (
+                  <span className="text-muted-foreground text-xs font-medium">
+                    Σ {typeof v === "number" ? v.toLocaleString() : String(v)}
+                  </span>
+                ) : null;
+              },
+            }
+          : {}),
+      };
+    });
+  }, [records, enableGrouping]);
 
   const thresholds = useMemo(() => {
     const raw =
@@ -218,6 +244,8 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
         clickableColumns={clickableColumns}
         getRowStyle={getRowStyle}
         getCellStyle={getCellStyle}
+        enableGrouping={enableGrouping}
+        initialGrouping={initialGrouping}
         pagination={(table) => (
           <div className="flex items-center gap-2">
             <DataGridViewOptions table={table} />

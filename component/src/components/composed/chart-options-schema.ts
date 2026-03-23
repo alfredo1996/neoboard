@@ -167,6 +167,8 @@ const tableOptions: ChartOptionDef[] = [
   { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination", description: "Show Previous / Next controls to page through large result sets." },
   { key: "pageSize", label: "Page Size", type: "number", default: 10, category: "Pagination", description: "Number of rows shown per page when pagination is enabled." },
   { key: "emptyMessage", label: "Empty Message", type: "text", default: "No results", category: "Display", description: "Text displayed when the query returns no rows." },
+  { key: "enableGrouping", label: "Enable Row Grouping", type: "boolean", default: false, category: "Grouping", description: "Allow grouping rows by column values. Columns to group by are set in the groupBy field below." },
+  { key: "groupBy", label: "Group By Columns", type: "text", default: "", category: "Grouping", description: "Comma-separated column names to group by (e.g. 'country,city'). Nested grouping is supported." },
 ];
 
 const jsonOptions: ChartOptionDef[] = [
