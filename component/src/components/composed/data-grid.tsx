@@ -84,6 +84,8 @@ export interface DataGridProps<TData> {
   onSelectionChange?: (selectedRows: TData[]) => void;
   /** Optional function to compute a row's inline style (e.g. background color from threshold). */
   getRowStyle?: (row: TData) => React.CSSProperties | undefined;
+  /** Optional function to compute a cell's inline style for conditional formatting. */
+  getCellStyle?: (row: TData, columnId: string) => React.CSSProperties | undefined;
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
   className?: string;
@@ -103,6 +105,7 @@ function DataGrid<TData>({
   clickableColumns,
   onSelectionChange,
   getRowStyle,
+  getCellStyle,
   toolbar,
   pagination,
   className,
@@ -242,6 +245,7 @@ function DataGrid<TData>({
                     <TableCell
                       key={cell.id}
                       className={cellClickable ? "cursor-pointer" : undefined}
+                      style={getCellStyle?.(row.original, cell.column.id)}
                       onClick={cellClickable ? (e) => {
                         e.stopPropagation();
                         onCellClick({ column: cell.column.id, value: cell.getValue() });
