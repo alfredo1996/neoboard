@@ -120,3 +120,54 @@ export function aggregateClickActionParamNames(
   }
   return [...new Set(names)];
 }
+
+// ─── Parameter Source Map ─────────────────────────────────────────────
+
+export interface ParameterSource {
+  widgetId: string;
+  widgetTitle: string;
+  pageId: string;
+  pageTitle: string;
+}
+
+export type ParameterSourceMap = Record<string, ParameterSource[]>;
+
+/**
+ * Builds a lookup from parameter name to the widgets that SET that parameter
+ * (param-select or click action). Widgets that only CONSUME params via
+ * `$param_xxx` in their query are NOT included.
+ *
+ * Pure function, no side effects.
+ */
+export function buildParameterSourceMap(layout: DashboardLayoutV2): ParameterSourceMap {
+  const map: ParameterSourceMap = {};
+
+  for (const page of layout.pages) {
+    for (const widget of page.widgets) {
+      const paramNames = getWidgetParameterNames(widget);
+      if (paramNames.length === 0) continue;
+
+      const titleSetting = widget.settings?.title;
+      const widgetTitle =
+        titleSetting && typeof titleSetting === "string"
+          ? titleSetting
+          : widget.chartType;
+
+      const source: ParameterSource = {
+        widgetId: widget.id,
+        widgetTitle,
+        pageId: page.id,
+        pageTitle: page.title,
+      };
+
+      for (const name of paramNames) {
+        if (!map[name]) {
+          map[name] = [];
+        }
+        map[name].push(source);
+      }
+    }
+  }
+
+  return map;
+}

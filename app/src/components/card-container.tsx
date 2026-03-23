@@ -5,6 +5,7 @@ import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
+import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
 import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback, useState } from "react";
@@ -15,6 +16,9 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -46,10 +50,12 @@ interface CardContainerProps {
   onWidgetSettingsChange?: (settings: Record<string, unknown>) => void;
   /** TanStack Query refetchInterval — periodically re-executes the widget query. */
   refetchInterval?: number | false;
-  /** Called when a click action navigates to a different page. */
-  onNavigateToPage?: (pageId: string) => void;
+  /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
   /** When true, graph widgets trigger a fit-to-viewport after mount. */
   autoFit?: boolean;
+  /** Maps parameter names to the widgets that set them (for clickable badges). */
+  parameterSourceMap?: ParameterSourceMap;
 }
 
 /**
@@ -62,6 +68,93 @@ function extractColumnNames(data: unknown): string[] {
   const first = records[0] as Record<string, unknown> | undefined;
   if (!first || typeof first !== "object") return [];
   return Object.keys(first);
+}
+
+/**
+ * Scrolls to and highlights a widget on the current page.
+ * Returns true if the element was found and scrolled to.
+ */
+function scrollAndHighlight(widgetId: string): boolean {
+  const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+  if (el && !el.closest(".hidden")) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("widget-highlight");
+    el.addEventListener(
+      "animationend",
+      () => el.classList.remove("widget-highlight"),
+      { once: true },
+    );
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Renders a parameter badge in the "Waiting for parameters" section.
+ * When source widgets exist, shows a clickable badge with a popover listing
+ * which widgets set that parameter and enabling navigation to them.
+ */
+function MissingParamBadge({
+  name,
+  parameterSourceMap,
+  onNavigateToPage,
+}: {
+  name: string;
+  parameterSourceMap?: ParameterSourceMap;
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
+}) {
+  const sources = parameterSourceMap?.[name];
+
+  if (!sources || sources.length === 0) {
+    return (
+      <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
+        $param_{name}
+      </code>
+    );
+  }
+
+  function handleNavigateToWidget(pageId: string, widgetId: string) {
+    // Try same-page scroll first
+    if (scrollAndHighlight(widgetId)) return;
+    // Cross-page navigation
+    onNavigateToPage?.(pageId, widgetId);
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground hover:bg-accent cursor-pointer transition-colors"
+        >
+          $param_{name}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="center">
+        <p className="text-xs font-medium text-muted-foreground mb-2">
+          Set by {sources.length} widget{sources.length !== 1 ? "s" : ""}
+        </p>
+        <ul className="space-y-1">
+          {sources.map((source) => (
+            <li key={`${source.pageId}-${source.widgetId}`}>
+              <button
+                type="button"
+                className="w-full text-left rounded px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+                onClick={() =>
+                  handleNavigateToWidget(source.pageId, source.widgetId)
+                }
+              >
+                <span className="font-medium">{source.widgetTitle}</span>
+                <span className="text-muted-foreground text-xs ml-1">
+                  ({source.pageTitle})
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /**
@@ -81,6 +174,7 @@ export function CardContainer({
   refetchInterval,
   onNavigateToPage,
   autoFit,
+  parameterSourceMap,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
@@ -338,9 +432,12 @@ export function CardContainer({
           {missingParams.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5">
               {missingParams.map((name) => (
-                <code key={name} className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
-                  $param_{name}
-                </code>
+                <MissingParamBadge
+                  key={name}
+                  name={name}
+                  parameterSourceMap={parameterSourceMap}
+                  onNavigateToPage={onNavigateToPage}
+                />
               ))}
             </div>
           )}

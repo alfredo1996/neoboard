@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collectParameterNames, findParameterCollisions, getWidgetParameterNames, aggregateClickActionParamNames } from "../collect-parameter-names";
+import { collectParameterNames, findParameterCollisions, getWidgetParameterNames, aggregateClickActionParamNames, buildParameterSourceMap } from "../collect-parameter-names";
 import type { DashboardLayoutV2 } from "../db/schema";
 
 function makeLayout(pages: DashboardLayoutV2["pages"]): DashboardLayoutV2 {
@@ -533,5 +533,230 @@ describe("aggregateClickActionParamNames", () => {
       { parameterMapping: undefined },
       { parameterMapping: { parameterName: "rule1" } },
     ])).toEqual(["top", "rule1"]);
+  });
+});
+
+describe("buildParameterSourceMap", () => {
+  it("returns empty map for empty layout", () => {
+    const layout = makeLayout([]);
+    expect(buildParameterSourceMap(layout)).toEqual({});
+  });
+
+  it("maps param-select widget to its parameterName", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "parameter-select",
+            connectionId: "c1",
+            query: "",
+            settings: {
+              title: "Region Picker",
+              chartOptions: { parameterName: "region" },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    expect(map).toEqual({
+      region: [
+        {
+          widgetId: "w1",
+          widgetTitle: "Region Picker",
+          pageId: "p1",
+          pageTitle: "Page 1",
+        },
+      ],
+    });
+  });
+
+  it("maps click-action widget to its parameterMapping.parameterName", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Overview",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "bar",
+            connectionId: "c1",
+            query: "RETURN 1",
+            settings: {
+              title: "Sales Chart",
+              clickAction: {
+                type: "set-parameter",
+                parameterMapping: { parameterName: "selectedItem", sourceField: "name" },
+              },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    expect(map).toEqual({
+      selectedItem: [
+        {
+          widgetId: "w1",
+          widgetTitle: "Sales Chart",
+          pageId: "p1",
+          pageTitle: "Overview",
+        },
+      ],
+    });
+  });
+
+  it("includes click-action rules", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "bar",
+            connectionId: "c1",
+            query: "RETURN 1",
+            settings: {
+              title: "Multi-Rule Bar",
+              clickAction: {
+                type: "set-parameter",
+                parameterMapping: { parameterName: "top", sourceField: "x" },
+                rules: [
+                  { id: "r1", type: "set-parameter", parameterMapping: { parameterName: "ruleParam", sourceField: "y" } },
+                ],
+              },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    expect(Object.keys(map).sort()).toEqual(["ruleParam", "top"]);
+    expect(map.top).toHaveLength(1);
+    expect(map.ruleParam).toHaveLength(1);
+    expect(map.top[0].widgetId).toBe("w1");
+    expect(map.ruleParam[0].widgetId).toBe("w1");
+  });
+
+  it("collects multiple sources from different pages for the same param", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Page A",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "parameter-select",
+            connectionId: "c1",
+            query: "",
+            settings: {
+              title: "Selector A",
+              chartOptions: { parameterName: "region" },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+      },
+      {
+        id: "p2",
+        title: "Page B",
+        widgets: [
+          {
+            id: "w2",
+            chartType: "bar",
+            connectionId: "c1",
+            query: "RETURN 1",
+            settings: {
+              title: "Bar Widget",
+              clickAction: {
+                type: "set-parameter",
+                parameterMapping: { parameterName: "region", sourceField: "r" },
+              },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w2", x: 0, y: 0, w: 4, h: 3 }],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    expect(map.region).toHaveLength(2);
+    expect(map.region[0]).toEqual({
+      widgetId: "w1",
+      widgetTitle: "Selector A",
+      pageId: "p1",
+      pageTitle: "Page A",
+    });
+    expect(map.region[1]).toEqual({
+      widgetId: "w2",
+      widgetTitle: "Bar Widget",
+      pageId: "p2",
+      pageTitle: "Page B",
+    });
+  });
+
+  it("falls back to chartType when widget has no title", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "parameter-select",
+            connectionId: "c1",
+            query: "",
+            settings: {
+              chartOptions: { parameterName: "dept" },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    expect(map.dept[0].widgetTitle).toBe("parameter-select");
+  });
+
+  it("does NOT include widgets that only consume params via $param_xxx in query", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "parameter-select",
+            connectionId: "c1",
+            query: "",
+            settings: {
+              title: "Setter",
+              chartOptions: { parameterName: "region" },
+            },
+          },
+          {
+            id: "w2",
+            chartType: "table",
+            connectionId: "c1",
+            query: "SELECT * FROM t WHERE r = $param_region",
+            settings: { title: "Consumer" },
+          },
+        ],
+        gridLayout: [
+          { i: "w1", x: 0, y: 0, w: 4, h: 3 },
+          { i: "w2", x: 4, y: 0, w: 4, h: 3 },
+        ],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    // Only w1 sets "region"; w2 only consumes it
+    expect(map.region).toHaveLength(1);
+    expect(map.region[0].widgetId).toBe("w1");
   });
 });

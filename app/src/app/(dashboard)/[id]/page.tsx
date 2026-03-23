@@ -6,6 +6,7 @@ import { ArrowLeft, Filter, Pencil, LayoutDashboard, RefreshCw } from "lucide-re
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
@@ -33,6 +34,30 @@ import {
   ToolbarSection,
   ToolbarSeparator,
 } from "@neoboard/components";
+
+/**
+ * Uses requestAnimationFrame polling to scroll to a widget after a cross-page
+ * navigation. The target page may not have rendered yet, so we retry a few
+ * times before giving up.
+ */
+function scrollToWidgetWhenReady(widgetId: string, maxRetries = 5) {
+  let attempts = 0;
+  function tryScroll() {
+    const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+    if (el && !el.closest(".hidden")) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("widget-highlight");
+      el.addEventListener(
+        "animationend",
+        () => el.classList.remove("widget-highlight"),
+        { once: true },
+      );
+      return;
+    }
+    if (++attempts < maxRetries) requestAnimationFrame(tryScroll);
+  }
+  requestAnimationFrame(tryScroll);
+}
 
 function formatInterval(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -164,16 +189,24 @@ export default function DashboardViewerPage({
     ? `${intervalLabel} · ${formatCountdown(countdown)}`
     : intervalLabel;
 
+  const parameterSourceMap = useMemo(
+    () => (layout ? buildParameterSourceMap(layout) : {}),
+    [layout],
+  );
+
   const handleNavigateToPage = useCallback(
-    (pageId: string) => {
+    (pageId: string, scrollToWidgetId?: string) => {
       if (!layout) return;
       const index = layout.pages.findIndex((p) => p.id === pageId);
       if (index >= 0) {
         markVisited(index);
         setActivePageIndex(index);
+        if (scrollToWidgetId) {
+          scrollToWidgetWhenReady(scrollToWidgetId);
+        }
       }
     },
-    [layout]
+    [layout],
   );
 
   if (isLoading) {
@@ -350,7 +383,7 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} showParameterBar={showParameterBar} />
+              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} showParameterBar={showParameterBar} parameterSourceMap={parameterSourceMap} />
             </div>
           );
         })}

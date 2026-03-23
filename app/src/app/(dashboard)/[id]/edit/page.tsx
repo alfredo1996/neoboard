@@ -21,6 +21,7 @@ import { useConnections } from "@/hooks/use-connections";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -54,6 +55,30 @@ import {
   ToolbarSection,
   ToolbarSeparator,
 } from "@neoboard/components";
+
+/**
+ * Uses requestAnimationFrame polling to scroll to a widget after a cross-page
+ * navigation. The target page may not have rendered yet, so we retry a few
+ * times before giving up.
+ */
+function scrollToWidgetWhenReady(widgetId: string, maxRetries = 5) {
+  let attempts = 0;
+  function tryScroll() {
+    const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+    if (el && !el.closest(".hidden")) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("widget-highlight");
+      el.addEventListener(
+        "animationend",
+        () => el.classList.remove("widget-highlight"),
+        { once: true },
+      );
+      return;
+    }
+    if (++attempts < maxRetries) requestAnimationFrame(tryScroll);
+  }
+  requestAnimationFrame(tryScroll);
+}
 
 export default function DashboardEditorPage({
   params,
@@ -148,12 +173,20 @@ export default function DashboardEditorPage({
     requestNavigation,
   } = useUnsavedChangesWarning();
 
+  const parameterSourceMap = useMemo(
+    () => buildParameterSourceMap(layout),
+    [layout],
+  );
+
   const handleNavigateToPage = useCallback(
-    (pageId: string) => {
+    (pageId: string, scrollToWidgetId?: string) => {
       const index = layout.pages.findIndex((p) => p.id === pageId);
       if (index >= 0) {
         markVisited(index);
         setActivePage(index);
+        if (scrollToWidgetId) {
+          scrollToWidgetWhenReady(scrollToWidgetId);
+        }
       }
     },
     [layout.pages, setActivePage],
@@ -552,6 +585,7 @@ export default function DashboardEditorPage({
                     onSyncWidget={handleSyncWidget}
                     onDetachWidget={handleDetachWidget}
                     showParameterBar={showParameterBar}
+                    parameterSourceMap={parameterSourceMap}
                   />
                 </div>
               );
