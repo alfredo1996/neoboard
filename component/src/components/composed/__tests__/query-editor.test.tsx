@@ -89,6 +89,8 @@ vi.mock("@codemirror/commands", () => ({
 vi.mock("@codemirror/autocomplete", () => ({
   autocompletion: () => ({ type: "autocompletion" }),
   completionKeymap: [],
+  closeBrackets: () => ({ type: "closeBrackets" }),
+  closeBracketsKeymap: [],
 }));
 
 vi.mock("@codemirror/theme-one-dark", () => ({
