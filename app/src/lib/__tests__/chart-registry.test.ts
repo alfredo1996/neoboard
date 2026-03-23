@@ -1491,16 +1491,53 @@ describe("radar transform", () => {
     expect(result.indicators[0].name).toBe("X");
   });
 
-  it("auto-scales max from data when max column is missing", () => {
+  it("auto-scales max from data when max column is missing (single indicator)", () => {
     const data = [{ indicator: "Speed", value: 80 }];
     const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: unknown[] };
     // 80 * 1.1 = 88, ceil → 88
     expect(result.indicators[0].max).toBe(88);
   });
 
-  it("handles flat tabular data without indicator column (uses column names as indicators)", () => {
+  it("uses global max across all indicators for relative comparison", () => {
+    const data = [
+      { indicator: "ACTED_IN", value: 172 },
+      { indicator: "PRODUCED", value: 15 },
+      { indicator: "DIRECTED", value: 44 },
+      { indicator: "WROTE", value: 10 },
+      { indicator: "REVIEWED", value: 9 },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: Array<{ values: number[] }> };
+    // Global max: ceil(172 * 1.1) = 190
+    const globalMax = Math.ceil(172 * 1.1);
+    expect(result.indicators).toHaveLength(5);
+    // All indicators should share the same max
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
+    // The shape should NOT be uniform — values differ significantly
+    const values = result.series[0].values;
+    expect(values[0]).toBe(172); // ACTED_IN
+    expect(values[4]).toBe(9);   // REVIEWED
+  });
+
+  it("preserves explicit max column values when provided", () => {
+    const data = [
+      { indicator: "Speed", value: 80, max: 200 },
+      { indicator: "Strength", value: 40, max: 150 },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    expect(result.indicators[0].max).toBe(200);
+    expect(result.indicators[1].max).toBe(150);
+  });
+
+  it("uses global max for wide-format tabular data", () => {
     const data = [{ Speed: 80, Strength: 60, Agility: 90 }];
-    const result = transform(data) as { indicators: Array<{ name: string }>; series: Array<{ values: number[] }> };
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: Array<{ values: number[] }> };
+    // Global max: ceil(90 * 1.1) = 99
+    const globalMax = Math.ceil(90 * 1.1);
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
     expect(result.indicators.map((i) => i.name)).toContain("Speed");
     expect(result.indicators.map((i) => i.name)).toContain("Strength");
     expect(result.series[0].values).toHaveLength(3);

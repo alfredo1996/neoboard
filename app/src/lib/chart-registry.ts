@@ -502,13 +502,15 @@ function transformToRadarData(data: unknown): unknown {
       seriesMap.get(serName)!.set(indName, val);
     }
 
-    // Use explicit max if provided, otherwise auto-scale from observed values (+10% headroom)
+    // Use explicit max if provided, otherwise use a single global max across all
+    // indicators so relative magnitudes are visible (e.g. 172 vs 9).
     const indicatorEntries = Array.from(indicatorMaxFromData.keys());
+    const globalMax = Math.ceil(Math.max(...indicatorMaxFromData.values()) * 1.1) || 100;
     const indicators = indicatorEntries.map((name) => ({
       name,
       max: maxKey && indicatorExplicitMax.has(name)
         ? indicatorExplicitMax.get(name)!
-        : Math.ceil((indicatorMaxFromData.get(name) ?? 100) * 1.1) || 100,
+        : globalMax,
     }));
     const series = Array.from(seriesMap.entries()).map(([name, valMap]) => ({
       name,
@@ -519,17 +521,18 @@ function transformToRadarData(data: unknown): unknown {
   }
 
   // Wide-format: each column is an indicator, each row is a series
-  // Auto-scale max from observed values per column (+10% headroom)
-  const maxPerCol = new Map<string, number>();
+  // Use a single global max so all axes share the same scale
+  let wideGlobalMax = 0;
   for (const r of records) {
     for (const k of keys) {
       const v = Number(r[k]) || 0;
-      maxPerCol.set(k, Math.max(maxPerCol.get(k) ?? 0, v));
+      if (v > wideGlobalMax) wideGlobalMax = v;
     }
   }
+  const wideMax = Math.ceil(wideGlobalMax * 1.1) || 100;
   const indicators = keys.map((k) => ({
     name: k,
-    max: Math.ceil((maxPerCol.get(k) ?? 100) * 1.1) || 100,
+    max: wideMax,
   }));
   const series = records.map((r, i) => ({
     name: String(i + 1),
