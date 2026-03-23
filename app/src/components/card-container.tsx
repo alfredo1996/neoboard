@@ -7,6 +7,8 @@ import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
 import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
+import { applyTransforms } from "@/lib/data-transforms";
+import type { Transform } from "@/lib/data-transforms";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -117,6 +119,12 @@ export function CardContainer({
     [widget.settings?.chartOptions],
   );
 
+  // Client-side transforms pipeline (applied post-query, pre-render)
+  const dataTransforms = useMemo(
+    () => (widget.settings?.transforms ?? []) as Transform[],
+    [widget.settings?.transforms],
+  );
+
   const { staleTime, gcTime } = useMemo(
     () => resolveCacheOptions(chartOptions, enableCache, cacheTtlMinutes),
     [chartOptions, enableCache, cacheTtlMinutes],
@@ -208,7 +216,10 @@ export function CardContainer({
         />
       );
     }
-    const transformedData = chartConfig.transformWithMapping(previewData, columnMapping);
+    const mappedData = chartConfig.transformWithMapping(previewData, columnMapping);
+    const transformedData = dataTransforms.length
+      ? applyTransforms(mappedData as Record<string, unknown>[], dataTransforms)
+      : mappedData;
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
@@ -399,7 +410,10 @@ export function CardContainer({
     );
   }
 
-  const transformedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const mappedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const transformedData = dataTransforms.length
+    ? applyTransforms(mappedData as Record<string, unknown>[], dataTransforms)
+    : mappedData;
   const availableColumns = extractColumnNames(rawData);
 
   return (
