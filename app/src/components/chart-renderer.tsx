@@ -123,9 +123,20 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
 
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
-    return (e: EChartsClickEvent) =>
-      onChartClick({ name: e.name, value: e.value, seriesName: e.seriesName, dataIndex: e.dataIndex });
-  }, [onChartClick]);
+    return (e: EChartsClickEvent) => {
+      // Enrich the click point with the original data row so that
+      // column-name source fields (e.g. "revenue") resolve correctly
+      // in click action rules — not just ECharts built-in fields.
+      const row = Array.isArray(data) ? (data[e.dataIndex] as Record<string, unknown> | undefined) : undefined;
+      onChartClick({
+        ...(row ?? {}),
+        name: e.name,
+        value: e.value,
+        seriesName: e.seriesName,
+        dataIndex: e.dataIndex,
+      });
+    };
+  }, [onChartClick, data]);
 
   switch (type) {
     case "bar":
@@ -141,10 +152,13 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           xAxisLabel={settings.xAxisLabel as string | undefined}
           yAxisLabel={settings.yAxisLabel as string | undefined}
           showGridLines={settings.showGridLines as boolean | undefined}
+          axisLabelRotation={settings.axisLabelRotation as number | undefined}
+          referenceLines={settings.referenceLines as string | undefined}
           colorThresholds={colorThresholds}
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          enableDataZoom={settings.enableDataZoom as boolean | undefined}
           colorPalette={settings.colorPalette as string | undefined}
           colorblindMode={settings.colorblindMode as boolean | undefined}
         />
@@ -163,10 +177,12 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           stepped={settings.stepped as boolean | undefined}
           showPoints={settings.showPoints as boolean | undefined}
           showGridLines={settings.showGridLines as boolean | undefined}
+          referenceLines={settings.referenceLines as string | undefined}
           colorThresholds={colorThresholds}
           stylingRules={stylingRules}
           paramValues={paramValues}
           onClick={handleEChartsClick}
+          enableDataZoom={settings.enableDataZoom as boolean | undefined}
           colorPalette={settings.colorPalette as string | undefined}
           colorblindMode={settings.colorblindMode as boolean | undefined}
         />
@@ -183,6 +199,8 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           labelPosition={settings.labelPosition as "outside" | "inside" | "center" | undefined}
           showPercentage={settings.showPercentage as boolean | undefined}
           sortSlices={settings.sortSlices as boolean | undefined}
+          topN={settings.topN as number | undefined}
+          donutCenterText={settings.donutCenterText as string | undefined}
           colorThresholds={colorThresholds}
           stylingRules={stylingRules}
           paramValues={paramValues}
@@ -203,6 +221,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           suffix={settings.suffix as string | undefined}
           fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
           numberFormat={settings.numberFormat as "plain" | "comma" | "compact" | "percent" | undefined}
+          decimalPlaces={settings.decimalPlaces as number | undefined}
           colorThresholds={colorThresholds}
           stylingRules={stylingRules}
           paramValues={paramValues}

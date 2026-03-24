@@ -12,6 +12,16 @@ export interface ChartOptionDef {
   description?: string;
 }
 
+/** DataZoom option for axis-based charts (bar, line). */
+const dataZoomOptions: ChartOptionDef[] = [
+  { key: "enableDataZoom", label: "Enable Scroll Zoom", type: "boolean", default: false, category: "Interaction", description: "Allow scroll-to-zoom on the data axis to explore large datasets." },
+];
+
+/** Shared number formatting options for tooltip values on axis-based charts. */
+const tooltipFormatOptions: ChartOptionDef[] = [
+  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Labels", description: "Fixed number of decimal places in tooltips (0-6). Set to -1 for automatic." },
+];
+
 const barOptions: ChartOptionDef[] = [
   {
     key: "orientation",
@@ -33,6 +43,8 @@ const barOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the bars." },
+  { key: "axisLabelRotation", label: "Axis Label Rotation (°)", type: "number", default: -1, category: "Labels", description: "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories)." },
+  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
 ];
 
 const lineOptions: ChartOptionDef[] = [
@@ -45,6 +57,7 @@ const lineOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each data series." },
+  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
 ];
 
 const pieOptions: ChartOptionDef[] = [
@@ -67,12 +80,15 @@ const pieOptions: ChartOptionDef[] = [
   { key: "showPercentage", label: "Show Percentage", type: "boolean", default: true, category: "Labels", description: "Show the percentage value on each slice." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each slice." },
   { key: "sortSlices", label: "Sort Slices by Value", type: "boolean", default: false, category: "Layout", description: "Sort slices by value (largest first) for a cleaner visual layout." },
+  { key: "topN", label: "Top N Slices", type: "number", default: 0, category: "Layout", description: "Show only the top N slices and group the rest into 'Other'. Set to 0 to show all." },
+  { key: "donutCenterText", label: "Donut Center Text", type: "text", default: "", category: "Labels", description: "Custom text in the donut center. Leave blank to show the total." },
 ];
 
 const singleValueOptions: ChartOptionDef[] = [
   { key: "title", label: "Title", type: "text", default: "", category: "Display", description: "Custom heading shown above the value. Leave blank to hide." },
   { key: "prefix", label: "Prefix", type: "text", default: "", category: "Display", description: "Text prepended to the value (e.g. '$', '€')." },
   { key: "suffix", label: "Suffix", type: "text", default: "", category: "Display", description: "Text appended to the value (e.g. '%', ' items')." },
+  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Display", description: "Fixed number of decimal places (0-6). Set to -1 for automatic." },
   {
     key: "fontSize",
     label: "Font Size",
@@ -364,9 +380,9 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  pie: [...pieOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  bar: [...barOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  pie: [...pieOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],
