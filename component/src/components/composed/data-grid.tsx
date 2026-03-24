@@ -172,6 +172,7 @@ function DataGrid<TData>({
     enableSorting,
     enableColumnResizing,
     columnResizeMode: enableColumnResizing ? "onChange" as const : undefined,
+    defaultColumn: enableColumnResizing ? { minSize: 50 } : undefined,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,
