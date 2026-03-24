@@ -44,6 +44,8 @@ import type {
   SunburstDataItem,
   RadarChartData,
   TreemapDataItem,
+  CellFormatRule,
+  ColorScaleConfig,
 } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
 import type { ParameterType } from "@/stores/parameter-store";
@@ -112,9 +114,9 @@ export interface ChartRendererProps {
   /** When true, graph widgets trigger a fit-to-viewport after mount. */
   autoFit?: boolean;
   /** Cell-level conditional formatting rules (table only) */
-  cellFormatRules?: import("@neoboard/components").CellFormatRule[];
+  cellFormatRules?: CellFormatRule[];
   /** Color scale configs for gradient cell backgrounds (table only) */
-  colorScales?: import("@neoboard/components").ColorScaleConfig[];
+  colorScales?: ColorScaleConfig[];
 }
 
 /**
