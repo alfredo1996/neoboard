@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { formatNumber, buildTooltipFormatter } from "../chart-utils";
-import type { NumberFormatConfig } from "../chart-utils";
 
 describe("formatNumber", () => {
   it("returns plain number by default", () => {
