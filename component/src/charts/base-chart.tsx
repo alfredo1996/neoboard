@@ -157,13 +157,13 @@ function BaseChart({
       ...options,
       aria: {
         enabled: true,
-        ...(ariaDescription ? { label: { description: ariaDescription } } : {}),
         ...userAria,
+        ...(ariaDescription ? { label: { description: ariaDescription } } : {}),
         decal: { show: colorblindMode, ...userDecal },
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, colorblindMode, colorPalette, dark]);
+  }, [options, colorblindMode, colorPalette, dark, ariaDescription]);
 
   // Loading state
   useEffect(() => {
