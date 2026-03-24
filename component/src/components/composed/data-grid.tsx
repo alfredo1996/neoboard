@@ -9,6 +9,8 @@ import {
   getFilteredRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
+  getGroupedRowModel,
+  getExpandedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import type {
@@ -17,8 +19,11 @@ import type {
   VisibilityState,
   RowSelectionState,
   ColumnFiltersState,
+  GroupingState,
+  ExpandedState,
   Table,
 } from "@tanstack/react-table";
+import { ChevronDown, ChevronRight, ChevronsDownUp } from "lucide-react";
 import {
   Table as UITable,
   TableBody,
@@ -92,6 +97,10 @@ export interface DataGridProps<TData> {
   cellFormattingRules?: CellFormattingRule[];
   /** Optional function to compute a cell's inline style for conditional formatting. */
   getCellStyle?: (row: TData, columnId: string) => React.CSSProperties | undefined;
+  /** Enable row grouping. When true, columns with `enableGrouping` can be used for grouping. */
+  enableGrouping?: boolean;
+  /** Column IDs to group by initially. Requires `enableGrouping`. */
+  initialGrouping?: string[];
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
   className?: string;
@@ -114,6 +123,8 @@ function DataGrid<TData>({
   getRowStyle,
   cellFormattingRules,
   getCellStyle,
+  enableGrouping = false,
+  initialGrouping,
   toolbar,
   pagination,
   className,
@@ -123,6 +134,13 @@ function DataGrid<TData>({
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
+  const [grouping, setGrouping] = React.useState<GroupingState>(initialGrouping ?? []);
+  const [expanded, setExpanded] = React.useState<ExpandedState>(true);
+
+  // Sync grouping state when initialGrouping prop changes
+  React.useEffect(() => {
+    if (initialGrouping) setGrouping(initialGrouping);
+  }, [initialGrouping]);
 
   // Toolbar height is non-zero only when a toolbar render prop is supplied.
   // We use a fixed estimate so the toolbar's own height does not have to be
@@ -176,22 +194,28 @@ function DataGrid<TData>({
     enableColumnResizing,
     columnResizeMode: enableColumnResizing ? "onChange" as const : undefined,
     defaultColumn: enableColumnResizing ? { minSize: 50 } : undefined,
+    enableGrouping,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,
     getFacetedRowModel: enableColumnFilters ? getFacetedRowModel() : undefined,
     getFacetedUniqueValues: enableColumnFilters ? getFacetedUniqueValues() : undefined,
+    getGroupedRowModel: enableGrouping ? getGroupedRowModel() : undefined,
+    getExpandedRowModel: enableGrouping ? getExpandedRowModel() : undefined,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onGroupingChange: enableGrouping ? setGrouping : undefined,
+    onExpandedChange: enableGrouping ? setExpanded : undefined,
     state: {
       sorting,
       columnVisibility,
       rowSelection,
       columnFilters,
       globalFilter,
+      ...(enableGrouping ? { grouping, expanded } : {}),
     },
     initialState: {
       pagination: {
@@ -221,6 +245,30 @@ function DataGrid<TData>({
 
   return (
     <div className={cn("space-y-4", className)}>
+      {enableGrouping && grouping.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 text-xs"
+            onClick={() => table.toggleAllRowsExpanded(false)}
+            aria-label="Collapse all"
+          >
+            <ChevronsDownUp className="h-3 w-3" />
+            Collapse all
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 text-xs"
+            onClick={() => table.toggleAllRowsExpanded(true)}
+            aria-label="Expand all"
+          >
+            <ChevronDown className="h-3 w-3" />
+            Expand all
+          </Button>
+        </div>
+      )}
       {toolbar?.(table)}
       <div className="rounded-md border">
         <UITable>
@@ -260,19 +308,65 @@ function DataGrid<TData>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const isGrouped = row.getIsGrouped();
+                return (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  style={getRowStyle?.(row.original)}
+                  style={!isGrouped ? getRowStyle?.(row.original) : undefined}
+                  className={isGrouped ? "bg-muted/50 font-medium" : undefined}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const isDataCell = cell.column.id !== "select";
                     const isInClickableColumns = !clickableColumns?.length || clickableColumns.includes(cell.column.id);
-                    const cellClickable = onCellClick && isDataCell && isInClickableColumns;
+                    const cellClickable = !isGrouped && onCellClick && isDataCell && isInClickableColumns;
                     const cellStyle = cellFormattingRules?.length && isDataCell
                       ? resolveCellStyle(cellFormattingRules, cell.getValue())
                       : undefined;
+
+                    // Grouped cell: show expand toggle + group value + count
+                    if (cell.getIsGrouped()) {
+                      return (
+                        <TableCell key={cell.id} colSpan={1}>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 text-left"
+                            onClick={() => row.toggleExpanded()}
+                            aria-label="Toggle group"
+                          >
+                            {row.getIsExpanded() ? (
+                              <ChevronDown className="h-4 w-4 shrink-0" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 shrink-0" />
+                            )}
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            <span className="text-muted-foreground text-xs ml-1">
+                              ({row.getLeafRows().length})
+                            </span>
+                          </button>
+                        </TableCell>
+                      );
+                    }
+
+                    // Aggregated cell: show aggregated value
+                    if (cell.getIsAggregated()) {
+                      return (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.aggregatedCell ?? cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      );
+                    }
+
+                    // Placeholder cell in grouped rows
+                    if (cell.getIsPlaceholder()) {
+                      return <TableCell key={cell.id} />;
+                    }
+
+                    // Normal data cell
                     return (
                     <TableCell
                       key={cell.id}
@@ -297,7 +391,8 @@ function DataGrid<TData>({
                     );
                   })}
                 </TableRow>
-              ))
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={allColumns.length} className="h-24 text-center">
