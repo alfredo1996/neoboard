@@ -1,0 +1,288 @@
+import { describe, it, expect } from "vitest";
+import { applyTransforms } from "../data-transforms";
+import type { Transform } from "../data-transforms";
+
+const sampleData = [
+  { name: "Alice", department: "Engineering", salary: 120000, start: "2020-01-15" },
+  { name: "Bob", department: "Sales", salary: 80000, start: "2021-06-01" },
+  { name: "Charlie", department: "Engineering", salary: 110000, start: "2019-03-20" },
+  { name: "Diana", department: "Sales", salary: 95000, start: "2022-11-10" },
+  { name: "Eve", department: "Engineering", salary: 130000, start: "2018-07-25" },
+];
+
+describe("applyTransforms", () => {
+  it("returns data unchanged when transforms array is empty", () => {
+    expect(applyTransforms(sampleData, [])).toEqual(sampleData);
+  });
+
+  it("returns empty array for empty data", () => {
+    expect(applyTransforms([], [{ type: "limit", count: 5 }])).toEqual([]);
+  });
+
+  describe("filter", () => {
+    it("filters rows by numeric > condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: ">", value: 100000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(3);
+      expect(result.every((r) => (r.salary as number) > 100000)).toBe(true);
+    });
+
+    it("filters rows by string == condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "department", operator: "==", value: "Sales" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2);
+      expect(result.every((r) => r.department === "Sales")).toBe(true);
+    });
+
+    it("filters rows by contains condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "name", operator: "contains", value: "li" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2); // Alice, Charlie
+    });
+
+    it("filters rows by != condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "department", operator: "!=", value: "Sales" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(3);
+    });
+
+    it("filters rows by >= condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: ">=", value: 120000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2); // Alice (120k), Eve (130k)
+    });
+
+    it("filters rows by < condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: "<", value: 100000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2); // Bob (80k), Diana (95k)
+    });
+
+    it("filters rows by <= condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: "<=", value: 80000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(1); // Bob
+    });
+
+    it("filters rows by not_contains condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "name", operator: "not_contains", value: "li" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(3); // Bob, Diana, Eve
+    });
+  });
+
+  describe("sort", () => {
+    it("sorts ascending by numeric column", () => {
+      const transforms: Transform[] = [
+        { type: "sort", column: "salary", direction: "asc" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      const salaries = result.map((r) => r.salary);
+      expect(salaries).toEqual([80000, 95000, 110000, 120000, 130000]);
+    });
+
+    it("sorts descending by string column", () => {
+      const transforms: Transform[] = [
+        { type: "sort", column: "name", direction: "desc" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      const names = result.map((r) => r.name);
+      expect(names).toEqual(["Eve", "Diana", "Charlie", "Bob", "Alice"]);
+    });
+  });
+
+  describe("groupBy", () => {
+    it("groups by column with count aggregation", () => {
+      const transforms: Transform[] = [
+        { type: "groupBy", column: "department", aggregations: [{ column: "salary", fn: "count" }] },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2);
+      const eng = result.find((r) => r.department === "Engineering");
+      expect(eng?.salary_count).toBe(3);
+      const sales = result.find((r) => r.department === "Sales");
+      expect(sales?.salary_count).toBe(2);
+    });
+
+    it("groups by column with sum aggregation", () => {
+      const transforms: Transform[] = [
+        { type: "groupBy", column: "department", aggregations: [{ column: "salary", fn: "sum" }] },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      const eng = result.find((r) => r.department === "Engineering");
+      expect(eng?.salary_sum).toBe(360000);
+    });
+
+    it("groups by column with avg aggregation", () => {
+      const transforms: Transform[] = [
+        { type: "groupBy", column: "department", aggregations: [{ column: "salary", fn: "avg" }] },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      const eng = result.find((r) => r.department === "Engineering");
+      expect(eng?.salary_avg).toBe(120000);
+    });
+
+    it("groups by column with min/max aggregation", () => {
+      const transforms: Transform[] = [
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [
+            { column: "salary", fn: "min" },
+            { column: "salary", fn: "max" },
+          ],
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      const eng = result.find((r) => r.department === "Engineering");
+      expect(eng?.salary_min).toBe(110000);
+      expect(eng?.salary_max).toBe(130000);
+    });
+  });
+
+  describe("calculatedColumn", () => {
+    it("adds a calculated column with arithmetic expression", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "bonus", expression: "salary * 0.1" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].bonus).toBe(12000);
+      expect(result[1].bonus).toBe(8000);
+    });
+
+    it("adds a calculated column with addition", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "adjusted", expression: "salary + 5000" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].adjusted).toBe(125000);
+    });
+
+    it("adds a calculated column with subtraction", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "net", expression: "salary - 20000" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].net).toBe(100000);
+    });
+
+    it("adds a calculated column with division", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "monthly", expression: "salary / 12" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].monthly).toBe(10000);
+    });
+
+    it("returns null for division by zero", () => {
+      const data = [{ a: 10, b: 0 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "result", expression: "a / b" },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].result).toBeNull();
+    });
+
+    it("returns null for invalid expression", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "bad", expression: "nonexistent_column * 2" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].bad).toBeNull();
+    });
+
+    it("returns null for empty expression", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "empty", expression: "" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].empty).toBeNull();
+    });
+
+    it("handles column-to-column operations", () => {
+      const data = [{ a: 10, b: 3 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "sum", expression: "a + b" },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].sum).toBe(13);
+    });
+  });
+
+  describe("renameColumns", () => {
+    it("renames columns", () => {
+      const transforms: Transform[] = [
+        { type: "renameColumns", mapping: { name: "Employee", salary: "Annual Salary" } },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0]["Employee"]).toBe("Alice");
+      expect(result[0]["Annual Salary"]).toBe(120000);
+      expect(result[0]["name"]).toBeUndefined();
+      expect(result[0]["salary"]).toBeUndefined();
+    });
+
+    it("preserves unmapped columns", () => {
+      const transforms: Transform[] = [
+        { type: "renameColumns", mapping: { name: "Employee" } },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0]["Employee"]).toBe("Alice");
+      expect(result[0]["department"]).toBe("Engineering");
+      expect(result[0]["salary"]).toBe(120000);
+    });
+  });
+
+  describe("limit", () => {
+    it("limits the number of rows", () => {
+      const transforms: Transform[] = [{ type: "limit", count: 3 }];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(3);
+    });
+
+    it("returns all rows when limit exceeds data length", () => {
+      const transforms: Transform[] = [{ type: "limit", count: 100 }];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(5);
+    });
+  });
+
+  describe("pipeline (multiple transforms)", () => {
+    it("applies transforms in order: filter then sort then limit", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "department", operator: "==", value: "Engineering" },
+        { type: "sort", column: "salary", direction: "desc" },
+        { type: "limit", count: 2 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("Eve");
+      expect(result[1].name).toBe("Alice");
+    });
+
+    it("renames then filters by new name", () => {
+      const transforms: Transform[] = [
+        { type: "renameColumns", mapping: { department: "dept" } },
+        { type: "filter", column: "dept", operator: "==", value: "Sales" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2);
+      expect(result[0].dept).toBe("Sales");
+    });
+  });
+});

@@ -59,6 +59,8 @@ import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
+import type { Transform } from "@/lib/data-transforms";
+import { TransformEditor } from "./widget-editor/transform-editor";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -140,6 +142,11 @@ export function WidgetEditorModal({
   );
   const [stylingTargetColumn, setStylingTargetColumn] = useState(
     existingStylingConfig?.targetColumn ?? ""
+  );
+
+  // Data transforms state
+  const [transforms, setTransforms] = useState<Transform[]>(
+    (widget?.settings?.transforms ?? []) as Transform[]
   );
 
   const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules" | "templates">("main");
@@ -619,6 +626,7 @@ export function WidgetEditorModal({
               formFields: chartType === "form" ? formFields : undefined,
               clickAction: buildClickAction(),
               stylingConfig: buildStylingConfig(),
+              transforms: transforms.length ? transforms : undefined,
               enableCache,
               cacheTtlMinutes,
             },
@@ -643,6 +651,7 @@ export function WidgetEditorModal({
     title,
     chartOptions,
     formFields,
+    transforms,
     enableCache,
     cacheTtlMinutes,
     previewQuery,
@@ -760,6 +769,7 @@ export function WidgetEditorModal({
         chartOptions,
         stylingConfig: buildStylingConfig(),
         clickAction: buildClickAction(),
+        transforms: transforms.length ? transforms : undefined,
       },
     };
 
@@ -1224,6 +1234,20 @@ export function WidgetEditorModal({
                           </Button>
                         </div>
                       )}
+                    </div>
+                    )}
+
+                    {/* Data Transforms */}
+                    {!isContentOnly && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                        Data Transforms
+                      </h4>
+                      <TransformEditor
+                        transforms={transforms}
+                        onChange={setTransforms}
+                        columns={availableFields}
+                      />
                     </div>
                     )}
                   </div>
