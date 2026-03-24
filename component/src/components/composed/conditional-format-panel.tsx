@@ -30,13 +30,15 @@ const OPERATORS: { value: StylingOperator; label: string }[] = [
   { value: "!=", label: "!=" },
   { value: "contains", label: "contains" },
   { value: "not_contains", label: "not contains" },
+  { value: "starts_with", label: "starts with" },
+  { value: "ends_with", label: "ends with" },
   { value: "between", label: "between" },
   { value: "is_null", label: "is null" },
   { value: "is_not_null", label: "is not null" },
 ];
 
 const ICON_OPTIONS = [
-  { value: "", label: "None" },
+  { value: "__none", label: "None" },
   { value: "check", label: "Check" },
   { value: "x", label: "X" },
   { value: "alert-triangle", label: "Warning" },
@@ -62,6 +64,7 @@ function RuleRow({
 }) {
   const needsValue = !["is_null", "is_not_null"].includes(rule.operator);
   const needsSecondValue = rule.operator === "between";
+  const isNumericOperator = [">", ">=", "<", "<=", "==", "!=", "between"].includes(rule.operator);
 
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
@@ -103,8 +106,12 @@ function RuleRow({
             className="w-[100px]"
             value={String(rule.value ?? "")}
             onChange={(e) => {
-              const num = Number(e.target.value);
-              onChange({ ...rule, value: Number.isNaN(num) || e.target.value === "" ? e.target.value : num });
+              if (isNumericOperator) {
+                const num = Number(e.target.value);
+                onChange({ ...rule, value: !Number.isNaN(num) && e.target.value !== "" ? num : e.target.value });
+              } else {
+                onChange({ ...rule, value: e.target.value });
+              }
             }}
           />
         </div>
@@ -118,7 +125,7 @@ function RuleRow({
             value={String(rule.valueTo ?? "")}
             onChange={(e) => {
               const num = Number(e.target.value);
-              onChange({ ...rule, valueTo: Number.isNaN(num) || e.target.value === "" ? e.target.value : num });
+              onChange({ ...rule, valueTo: !Number.isNaN(num) && e.target.value !== "" ? num : e.target.value });
             }}
           />
         </div>
@@ -162,15 +169,15 @@ function RuleRow({
       <div className="space-y-1">
         <Label className="text-xs">Icon</Label>
         <Select
-          value={rule.style.icon ?? ""}
-          onValueChange={(v) => onChange({ ...rule, style: { ...rule.style, icon: v || undefined } })}
+          value={rule.style.icon ?? "__none"}
+          onValueChange={(v) => onChange({ ...rule, style: { ...rule.style, icon: v === "__none" ? undefined : v } })}
         >
           <SelectTrigger className="w-[100px]">
             <SelectValue placeholder="None" />
           </SelectTrigger>
           <SelectContent>
             {ICON_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value || "__none"} value={opt.value || "__none"}>
+              <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>
             ))}
