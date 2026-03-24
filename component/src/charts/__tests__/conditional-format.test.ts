@@ -66,6 +66,70 @@ describe("resolveCellFormat", () => {
       expect(resolveCellFormat("Error occurred", "score", rules)).toEqual({ textColor: "#red" });
       expect(resolveCellFormat("Success", "score", rules)).toBeUndefined();
     });
+
+    it("<= matches less than or equal", () => {
+      const rules = [rule({ operator: "<=", value: 50, style: { bold: true } })];
+      expect(resolveCellFormat(50, "score", rules)).toEqual({ bold: true });
+      expect(resolveCellFormat(49, "score", rules)).toEqual({ bold: true });
+      expect(resolveCellFormat(51, "score", rules)).toBeUndefined();
+    });
+
+    it("!= matches not equal", () => {
+      const rules = [rule({ operator: "!=", value: 100, style: { textColor: "#red" } })];
+      expect(resolveCellFormat(99, "score", rules)).toEqual({ textColor: "#red" });
+      expect(resolveCellFormat(100, "score", rules)).toBeUndefined();
+    });
+
+    it("not_contains matches absent substring", () => {
+      const rules = [rule({ operator: "not_contains", value: "xyz", style: { bold: true } })];
+      expect(resolveCellFormat("Hello", "score", rules)).toEqual({ bold: true });
+      expect(resolveCellFormat("xyz stuff", "score", rules)).toBeUndefined();
+    });
+
+    it("starts_with matches prefix", () => {
+      const rules = [rule({ operator: "starts_with", value: "err", style: { textColor: "#red" } })];
+      expect(resolveCellFormat("Error!", "score", rules)).toEqual({ textColor: "#red" });
+      expect(resolveCellFormat("No error", "score", rules)).toBeUndefined();
+    });
+
+    it("ends_with matches suffix", () => {
+      const rules = [rule({ operator: "ends_with", value: "ok", style: { backgroundColor: "#green" } })];
+      expect(resolveCellFormat("all ok", "score", rules)).toEqual({ backgroundColor: "#green" });
+      expect(resolveCellFormat("ok sure", "score", rules)).toBeUndefined();
+    });
+
+    it("is_not_null matches non-null values", () => {
+      const rules = [rule({ operator: "is_not_null", value: 0, style: { bold: true } })];
+      expect(resolveCellFormat("value", "score", rules)).toEqual({ bold: true });
+      expect(resolveCellFormat(0, "score", rules)).toEqual({ bold: true });
+      expect(resolveCellFormat(null, "score", rules)).toBeUndefined();
+    });
+
+    it("contains skips null cell values", () => {
+      const rules = [rule({ operator: "contains", value: "x", style: { bold: true } })];
+      expect(resolveCellFormat(null, "score", rules)).toBeUndefined();
+    });
+
+    it("between skips NaN cell values", () => {
+      const rules = [rule({ operator: "between", value: 0, valueTo: 100, style: { bold: true } })];
+      expect(resolveCellFormat("abc", "score", rules)).toBeUndefined();
+    });
+
+    it("between skips when valueTo is missing", () => {
+      const rules = [rule({ operator: "between", value: 0, style: { bold: true } })];
+      expect(resolveCellFormat(50, "score", rules)).toBeUndefined();
+    });
+
+    it("== falls back to string comparison for non-numeric", () => {
+      const rules = [rule({ operator: "==", value: "yes", style: { bold: true } })];
+      expect(resolveCellFormat("YES", "score", rules)).toEqual({ bold: true });
+    });
+
+    it("!= falls back to string comparison for non-numeric", () => {
+      const rules = [rule({ operator: "!=", value: "yes", style: { bold: true } })];
+      expect(resolveCellFormat("no", "score", rules)).toEqual({ bold: true });
+      expect(resolveCellFormat("yes", "score", rules)).toBeUndefined();
+    });
   });
 
   it("first-match-wins across multiple rules", () => {
