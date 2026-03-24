@@ -103,6 +103,7 @@ function BaseChart({
   onChartReady,
   onClick,
   onDataZoom,
+  enableDataZoom = false,
   colorblindMode = false,
   colorPalette,
 }: BaseChartProps) {
@@ -154,6 +155,14 @@ function BaseChart({
     const merged: EChartsOption = {
       color: resolvedColors,
       ...options,
+      ...(enableDataZoom
+        ? {
+            dataZoom: [
+              { type: "inside", xAxisIndex: 0 },
+              { type: "inside", yAxisIndex: 0 },
+            ],
+          }
+        : {}),
       aria: {
         enabled: true,
         ...userAria,
@@ -161,7 +170,7 @@ function BaseChart({
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, colorblindMode, colorPalette, dark]);
+  }, [options, enableDataZoom, colorblindMode, colorPalette, dark]);
 
   // Loading state
   useEffect(() => {
