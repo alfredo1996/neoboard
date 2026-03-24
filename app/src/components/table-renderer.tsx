@@ -61,6 +61,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   }, []);
 
   const enableSorting = settings.enableSorting !== false;
+  const enableColumnResizing = settings.enableColumnResizing === true;
   const enableGrouping = settings.enableGrouping === true;
   const initialGrouping = useMemo(() => {
     if (!enableGrouping) return undefined;
@@ -69,8 +70,12 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
     return raw.split(",").map((s) => s.trim()).filter(Boolean);
   }, [enableGrouping, settings.groupBy]);
 
+  const aggregationFn = ((settings.aggregationFn as string) || "sum") as "sum" | "mean" | "median" | "count" | "min" | "max";
+  const AGG_SYMBOLS: Record<string, string> = { sum: "Σ", mean: "μ", median: "M̃", count: "#", min: "min", max: "max" };
+
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
+    const aggSymbol = AGG_SYMBOLS[aggregationFn] ?? "Σ";
     return Object.keys(records[0]).map((key) => {
       // Detect numeric columns for automatic aggregation in grouped mode
       const isNumeric = records.some(
@@ -96,12 +101,12 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
         },
         ...(enableGrouping && isNumeric
           ? {
-              aggregationFn: "sum" as const,
+              aggregationFn,
               aggregatedCell: ({ getValue }: { getValue: () => unknown }) => {
                 const v = getValue();
                 return v != null ? (
                   <span className="text-muted-foreground text-xs font-medium">
-                    Σ {typeof v === "number" ? v.toLocaleString() : String(v)}
+                    {aggSymbol} {typeof v === "number" ? v.toLocaleString() : String(v)}
                   </span>
                 ) : null;
               },
@@ -109,7 +114,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
           : {}),
       };
     });
-  }, [records, enableGrouping]);
+  }, [records, enableGrouping, aggregationFn]);
 
   const thresholds = useMemo(() => {
     const raw =
@@ -236,6 +241,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
         columns={columns}
         data={records as Record<string, unknown>[]}
         enableSorting={enableSorting}
+        enableColumnResizing={enableColumnResizing}
         enableSelection={settings.enableSelection as boolean | undefined}
         enableGlobalFilter={settings.enableGlobalFilter !== false}
         enableColumnFilters={settings.enableColumnFilters !== false}

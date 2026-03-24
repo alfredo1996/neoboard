@@ -1,6 +1,4 @@
 import * as React from "react";
-import type { CellFormattingRule } from "@/lib/cell-formatting";
-import { resolveCellStyle } from "@/lib/cell-formatting";
 import {
   flexRender,
   getCoreRowModel,
@@ -93,8 +91,6 @@ export interface DataGridProps<TData> {
   onSelectionChange?: (selectedRows: TData[]) => void;
   /** Optional function to compute a row's inline style (e.g. background color from threshold). */
   getRowStyle?: (row: TData) => React.CSSProperties | undefined;
-  /** Cell-level conditional formatting rules applied to individual cells. */
-  cellFormattingRules?: CellFormattingRule[];
   /** Optional function to compute a cell's inline style for conditional formatting. */
   getCellStyle?: (row: TData, columnId: string) => React.CSSProperties | undefined;
   /** Enable row grouping. When true, columns with `enableGrouping` can be used for grouping. */
@@ -121,7 +117,6 @@ function DataGrid<TData>({
   clickableColumns,
   onSelectionChange,
   getRowStyle,
-  cellFormattingRules,
   getCellStyle,
   enableGrouping = false,
   initialGrouping,
@@ -279,7 +274,7 @@ function DataGrid<TData>({
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className="relative"
+                    className="relative group/header"
                     style={enableColumnResizing ? { width: header.getSize() } : undefined}
                   >
                     {header.isPlaceholder
@@ -294,10 +289,10 @@ function DataGrid<TData>({
                         onTouchStart={header.getResizeHandler()}
                         onDoubleClick={() => header.column.resetSize()}
                         className={cn(
-                          "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                          "absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none",
                           header.column.getIsResizing()
                             ? "bg-primary opacity-100"
-                            : "bg-border opacity-0 hover:opacity-100"
+                            : "bg-border opacity-0 group-hover/header:opacity-50 hover:opacity-100"
                         )}
                       />
                     )}
@@ -321,10 +316,6 @@ function DataGrid<TData>({
                     const isDataCell = cell.column.id !== "select";
                     const isInClickableColumns = !clickableColumns?.length || clickableColumns.includes(cell.column.id);
                     const cellClickable = !isGrouped && onCellClick && isDataCell && isInClickableColumns;
-                    const cellStyle = cellFormattingRules?.length && isDataCell
-                      ? resolveCellStyle(cellFormattingRules, cell.getValue())
-                      : undefined;
-
                     // Grouped cell: show expand toggle + group value + count
                     if (cell.getIsGrouped()) {
                       return (
@@ -371,10 +362,7 @@ function DataGrid<TData>({
                     <TableCell
                       key={cell.id}
                       className={cellClickable ? "cursor-pointer" : undefined}
-                      style={{
-                        ...cellStyle,
-                        ...getCellStyle?.(row.original, cell.column.id),
-                      }}
+                      style={getCellStyle?.(row.original as TData, cell.column.id)}
                       onClick={cellClickable ? (e) => {
                         e.stopPropagation();
                         onCellClick({ column: cell.column.id, value: cell.getValue() });
