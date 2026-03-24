@@ -159,4 +159,31 @@ describe("LineChart", () => {
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].step).toBeUndefined();
   });
+
+  // --- Reference lines ---
+
+  it("attaches markLine to the first series when referenceLines is provided", () => {
+    const refs = JSON.stringify([{ value: 50, label: "Target", color: "#ff0000" }]);
+    render(<LineChart data={sampleData} referenceLines={refs} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].markLine).toBeDefined();
+    expect(optionsCall.series[0].markLine.data).toHaveLength(1);
+    expect(optionsCall.series[0].markLine.data[0].yAxis).toBe(50);
+    expect(optionsCall.series[0].markLine.data[0].label.formatter).toBe("Target");
+    expect(optionsCall.series[0].markLine.data[0].lineStyle.color).toBe("#ff0000");
+  });
+
+  it("does not attach markLine when referenceLines is not provided", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].markLine).toBeUndefined();
+  });
+
+  it("only attaches markLine to the first series in multi-series", () => {
+    const refs = JSON.stringify([{ value: 100 }]);
+    render(<LineChart data={multiSeriesData} referenceLines={refs} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].markLine).toBeDefined();
+    expect(optionsCall.series[1].markLine).toBeUndefined();
+  });
 });

@@ -3,24 +3,12 @@ import { cn } from "@/lib/utils";
 import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
+import { formatNumber } from "./chart-utils";
+import type { NumberFormat } from "./chart-utils";
 
 export type { ColorThreshold } from "./color-threshold";
 export type SingleValueFontSize = "sm" | "md" | "lg" | "xl";
-export type SingleValueNumberFormat = "plain" | "comma" | "compact" | "percent";
-
-/** Format a numeric value according to the chosen format. */
-function applyNumberFormat(numericValue: number, fmt: SingleValueNumberFormat): string {
-  switch (fmt) {
-    case "comma":
-      return numericValue.toLocaleString();
-    case "compact":
-      return Intl.NumberFormat("en", { notation: "compact" }).format(numericValue);
-    case "percent":
-      return `${numericValue}%`;
-    default:
-      return String(numericValue);
-  }
-}
+export type SingleValueNumberFormat = NumberFormat;
 
 const FONT_SIZE_CLASS: Record<SingleValueFontSize, string> = {
   sm: "text-xl",
@@ -46,6 +34,8 @@ export interface SingleValueChartProps {
   fontSize?: SingleValueFontSize;
   /** Built-in number formatting applied when value is numeric and format is not provided */
   numberFormat?: SingleValueNumberFormat;
+  /** Fixed decimal places (0-6). Set to -1 or omit for automatic. */
+  decimalPlaces?: number;
   /** @deprecated Use stylingRules instead. JSON string of thresholds */
   colorThresholds?: string;
   /** Rule-based styling rules */
@@ -73,6 +63,7 @@ function SingleValueChart({
   format,
   fontSize = "lg",
   numberFormat = "plain",
+  decimalPlaces,
   colorThresholds,
   stylingRules,
   paramValues,
@@ -96,10 +87,9 @@ function SingleValueChart({
   if (typeof value === "number") {
     if (format) {
       displayValue = format(value);
-    } else if (numberFormat !== "plain") {
-      displayValue = applyNumberFormat(value, numberFormat);
     } else {
-      displayValue = value;
+      const dp = decimalPlaces !== undefined && decimalPlaces >= 0 ? decimalPlaces : undefined;
+      displayValue = formatNumber(value, { numberFormat, decimalPlaces: dp });
     }
   } else {
     displayValue = value;

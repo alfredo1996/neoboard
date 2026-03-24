@@ -99,21 +99,38 @@ async function triggerCypherAutocomplete(
 }
 
 /**
- * Click inside the CM editor content area and type text via keyboard events.
- * After typing, re-clicks the editor to ensure focus is fully settled — the
- * neo4j-cypher editor's completion keymap requires a settled focus state that
- * keyboard.type() alone doesn't guarantee.
+ * Insert exact text into the CM editor via CM6 dispatch (bypasses closeBrackets
+ * auto-insertion that corrupts partial Cypher like "MATCH (n:" → "MATCH (n:)").
+ * After dispatch, clicks the editor to ensure focus for keyboard shortcuts.
  */
 async function typeInCmEditor(
   dialog: Locator,
   page: Page,
   text: string,
 ): Promise<void> {
-  const cm = dialog.locator("[data-testid='codemirror-container'] .cm-content");
-  await cm.click();
-  await page.keyboard.type(text, { delay: 30 });
+  const cmContainer = dialog.locator("[data-testid='codemirror-container']");
+  const cm = cmContainer.locator(".cm-content");
+
+  // Use CM6 dispatch to set exact text without closeBrackets interference
+  await cmContainer.evaluate((el: HTMLElement, t: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function findView(node: Element | null): any {
+      if (!node) return null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tile = (node as any).cmTile;
+      return tile?.root?.view ?? tile?.view ?? null;
+    }
+    const view = findView(el.querySelector(".cm-content")) ?? findView(el.querySelector(".cm-editor"));
+    if (!view) throw new Error("CM6 view not found for typeInCmEditor");
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: t },
+      selection: { anchor: t.length },
+    });
+  }, text);
+
   // Re-focus: the Cypher editor's CM6 completion keymap needs a settled focus
-  // state after programmatic typing. Without this, Ctrl+Space may not trigger.
+  // state after programmatic dispatch. Without this, Ctrl+Space may not trigger.
+  // eslint-disable-next-line playwright/no-wait-for-timeout
   await page.waitForTimeout(100);
   await cm.click();
 }
