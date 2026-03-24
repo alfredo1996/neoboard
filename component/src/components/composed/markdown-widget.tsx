@@ -119,9 +119,22 @@ function parseMarkdown(md: string): string {
       /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(lines[i + 1])
     ) {
       closeList();
-      const parseCells = (row: string) =>
-        row.split("|").map((c) => c.trim()).filter((c) => c.length > 0);
+      const parseCells = (row: string) => {
+        const parts = row.split("|").map((c) => c.trim());
+        // Strip leading/trailing empty strings produced by outer pipes,
+        // but preserve empty middle cells to maintain column alignment.
+        if (parts.length > 0 && parts[0] === "") parts.shift();
+        if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
+        return parts;
+      };
       const headers = parseCells(line);
+      // Parse alignment markers (:---, :---:, ---:) from the separator row
+      const alignments = parseCells(lines[i + 1]).map((cell) => {
+        const v = cell.trim();
+        if (v.startsWith(":") && v.endsWith(":")) return "text-center";
+        if (v.endsWith(":")) return "text-right";
+        return "text-left";
+      });
       i++; // skip alignment row
       const bodyRows: string[][] = [];
       while (i + 1 < lines.length && lines[i + 1].includes("|")) {
@@ -130,14 +143,16 @@ function parseMarkdown(md: string): string {
       }
       result.push('<table class="w-full border-collapse my-2 text-sm">');
       result.push("<thead><tr>");
-      for (const h of headers) {
-        result.push(`<th class="border border-border px-3 py-1.5 font-semibold text-left bg-muted/30">${escapeHtml(h)}</th>`);
+      for (let h = 0; h < headers.length; h++) {
+        const align = alignments[h] ?? "text-left";
+        result.push(`<th class="border border-border px-3 py-1.5 font-semibold bg-muted/30 ${align}">${escapeHtml(headers[h])}</th>`);
       }
       result.push("</tr></thead><tbody>");
       for (const row of bodyRows) {
         result.push("<tr>");
         for (let c = 0; c < headers.length; c++) {
-          result.push(`<td class="border border-border px-3 py-1.5">${escapeHtml(row[c] ?? "")}</td>`);
+          const align = alignments[c] ?? "text-left";
+          result.push(`<td class="border border-border px-3 py-1.5 ${align}">${escapeHtml(row[c] ?? "")}</td>`);
         }
         result.push("</tr>");
       }
@@ -310,7 +325,9 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
         "text-sm text-foreground",
         className,
       )}
-      dangerouslySetInnerHTML={{ __html: html! }}
+      // Safe: parseMarkdown escapes all user text via escapeHtml and validates
+      // URLs via isSafeUrl. No raw user HTML reaches the DOM.
+      dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
     />
   );
 }
