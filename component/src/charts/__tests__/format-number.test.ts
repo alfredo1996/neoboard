@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { formatNumber, buildTooltipFormatter } from "../chart-utils";
-import type { NumberFormatConfig } from "../chart-utils";
 
 describe("formatNumber", () => {
   it("returns plain number by default", () => {
@@ -93,5 +92,18 @@ describe("buildTooltipFormatter", () => {
     ]);
     expect(result).toContain("101");
     expect(result).toContain("200");
+  });
+
+  it("omits seriesName label when seriesName is undefined", () => {
+    const formatter = buildTooltipFormatter({});
+    const result = formatter({ value: 42, name: "Jan" });
+    expect(result).not.toContain("undefined");
+    expect(result).toContain("<b>");
+  });
+
+  it("omits seriesName label when seriesName is empty string", () => {
+    const formatter = buildTooltipFormatter({});
+    const result = formatter({ seriesName: "", value: 42, name: "Jan" });
+    expect(result).not.toContain(": <b>");
   });
 });

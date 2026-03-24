@@ -79,7 +79,8 @@ export function buildTooltipFormatter(config: NumberFormatConfig): (params: Tool
     const lines = items.map((p) => {
       const raw = Array.isArray(p.value) ? p.value[1] : p.value;
       const val = typeof raw === "number" ? formatNumber(raw, tooltipConfig) : String(raw ?? "");
-      return `${p.marker ?? ""} ${p.seriesName ?? ""}: <b>${val}</b>`;
+      const label = p.seriesName ? `${p.seriesName}: ` : "";
+      return `${p.marker ?? ""} ${label}<b>${val}</b>`;
     });
     return header ? `${header}<br/>${lines.join("<br/>")}` : lines.join("<br/>");
   };
