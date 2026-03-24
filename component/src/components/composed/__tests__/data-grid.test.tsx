@@ -303,4 +303,26 @@ describe("DataGrid", () => {
     );
     expect(container.firstChild).toHaveClass("custom-class");
   });
+
+  describe("column resizing", () => {
+    it("renders resize handles when enableColumnResizing is true", () => {
+      render(<DataGrid columns={columns} data={data} enableColumnResizing />);
+      const handles = document.querySelectorAll(".cursor-col-resize");
+      expect(handles.length).toBeGreaterThan(0);
+    });
+
+    it("does not render resize handles when enableColumnResizing is false", () => {
+      render(<DataGrid columns={columns} data={data} />);
+      const handles = document.querySelectorAll(".cursor-col-resize");
+      expect(handles.length).toBe(0);
+    });
+
+    it("sets inline width on header cells when resizing is enabled", () => {
+      render(<DataGrid columns={columns} data={data} enableColumnResizing />);
+      const headers = document.querySelectorAll("th");
+      for (const th of headers) {
+        expect(th.style.width).toBeTruthy();
+      }
+    });
+  });
 });

@@ -23,7 +23,6 @@ export function evaluateCellRule(
     case "<":
       return typeof cellValue === "number" && cellValue < Number(rule.value);
     case "==":
-      // eslint-disable-next-line eqeqeq -- intentional loose comparison for string/number coercion
       return String(cellValue) === String(rule.value);
     case "contains":
       return String(cellValue).toLowerCase().includes(String(rule.value).toLowerCase());
