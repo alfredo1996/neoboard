@@ -59,7 +59,7 @@ async function buildExtensions(
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
     { defaultKeymap, historyKeymap, history: historyExt },
-    { autocompletion, completionKeymap },
+    { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap },
     { oneDark },
   ] = await Promise.all([
     import("@codemirror/view"),
@@ -102,7 +102,8 @@ async function buildExtensions(
 
   return [
     historyExt(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+    closeBrackets(),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap, ...closeBracketsKeymap]),
     runKeymap,
     langCompartmentExt,
     autocompletion(),

@@ -296,11 +296,20 @@ export function GraphChart({
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
+  const [layoutReady, setLayoutReady] = useState(false);
   const [layout, setLayout] = useState<GraphLayout>(
     initialLayout ?? layoutProp,
   );
   const dark = useDarkMode();
+
+  // Reset layoutReady synchronously during render when nodes change.
+  // Using useEffect would race with onLayoutDone (which fires before
+  // effects run when the simulation completes on the main thread).
+  const prevNodesRef = useRef(nodes);
+  if (prevNodesRef.current !== nodes) {
+    prevNodesRef.current = nodes;
+    if (layoutReady) setLayoutReady(false);
+  }
 
   // Build the label → property keys map from current nodes
   const labelPropertyMap = useMemo(() => buildLabelPropertyMap(nodes), [nodes]);
@@ -375,25 +384,13 @@ export function GraphChart({
     }
   }, []);
 
-  // When autoFit is true, schedule a delayed fit after mount so that containers
-  // which animate to their final size (e.g. fullscreen dialogs) have settled.
-  // The fullscreen dialog defers mounting until the 200ms animation completes,
-  // but a small extra delay ensures the canvas is fully initialized.
+  // When autoFit is true, fit the graph after layout has settled.
+  // layoutReady flips to true when onLayoutDone fires — deterministic,
+  // not based on an arbitrary timer.
   useEffect(() => {
-    if (!autoFit) return;
-    const raf = requestAnimationFrame(() => {
-      const timer = setTimeout(() => {
-        fitGraph();
-      }, 100);
-      cleanupRef.current = () => clearTimeout(timer);
-    });
-    return () => {
-      cancelAnimationFrame(raf);
-      cleanupRef.current?.();
-    };
-    // fitGraph is stable (useCallback with no deps), so this is safe
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFit]);
+    if (!autoFit || !layoutReady) return;
+    fitGraph();
+  }, [autoFit, layoutReady, fitGraph]);
 
   const mouseEventCallbacks = useMemo(
     (): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
@@ -437,7 +434,10 @@ export function GraphChart({
 
   const nvlCallbacks = useMemo(
     () => ({
-      onLayoutDone: fitGraph,
+      onLayoutDone: () => {
+        fitGraph();
+        setLayoutReady(true);
+      },
     }),
     [fitGraph],
   );
@@ -446,6 +446,7 @@ export function GraphChart({
     () => ({
       allowDynamicMinZoom: true,
       initialZoom: 0.7,
+      // Web workers require bundler-specific config in Next.js; keep on main thread.
       disableWebWorkers: true,
       // When physics is disabled, use a static layout (no force simulation)
       useStaticLayout: !physics,
@@ -573,6 +574,15 @@ export function GraphChart({
           </>
         )}
       </div>
+
+      {!layoutReady && nodes.length > 0 && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-[1px]"
+          data-testid="graph-loading-overlay"
+        >
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
 
       <InteractiveNvlWrapper
         ref={nvlRef}
