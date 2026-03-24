@@ -2029,7 +2029,7 @@ function buildChartCatalog(neo4jId) {
     rules: [{
       id: uuid(), type: "navigate-to-page",
       triggerColumn: triggerCol,
-      navigateToPageId: pageId,
+      targetPageId: pageId,
     }],
   });
 
@@ -2040,7 +2040,7 @@ function buildChartCatalog(neo4jId) {
       chartType,
       connectionId: neo4jId,
       query,
-      settings: { ...baseSettings, title: p, chartOptions: { ...baseSettings.chartOptions, colorPalette: p } },
+      settings: { ...baseSettings, title: p, colorPalette: p, chartOptions: { ...baseSettings.chartOptions } },
     }));
   }
 
