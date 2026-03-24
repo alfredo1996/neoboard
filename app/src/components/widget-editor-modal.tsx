@@ -1052,20 +1052,6 @@ export function WidgetEditorModal({
                     settings={chartOptions}
                     onSettingsChange={setChartOptions}
                   />
-                  {chartType === "table" && (
-                    <div className="border-t pt-4 space-y-3">
-                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                        Conditional Formatting
-                      </h4>
-                      <ConditionalFormatPanel
-                        columns={availableFields}
-                        rules={cellFormatRules}
-                        colorScales={colorScales}
-                        onRulesChange={setCellFormatRules}
-                        onColorScalesChange={setColorScales}
-                      />
-                    </div>
-                  )}
                   {chartOptions.cacheMode === "forever" && (
                     <div
                       className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
@@ -1257,6 +1243,26 @@ export function WidgetEditorModal({
                           <Button variant="outline" size="sm" onClick={() => setDialogStep("styling-rules")}>
                             Manage Styling Rules
                           </Button>
+                          {chartType === "table" && (
+                            <div className="border-t pt-3 mt-3 space-y-3">
+                              <h5 className="text-xs font-medium text-muted-foreground">
+                                Cell-Level Formatting
+                              </h5>
+                              {availableFields.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic">
+                                  Run a preview query to enable cell formatting.
+                                </p>
+                              ) : (
+                                <ConditionalFormatPanel
+                                  columns={availableFields}
+                                  rules={cellFormatRules}
+                                  colorScales={colorScales}
+                                  onRulesChange={setCellFormatRules}
+                                  onColorScalesChange={setColorScales}
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
