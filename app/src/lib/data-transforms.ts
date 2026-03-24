@@ -159,24 +159,64 @@ function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
   return result;
 }
 
+/**
+ * Safely evaluate a simple arithmetic expression without `new Function()`.
+ * Supports: +, -, *, / with numeric operands (column values or literals).
+ * Returns null if the expression cannot be evaluated.
+ */
+function safeEvaluateExpression(expression: string, row: Row): unknown {
+  // Tokenize: split on operators while keeping them
+  const tokens: string[] = [];
+  let current = "";
+  for (const ch of expression) {
+    if ("+-*/".includes(ch) && current.trim()) {
+      tokens.push(current.trim());
+      tokens.push(ch);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) tokens.push(current.trim());
+
+  if (tokens.length === 0) return null;
+
+  function resolveToken(token: string): number | null {
+    // Column reference
+    if (token in row) {
+      const val = Number(row[token]);
+      return Number.isNaN(val) ? null : val;
+    }
+    // Numeric literal
+    const num = Number(token);
+    return Number.isNaN(num) ? null : num;
+  }
+
+  // Evaluate left-to-right (no operator precedence for simplicity)
+  let result = resolveToken(tokens[0]);
+  if (result === null) return null;
+
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const right = resolveToken(tokens[i + 1]);
+    if (right === null) return null;
+
+    switch (op) {
+      case "+": result += right; break;
+      case "-": result -= right; break;
+      case "*": result *= right; break;
+      case "/": result = right !== 0 ? result / right : null; break;
+      default: return null;
+    }
+    if (result === null) return null;
+  }
+
+  return result;
+}
+
 function applyCalculatedColumn(data: Row[], t: CalculatedColumnTransform): Row[] {
   return data.map((row) => {
-    let result: unknown;
-    try {
-      // Simple expression evaluator: replace column references with values
-      // Supports: column +|-|*|/ number, column +|-|*|/ column
-      const expr = t.expression.replace(/[a-zA-Z_]\w*/g, (match) => {
-        if (match in row) {
-          const val = row[match];
-          return typeof val === "number" ? String(val) : `"${String(val ?? "")}"`;
-        }
-        return match;
-      });
-      // Safe evaluation: only allow numbers, basic arithmetic, and strings
-      result = new Function(`"use strict"; return (${expr});`)();
-    } catch {
-      result = null;
-    }
+    const result = safeEvaluateExpression(t.expression, row);
     return { ...row, [t.name]: result };
   });
 }

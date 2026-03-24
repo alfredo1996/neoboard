@@ -53,6 +53,38 @@ describe("applyTransforms", () => {
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(3);
     });
+
+    it("filters rows by >= condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: ">=", value: 120000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2); // Alice (120k), Eve (130k)
+    });
+
+    it("filters rows by < condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: "<", value: 100000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2); // Bob (80k), Diana (95k)
+    });
+
+    it("filters rows by <= condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "salary", operator: "<=", value: 80000 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(1); // Bob
+    });
+
+    it("filters rows by not_contains condition", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "name", operator: "not_contains", value: "li" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(3); // Bob, Diana, Eve
+    });
   });
 
   describe("sort", () => {
@@ -141,6 +173,56 @@ describe("applyTransforms", () => {
       const result = applyTransforms(sampleData, transforms);
       expect(result[0].adjusted).toBe(125000);
     });
+
+    it("adds a calculated column with subtraction", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "net", expression: "salary - 20000" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].net).toBe(100000);
+    });
+
+    it("adds a calculated column with division", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "monthly", expression: "salary / 12" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].monthly).toBe(10000);
+    });
+
+    it("returns null for division by zero", () => {
+      const data = [{ a: 10, b: 0 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "result", expression: "a / b" },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].result).toBeNull();
+    });
+
+    it("returns null for invalid expression", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "bad", expression: "nonexistent_column * 2" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].bad).toBeNull();
+    });
+
+    it("returns null for empty expression", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "empty", expression: "" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].empty).toBeNull();
+    });
+
+    it("handles column-to-column operations", () => {
+      const data = [{ a: 10, b: 3 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "sum", expression: "a + b" },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].sum).toBe(13);
+    });
   });
 
   describe("renameColumns", () => {
@@ -153,6 +235,16 @@ describe("applyTransforms", () => {
       expect(result[0]["Annual Salary"]).toBe(120000);
       expect(result[0]["name"]).toBeUndefined();
       expect(result[0]["salary"]).toBeUndefined();
+    });
+
+    it("preserves unmapped columns", () => {
+      const transforms: Transform[] = [
+        { type: "renameColumns", mapping: { name: "Employee" } },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0]["Employee"]).toBe("Alice");
+      expect(result[0]["department"]).toBe("Engineering");
+      expect(result[0]["salary"]).toBe(120000);
     });
   });
 
