@@ -106,16 +106,19 @@ export async function typeInEditor(
     }
 
     // Strategy 1: Use CM6's internal dispatch API (most reliable).
-    // In CM6 v6.x, each DOM node managed by the editor has a `cmTile`
-    // property (Tile instance). The `.cm-content` element's cmTile is a
-    // DocTile whose `.root.view` yields the EditorView. This mirrors the
-    // logic of the static `EditorView.findFromDOM()` method.
+    // CM6 decorates managed DOM nodes with a `cmTile` property (Tile instance).
+    // We mirror EditorView.findFromDOM(): try .cm-content first, then .cm-editor.
     const dispatched = await cmContainer.evaluate((el: HTMLElement, text: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function findView(node: Element | null): any {
+        if (!node) return null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tile = (node as any).cmTile;
+        return tile?.root?.view ?? tile?.view ?? null;
+      }
       const cmContent = el.querySelector(".cm-content");
       if (!cmContent) return "no-editor";
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tile = (cmContent as any).cmTile;
-      const view = tile?.root?.view ?? tile?.view;
+      const view = findView(cmContent) ?? findView(el.querySelector(".cm-editor"));
       if (!view) return "no-view";
       if (view.state.readOnly) return "readonly";
 
@@ -134,11 +137,14 @@ export async function typeInEditor(
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(300);
       const stillPresent = await cmContainer.evaluate((el: HTMLElement, text: string) => {
-        const c = el.querySelector(".cm-content");
-        if (!c) return false;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tile = (c as any).cmTile;
-        const view = tile?.root?.view ?? tile?.view;
+        function findView(node: Element | null): any {
+          if (!node) return null;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const tile = (node as any).cmTile;
+          return tile?.root?.view ?? tile?.view ?? null;
+        }
+        const view = findView(el.querySelector(".cm-content")) ?? findView(el.querySelector(".cm-editor"));
         if (!view) return false;
         return view.state.doc.toString().includes(text.substring(0, 20));
       }, query);

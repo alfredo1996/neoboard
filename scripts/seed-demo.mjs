@@ -483,6 +483,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
           { i: null, x: 0, y: 0, w: 8, h: 5 },
         ],
       },
+
     ],
   };
 }
@@ -1751,6 +1752,17 @@ async function main() {
       true
     );
 
+    const improvementsLayout = buildChartImprovements(neo4jConnId);
+    patchGridIds(improvementsLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Chart Improvements",
+      "Number formatting, DataZoom, reference lines, axis rotation, donut/top-N pie, click enrichment, radar global scale, graph anti-clump, markdown tables.",
+      improvementsLayout,
+      true
+    );
+
     console.log("    Demo dashboards seeded.");
   } finally {
     await sql.end();
@@ -1967,6 +1979,253 @@ function buildStylingRulesDemo(neo4jConnId, pgConnId) {
   };
 }
 
+// ─── Chart Improvements — dedicated dashboard for new features ──────
+function buildChartImprovements(neo4jConnId) {
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: Number Formatting ──
+      {
+        id: uuid(),
+        title: "Number Formatting",
+        widgets: [
+          {
+            id: uuid(), chartType: "single-value", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN count(m) * 12345 AS value",
+            settings: { title: "Plain (default)", chartOptions: { fontSize: "lg" } },
+          },
+          {
+            id: uuid(), chartType: "single-value", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN count(m) * 12345 AS value",
+            settings: { title: "Comma + prefix/suffix", chartOptions: { numberFormat: "comma", prefix: "$", suffix: " USD", decimalPlaces: 2, fontSize: "lg" } },
+          },
+          {
+            id: uuid(), chartType: "single-value", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN count(m) * 12345 AS value",
+            settings: { title: "Compact notation", chartOptions: { numberFormat: "compact", decimalPlaces: 1, fontSize: "lg" } },
+          },
+          {
+            id: uuid(), chartType: "single-value", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN 87.654 AS value",
+            settings: { title: "Percent format", chartOptions: { numberFormat: "percent", decimalPlaces: 1, fontSize: "lg" } },
+          },
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade",
+            settings: { title: "Bar — tooltip decimal places = 2", chartOptions: { decimalPlaces: 2, xAxisLabel: "Decade", yAxisLabel: "Count" } },
+          },
+          {
+            id: uuid(), chartType: "line", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
+            settings: { title: "Line — tooltip decimal places = 1", chartOptions: { decimalPlaces: 1, showPoints: true } },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 3, h: 2 },
+          { i: null, x: 3, y: 0, w: 3, h: 2 },
+          { i: null, x: 6, y: 0, w: 3, h: 2 },
+          { i: null, x: 9, y: 0, w: 3, h: 2 },
+          { i: null, x: 0, y: 2, w: 6, h: 4 },
+          { i: null, x: 6, y: 2, w: 6, h: 4 },
+        ],
+      },
+
+      // ── Page 2: DataZoom + Reference Lines ──
+      {
+        id: uuid(),
+        title: "DataZoom + Reference Lines",
+        widgets: [
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS movies ORDER BY movies DESC RETURN name, movies LIMIT 20",
+            settings: { title: "Bar — scroll to zoom + 2 reference lines", chartOptions: {
+              enableDataZoom: true, xAxisLabel: "Actor", yAxisLabel: "Movies",
+              referenceLines: JSON.stringify([{ value: 3, label: "Average", color: "#f59e0b" }, { value: 5, label: "Prolific", color: "#22c55e" }]),
+            } },
+          },
+          {
+            id: uuid(), chartType: "line", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
+            settings: { title: "Line — scroll to zoom + target line", chartOptions: {
+              enableDataZoom: true, showPoints: true, xAxisLabel: "Year", yAxisLabel: "Releases",
+              referenceLines: JSON.stringify([{ value: 5, label: "Target", color: "#ef4444" }]),
+            } },
+          },
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade",
+            settings: { title: "Bar — no DataZoom (control)", chartOptions: { xAxisLabel: "Decade", yAxisLabel: "Count" } },
+          },
+          {
+            id: uuid(), chartType: "line", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
+            settings: { title: "Line — reference line only (no zoom)", chartOptions: {
+              smooth: true, area: true,
+              referenceLines: JSON.stringify([{ value: 3, label: "Threshold", color: "#8b5cf6" }]),
+            } },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          { i: null, x: 0, y: 5, w: 6, h: 5 },
+          { i: null, x: 6, y: 5, w: 6, h: 5 },
+        ],
+      },
+
+      // ── Page 3: Axis Labels + Rotation ──
+      {
+        id: uuid(),
+        title: "Axis Labels",
+        widgets: [
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN m.title AS label, m.released AS value ORDER BY m.released LIMIT 15",
+            settings: { title: "Auto-rotate (15 items)" },
+          },
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS movies ORDER BY movies DESC RETURN name AS label, movies AS value LIMIT 20",
+            settings: { title: "Forced 45\u00b0 rotation", chartOptions: { axisLabelRotation: 45, xAxisLabel: "Actor Name", yAxisLabel: "Movie Count" } },
+          },
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS movies ORDER BY movies DESC RETURN name AS label, movies AS value LIMIT 10",
+            settings: { title: "Forced 90\u00b0 rotation", chartOptions: { axisLabelRotation: 90 } },
+          },
+          {
+            id: uuid(), chartType: "bar", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade",
+            settings: { title: "No rotation needed (few items)" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          { i: null, x: 0, y: 5, w: 6, h: 5 },
+          { i: null, x: 6, y: 5, w: 6, h: 5 },
+        ],
+      },
+
+      // ── Page 4: Pie Donut + Top-N ──
+      {
+        id: uuid(),
+        title: "Pie Donut + Top-N",
+        widgets: [
+          {
+            id: uuid(), chartType: "pie", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS value ORDER BY value DESC RETURN name, value LIMIT 15",
+            settings: { title: "Standard pie (all 15 slices)" },
+          },
+          {
+            id: uuid(), chartType: "pie", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS value ORDER BY value DESC RETURN name, value LIMIT 15",
+            settings: { title: "Donut mode", chartOptions: { donut: true } },
+          },
+          {
+            id: uuid(), chartType: "pie", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS value ORDER BY value DESC RETURN name, value LIMIT 15",
+            settings: { title: "Donut + Top 5 + center text", chartOptions: { donut: true, topN: 5, donutCenterText: "Top Actors", showPercentage: true } },
+          },
+          {
+            id: uuid(), chartType: "pie", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS value ORDER BY value DESC RETURN name, value LIMIT 15",
+            settings: { title: "Top 3 only (rest grouped as Other)", chartOptions: { topN: 3, showPercentage: true, sortSlices: true } },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          { i: null, x: 0, y: 5, w: 6, h: 5 },
+          { i: null, x: 6, y: 5, w: 6, h: 5 },
+        ],
+      },
+
+      // ── Page 5: Click Action Row Enrichment ──
+      {
+        id: uuid(),
+        title: "Click Action Enrichment",
+        widgets: [
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released, m.tagline AS tagline ORDER BY m.released DESC LIMIT 10",
+            settings: {
+              title: "Click a row \u2192 tagline fills below",
+              clickAction: {
+                type: "set-parameter",
+                rules: [{
+                  id: uuid(), type: "set-parameter", triggerColumn: "title",
+                  parameterMapping: { parameterName: "clicked_tagline", sourceField: "tagline" },
+                }],
+              },
+            },
+          },
+          {
+            id: uuid(), chartType: "parameter-select", connectionId: "", query: "",
+            settings: { title: "Clicked Tagline", chartOptions: { parameterType: "text", parameterName: "clicked_tagline" } },
+          },
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released, m.tagline AS tagline ORDER BY m.released DESC LIMIT 10",
+            settings: { title: "Reference table (verify tagline matches)" },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 8, h: 5 },
+          { i: null, x: 8, y: 0, w: 4, h: 2 },
+          { i: null, x: 0, y: 5, w: 12, h: 4 },
+        ],
+      },
+
+      // ── Page 6: Radar Global Scale + Graph Anti-Clump + Markdown Table ──
+      {
+        id: uuid(),
+        title: "Radar, Graph, Markdown",
+        widgets: [
+          {
+            id: uuid(), chartType: "radar", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value",
+            settings: { title: "Radar \u2014 global scale (magnitudes visible)", chartOptions: { filled: true, shape: "polygon" } },
+          },
+          {
+            id: uuid(), chartType: "graph", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 25",
+            settings: { title: "Graph \u2014 anti-clumping layout", chartOptions: { showLabels: true } },
+          },
+          {
+            id: uuid(), chartType: "markdown", connectionId: "", query: "",
+            settings: { title: "Markdown table rendering", chartOptions: {
+              content: [
+                "## Chart Improvements Checklist",
+                "",
+                "| # | Feature | Chart Type | What to Check |",
+                "|---|---|---|---|",
+                "| 1 | Number Format | Single Value | comma, compact, percent, decimal places |",
+                "| 2 | Tooltip Decimals | Bar, Line | Hover tooltip shows fixed decimals |",
+                "| 3 | DataZoom | Bar, Line | Scroll-zoom on axes |",
+                "| 4 | Reference Lines | Bar, Line | Dashed horizontal lines with labels |",
+                "| 5 | Axis Rotation | Bar | Auto-rotate at 8+ items, manual override |",
+                "| 6 | Donut Mode | Pie | Hole in center with text |",
+                "| 7 | Top-N Grouping | Pie | Extra slices grouped as Other |",
+                "| 8 | Click Enrichment | All | Non-axis columns available in click data |",
+                "| 9 | Radar Scale | Radar | Single global max, not per-indicator |",
+                "| 10 | Graph Layout | Graph | Nodes spread out, no clumping |",
+                "| 11 | Markdown Table | Markdown | This table renders correctly |",
+                "| 12 | A11y (ARIA) | All ECharts | role=img, aria-label, tabIndex=0 |",
+              ].join("\n"),
+            } },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 6, h: 5 },
+          { i: null, x: 6, y: 0, w: 6, h: 5 },
+          { i: null, x: 0, y: 5, w: 12, h: 5 },
+        ],
+      },
+    ],
+  };
+}
+
 /** Set gridLayout[n].i = widgets[n].id for each page. */
 // ─── Chart Catalog — comprehensive per-chart-type showcase ──────────
 function buildChartCatalog(neo4jId) {
@@ -2069,9 +2328,11 @@ function buildChartCatalog(neo4jId) {
           // Horizontal bar
           { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
             settings: { title: "Horizontal", chartOptions: { orientation: "horizontal" } } },
+          // Grouped (multi-series, side-by-side)
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barMulti,
+            settings: { title: "Grouped (multi-series)", chartOptions: { showLegend: true } } },
           // Stacked bar
-          { id: uuid(), chartType: "bar", connectionId: neo4jId,
-            query: "MATCH (p:Person)-[r]->(m:Movie) WITH (m.released / 10) * 10 AS decade, type(r) AS rel, count(*) AS cnt RETURN decade AS label, rel, cnt ORDER BY decade",
+          { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barMulti,
             settings: { title: "Stacked", chartOptions: { stacked: true } } },
           // Bar with values shown
           { id: uuid(), chartType: "bar", connectionId: neo4jId, query: Q.barData,
@@ -2089,15 +2350,16 @@ function buildChartCatalog(neo4jId) {
           ...paletteRow("bar", Q.barData),
         ],
         gridLayout: [
-          // Row 1: feature variants (4 widgets, 3×4 each)
+          // Row 1: vertical, horizontal, grouped, stacked (3×4 each)
           { i: null, x: 0, y: 0, w: 3, h: 4 },
           { i: null, x: 3, y: 0, w: 3, h: 4 },
           { i: null, x: 6, y: 0, w: 3, h: 4 },
           { i: null, x: 9, y: 0, w: 3, h: 4 },
-          // Row 2: styling, click, accessibility
-          { i: null, x: 0, y: 4, w: 4, h: 4 },
-          { i: null, x: 4, y: 4, w: 4, h: 4 },
-          { i: null, x: 8, y: 4, w: 4, h: 4 },
+          // Row 2: show values, styling, click, accessibility (3×4 each)
+          { i: null, x: 0, y: 4, w: 3, h: 4 },
+          { i: null, x: 3, y: 4, w: 3, h: 4 },
+          { i: null, x: 6, y: 4, w: 3, h: 4 },
+          { i: null, x: 9, y: 4, w: 3, h: 4 },
           // Rows 3-4: palette grid
           ...paletteGrid(8),
         ],
