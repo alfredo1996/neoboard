@@ -206,6 +206,7 @@ export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
   };
 }
 
+
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
   if (typeof document === "undefined") return false;

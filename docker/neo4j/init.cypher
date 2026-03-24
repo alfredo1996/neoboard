@@ -519,3 +519,31 @@ CREATE (:City {name: "Seattle", latitude: 47.6062, longitude: -122.3321, populat
 CREATE (:City {name: "Denver", latitude: 39.7392, longitude: -104.9903, population: 715522});
 CREATE (:City {name: "Boston", latitude: 42.3601, longitude: -71.0589, population: 692600});
 CREATE (:City {name: "Atlanta", latitude: 33.7490, longitude: -84.3880, population: 498715});
+
+// ── Filming locations — connect movies to cities ──────────────────────────
+MATCH (m:Movie {title: 'The Matrix'}), (c:City {name: 'San Francisco'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: 'The Matrix'}), (c:City {name: 'Los Angeles'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: 'Top Gun'}), (c:City {name: 'San Francisco'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: 'Top Gun'}), (c:City {name: 'Miami'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: 'A Few Good Men'}), (c:City {name: 'Boston'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: 'A Few Good Men'}), (c:City {name: 'Miami'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "Jerry Maguire"}), (c:City {name: 'Los Angeles'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "Jerry Maguire"}), (c:City {name: 'Houston'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "Sleepless in Seattle"}), (c:City {name: 'Seattle'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "Sleepless in Seattle"}), (c:City {name: 'New York'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "When Harry Met Sally"}), (c:City {name: 'New York'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "When Harry Met Sally"}), (c:City {name: 'Chicago'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "Apollo 13"}), (c:City {name: 'Houston'}) CREATE (m)-[:FILMED_IN]->(c);
+MATCH (m:Movie {title: "Apollo 13"}), (c:City {name: 'Los Angeles'}) CREATE (m)-[:FILMED_IN]->(c);
+
+// ── Birthplaces — connect people to cities ────────────────────────────────
+MATCH (p:Person {name: 'Keanu Reeves'}), (c:City {name: 'Los Angeles'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Tom Hanks'}), (c:City {name: 'San Francisco'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Tom Cruise'}), (c:City {name: 'New York'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Jack Nicholson'}), (c:City {name: 'New York'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Meg Ryan'}), (c:City {name: 'Los Angeles'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Kevin Bacon'}), (c:City {name: 'Boston'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Demi Moore'}), (c:City {name: 'Atlanta'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Cuba Gooding Jr.'}), (c:City {name: 'New York'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Renee Zellweger'}), (c:City {name: 'Houston'}) CREATE (p)-[:BORN_IN]->(c);
+MATCH (p:Person {name: 'Bonnie Hunt'}), (c:City {name: 'Chicago'}) CREATE (p)-[:BORN_IN]->(c);

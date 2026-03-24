@@ -18,6 +18,8 @@ export interface BaseChartProps {
   onDataZoom?: (params: unknown) => void;
   /** Enable scroll-to-zoom on the data axis (DataZoom type: 'inside') */
   enableDataZoom?: boolean;
+  /** Custom ARIA description for screen readers (e.g. "Bar chart showing revenue by month") */
+  ariaDescription?: string;
   /** Enable decal overlay patterns for colorblind accessibility */
   colorblindMode?: boolean;
   /**
