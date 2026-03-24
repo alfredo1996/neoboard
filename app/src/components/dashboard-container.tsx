@@ -12,6 +12,7 @@ import type {
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
+import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
 import { useParameterStore } from "@/stores/parameter-store";
 import {
   formatParameterValue,
@@ -56,8 +57,8 @@ interface DashboardContainerProps {
   ) => void;
   /** TanStack Query refetchInterval — periodically re-executes all widget queries. */
   refetchInterval?: number | false;
-  /** Called when a click action navigates to a different page. */
-  onNavigateToPage?: (pageId: string) => void;
+  /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
   /** Called when the user chooses "Save to Widget Lab" for a widget. */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
   /** Map of template ID → template for outdated-sync detection. */
@@ -68,6 +69,8 @@ interface DashboardContainerProps {
   onDetachWidget?: (widgetId: string) => void;
   /** When false, the parameter bar is hidden. Defaults to true. */
   showParameterBar?: boolean;
+  /** Maps parameter names to the widgets that set them (for clickable badges). */
+  parameterSourceMap?: ParameterSourceMap;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -92,6 +95,7 @@ export function DashboardContainer({
   onSyncWidget,
   onDetachWidget,
   showParameterBar = true,
+  parameterSourceMap,
 }: DashboardContainerProps) {
   const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
@@ -313,6 +317,7 @@ export function DashboardContainer({
                   }
                   refetchInterval={refetchInterval}
                   onNavigateToPage={onNavigateToPage}
+                  parameterSourceMap={parameterSourceMap}
                 />
               </WidgetCard>
             </div>
@@ -340,6 +345,7 @@ export function DashboardContainer({
                     widget={fullscreenWidget}
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
+                    parameterSourceMap={parameterSourceMap}
                     autoFit
                   />
                 ) : (
