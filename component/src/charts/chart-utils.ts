@@ -86,6 +86,72 @@ export function buildTooltipFormatter(config: NumberFormatConfig): (params: Tool
   };
 }
 
+// ---------------------------------------------------------------------------
+// Axis label auto-rotation and truncation
+// ---------------------------------------------------------------------------
+
+export interface CategoryAxisLabelOptions {
+  /** Override the automatic rotation angle. -1 means automatic (sentinel). */
+  rotateOverride?: number;
+  /** Maximum label length before truncation (default: 15). */
+  maxLabelLength?: number;
+  /** Whether the chart is in compact mode (hides labels). */
+  compact?: boolean;
+}
+
+export interface CategoryAxisLabelConfig {
+  show: boolean;
+  rotate: number;
+  formatter?: (value: string) => string;
+  tooltip: { show: boolean };
+}
+
+/**
+ * Compute axis label rotation and truncation based on category count.
+ * - 8+ categories: rotate 30°
+ * - 15+ categories: rotate 45°
+ * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
+ * - ECharts axisPointer tooltip shows the full text on hover
+ *
+ * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
+ * normalized to undefined so the category-count heuristic applies.
+ */
+export function buildCategoryAxisLabel(
+  categoryCount: number,
+  options: CategoryAxisLabelOptions = {},
+): CategoryAxisLabelConfig {
+  const { maxLabelLength = 15, compact = false } = options;
+  // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
+  // default auto-rotation instead of receiving an invalid rotate: -1.
+  const rotateOverride = options.rotateOverride === -1 ? undefined : options.rotateOverride;
+
+  let rotate: number;
+  if (rotateOverride !== undefined) {
+    rotate = rotateOverride;
+  } else if (categoryCount >= 15) {
+    rotate = 45;
+  } else if (categoryCount >= 8) {
+    rotate = 30;
+  } else {
+    rotate = 0;
+  }
+
+  const needsTruncation = categoryCount >= 8;
+  const formatter = needsTruncation
+    ? (value: string) =>
+        value.length > maxLabelLength
+          ? value.slice(0, maxLabelLength - 1) + "\u2026"
+          : value
+    : undefined;
+
+  return {
+    show: !compact,
+    rotate,
+    formatter,
+    tooltip: { show: true },
+  };
+}
+
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
   if (typeof document === "undefined") return false;
