@@ -129,6 +129,11 @@ function DataGrid<TData>({
   const [grouping, setGrouping] = React.useState<GroupingState>(initialGrouping ?? []);
   const [expanded, setExpanded] = React.useState<ExpandedState>(true);
 
+  // Sync grouping state when initialGrouping prop changes
+  React.useEffect(() => {
+    if (initialGrouping) setGrouping(initialGrouping);
+  }, [initialGrouping]);
+
   // Toolbar height is non-zero only when a toolbar render prop is supplied.
   // We use a fixed estimate so the toolbar's own height does not have to be
   // measured separately — the toolbar renders at 40 px in practice.
@@ -305,7 +310,7 @@ function DataGrid<TData>({
                             )}
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                             <span className="text-muted-foreground text-xs ml-1">
-                              ({row.subRows.length})
+                              ({row.getLeafRows().length})
                             </span>
                           </button>
                         </TableCell>
