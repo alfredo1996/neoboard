@@ -69,18 +69,19 @@ interface TooltipParam {
  * formatting across all chart types. Works with both single and array params
  * (item trigger vs axis trigger).
  */
-export function buildTooltipFormatter(config: NumberFormatConfig): (params: TooltipParam | TooltipParam[]) => string {
+export function buildTooltipFormatter(config: NumberFormatConfig = {}): (params: unknown) => string {
   // Tooltip always uses comma format for readability unless explicitly set
   const tooltipConfig: NumberFormatConfig = { numberFormat: "comma", ...config };
 
-  return (params: TooltipParam | TooltipParam[]) => {
-    const items = Array.isArray(params) ? params : [params];
+  return (params: unknown) => {
+    const items = Array.isArray(params) ? (params as TooltipParam[]) : [params as TooltipParam];
     const header = items[0]?.name ?? "";
     const lines = items.map((p) => {
       const raw = Array.isArray(p.value) ? p.value[1] : p.value;
       const val = typeof raw === "number" ? formatNumber(raw, tooltipConfig) : String(raw ?? "");
       const label = p.seriesName ? `${p.seriesName}: ` : "";
-      return `${p.marker ?? ""} ${label}<b>${val}</b>`;
+      const marker = typeof p.marker === "string" ? p.marker : "";
+      return `${marker} ${label}<b>${val}</b>`;
     });
     return header ? `${header}<br/>${lines.join("<br/>")}` : lines.join("<br/>");
   };
@@ -149,6 +150,59 @@ export function buildCategoryAxisLabel(
     rotate,
     formatter,
     tooltip: { show: true },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reference lines (markLine)
+// ---------------------------------------------------------------------------
+
+export interface ReferenceLine {
+  value: number;
+  label?: string;
+  color?: string;
+}
+
+/**
+ * Parse a JSON string of reference lines. Returns empty array on
+ * invalid input or missing values.
+ */
+export function parseReferenceLines(input: string | undefined): ReferenceLine[] {
+  if (!input) return [];
+  try {
+    const parsed = JSON.parse(input);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item: unknown): item is ReferenceLine =>
+        typeof item === "object" &&
+        item !== null &&
+        "value" in item &&
+        typeof (item as ReferenceLine).value === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Build ECharts markLine data from reference lines.
+ */
+export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
+  if (!lines.length) return undefined;
+  return {
+    silent: true,
+    symbol: "none",
+    data: lines.map((line) => ({
+      yAxis: line.value,
+      label: {
+        formatter: line.label ?? String(line.value),
+        position: "insideEndTop" as const,
+      },
+      lineStyle: {
+        color: line.color ?? "#888",
+        type: "dashed" as const,
+      },
+    })),
   };
 }
 
@@ -246,36 +300,3 @@ export function resolveItemColor(
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// ECharts tooltip formatter
-// ---------------------------------------------------------------------------
-
-export interface TooltipParam {
-  seriesName?: string;
-  name?: string;
-  value?: unknown;
-  marker?: unknown;
-}
-
-/**
- * Build an ECharts tooltip formatter function for axis-trigger tooltips.
- * Conditionally includes the series name label only when it is present,
- * preventing "undefined:" from appearing in tooltips.
- *
- * The return type uses `unknown` for the params argument so it is assignable
- * to ECharts' `TooltipFormatterCallback<TopLevelFormatterParams>`.
- */
-export function buildTooltipFormatter(): (params: unknown) => string {
-  return (params: unknown) => {
-    const items = Array.isArray(params) ? (params as TooltipParam[]) : [params as TooltipParam];
-    const header = items[0]?.name ?? "";
-    const lines = items.map((p) => {
-      const raw = Array.isArray(p.value) ? p.value[1] : p.value;
-      const val = String(raw ?? "");
-      const label = p.seriesName ? `${p.seriesName}: ` : "";
-      const marker = typeof p.marker === "string" ? p.marker : "";
-      return `${marker} ${label}<b>${val}</b>`;
-    });
-    return header ? `${header}<br/>${lines.join("<br/>")}` : lines.join("<br/>");
-  };
-}
