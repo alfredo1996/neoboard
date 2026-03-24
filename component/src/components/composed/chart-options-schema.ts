@@ -12,11 +12,6 @@ export interface ChartOptionDef {
   description?: string;
 }
 
-/** Shared number formatting options for tooltip values on axis-based charts. */
-const tooltipFormatOptions: ChartOptionDef[] = [
-  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Labels", description: "Fixed number of decimal places in tooltips (0-6). Set to -1 for automatic." },
-];
-
 const barOptions: ChartOptionDef[] = [
   {
     key: "orientation",
@@ -370,9 +365,9 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  pie: [...pieOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  bar: [...barOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  pie: [...pieOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],
