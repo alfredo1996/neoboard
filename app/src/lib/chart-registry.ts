@@ -494,8 +494,10 @@ function transformToRadarData(data: unknown): unknown {
       const serName = seriesKey ? String(normalizeValue(r[seriesKey]) ?? "Default") : "Default";
 
       if (maxKey) {
-        const explicitMax = Number(r[maxKey]) || 100;
-        if (!indicatorExplicitMax.has(indName)) indicatorExplicitMax.set(indName, explicitMax);
+        const explicitMax = Number(r[maxKey]);
+        if (Number.isFinite(explicitMax) && explicitMax > 0 && !indicatorExplicitMax.has(indName)) {
+          indicatorExplicitMax.set(indName, explicitMax);
+        }
       }
       indicatorMaxFromData.set(indName, Math.max(indicatorMaxFromData.get(indName) ?? 0, val));
       if (!seriesMap.has(serName)) seriesMap.set(serName, new Map());
@@ -508,9 +510,7 @@ function transformToRadarData(data: unknown): unknown {
     const globalMax = Math.ceil(Math.max(...indicatorMaxFromData.values()) * 1.1) || 100;
     const indicators = indicatorEntries.map((name) => ({
       name,
-      max: maxKey && indicatorExplicitMax.has(name)
-        ? indicatorExplicitMax.get(name)!
-        : globalMax,
+      max: indicatorExplicitMax.get(name) ?? globalMax,
     }));
     const series = Array.from(seriesMap.entries()).map(([name, valMap]) => ({
       name,

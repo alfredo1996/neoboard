@@ -1543,6 +1543,85 @@ describe("radar transform", () => {
     expect(result.series[0].values).toHaveLength(3);
   });
 
+  it("falls back to globalMax when max column contains null/undefined/NaN", () => {
+    // When the max column exists but values are invalid (null/NaN/0),
+    // indicators should use globalMax instead of treating 0 or NaN as explicit.
+    const data = [
+      { indicator: "Speed", value: 80, max: null },
+      { indicator: "Strength", value: 60, max: undefined },
+      { indicator: "Agility", value: 90, max: NaN },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    // globalMax: ceil(90 * 1.1) = 99
+    const globalMax = Math.ceil(90 * 1.1);
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
+  });
+
+  it("falls back to globalMax when max column value is 0", () => {
+    const data = [
+      { indicator: "Speed", value: 50, max: 0 },
+      { indicator: "Strength", value: 30, max: 0 },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    // 0 is not a valid explicit max (not > 0), so globalMax is used
+    const globalMax = Math.ceil(50 * 1.1);
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
+  });
+
+  it("falls back to globalMax when max column value is negative", () => {
+    const data = [
+      { indicator: "Speed", value: 50, max: -100 },
+      { indicator: "Strength", value: 30, max: -50 },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const globalMax = Math.ceil(50 * 1.1);
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
+  });
+
+  it("mixes explicit and fallback max when some indicators have valid max", () => {
+    const data = [
+      { indicator: "Speed", value: 80, max: 200 },
+      { indicator: "Strength", value: 60, max: null },
+      { indicator: "Agility", value: 90, max: 150 },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const globalMax = Math.ceil(90 * 1.1);
+    // Speed and Agility have valid explicit max; Strength falls back to globalMax
+    expect(result.indicators[0].max).toBe(200);   // Speed — explicit
+    expect(result.indicators[1].max).toBe(globalMax); // Strength — fallback
+    expect(result.indicators[2].max).toBe(150);   // Agility — explicit
+  });
+
+  it("falls back to globalMax when max column contains non-numeric strings", () => {
+    const data = [
+      { indicator: "Speed", value: 80, max: "not-a-number" },
+      { indicator: "Strength", value: 60, max: "" },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const globalMax = Math.ceil(80 * 1.1);
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
+  });
+
+  it("falls back to globalMax when max column contains Infinity", () => {
+    const data = [
+      { indicator: "Speed", value: 80, max: Infinity },
+      { indicator: "Strength", value: 60, max: -Infinity },
+    ];
+    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const globalMax = Math.ceil(80 * 1.1);
+    for (const ind of result.indicators) {
+      expect(ind.max).toBe(globalMax);
+    }
+  });
+
   it("transformWithMapping returns same result as transform", () => {
     const data = [{ indicator: "Speed", value: 80, max: 100 }];
     const result = chartRegistry.radar.transformWithMapping(data, {});
