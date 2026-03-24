@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
-import { buildCsvString, triggerDownload } from "@neoboard/components";
+import { buildCsvString, triggerDownload, buildExportFilename } from "@neoboard/components";
 import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
@@ -156,8 +156,8 @@ export function DashboardContainer({
     if (!Array.isArray(rawData) || rawData.length === 0) return;
     const csv = buildCsvString(rawData as Record<string, unknown>[]);
     const title = (widget.settings?.title as string) || widget.chartType;
-    const slug = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-|-$/g, "");
-    triggerDownload(csv, `${slug}.csv`);
+    const filename = buildExportFilename(title, "csv", page.title);
+    triggerDownload(csv, filename);
   }
 
   const buildActions = (widget: DashboardWidget) => {
