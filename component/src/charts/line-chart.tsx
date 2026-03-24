@@ -10,6 +10,8 @@ import {
   buildCompactGrid,
   resolveItemColor,
   buildTooltipFormatter,
+  parseReferenceLines,
+  buildMarkLineFromRefs,
 } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
@@ -35,6 +37,8 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showGridLines?: boolean;
   /** Use stepped line style */
   stepped?: boolean;
+  /** JSON string of reference lines: [{ value, label?, color? }] */
+  referenceLines?: string;
   /** @deprecated Use stylingRules instead. JSON string of thresholds */
   colorThresholds?: string;
   /** Rule-based styling rules */
@@ -63,6 +67,7 @@ function LineChart({
   lineWidth = 2,
   showGridLines = true,
   stepped = false,
+  referenceLines: referenceLinesJson,
   colorThresholds,
   stylingRules,
   paramValues,
@@ -77,6 +82,8 @@ function LineChart({
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
     const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
     const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
+    const refLines = parseReferenceLines(referenceLinesJson);
+    const markLine = buildMarkLineFromRefs(refLines);
 
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
@@ -101,7 +108,7 @@ function LineChart({
         axisLabel: { show: !compact },
         splitLine: { show: showGridLines },
       },
-      series: seriesKeys.map((key) => {
+      series: seriesKeys.map((key, idx) => {
         let lastValue: number | undefined;
         for (let i = data.length - 1; i >= 0; i -= 1) {
           const candidate = data[i][key];
@@ -124,10 +131,12 @@ function LineChart({
           showSymbol: showPoints,
           areaStyle: area ? {} : undefined,
           emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
+          // Attach reference lines to the first series only
+          ...(idx === 0 && markLine ? { markLine } : {}),
         };
       }),
     };
-  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
+  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, referenceLinesJson, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
