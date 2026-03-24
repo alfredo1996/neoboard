@@ -19,7 +19,7 @@ describe("buildTooltipFormatter", () => {
     const result = formatter(param);
     expect(result).toContain("Revenue: ");
     expect(result).toContain("Jan");
-    expect(result).toContain("1234");
+    expect(result).toContain("1,234");
   });
 
   it("omits seriesName label when seriesName is undefined", () => {
