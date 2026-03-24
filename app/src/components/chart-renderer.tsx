@@ -123,9 +123,20 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
 
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
-    return (e: EChartsClickEvent) =>
-      onChartClick({ name: e.name, value: e.value, seriesName: e.seriesName, dataIndex: e.dataIndex });
-  }, [onChartClick]);
+    return (e: EChartsClickEvent) => {
+      // Enrich the click point with the original data row so that
+      // column-name source fields (e.g. "revenue") resolve correctly
+      // in click action rules — not just ECharts built-in fields.
+      const row = Array.isArray(data) ? (data[e.dataIndex] as Record<string, unknown> | undefined) : undefined;
+      onChartClick({
+        ...(row ?? {}),
+        name: e.name,
+        value: e.value,
+        seriesName: e.seriesName,
+        dataIndex: e.dataIndex,
+      });
+    };
+  }, [onChartClick, data]);
 
   switch (type) {
     case "bar":
