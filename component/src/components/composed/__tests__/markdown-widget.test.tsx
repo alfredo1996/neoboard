@@ -392,4 +392,67 @@ describe("MarkdownWidget", () => {
     const container = screen.getByTestId("markdown-widget");
     expect(container.innerHTML).toContain("</blockquote>");
   });
+
+  // ── GFM Tables ────────────────────────────────────────────────────────────
+
+  it("renders a basic GFM table with headers and body rows", () => {
+    const md = "| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |";
+    render(<MarkdownWidget content={md} />);
+    const container = screen.getByTestId("markdown-widget");
+    const table = container.querySelector("table");
+    expect(table).not.toBeNull();
+    const headers = table!.querySelectorAll("th");
+    expect(headers).toHaveLength(2);
+    expect(headers[0].textContent).toBe("Name");
+    expect(headers[1].textContent).toBe("Age");
+    const rows = table!.querySelectorAll("tbody tr");
+    expect(rows).toHaveLength(2);
+    const cells = rows[0].querySelectorAll("td");
+    expect(cells[0].textContent).toBe("Alice");
+    expect(cells[1].textContent).toBe("30");
+  });
+
+  it("renders a GFM table with alignment markers (colons)", () => {
+    const md = "| Left | Center | Right |\n| :--- | :---: | ---: |\n| a | b | c |";
+    render(<MarkdownWidget content={md} />);
+    const container = screen.getByTestId("markdown-widget");
+    expect(container.querySelector("table")).not.toBeNull();
+    const headers = container.querySelectorAll("th");
+    expect(headers).toHaveLength(3);
+  });
+
+  it("renders table with empty cells when row has fewer columns than header", () => {
+    const md = "| A | B | C |\n| --- | --- | --- |\n| x |";
+    render(<MarkdownWidget content={md} />);
+    const container = screen.getByTestId("markdown-widget");
+    const cells = container.querySelectorAll("tbody td");
+    expect(cells).toHaveLength(3);
+    // Last two cells should be empty
+    expect(cells[1].textContent).toBe("");
+    expect(cells[2].textContent).toBe("");
+  });
+
+  it("closes an open list before rendering a table", () => {
+    const md = "- item\n| A | B |\n| --- | --- |\n| 1 | 2 |";
+    render(<MarkdownWidget content={md} />);
+    const container = screen.getByTestId("markdown-widget");
+    const ulCloseIndex = container.innerHTML.indexOf("</ul>");
+    const tableIndex = container.innerHTML.indexOf("<table");
+    expect(ulCloseIndex).toBeLessThan(tableIndex);
+  });
+
+  it("escapes HTML in table cell content", () => {
+    const md = "| Header |\n| --- |\n| <script>alert(1)</script> |";
+    render(<MarkdownWidget content={md} />);
+    const container = screen.getByTestId("markdown-widget");
+    expect(container.innerHTML).toContain("&lt;script&gt;");
+    expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("does not treat lines as table when alignment row is missing", () => {
+    const md = "| not | a | table |\n| these are just pipes |";
+    render(<MarkdownWidget content={md} />);
+    const container = screen.getByTestId("markdown-widget");
+    expect(container.querySelector("table")).toBeNull();
+  });
 });
