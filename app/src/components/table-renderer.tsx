@@ -10,8 +10,10 @@ import {
   parseColorThresholds,
   resolveThresholdColor,
   resolveStylingRuleColor,
+  resolveCellFormat,
+  interpolateColor,
 } from "@neoboard/components";
-import type { StylingRule } from "@neoboard/components";
+import type { StylingRule, CellFormatRule, ColorScaleConfig } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 
 export interface TableRendererProps {
@@ -24,6 +26,10 @@ export interface TableRendererProps {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /** Cell-level conditional formatting rules */
+  cellFormatRules?: CellFormatRule[];
+  /** Color scale configs for gradient cell backgrounds */
+  colorScales?: ColorScaleConfig[];
 }
 
 /**
@@ -31,7 +37,7 @@ export interface TableRendererProps {
  * Uses a ResizeObserver on the wrapper div to pass a live containerHeight so
  * DataGrid can calculate the dynamic page size automatically.
  */
-export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns, stylingRules, paramValues }: TableRendererProps) {
+export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns, stylingRules, paramValues, cellFormatRules, colorScales }: TableRendererProps) {
   const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
@@ -137,6 +143,60 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
     return undefined;
   }, [stylingRules, paramValues, thresholds, thresholdColumn, fallbackThresholdColumn]);
 
+  // Compute per-column min/max for color scales
+  const columnMinMax = useMemo(() => {
+    if (!colorScales?.length || !records.length) return new Map<string, { min: number; max: number }>();
+    const result = new Map<string, { min: number; max: number }>();
+    for (const scale of colorScales) {
+      let min = Infinity;
+      let max = -Infinity;
+      for (const row of records) {
+        const val = Number((row as Record<string, unknown>)[scale.column]);
+        if (!Number.isNaN(val)) {
+          if (val < min) min = val;
+          if (val > max) max = val;
+        }
+      }
+      if (min !== Infinity) result.set(scale.column, { min, max });
+    }
+    return result;
+  }, [colorScales, records]);
+
+  const getCellStyle = useMemo(() => {
+    if (!cellFormatRules?.length && !colorScales?.length) return undefined;
+    return (row: Record<string, unknown>, columnId: string): React.CSSProperties | undefined => {
+      const style: React.CSSProperties = {};
+      let hasStyle = false;
+
+      // Rule-based formatting
+      if (cellFormatRules?.length) {
+        const fmt = resolveCellFormat(row[columnId], columnId, cellFormatRules);
+        if (fmt) {
+          if (fmt.backgroundColor) { style.backgroundColor = fmt.backgroundColor; hasStyle = true; }
+          if (fmt.textColor) { style.color = fmt.textColor; hasStyle = true; }
+          if (fmt.bold) { style.fontWeight = "bold"; hasStyle = true; }
+        }
+      }
+
+      // Color scale (only apply bg if no rule already set bg)
+      if (colorScales?.length && !style.backgroundColor) {
+        const scale = colorScales.find((s) => s.column === columnId);
+        if (scale) {
+          const bounds = columnMinMax.get(columnId);
+          if (bounds) {
+            const val = Number(row[columnId]);
+            if (!Number.isNaN(val)) {
+              style.backgroundColor = interpolateColor(val, bounds.min, bounds.max, scale.minColor, scale.maxColor);
+              hasStyle = true;
+            }
+          }
+        }
+      }
+
+      return hasStyle ? style : undefined;
+    };
+  }, [cellFormatRules, colorScales, columnMinMax]);
+
   const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {
     return <EmptyState title={emptyMessage} className="py-6" />;
@@ -157,6 +217,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
         onCellClick={onCellClick}
         clickableColumns={clickableColumns}
         getRowStyle={getRowStyle}
+        getCellStyle={getCellStyle}
         pagination={(table) => (
           <div className="flex items-center gap-2">
             <DataGridViewOptions table={table} />

@@ -90,6 +90,8 @@ export interface DataGridProps<TData> {
   getRowStyle?: (row: TData) => React.CSSProperties | undefined;
   /** Cell-level conditional formatting rules applied to individual cells. */
   cellFormattingRules?: CellFormattingRule[];
+  /** Optional function to compute a cell's inline style for conditional formatting. */
+  getCellStyle?: (row: TData, columnId: string) => React.CSSProperties | undefined;
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
   className?: string;
@@ -111,6 +113,7 @@ function DataGrid<TData>({
   onSelectionChange,
   getRowStyle,
   cellFormattingRules,
+  getCellStyle,
   toolbar,
   pagination,
   className,
@@ -274,7 +277,10 @@ function DataGrid<TData>({
                     <TableCell
                       key={cell.id}
                       className={cellClickable ? "cursor-pointer" : undefined}
-                      style={cellStyle}
+                      style={{
+                        ...cellStyle,
+                        ...getCellStyle?.(row.original, cell.column.id),
+                      }}
                       onClick={cellClickable ? (e) => {
                         e.stopPropagation();
                         onCellClick({ column: cell.column.id, value: cell.getValue() });

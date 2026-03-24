@@ -13,6 +13,7 @@ import {
   ChartOptionsPanel,
   ChartSettingsPanel,
   getDefaultChartSettings,
+  ConditionalFormatPanel,
   Badge,
   Button,
   LoadingButton,
@@ -31,6 +32,7 @@ import {
   MarkdownWidget,
   IframeWidget,
 } from "@neoboard/components";
+import type { CellFormatRule, ColorScaleConfig } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   getChartConfig,
@@ -140,6 +142,17 @@ export function WidgetEditorModal({
   );
   const [stylingTargetColumn, setStylingTargetColumn] = useState(
     existingStylingConfig?.targetColumn ?? ""
+  );
+
+  // Conditional formatting state
+  const existingConditionalFormatting = widget?.settings?.conditionalFormatting as
+    | { rules?: CellFormatRule[]; colorScales?: ColorScaleConfig[] }
+    | undefined;
+  const [cellFormatRules, setCellFormatRules] = useState<CellFormatRule[]>(
+    existingConditionalFormatting?.rules ?? []
+  );
+  const [colorScales, setColorScales] = useState<ColorScaleConfig[]>(
+    existingConditionalFormatting?.colorScales ?? []
   );
 
   const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules" | "templates">("main");
@@ -619,6 +632,9 @@ export function WidgetEditorModal({
               formFields: chartType === "form" ? formFields : undefined,
               clickAction: buildClickAction(),
               stylingConfig: buildStylingConfig(),
+              conditionalFormatting: (cellFormatRules.length || colorScales.length)
+                ? { rules: cellFormatRules, colorScales }
+                : undefined,
               enableCache,
               cacheTtlMinutes,
             },
@@ -645,6 +661,8 @@ export function WidgetEditorModal({
     formFields,
     enableCache,
     cacheTtlMinutes,
+    cellFormatRules,
+    colorScales,
     previewQuery,
     onSave,
     onOpenChange,
@@ -760,6 +778,9 @@ export function WidgetEditorModal({
         chartOptions,
         stylingConfig: buildStylingConfig(),
         clickAction: buildClickAction(),
+        conditionalFormatting: (cellFormatRules.length || colorScales.length)
+          ? { rules: cellFormatRules, colorScales }
+          : undefined,
       },
     };
 
@@ -1031,6 +1052,20 @@ export function WidgetEditorModal({
                     settings={chartOptions}
                     onSettingsChange={setChartOptions}
                   />
+                  {chartType === "table" && (
+                    <div className="border-t pt-4 space-y-3">
+                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                        Conditional Formatting
+                      </h4>
+                      <ConditionalFormatPanel
+                        columns={availableFields}
+                        rules={cellFormatRules}
+                        colorScales={colorScales}
+                        onRulesChange={setCellFormatRules}
+                        onColorScalesChange={setColorScales}
+                      />
+                    </div>
+                  )}
                   {chartOptions.cacheMode === "forever" && (
                     <div
                       className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
