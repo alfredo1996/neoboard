@@ -177,7 +177,9 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
       let min = Infinity;
       let max = -Infinity;
       for (const row of records) {
-        const val = Number((row as Record<string, unknown>)[scale.column]);
+        const raw = (row as Record<string, unknown>)[scale.column];
+        if (raw === null || raw === undefined || raw === "" || (typeof raw === "string" && !raw.trim())) continue;
+        const val = Number(raw);
         if (!Number.isNaN(val)) {
           if (val < min) min = val;
           if (val > max) max = val;
