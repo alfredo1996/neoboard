@@ -97,3 +97,37 @@ export function resolveItemColor(
   }
   return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// ECharts tooltip formatter
+// ---------------------------------------------------------------------------
+
+export interface TooltipParam {
+  seriesName?: string;
+  name?: string;
+  value?: unknown;
+  marker?: unknown;
+}
+
+/**
+ * Build an ECharts tooltip formatter function for axis-trigger tooltips.
+ * Conditionally includes the series name label only when it is present,
+ * preventing "undefined:" from appearing in tooltips.
+ *
+ * The return type uses `unknown` for the params argument so it is assignable
+ * to ECharts' `TooltipFormatterCallback<TopLevelFormatterParams>`.
+ */
+export function buildTooltipFormatter(): (params: unknown) => string {
+  return (params: unknown) => {
+    const items = Array.isArray(params) ? (params as TooltipParam[]) : [params as TooltipParam];
+    const header = items[0]?.name ?? "";
+    const lines = items.map((p) => {
+      const raw = Array.isArray(p.value) ? p.value[1] : p.value;
+      const val = String(raw ?? "");
+      const label = p.seriesName ? `${p.seriesName}: ` : "";
+      const marker = typeof p.marker === "string" ? p.marker : "";
+      return `${marker} ${label}<b>${val}</b>`;
+    });
+    return header ? `${header}<br/>${lines.join("<br/>")}` : lines.join("<br/>");
+  };
+}
