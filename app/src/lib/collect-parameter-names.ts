@@ -164,7 +164,11 @@ export function buildParameterSourceMap(layout: DashboardLayoutV2): ParameterSou
         if (!map[name]) {
           map[name] = [];
         }
-        map[name].push(source);
+        // Deduplicate: same widget can appear in paramNames multiple times
+        // (e.g. top-level parameterMapping + a rule referencing the same param)
+        if (!map[name].some((s) => s.widgetId === widget.id)) {
+          map[name].push(source);
+        }
       }
     }
   }

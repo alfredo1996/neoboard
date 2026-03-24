@@ -22,6 +22,7 @@ import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
+import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -55,30 +56,6 @@ import {
   ToolbarSection,
   ToolbarSeparator,
 } from "@neoboard/components";
-
-/**
- * Uses requestAnimationFrame polling to scroll to a widget after a cross-page
- * navigation. The target page may not have rendered yet, so we retry a few
- * times before giving up.
- */
-function scrollToWidgetWhenReady(widgetId: string, maxRetries = 5) {
-  let attempts = 0;
-  function tryScroll() {
-    const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
-    if (el && !el.closest(".hidden")) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("widget-highlight");
-      el.addEventListener(
-        "animationend",
-        () => el.classList.remove("widget-highlight"),
-        { once: true },
-      );
-      return;
-    }
-    if (++attempts < maxRetries) requestAnimationFrame(tryScroll);
-  }
-  requestAnimationFrame(tryScroll);
-}
 
 export default function DashboardEditorPage({
   params,

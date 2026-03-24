@@ -724,6 +724,45 @@ describe("buildParameterSourceMap", () => {
     expect(map.dept[0].widgetTitle).toBe("parameter-select");
   });
 
+  it("deduplicates when same widget sets the same param via top-level and rule", () => {
+    const layout = makeLayout([
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "bar",
+            connectionId: "c1",
+            query: "RETURN 1",
+            settings: {
+              title: "Dup Widget",
+              clickAction: {
+                type: "set-parameter",
+                parameterMapping: { parameterName: "dup", sourceField: "x" },
+                rules: [
+                  {
+                    id: "r1",
+                    type: "set-parameter",
+                    parameterMapping: {
+                      parameterName: "dup",
+                      sourceField: "y",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+      },
+    ]);
+    const map = buildParameterSourceMap(layout);
+    // w1 sets "dup" twice (top-level + rule) but should only appear once
+    expect(map.dup).toHaveLength(1);
+    expect(map.dup[0].widgetId).toBe("w1");
+  });
+
   it("does NOT include widgets that only consume params via $param_xxx in query", () => {
     const layout = makeLayout([
       {

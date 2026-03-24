@@ -8,6 +8,7 @@ import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schem
 import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
 import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
+import { scrollAndHighlight } from "@/lib/scroll-to-widget";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -68,25 +69,6 @@ function extractColumnNames(data: unknown): string[] {
   const first = records[0] as Record<string, unknown> | undefined;
   if (!first || typeof first !== "object") return [];
   return Object.keys(first);
-}
-
-/**
- * Scrolls to and highlights a widget on the current page.
- * Returns true if the element was found and scrolled to.
- */
-function scrollAndHighlight(widgetId: string): boolean {
-  const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
-  if (el && !el.closest(".hidden")) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("widget-highlight");
-    el.addEventListener(
-      "animationend",
-      () => el.classList.remove("widget-highlight"),
-      { once: true },
-    );
-    return true;
-  }
-  return false;
 }
 
 /**
