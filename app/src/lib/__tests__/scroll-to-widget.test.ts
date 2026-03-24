@@ -58,13 +58,13 @@ describe("scrollAndHighlight", () => {
   });
 
   it("uses CSS.escape on the widgetId to handle special characters", () => {
-    const qsa = vi.fn(() => null);
+    const qsa = vi.fn<(selector: string) => Element | null>(() => null);
     vi.stubGlobal("document", { querySelector: qsa });
 
     scrollAndHighlight("widget:1.2");
 
     // CSS.escape escapes the colon and dot
-    const selector = qsa.mock.calls[0][0] as string;
+    const selector = qsa.mock.calls[0][0];
     expect(selector).toContain("\\:");
     expect(selector).toContain("\\.");
   });
@@ -102,7 +102,7 @@ describe("scrollToWidgetWhenReady", () => {
   });
 
   it("gives up after maxRetries", () => {
-    const qsa = vi.fn(() => null);
+    const qsa = vi.fn<(selector: string) => Element | null>(() => null);
     vi.stubGlobal("document", { querySelector: qsa });
 
     const callbacks: Array<() => void> = [];
@@ -127,7 +127,7 @@ describe("scrollToWidgetWhenReady", () => {
   });
 
   it("defaults to 30 retries", () => {
-    const qsa = vi.fn(() => null);
+    const qsa = vi.fn<(selector: string) => Element | null>(() => null);
     vi.stubGlobal("document", { querySelector: qsa });
 
     const callbacks: Array<() => void> = [];
