@@ -3,7 +3,7 @@ import {
   resolveCellFormat,
   interpolateColor,
 } from "../styling-rule";
-import type { CellFormatRule, ColorScaleConfig } from "../styling-rule";
+import type { CellFormatRule } from "../styling-rule";
 
 function rule(overrides: Partial<CellFormatRule> = {}): CellFormatRule {
   return {
