@@ -1763,6 +1763,17 @@ async function main() {
       true
     );
 
+    const tableLayout = buildTableFeatures(neo4jConnId, pgConnId);
+    patchGridIds(tableLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Table Features",
+      "Column resizing, row grouping with nested headers, conditional formatting (numeric, string, null), color scales, icons, and all features combined.",
+      tableLayout,
+      true
+    );
+
     console.log("    Demo dashboards seeded.");
   } finally {
     await sql.end();
@@ -2220,6 +2231,165 @@ function buildChartImprovements(neo4jConnId) {
           { i: null, x: 0, y: 0, w: 6, h: 5 },
           { i: null, x: 6, y: 0, w: 6, h: 5 },
           { i: null, x: 0, y: 5, w: 12, h: 5 },
+        ],
+      },
+    ],
+  };
+}
+
+// ─── Table Features — column resize, conditional formatting, row grouping ──
+function buildTableFeatures(neo4jConnId, pgConnId) {
+  return {
+    version: 2,
+    pages: [
+      // ── Page 1: Column Resizing ──
+      {
+        id: uuid(),
+        title: "Column Resizing",
+        widgets: [
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p.name AS actor, m.title AS movie, m.released AS year, m.tagline AS tagline ORDER BY year DESC LIMIT 30",
+            settings: { title: "Drag column borders to resize (Neo4j)", chartOptions: { enableColumnResizing: true, enableSorting: true, enablePagination: true, pageSize: 10 } },
+          },
+          {
+            id: uuid(), chartType: "table", connectionId: pgConnId,
+            query: "SELECT title, released, tagline FROM movies ORDER BY released DESC LIMIT 30",
+            settings: { title: "Drag column borders to resize (PostgreSQL)", chartOptions: { enableColumnResizing: true, enableSorting: true, enablePagination: true, pageSize: 10 } },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 12, h: 5 },
+          { i: null, x: 0, y: 5, w: 12, h: 5 },
+        ],
+      },
+
+      // ── Page 2: Row Grouping ──
+      {
+        id: uuid(),
+        title: "Row Grouping",
+        widgets: [
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS relationship, m.title AS movie, p.name AS person, m.released AS year ORDER BY relationship, movie",
+            settings: { title: "Group by relationship type", chartOptions: { enableGrouping: true, groupBy: "relationship", enableSorting: true, enablePagination: true, pageSize: 15 } },
+          },
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS relationship, (m.released / 10) * 10 AS decade, m.title AS movie, p.name AS person ORDER BY relationship, decade",
+            settings: { title: "Nested grouping: relationship > decade", chartOptions: { enableGrouping: true, groupBy: "relationship,decade", enableSorting: true, enablePagination: true, pageSize: 20 } },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 12, h: 6 },
+          { i: null, x: 0, y: 6, w: 12, h: 6 },
+        ],
+      },
+
+      // ── Page 3: Conditional Formatting — Numeric Rules ──
+      {
+        id: uuid(),
+        title: "Conditional Formatting",
+        widgets: [
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies, min(m.released) AS first_role, max(m.released) AS last_role RETURN actor, movies, first_role, last_role ORDER BY movies DESC",
+            settings: {
+              title: "Numeric rules: bg color + bold + icons",
+              chartOptions: { enableSorting: true, enableColumnResizing: true, enablePagination: true, pageSize: 15 },
+              conditionalFormatting: {
+                rules: [
+                  { id: uuid(), column: "movies", operator: ">=", value: 4, style: { backgroundColor: "#dcfce7", textColor: "#166534", bold: true, icon: "arrow-up" } },
+                  { id: uuid(), column: "movies", operator: "<=", value: 1, style: { backgroundColor: "#fee2e2", textColor: "#991b1b", icon: "arrow-down" } },
+                  { id: uuid(), column: "movies", operator: "between", value: 2, valueTo: 3, style: { backgroundColor: "#fef3c7", textColor: "#92400e" } },
+                ],
+                colorScales: [],
+              },
+            },
+          },
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies, min(m.released) AS first_role, max(m.released) AS last_role RETURN actor, movies, first_role, last_role ORDER BY movies DESC",
+            settings: {
+              title: "Color scale: movies (red\u2192green), first_role (blue\u2192red)",
+              chartOptions: { enableSorting: true, enableColumnResizing: true, enablePagination: true, pageSize: 15 },
+              conditionalFormatting: {
+                rules: [],
+                colorScales: [
+                  { column: "movies", minColor: "#ef4444", maxColor: "#22c55e" },
+                  { column: "first_role", minColor: "#3b82f6", maxColor: "#ef4444" },
+                ],
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 12, h: 6 },
+          { i: null, x: 0, y: 6, w: 12, h: 6 },
+        ],
+      },
+
+      // ── Page 4: Conditional Formatting — String Rules ──
+      {
+        id: uuid(),
+        title: "String & Null Rules",
+        widgets: [
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) RETURN p.name AS person, type(r) AS role, m.title AS movie, m.tagline AS tagline ORDER BY person LIMIT 40",
+            settings: {
+              title: "String operators: contains, starts_with, is_null",
+              chartOptions: { enableSorting: true, enableColumnResizing: true, enablePagination: true, pageSize: 15 },
+              conditionalFormatting: {
+                rules: [
+                  { id: uuid(), column: "role", operator: "==", value: "DIRECTED", style: { backgroundColor: "#dbeafe", textColor: "#1d4ed8", bold: true, icon: "check" } },
+                  { id: uuid(), column: "role", operator: "==", value: "ACTED_IN", style: { backgroundColor: "#f0fdf4", textColor: "#166534" } },
+                  { id: uuid(), column: "role", operator: "==", value: "PRODUCED", style: { backgroundColor: "#fef3c7", textColor: "#92400e" } },
+                  { id: uuid(), column: "person", operator: "starts_with", value: "Tom", style: { bold: true } },
+                  { id: uuid(), column: "tagline", operator: "is_null", value: "", style: { backgroundColor: "#f3f4f6", textColor: "#9ca3af", icon: "alert-triangle" } },
+                ],
+                colorScales: [],
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 12, h: 8 },
+        ],
+      },
+
+      // ── Page 5: All Features Combined ──
+      {
+        id: uuid(),
+        title: "All Features Combined",
+        widgets: [
+          {
+            id: uuid(), chartType: "table", connectionId: neo4jConnId,
+            query: "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS role, p.name AS person, count(m) AS movies, min(m.released) AS since RETURN role, person, movies, since ORDER BY role, movies DESC",
+            settings: {
+              title: "Grouping + resize + conditional formatting + color scale",
+              chartOptions: {
+                enableColumnResizing: true,
+                enableSorting: true,
+                enableGrouping: true,
+                groupBy: "role",
+                enablePagination: true,
+                pageSize: 20,
+              },
+              conditionalFormatting: {
+                rules: [
+                  { id: uuid(), column: "movies", operator: ">=", value: 4, style: { backgroundColor: "#dcfce7", textColor: "#166534", bold: true, icon: "arrow-up" } },
+                  { id: uuid(), column: "movies", operator: "==", value: 1, style: { textColor: "#9ca3af" } },
+                ],
+                colorScales: [
+                  { column: "since", minColor: "#3b82f6", maxColor: "#f97316" },
+                ],
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: null, x: 0, y: 0, w: 12, h: 10 },
         ],
       },
     ],
