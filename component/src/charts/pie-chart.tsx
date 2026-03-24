@@ -128,7 +128,7 @@ function PieChart({
           top: effectiveShowLegend ? "42%" : "47%",
           style: {
             text: donutCenterText ?? String(sortedData.reduce((s, d) => s + d.value, 0)),
-            textAlign: "center",
+            align: "center",
             fontSize: 20,
             fontWeight: "bold",
             fill: isDark() ? "#e5e5e5" : "#262626",
