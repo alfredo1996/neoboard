@@ -75,6 +75,8 @@ const pieOptions: ChartOptionDef[] = [
   { key: "showPercentage", label: "Show Percentage", type: "boolean", default: true, category: "Labels", description: "Show the percentage value on each slice." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each slice." },
   { key: "sortSlices", label: "Sort Slices by Value", type: "boolean", default: false, category: "Layout", description: "Sort slices by value (largest first) for a cleaner visual layout." },
+  { key: "topN", label: "Top N Slices", type: "number", default: 0, category: "Layout", description: "Show only the top N slices and group the rest into 'Other'. Set to 0 to show all." },
+  { key: "donutCenterText", label: "Donut Center Text", type: "text", default: "", category: "Labels", description: "Custom text in the donut center. Leave blank to show the total." },
 ];
 
 const singleValueOptions: ChartOptionDef[] = [

@@ -300,3 +300,21 @@ export function resolveItemColor(
   return undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Pie chart Top-N grouping
+// ---------------------------------------------------------------------------
+
+import type { PieChartDataPoint } from "./types";
+
+/**
+ * Group pie chart data by keeping the top N slices and aggregating the rest
+ * into an "Other" slice. Returns the original data when topN is 0 or >= data length.
+ * Data must already be sorted descending by value.
+ */
+export function groupTopN(data: PieChartDataPoint[], topN: number): PieChartDataPoint[] {
+  if (!data.length || topN <= 0 || topN >= data.length) return data;
+  const top = data.slice(0, topN);
+  const rest = data.slice(topN);
+  const otherValue = rest.reduce((sum, d) => sum + d.value, 0);
+  return [...top, { name: "Other", value: otherValue }];
+}
