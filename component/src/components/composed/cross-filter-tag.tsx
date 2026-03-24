@@ -28,25 +28,40 @@ function CrossFilterTag({
     className,
   );
 
+  // When onClick is set the outer element is a <button>, so the remove
+  // control must NOT be a <button> (nested buttons are invalid HTML and
+  // cause React hydration errors). Use a <span role="button"> instead.
+  const removeControl = onRemove && (
+    onClick ? (
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); onRemove(); } }}
+        className="ml-1 rounded-full p-0.5 hover:bg-muted cursor-pointer"
+      >
+        <X className="h-3 w-3" />
+        <span className="sr-only">Remove cross-filter</span>
+      </span>
+    ) : (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        className="ml-1 rounded-full p-0.5 hover:bg-muted"
+      >
+        <X className="h-3 w-3" />
+        <span className="sr-only">Remove cross-filter</span>
+      </button>
+    )
+  );
+
   const content = (
     <>
       <Filter className="h-3 w-3 text-muted-foreground" />
       <span className="font-medium">{field}</span>
       <span>=</span>
       <span className="font-medium">{value}</span>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="ml-1 rounded-full p-0.5 hover:bg-muted"
-        >
-          <X className="h-3 w-3" />
-          <span className="sr-only">Remove cross-filter</span>
-        </button>
-      )}
+      {removeControl}
     </>
   );
 
