@@ -75,10 +75,13 @@ function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodePr
 
   return (
     <div>
-      <div
-        className="flex items-center cursor-pointer hover:bg-muted/50 rounded-sm"
+      <button
+        type="button"
+        className="flex items-center cursor-pointer hover:bg-muted/50 rounded-sm w-full text-left"
         style={{ paddingLeft: depth * 16 }}
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-label={`${expanded ? "Collapse" : "Expand"} ${keyName ?? (type === "array" ? "array" : "object")}`}
       >
         <ChevronRight
           className={cn(
@@ -109,7 +112,7 @@ function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodePr
             {!isLast && <span className="text-muted-foreground">,</span>}
           </>
         )}
-      </div>
+      </button>
       {expanded && !isEmpty && (
         <>
           {entries.map(([key, val], index) => (
