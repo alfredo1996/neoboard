@@ -9,6 +9,7 @@ import {
   resolveShowLegend,
   buildCompactGrid,
   resolveItemColor,
+  buildTooltipFormatter,
 } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
@@ -98,7 +99,7 @@ function BarChart({
     };
 
     return {
-      tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const } },
+      tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const }, formatter: buildTooltipFormatter() },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
       grid: buildCompactGrid(compact, effectiveShowLegend),
       xAxis: isHorizontal ? valueAxis : categoryAxis,

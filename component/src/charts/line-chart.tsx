@@ -9,6 +9,7 @@ import {
   resolveShowLegend,
   buildCompactGrid,
   resolveItemColor,
+  buildTooltipFormatter,
 } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
@@ -78,7 +79,7 @@ function LineChart({
     const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
 
     return {
-      tooltip: { trigger: "axis" },
+      tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
       grid: {
         ...buildCompactGrid(compact, effectiveShowLegend),
