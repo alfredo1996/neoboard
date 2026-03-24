@@ -52,4 +52,17 @@ describe("buildCategoryAxisLabel", () => {
     const result = buildCategoryAxisLabel(10, { compact: true });
     expect(result.show).toBe(false);
   });
+
+  it("normalizes -1 sentinel to automatic rotation", () => {
+    // -1 is the "automatic" sentinel from the UI; it should fall through
+    // to the category-count heuristic, not produce rotate: -1
+    const few = buildCategoryAxisLabel(5, { rotateOverride: -1 });
+    expect(few.rotate).toBe(0);
+
+    const medium = buildCategoryAxisLabel(10, { rotateOverride: -1 });
+    expect(medium.rotate).toBe(30);
+
+    const many = buildCategoryAxisLabel(20, { rotateOverride: -1 });
+    expect(many.rotate).toBe(45);
+  });
 });

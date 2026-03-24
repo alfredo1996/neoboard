@@ -9,7 +9,7 @@ import { resolveStylingRuleColor } from "./styling-rule";
 // ---------------------------------------------------------------------------
 
 export interface CategoryAxisLabelOptions {
-  /** Override the automatic rotation angle. */
+  /** Override the automatic rotation angle. -1 means automatic (sentinel). */
   rotateOverride?: number;
   /** Maximum label length before truncation (default: 15). */
   maxLabelLength?: number;
@@ -30,12 +30,18 @@ export interface CategoryAxisLabelConfig {
  * - 15+ categories: rotate 45°
  * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
  * - ECharts axisPointer tooltip shows the full text on hover
+ *
+ * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
+ * normalized to undefined so the category-count heuristic applies.
  */
 export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { rotateOverride, maxLabelLength = 15, compact = false } = options;
+  const { maxLabelLength = 15, compact = false } = options;
+  // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
+  // default auto-rotation instead of receiving an invalid rotate: -1.
+  const rotateOverride = options.rotateOverride === -1 ? undefined : options.rotateOverride;
 
   let rotate: number;
   if (rotateOverride !== undefined) {
