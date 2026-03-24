@@ -17,6 +17,11 @@ const dataZoomOptions: ChartOptionDef[] = [
   { key: "enableDataZoom", label: "Enable Scroll Zoom", type: "boolean", default: false, category: "Interaction", description: "Allow scroll-to-zoom on the data axis to explore large datasets." },
 ];
 
+/** Shared number formatting options for tooltip values on axis-based charts. */
+const tooltipFormatOptions: ChartOptionDef[] = [
+  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Labels", description: "Fixed number of decimal places in tooltips (0-6). Set to -1 for automatic." },
+];
+
 const barOptions: ChartOptionDef[] = [
   {
     key: "orientation",
@@ -375,9 +380,9 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...dataZoomOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...dataZoomOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  pie: [...pieOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  bar: [...barOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  pie: [...pieOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],
