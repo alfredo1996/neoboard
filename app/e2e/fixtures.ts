@@ -148,8 +148,9 @@ export async function typeInEditor(
       return;
     }
 
-    // Strategy 2: Keyboard fallback (for environments where cmView is not accessible)
-    if (dispatched === "no-view") {
+    // Strategy 2: Keyboard fallback (for environments where cmView is not accessible
+    // or when the view is temporarily readonly during initialization)
+    if (dispatched === "no-view" || dispatched === "readonly") {
       await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 2_000 });
       await cm.click();
       await page.keyboard.press("ControlOrMeta+a");
@@ -162,7 +163,7 @@ export async function typeInEditor(
       return;
     }
 
-    // Retry-worthy states: no-editor, readonly, dispatch-failed
+    // Retry-worthy states: no-editor, dispatch-failed
     throw new Error(`CM6 dispatch returned "${dispatched}" — retrying`);
   }).toPass({ timeout: 20_000 });
 }
