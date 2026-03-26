@@ -16,19 +16,22 @@ import {
 // Chart components use ECharts (browser APIs) — must be loaded client-side only
 const BarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const LineChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.LineChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const PieChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.PieChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const SingleValueChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.SingleValueChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  () =>
+    import("@neoboard/components").then((m) => ({
+      default: m.SingleValueChart,
+    })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 import type {
   BarChartDataPoint,
@@ -56,13 +59,15 @@ import { FormWidgetRenderer } from "./form-widget-renderer";
 
 // Lazy-load GraphChart so NVL (WebGL) is only bundled when a graph widget is rendered
 const GraphChart = dynamic(
-  () => import("@neoboard/components").then((mod) => ({ default: mod.GraphChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  () =>
+    import("@neoboard/components").then((mod) => ({ default: mod.GraphChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
 // Dynamically import MapChart to avoid SSR issues with Leaflet
 const MapChart = dynamic(
-  () => import("@neoboard/components").then((mod) => ({ default: mod.MapChart })),
+  () =>
+    import("@neoboard/components").then((mod) => ({ default: mod.MapChart })),
   {
     ssr: false,
     loading: () => (
@@ -70,59 +75,84 @@ const MapChart = dynamic(
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     ),
-  }
+  },
 );
 
 // New ECharts chart types — loaded client-side only
 const GaugeChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const SankeyChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.SankeyChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.SankeyChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const SunburstChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.SunburstChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.SunburstChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const RadarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 const TreemapChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.TreemapChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> }
+  () =>
+    import("@neoboard/components").then((m) => ({ default: m.TreemapChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
+
+/** Styling-related props grouped together. */
+export interface ChartStylingProps {
+  rules?: StylingRule[];
+  paramValues?: Record<string, unknown>;
+  colorScales?: ColorScaleConfig[];
+}
+
+/** Interaction-related props grouped together. */
+export interface ChartInteractionProps {
+  onChartClick?: (point: Record<string, unknown>) => void;
+  clickableColumns?: string[];
+}
+
+/** Widget metadata props grouped together. */
+export interface ChartMetaProps {
+  connectionId?: string;
+  widgetId?: string;
+  resultId?: string;
+  query?: string;
+  autoFit?: boolean;
+}
 
 export interface ChartRendererProps {
   type: ChartType;
   data: unknown;
   settings?: Record<string, unknown>;
-  onChartClick?: (point: Record<string, unknown>) => void;
-  /** Restrict which table columns are clickable. Only applies to table type. */
-  clickableColumns?: string[];
-  connectionId?: string;
-  widgetId?: string;
-  resultId?: string;
-  query?: string;
-  /** Rule-based styling rules */
-  stylingRules?: StylingRule[];
-  /** Resolved parameter values for parameterRef comparisons */
-  paramValues?: Record<string, unknown>;
-  /** When true, graph widgets trigger a fit-to-viewport after mount. */
-  autoFit?: boolean;
-  /** Color scale configs for gradient cell backgrounds (table only) */
-  colorScales?: ColorScaleConfig[];
+  styling?: ChartStylingProps;
+  interaction?: ChartInteractionProps;
+  meta?: ChartMetaProps;
 }
 
 /**
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query, stylingRules, paramValues, autoFit, colorScales }: ChartRendererProps) {
+export function ChartRenderer({
+  type,
+  data,
+  settings = {},
+  styling,
+  interaction,
+  meta,
+}: ChartRendererProps) {
+  const { rules: stylingRules, paramValues, colorScales } = styling ?? {};
+  const { onChartClick, clickableColumns } = interaction ?? {};
+  const { connectionId, widgetId, resultId, query, autoFit } = meta ?? {};
   const colorThresholds =
-    typeof settings.colorThresholds === "string" ? settings.colorThresholds : undefined;
+    typeof settings.colorThresholds === "string"
+      ? settings.colorThresholds
+      : undefined;
 
   const handleEChartsClick = useMemo(() => {
     if (!onChartClick) return undefined;
@@ -130,7 +160,9 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
       // Enrich the click point with the original data row so that
       // column-name source fields (e.g. "revenue") resolve correctly
       // in click action rules — not just ECharts built-in fields.
-      const row = Array.isArray(data) ? (data[e.dataIndex] as Record<string, unknown> | undefined) : undefined;
+      const row = Array.isArray(data)
+        ? (data[e.dataIndex] as Record<string, unknown> | undefined)
+        : undefined;
       onChartClick({
         ...(row ?? {}),
         name: e.name,
@@ -146,7 +178,9 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
       return (
         <BarChart
           data={(data as BarChartDataPoint[]) ?? []}
-          orientation={settings.orientation as "vertical" | "horizontal" | undefined}
+          orientation={
+            settings.orientation as "vertical" | "horizontal" | undefined
+          }
           stacked={settings.stacked as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
@@ -199,7 +233,13 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showLabel={settings.showLabel as boolean | undefined}
           showLegend={settings.showLegend as boolean | undefined}
           roseMode={settings.roseMode as boolean | undefined}
-          labelPosition={settings.labelPosition as "outside" | "inside" | "center" | undefined}
+          labelPosition={
+            settings.labelPosition as
+              | "outside"
+              | "inside"
+              | "center"
+              | undefined
+          }
           showPercentage={settings.showPercentage as boolean | undefined}
           sortSlices={settings.sortSlices as boolean | undefined}
           topN={settings.topN as number | undefined}
@@ -215,15 +255,29 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
 
     case "single-value": {
       const raw = data ?? 0;
-      const val = typeof raw === "number" || typeof raw === "string" ? raw : normalizeValue(raw) ?? String(raw);
+      const val =
+        typeof raw === "number" || typeof raw === "string"
+          ? raw
+          : (normalizeValue(raw) ?? String(raw));
       return (
         <SingleValueChart
-          value={typeof val === "number" || typeof val === "string" ? val : String(val)}
+          value={
+            typeof val === "number" || typeof val === "string"
+              ? val
+              : String(val)
+          }
           title={settings.title as string | undefined}
           prefix={settings.prefix as string | undefined}
           suffix={settings.suffix as string | undefined}
           fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
-          numberFormat={settings.numberFormat as "plain" | "comma" | "compact" | "percent" | undefined}
+          numberFormat={
+            settings.numberFormat as
+              | "plain"
+              | "comma"
+              | "compact"
+              | "percent"
+              | undefined
+          }
           decimalPlaces={settings.decimalPlaces as number | undefined}
           colorThresholds={colorThresholds}
           stylingRules={stylingRules}
@@ -257,7 +311,13 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           edges={graphData.edges ?? []}
           layout={settings.layout as "force" | "circular" | undefined}
           showLabels={settings.showLabels as boolean | undefined}
-          onNodeSelect={onChartClick ? (ids) => { if (ids.length) onChartClick({ nodeId: ids[0] }); } : undefined}
+          onNodeSelect={
+            onChartClick
+              ? (ids) => {
+                  if (ids.length) onChartClick({ nodeId: ids[0] });
+                }
+              : undefined
+          }
           autoFit={autoFit}
         />
       );
@@ -273,7 +333,17 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           minZoom={settings.minZoom as number | undefined}
           maxZoom={settings.maxZoom as number | undefined}
           autoFitBounds={settings.autoFitBounds !== false}
-          onMarkerClick={onChartClick ? (m) => onChartClick({ id: m.id, label: m.label, lat: m.lat, lng: m.lng }) : undefined}
+          onMarkerClick={
+            onChartClick
+              ? (m) =>
+                  onChartClick({
+                    id: m.id,
+                    label: m.label,
+                    lat: m.lat,
+                    lng: m.lng,
+                  })
+              : undefined
+          }
         />
       );
     }
@@ -283,7 +353,15 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
         <TableRenderer
           data={data}
           settings={settings}
-          onCellClick={onChartClick ? (info) => onChartClick({ _clickedColumn: info.column, _clickedValue: info.value }) : undefined}
+          onCellClick={
+            onChartClick
+              ? (info) =>
+                  onChartClick({
+                    _clickedColumn: info.column,
+                    _clickedValue: info.value,
+                  })
+              : undefined
+          }
           clickableColumns={clickableColumns}
           stylingRules={stylingRules}
           paramValues={paramValues}
@@ -306,14 +384,20 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
         <div className="p-4">
           <ParameterWidgetRenderer
             parameterName={pName}
-            parameterType={(settings.parameterType as ParameterType | undefined) ?? "select"}
+            parameterType={
+              (settings.parameterType as ParameterType | undefined) ?? "select"
+            }
             connectionId={connectionId}
-            seedQuery={(settings.seedQuery as string | undefined)}
-            parentParameterName={settings.parentParameterName as string | undefined}
+            seedQuery={settings.seedQuery as string | undefined}
+            parentParameterName={
+              settings.parentParameterName as string | undefined
+            }
             rangeMin={(settings.rangeMin as number | undefined) ?? 0}
             rangeMax={(settings.rangeMax as number | undefined) ?? 100}
             rangeStep={(settings.rangeStep as number | undefined) ?? 1}
-            placeholder={(settings.placeholder as string | undefined) || undefined}
+            placeholder={
+              (settings.placeholder as string | undefined) || undefined
+            }
             searchable={(settings.searchable as boolean | undefined) ?? true}
             widgetId={widgetId}
           />
@@ -342,9 +426,7 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
 
     case "markdown":
       return (
-        <MarkdownWidget
-          content={settings.content as string | undefined}
-        />
+        <MarkdownWidget content={settings.content as string | undefined} />
       );
 
     case "iframe":
@@ -408,7 +490,10 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
       );
 
     case "radar": {
-      const radarData = (data as RadarChartData) ?? { indicators: [], series: [] };
+      const radarData = (data as RadarChartData) ?? {
+        indicators: [],
+        series: [],
+      };
       return (
         <RadarChart
           data={radarData}
@@ -431,7 +516,9 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           showLabels={settings.showLabels as boolean | undefined}
           showBreadcrumb={settings.showBreadcrumb as boolean | undefined}
           showValues={settings.showValues as boolean | undefined}
-          colorSaturation={settings.colorSaturation as "low" | "medium" | "high" | undefined}
+          colorSaturation={
+            settings.colorSaturation as "low" | "medium" | "high" | undefined
+          }
           colorPalette={settings.colorPalette as string | undefined}
           stylingRules={stylingRules}
           paramValues={paramValues}
