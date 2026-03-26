@@ -104,7 +104,12 @@ async function buildExtensions(
   return [
     historyExt(),
     closeBrackets(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap, ...closeBracketsKeymap]),
+    keymap.of([
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...completionKeymap,
+      ...closeBracketsKeymap,
+    ]),
     runKeymap,
     langCompartmentExt,
     autocompletion(),
@@ -224,9 +229,10 @@ function QueryEditor({
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
 
-      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all(
-        [import("@codemirror/view"), import("@codemirror/state")],
-      );
+      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all([
+        import("@codemirror/view"),
+        import("@codemirror/state"),
+      ]);
 
       if (abortSignal.aborted) return;
 
@@ -288,6 +294,10 @@ function QueryEditor({
       }
 
       containerRef.current?.setAttribute("data-editor-ready", "true");
+      // Expose the EditorView on the DOM element for E2E test access.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (containerRef.current)
+        (containerRef.current as any).__cmView = viewRef.current;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [placeholder],
