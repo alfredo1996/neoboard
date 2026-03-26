@@ -51,7 +51,7 @@ export const accounts = pgTable(
         columns: [account.provider, account.providerAccountId],
       }),
     },
-  ]
+  ],
 );
 
 export const sessions = pgTable("session", {
@@ -75,7 +75,7 @@ export const verificationTokens = pgTable(
         columns: [vt.identifier, vt.token],
       }),
     },
-  ]
+  ],
 );
 
 // ─── Application tables ──────────────────────────────────────────────
@@ -110,16 +110,20 @@ export const dashboards = pgTable("dashboard", {
   tenantId: text("tenant_id").notNull().default("default"),
   name: text("name").notNull(),
   description: text("description"),
-  layoutJson: jsonb("layoutJson").$type<DashboardLayoutV2>().default({
-    version: 2,
-    pages: [{ id: "page-1", title: "Page 1", widgets: [], gridLayout: [] }],
-  }),
+  layoutJson: jsonb("layoutJson")
+    .$type<DashboardLayoutV2>()
+    .default({
+      version: 2,
+      pages: [{ id: "page-1", title: "Page 1", widgets: [], gridLayout: [] }],
+    }),
   /** Per-widget JPEG data-URI thumbnails keyed by widget ID, captured on save. */
   thumbnailJson: jsonb("thumbnailJson").$type<Record<string, string>>(),
   isPublic: boolean("isPublic").default(false),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
-  updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedBy: text("updated_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 });
 
 export const shareRoleEnum = pgEnum("share_role", ["viewer", "editor"]);
@@ -252,33 +256,13 @@ export interface ClickActionRule {
   targetPageId?: string;
 }
 
-export type StylingOperator =
-  | "<=" | ">=" | "<" | ">" | "==" | "!="
-  | "between"
-  | "contains" | "not_contains" | "starts_with" | "ends_with"
-  | "is_null" | "is_not_null";
-
-export interface StylingRule {
-  id: string;
-  /** For tables: which column this rule evaluates against */
-  column?: string;
-  operator: StylingOperator;
-  value: number | string;
-  /** Upper bound for the "between" operator (inclusive) */
-  valueTo?: number | string;
-  /** When set, compare against $param_{parameterRef} instead of static value */
-  parameterRef?: string;
-  /** When set, resolve upper bound from parameter instead of static valueTo */
-  parameterRefTo?: string;
-  color: string;
-  target?: "color" | "backgroundColor" | "textColor";
-  bold?: boolean;
-}
-
-export interface StylingConfig {
-  enabled: boolean;
-  rules: StylingRule[];
-}
+// StylingRule, StylingConfig, StylingOperator — single source of truth in component package.
+// Re-exported here so app/ code can import from "@/lib/db/schema" without breaking existing imports.
+export type {
+  StylingRule,
+  StylingConfig,
+  StylingOperator,
+} from "@neoboard/components";
 
 export interface ClickAction {
   type: "set-parameter" | "navigate-to-page" | "set-parameter-and-navigate";
