@@ -3,7 +3,7 @@ import { COLOR_PALETTES } from "@/charts/palettes";
 export interface ChartOptionDef {
   key: string;
   label: string;
-  type: "boolean" | "select" | "text" | "number";
+  type: "boolean" | "select" | "text" | "number" | "column-multi-select";
   default: unknown;
   category: string;
   /** Only for type: "select" */
@@ -11,6 +11,16 @@ export interface ChartOptionDef {
   /** Short description shown in a tooltip next to the option label. */
   description?: string;
 }
+
+/** DataZoom option for axis-based charts (bar, line). */
+const dataZoomOptions: ChartOptionDef[] = [
+  { key: "enableDataZoom", label: "Enable Scroll Zoom", type: "boolean", default: false, category: "Interaction", description: "Allow scroll-to-zoom on the data axis to explore large datasets." },
+];
+
+/** Shared number formatting options for tooltip values on axis-based charts. */
+const tooltipFormatOptions: ChartOptionDef[] = [
+  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Labels", description: "Fixed number of decimal places in tooltips (0-6). Set to -1 for automatic." },
+];
 
 const barOptions: ChartOptionDef[] = [
   {
@@ -33,6 +43,8 @@ const barOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the bars." },
+  { key: "axisLabelRotation", label: "Axis Label Rotation (°)", type: "number", default: -1, category: "Labels", description: "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories)." },
+  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
 ];
 
 const lineOptions: ChartOptionDef[] = [
@@ -45,6 +57,7 @@ const lineOptions: ChartOptionDef[] = [
   { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
   { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each data series." },
+  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
 ];
 
 const pieOptions: ChartOptionDef[] = [
@@ -67,12 +80,15 @@ const pieOptions: ChartOptionDef[] = [
   { key: "showPercentage", label: "Show Percentage", type: "boolean", default: true, category: "Labels", description: "Show the percentage value on each slice." },
   { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each slice." },
   { key: "sortSlices", label: "Sort Slices by Value", type: "boolean", default: false, category: "Layout", description: "Sort slices by value (largest first) for a cleaner visual layout." },
+  { key: "topN", label: "Top N Slices", type: "number", default: 0, category: "Layout", description: "Show only the top N slices and group the rest into 'Other'. Set to 0 to show all." },
+  { key: "donutCenterText", label: "Donut Center Text", type: "text", default: "", category: "Labels", description: "Custom text in the donut center. Leave blank to show the total." },
 ];
 
 const singleValueOptions: ChartOptionDef[] = [
   { key: "title", label: "Title", type: "text", default: "", category: "Display", description: "Custom heading shown above the value. Leave blank to hide." },
   { key: "prefix", label: "Prefix", type: "text", default: "", category: "Display", description: "Text prepended to the value (e.g. '$', '€')." },
   { key: "suffix", label: "Suffix", type: "text", default: "", category: "Display", description: "Text appended to the value (e.g. '%', ' items')." },
+  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Display", description: "Fixed number of decimal places (0-6). Set to -1 for automatic." },
   {
     key: "fontSize",
     label: "Font Size",
@@ -164,9 +180,13 @@ const tableOptions: ChartOptionDef[] = [
   { key: "enableSelection", label: "Row Selection", type: "boolean", default: false, category: "Features", description: "Allow selecting individual rows by clicking them." },
   { key: "enableGlobalFilter", label: "Global Search", type: "boolean", default: true, category: "Features", description: "Show a search box that filters all rows across all columns." },
   { key: "enableColumnFilters", label: "Column Filters", type: "boolean", default: true, category: "Features", description: "Show per-column filter inputs below each column header." },
+  { key: "enableColumnResizing", label: "Column Resizing", type: "boolean", default: false, category: "Features", description: "Allow drag-to-resize column borders. Double-click to auto-fit." },
   { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination", description: "Show Previous / Next controls to page through large result sets." },
   { key: "pageSize", label: "Page Size", type: "number", default: 10, category: "Pagination", description: "Number of rows shown per page when pagination is enabled." },
   { key: "emptyMessage", label: "Empty Message", type: "text", default: "No results", category: "Display", description: "Text displayed when the query returns no rows." },
+  { key: "enableGrouping", label: "Enable Row Grouping", type: "boolean", default: false, category: "Grouping", description: "Allow grouping rows by column values. Columns to group by are set in the groupBy field below." },
+  { key: "groupBy", label: "Group By Columns", type: "column-multi-select", default: "", category: "Grouping", description: "Select columns to group by. Nested grouping is supported — order determines nesting hierarchy." },
+  { key: "aggregationFn", label: "Aggregation Function", type: "select", default: "sum", category: "Grouping", description: "Aggregation function for numeric columns in grouped rows.", options: [{ label: "Sum", value: "sum" }, { label: "Average", value: "mean" }, { label: "Median", value: "median" }, { label: "Count", value: "count" }, { label: "Min", value: "min" }, { label: "Max", value: "max" }] },
 ];
 
 const jsonOptions: ChartOptionDef[] = [
@@ -288,6 +308,7 @@ const gaugeOptions: ChartOptionDef[] = [
   { key: "showDetail", label: "Show Value Detail", type: "boolean", default: true, category: "Labels", description: "Show the numeric value and name below the gauge." },
   { key: "startAngle", label: "Start Angle (°)", type: "number", default: 225, category: "Layout", description: "Starting angle of the gauge arc in degrees (0 = 3 o'clock)." },
   { key: "endAngle", label: "End Angle (°)", type: "number", default: -45, category: "Layout", description: "Ending angle of the gauge arc in degrees." },
+  { key: "thresholdZones", label: "Threshold Zones (JSON)", type: "text", default: "", category: "Style", description: 'Colored zones on the gauge arc: [{"value":30,"color":"#67e0e3"},{"value":70,"color":"#37a2da"},{"value":100,"color":"#fd666d"}]' },
 ];
 
 const sankeyOptions: ChartOptionDef[] = [
@@ -364,9 +385,9 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  pie: [...pieOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  bar: [...barOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  line: [...lineOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  pie: [...pieOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],

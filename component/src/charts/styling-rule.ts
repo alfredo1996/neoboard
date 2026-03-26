@@ -6,6 +6,8 @@ export type StylingOperator =
 
 export interface StylingRule {
   id: string;
+  /** For tables: which column this rule evaluates against */
+  column?: string;
   operator: StylingOperator;
   value: number | string;
   /** Upper bound for the "between" operator (inclusive) */
@@ -16,13 +18,22 @@ export interface StylingRule {
   parameterRefTo?: string;
   color: string;
   target?: "color" | "backgroundColor" | "textColor";
+  bold?: boolean;
 }
 
 export interface StylingConfig {
   enabled: boolean;
   rules: StylingRule[];
-  /** For tables: which column to evaluate rules against */
-  targetColumn?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Color scale config
+// ---------------------------------------------------------------------------
+
+export interface ColorScaleConfig {
+  column: string;
+  minColor: string;
+  maxColor: string;
 }
 
 const NUMERIC_OPS = new Set(["<=", ">=", "<", ">", "==", "!="]);
@@ -147,4 +158,53 @@ export function resolveStylingRuleColor(
   }
 
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Color scale (gradient interpolation)
+// ---------------------------------------------------------------------------
+
+function parseHex(hex: string): [number, number, number] {
+  let h = hex.replace("#", "");
+  // Expand 3-char shorthand: #f00 → ff0000
+  if (h.length === 3) {
+    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  }
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function toHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return (
+    "#" +
+    clamp(r).toString(16).padStart(2, "0") +
+    clamp(g).toString(16).padStart(2, "0") +
+    clamp(b).toString(16).padStart(2, "0")
+  );
+}
+
+/**
+ * Linearly interpolate between two hex colors based on a value's position
+ * within [min, max]. Values outside the range are clamped.
+ */
+export function interpolateColor(
+  value: number,
+  min: number,
+  max: number,
+  minColor: string,
+  maxColor: string,
+): string {
+  if (min === max) return minColor.length === 4 ? toHex(...parseHex(minColor)) : minColor;
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const [r1, g1, b1] = parseHex(minColor);
+  const [r2, g2, b2] = parseHex(maxColor);
+  return toHex(
+    r1 + t * (r2 - r1),
+    g1 + t * (g2 - g1),
+    b1 + t * (b2 - b1),
+  );
 }

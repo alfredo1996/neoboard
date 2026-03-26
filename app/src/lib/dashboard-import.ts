@@ -1,12 +1,96 @@
 import { z } from "zod";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
+// ---------------------------------------------------------------------------
+// Widget settings sub-schemas (strict validation for known settings fields)
+// ---------------------------------------------------------------------------
+
+export const stylingRuleSchema = z.object({
+  id: z.string(),
+  column: z.string().optional(),
+  operator: z.string(),
+  value: z.union([z.number(), z.string()]),
+  valueTo: z.union([z.number(), z.string()]).optional(),
+  parameterRef: z.string().optional(),
+  parameterRefTo: z.string().optional(),
+  color: z.string(),
+  target: z.enum(["color", "backgroundColor", "textColor"]).optional(),
+  bold: z.boolean().optional(),
+});
+
+export const stylingConfigSchema = z.object({
+  enabled: z.boolean(),
+  rules: z.array(stylingRuleSchema),
+});
+
+export const colorScaleSchema = z.object({
+  column: z.string(),
+  minColor: z.string(),
+  maxColor: z.string(),
+});
+
+export const conditionalFormattingSchema = z.object({
+  colorScales: z.array(colorScaleSchema).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Widget + layout schemas
+// ---------------------------------------------------------------------------
+
+/** Keys that belong inside chartOptions, NOT at the settings root. */
+const CHART_OPTION_KEYS = new Set([
+  "colorPalette",
+  "colorblindMode",
+  "donut",
+  "smooth",
+  "area",
+  "stacked",
+  "showValues",
+  "showLegend",
+  "showLabels",
+  "enableSorting",
+  "enablePagination",
+  "pageSize",
+  "orientation",
+  "barWidth",
+  "barGap",
+  "labelPosition",
+  "filled",
+  "shape",
+  "enableGrouping",
+  "groupBy",
+  "aggregationFn",
+  "enableColumnResizing",
+  "enableGlobalFilter",
+  "enableColumnFilters",
+  "enableSelection",
+]);
+
+const widgetSettingsSchema = z
+  .object({
+    stylingConfig: stylingConfigSchema.optional(),
+    conditionalFormatting: conditionalFormattingSchema.optional(),
+  })
+  .passthrough()
+  .superRefine((val, ctx) => {
+    for (const key of Object.keys(val)) {
+      if (CHART_OPTION_KEYS.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `"${key}" should be inside settings.chartOptions, not at the settings root`,
+          path: [key],
+        });
+      }
+    }
+  });
+
 const widgetSchema = z
   .object({
     id: z.string(),
     chartType: z.string(),
     connectionId: z.string(),
     query: z.string(),
+    settings: widgetSettingsSchema.optional(),
   })
   .passthrough();
 
@@ -29,6 +113,14 @@ const pageSchema = z
   })
   .passthrough();
 
+export const dashboardLayoutSchema = z
+  .object({
+    version: z.literal(2),
+    pages: z.array(pageSchema),
+    settings: z.record(z.unknown()).optional(),
+  })
+  .passthrough();
+
 export const neoboardExportSchema = z.object({
   formatVersion: z.literal(1),
   exportedAt: z.string(),
@@ -40,20 +132,24 @@ export const neoboardExportSchema = z.object({
     z.object({
       name: z.string(),
       type: z.string(),
-    })
+    }),
   ),
-  layout: z.object({
-    version: z.literal(2),
-    pages: z.array(pageSchema),
-    settings: z.record(z.unknown()).optional(),
-  }).passthrough(),
+  layout: dashboardLayoutSchema,
 });
 
 export type NeoboardExportInput = z.infer<typeof neoboardExportSchema>;
 
+/**
+ * Validate a dashboard layout object against the schema.
+ * Returns the validated layout or throws with descriptive errors.
+ */
+export function validateDashboardLayout(layout: unknown): DashboardLayoutV2 {
+  return dashboardLayoutSchema.parse(layout) as DashboardLayoutV2;
+}
+
 export function applyConnectionMapping(
   layout: DashboardLayoutV2,
-  mapping: Record<string, string>
+  mapping: Record<string, string>,
 ): DashboardLayoutV2 {
   return {
     ...layout,

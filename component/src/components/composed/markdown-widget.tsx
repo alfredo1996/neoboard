@@ -29,6 +29,26 @@ function isSafeUrl(url: string): boolean {
 }
 
 /**
+ * Checks whether a line is a GFM table alignment row (e.g. `| --- | :---: |`).
+ * Uses a linear split-and-check approach instead of a single regex to avoid
+ * ReDoS (catastrophic backtracking) on adversarial input.
+ */
+function isTableAlignmentRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  // Split by pipe, trim each cell, filter out empty leading/trailing cells
+  const cells = trimmed.split("|").map((c) => c.trim());
+  // Remove empty strings caused by leading/trailing pipes
+  const filtered = cells.filter((c, i) =>
+    c.length > 0 || (i > 0 && i < cells.length - 1),
+  );
+  if (filtered.length === 0) return false;
+  // Each non-empty cell must match :?-{3,}:?
+  const cellPattern = /^:?-{3,}:?$/;
+  return filtered.every((c) => c.length === 0 || cellPattern.test(c));
+}
+
+/**
  * Simple markdown parser that converts a subset of markdown to HTML.
  * Handles: headings, bold, italic, code, links, lists, blockquotes, paragraphs.
  *
@@ -110,6 +130,39 @@ function parseMarkdown(md: string): string {
     } else if (inBlockquote) {
       result.push("</blockquote>");
       inBlockquote = false;
+    }
+
+    // GFM tables: pipe-delimited rows where the next line is the alignment row
+    if (
+      line.includes("|") &&
+      i + 1 < lines.length &&
+      isTableAlignmentRow(lines[i + 1])
+    ) {
+      closeList();
+      const parseCells = (row: string) =>
+        row.split("|").map((c: string) => c.trim()).filter((c: string) => c.length > 0);
+      const headers = parseCells(line);
+      i++; // skip alignment row
+      const bodyRows = [];
+      while (i + 1 < lines.length && lines[i + 1].includes("|")) {
+        i++;
+        bodyRows.push(parseCells(lines[i]));
+      }
+      result.push('<table class="w-full border-collapse my-2 text-sm">');
+      result.push("<thead><tr>");
+      for (const h of headers) {
+        result.push(`<th class="border border-border px-3 py-1.5 font-semibold text-left bg-muted/30">${escapeHtml(h)}</th>`);
+      }
+      result.push("</tr></thead><tbody>");
+      for (const row of bodyRows) {
+        result.push("<tr>");
+        for (let c = 0; c < headers.length; c++) {
+          result.push(`<td class="border border-border px-3 py-1.5">${escapeHtml(row[c] ?? "")}</td>`);
+        }
+        result.push("</tr>");
+      }
+      result.push("</tbody></table>");
+      continue;
     }
 
     // Unordered lists

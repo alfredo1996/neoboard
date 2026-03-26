@@ -8,6 +8,7 @@ import {
 } from "react-grid-layout";
 import type { LayoutItem, Layout } from "react-grid-layout";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -34,6 +35,42 @@ function getCompactorByType(type: "vertical" | "horizontal" | null) {
   return verticalCompactor;
 }
 
+/** Skeleton grid shown while the container width is being measured. */
+function GridSkeleton({
+  layout,
+  cols,
+  rowHeight,
+}: {
+  layout: LayoutItem[];
+  cols: number;
+  rowHeight: number;
+}) {
+  if (layout.length === 0) return null;
+  const colPercent = 100 / cols;
+  const maxBottom = layout.reduce(
+    (max, item) => Math.max(max, (item.y + item.h) * rowHeight),
+    0,
+  );
+  return (
+    <div className="relative w-full" style={{ height: maxBottom }}>
+      {layout.map((item) => (
+        <div
+          key={item.i}
+          className="absolute p-1"
+          style={{
+            left: `${item.x * colPercent}%`,
+            top: item.y * rowHeight,
+            width: `${item.w * colPercent}%`,
+            height: item.h * rowHeight,
+          }}
+        >
+          <Skeleton className="h-full w-full rounded-xl" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DashboardGrid({
   layout,
   onLayoutChange,
@@ -51,11 +88,14 @@ function DashboardGrid({
 
   const layouts = React.useMemo(
     () => ({ lg: layout, md: layout, sm: layout, xs: layout }),
-    [layout]
+    [layout],
   );
 
   return (
     <div ref={containerRef} className={cn("w-full", className)}>
+      {!mounted && (
+        <GridSkeleton layout={layout} cols={cols} rowHeight={rowHeight} />
+      )}
       {mounted && (
         <ResponsiveGridLayout
           width={width}
@@ -63,7 +103,12 @@ function DashboardGrid({
           breakpoints={defaultBreakpoints}
           cols={{ ...defaultCols, lg: cols }}
           rowHeight={rowHeight}
-          dragConfig={{ enabled: isDraggable, bounded: false, threshold: 3, handle: ".drag-handle" }}
+          dragConfig={{
+            enabled: isDraggable,
+            bounded: false,
+            threshold: 3,
+            handle: ".drag-handle",
+          }}
           resizeConfig={{ enabled: isResizable, handles: ["se"] }}
           compactor={getCompactorByType(compactType)}
           onLayoutChange={(currentLayout: Layout) => {
