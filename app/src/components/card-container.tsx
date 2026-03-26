@@ -5,6 +5,7 @@ import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
+import type { ColorScaleConfig } from "@neoboard/components";
 import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
 import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback, useState } from "react";
@@ -175,14 +176,16 @@ export function CardContainer({
     // Try migrating from legacy colorThresholds
     const legacyThresholds = chartOptions.colorThresholds;
     if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
-      const legacyColumn = chartOptions.colorThresholdsColumn;
-      return migrateColorThresholds(
-        legacyThresholds,
-        typeof legacyColumn === "string" ? legacyColumn : undefined,
-      );
+      return migrateColorThresholds(legacyThresholds);
     }
     return undefined;
   }, [widget.settings?.stylingConfig, chartOptions]);
+
+  // Resolve color scales config
+  const conditionalFormatting = widget.settings?.conditionalFormatting as
+    | { colorScales?: ColorScaleConfig[] }
+    | undefined;
+  const colorScales = conditionalFormatting?.colorScales;
 
   if (!chartConfig) {
     return (
@@ -225,6 +228,8 @@ export function CardContainer({
             stylingRules={resolvedStylingConfig?.rules}
             paramValues={allParamValues}
             autoFit={autoFit}
+
+            colorScales={colorScales}
           />
         </div>
         {showOverlay && (
@@ -423,6 +428,7 @@ export function CardContainer({
           stylingRules={resolvedStylingConfig?.rules}
           paramValues={allParamValues}
           autoFit={autoFit}
+          colorScales={colorScales}
         />
       </div>
       {showOverlay && (

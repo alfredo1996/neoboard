@@ -22,32 +22,54 @@ export interface NumberFormatConfig {
  * Format a numeric value with optional decimal places, locale formatting,
  * compact notation, prefix, and suffix. Non-numeric values pass through as-is.
  */
-export function formatNumber(value: number | string, config: NumberFormatConfig = {}): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+export function formatNumber(
+  value: number | string,
+  config: NumberFormatConfig = {},
+): string {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return String(value);
 
-  const { numberFormat = "plain", decimalPlaces, prefix = "", suffix = "" } = config;
+  const {
+    numberFormat = "plain",
+    decimalPlaces,
+    prefix = "",
+    suffix = "",
+  } = config;
 
   let formatted: string;
 
   switch (numberFormat) {
     case "comma":
-      formatted = decimalPlaces !== undefined
-        ? value.toLocaleString("en-US", { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces })
-        : value.toLocaleString("en-US");
+      formatted =
+        decimalPlaces !== undefined
+          ? value.toLocaleString("en-US", {
+              minimumFractionDigits: decimalPlaces,
+              maximumFractionDigits: decimalPlaces,
+            })
+          : value.toLocaleString("en-US");
       break;
     case "compact":
       formatted = Intl.NumberFormat("en", {
         notation: "compact",
-        ...(decimalPlaces !== undefined ? { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces } : {}),
+        ...(decimalPlaces !== undefined
+          ? {
+              minimumFractionDigits: decimalPlaces,
+              maximumFractionDigits: decimalPlaces,
+            }
+          : {}),
       }).format(value);
       break;
     case "percent":
-      formatted = decimalPlaces !== undefined
-        ? `${value.toFixed(decimalPlaces)}%`
-        : `${value}%`;
+      formatted =
+        decimalPlaces !== undefined
+          ? `${value.toFixed(decimalPlaces)}%`
+          : `${value}%`;
       break;
     default: // "plain"
-      formatted = decimalPlaces !== undefined ? value.toFixed(decimalPlaces) : String(value);
+      formatted =
+        decimalPlaces !== undefined
+          ? value.toFixed(decimalPlaces)
+          : String(value);
       break;
   }
 
@@ -58,7 +80,7 @@ export function formatNumber(value: number | string, config: NumberFormatConfig 
 // ECharts tooltip formatter
 // ---------------------------------------------------------------------------
 
-interface TooltipParam {
+export interface TooltipParam {
   seriesName?: string;
   name?: string;
   value?: number | string | (number | string)[];
@@ -70,21 +92,33 @@ interface TooltipParam {
  * formatting across all chart types. Works with both single and array params
  * (item trigger vs axis trigger).
  */
-export function buildTooltipFormatter(config: NumberFormatConfig = {}): (params: unknown) => string {
+export function buildTooltipFormatter(
+  config: NumberFormatConfig = {},
+): (params: unknown) => string {
   // Tooltip always uses comma format for readability unless explicitly set
-  const tooltipConfig: NumberFormatConfig = { numberFormat: "comma", ...config };
+  const tooltipConfig: NumberFormatConfig = {
+    numberFormat: "comma",
+    ...config,
+  };
 
   return (params: unknown) => {
-    const items = Array.isArray(params) ? (params as TooltipParam[]) : [params as TooltipParam];
+    const items = Array.isArray(params)
+      ? (params as TooltipParam[])
+      : [params as TooltipParam];
     const header = items[0]?.name ?? "";
     const lines = items.map((p) => {
       const raw = Array.isArray(p.value) ? p.value[1] : p.value;
-      const val = typeof raw === "number" ? formatNumber(raw, tooltipConfig) : String(raw ?? "");
+      const val =
+        typeof raw === "number"
+          ? formatNumber(raw, tooltipConfig)
+          : String(raw ?? "");
       const label = p.seriesName ? `${p.seriesName}: ` : "";
       const marker = typeof p.marker === "string" ? p.marker : "";
       return `${marker} ${label}<b>${val}</b>`;
     });
-    return header ? `${header}<br/>${lines.join("<br/>")}` : lines.join("<br/>");
+    return header
+      ? `${header}<br/>${lines.join("<br/>")}`
+      : lines.join("<br/>");
   };
 }
 
@@ -125,7 +159,8 @@ export function buildCategoryAxisLabel(
   const { maxLabelLength = 15, compact = false } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
-  const rotateOverride = options.rotateOverride === -1 ? undefined : options.rotateOverride;
+  const rotateOverride =
+    options.rotateOverride === -1 ? undefined : options.rotateOverride;
 
   let rotate: number;
   if (rotateOverride !== undefined) {
@@ -168,7 +203,9 @@ export interface ReferenceLine {
  * Parse a JSON string of reference lines. Returns empty array on
  * invalid input or missing values.
  */
-export function parseReferenceLines(input: string | undefined): ReferenceLine[] {
+export function parseReferenceLines(
+  input: string | undefined,
+): ReferenceLine[] {
   if (!input) return [];
   try {
     const parsed = JSON.parse(input);
@@ -206,7 +243,6 @@ export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
     })),
   };
 }
-
 
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
@@ -327,7 +363,9 @@ export function parseGaugeThresholdZones(
       (z: unknown): z is { value: number; color: string } =>
         typeof z === "object" && z !== null && "value" in z && "color" in z,
     );
-    return zones.map((z) => [(z.value - min) / range, z.color] as [number, string]);
+    return zones.map(
+      (z) => [(z.value - min) / range, z.color] as [number, string],
+    );
   } catch {
     return DEFAULT_ZONE;
   }
@@ -342,7 +380,10 @@ export function parseGaugeThresholdZones(
  * into an "Other" slice. Returns the original data when topN is 0 or >= data length.
  * Data must already be sorted descending by value.
  */
-export function groupTopN(data: PieChartDataPoint[], topN: number): PieChartDataPoint[] {
+export function groupTopN(
+  data: PieChartDataPoint[],
+  topN: number,
+): PieChartDataPoint[] {
   if (!data.length || topN <= 0 || topN >= data.length) return data;
   const top = data.slice(0, topN);
   const rest = data.slice(topN);

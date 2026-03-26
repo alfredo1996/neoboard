@@ -1,7 +1,12 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
 import { getChartOptions } from "../chart-options-schema";
+
+// cmdk calls scrollIntoView which jsdom doesn't implement
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 /** Expand all collapsed category sections so their content is in the DOM. */
 function expandAllCategories() {
@@ -154,5 +159,54 @@ describe("ChartOptionsPanel", () => {
     helpLabels.forEach((label) => {
       expect(label.classList.contains("decoration-dotted")).toBe(true);
     });
+  });
+
+  it("renders MultiSelect for column-multi-select type when columns are provided", () => {
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{ enableGrouping: true }}
+        onSettingsChange={vi.fn()}
+        columns={["country", "city", "population"]}
+      />
+    );
+    expandAllCategories();
+    // MultiSelect renders a combobox trigger with placeholder text
+    expect(screen.getByText("Select columns…")).toBeInTheDocument();
+  });
+
+  it("renders text fallback for column-multi-select when no columns are provided", () => {
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{ enableGrouping: true }}
+        onSettingsChange={vi.fn()}
+      />
+    );
+    expandAllCategories();
+    // Falls back to a text input when columns are not available
+    const input = screen.getByPlaceholderText("Run a preview query to select columns");
+    expect(input).toBeInTheDocument();
+    expect(input.tagName).toBe("INPUT");
+  });
+
+  it("calls onSettingsChange with comma-separated string when multi-select changes", () => {
+    const onChange = vi.fn();
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{ enableGrouping: true, groupBy: "" }}
+        onSettingsChange={onChange}
+        columns={["country", "city", "population"]}
+      />
+    );
+    expandAllCategories();
+    // MultiSelect trigger shows placeholder when nothing selected
+    const trigger = screen.getByText("Select columns…").closest("button")!;
+    fireEvent.click(trigger);
+    // Select "city"
+    const cityOption = screen.getByRole("option", { name: "city" });
+    fireEvent.click(cityOption);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ groupBy: "city" }));
   });
 });

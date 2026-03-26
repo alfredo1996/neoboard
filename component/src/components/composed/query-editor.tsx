@@ -96,6 +96,7 @@ async function buildExtensions(
       overflow: "auto",
       fontFamily: "var(--font-mono, monospace)",
       fontSize: "0.875rem",
+      paddingBottom: "0.5rem",
     },
     ".cm-content": { padding: "1rem" },
   });

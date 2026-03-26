@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { StylingRule, StylingOperator } from "@/lib/db/schema";
-import { ArrowLeft, GripVertical, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, GripVertical, Plus, Trash2, Bold } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -80,16 +80,15 @@ interface StylingRulesEditorProps {
   onRulesChange: (rules: StylingRule[]) => void;
   onBack: () => void;
   chartType: string;
-  targetColumn: string;
-  onTargetColumnChange: (col: string) => void;
   availableFields: string[];
   parameterSuggestions: string[];
   stylingTargets: { value: string; label: string }[];
 }
 
 function ruleSummary(rule: StylingRule): string {
+  const col = rule.column ? `${rule.column} ` : "";
   const op = rule.operator ?? "<=";
-  if (NULL_OPS.has(op)) return op.replace("_", " ");
+  if (NULL_OPS.has(op)) return `${col}${op.replace("_", " ")}`;
   const val = rule.parameterRef
     ? `$param_${rule.parameterRef}`
     : String(rule.value);
@@ -97,9 +96,9 @@ function ruleSummary(rule: StylingRule): string {
     const valTo = rule.parameterRefTo
       ? `$param_${rule.parameterRefTo}`
       : String(rule.valueTo ?? "?");
-    return `between ${val} and ${valTo}`;
+    return `${col}between ${val} and ${valTo}`;
   }
-  return `${op.replace("_", " ")} ${val}`;
+  return `${col}${op.replace("_", " ")} ${val}`;
 }
 
 interface SortableRuleItemProps {
@@ -109,6 +108,8 @@ interface SortableRuleItemProps {
   onUpdate: (id: string, updates: Partial<StylingRule>) => void;
   parameterSuggestions: string[];
   stylingTargets: { value: string; label: string }[];
+  isTable: boolean;
+  availableFields: string[];
 }
 
 function SortableRuleItem({
@@ -118,6 +119,8 @@ function SortableRuleItem({
   onUpdate,
   parameterSuggestions,
   stylingTargets,
+  isTable,
+  availableFields,
 }: SortableRuleItemProps) {
   const {
     attributes,
@@ -159,6 +162,7 @@ function SortableRuleItem({
               className="inline-block w-3 h-3 rounded-sm border align-middle"
               style={{ backgroundColor: rule.color }}
             />
+            {rule.bold && <span className="ml-1 font-bold">B</span>}
           </span>
         </AccordionTrigger>
         <Button
@@ -171,6 +175,20 @@ function SortableRuleItem({
         </Button>
       </div>
       <AccordionContent className="px-4 pb-4 space-y-3">
+        {/* Column — per-rule column selector for tables */}
+        {isTable && (
+          <div className="space-y-1.5">
+            <Label>Column</Label>
+            <FieldSelectorInput
+              value={rule.column ?? ""}
+              onChange={(v) => onUpdate(rule.id, { column: v || undefined })}
+              fields={availableFields}
+              label="Column"
+              placeholder="Auto (first numeric)"
+            />
+          </div>
+        )}
+
         {/* Operator */}
         <div className="space-y-1.5">
           <Label>Operator</Label>
@@ -265,6 +283,22 @@ function SortableRuleItem({
           </div>
         </div>
 
+        {/* Bold */}
+        <button
+          type="button"
+          className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+            rule.bold
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-muted-foreground border-input hover:bg-accent"
+          }`}
+          onClick={() => onUpdate(rule.id, { bold: !rule.bold })}
+          aria-label="Toggle bold"
+          aria-pressed={!!rule.bold}
+        >
+          <Bold className="h-3.5 w-3.5" />
+          Bold
+        </button>
+
         {/* Target — only when multiple targets available */}
         {stylingTargets.length > 1 && (
           <div className="space-y-1.5">
@@ -300,8 +334,6 @@ export function StylingRulesEditor({
   onRulesChange,
   onBack,
   chartType,
-  targetColumn,
-  onTargetColumnChange,
   availableFields,
   parameterSuggestions,
   stylingTargets,
@@ -350,23 +382,6 @@ export function StylingRulesEditor({
       </DialogHeader>
 
       <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-        {/* Target column selector — for tables only */}
-        {isTable && (
-          <div className="space-y-1.5">
-            <Label>Target Column</Label>
-            <p className="text-xs text-muted-foreground">
-              Column to evaluate rules against. Leave blank to use the first numeric column.
-            </p>
-            <FieldSelectorInput
-              value={targetColumn}
-              onChange={onTargetColumnChange}
-              fields={availableFields}
-              label="Target Column"
-              placeholder="Auto (first numeric)"
-            />
-          </div>
-        )}
-
         {rules.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-6">
             No styling rules yet. Add one to get started.
@@ -389,6 +404,8 @@ export function StylingRulesEditor({
                   onUpdate={updateItem}
                   parameterSuggestions={parameterSuggestions}
                   stylingTargets={stylingTargets}
+                  isTable={isTable}
+                  availableFields={availableFields}
                 />
               ))}
             </Accordion>

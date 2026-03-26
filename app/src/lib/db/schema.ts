@@ -260,6 +260,8 @@ export type StylingOperator =
 
 export interface StylingRule {
   id: string;
+  /** For tables: which column this rule evaluates against */
+  column?: string;
   operator: StylingOperator;
   value: number | string;
   /** Upper bound for the "between" operator (inclusive) */
@@ -270,13 +272,12 @@ export interface StylingRule {
   parameterRefTo?: string;
   color: string;
   target?: "color" | "backgroundColor" | "textColor";
+  bold?: boolean;
 }
 
 export interface StylingConfig {
   enabled: boolean;
   rules: StylingRule[];
-  /** For tables: which column to evaluate rules against */
-  targetColumn?: string;
 }
 
 export interface ClickAction {

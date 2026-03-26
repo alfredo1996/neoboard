@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,6 +21,7 @@ import {
   Label,
   type RelativeDatePreset,
 } from "@neoboard/components";
+import { useParameterValues } from "@/stores/parameter-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import { buildFormParams } from "@/lib/form-field-def";
@@ -78,8 +85,7 @@ function FieldInput({
     (field.parentParameterName !== undefined ? !!parentValue : true);
 
   const seedExtraParams = useMemo(() => {
-    const base =
-      field.parameterType === "cascading-select" ? parentParams : {};
+    const base = field.parameterType === "cascading-select" ? parentParams : {};
     if (field.searchable && debouncedSearch) {
       return { ...base, param_search: debouncedSearch };
     }
@@ -105,11 +111,18 @@ function FieldInput({
       prevParentValue.current = parentValue;
       onChange(field.parameterName, undefined);
     }
-  }, [field.parameterType, field.parentParameterName, parentValue, field.parameterName, onChange]);
+  }, [
+    field.parameterType,
+    field.parentParameterName,
+    parentValue,
+    field.parameterName,
+    onChange,
+  ]);
 
   switch (field.parameterType) {
     case "text": {
-      const textValue = value !== undefined && value !== null ? String(value) : "";
+      const textValue =
+        value !== undefined && value !== null ? String(value) : "";
       return (
         <DebouncedTextInput
           parameterName={field.parameterName}
@@ -121,16 +134,23 @@ function FieldInput({
     }
 
     case "select": {
-      const selectValue = value !== undefined && value !== null ? String(value) : "";
+      const selectValue =
+        value !== undefined && value !== null ? String(value) : "";
       return (
         <ParamSelector
           parameterName={field.parameterName}
           options={options}
           value={selectValue}
           onChange={(v) => {
-            if (!v) { onChange(field.parameterName, undefined); return; }
+            if (!v) {
+              onChange(field.parameterName, undefined);
+              return;
+            }
             const opt = options.find((o) => o.value === v);
-            onChange(field.parameterName, opt?.rawValue !== undefined ? opt.rawValue : v);
+            onChange(
+              field.parameterName,
+              opt?.rawValue !== undefined ? opt.rawValue : v,
+            );
           }}
           placeholder={field.placeholder}
           loading={loading}
@@ -153,7 +173,10 @@ function FieldInput({
           options={options}
           values={multiValues}
           onChange={(vals) => {
-            if (vals.length === 0) { onChange(field.parameterName, undefined); return; }
+            if (vals.length === 0) {
+              onChange(field.parameterName, undefined);
+              return;
+            }
             const rawVals = vals.map((v) => {
               const opt = options.find((o) => o.value === v);
               return opt?.rawValue !== undefined ? opt.rawValue : v;
@@ -169,7 +192,8 @@ function FieldInput({
     }
 
     case "date": {
-      const dateValue = value !== undefined && value !== null ? String(value) : "";
+      const dateValue =
+        value !== undefined && value !== null ? String(value) : "";
       return (
         <DatePickerParameter
           parameterName={field.parameterName}
@@ -189,7 +213,10 @@ function FieldInput({
           from={fromVal}
           to={toVal}
           onChange={(from, to) => {
-            if (!from && !to) { onChange(field.parameterName, undefined); return; }
+            if (!from && !to) {
+              onChange(field.parameterName, undefined);
+              return;
+            }
             onChange(field.parameterName, { from, to });
           }}
         />
@@ -237,9 +264,15 @@ function FieldInput({
           options={options}
           value={cascadeValue}
           onChange={(v) => {
-            if (!v) { onChange(field.parameterName, undefined); return; }
+            if (!v) {
+              onChange(field.parameterName, undefined);
+              return;
+            }
             const opt = options.find((o) => o.value === v);
-            onChange(field.parameterName, opt?.rawValue !== undefined ? opt.rawValue : v);
+            onChange(
+              field.parameterName,
+              opt?.rawValue !== undefined ? opt.rawValue : v,
+            );
           }}
           parentValue={parentValue}
           parentParameterName={field.parentParameterName}
@@ -263,12 +296,12 @@ export function FormWidgetRenderer({
 }: FormWidgetRendererProps) {
   const fields = useMemo(
     () => (settings?.formFields as FormFieldDef[] | undefined) ?? [],
-     
+
     [settings?.formFields],
   );
   const chartOptions = useMemo(
     () => (settings.chartOptions ?? {}) as Record<string, unknown>,
-     
+
     [settings.chartOptions],
   );
 
@@ -289,7 +322,17 @@ export function FormWidgetRenderer({
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
 
-  // Sync local values when fields change (field added/removed/renamed in editor).
+  // Seed form fields from external parameters (click-actions, selectors, etc.)
+  // Fields the user has manually changed are NOT overwritten by external params.
+  const allParams = useParameterValues();
+  const touchedFields = useRef(new Set<string>());
+
+  // Stable key of external param values for fields in this form
+  const paramSeedKey = fields
+    .map((f) => `${f.parameterName}=${allParams[f.parameterName] ?? ""}`)
+    .join("|");
+
+  // Sync local values when fields change OR when matching external params change.
   // number-range fields default to [rangeMin, rangeMax] so buildFormParams always
   // includes param_X_min / param_X_max even when the user hasn't moved the slider.
   const fieldKey = fields.map((f) => f.parameterName).join(",");
@@ -297,7 +340,15 @@ export function FormWidgetRenderer({
     setLocalValues((prev) => {
       const next: Record<string, unknown> = {};
       for (const f of fields) {
-        if (prev[f.parameterName] !== undefined) {
+        if (
+          touchedFields.current.has(f.parameterName) &&
+          prev[f.parameterName] !== undefined
+        ) {
+          // User manually changed this field — preserve their value
+          next[f.parameterName] = prev[f.parameterName];
+        } else if (allParams[f.parameterName] !== undefined) {
+          next[f.parameterName] = allParams[f.parameterName];
+        } else if (prev[f.parameterName] !== undefined) {
           next[f.parameterName] = prev[f.parameterName];
         } else if (f.parameterType === "number-range") {
           next[f.parameterName] = [f.rangeMin ?? 0, f.rangeMax ?? 100];
@@ -308,9 +359,10 @@ export function FormWidgetRenderer({
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldKey]);
+  }, [fieldKey, paramSeedKey]);
 
   const handleFieldChange = useCallback((name: string, value: unknown) => {
+    touchedFields.current.add(name);
     setLocalValues((prev) => ({ ...prev, [name]: value }));
     setSuccessMessage(null);
     setErrorMessage(null);
@@ -371,7 +423,16 @@ export function FormWidgetRenderer({
         },
       },
     );
-  }, [fields, localValues, connectionId, query, chartOptions, writeQuery, refreshWidgetIds, queryClient]);
+  }, [
+    fields,
+    localValues,
+    connectionId,
+    query,
+    chartOptions,
+    writeQuery,
+    refreshWidgetIds,
+    queryClient,
+  ]);
 
   if (fields.length === 0) {
     return (
@@ -431,7 +492,7 @@ export function FormWidgetRenderer({
         >
           {writeQuery.isPending
             ? "Submitting…"
-            : ((chartOptions.submitButtonText as string) || "Submit")}
+            : (chartOptions.submitButtonText as string) || "Submit"}
         </Button>
       </form>
     </div>

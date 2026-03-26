@@ -131,4 +131,45 @@ describe("PieChart", () => {
     const names = (optionsCall.series[0].data as Array<{ name: string }>).map((d) => d.name);
     expect(names).toEqual(["Desktop", "Mobile", "Tablet"]);
   });
+
+  // --- Donut center text ---
+
+  it("shows custom donutCenterText in graphic when donut is enabled", () => {
+    render(<PieChart data={sampleData} donut donutCenterText="Total: 100" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.graphic).toBeDefined();
+    expect(optionsCall.graphic[0].style.text).toBe("Total: 100");
+  });
+
+  it("shows auto-total in graphic when donut enabled without donutCenterText", () => {
+    render(<PieChart data={sampleData} donut />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.graphic).toBeDefined();
+    // 60 + 30 + 10 = 100
+    expect(optionsCall.graphic[0].style.text).toBe("100");
+  });
+
+  it("does not show graphic when donut is false", () => {
+    render(<PieChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.graphic).toBeUndefined();
+  });
+
+  // --- Top-N grouping ---
+
+  it("groups slices beyond topN into Other", () => {
+    render(<PieChart data={sampleData} topN={2} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const seriesData = optionsCall.series[0].data as Array<{ name: string; value: number }>;
+    expect(seriesData).toHaveLength(3); // 2 top + "Other"
+    expect(seriesData[2].name).toBe("Other");
+    expect(seriesData[2].value).toBe(10);
+  });
+
+  it("shows all slices when topN is 0", () => {
+    render(<PieChart data={sampleData} topN={0} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const seriesData = optionsCall.series[0].data as Array<{ name: string }>;
+    expect(seriesData).toHaveLength(3);
+  });
 });

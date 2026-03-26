@@ -41,16 +41,11 @@ describe("migrateColorThresholds", () => {
     expect(result!.rules[1].id).toBeTruthy();
   });
 
-  it("preserves targetColumn when provided", () => {
-    const input = '[{"value":50,"color":"#aaa"}]';
-    const result = migrateColorThresholds(input, "year");
-    expect(result!.targetColumn).toBe("year");
-  });
-
-  it("does not set targetColumn when not provided", () => {
+  it("does not include targetColumn (per-rule column used instead)", () => {
     const input = '[{"value":50,"color":"#aaa"}]';
     const result = migrateColorThresholds(input);
-    expect(result!.targetColumn).toBeUndefined();
+    expect(result).toBeDefined();
+    expect("targetColumn" in result!).toBe(false);
   });
 
   it("skips invalid entries in array", () => {
