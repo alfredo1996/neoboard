@@ -10,11 +10,13 @@ import {
   parseColorThresholds,
   resolveThresholdColor,
   resolveStylingRuleColor,
-  resolveCellFormat,
   interpolateColor,
 } from "@neoboard/components";
-import type { StylingRule, CellFormatRule, ColorScaleConfig } from "@neoboard/components";
+import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
+import { parseGroupByColumns } from "@/lib/table-utils";
+
+const AGG_SYMBOLS: Record<string, string> = { sum: "Σ", mean: "μ", median: "M̃", count: "#", min: "min", max: "max" };
 
 export interface TableRendererProps {
   data: unknown;
@@ -26,8 +28,6 @@ export interface TableRendererProps {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
-  /** Cell-level conditional formatting rules */
-  cellFormatRules?: CellFormatRule[];
   /** Color scale configs for gradient cell backgrounds */
   colorScales?: ColorScaleConfig[];
 }
@@ -37,7 +37,7 @@ export interface TableRendererProps {
  * Uses a ResizeObserver on the wrapper div to pass a live containerHeight so
  * DataGrid can calculate the dynamic page size automatically.
  */
-export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns, stylingRules, paramValues, cellFormatRules, colorScales }: TableRendererProps) {
+export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns, stylingRules, paramValues, colorScales }: TableRendererProps) {
   const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
@@ -63,15 +63,12 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   const enableSorting = settings.enableSorting !== false;
   const enableColumnResizing = settings.enableColumnResizing === true;
   const enableGrouping = settings.enableGrouping === true;
-  const initialGrouping = useMemo(() => {
-    if (!enableGrouping) return undefined;
-    const raw = typeof settings.groupBy === "string" ? settings.groupBy : "";
-    if (!raw.trim()) return undefined;
-    return raw.split(",").map((s) => s.trim()).filter(Boolean);
-  }, [enableGrouping, settings.groupBy]);
+  const initialGrouping = useMemo(
+    () => parseGroupByColumns(enableGrouping, settings.groupBy as string),
+    [enableGrouping, settings.groupBy],
+  );
 
   const aggregationFn = ((settings.aggregationFn as string) || "sum") as "sum" | "mean" | "median" | "count" | "min" | "max";
-  const AGG_SYMBOLS: Record<string, string> = { sum: "Σ", mean: "μ", median: "M̃", count: "#", min: "min", max: "max" };
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
@@ -140,22 +137,41 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
 
   const getRowStyle = useMemo(() => {
     if (stylingRules?.length) {
+      // Fallback column for rules without an explicit column
+      const defaultCol =
+        thresholdColumn || fallbackThresholdColumn;
       return (row: Record<string, unknown>): React.CSSProperties | undefined => {
-        const col =
-          thresholdColumn && thresholdColumn in row
-            ? thresholdColumn
-            : fallbackThresholdColumn;
-        if (!col) return undefined;
-        const val = row[col];
-        const bgRules = stylingRules.filter((r) => !r.target || r.target === "backgroundColor");
-        const textRules = stylingRules.filter((r) => r.target === "textColor");
-        const bgColor = bgRules.length ? resolveStylingRuleColor(val, bgRules, paramValues) : undefined;
-        const textColor = textRules.length ? resolveStylingRuleColor(val, textRules, paramValues) : undefined;
-        if (!bgColor && !textColor) return undefined;
-        return {
-          ...(bgColor ? { backgroundColor: bgColor } : {}),
-          ...(textColor ? { color: textColor } : {}),
-        };
+        const style: React.CSSProperties = {};
+        let hasStyle = false;
+        let bgSet = false;
+        let textSet = false;
+        let boldSet = false;
+
+        for (const rule of stylingRules) {
+          if (bgSet && textSet && boldSet) break;
+          const ruleCol = rule.column || defaultCol;
+          if (!ruleCol || !(ruleCol in row)) continue;
+          const val = row[ruleCol];
+          const color = resolveStylingRuleColor(val, [rule], paramValues);
+          if (!color) continue;
+          const target = rule.target || "backgroundColor";
+          if (target === "backgroundColor" && !bgSet) {
+            style.backgroundColor = color;
+            bgSet = true;
+            hasStyle = true;
+          }
+          if (target === "textColor" && !textSet) {
+            style.color = color;
+            textSet = true;
+            hasStyle = true;
+          }
+          if (rule.bold && !boldSet) {
+            style.fontWeight = "bold";
+            boldSet = true;
+            hasStyle = true;
+          }
+        }
+        return hasStyle ? style : undefined;
       };
     }
     if (thresholds.length > 0) {
@@ -196,39 +212,17 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   }, [colorScales, records]);
 
   const getCellStyle = useMemo(() => {
-    if (!cellFormatRules?.length && !colorScales?.length) return undefined;
+    if (!colorScales?.length) return undefined;
     return (row: Record<string, unknown>, columnId: string): React.CSSProperties | undefined => {
-      const style: React.CSSProperties = {};
-      let hasStyle = false;
-
-      // Rule-based formatting
-      if (cellFormatRules?.length) {
-        const fmt = resolveCellFormat(row[columnId], columnId, cellFormatRules);
-        if (fmt) {
-          if (fmt.backgroundColor) { style.backgroundColor = fmt.backgroundColor; hasStyle = true; }
-          if (fmt.textColor) { style.color = fmt.textColor; hasStyle = true; }
-          if (fmt.bold) { style.fontWeight = "bold"; hasStyle = true; }
-        }
-      }
-
-      // Color scale (only apply bg if no rule already set bg)
-      if (colorScales?.length && !style.backgroundColor) {
-        const scale = colorScales.find((s) => s.column === columnId);
-        if (scale) {
-          const bounds = columnMinMax.get(columnId);
-          if (bounds) {
-            const val = Number(row[columnId]);
-            if (!Number.isNaN(val)) {
-              style.backgroundColor = interpolateColor(val, bounds.min, bounds.max, scale.minColor, scale.maxColor);
-              hasStyle = true;
-            }
-          }
-        }
-      }
-
-      return hasStyle ? style : undefined;
+      const scale = colorScales.find((s) => s.column === columnId);
+      if (!scale) return undefined;
+      const bounds = columnMinMax.get(columnId);
+      if (!bounds) return undefined;
+      const val = Number(row[columnId]);
+      if (Number.isNaN(val)) return undefined;
+      return { backgroundColor: interpolateColor(val, bounds.min, bounds.max, scale.minColor, scale.maxColor) };
     };
-  }, [cellFormatRules, colorScales, columnMinMax]);
+  }, [colorScales, columnMinMax]);
 
   const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {
@@ -238,6 +232,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   return (
     <div ref={containerRef} className="h-full overflow-y-auto">
       <DataGrid
+        key={enableGrouping ? `grp-${aggregationFn}` : undefined}
         columns={columns}
         data={records as Record<string, unknown>[]}
         enableSorting={enableSorting}

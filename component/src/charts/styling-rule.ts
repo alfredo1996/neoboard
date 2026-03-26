@@ -6,6 +6,8 @@ export type StylingOperator =
 
 export interface StylingRule {
   id: string;
+  /** For tables: which column this rule evaluates against */
+  column?: string;
   operator: StylingOperator;
   value: number | string;
   /** Upper bound for the "between" operator (inclusive) */
@@ -16,46 +18,22 @@ export interface StylingRule {
   parameterRefTo?: string;
   color: string;
   target?: "color" | "backgroundColor" | "textColor";
+  bold?: boolean;
 }
 
 export interface StylingConfig {
   enabled: boolean;
   rules: StylingRule[];
-  /** For tables: which column to evaluate rules against */
-  targetColumn?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Cell-level conditional formatting
+// Color scale config
 // ---------------------------------------------------------------------------
-
-export interface CellFormatStyle {
-  backgroundColor?: string;
-  textColor?: string;
-  bold?: boolean;
-  /** Lucide icon name displayed as a badge (e.g. "check", "x", "alert-triangle") */
-  icon?: string;
-}
-
-export interface CellFormatRule {
-  id: string;
-  /** Column this rule applies to */
-  column: string;
-  operator: StylingOperator;
-  value: number | string;
-  valueTo?: number | string;
-  style: CellFormatStyle;
-}
 
 export interface ColorScaleConfig {
   column: string;
   minColor: string;
   maxColor: string;
-}
-
-export interface ConditionalFormatConfig {
-  rules: CellFormatRule[];
-  colorScales: ColorScaleConfig[];
 }
 
 const NUMERIC_OPS = new Set(["<=", ">=", "<", ">", "==", "!="]);
@@ -179,71 +157,6 @@ export function resolveStylingRuleColor(
     }
   }
 
-  return undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Cell-level conditional formatting
-// ---------------------------------------------------------------------------
-
-/**
- * Evaluate cell format rules for a specific cell. Only rules matching `columnId`
- * are considered. Returns the style of the first matching rule, or undefined.
- */
-export function resolveCellFormat(
-  cellValue: unknown,
-  columnId: string,
-  rules: CellFormatRule[],
-): CellFormatStyle | undefined {
-  for (const rule of rules) {
-    if (rule.column !== columnId) continue;
-    const op = rule.operator;
-
-    // Null checks
-    if (NULL_OPS.has(op)) {
-      if (op === "is_null" && isNullish(cellValue)) return rule.style;
-      if (op === "is_not_null" && !isNullish(cellValue)) return rule.style;
-      continue;
-    }
-
-    // Between
-    if (op === "between") {
-      const numCell = Number(cellValue);
-      if (Number.isNaN(numCell)) continue;
-      const low = Number(rule.value);
-      if (Number.isNaN(low)) continue;
-      if (rule.valueTo === undefined || rule.valueTo === null) continue;
-      const high = Number(rule.valueTo);
-      if (Number.isNaN(high)) continue;
-      if (numCell >= low && numCell <= high) return rule.style;
-      continue;
-    }
-
-    const compareValue = rule.value;
-
-    // String operators
-    if (STRING_OPS.has(op)) {
-      if (cellValue == null) continue;
-      if (evaluateString(op, String(cellValue), String(compareValue))) return rule.style;
-      continue;
-    }
-
-    // Numeric operators
-    if (NUMERIC_OPS.has(op)) {
-      const numLeft = Number(cellValue);
-      const numRight = Number(compareValue);
-
-      if (!Number.isNaN(numLeft) && !Number.isNaN(numRight)) {
-        if (evaluateNumeric(op, numLeft, numRight)) return rule.style;
-        continue;
-      }
-
-      if ((op === "==" || op === "!=") && cellValue != null) {
-        if (evaluateString(op, String(cellValue), String(compareValue))) return rule.style;
-      }
-      continue;
-    }
-  }
   return undefined;
 }
 

@@ -151,6 +151,66 @@ describe("DataGrid grouping", () => {
     expect(counts).toHaveLength(2);
   });
 
+  it("produces different aggregated values for different aggregation functions", () => {
+    // Render with sum aggregation
+    const makeColumns = (aggFn: string): ColumnDef<SalesRow, unknown>[] => [
+      { accessorKey: "country", header: "Country" },
+      {
+        accessorKey: "revenue",
+        header: "Revenue",
+        aggregationFn: aggFn as "sum" | "mean" | "count",
+        aggregatedCell: ({ getValue }) => {
+          const v = getValue();
+          return v != null ? `${aggFn}: ${typeof v === "number" ? v : String(v)}` : null;
+        },
+      },
+    ];
+
+    // Sum: US = 100+200+80 = 380
+    const { unmount: u1 } = render(
+      <DataGrid
+        key="grp-sum"
+        columns={makeColumns("sum")}
+        data={data}
+        enableGrouping
+        initialGrouping={["country"]}
+        enablePagination={false}
+      />,
+    );
+    expect(screen.getByText("sum: 380")).toBeInTheDocument();
+    u1();
+
+    // Count: US has 3 rows
+    const { unmount: u2 } = render(
+      <DataGrid
+        key="grp-count"
+        columns={makeColumns("count")}
+        data={data}
+        enableGrouping
+        initialGrouping={["country"]}
+        enablePagination={false}
+      />,
+    );
+    // Both US and UK have 3 rows
+    expect(screen.getAllByText("count: 3")).toHaveLength(2);
+    u2();
+
+    // Mean: US = 380/3 ≈ 126.67
+    render(
+      <DataGrid
+        key="grp-mean"
+        columns={makeColumns("mean")}
+        data={data}
+        enableGrouping
+        initialGrouping={["country"]}
+        enablePagination={false}
+      />,
+    );
+    // Mean of [100, 200, 80] = 126.666...
+    const meanCell = screen.getByText(/mean: 126/);
+    expect(meanCell).toBeInTheDocument();
+  });
+
   it("does not show grouping UI when enableGrouping is false", () => {
     render(
       <DataGrid

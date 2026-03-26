@@ -186,4 +186,13 @@ describe("LineChart", () => {
     expect(optionsCall.series[0].markLine).toBeDefined();
     expect(optionsCall.series[1].markLine).toBeUndefined();
   });
+
+  // --- DataZoom ---
+
+  it("passes enableDataZoom to BaseChart", () => {
+    render(<LineChart data={sampleData} enableDataZoom />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.dataZoom).toBeDefined();
+    expect(optionsCall.dataZoom.length).toBeGreaterThan(0);
+  });
 });
