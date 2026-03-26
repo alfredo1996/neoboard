@@ -87,7 +87,7 @@ describe("buildTooltipFormatter", () => {
       seriesName: "Test",
       value: 50,
       name: "X",
-      marker: { type: "rich" } as unknown,
+      marker: { type: "rich" } as unknown as string,
     };
     const result = formatter(param);
     expect(result).toContain("Test: ");
