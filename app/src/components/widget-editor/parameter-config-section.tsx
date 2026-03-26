@@ -23,7 +23,7 @@ export type DateSubType = "single" | "range" | "relative";
 export function resolveInternalParamType(
   ui: ParamUIType,
   dateSub: DateSubType,
-  multi: boolean
+  multi: boolean,
 ): string {
   if (ui === "date") {
     return dateSub === "range"
@@ -57,11 +57,12 @@ export function reverseParamTypeMapping(t: string): {
   }
 }
 
-const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> = {
-  date: { label: "Date Picker", Icon: Calendar },
-  freetext: { label: "Freetext", Icon: Type },
-  select: { label: "Select", Icon: ListFilter },
-};
+const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> =
+  {
+    date: { label: "Date Picker", Icon: Calendar },
+    freetext: { label: "Freetext", Icon: Type },
+    select: { label: "Select", Icon: ListFilter },
+  };
 
 const paramTypes = Object.keys(paramTypeMeta) as ParamUIType[];
 
@@ -80,7 +81,9 @@ function SeedQueryInput({
 }) {
   const [draft, setDraft] = useState(value);
   const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     setDraft(value);
@@ -123,7 +126,9 @@ export interface ParameterConfigSectionProps {
   paramWidgetName: string;
   onParamWidgetNameChange: (v: string) => void;
   chartOptions: Record<string, unknown>;
-  onChartOptionsChange: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void;
+  onChartOptionsChange: (
+    updater: (prev: Record<string, unknown>) => Record<string, unknown>,
+  ) => void;
   connectionId: string;
   seedQueryExecution: SeedQueryExecutionState;
   seedPreviewOptions: { value: string; label: string }[] | null;
@@ -177,7 +182,10 @@ export function ParameterConfigSection({
       {paramUIType === "date" && (
         <div className="space-y-1.5">
           <Label>Date Mode</Label>
-          <Select value={dateSub} onValueChange={(v) => onDateSubChange(v as DateSubType)}>
+          <Select
+            value={dateSub}
+            onValueChange={(v) => onDateSubChange(v as DateSubType)}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -207,13 +215,20 @@ export function ParameterConfigSection({
       {/* Seed Query (only for select type) */}
       {paramUIType === "select" && (
         <div className="space-y-1.5">
-          <Label htmlFor="seed-query">Seed Query <span className="text-destructive">*</span></Label>
+          <Label htmlFor="seed-query">
+            Seed Query <span className="text-destructive">*</span>
+          </Label>
           <p className="text-xs text-muted-foreground">
-            Use columns named <code className="bg-muted px-1 rounded">value</code> and <code className="bg-muted px-1 rounded">label</code> (recommended), or first column = value, second = label
+            Use columns named{" "}
+            <code className="bg-muted px-1 rounded">value</code> and{" "}
+            <code className="bg-muted px-1 rounded">label</code> (recommended),
+            or first column = value, second = label
           </p>
           <SeedQueryInput
             value={(chartOptions.seedQuery as string) ?? ""}
-            onChange={(v) => onChartOptionsChange((prev) => ({ ...prev, seedQuery: v }))}
+            onChange={(v) =>
+              onChartOptionsChange((prev) => ({ ...prev, seedQuery: v }))
+            }
             placeholder="SELECT DISTINCT value FROM table ORDER BY value"
           />
           <Button
@@ -221,7 +236,9 @@ export function ParameterConfigSection({
             variant="outline"
             size="sm"
             className="mt-2"
-            disabled={!connectionId || !(chartOptions.seedQuery as string)?.trim()}
+            disabled={
+              !connectionId || !String(chartOptions.seedQuery ?? "").trim()
+            }
             onClick={() => {
               const sq = (chartOptions.seedQuery as string) ?? "";
               if (connectionId && sq.trim()) {
@@ -238,7 +255,8 @@ export function ParameterConfigSection({
           )}
           {seedPreviewOptions && seedPreviewOptions.length > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              {seedPreviewOptions.length} option{seedPreviewOptions.length !== 1 ? "s" : ""} loaded — see preview
+              {seedPreviewOptions.length} option
+              {seedPreviewOptions.length !== 1 ? "s" : ""} loaded — see preview
             </p>
           )}
         </div>
@@ -246,7 +264,9 @@ export function ParameterConfigSection({
 
       {/* Parameter Name */}
       <div className="space-y-1.5">
-        <Label htmlFor="param-widget-name">Parameter Name <span className="text-destructive">*</span></Label>
+        <Label htmlFor="param-widget-name">
+          Parameter Name <span className="text-destructive">*</span>
+        </Label>
         <Input
           id="param-widget-name"
           value={paramWidgetName}
@@ -269,13 +289,19 @@ export function ParameterConfigSection({
                 $param_{paramWidgetName}
               </code>
             </p>
-            {paramUIType === "date" && (dateSub === "range" || dateSub === "relative") && (
-              <p>
-                Date range sub-parameters:{" "}
-                <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{paramWidgetName}_from</code>,{" "}
-                <code className="bg-muted px-1 py-0.5 rounded text-foreground">$param_{paramWidgetName}_to</code>
-              </p>
-            )}
+            {paramUIType === "date" &&
+              (dateSub === "range" || dateSub === "relative") && (
+                <p>
+                  Date range sub-parameters:{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+                    $param_{paramWidgetName}_from
+                  </code>
+                  ,{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+                    $param_{paramWidgetName}_to
+                  </code>
+                </p>
+              )}
           </div>
         </div>
       )}

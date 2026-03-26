@@ -1698,7 +1698,7 @@ export function WidgetEditorModal({
                       ? !paramWidgetName.trim() ||
                         (paramUIType === "select" &&
                           (!connectionId ||
-                            !(chartOptions.seedQuery as string)?.trim()))
+                            !String(chartOptions.seedQuery ?? "").trim()))
                       : isContentOnly
                         ? false
                         : isForm

@@ -1,7 +1,16 @@
-import type { DashboardWidget, ClickAction, ClickActionRule } from "./db/schema";
+import type {
+  DashboardWidget,
+  ClickAction,
+  ClickActionRule,
+} from "./db/schema";
 
 function isScalar(v: unknown): v is string | number | boolean | null {
-  return v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+  return (
+    v === null ||
+    typeof v === "string" ||
+    typeof v === "number" ||
+    typeof v === "boolean"
+  );
 }
 
 export interface ClickActionResult {
@@ -22,7 +31,8 @@ export function resolveClickAction(
   widget: DashboardWidget,
   point: Record<string, unknown>,
 ): ClickActionResult | null {
-  const clickAction = widget.settings?.clickAction as ClickAction | undefined;
+  const ws = widget.settings ?? {};
+  const clickAction = ws.clickAction as ClickAction | undefined;
   if (!clickAction) return null;
 
   const { type } = clickAction;
@@ -40,10 +50,15 @@ export function resolveClickAction(
     // Cell-click: value comes directly from the clicked cell
     if ("_clickedValue" in point) {
       const clickedColumn = point._clickedColumn;
-      if (typeof clickedColumn !== "string" || !clickedColumn.trim()) return null;
+      if (typeof clickedColumn !== "string" || !clickedColumn.trim())
+        return null;
       // Validate clicked column against clickableColumns restriction
       const { clickableColumns } = clickAction;
-      if (clickableColumns && clickableColumns.length > 0 && !clickableColumns.includes(clickedColumn)) {
+      if (
+        clickableColumns &&
+        clickableColumns.length > 0 &&
+        !clickableColumns.includes(clickedColumn)
+      ) {
         return null;
       }
       value = point._clickedValue;
@@ -54,9 +69,13 @@ export function resolveClickAction(
     }
 
     if (value === undefined || !isScalar(value)) return null;
-    const label =
-      (widget.settings?.title as string) || widget.chartType;
-    result.setParameter = { parameterName, value, label, sourceField: effectiveSourceField };
+    const label = (ws.title as string) || widget.chartType;
+    result.setParameter = {
+      parameterName,
+      value,
+      label,
+      sourceField: effectiveSourceField,
+    };
   }
 
   // Resolve page navigation
@@ -97,8 +116,13 @@ function resolveRuleAction(
     }
 
     if (value === undefined || !isScalar(value)) return null;
-    const label = (widget.settings?.title as string) || widget.chartType;
-    result.setParameter = { parameterName, value, label, sourceField: effectiveSourceField };
+    const label = ((widget.settings ?? {}).title as string) || widget.chartType;
+    result.setParameter = {
+      parameterName,
+      value,
+      label,
+      sourceField: effectiveSourceField,
+    };
   }
 
   if (type === "navigate-to-page" || type === "set-parameter-and-navigate") {
@@ -142,7 +166,9 @@ export function resolveClickActions(
  * When rules exist, extracts triggerColumn values.
  * Falls back to legacy clickableColumns when no rules.
  */
-export function deriveClickableColumns(clickAction: ClickAction | undefined): string[] | undefined {
+export function deriveClickableColumns(
+  clickAction: ClickAction | undefined,
+): string[] | undefined {
   if (!clickAction) return undefined;
   if (!clickAction.rules?.length) return clickAction.clickableColumns;
   const cols = clickAction.rules

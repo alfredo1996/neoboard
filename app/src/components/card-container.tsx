@@ -4,10 +4,20 @@ import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
-import type { DashboardWidget, ClickAction, StylingConfig } from "@/lib/db/schema";
+import type {
+  DashboardWidget,
+  ClickAction,
+  StylingConfig,
+} from "@/lib/db/schema";
 import type { ColorScaleConfig } from "@neoboard/components";
-import { useParameterStore, useParameterValues } from "@/stores/parameter-store";
-import { resolveClickActions, deriveClickableColumns } from "@/lib/resolve-click-action";
+import {
+  useParameterStore,
+  useParameterValues,
+} from "@/stores/parameter-store";
+import {
+  resolveClickActions,
+  deriveClickableColumns,
+} from "@/lib/resolve-click-action";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -93,29 +103,39 @@ export function CardContainer({
       const { parameterName, value, label, sourceField } = result.setParameter;
       useParameterStore
         .getState()
-        .setParameter(parameterName, value, label, sourceField, "text", "click-action", widget.id);
+        .setParameter(
+          parameterName,
+          value,
+          label,
+          sourceField,
+          "text",
+          "click-action",
+          widget.id,
+        );
     }
 
     if (result.navigateToPageId) {
       onNavigateToPage?.(result.navigateToPageId);
     }
   }
-  const clickAction = widget.settings?.clickAction as ClickAction | undefined;
+  const ws = widget.settings ?? {};
+  const clickAction = ws.clickAction as ClickAction | undefined;
   const hasClickAction = !!clickAction;
   const clickableColumns = deriveClickableColumns(clickAction);
 
   // Cache settings from widget config. Default: cache enabled, 5-min TTL.
-  const enableCache = widget.settings?.enableCache !== false;
-  const cacheTtlMinutes = (widget.settings?.cacheTtlMinutes as number | undefined) ?? 5;
+  const enableCache = ws.enableCache !== false;
+  const cacheTtlMinutes = (ws.cacheTtlMinutes as number | undefined) ?? 5;
 
   // Parameter-select, form, markdown, and iframe widgets are self-contained (no auto-query).
   const isParameterWidget = widget.chartType === "parameter-select";
   const isFormWidget = widget.chartType === "form";
-  const isContentOnly = widget.chartType === "markdown" || widget.chartType === "iframe";
+  const isContentOnly =
+    widget.chartType === "markdown" || widget.chartType === "iframe";
 
   const chartOptions = useMemo(
-    () => (widget.settings?.chartOptions ?? {}) as Record<string, unknown>,
-    [widget.settings?.chartOptions],
+    () => (ws.chartOptions ?? {}) as Record<string, unknown>,
+    [ws.chartOptions],
   );
 
   const { staleTime, gcTime } = useMemo(
@@ -134,22 +154,33 @@ export function CardContainer({
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
   // Parameter-select and form widgets skip query execution entirely.
-  const queryInput = (previewData !== undefined || isParameterWidget || isFormWidget || isContentOnly) ? null : {
-    connectionId: widget.connectionId,
-    query: widget.query,
-    params: widget.params as Record<string, unknown> | undefined,
-  };
+  const queryInput =
+    previewData !== undefined ||
+    isParameterWidget ||
+    isFormWidget ||
+    isContentOnly
+      ? null
+      : {
+          connectionId: widget.connectionId,
+          query: widget.query,
+          params: widget.params as Record<string, unknown> | undefined,
+        };
   const manualEnabled = isManualRun ? hasEverRun : true;
-  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, { staleTime, gcTime, refetchInterval, enabled: manualEnabled });
+  const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, {
+    staleTime,
+    gcTime,
+    refetchInterval,
+    enabled: manualEnabled,
+  });
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
-    const raw = widget.settings?.columnMapping;
+    const raw = ws.columnMapping;
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       return raw as ColumnMapping;
     }
     return {};
-  }, [widget.settings?.columnMapping]);
+  }, [ws.columnMapping]);
 
   // Determine whether to show the overlay.
   const showOverlay =
@@ -165,13 +196,13 @@ export function CardContainer({
         columnMapping: newMapping,
       });
     },
-    [onWidgetSettingsChange, widget.settings]
+    [onWidgetSettingsChange, widget.settings],
   );
 
   // Resolve styling config (new format or migrated from legacy)
   const allParamValues = useParameterValues();
   const resolvedStylingConfig = useMemo<StylingConfig | undefined>(() => {
-    const sc = widget.settings?.stylingConfig as StylingConfig | undefined;
+    const sc = ws.stylingConfig as StylingConfig | undefined;
     if (sc?.enabled) return sc;
     // Try migrating from legacy colorThresholds
     const legacyThresholds = chartOptions.colorThresholds;
@@ -179,10 +210,10 @@ export function CardContainer({
       return migrateColorThresholds(legacyThresholds);
     }
     return undefined;
-  }, [widget.settings?.stylingConfig, chartOptions]);
+  }, [ws.stylingConfig, chartOptions]);
 
   // Resolve color scales config
-  const conditionalFormatting = widget.settings?.conditionalFormatting as
+  const conditionalFormatting = ws.conditionalFormatting as
     | { colorScales?: ColorScaleConfig[] }
     | undefined;
   const colorScales = conditionalFormatting?.colorScales;
@@ -211,7 +242,10 @@ export function CardContainer({
         />
       );
     }
-    const transformedData = chartConfig.transformWithMapping(previewData, columnMapping);
+    const transformedData = chartConfig.transformWithMapping(
+      previewData,
+      columnMapping,
+    );
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
@@ -228,7 +262,6 @@ export function CardContainer({
             stylingRules={resolvedStylingConfig?.rules}
             paramValues={allParamValues}
             autoFit={autoFit}
-
             colorScales={colorScales}
           />
         </div>
@@ -314,7 +347,10 @@ export function CardContainer({
   // show an overlay button instead of the loading skeleton.
   if (isManualRun && !hasEverRun) {
     return (
-      <div className="flex h-full items-center justify-center p-6" data-testid="manual-run-overlay">
+      <div
+        className="flex h-full items-center justify-center p-6"
+        data-testid="manual-run-overlay"
+      >
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">
             Query execution is paused.
@@ -339,11 +375,16 @@ export function CardContainer({
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center space-y-2">
-          <p className="text-sm text-muted-foreground">Waiting for parameters&hellip;</p>
+          <p className="text-sm text-muted-foreground">
+            Waiting for parameters&hellip;
+          </p>
           {missingParams.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5">
               {missingParams.map((name) => (
-                <code key={name} className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
+                <code
+                  key={name}
+                  className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground"
+                >
                   $param_{name}
                 </code>
               ))}
@@ -372,7 +413,10 @@ export function CardContainer({
           <AlertTitle>Query Failed</AlertTitle>
           <AlertDescription className="space-y-1">
             <p>{widgetQuery.error.message}</p>
-            <p className="text-xs font-mono opacity-70 truncate" title={widget.query}>
+            <p
+              className="text-xs font-mono opacity-70 truncate"
+              title={widget.query}
+            >
               {widget.query}
             </p>
           </AlertDescription>
@@ -404,7 +448,10 @@ export function CardContainer({
     );
   }
 
-  const transformedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const transformedData = chartConfig.transformWithMapping(
+    rawData,
+    columnMapping,
+  );
   const availableColumns = extractColumnNames(rawData);
 
   return (
@@ -412,7 +459,9 @@ export function CardContainer({
       {widgetQuery.data?.truncated && (
         <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 border-b flex items-center gap-1.5">
           <span>&#9888;</span>
-          <span>Showing first 10,000 rows. Refine your query to see all results.</span>
+          <span>
+            Showing first 10,000 rows. Refine your query to see all results.
+          </span>
         </div>
       )}
       <div className="flex-1 min-h-0">
