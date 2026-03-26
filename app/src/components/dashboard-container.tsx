@@ -37,35 +37,28 @@ import {
   AlertDialogTitle,
 } from "@neoboard/components";
 
-interface DashboardContainerProps {
-  /** The active page to render. */
-  page: DashboardPage;
-  editable?: boolean;
+/** Widget action callbacks — grouped to reduce prop count. */
+export interface WidgetActions {
   onRemoveWidget?: (widgetId: string) => void;
   onEditWidget?: (widget: DashboardWidget) => void;
   onDuplicateWidget?: (widgetId: string) => void;
   onLayoutChange?: (gridLayout: GridLayoutItem[]) => void;
-  /**
-   * Called when a widget's settings are updated inline (e.g. column mapping).
-   * The caller should persist the updated widget to the dashboard layout.
-   */
   onWidgetSettingsChange?: (
     widgetId: string,
     settings: Record<string, unknown>,
   ) => void;
-  /** TanStack Query refetchInterval — periodically re-executes all widget queries. */
-  refetchInterval?: number | false;
-  /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
-  /** Called when the user chooses "Save to Widget Lab" for a widget. */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
-  /** Map of template ID → template for outdated-sync detection. */
-  templateMap?: Record<string, WidgetTemplate>;
-  /** Called when the user confirms "Sync with template". */
   onSyncWidget?: (widget: DashboardWidget) => void;
-  /** Called when the user chooses "Detach from template". */
   onDetachWidget?: (widgetId: string) => void;
-  /** When false, the parameter bar is hidden. Defaults to true. */
+}
+
+interface DashboardContainerProps {
+  page: DashboardPage;
+  editable?: boolean;
+  actions?: WidgetActions;
+  refetchInterval?: number | false;
+  templateMap?: Record<string, WidgetTemplate>;
   showParameterBar?: boolean;
 }
 
@@ -78,19 +71,22 @@ function getWidgetTitle(widget: DashboardWidget): string {
 export function DashboardContainer({
   page,
   editable = false,
-  onRemoveWidget,
-  onEditWidget,
-  onDuplicateWidget,
-  onLayoutChange,
-  onWidgetSettingsChange,
+  actions,
   refetchInterval,
-  onNavigateToPage,
-  onSaveAsTemplate,
   templateMap,
-  onSyncWidget,
-  onDetachWidget,
   showParameterBar = true,
 }: DashboardContainerProps) {
+  const {
+    onRemoveWidget,
+    onEditWidget,
+    onDuplicateWidget,
+    onLayoutChange,
+    onWidgetSettingsChange,
+    onNavigateToPage,
+    onSaveAsTemplate,
+    onSyncWidget,
+    onDetachWidget,
+  } = actions ?? {};
   const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
