@@ -1,4 +1,10 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+} from "./fixtures";
 
 test.describe("Form widget", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -33,7 +39,9 @@ test.describe("Form widget", () => {
     await page.getByRole("option").first().click();
 
     // Write a write query
-    await typeInEditor(dialog, page,
+    await typeInEditor(
+      dialog,
+      page,
       "CREATE (n:FormTestNode {name: $param_name, email: $param_email})",
     );
 
@@ -56,11 +64,13 @@ test.describe("Form widget", () => {
     await paramInputs.nth(1).fill("email");
 
     // Preview should show two labeled placeholders + Submit button
-    await expect(dialog.getByText("Author", { exact: true })).toBeVisible({ timeout: 5_000 });
-    await expect(dialog.getByText("Message", { exact: true })).toBeVisible({ timeout: 5_000 });
-    await expect(
-      dialog.getByRole("button", { name: "Submit" }),
-    ).toBeVisible();
+    await expect(dialog.getByText("Author", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(dialog.getByText("Message", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(dialog.getByRole("button", { name: "Submit" })).toBeVisible();
 
     // Add the widget (connection + query required)
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -79,7 +89,9 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    await typeInEditor(dialog, page,
+    await typeInEditor(
+      dialog,
+      page,
       "CREATE (n:FormTestNode {firstName: $param_firstName, age: $param_age_min})",
     );
 
@@ -116,13 +128,11 @@ test.describe("Form widget", () => {
     // The form widget should render with the configured fields
     // Fields default to required=true, so the label includes an asterisk "*".
     // Use regex anchored at start to avoid matching "Page 1" tab or param hints.
-    await expect(
-      page.getByText(/^First Name/),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/^First Name/)).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText(/^Age/)).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Submit" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit" })).toBeVisible();
   });
 
   test("should submit form widget and see success message", async ({
@@ -137,7 +147,9 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    await typeInEditor(dialog, page,
+    await typeInEditor(
+      dialog,
+      page,
       "CREATE (n:FormE2ETest {name: $param_name}) RETURN n.name AS name",
     );
 
@@ -218,7 +230,9 @@ test.describe("Form widget", () => {
 
     // No fields added — preview shows placeholder message
     await expect(
-      dialog.getByText("Add fields in the Fields section below to see the form preview"),
+      dialog.getByText(
+        "Add fields in the Fields section below to see the form preview",
+      ),
     ).toBeVisible({ timeout: 5_000 });
 
     // Save button is enabled (query + connection are set)
@@ -244,9 +258,9 @@ test.describe("Form widget", () => {
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The form widget should show the empty-state message
-    await expect(
-      page.getByText("No fields configured"),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("No fields configured")).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("required field blocks submit and shows error when empty", async ({
@@ -260,7 +274,9 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    await typeInEditor(dialog, page,
+    await typeInEditor(
+      dialog,
+      page,
       "CREATE (n:FormReqTest {name: $param_name})",
     );
 
@@ -275,7 +291,9 @@ test.describe("Form widget", () => {
       dialog.getByRole("checkbox", { name: "Required" }),
     ).toBeChecked();
 
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({ timeout: 10_000 });
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({ timeout: 10_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -305,9 +323,7 @@ test.describe("Form widget", () => {
       await page.getByRole("button", { name: "Submit" }).click();
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1_000);
-      await expect(
-        page.getByText("This field is required"),
-      ).toBeVisible();
+      await expect(page.getByText("This field is required")).toBeVisible();
     }).toPass({ timeout: 10_000 });
 
     // Fill the required field — error should clear
@@ -341,13 +357,17 @@ test.describe("Form widget", () => {
     await tableDialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    await typeInEditor(tableDialog, page,
+    await typeInEditor(
+      tableDialog,
+      page,
       "MATCH (n:FormRefreshNode) RETURN n.name AS name LIMIT 10",
     );
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
 
-    await expect(tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await expect(
+      tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
+    ).toBeEnabled({ timeout: 10_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     await expect(
       tableDialog.locator("[data-testid='base-chart'], table").first(),
@@ -365,7 +385,9 @@ test.describe("Form widget", () => {
     await formDialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    await typeInEditor(formDialog, page,
+    await typeInEditor(
+      formDialog,
+      page,
       "CREATE (n:FormRefreshNode {name: $param_name})",
     );
 
@@ -376,12 +398,10 @@ test.describe("Form widget", () => {
 
     // Go to Advanced tab and enable refresh for the table widget
     await formDialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(
-      formDialog.getByText("Refresh Target"),
-    ).toBeVisible({ timeout: 5_000 });
-    await formDialog
-      .getByRole("checkbox", { name: "Refresh Target" })
-      .click();
+    await expect(formDialog.getByText("Refresh Target")).toBeVisible({
+      timeout: 5_000,
+    });
+    await formDialog.getByRole("checkbox", { name: "Refresh Target" }).click();
 
     await formDialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(formDialog).not.toBeVisible();
@@ -423,8 +443,7 @@ test.describe("Form widget", () => {
     // Listen for the write query API response (tighten matcher to this form's POST)
     const writeResponsePromise = page.waitForResponse(
       (r) =>
-        r.url().includes("/api/query/write") &&
-        r.request().method() === "POST",
+        r.url().includes("/api/query/write") && r.request().method() === "POST",
       { timeout: 15_000 },
     );
 
@@ -438,6 +457,78 @@ test.describe("Form widget", () => {
     await expect(page.getByText("Form submitted successfully")).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  test("form field should be pre-populated from a parameter-select widget", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    // --- Widget 1: Parameter-select that sets $param_movie_title ---
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    let dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await dialog
+      .locator("#seed-query")
+      .fill("MATCH (m:Movie) RETURN DISTINCT m.title ORDER BY m.title LIMIT 5");
+    await dialog.getByLabel("Parameter Name").fill("movie_title");
+
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // --- Widget 2: Form with a text field named "movie_title" (same as param) ---
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Form" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "CREATE (n:TestNode {title: $param_movie_title})",
+    );
+
+    // Add a text field whose parameterName matches the selector's parameter
+    await dialog.getByRole("button", { name: "Add Field" }).click();
+    await dialog.getByPlaceholder("e.g. Movie Title").fill("Movie Title");
+    await dialog.getByPlaceholder("e.g. title").fill("movie_title");
+
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // Save and go to view mode
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
+      timeout: 15_000,
+    });
+    await page.getByRole("button", { name: "Back" }).click();
+    const leaveBtn = page.getByRole("button", { name: "Leave" });
+    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await leaveBtn.click();
+    }
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+
+    // Wait for the parameter-select dropdown to render
+    const paramTrigger = page.getByText("Select a value…");
+    await expect(paramTrigger).toBeVisible({ timeout: 15_000 });
+
+    // Select a movie from the dropdown
+    await paramTrigger.click();
+    await expect(async () => {
+      await page.getByRole("option").first().click({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
+
+    // The form's "Movie Title" text field should be pre-populated with the selected value
+    const formInput = page.getByRole("textbox", { name: "movie_title" });
+    await expect(formInput).not.toHaveValue("", { timeout: 10_000 });
   });
 
   test("form widget requires connection and query to save", async ({
@@ -527,27 +618,33 @@ test.describe("Write permission enforcement", () => {
         isPublic: true,
         layoutJson: {
           version: 2,
-          pages: [{
-            id: "page-1",
-            title: "Page 1",
-            widgets: [{
-              id: "w-form",
-              chartType: "form",
-              connectionId: "conn-neo4j-001",
-              query: "CREATE (n:PermTest {v: $param_v}) RETURN n.v AS v",
-              settings: {
-                title: "Form",
-                formFields: [{
-                  id: "f1",
-                  label: "Value",
-                  parameterName: "v",
-                  parameterType: "text",
-                  required: true,
-                }],
-              },
-            }],
-            gridLayout: [{ i: "w-form", x: 0, y: 0, w: 12, h: 4 }],
-          }],
+          pages: [
+            {
+              id: "page-1",
+              title: "Page 1",
+              widgets: [
+                {
+                  id: "w-form",
+                  chartType: "form",
+                  connectionId: "conn-neo4j-001",
+                  query: "CREATE (n:PermTest {v: $param_v}) RETURN n.v AS v",
+                  settings: {
+                    title: "Form",
+                    formFields: [
+                      {
+                        id: "f1",
+                        label: "Value",
+                        parameterName: "v",
+                        parameterType: "text",
+                        required: true,
+                      },
+                    ],
+                  },
+                },
+              ],
+              gridLayout: [{ i: "w-form", x: 0, y: 0, w: 12, h: 4 }],
+            },
+          ],
         },
       },
     });
@@ -618,9 +715,9 @@ test.describe("Write permission enforcement", () => {
     await page.getByRole("button", { name: "Submit" }).click();
 
     // The form widget renders the API error inline
-    await expect(
-      page.getByText("Write permission required"),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Write permission required")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Screenshot: 403 error displayed inside the form widget
     await page.screenshot({

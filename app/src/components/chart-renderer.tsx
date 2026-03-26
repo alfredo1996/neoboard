@@ -44,7 +44,6 @@ import type {
   SunburstDataItem,
   RadarChartData,
   TreemapDataItem,
-  CellFormatRule,
   ColorScaleConfig,
 } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
@@ -113,8 +112,6 @@ export interface ChartRendererProps {
   paramValues?: Record<string, unknown>;
   /** When true, graph widgets trigger a fit-to-viewport after mount. */
   autoFit?: boolean;
-  /** Cell-level conditional formatting rules (table only) */
-  cellFormatRules?: CellFormatRule[];
   /** Color scale configs for gradient cell backgrounds (table only) */
   colorScales?: ColorScaleConfig[];
 }
@@ -123,7 +120,7 @@ export interface ChartRendererProps {
  * Renders the appropriate chart component based on widget type and data.
  * Forwards chart-specific settings as props to the underlying chart component.
  */
-export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query, stylingRules, paramValues, autoFit, cellFormatRules, colorScales }: ChartRendererProps) {
+export function ChartRenderer({ type, data, settings = {}, onChartClick, clickableColumns, connectionId, widgetId, resultId, query, stylingRules, paramValues, autoFit, colorScales }: ChartRendererProps) {
   const colorThresholds =
     typeof settings.colorThresholds === "string" ? settings.colorThresholds : undefined;
 
@@ -290,7 +287,6 @@ export function ChartRenderer({ type, data, settings = {}, onChartClick, clickab
           clickableColumns={clickableColumns}
           stylingRules={stylingRules}
           paramValues={paramValues}
-          cellFormatRules={cellFormatRules}
           colorScales={colorScales}
         />
       );

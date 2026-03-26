@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Button,
   CreatableCombobox,
   Input,
 } from "@neoboard/components";
@@ -17,9 +16,10 @@ interface ValueOrParamInputProps {
 }
 
 /**
- * Paired Value / Parameter toggle with either a CreatableCombobox (parameter
- * mode) or a plain Input (value mode). Used inside styling rules wherever the
- * user can choose between a literal value and a dashboard parameter reference.
+ * Smart input that auto-detects whether the user is entering a literal value
+ * or a dashboard parameter reference. Shows parameter suggestions via a
+ * combobox; selecting a suggestion sets parameterRef. Typing a literal value
+ * clears parameterRef and sets value directly.
  */
 export function ValueOrParamInput({
   parameterRef,
@@ -30,45 +30,41 @@ export function ValueOrParamInput({
   inputType = "number",
   placeholder = "0",
 }: ValueOrParamInputProps) {
-  return (
-    <>
-      <div className="flex items-center gap-2 mb-2">
-        <Button
-          type="button"
-          variant={parameterRef === undefined ? "default" : "outline"}
-          size="sm"
-          onClick={() => onParamRefChange(undefined)}
-        >
-          Value
-        </Button>
-        <Button
-          type="button"
-          variant={parameterRef !== undefined ? "default" : "outline"}
-          size="sm"
-          onClick={() => onParamRefChange("")}
-        >
-          Parameter
-        </Button>
-      </div>
-      {parameterRef !== undefined ? (
-        <CreatableCombobox
-          suggestions={parameterSuggestions}
-          value={parameterRef}
-          onChange={onParamRefChange}
-          placeholder="param_name"
-        />
-      ) : (
-        <Input
-          type={inputType}
-          value={value}
-          onChange={(e) =>
-            onValueChange(
-              inputType === "number" ? Number(e.target.value) : e.target.value,
-            )
+  // When there are parameter suggestions, show a combobox that allows
+  // both selecting a parameter and typing a literal value.
+  if (parameterSuggestions.length > 0) {
+    const displayValue = parameterRef !== undefined ? parameterRef : String(value);
+    return (
+      <CreatableCombobox
+        suggestions={parameterSuggestions}
+        value={displayValue}
+        onChange={(v) => {
+          if (parameterSuggestions.includes(v)) {
+            // User selected a known parameter
+            onParamRefChange(v);
+          } else {
+            // User typed a literal value
+            onParamRefChange(undefined);
+            onValueChange(inputType === "number" && v !== "" ? Number(v) : v);
           }
-          placeholder={placeholder}
-        />
-      )}
-    </>
+        }}
+        placeholder={placeholder}
+      />
+    );
+  }
+
+  // No parameter suggestions — plain input
+  return (
+    <Input
+      type={inputType}
+      value={parameterRef !== undefined ? parameterRef : value}
+      onChange={(e) => {
+        onParamRefChange(undefined);
+        onValueChange(
+          inputType === "number" ? Number(e.target.value) : e.target.value,
+        );
+      }}
+      placeholder={placeholder}
+    />
   );
 }

@@ -68,7 +68,7 @@ function uuid() {
 
 // ─── Dashboard layouts ───────────────────────────────────────────────
 
-function buildWidgetShowcase(neo4jConnId, pgConnId) {
+export function buildWidgetShowcase(neo4jConnId, pgConnId) {
   // Click action page needs stable IDs for page navigation
   const clickPageId = uuid();
 
@@ -226,11 +226,10 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
               title: "Movies (row color by year)",
               stylingConfig: {
                 enabled: true,
-                targetColumn: "released",
                 rules: [
-                  { id: uuid(), operator: "<=", value: 1995, color: "#3b82f620", target: "backgroundColor" },
-                  { id: uuid(), operator: "<=", value: 2005, color: "#22c55e20", target: "backgroundColor" },
-                  { id: uuid(), operator: "<=", value: 2015, color: "#f59e0b20", target: "backgroundColor" },
+                  { id: uuid(), column: "released", operator: "<=", value: 1995, color: "#3b82f620", target: "backgroundColor" },
+                  { id: uuid(), column: "released", operator: "<=", value: 2005, color: "#22c55e20", target: "backgroundColor" },
+                  { id: uuid(), column: "released", operator: "<=", value: 2015, color: "#f59e0b20", target: "backgroundColor" },
                 ],
               },
             },
@@ -244,9 +243,10 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             settings: {
               title: "Cast Size (red > 5, green \u2264 3)",
               stylingConfig: {
+                enabled: true,
                 rules: [
-                  { field: "value", operator: ">", value: 5, target: "color", style: "#ef4444" },
-                  { field: "value", operator: "<=", value: 3, target: "color", style: "#22c55e" },
+                  { id: uuid(), operator: ">", value: 5, color: "#ef4444", target: "color" },
+                  { id: uuid(), operator: "<=", value: 3, color: "#22c55e", target: "color" },
                 ],
               },
             },
@@ -260,8 +260,9 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             settings: {
               title: "Movie Count (blue > 30)",
               stylingConfig: {
+                enabled: true,
                 rules: [
-                  { field: "value", operator: ">", value: 30, target: "color", style: "#3b82f6" },
+                  { id: uuid(), operator: ">", value: 30, color: "#3b82f6", target: "color" },
                 ],
               },
             },
@@ -275,8 +276,9 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             settings: {
               title: "Hierarchy (orange > 10)",
               stylingConfig: {
+                enabled: true,
                 rules: [
-                  { field: "value", operator: ">", value: 10, target: "color", style: "#f97316" },
+                  { id: uuid(), operator: ">", value: 10, color: "#f97316", target: "color" },
                 ],
               },
             },
@@ -408,7 +410,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             connectionId: neo4jConnId,
             query:
               "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
-            settings: { title: "deep-ocean (default)", colorPalette: "deep-ocean" },
+            settings: { title: "deep-ocean (default)", chartOptions: { colorPalette: "deep-ocean" } },
           },
           {
             id: uuid(),
@@ -416,7 +418,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             connectionId: neo4jConnId,
             query:
               "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
-            settings: { title: "warm-sunset", colorPalette: "warm-sunset" },
+            settings: { title: "warm-sunset", chartOptions: { colorPalette: "warm-sunset" } },
           },
           {
             id: uuid(),
@@ -424,7 +426,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             connectionId: neo4jConnId,
             query:
               "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
-            settings: { title: "cool-breeze", colorPalette: "cool-breeze" },
+            settings: { title: "cool-breeze", chartOptions: { colorPalette: "cool-breeze" } },
           },
           {
             id: uuid(),
@@ -432,7 +434,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             connectionId: neo4jConnId,
             query:
               "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
-            settings: { title: "earth-tones", colorPalette: "earth-tones" },
+            settings: { title: "earth-tones", chartOptions: { colorPalette: "earth-tones" } },
           },
           {
             id: uuid(),
@@ -440,7 +442,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             connectionId: neo4jConnId,
             query:
               "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
-            settings: { title: "neon", colorPalette: "neon" },
+            settings: { title: "neon", chartOptions: { colorPalette: "neon" } },
           },
           {
             id: uuid(),
@@ -448,7 +450,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
             connectionId: neo4jConnId,
             query:
               "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
-            settings: { title: "monochrome", colorPalette: "monochrome" },
+            settings: { title: "monochrome", chartOptions: { colorPalette: "monochrome" } },
           },
         ],
         gridLayout: [
@@ -475,7 +477,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
               "MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade",
             settings: {
               title: "Movies by Decade (Colorblind Mode)",
-              colorblindMode: true,
+              chartOptions: { colorblindMode: true },
             },
           },
         ],
@@ -488,7 +490,7 @@ function buildWidgetShowcase(neo4jConnId, pgConnId) {
   };
 }
 
-function buildParameterTesting(neo4jConnId, pgConnId) {
+export function buildParameterTesting(neo4jConnId, pgConnId) {
   return {
     version: 2,
     pages: [
@@ -945,7 +947,7 @@ function buildParameterTesting(neo4jConnId, pgConnId) {
   };
 }
 
-function buildFormTesting(neo4jConnId, pgConnId) {
+export function buildFormTesting(neo4jConnId, pgConnId) {
   return {
     version: 2,
     pages: [
@@ -1156,7 +1158,7 @@ function buildFormTesting(neo4jConnId, pgConnId) {
   };
 }
 
-function buildClickActionDemo(neo4jConnId, pgConnId) {
+export function buildClickActionDemo(neo4jConnId, pgConnId) {
   // Page IDs are pre-generated so widgets can reference them in click actions
   const page1Id = uuid();
   const page2Id = uuid();
@@ -1780,7 +1782,7 @@ async function main() {
   }
 }
 
-function buildStylingRulesDemo(neo4jConnId, pgConnId) {
+export function buildStylingRulesDemo(neo4jConnId, pgConnId) {
   // Reusable styling configs for different chart types
   const countStyling = {
     enabled: true,
@@ -1991,7 +1993,7 @@ function buildStylingRulesDemo(neo4jConnId, pgConnId) {
 }
 
 // ─── Chart Improvements — dedicated dashboard for new features ──────
-function buildChartImprovements(neo4jConnId) {
+export function buildChartImprovements(neo4jConnId) {
   return {
     version: 2,
     pages: [
@@ -2238,7 +2240,7 @@ function buildChartImprovements(neo4jConnId) {
 }
 
 // ─── Table Features — column resize, conditional formatting, row grouping ──
-function buildTableFeatures(neo4jConnId, pgConnId) {
+export function buildTableFeatures(neo4jConnId, pgConnId) {
   return {
     version: 2,
     pages: [
@@ -2286,24 +2288,24 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
         ],
       },
 
-      // ── Page 3: Conditional Formatting — Numeric Rules ──
+      // ── Page 3: Rule-Based Styling — Numeric Rules ──
       {
         id: uuid(),
-        title: "Conditional Formatting",
+        title: "Rule-Based Styling",
         widgets: [
           {
             id: uuid(), chartType: "table", connectionId: neo4jConnId,
             query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies, min(m.released) AS first_role, max(m.released) AS last_role RETURN actor, movies, first_role, last_role ORDER BY movies DESC",
             settings: {
-              title: "Numeric rules: bg color + bold + icons",
+              title: "Numeric rules: bg color + bold",
               chartOptions: { enableSorting: true, enableColumnResizing: true, enablePagination: true, pageSize: 15 },
-              conditionalFormatting: {
+              stylingConfig: {
+                enabled: true,
                 rules: [
-                  { id: uuid(), column: "movies", operator: ">=", value: 4, style: { backgroundColor: "#dcfce7", textColor: "#166534", bold: true, icon: "arrow-up" } },
-                  { id: uuid(), column: "movies", operator: "<=", value: 1, style: { backgroundColor: "#fee2e2", textColor: "#991b1b", icon: "arrow-down" } },
-                  { id: uuid(), column: "movies", operator: "between", value: 2, valueTo: 3, style: { backgroundColor: "#fef3c7", textColor: "#92400e" } },
+                  { id: uuid(), column: "movies", operator: ">=", value: 4, color: "#dcfce7", target: "backgroundColor", bold: true },
+                  { id: uuid(), column: "movies", operator: "<=", value: 1, color: "#fee2e2", target: "backgroundColor" },
+                  { id: uuid(), column: "movies", operator: "between", value: 2, valueTo: 3, color: "#fef3c7", target: "backgroundColor" },
                 ],
-                colorScales: [],
               },
             },
           },
@@ -2314,7 +2316,6 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
               title: "Color scale: movies (red\u2192green), first_role (blue\u2192red)",
               chartOptions: { enableSorting: true, enableColumnResizing: true, enablePagination: true, pageSize: 15 },
               conditionalFormatting: {
-                rules: [],
                 colorScales: [
                   { column: "movies", minColor: "#ef4444", maxColor: "#22c55e" },
                   { column: "first_role", minColor: "#3b82f6", maxColor: "#ef4444" },
@@ -2329,7 +2330,7 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
         ],
       },
 
-      // ── Page 4: Conditional Formatting — String Rules ──
+      // ── Page 4: Rule-Based Styling — String Rules ──
       {
         id: uuid(),
         title: "String & Null Rules",
@@ -2340,15 +2341,15 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
             settings: {
               title: "String operators: contains, starts_with, is_null",
               chartOptions: { enableSorting: true, enableColumnResizing: true, enablePagination: true, pageSize: 15 },
-              conditionalFormatting: {
+              stylingConfig: {
+                enabled: true,
                 rules: [
-                  { id: uuid(), column: "role", operator: "==", value: "DIRECTED", style: { backgroundColor: "#dbeafe", textColor: "#1d4ed8", bold: true, icon: "check" } },
-                  { id: uuid(), column: "role", operator: "==", value: "ACTED_IN", style: { backgroundColor: "#f0fdf4", textColor: "#166534" } },
-                  { id: uuid(), column: "role", operator: "==", value: "PRODUCED", style: { backgroundColor: "#fef3c7", textColor: "#92400e" } },
-                  { id: uuid(), column: "person", operator: "starts_with", value: "Tom", style: { bold: true } },
-                  { id: uuid(), column: "tagline", operator: "is_null", value: "", style: { backgroundColor: "#f3f4f6", textColor: "#9ca3af", icon: "alert-triangle" } },
+                  { id: uuid(), column: "role", operator: "==", value: "DIRECTED", color: "#dbeafe", target: "backgroundColor", bold: true },
+                  { id: uuid(), column: "role", operator: "==", value: "ACTED_IN", color: "#f0fdf4", target: "backgroundColor" },
+                  { id: uuid(), column: "role", operator: "==", value: "PRODUCED", color: "#fef3c7", target: "backgroundColor" },
+                  { id: uuid(), column: "person", operator: "starts_with", value: "Tom", color: "#e0e7ff", target: "backgroundColor", bold: true },
+                  { id: uuid(), column: "tagline", operator: "is_null", value: "", color: "#f3f4f6", target: "backgroundColor" },
                 ],
-                colorScales: [],
               },
             },
           },
@@ -2367,7 +2368,7 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
             id: uuid(), chartType: "table", connectionId: neo4jConnId,
             query: "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS role, p.name AS person, count(m) AS movies, min(m.released) AS since RETURN role, person, movies, since ORDER BY role, movies DESC",
             settings: {
-              title: "Grouping + resize + conditional formatting + color scale",
+              title: "Grouping + resize + styling rules + color scale",
               chartOptions: {
                 enableColumnResizing: true,
                 enableSorting: true,
@@ -2376,11 +2377,14 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
                 enablePagination: true,
                 pageSize: 20,
               },
-              conditionalFormatting: {
+              stylingConfig: {
+                enabled: true,
                 rules: [
-                  { id: uuid(), column: "movies", operator: ">=", value: 4, style: { backgroundColor: "#dcfce7", textColor: "#166534", bold: true, icon: "arrow-up" } },
-                  { id: uuid(), column: "movies", operator: "==", value: 1, style: { textColor: "#9ca3af" } },
+                  { id: uuid(), column: "movies", operator: ">=", value: 4, color: "#dcfce7", target: "backgroundColor", bold: true },
+                  { id: uuid(), column: "movies", operator: "==", value: 1, color: "#9ca3af", target: "textColor" },
                 ],
+              },
+              conditionalFormatting: {
                 colorScales: [
                   { column: "since", minColor: "#3b82f6", maxColor: "#f97316" },
                 ],
@@ -2398,7 +2402,7 @@ function buildTableFeatures(neo4jConnId, pgConnId) {
 
 /** Set gridLayout[n].i = widgets[n].id for each page. */
 // ─── Chart Catalog — comprehensive per-chart-type showcase ──────────
-function buildChartCatalog(neo4jId) {
+export function buildChartCatalog(neo4jId) {
   const P = ["deep-ocean", "warm-sunset", "cool-breeze", "earth-tones", "neon", "monochrome"];
   const detailPageId = uuid();
   const behaviorPageId = uuid();
@@ -2469,7 +2473,7 @@ function buildChartCatalog(neo4jId) {
       chartType,
       connectionId: neo4jId,
       query,
-      settings: { ...baseSettings, title: p, colorPalette: p, chartOptions: { ...baseSettings.chartOptions } },
+      settings: { ...baseSettings, title: p, chartOptions: { ...baseSettings.chartOptions, colorPalette: p } },
     }));
   }
 
