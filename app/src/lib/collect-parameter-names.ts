@@ -1,4 +1,8 @@
-import type { DashboardLayoutV2, ClickAction, DashboardWidget } from "./db/schema";
+import type {
+  DashboardLayoutV2,
+  ClickAction,
+  DashboardWidget,
+} from "./db/schema";
 
 const PARAM_REGEX = /\$param_(\w+)/g;
 
@@ -27,7 +31,9 @@ export function getWidgetParameterNames(widget: DashboardWidget): string[] {
 
   // Param-select chartOptions.parameterName
   if (widget.chartType === "parameter-select") {
-    const opts = widget.settings?.chartOptions as Record<string, unknown> | undefined;
+    const opts = widget.settings?.chartOptions as
+      | Record<string, unknown>
+      | undefined;
     if (opts?.parameterName && typeof opts.parameterName === "string") {
       names.push(opts.parameterName);
     }
@@ -65,7 +71,7 @@ export function collectParameterNames(layout: DashboardLayoutV2): string[] {
     }
   }
 
-  return [...names].sort();
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -77,7 +83,7 @@ export function collectParameterNames(layout: DashboardLayoutV2): string[] {
 export function findParameterCollisions(
   layout: DashboardLayoutV2,
   currentWidgetId: string,
-  parameterName: string
+  parameterName: string,
 ): ParameterCollision[] {
   if (!parameterName) return [];
 
