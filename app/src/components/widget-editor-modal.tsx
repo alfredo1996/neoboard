@@ -826,17 +826,19 @@ export function WidgetEditorModal({
   const syncingFromStore = useRef(false);
   useEffect(() => {
     if (!syncingFromStore.current) {
-      useWidgetEditorStore.setState({ stylingRules });
+      useWidgetEditorStore.setState({ stylingRules, actionRules, formFields });
     }
-  }, [stylingRules]);
-  // Reverse: store → local when sub-editor modifies rules
+  }, [stylingRules, actionRules, formFields]);
+  // Reverse: store → local when sub-editors modify state
   useEffect(() => {
     return useWidgetEditorStore.subscribe((state, prev) => {
-      if (state.stylingRules !== prev.stylingRules) {
-        syncingFromStore.current = true;
+      syncingFromStore.current = true;
+      if (state.stylingRules !== prev.stylingRules)
         setStylingRules(state.stylingRules);
-        syncingFromStore.current = false;
-      }
+      if (state.actionRules !== prev.actionRules)
+        setActionRules(state.actionRules);
+      if (state.formFields !== prev.formFields) setFormFields(state.formFields);
+      syncingFromStore.current = false;
     });
   }, []);
 
@@ -970,12 +972,7 @@ export function WidgetEditorModal({
           <StylingRulesEditor onBack={() => setDialogStep("main")} />
         ) : dialogStep === "rules" ? (
           <ActionRulesEditor
-            rules={actionRules}
-            onRulesChange={setActionRules}
             onBack={() => setDialogStep("main")}
-            chartType={chartType}
-            availableFields={availableFields}
-            parameterSuggestions={parameterSuggestions}
             pages={(layout?.pages ?? []).map((p) => ({
               id: p.id,
               title: p.title,
@@ -1267,13 +1264,7 @@ export function WidgetEditorModal({
                       )}
 
                       {/* Form fields editor (form type only) */}
-                      {isForm && (
-                        <FormFieldsEditor
-                          fields={formFields}
-                          onChange={setFormFields}
-                          connectionId={connectionId}
-                        />
-                      )}
+                      {isForm && <FormFieldsEditor />}
                     </div>
                   }
                   styleTab={
