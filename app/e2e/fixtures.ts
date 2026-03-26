@@ -7,14 +7,18 @@ import { AuthPage } from "./pages/auth";
 import { SidebarPage } from "./pages/sidebar";
 
 // Load test container env vars (quiet suppresses dotenvx tip banners).
-dotenv.config({ path: path.resolve(__dirname, "..", ".env.test"), quiet: true });
+dotenv.config({
+  path: path.resolve(__dirname, "..", ".env.test"),
+  quiet: true,
+});
 
 /** Seed user credentials (from docker/postgres/init.sql). */
 export const ALICE = { email: "alice@example.com", password: "password123" };
 export const BOB = { email: "bob@example.com", password: "password123" };
 
 /** Dynamic test container URLs. */
-export const TEST_NEO4J_BOLT_URL = process.env.TEST_NEO4J_BOLT_URL ?? "bolt://localhost:7687";
+export const TEST_NEO4J_BOLT_URL =
+  process.env.TEST_NEO4J_BOLT_URL ?? "bolt://localhost:7687";
 export const TEST_PG_PORT = process.env.TEST_PG_PORT ?? "5432";
 
 type Fixtures = {
@@ -74,15 +78,21 @@ export async function typeInEditor(
   // destroy and recreate the CM6 editor mid-flow.
   await expect(async () => {
     // Wait for CM6 to mount (re-checked each iteration in case of remount)
-    await cmContainer.locator(".cm-editor").waitFor({ state: "visible", timeout: 5_000 });
+    await cmContainer
+      .locator(".cm-editor")
+      .waitFor({ state: "visible", timeout: 5_000 });
 
     // Wait for the React wrapper to signal writable
-    await expect(cmContainer).toHaveAttribute("data-readonly", "false", { timeout: 5_000 });
+    await expect(cmContainer).toHaveAttribute("data-readonly", "false", {
+      timeout: 5_000,
+    });
 
     // Wait for initEditor to complete (view + compartments fully initialized).
     // This prevents the race where data-readonly is "false" but the CM6 view
     // hasn't been created yet because async imports are still in progress.
-    await expect(cmContainer).toHaveAttribute("data-editor-ready", "true", { timeout: 5_000 });
+    await expect(cmContainer).toHaveAttribute("data-editor-ready", "true", {
+      timeout: 5_000,
+    });
 
     // Pre-dispatch stability: poll until the editor has been continuously
     // ready for 3 consecutive checks (600ms stable window). Connection and
@@ -106,50 +116,46 @@ export async function typeInEditor(
     }
 
     // Strategy 1: Use CM6's internal dispatch API (most reliable).
-    // CM6 decorates managed DOM nodes with a `cmTile` property (Tile instance).
-    // We mirror EditorView.findFromDOM(): try .cm-content first, then .cm-editor.
-    const dispatched = await cmContainer.evaluate((el: HTMLElement, text: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      function findView(node: Element | null): any {
-        if (!node) return null;
+    // The QueryEditor component exposes `__cmView` on the container DOM element
+    // when initialization completes. This is more reliable than the internal
+    // `cmTile` property which may be mangled or inaccessible in production builds.
+    const dispatched = await cmContainer.evaluate(
+      (el: HTMLElement, text: string) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tile = (node as any).cmTile;
-        return tile?.root?.view ?? tile?.view ?? null;
-      }
-      const cmContent = el.querySelector(".cm-content");
-      if (!cmContent) return "no-editor";
-      const view = findView(cmContent) ?? findView(el.querySelector(".cm-editor"));
-      if (!view) return "no-view";
-      if (view.state.readOnly) return "readonly";
+        const view = (el as any).__cmView;
+        if (!el.querySelector(".cm-content")) return "no-editor";
+        if (!view) return "no-view";
+        if (view.state.readOnly) return "readonly";
 
-      // Replace entire document content
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: text },
-      });
-      return view.state.doc.toString().includes(text.substring(0, 20))
-        ? "ok"
-        : "dispatch-failed";
-    }, query);
+        // Replace entire document content
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: text },
+        });
+        return view.state.doc.toString().includes(text.substring(0, 20))
+          ? "ok"
+          : "dispatch-failed";
+      },
+      query,
+    );
 
     if (dispatched === "ok") {
       // Post-dispatch stability: verify text survives any late re-renders.
       // The pre-dispatch check handles most cases; this is a safety net.
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(300);
-      const stillPresent = await cmContainer.evaluate((el: HTMLElement, text: string) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        function findView(node: Element | null): any {
-          if (!node) return null;
+      const stillPresent = await cmContainer.evaluate(
+        (el: HTMLElement, text: string) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const tile = (node as any).cmTile;
-          return tile?.root?.view ?? tile?.view ?? null;
-        }
-        const view = findView(el.querySelector(".cm-content")) ?? findView(el.querySelector(".cm-editor"));
-        if (!view) return false;
-        return view.state.doc.toString().includes(text.substring(0, 20));
-      }, query);
+          const view = (el as any).__cmView;
+          if (!view) return false;
+          return view.state.doc.toString().includes(text.substring(0, 20));
+        },
+        query,
+      );
       if (!stillPresent) {
-        throw new Error("Text overwritten after dispatch (editor re-mounted) — retrying");
+        throw new Error(
+          "Text overwritten after dispatch (editor re-mounted) — retrying",
+        );
       }
       return;
     }
@@ -157,7 +163,9 @@ export async function typeInEditor(
     // Strategy 2: Keyboard fallback (for environments where cmView is not accessible
     // or when the view is temporarily readonly during initialization)
     if (dispatched === "no-view" || dispatched === "readonly") {
-      await expect(cm).toHaveAttribute("contenteditable", "true", { timeout: 2_000 });
+      await expect(cm).toHaveAttribute("contenteditable", "true", {
+        timeout: 2_000,
+      });
       await cm.click();
       await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.press("Backspace");
