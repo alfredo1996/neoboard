@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { Calendar, Type, ListFilter } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -117,38 +118,27 @@ export interface SeedQueryExecutionState {
 }
 
 export interface ParameterConfigSectionProps {
-  paramUIType: ParamUIType;
-  onParamUITypeChange: (v: ParamUIType) => void;
-  dateSub: DateSubType;
-  onDateSubChange: (v: DateSubType) => void;
-  multiSelect: boolean;
-  onMultiSelectChange: (v: boolean) => void;
-  paramWidgetName: string;
-  onParamWidgetNameChange: (v: string) => void;
-  chartOptions: Record<string, unknown>;
-  onChartOptionsChange: (
-    updater: (prev: Record<string, unknown>) => Record<string, unknown>,
-  ) => void;
-  connectionId: string;
   seedQueryExecution: SeedQueryExecutionState;
   seedPreviewOptions: { value: string; label: string }[] | null;
 }
 
 export function ParameterConfigSection({
-  paramUIType,
-  onParamUITypeChange,
-  dateSub,
-  onDateSubChange,
-  multiSelect,
-  onMultiSelectChange,
-  paramWidgetName,
-  onParamWidgetNameChange,
-  chartOptions,
-  onChartOptionsChange,
-  connectionId,
   seedQueryExecution,
   seedPreviewOptions,
 }: ParameterConfigSectionProps) {
+  const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
+  const onParamUITypeChange = useWidgetEditorStore((s) => s.setParamUIType);
+  const dateSub = useWidgetEditorStore((s) => s.dateSub);
+  const onDateSubChange = useWidgetEditorStore((s) => s.setDateSub);
+  const multiSelect = useWidgetEditorStore((s) => s.multiSelect);
+  const onMultiSelectChange = useWidgetEditorStore((s) => s.setMultiSelect);
+  const paramWidgetName = useWidgetEditorStore((s) => s.paramWidgetName);
+  const onParamWidgetNameChange = useWidgetEditorStore(
+    (s) => s.setParamWidgetName,
+  );
+  const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
+  const onChartOptionsChange = useWidgetEditorStore((s) => s.setChartOptions);
+  const connectionId = useWidgetEditorStore((s) => s.connectionId);
   return (
     <div className="space-y-4" data-testid="param-config-section">
       {/* Parameter Type dropdown */}

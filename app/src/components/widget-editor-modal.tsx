@@ -812,8 +812,8 @@ export function WidgetEditorModal({
 
   // Sync local state → widget editor store (bridge for sub-editors reading from store).
   useEffect(() => {
-    useWidgetEditorStore.setState({ chartType });
-  }, [chartType]);
+    useWidgetEditorStore.setState({ chartType, connectionId, query });
+  }, [chartType, connectionId, query]);
   useEffect(() => {
     useWidgetEditorStore.setState({ availableFields });
   }, [availableFields]);
@@ -826,9 +826,31 @@ export function WidgetEditorModal({
   const syncingFromStore = useRef(false);
   useEffect(() => {
     if (!syncingFromStore.current) {
-      useWidgetEditorStore.setState({ stylingRules, actionRules, formFields });
+      useWidgetEditorStore.setState({
+        stylingRules,
+        actionRules,
+        formFields,
+        query,
+        chartOptions,
+        connectionId,
+        paramUIType,
+        dateSub,
+        multiSelect,
+        paramWidgetName,
+      });
     }
-  }, [stylingRules, actionRules, formFields]);
+  }, [
+    stylingRules,
+    actionRules,
+    formFields,
+    query,
+    chartOptions,
+    connectionId,
+    paramUIType,
+    dateSub,
+    multiSelect,
+    paramWidgetName,
+  ]);
   // Reverse: store → local when sub-editors modify state
   useEffect(() => {
     return useWidgetEditorStore.subscribe((state, prev) => {
@@ -838,6 +860,16 @@ export function WidgetEditorModal({
       if (state.actionRules !== prev.actionRules)
         setActionRules(state.actionRules);
       if (state.formFields !== prev.formFields) setFormFields(state.formFields);
+      if (state.query !== prev.query) setQuery(state.query);
+      if (state.chartOptions !== prev.chartOptions)
+        setChartOptions(state.chartOptions);
+      if (state.paramUIType !== prev.paramUIType)
+        setParamUIType(state.paramUIType);
+      if (state.dateSub !== prev.dateSub) setDateSub(state.dateSub);
+      if (state.multiSelect !== prev.multiSelect)
+        setMultiSelect(state.multiSelect);
+      if (state.paramWidgetName !== prev.paramWidgetName)
+        setParamWidgetName(state.paramWidgetName);
       syncingFromStore.current = false;
     });
   }, []);
@@ -1213,17 +1245,6 @@ export function WidgetEditorModal({
                       {/* Parameter config (when parameter-select) */}
                       {isParamSelect && (
                         <ParameterConfigSection
-                          paramUIType={paramUIType}
-                          onParamUITypeChange={setParamUIType}
-                          dateSub={dateSub}
-                          onDateSubChange={setDateSub}
-                          multiSelect={multiSelect}
-                          onMultiSelectChange={setMultiSelect}
-                          paramWidgetName={paramWidgetName}
-                          onParamWidgetNameChange={setParamWidgetName}
-                          chartOptions={chartOptions}
-                          onChartOptionsChange={setChartOptions}
-                          connectionId={connectionId}
                           seedQueryExecution={seedQueryExecution}
                           seedPreviewOptions={seedPreviewOptions}
                         />
@@ -1253,12 +1274,8 @@ export function WidgetEditorModal({
                       {/* Query editor (non-parameter and non-content types) */}
                       {!isParamSelect && !isContentOnly && (
                         <QueryEditorPanel
-                          chartType={chartType}
-                          query={query}
-                          onQueryChange={setQuery}
                           onRun={isForm ? undefined : handlePreview}
                           editorLanguage={editorLanguage}
-                          connectionId={connectionId}
                           running={previewQuery.isPending}
                         />
                       )}
