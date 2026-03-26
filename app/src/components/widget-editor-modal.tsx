@@ -13,6 +13,7 @@ import {
   ChartOptionsPanel,
   ChartSettingsPanel,
   getDefaultChartSettings,
+  ColorScalePanel,
   Badge,
   Button,
   LoadingButton,
@@ -31,6 +32,7 @@ import {
   MarkdownWidget,
   IframeWidget,
 } from "@neoboard/components";
+import type { ColorScaleConfig } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   getChartConfig,
@@ -78,6 +80,8 @@ export interface WidgetEditorModalProps {
   layout?: DashboardLayoutV2;
   /** Template to auto-apply when opening in add mode (from Widget Lab "Use in Dashboard") */
   initialTemplate?: WidgetTemplate;
+  /** Cached query data from the dashboard — shown as preview immediately without re-running */
+  initialPreviewData?: { data: unknown; resultId: string };
 }
 
 export function WidgetEditorModal({
@@ -91,6 +95,7 @@ export function WidgetEditorModal({
   onLabSaved,
   layout,
   initialTemplate,
+  initialPreviewData,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
   const [chartType, setChartType] = useState(widget?.chartType ?? "bar");
@@ -138,8 +143,12 @@ export function WidgetEditorModal({
   const [stylingRules, setStylingRules] = useState<StylingRule[]>(
     existingStylingConfig?.rules ?? []
   );
-  const [stylingTargetColumn, setStylingTargetColumn] = useState(
-    existingStylingConfig?.targetColumn ?? ""
+  // Color scales state (gradient cell backgrounds for tables)
+  const existingConditionalFormatting = widget?.settings?.conditionalFormatting as
+    | { colorScales?: ColorScaleConfig[] }
+    | undefined;
+  const [colorScales, setColorScales] = useState<ColorScaleConfig[]>(
+    existingConditionalFormatting?.colorScales ?? []
   );
 
   const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules" | "templates">("main");
@@ -369,7 +378,7 @@ export function WidgetEditorModal({
         setActionRules([]);
         setStylingEnabled(false);
         setStylingRules([]);
-        setStylingTargetColumn("");
+        setColorScales([]);
         setDialogStep("main");
         seedQueryExecution.reset();
         previewQuery.reset();
@@ -396,31 +405,29 @@ export function WidgetEditorModal({
         if (sc) {
           setStylingEnabled(sc.enabled);
           setStylingRules(sc.rules ?? []);
-          setStylingTargetColumn(sc.targetColumn ?? "");
         } else {
           // Try migrating from legacy colorThresholds
           const legacyThresholds = (widget.settings?.chartOptions as Record<string, unknown> | undefined)?.colorThresholds;
-          const legacyColumn = (widget.settings?.chartOptions as Record<string, unknown> | undefined)?.colorThresholdsColumn;
           if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
-            const migrated = migrateColorThresholds(
-              legacyThresholds,
-              typeof legacyColumn === "string" ? legacyColumn : undefined,
-            );
+            const migrated = migrateColorThresholds(legacyThresholds);
             if (migrated) {
               setStylingEnabled(migrated.enabled);
               setStylingRules(migrated.rules);
-              setStylingTargetColumn(migrated.targetColumn ?? "");
             } else {
               setStylingEnabled(false);
               setStylingRules([]);
-              setStylingTargetColumn("");
-            }
+                  }
           } else {
             setStylingEnabled(false);
             setStylingRules([]);
-            setStylingTargetColumn("");
-          }
+              }
         }
+
+        // Initialize color scales from existing widget
+        const cf = widget.settings?.conditionalFormatting as
+          | { colorScales?: ColorScaleConfig[] }
+          | undefined;
+        setColorScales(cf?.colorScales ?? []);
 
         setDialogStep("main");
         setEnableCache(widget.settings?.enableCache !== false);
@@ -476,7 +483,7 @@ export function WidgetEditorModal({
         setActionRules([]);
         setStylingEnabled(false);
         setStylingRules([]);
-        setStylingTargetColumn("");
+        setColorScales([]);
         setLabName("");
         setLabDescription("");
         setLabTagsInput("");
@@ -499,7 +506,7 @@ export function WidgetEditorModal({
         setClickActionEnabled(false);
         setStylingEnabled(false);
         setStylingRules([]);
-        setStylingTargetColumn("");
+        setColorScales([]);
         setActionRules([]);
         setDialogStep("main");
         seedQueryExecution.reset();
@@ -573,9 +580,8 @@ export function WidgetEditorModal({
     return {
       enabled: true,
       rules: stylingRules,
-      targetColumn: stylingTargetColumn || undefined,
     };
-  }, [stylingEnabled, chartType, stylingRules, stylingTargetColumn]);
+  }, [stylingEnabled, chartType, stylingRules]);
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
@@ -586,6 +592,29 @@ export function WidgetEditorModal({
       previewQuery.mutate({ connectionId, query: previewQuery_, params });
     }
   }, [connectionId, query, previewQuery, allParamValues, selectedConnection]);
+
+  // Auto-run preview when editing an existing widget so column selectors are populated.
+  // Skip if initialPreviewData was provided (we already have data to show).
+  const autoPreviewTriggered = useRef(false);
+  useEffect(() => {
+    if (!open || (mode !== "edit" && mode !== "lab-edit")) {
+      autoPreviewTriggered.current = false;
+      return;
+    }
+    if (autoPreviewTriggered.current) return;
+    if (!connectionId || !query.trim()) return;
+    if (initialPreviewData) {
+      autoPreviewTriggered.current = true;
+      return;
+    }
+    autoPreviewTriggered.current = true;
+    // setTimeout ensures the reset effect's setState calls have flushed
+    const timer = setTimeout(() => {
+      handlePreview();
+    }, 0);
+    return () => clearTimeout(timer);
+
+  }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
@@ -619,6 +648,9 @@ export function WidgetEditorModal({
               formFields: chartType === "form" ? formFields : undefined,
               clickAction: buildClickAction(),
               stylingConfig: buildStylingConfig(),
+              conditionalFormatting: colorScales.length
+                ? { colorScales }
+                : undefined,
               enableCache,
               cacheTtlMinutes,
             },
@@ -645,6 +677,7 @@ export function WidgetEditorModal({
     formFields,
     enableCache,
     cacheTtlMinutes,
+    colorScales,
     previewQuery,
     onSave,
     onOpenChange,
@@ -678,13 +711,13 @@ export function WidgetEditorModal({
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
-    if (!previewQuery.data?.data) return [];
-    const data = previewQuery.data.data;
-    if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object" && data[0] !== null) {
-      return Object.keys(data[0] as Record<string, unknown>);
+    const src = previewQuery.data?.data ?? initialPreviewData?.data;
+    if (!src) return [];
+    if (Array.isArray(src) && src.length > 0 && typeof src[0] === "object" && src[0] !== null) {
+      return Object.keys(src[0] as Record<string, unknown>);
     }
     return [];
-  }, [previewQuery.data]);
+  }, [previewQuery.data, initialPreviewData]);
 
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
@@ -724,6 +757,10 @@ export function WidgetEditorModal({
         formFields: isForm ? formFields : undefined,
         clickAction: (isParamSelect || isForm || isContentOnly) ? undefined : clickAction,
         stylingConfig: (isParamSelect || isForm || isContentOnly) ? undefined : stylingConfig,
+        conditionalFormatting: (isParamSelect || isForm || isContentOnly) ? undefined
+          : colorScales.length
+            ? { colorScales }
+            : undefined,
         enableCache: (isParamSelect || isForm || isContentOnly) ? undefined : enableCache,
         cacheTtlMinutes: (isParamSelect || isForm || isContentOnly) ? undefined : cacheTtlMinutes,
       },
@@ -760,6 +797,9 @@ export function WidgetEditorModal({
         chartOptions,
         stylingConfig: buildStylingConfig(),
         clickAction: buildClickAction(),
+        conditionalFormatting: colorScales.length
+          ? { colorScales }
+          : undefined,
       },
     };
 
@@ -787,8 +827,6 @@ export function WidgetEditorModal({
             onRulesChange={setStylingRules}
             onBack={() => setDialogStep("main")}
             chartType={chartType}
-            targetColumn={stylingTargetColumn}
-            onTargetColumnChange={setStylingTargetColumn}
             availableFields={availableFields}
             parameterSuggestions={parameterSuggestions}
             stylingTargets={getStylingTargets(chartType)}
@@ -1030,7 +1068,26 @@ export function WidgetEditorModal({
                     chartType={chartType}
                     settings={chartOptions}
                     onSettingsChange={setChartOptions}
+                    columns={availableFields}
                   />
+                  {chartType === "table" && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                        Color Scales
+                      </h4>
+                      {availableFields.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">
+                          Run a preview query to configure color scales.
+                        </p>
+                      ) : (
+                        <ColorScalePanel
+                          columns={availableFields}
+                          colorScales={colorScales}
+                          onColorScalesChange={setColorScales}
+                        />
+                      )}
+                    </div>
+                  )}
                   {chartOptions.cacheMode === "forever" && (
                     <div
                       className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
@@ -1196,11 +1253,11 @@ export function WidgetEditorModal({
                     </div>
                     )}
 
-                    {/* Rule-based styling — hidden for unsupported chart types */}
+                    {/* Styling — row-level rules + cell-level formatting */}
                     {chartSupportsStyling(chartType) && (
                     <div className="space-y-4 border-t pt-4">
                       <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                        Rule-Based Styling
+                        Styling
                       </h4>
                       <div className="flex items-center gap-2">
                         <Checkbox
@@ -1311,18 +1368,29 @@ export function WidgetEditorModal({
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     </div>
                   )}
-                  {previewQuery.data ? (
+                  {(previewQuery.data || initialPreviewData) ? (
                     <CardContainer
                       widget={{
                         id: "preview",
                         chartType,
                         connectionId,
                         query,
-                        settings: { chartOptions },
+                        settings: {
+                          title: title || undefined,
+                          chartOptions,
+                          stylingConfig: buildStylingConfig(),
+                          conditionalFormatting: colorScales.length
+                            ? { colorScales }
+                            : undefined,
+                        },
                       }}
-                      previewData={previewQuery.data.data}
-                      previewResultId={previewQuery.data.resultId}
+                      previewData={(previewQuery.data ?? initialPreviewData)!.data}
+                      previewResultId={(previewQuery.data ?? initialPreviewData)!.resultId}
                     />
+                  ) : (mode === "edit" || mode === "lab-edit") && connectionId && query.trim() ? (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
                   ) : (
                     <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                       Run a query to see the preview

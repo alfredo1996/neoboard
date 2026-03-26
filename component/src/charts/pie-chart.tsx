@@ -3,7 +3,7 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, getCompactState, isDark, resolveItemColor } from "./chart-utils";
+import { buildEmptyDataOption, getCompactState, isDark, resolveItemColor, groupTopN } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 
@@ -24,6 +24,10 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   showPercentage?: boolean;
   /** Sort slices by value descending */
   sortSlices?: boolean;
+  /** Group slices beyond top N into "Other". 0 = show all. */
+  topN?: number;
+  /** Text shown in the center of a donut chart (e.g. total value). Empty = auto-total. */
+  donutCenterText?: string;
   /** @deprecated Use stylingRules instead. JSON string of thresholds */
   colorThresholds?: string;
   /** Rule-based styling rules */
@@ -49,6 +53,8 @@ function PieChart({
   labelPosition = "outside",
   showPercentage = true,
   sortSlices = false,
+  topN = 0,
+  donutCenterText,
   colorThresholds,
   stylingRules,
   paramValues,
@@ -58,15 +64,18 @@ function PieChart({
   const compact = width > 0 && (width < 300 || height < 200);
   const { hideLegend } = getCompactState(width, height);
 
-  const options = useMemo((): EChartsOption => {
+  // EChartsOption from modular imports may not include 'graphic' —
+  // we use GraphicComponent which extends the option type at runtime.
+  const options = useMemo((): EChartsOption & { graphic?: unknown } => {
     if (!data.length) return buildEmptyDataOption();
 
     const effectiveShowLabel = compact ? false : showLabel;
     const effectiveShowLegend = hideLegend ? false : showLegend;
 
-    const sortedData = sortSlices
+    const sorted = sortSlices
       ? [...data].sort((a, b) => b.value - a.value)
       : data;
+    const sortedData = groupTopN(sorted, topN);
 
     const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
     const coloredData = sortedData.map((d) => {
@@ -111,8 +120,23 @@ function PieChart({
           },
         },
       ],
+      // Donut center text: show total or custom text in the center hole
+      ...(donut && !compact ? {
+        graphic: [{
+          type: "text",
+          left: "center",
+          top: effectiveShowLegend ? "42%" : "47%",
+          style: {
+            text: donutCenterText ?? String(sortedData.reduce((s, d) => s + d.value, 0)),
+            align: "center",
+            fontSize: 20,
+            fontWeight: "bold",
+            fill: isDark() ? "#e5e5e5" : "#262626",
+          },
+        }],
+      } : {}),
     };
-  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
+  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, topN, donutCenterText, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

@@ -121,7 +121,7 @@ test.describe("Styling rules — table widget", () => {
     await page.getByRole("button", { name: "Done" }).click();
   });
 
-  test("should show target column selector for table type", async ({ page }) => {
+  test("should show per-rule column selector for table type", async ({ page }) => {
     test.setTimeout(60_000);
     const dialog = await addTableAndGoToAdvanced(page);
 
@@ -129,9 +129,10 @@ test.describe("Styling rules — table widget", () => {
     await dialog.getByLabel("Enable rule-based styling").click();
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
 
-    // Should show "Target Column" label (tables only)
-    await expect(page.getByText("Target Column")).toBeVisible();
-    // The FieldSelectorInput placeholder
+    // Add a rule so we can see the per-rule column selector
+    await page.getByRole("button", { name: "Add Rule" }).click();
+    // Each rule should have a "Column" field with per-rule column picker
+    await expect(page.getByText("Column")).toBeVisible();
     await expect(page.getByText("Auto (first numeric)")).toBeVisible();
 
     await page.getByRole("button", { name: "Done" }).click();
@@ -263,8 +264,8 @@ test.describe("Styling rules — bar chart", () => {
     await page.getByRole("button", { name: "Add Rule" }).click();
     await expect(page.getByText("Rule 1")).toBeVisible();
 
-    // "Target Column" should NOT be visible for bar charts (only tables)
-    await expect(page.getByText("Target Column")).not.toBeVisible();
+    // Per-rule "Column" selector should NOT be visible for bar charts (only tables)
+    await expect(page.locator("text=Column").first()).not.toBeVisible();
 
     // Click Done
     await page.getByRole("button", { name: "Done" }).click();

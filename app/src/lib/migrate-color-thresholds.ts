@@ -12,7 +12,6 @@ interface LegacyThreshold {
  */
 export function migrateColorThresholds(
   raw: string,
-  targetColumn?: string,
 ): StylingConfig | undefined {
   if (!raw.trim()) return undefined;
 
@@ -47,6 +46,5 @@ export function migrateColorThresholds(
   return {
     enabled: true,
     rules,
-    targetColumn: targetColumn || undefined,
   };
 }
