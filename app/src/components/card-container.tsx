@@ -257,15 +257,22 @@ export function CardContainer({
             type={chartConfig.type}
             data={transformedData}
             settings={chartOptions}
-            onChartClick={hasClickAction ? handleChartClick : undefined}
-            clickableColumns={clickableColumns}
-            connectionId={widget.connectionId}
-            widgetId={widget.id}
-            resultId={previewResultId}
-            stylingRules={resolvedStylingConfig?.rules}
-            paramValues={allParamValues}
-            autoFit={autoFit}
-            colorScales={colorScales}
+            styling={{
+              rules: resolvedStylingConfig?.rules,
+              paramValues: allParamValues,
+              colorScales,
+            }}
+            interaction={
+              hasClickAction
+                ? { onChartClick: handleChartClick, clickableColumns }
+                : undefined
+            }
+            meta={{
+              connectionId: widget.connectionId,
+              widgetId: widget.id,
+              resultId: previewResultId,
+              autoFit,
+            }}
           />
         </div>
         {showOverlay && (
@@ -289,8 +296,7 @@ export function CardContainer({
             type={chartConfig.type}
             data={null}
             settings={chartOptions}
-            connectionId={widget.connectionId}
-            widgetId={widget.id}
+            meta={{ connectionId: widget.connectionId, widgetId: widget.id }}
           />
         </div>
       </div>
@@ -306,8 +312,7 @@ export function CardContainer({
             type={chartConfig.type}
             data={null}
             settings={widget.settings as Record<string, unknown>}
-            connectionId={widget.connectionId}
-            widgetId={widget.id}
+            meta={{ connectionId: widget.connectionId, widgetId: widget.id }}
             query={widget.query}
           />
         </div>
@@ -472,15 +477,22 @@ export function CardContainer({
           type={chartConfig.type}
           data={transformedData}
           settings={chartOptions}
-          onChartClick={hasClickAction ? handleChartClick : undefined}
-          clickableColumns={clickableColumns}
-          connectionId={widget.connectionId}
-          widgetId={widget.id}
-          resultId={widgetQuery.data.resultId}
-          stylingRules={resolvedStylingConfig?.rules}
-          paramValues={allParamValues}
-          autoFit={autoFit}
-          colorScales={colorScales}
+          styling={{
+            rules: resolvedStylingConfig?.rules,
+            paramValues: allParamValues,
+            colorScales,
+          }}
+          interaction={
+            hasClickAction
+              ? { onChartClick: handleChartClick, clickableColumns }
+              : undefined
+          }
+          meta={{
+            connectionId: widget.connectionId,
+            widgetId: widget.id,
+            resultId: widgetQuery.data.resultId,
+            autoFit,
+          }}
         />
       </div>
       {showOverlay && (
