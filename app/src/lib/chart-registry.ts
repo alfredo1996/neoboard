@@ -874,6 +874,16 @@ export function chartSupportsStyling(type: string): boolean {
 }
 
 /**
+ * Returns empty default chart settings for a type. Used by the widget editor
+ * store to initialize chart options without importing the component package.
+ * Returns an empty object — the actual defaults are applied at render time
+ * by the ChartOptionsPanel component.
+ */
+export function getChartDefaults(_type: string): Record<string, unknown> {
+  return {};
+}
+
+/**
  * Returns the available styling targets for a chart type.
  * Reads from the registry's `stylingTargets` field — no switch statement.
  */
