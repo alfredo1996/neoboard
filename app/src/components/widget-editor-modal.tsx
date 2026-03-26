@@ -91,6 +91,7 @@ import { ParameterPreview } from "./widget-editor/parameter-preview";
 import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 
 export interface WidgetEditorModalProps {
@@ -809,6 +810,36 @@ export function WidgetEditorModal({
     return [];
   }, [previewQuery.data, initialPreviewData]);
 
+  // Sync local state → widget editor store (bridge for sub-editors reading from store).
+  useEffect(() => {
+    useWidgetEditorStore.setState({ chartType });
+  }, [chartType]);
+  useEffect(() => {
+    useWidgetEditorStore.setState({ availableFields });
+  }, [availableFields]);
+  useEffect(() => {
+    useWidgetEditorStore.setState({ parameterSuggestions });
+  }, [parameterSuggestions]);
+
+  // Bidirectional sync for styling rules between local state and store.
+  // Forward: local → store when local changes (e.g., modal resets or loads widget)
+  const syncingFromStore = useRef(false);
+  useEffect(() => {
+    if (!syncingFromStore.current) {
+      useWidgetEditorStore.setState({ stylingRules });
+    }
+  }, [stylingRules]);
+  // Reverse: store → local when sub-editor modifies rules
+  useEffect(() => {
+    return useWidgetEditorStore.subscribe((state, prev) => {
+      if (state.stylingRules !== prev.stylingRules) {
+        syncingFromStore.current = true;
+        setStylingRules(state.stylingRules);
+        syncingFromStore.current = false;
+      }
+    });
+  }, []);
+
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
   const isMarkdown = chartType === "markdown";
@@ -936,15 +967,7 @@ export function WidgetEditorModal({
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
       >
         {dialogStep === "styling-rules" ? (
-          <StylingRulesEditor
-            rules={stylingRules}
-            onRulesChange={setStylingRules}
-            onBack={() => setDialogStep("main")}
-            chartType={chartType}
-            availableFields={availableFields}
-            parameterSuggestions={parameterSuggestions}
-            stylingTargets={getStylingTargets(chartType)}
-          />
+          <StylingRulesEditor onBack={() => setDialogStep("main")} />
         ) : dialogStep === "rules" ? (
           <ActionRulesEditor
             rules={actionRules}
