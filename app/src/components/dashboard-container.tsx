@@ -70,9 +70,8 @@ interface DashboardContainerProps {
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
-  if (widget.settings?.title && typeof widget.settings.title === "string") {
-    return widget.settings.title;
-  }
+  const title = (widget.settings ?? {}).title;
+  if (title && typeof title === "string") return title;
   return getChartConfig(widget.chartType)?.label ?? widget.chartType;
 }
 
@@ -210,92 +209,92 @@ export function DashboardContainer({
         </ParameterBar>
       )}
       <div className="w-full min-w-0">
-      <DashboardGrid
-        layout={page.gridLayout as GridLayoutItem[]}
-        onLayoutChange={(items) => onLayoutChange?.(items as GridLayoutItem[])}
-        isDraggable={editable}
-        isResizable={editable}
-      >
-        {page.widgets.map((widget) => {
-          const outdated = editable && isWidgetOutdated(widget);
-          const chartOpts = (widget.settings?.chartOptions ?? {}) as Record<
-            string,
-            unknown
-          >;
-          const showRefresh = shouldShowRefreshButton(chartOpts);
-          return (
-            <div
-              key={widget.id}
-              data-testid="widget-card"
-              data-widget-id={widget.id}
-            >
-              <WidgetCard
-                title={interpolateTitle(getWidgetTitle(widget), parameters)}
-                subtitle={undefined}
-                className="h-full"
-                draggable={editable}
-                actions={buildActions(widget)}
-                onRefresh={
-                  showRefresh
-                    ? () => {
-                        // Invalidate all TanStack Query entries matching this widget's
-                        // connection + query combo. This triggers a refetch.
-                        void queryClient.invalidateQueries({
-                          queryKey: [
-                            "widget-query",
-                            widget.connectionId,
-                            widget.query,
-                            widget.params,
-                          ],
-                        });
-                      }
-                    : undefined
-                }
-                headerExtra={
-                  <>
-                    {outdated && (
+        <DashboardGrid
+          layout={page.gridLayout as GridLayoutItem[]}
+          onLayoutChange={(items) =>
+            onLayoutChange?.(items as GridLayoutItem[])
+          }
+          isDraggable={editable}
+          isResizable={editable}
+        >
+          {page.widgets.map((widget) => {
+            const outdated = editable && isWidgetOutdated(widget);
+            const chartOpts = ((widget.settings ?? {}).chartOptions ??
+              {}) as Record<string, unknown>;
+            const showRefresh = shouldShowRefreshButton(chartOpts);
+            return (
+              <div
+                key={widget.id}
+                data-testid="widget-card"
+                data-widget-id={widget.id}
+              >
+                <WidgetCard
+                  title={interpolateTitle(getWidgetTitle(widget), parameters)}
+                  subtitle={undefined}
+                  className="h-full"
+                  draggable={editable}
+                  actions={buildActions(widget)}
+                  onRefresh={
+                    showRefresh
+                      ? () => {
+                          // Invalidate all TanStack Query entries matching this widget's
+                          // connection + query combo. This triggers a refetch.
+                          void queryClient.invalidateQueries({
+                            queryKey: [
+                              "widget-query",
+                              widget.connectionId,
+                              widget.query,
+                              widget.params,
+                            ],
+                          });
+                        }
+                      : undefined
+                  }
+                  headerExtra={
+                    <>
+                      {outdated && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-500"
+                          onClick={() => setPendingSyncWidget(widget)}
+                          title="Template update available — click to sync"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          <span className="sr-only">
+                            Template update available
+                          </span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-amber-500"
-                        onClick={() => setPendingSyncWidget(widget)}
-                        title="Template update available — click to sync"
+                        className="h-8 w-8"
+                        onClick={() => openFullscreen(widget)}
                       >
-                        <RefreshCw className="h-4 w-4" />
-                        <span className="sr-only">
-                          Template update available
-                        </span>
+                        <Maximize2 className="h-4 w-4" />
+                        <span className="sr-only">Fullscreen</span>
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openFullscreen(widget)}
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                      <span className="sr-only">Fullscreen</span>
-                    </Button>
-                  </>
-                }
-              >
-                <CardContainer
-                  widget={widget}
-                  isEditMode={editable}
-                  onWidgetSettingsChange={
-                    onWidgetSettingsChange
-                      ? (settings) =>
-                          onWidgetSettingsChange(widget.id, settings)
-                      : undefined
+                    </>
                   }
-                  refetchInterval={refetchInterval}
-                  onNavigateToPage={onNavigateToPage}
-                />
-              </WidgetCard>
-            </div>
-          );
-        })}
-      </DashboardGrid>
+                >
+                  <CardContainer
+                    widget={widget}
+                    isEditMode={editable}
+                    onWidgetSettingsChange={
+                      onWidgetSettingsChange
+                        ? (settings) =>
+                            onWidgetSettingsChange(widget.id, settings)
+                        : undefined
+                    }
+                    refetchInterval={refetchInterval}
+                    onNavigateToPage={onNavigateToPage}
+                  />
+                </WidgetCard>
+              </div>
+            );
+          })}
+        </DashboardGrid>
       </div>
 
       <Dialog
