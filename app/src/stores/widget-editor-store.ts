@@ -90,6 +90,10 @@ export interface WidgetEditorState {
   labDescription: string;
   labTagsInput: string;
 
+  // ── Derived / external data ──────────────────────────────────────
+  availableFields: string[];
+  parameterSuggestions: string[];
+
   // ── UI state ────────────────────────────────────────────────────
   dialogStep: "main" | "rules" | "styling-rules" | "templates";
   connectorChanged: boolean;
@@ -131,6 +135,8 @@ export interface WidgetEditorState {
   setLabDescription: (v: string) => void;
   setLabTagsInput: (v: string) => void;
 
+  setAvailableFields: (v: string[]) => void;
+  setParameterSuggestions: (v: string[]) => void;
   setDialogStep: (v: "main" | "rules" | "styling-rules" | "templates") => void;
   setConnectorChanged: (v: boolean) => void;
 
@@ -177,6 +183,8 @@ function getInitialState() {
     labName: "",
     labDescription: "",
     labTagsInput: "",
+    availableFields: [] as string[],
+    parameterSuggestions: [] as string[],
     dialogStep: "main" as const,
     connectorChanged: false,
   };
@@ -225,6 +233,8 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
   setLabDescription: (v) => set({ labDescription: v }),
   setLabTagsInput: (v) => set({ labTagsInput: v }),
 
+  setAvailableFields: (v) => set({ availableFields: v }),
+  setParameterSuggestions: (v) => set({ parameterSuggestions: v }),
   setDialogStep: (v) => set({ dialogStep: v }),
   setConnectorChanged: (v) => set({ connectorChanged: v }),
 

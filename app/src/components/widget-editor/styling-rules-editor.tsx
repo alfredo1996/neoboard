@@ -2,6 +2,8 @@
 
 import React from "react";
 import type { StylingRule, StylingOperator } from "@/lib/db/schema";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
+import { getStylingTargets } from "@/lib/chart-registry";
 import { ArrowLeft, GripVertical, Plus, Trash2, Bold } from "lucide-react";
 import {
   Accordion,
@@ -41,7 +43,10 @@ import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
 import { ValueOrParamInput } from "./value-or-param-input";
 
-const OPERATOR_GROUPS: { label: string; operators: { value: StylingOperator; label: string }[] }[] = [
+const OPERATOR_GROUPS: {
+  label: string;
+  operators: { value: StylingOperator; label: string }[];
+}[] = [
   {
     label: "Numeric",
     operators: [
@@ -73,16 +78,15 @@ const OPERATOR_GROUPS: { label: string; operators: { value: StylingOperator; lab
 ];
 
 const NULL_OPS = new Set<StylingOperator>(["is_null", "is_not_null"]);
-const STRING_OPS = new Set<StylingOperator>(["contains", "not_contains", "starts_with", "ends_with"]);
+const STRING_OPS = new Set<StylingOperator>([
+  "contains",
+  "not_contains",
+  "starts_with",
+  "ends_with",
+]);
 
 interface StylingRulesEditorProps {
-  rules: StylingRule[];
-  onRulesChange: (rules: StylingRule[]) => void;
   onBack: () => void;
-  chartType: string;
-  availableFields: string[];
-  parameterSuggestions: string[];
-  stylingTargets: { value: string; label: string }[];
 }
 
 function ruleSummary(rule: StylingRule): string {
@@ -143,7 +147,12 @@ function SortableRuleItem({
   const valuePlaceholder = STRING_OPS.has(rule.operator) ? "text value" : "0";
 
   return (
-    <AccordionItem ref={setNodeRef} style={style} value={rule.id} className="border rounded-lg">
+    <AccordionItem
+      ref={setNodeRef}
+      style={style}
+      value={rule.id}
+      className="border rounded-lg"
+    >
       <div className="flex items-center pr-2">
         <button
           type="button"
@@ -157,7 +166,8 @@ function SortableRuleItem({
         <AccordionTrigger className="flex-1 px-2 py-3 text-sm font-medium">
           Rule {index + 1}
           <span className="ml-1 text-xs font-normal text-muted-foreground">
-            {" — "}{ruleSummary(rule)}{" "}
+            {" — "}
+            {ruleSummary(rule)}{" "}
             <span
               className="inline-block w-3 h-3 rounded-sm border align-middle"
               style={{ backgroundColor: rule.color }}
@@ -218,45 +228,51 @@ function SortableRuleItem({
 
         {/* Compare against: Value or Parameter — hidden for null ops */}
         {!NULL_OPS.has(rule.operator) && rule.operator !== "between" && (
-        <div className="space-y-1.5">
-          <Label>Compare Against</Label>
-          <ValueOrParamInput
-            parameterRef={rule.parameterRef}
-            onParamRefChange={(ref) => onUpdate(rule.id, { parameterRef: ref })}
-            value={rule.value}
-            onValueChange={(v) => onUpdate(rule.id, { value: v })}
-            parameterSuggestions={parameterSuggestions}
-            inputType={inputType}
-            placeholder={valuePlaceholder}
-          />
-        </div>
+          <div className="space-y-1.5">
+            <Label>Compare Against</Label>
+            <ValueOrParamInput
+              parameterRef={rule.parameterRef}
+              onParamRefChange={(ref) =>
+                onUpdate(rule.id, { parameterRef: ref })
+              }
+              value={rule.value}
+              onValueChange={(v) => onUpdate(rule.id, { value: v })}
+              parameterSuggestions={parameterSuggestions}
+              inputType={inputType}
+              placeholder={valuePlaceholder}
+            />
+          </div>
         )}
 
         {/* Between: two-bound range input */}
         {rule.operator === "between" && (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>From (min)</Label>
-            <ValueOrParamInput
-              parameterRef={rule.parameterRef}
-              onParamRefChange={(ref) => onUpdate(rule.id, { parameterRef: ref })}
-              value={rule.value}
-              onValueChange={(v) => onUpdate(rule.id, { value: v })}
-              parameterSuggestions={parameterSuggestions}
-            />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>From (min)</Label>
+              <ValueOrParamInput
+                parameterRef={rule.parameterRef}
+                onParamRefChange={(ref) =>
+                  onUpdate(rule.id, { parameterRef: ref })
+                }
+                value={rule.value}
+                onValueChange={(v) => onUpdate(rule.id, { value: v })}
+                parameterSuggestions={parameterSuggestions}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>To (max)</Label>
+              <ValueOrParamInput
+                parameterRef={rule.parameterRefTo}
+                onParamRefChange={(ref) =>
+                  onUpdate(rule.id, { parameterRefTo: ref })
+                }
+                value={rule.valueTo ?? ""}
+                onValueChange={(v) => onUpdate(rule.id, { valueTo: v })}
+                parameterSuggestions={parameterSuggestions}
+                placeholder="100"
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>To (max)</Label>
-            <ValueOrParamInput
-              parameterRef={rule.parameterRefTo}
-              onParamRefChange={(ref) => onUpdate(rule.id, { parameterRefTo: ref })}
-              value={rule.valueTo ?? ""}
-              onValueChange={(v) => onUpdate(rule.id, { valueTo: v })}
-              parameterSuggestions={parameterSuggestions}
-              placeholder="100"
-            />
-          </div>
-        </div>
         )}
 
         {/* Color */}
@@ -265,18 +281,14 @@ function SortableRuleItem({
           <div className="flex items-center gap-2">
             <Input
               value={rule.color}
-              onChange={(e) =>
-                onUpdate(rule.id, { color: e.target.value })
-              }
+              onChange={(e) => onUpdate(rule.id, { color: e.target.value })}
               placeholder="#3b82f6"
               className="flex-1"
             />
             <input
               type="color"
               value={rule.color}
-              onChange={(e) =>
-                onUpdate(rule.id, { color: e.target.value })
-              }
+              onChange={(e) => onUpdate(rule.id, { color: e.target.value })}
               className="h-9 w-9 rounded border cursor-pointer"
               aria-label="Pick color"
             />
@@ -329,15 +341,15 @@ function SortableRuleItem({
   );
 }
 
-export function StylingRulesEditor({
-  rules,
-  onRulesChange,
-  onBack,
-  chartType,
-  availableFields,
-  parameterSuggestions,
-  stylingTargets,
-}: StylingRulesEditorProps) {
+export function StylingRulesEditor({ onBack }: StylingRulesEditorProps) {
+  const rules = useWidgetEditorStore((s) => s.stylingRules);
+  const onRulesChange = useWidgetEditorStore((s) => s.setStylingRules);
+  const chartType = useWidgetEditorStore((s) => s.chartType);
+  const availableFields = useWidgetEditorStore((s) => s.availableFields);
+  const parameterSuggestions = useWidgetEditorStore(
+    (s) => s.parameterSuggestions,
+  );
+  const stylingTargets = getStylingTargets(chartType);
   const isTable = chartType === "table";
 
   const { openItems, setOpenItems, addItem, removeItem, updateItem } =
@@ -349,13 +361,15 @@ export function StylingRulesEditor({
       operator: "<=",
       value: 0,
       color: "#3b82f6",
-      target: stylingTargets[0]?.value as StylingRule["target"] ?? "color",
+      target: (stylingTargets[0]?.value as StylingRule["target"]) ?? "color",
     }));
   }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   function handleDragEnd(event: DragEndEvent) {
@@ -393,8 +407,15 @@ export function StylingRulesEditor({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={rules.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-            <Accordion type="multiple" value={openItems} onValueChange={setOpenItems}>
+          <SortableContext
+            items={rules.map((r) => r.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <Accordion
+              type="multiple"
+              value={openItems}
+              onValueChange={setOpenItems}
+            >
               {rules.map((rule, index) => (
                 <SortableRuleItem
                   key={rule.id}
@@ -412,7 +433,12 @@ export function StylingRulesEditor({
           </SortableContext>
         </DndContext>
 
-        <Button variant="outline" size="sm" onClick={addRule} className="w-full">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={addRule}
+          className="w-full"
+        >
           <Plus className="h-4 w-4 mr-1.5" />
           Add Rule
         </Button>
