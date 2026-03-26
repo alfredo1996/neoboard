@@ -3,7 +3,7 @@
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
-import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
+import type { ColumnMapping } from "@/lib/chart-registry";
 import type {
   DashboardWidget,
   ClickAction,
@@ -36,7 +36,10 @@ import { ChartRenderer } from "./chart-renderer";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 
 /** Chart types that support column mapping. */
-const MAPPING_SUPPORTED_TYPES = new Set<ChartType>(["bar", "line", "pie"]);
+/** Derived from registry — chart types that support column mapping overlays. */
+function supportsColumnMapping(type: string): boolean {
+  return getChartConfig(type)?.supportsColumnMapping === true;
+}
 
 interface CardContainerProps {
   widget: DashboardWidget;
@@ -185,7 +188,7 @@ export function CardContainer({
   // Determine whether to show the overlay.
   const showOverlay =
     isEditMode &&
-    MAPPING_SUPPORTED_TYPES.has(widget.chartType as ChartType) &&
+    supportsColumnMapping(widget.chartType) &&
     !!onWidgetSettingsChange;
 
   const handleMappingChange = useCallback(
