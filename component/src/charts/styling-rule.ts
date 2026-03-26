@@ -1,8 +1,17 @@
 export type StylingOperator =
-  | "<=" | ">=" | "<" | ">" | "==" | "!="
+  | "<="
+  | ">="
+  | "<"
+  | ">"
+  | "=="
+  | "!="
   | "between"
-  | "contains" | "not_contains" | "starts_with" | "ends_with"
-  | "is_null" | "is_not_null";
+  | "contains"
+  | "not_contains"
+  | "starts_with"
+  | "ends_with"
+  | "is_null"
+  | "is_not_null";
 
 export interface StylingRule {
   id: string;
@@ -36,19 +45,80 @@ export interface ColorScaleConfig {
   maxColor: string;
 }
 
-const NUMERIC_OPS = new Set(["<=", ">=", "<", ">", "==", "!="]);
-const STRING_OPS = new Set(["contains", "not_contains", "starts_with", "ends_with"]);
-const NULL_OPS = new Set(["is_null", "is_not_null"]);
+// ---------------------------------------------------------------------------
+// Operator registry — single source of truth for all styling operators.
+// Consumed by both the evaluation engine and the editor UI.
+// ---------------------------------------------------------------------------
+
+export type OperatorGroup = "Numeric" | "Text" | "Null";
+
+export interface OperatorDef {
+  value: StylingOperator;
+  label: string;
+  group: OperatorGroup;
+}
+
+export const OPERATOR_REGISTRY: OperatorDef[] = [
+  // Numeric
+  { value: "<=", label: "<= (less or equal)", group: "Numeric" },
+  { value: ">=", label: ">= (greater or equal)", group: "Numeric" },
+  { value: "<", label: "< (less than)", group: "Numeric" },
+  { value: ">", label: "> (greater than)", group: "Numeric" },
+  { value: "==", label: "== (equals)", group: "Numeric" },
+  { value: "!=", label: "!= (not equal)", group: "Numeric" },
+  { value: "between", label: "between", group: "Numeric" },
+  // Text
+  { value: "contains", label: "contains", group: "Text" },
+  { value: "not_contains", label: "not contains", group: "Text" },
+  { value: "starts_with", label: "starts with", group: "Text" },
+  { value: "ends_with", label: "ends with", group: "Text" },
+  // Null
+  { value: "is_null", label: "is null", group: "Null" },
+  { value: "is_not_null", label: "is not null", group: "Null" },
+];
+
+/** Grouped operators for the editor UI dropdown. */
+export function getOperatorGroups(): {
+  label: string;
+  operators: OperatorDef[];
+}[] {
+  const groups = new Map<string, OperatorDef[]>();
+  for (const op of OPERATOR_REGISTRY) {
+    if (!groups.has(op.group)) groups.set(op.group, []);
+    groups.get(op.group)!.push(op);
+  }
+  return Array.from(groups.entries()).map(([label, operators]) => ({
+    label,
+    operators,
+  }));
+}
+
+const NUMERIC_OPS = new Set(
+  OPERATOR_REGISTRY.filter((o) => o.group === "Numeric").map((o) => o.value),
+);
+const STRING_OPS = new Set(
+  OPERATOR_REGISTRY.filter((o) => o.group === "Text").map((o) => o.value),
+);
+const NULL_OPS = new Set(
+  OPERATOR_REGISTRY.filter((o) => o.group === "Null").map((o) => o.value),
+);
 
 function evaluateNumeric(op: string, left: number, right: number): boolean {
   switch (op) {
-    case "<=": return left <= right;
-    case ">=": return left >= right;
-    case "<":  return left < right;
-    case ">":  return left > right;
-    case "==": return left === right;
-    case "!=": return left !== right;
-    default:   return false;
+    case "<=":
+      return left <= right;
+    case ">=":
+      return left >= right;
+    case "<":
+      return left < right;
+    case ">":
+      return left > right;
+    case "==":
+      return left === right;
+    case "!=":
+      return left !== right;
+    default:
+      return false;
   }
 }
 
@@ -56,13 +126,20 @@ function evaluateString(op: string, left: string, right: string): boolean {
   const l = left.toLowerCase();
   const r = right.toLowerCase();
   switch (op) {
-    case "contains":     return l.includes(r);
-    case "not_contains": return !l.includes(r);
-    case "starts_with":  return l.startsWith(r);
-    case "ends_with":    return l.endsWith(r);
-    case "==":           return l === r;
-    case "!=":           return l !== r;
-    default:             return false;
+    case "contains":
+      return l.includes(r);
+    case "not_contains":
+      return !l.includes(r);
+    case "starts_with":
+      return l.startsWith(r);
+    case "ends_with":
+      return l.endsWith(r);
+    case "==":
+      return l === r;
+    case "!=":
+      return l !== r;
+    default:
+      return false;
   }
 }
 
@@ -134,7 +211,11 @@ export function resolveStylingRuleColor(
     // String operators: coerce both to string
     if (STRING_OPS.has(op)) {
       if (cellValue == null) continue;
-      const result = evaluateString(op, String(cellValue), String(compareValue));
+      const result = evaluateString(
+        op,
+        String(cellValue),
+        String(compareValue),
+      );
       if (result) return rule.color;
       continue;
     }
@@ -151,7 +232,8 @@ export function resolveStylingRuleColor(
 
       // For == and !=, fall back to string comparison when not both numeric
       if ((op === "==" || op === "!=") && cellValue != null) {
-        if (evaluateString(op, String(cellValue), String(compareValue))) return rule.color;
+        if (evaluateString(op, String(cellValue), String(compareValue)))
+          return rule.color;
       }
       continue;
     }
@@ -198,13 +280,10 @@ export function interpolateColor(
   minColor: string,
   maxColor: string,
 ): string {
-  if (min === max) return minColor.length === 4 ? toHex(...parseHex(minColor)) : minColor;
+  if (min === max)
+    return minColor.length === 4 ? toHex(...parseHex(minColor)) : minColor;
   const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const [r1, g1, b1] = parseHex(minColor);
   const [r2, g2, b2] = parseHex(maxColor);
-  return toHex(
-    r1 + t * (r2 - r1),
-    g1 + t * (g2 - g1),
-    b1 + t * (b2 - b1),
-  );
+  return toHex(r1 + t * (r2 - r1), g1 + t * (g2 - g1), b1 + t * (b2 - b1));
 }
