@@ -312,8 +312,11 @@ export function CardContainer({
             type={chartConfig.type}
             data={null}
             settings={widget.settings as Record<string, unknown>}
-            meta={{ connectionId: widget.connectionId, widgetId: widget.id }}
-            query={widget.query}
+            meta={{
+              connectionId: widget.connectionId,
+              widgetId: widget.id,
+              query: widget.query,
+            }}
           />
         </div>
       </div>
