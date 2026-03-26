@@ -17,9 +17,6 @@ export interface ColorScalePanelProps {
   onColorScalesChange: (scales: ColorScaleConfig[]) => void;
 }
 
-/** @deprecated Use ColorScalePanelProps instead */
-export type ConditionalFormatPanelProps = ColorScalePanelProps;
-
 function ColorScaleRow({
   scale,
   columns,
@@ -35,13 +32,18 @@ function ColorScaleRow({
     <div className="flex items-end gap-2 rounded-lg border p-3">
       <div className="space-y-1">
         <Label className="text-xs">Column</Label>
-        <Select value={scale.column} onValueChange={(v) => onChange({ ...scale, column: v })}>
+        <Select
+          value={scale.column}
+          onValueChange={(v) => onChange({ ...scale, column: v })}
+        >
           <SelectTrigger className="w-[120px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {columns.map((col) => (
-              <SelectItem key={col} value={col}>{col}</SelectItem>
+              <SelectItem key={col} value={col}>
+                {col}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -74,7 +76,13 @@ function ColorScaleRow({
         />
       </div>
 
-      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onRemove} aria-label="Remove color scale">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 shrink-0"
+        onClick={onRemove}
+        aria-label="Remove color scale"
+      >
         <Trash2 className="h-4 w-4 text-destructive" />
       </Button>
     </div>
@@ -116,7 +124,12 @@ function ColorScalePanel({
           onRemove={() => removeColorScale(i)}
         />
       ))}
-      <Button variant="outline" size="sm" className="gap-1" onClick={addColorScale}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1"
+        onClick={addColorScale}
+      >
         <Plus className="h-3 w-3" />
         Add Color Scale
       </Button>
@@ -124,7 +137,4 @@ function ColorScalePanel({
   );
 }
 
-/** @deprecated Use ColorScalePanel instead */
-const ConditionalFormatPanel = ColorScalePanel;
-
-export { ColorScalePanel, ConditionalFormatPanel };
+export { ColorScalePanel };
