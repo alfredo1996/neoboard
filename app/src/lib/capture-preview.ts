@@ -18,7 +18,9 @@ const JPEG_QUALITY = 0.7;
  * Attempt to capture a preview from an ECharts canvas inside the given element.
  * Returns a data-URI string or undefined.
  */
-export function captureEChartsPreview(container: HTMLElement): string | undefined {
+export function captureEChartsPreview(
+  container: HTMLElement,
+): string | undefined {
   // ECharts renders into a <canvas> inside a div with data-testid="widget-preview"
   const canvas = container.querySelector("canvas");
   if (!canvas) return undefined;
@@ -55,7 +57,9 @@ export function captureEChartsPreview(container: HTMLElement): string | undefine
  * Capture a preview for table-type widgets by rendering a simple thumbnail
  * of the first few rows.
  */
-export function captureTablePreview(container: HTMLElement): string | undefined {
+export function captureTablePreview(
+  container: HTMLElement,
+): string | undefined {
   const table = container.querySelector("table");
   if (!table) return undefined;
 
@@ -72,7 +76,9 @@ export function captureTablePreview(container: HTMLElement): string | undefined 
     ctx.font = "11px system-ui, sans-serif";
 
     // Extract header and first few rows
-    const headers = Array.from(table.querySelectorAll("th")).map((th) => th.textContent ?? "");
+    const headers = Array.from(table.querySelectorAll("th")).map(
+      (th) => th.textContent ?? "",
+    );
     const rows = Array.from(table.querySelectorAll("tbody tr")).slice(0, 6);
 
     const colWidth = Math.floor((MAX_WIDTH - 16) / Math.max(headers.length, 1));
@@ -113,8 +119,7 @@ export function captureTablePreview(container: HTMLElement): string | undefined 
   }
 }
 
-/** Chart types that use ECharts canvas rendering. */
-const ECHARTS_TYPES = new Set(["bar", "line", "pie", "single-value"]);
+import { getChartConfig } from "./chart-registry";
 
 /**
  * Capture a preview image from the widget preview container.
@@ -124,7 +129,7 @@ export function capturePreview(
   previewElement: HTMLElement,
   chartType: string,
 ): string | undefined {
-  if (ECHARTS_TYPES.has(chartType)) {
+  if (getChartConfig(chartType)?.isECharts) {
     return captureEChartsPreview(previewElement);
   }
   if (chartType === "table") {
