@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { StylingRule, StylingOperator } from "@/lib/db/schema";
+import { getOperatorGroups } from "@neoboard/components/charts";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { getStylingTargets } from "@/lib/chart-registry";
 import { ArrowLeft, GripVertical, Plus, Trash2, Bold } from "lucide-react";
@@ -43,39 +44,8 @@ import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
 import { ValueOrParamInput } from "./value-or-param-input";
 
-const OPERATOR_GROUPS: {
-  label: string;
-  operators: { value: StylingOperator; label: string }[];
-}[] = [
-  {
-    label: "Numeric",
-    operators: [
-      { value: "<=", label: "<= (less or equal)" },
-      { value: ">=", label: ">= (greater or equal)" },
-      { value: "<", label: "< (less than)" },
-      { value: ">", label: "> (greater than)" },
-      { value: "==", label: "== (equals)" },
-      { value: "!=", label: "!= (not equal)" },
-      { value: "between", label: "between" },
-    ],
-  },
-  {
-    label: "Text",
-    operators: [
-      { value: "contains", label: "contains" },
-      { value: "not_contains", label: "not contains" },
-      { value: "starts_with", label: "starts with" },
-      { value: "ends_with", label: "ends with" },
-    ],
-  },
-  {
-    label: "Null",
-    operators: [
-      { value: "is_null", label: "is null" },
-      { value: "is_not_null", label: "is not null" },
-    ],
-  },
-];
+// Operator groups derived from the shared registry (single source of truth)
+const OPERATOR_GROUPS = getOperatorGroups();
 
 const NULL_OPS = new Set<StylingOperator>(["is_null", "is_not_null"]);
 const STRING_OPS = new Set<StylingOperator>([

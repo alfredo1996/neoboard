@@ -1,4 +1,9 @@
-export { BaseChart, CHART_COLORS, resolveChartColors, useDarkMode } from "./base-chart";
+export {
+  BaseChart,
+  CHART_COLORS,
+  resolveChartColors,
+  useDarkMode,
+} from "./base-chart";
 export {
   THEME_LIGHT,
   THEME_DARK,
@@ -9,8 +14,20 @@ export { COLOR_PALETTES, getPaletteColors } from "./palettes";
 export type { ColorPalette } from "./palettes";
 export type { ColorThreshold } from "./color-threshold";
 export { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
-export type { StylingRule, StylingConfig, StylingOperator, ColorScaleConfig } from "./styling-rule";
-export { resolveStylingRuleColor, interpolateColor } from "./styling-rule";
+export type {
+  StylingRule,
+  StylingConfig,
+  StylingOperator,
+  ColorScaleConfig,
+  OperatorDef,
+  OperatorGroup,
+} from "./styling-rule";
+export {
+  resolveStylingRuleColor,
+  interpolateColor,
+  OPERATOR_REGISTRY,
+  getOperatorGroups,
+} from "./styling-rule";
 export { LineChart } from "./line-chart";
 export type { LineChartProps } from "./line-chart";
 export { BarChart } from "./bar-chart";
@@ -30,13 +47,23 @@ export { GaugeChart } from "./gauge-chart";
 export type { GaugeChartProps, GaugeDataPoint } from "./gauge-chart";
 
 export { SankeyChart } from "./sankey-chart";
-export type { SankeyChartProps, SankeyNode, SankeyLink, SankeyChartData } from "./sankey-chart";
+export type {
+  SankeyChartProps,
+  SankeyNode,
+  SankeyLink,
+  SankeyChartData,
+} from "./sankey-chart";
 
 export { SunburstChart } from "./sunburst-chart";
 export type { SunburstChartProps, SunburstDataItem } from "./sunburst-chart";
 
 export { RadarChart } from "./radar-chart";
-export type { RadarChartProps, RadarIndicator, RadarSeries, RadarChartData } from "./radar-chart";
+export type {
+  RadarChartProps,
+  RadarIndicator,
+  RadarSeries,
+  RadarChartData,
+} from "./radar-chart";
 
 export { TreemapChart } from "./treemap-chart";
 export type { TreemapChartProps, TreemapDataItem } from "./treemap-chart";
