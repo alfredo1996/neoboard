@@ -304,7 +304,17 @@ export default function DashboardEditorPage({
     setEditorOpen(true);
   }
 
+  const [cachedPreviewData, setCachedPreviewData] = useState<
+    { data: unknown; resultId: string } | undefined
+  >();
+
   function openEditWidget(widget: DashboardWidget) {
+    // Grab cached query data so the editor preview shows instantly
+    const cached = queryClient.getQueryData<{
+      data: unknown;
+      resultId: string;
+    }>(["widget-query", widget.connectionId, widget.query, undefined]);
+    setCachedPreviewData(cached ?? undefined);
     setEditorMode("edit");
     setEditingWidget(widget);
     setEditorOpen(true);
@@ -475,6 +485,7 @@ export default function DashboardEditorPage({
             initialTemplate={
               pendingTemplateId ? templateMap[pendingTemplateId] : undefined
             }
+            initialPreviewData={editorMode === "edit" ? cachedPreviewData : undefined}
           />
 
           {templateWidget &&

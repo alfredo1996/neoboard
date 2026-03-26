@@ -59,6 +59,14 @@ describe("getChartOptions", () => {
     expect(keys).toContain("emptyMessage");
   });
 
+  it("groupBy option has type column-multi-select", () => {
+    const options = getChartOptions("table");
+    const groupBy = options.find((o) => o.key === "groupBy");
+    expect(groupBy).toBeDefined();
+    expect(groupBy!.type).toBe("column-multi-select");
+    expect(groupBy!.category).toBe("Grouping");
+  });
+
   it("returns options for json chart", () => {
     const keys = getChartOptions("json").map((o) => o.key);
     expect(keys).toContain("initialExpanded");
@@ -84,7 +92,7 @@ describe("getChartOptions", () => {
         expect(opt).toHaveProperty("type");
         expect(opt).toHaveProperty("default");
         expect(opt).toHaveProperty("category");
-        expect(["boolean", "select", "text", "number"]).toContain(opt.type);
+        expect(["boolean", "select", "text", "number", "column-multi-select"]).toContain(opt.type);
       }
     }
   });

@@ -45,6 +45,7 @@ export { FieldPicker, type FieldPickerProps, type FieldOption } from "./field-pi
 export { ChartSettingsPanel, type ChartSettingsPanelProps } from "./chart-settings-panel";
 export { ChartOptionsPanel, type ChartOptionsPanelProps } from "./chart-options-panel";
 export { getChartOptions, getDefaultChartSettings, type ChartOptionDef } from "./chart-options-schema";
+export { ColorScalePanel, ConditionalFormatPanel, type ColorScalePanelProps, type ConditionalFormatPanelProps } from "./conditional-format-panel";
 
 // Connection
 export { ConnectionStatus, type ConnectionStatusProps, type ConnectionState } from "./connection-status";
