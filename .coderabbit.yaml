@@ -16,7 +16,7 @@ reviews:
     base_branches:
       - "main"
       - "dev"
-      - "release/*"
+      - "release/.*"
   path_filters:
     - "!docs/package-lock.json"
     - "!docs/content/**/*.mdx"

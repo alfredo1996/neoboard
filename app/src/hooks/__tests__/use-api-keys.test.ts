@@ -91,6 +91,21 @@ describe("use-api-keys", () => {
         body: JSON.stringify({ name: "new-key" }),
       });
     });
+
+    it("throws on error response", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(
+          { error: { message: "Validation failed", code: "VALIDATION" } },
+          400,
+        ),
+      );
+      const config = useCreateApiKey() as unknown as {
+        mutationFn: (input: { name: string }) => Promise<unknown>;
+      };
+      await expect(config.mutationFn({ name: "" })).rejects.toThrow(
+        "Validation failed",
+      );
+    });
   });
 
   describe("useRevokeApiKey mutationFn", () => {
@@ -106,6 +121,19 @@ describe("use-api-keys", () => {
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/keys/key-123", {
         method: "DELETE",
       });
+    });
+
+    it("throws on error response", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(
+          { error: { message: "Not found", code: "NOT_FOUND" } },
+          404,
+        ),
+      );
+      const config = useRevokeApiKey() as unknown as {
+        mutationFn: (id: string) => Promise<unknown>;
+      };
+      await expect(config.mutationFn("bad-id")).rejects.toThrow("Not found");
     });
   });
 });

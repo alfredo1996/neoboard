@@ -236,8 +236,12 @@ test.describe("v0.9 chart features", () => {
       "MATCH (m:Movie) RETURN count(m) AS value, 'Movies' AS name",
     );
     await expect(
-      dialog.getByRole("button", { name: "Add Widget" }),
+      dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+    await expect(getPreview(dialog).locator("canvas")).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Navigate to settings
     await dialog.getByRole("tab", { name: "Settings" }).click();
@@ -340,6 +344,8 @@ test.describe("CSV export", () => {
       ).toBeVisible({ timeout: 5_000 });
     } else if (await exportBtn.isVisible().catch(() => false)) {
       await expect(exportBtn).toBeVisible();
+    } else {
+      throw new Error("No CSV export control found on widget card");
     }
   });
 });
