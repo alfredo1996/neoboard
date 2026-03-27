@@ -73,6 +73,12 @@ describe("detectPostgresErrorType", () => {
     );
   });
 
+  it("detects 3D000 (invalid database) as CONNECTION", () => {
+    expect(detectPostgresErrorType({ code: "3D000" })).toBe(
+      ConnectorErrorType.CONNECTION,
+    );
+  });
+
   it("detects connection error from code 08001", () => {
     expect(detectPostgresErrorType({ code: "08001" })).toBe(
       ConnectorErrorType.CONNECTION,

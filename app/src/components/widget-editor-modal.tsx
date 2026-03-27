@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
@@ -811,20 +812,21 @@ export function WidgetEditorModal({
   }, [previewQuery.data, initialPreviewData]);
 
   // Sync local state → widget editor store (bridge for sub-editors reading from store).
-  useEffect(() => {
+  // useLayoutEffect ensures the store is updated synchronously before paint,
+  // so sub-editors see current values on the first render (not stale from previous frame).
+  useLayoutEffect(() => {
     useWidgetEditorStore.setState({ chartType, connectionId, query });
   }, [chartType, connectionId, query]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     useWidgetEditorStore.setState({ availableFields });
   }, [availableFields]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     useWidgetEditorStore.setState({ parameterSuggestions });
   }, [parameterSuggestions]);
 
-  // Bidirectional sync for styling rules between local state and store.
-  // Forward: local → store when local changes (e.g., modal resets or loads widget)
+  // Bidirectional sync for mutable state between local state and store.
   const syncingFromStore = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!syncingFromStore.current) {
       useWidgetEditorStore.setState({
         stylingRules,

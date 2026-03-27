@@ -64,9 +64,11 @@ export function useAccordionCrud<T extends { id: string }>(
 
   function addItem(factory: () => T) {
     const newItem = factory();
+    prevIdsRef.current = new Set([...prevIdsRef.current, newItem.id]);
     onItemsChange([...items, newItem]);
-    // Optimistically expand the new item immediately
-    setOpenItems((prev) => [...prev, newItem.id]);
+    setOpenItems((prev) =>
+      prev.includes(newItem.id) ? prev : [...prev, newItem.id],
+    );
   }
 
   function removeItem(id: string) {
