@@ -337,7 +337,11 @@ export function CardContainer({
       columnMapping,
     );
     const transformedData = dataTransforms.length
-      ? applyTransforms(mappedData as Record<string, unknown>[], dataTransforms)
+      ? applyTransforms(
+          mappedData as Record<string, unknown>[],
+          dataTransforms,
+          allParamValues,
+        )
       : mappedData;
     const availableColumns = extractColumnNames(previewData);
     return (
@@ -551,7 +555,11 @@ export function CardContainer({
 
   const mappedData = chartConfig.transformWithMapping(rawData, columnMapping);
   const transformedData = dataTransforms.length
-    ? applyTransforms(mappedData as Record<string, unknown>[], dataTransforms)
+    ? applyTransforms(
+        mappedData as Record<string, unknown>[],
+        dataTransforms,
+        allParamValues,
+      )
     : mappedData;
   const availableColumns = extractColumnNames(rawData);
 

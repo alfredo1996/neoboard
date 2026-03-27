@@ -16,6 +16,8 @@ export interface TransformEditorProps {
   transforms: Transform[];
   onChange: (transforms: Transform[]) => void;
   columns: string[];
+  /** Available parameter names for $param_xxx references in filter values and expressions */
+  parameterSuggestions?: string[];
 }
 
 const TRANSFORM_TYPES = [
@@ -54,7 +56,11 @@ function makeDefault(type: string, columns: string[]): Transform {
     case "sort":
       return { type: "sort", column: col, direction: "asc" };
     case "groupBy":
-      return { type: "groupBy", column: col, aggregations: [{ column: col, fn: "count" }] };
+      return {
+        type: "groupBy",
+        column: col,
+        aggregations: [{ column: col, fn: "count" }],
+      };
     case "calculatedColumn":
       return { type: "calculatedColumn", name: "new_column", expression: "" };
     case "renameColumns":
@@ -70,16 +76,20 @@ function TransformCard({
   transform,
   index,
   columns,
+  parameterSuggestions,
   onChange,
   onRemove,
 }: {
   transform: Transform;
   index: number;
   columns: string[];
+  parameterSuggestions?: string[];
   onChange: (t: Transform) => void;
   onRemove: () => void;
 }) {
-  const typeLabel = TRANSFORM_TYPES.find((t) => t.value === transform.type)?.label ?? transform.type;
+  const typeLabel =
+    TRANSFORM_TYPES.find((t) => t.value === transform.type)?.label ??
+    transform.type;
 
   return (
     <div className="rounded-lg border p-3 space-y-2">
@@ -90,7 +100,13 @@ function TransformCard({
             {index + 1}. {typeLabel}
           </Badge>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} aria-label="Remove transform">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onRemove}
+          aria-label="Remove transform"
+        >
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </Button>
       </div>
@@ -100,10 +116,19 @@ function TransformCard({
           <>
             <div className="space-y-1">
               <Label className="text-xs">Column</Label>
-              <Select value={transform.column} onValueChange={(v) => onChange({ ...transform, column: v })}>
-                <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <Select
+                value={transform.column}
+                onValueChange={(v) => onChange({ ...transform, column: v })}
+              >
+                <SelectTrigger className="w-[120px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {columns.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -111,24 +136,85 @@ function TransformCard({
               <Label className="text-xs">Operator</Label>
               <Select
                 value={transform.operator}
-                onValueChange={(v) => onChange({ ...transform, operator: v as Transform & { type: "filter" } extends { operator: infer O } ? O : never })}
+                onValueChange={(v) =>
+                  onChange({
+                    ...transform,
+                    operator: v as Transform & { type: "filter" } extends {
+                      operator: infer O;
+                    }
+                      ? O
+                      : never,
+                  })
+                }
               >
-                <SelectTrigger className="w-[100px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[100px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {FILTER_OPERATORS.map((op) => <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>)}
+                  {FILTER_OPERATORS.map((op) => (
+                    <SelectItem key={op.value} value={op.value}>
+                      {op.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Value</Label>
-              <Input
-                className="w-[100px] h-8 text-xs"
-                value={String(transform.value)}
-                onChange={(e) => {
-                  const num = Number(e.target.value);
-                  onChange({ ...transform, value: !Number.isNaN(num) && e.target.value !== "" ? num : e.target.value });
-                }}
-              />
+              <Label className="text-xs">
+                Value{" "}
+                {transform.paramRef && (
+                  <span className="text-primary">(param)</span>
+                )}
+              </Label>
+              {parameterSuggestions?.length ? (
+                <Select
+                  value={
+                    transform.paramRef
+                      ? `$param_${transform.paramRef}`
+                      : "__literal__"
+                  }
+                  onValueChange={(v) => {
+                    if (v === "__literal__") {
+                      onChange({ ...transform, paramRef: undefined });
+                    } else {
+                      onChange({
+                        ...transform,
+                        paramRef: v.replace("$param_", ""),
+                        value: "",
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectValue placeholder="Pick value..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__literal__">Static value</SelectItem>
+                    {parameterSuggestions.map((p) => (
+                      <SelectItem key={p} value={`$param_${p}`}>
+                        ${p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
+              {!transform.paramRef && (
+                <Input
+                  className="w-[100px] h-8 text-xs"
+                  placeholder="Enter value..."
+                  value={String(transform.value)}
+                  onChange={(e) => {
+                    const num = Number(e.target.value);
+                    onChange({
+                      ...transform,
+                      value:
+                        !Number.isNaN(num) && e.target.value !== ""
+                          ? num
+                          : e.target.value,
+                    });
+                  }}
+                />
+              )}
             </div>
           </>
         )}
@@ -137,17 +223,33 @@ function TransformCard({
           <>
             <div className="space-y-1">
               <Label className="text-xs">Column</Label>
-              <Select value={transform.column} onValueChange={(v) => onChange({ ...transform, column: v })}>
-                <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <Select
+                value={transform.column}
+                onValueChange={(v) => onChange({ ...transform, column: v })}
+              >
+                <SelectTrigger className="w-[120px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {columns.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Direction</Label>
-              <Select value={transform.direction} onValueChange={(v) => onChange({ ...transform, direction: v as "asc" | "desc" })}>
-                <SelectTrigger className="w-[100px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <Select
+                value={transform.direction}
+                onValueChange={(v) =>
+                  onChange({ ...transform, direction: v as "asc" | "desc" })
+                }
+              >
+                <SelectTrigger className="w-[100px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="asc">Ascending</SelectItem>
                   <SelectItem value="desc">Descending</SelectItem>
@@ -161,10 +263,19 @@ function TransformCard({
           <>
             <div className="space-y-1">
               <Label className="text-xs">Group Column</Label>
-              <Select value={transform.column} onValueChange={(v) => onChange({ ...transform, column: v })}>
-                <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <Select
+                value={transform.column}
+                onValueChange={(v) => onChange({ ...transform, column: v })}
+              >
+                <SelectTrigger className="w-[120px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {columns.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -179,9 +290,15 @@ function TransformCard({
                   })
                 }
               >
-                <SelectTrigger className="w-[100px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[100px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {columns.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -192,13 +309,24 @@ function TransformCard({
                 onValueChange={(v) =>
                   onChange({
                     ...transform,
-                    aggregations: [{ ...transform.aggregations[0], fn: v as "count" | "sum" | "avg" | "min" | "max" }],
+                    aggregations: [
+                      {
+                        ...transform.aggregations[0],
+                        fn: v as "count" | "sum" | "avg" | "min" | "max",
+                      },
+                    ],
                   })
                 }
               >
-                <SelectTrigger className="w-[90px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[90px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {AGG_FUNCTIONS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                  {AGG_FUNCTIONS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -212,7 +340,9 @@ function TransformCard({
               <Input
                 className="w-[120px] h-8 text-xs"
                 value={transform.name}
-                onChange={(e) => onChange({ ...transform, name: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...transform, name: e.target.value })
+                }
               />
             </div>
             <div className="space-y-1 flex-1">
@@ -220,7 +350,9 @@ function TransformCard({
               <Input
                 className="h-8 text-xs"
                 value={transform.expression}
-                onChange={(e) => onChange({ ...transform, expression: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...transform, expression: e.target.value })
+                }
                 placeholder="e.g. salary * 0.1"
               />
             </div>
@@ -229,10 +361,14 @@ function TransformCard({
 
         {transform.type === "renameColumns" && (
           <div className="space-y-1 flex-1">
-            <Label className="text-xs">Mappings (old=new, comma-separated)</Label>
+            <Label className="text-xs">
+              Mappings (old=new, comma-separated)
+            </Label>
             <Input
               className="h-8 text-xs"
-              value={Object.entries(transform.mapping).map(([k, v]) => `${k}=${v}`).join(", ")}
+              value={Object.entries(transform.mapping)
+                .map(([k, v]) => `${k}=${v}`)
+                .join(", ")}
               onChange={(e) => {
                 const mapping: Record<string, string> = {};
                 for (const pair of e.target.value.split(",")) {
@@ -253,7 +389,12 @@ function TransformCard({
               type="number"
               className="w-[100px] h-8 text-xs"
               value={transform.count}
-              onChange={(e) => onChange({ ...transform, count: Math.max(1, Number(e.target.value) || 1) })}
+              onChange={(e) =>
+                onChange({
+                  ...transform,
+                  count: Math.max(1, Number(e.target.value) || 1),
+                })
+              }
             />
           </div>
         )}
@@ -262,7 +403,12 @@ function TransformCard({
   );
 }
 
-export function TransformEditor({ transforms, onChange, columns }: TransformEditorProps) {
+export function TransformEditor({
+  transforms,
+  onChange,
+  columns,
+  parameterSuggestions,
+}: TransformEditorProps) {
   const [addType, setAddType] = React.useState<string>("filter");
 
   function addTransform() {
@@ -291,7 +437,8 @@ export function TransformEditor({ transforms, onChange, columns }: TransformEdit
     <div className="space-y-3">
       {transforms.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          No transforms configured. Transforms modify query results client-side without changing the original query.
+          No transforms configured. Transforms modify query results client-side
+          without changing the original query.
         </p>
       )}
       {transforms.map((t, i) => (
@@ -300,6 +447,7 @@ export function TransformEditor({ transforms, onChange, columns }: TransformEdit
           transform={t}
           index={i}
           columns={columns}
+          parameterSuggestions={parameterSuggestions}
           onChange={(updated) => updateTransform(i, updated)}
           onRemove={() => removeTransform(i)}
         />
@@ -311,11 +459,18 @@ export function TransformEditor({ transforms, onChange, columns }: TransformEdit
           </SelectTrigger>
           <SelectContent>
             {TRANSFORM_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="gap-1 h-8 text-xs" onClick={addTransform}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1 h-8 text-xs"
+          onClick={addTransform}
+        >
           <Plus className="h-3 w-3" />
           Add
         </Button>

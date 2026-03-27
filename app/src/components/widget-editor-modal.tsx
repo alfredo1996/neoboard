@@ -1285,6 +1285,18 @@ export function WidgetEditorModal({
                       )}
                     </div>
                   }
+                  transformTab={
+                    !isContentOnly && !isParamSelect ? (
+                      <div className="space-y-4">
+                        <TransformEditor
+                          transforms={transforms}
+                          onChange={setTransforms}
+                          columns={availableFields}
+                          parameterSuggestions={parameterSuggestions}
+                        />
+                      </div>
+                    ) : undefined
+                  }
                   advancedTab={
                     isParamSelect ? (
                       <p className="text-sm text-muted-foreground">
@@ -1516,20 +1528,6 @@ export function WidgetEditorModal({
                             )}
                           </div>
                         )}
-
-                        {/* Data Transforms */}
-                        {!isContentOnly && (
-                          <div className="space-y-4 border-t pt-4">
-                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                              Data Transforms
-                            </h4>
-                            <TransformEditor
-                              transforms={transforms}
-                              onChange={setTransforms}
-                              columns={availableFields}
-                            />
-                          </div>
-                        )}
                       </div>
                     )
                   }
@@ -1670,20 +1668,6 @@ export function WidgetEditorModal({
                     </>
                   )}
                 </div>
-
-                {/* Data Transforms */}
-                {!isContentOnly && (
-                  <div className="space-y-4 border-t pt-4">
-                    <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                      Data Transforms
-                    </h4>
-                    <TransformEditor
-                      transforms={transforms}
-                      onChange={setTransforms}
-                      columns={availableFields}
-                    />
-                  </div>
-                )}
               </div>
             </div>
 

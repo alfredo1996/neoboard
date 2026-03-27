@@ -19,7 +19,10 @@ import type {
   WidgetTemplate,
 } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
-import { useParameterStore } from "@/stores/parameter-store";
+import {
+  useParameterStore,
+  useParameterValues,
+} from "@/stores/parameter-store";
 import {
   formatParameterValue,
   filterParentParams,
@@ -121,6 +124,7 @@ export function DashboardContainer({
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
+  const allParamValues = useParameterValues();
   const allEntries = Object.entries(parameters);
   const displayEntries = useMemo(
     () => filterParentParams(allEntries),
@@ -163,7 +167,11 @@ export function DashboardContainer({
     // Apply transforms so the export matches what the user sees
     const transforms = (widget.settings?.transforms ?? []) as Transform[];
     const exportData = transforms.length
-      ? applyTransforms(rawData as Record<string, unknown>[], transforms)
+      ? applyTransforms(
+          rawData as Record<string, unknown>[],
+          transforms,
+          allParamValues,
+        )
       : rawData;
     const csv = buildCsvString(exportData as Record<string, unknown>[]);
     const title = (widget.settings?.title as string) || widget.chartType;

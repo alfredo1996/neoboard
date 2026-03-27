@@ -3,11 +3,26 @@ import { applyTransforms } from "../data-transforms";
 import type { Transform } from "../data-transforms";
 
 const sampleData = [
-  { name: "Alice", department: "Engineering", salary: 120000, start: "2020-01-15" },
+  {
+    name: "Alice",
+    department: "Engineering",
+    salary: 120000,
+    start: "2020-01-15",
+  },
   { name: "Bob", department: "Sales", salary: 80000, start: "2021-06-01" },
-  { name: "Charlie", department: "Engineering", salary: 110000, start: "2019-03-20" },
+  {
+    name: "Charlie",
+    department: "Engineering",
+    salary: 110000,
+    start: "2019-03-20",
+  },
   { name: "Diana", department: "Sales", salary: 95000, start: "2022-11-10" },
-  { name: "Eve", department: "Engineering", salary: 130000, start: "2018-07-25" },
+  {
+    name: "Eve",
+    department: "Engineering",
+    salary: 130000,
+    start: "2018-07-25",
+  },
 ];
 
 describe("applyTransforms", () => {
@@ -31,7 +46,12 @@ describe("applyTransforms", () => {
 
     it("filters rows by string == condition", () => {
       const transforms: Transform[] = [
-        { type: "filter", column: "department", operator: "==", value: "Sales" },
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Sales",
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(2);
@@ -48,7 +68,12 @@ describe("applyTransforms", () => {
 
     it("filters rows by != condition", () => {
       const transforms: Transform[] = [
-        { type: "filter", column: "department", operator: "!=", value: "Sales" },
+        {
+          type: "filter",
+          column: "department",
+          operator: "!=",
+          value: "Sales",
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(3);
@@ -80,7 +105,12 @@ describe("applyTransforms", () => {
 
     it("filters rows by not_contains condition", () => {
       const transforms: Transform[] = [
-        { type: "filter", column: "name", operator: "not_contains", value: "li" },
+        {
+          type: "filter",
+          column: "name",
+          operator: "not_contains",
+          value: "li",
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(3); // Bob, Diana, Eve
@@ -110,7 +140,11 @@ describe("applyTransforms", () => {
   describe("groupBy", () => {
     it("groups by column with count aggregation", () => {
       const transforms: Transform[] = [
-        { type: "groupBy", column: "department", aggregations: [{ column: "salary", fn: "count" }] },
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [{ column: "salary", fn: "count" }],
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(2);
@@ -122,7 +156,11 @@ describe("applyTransforms", () => {
 
     it("groups by column with sum aggregation", () => {
       const transforms: Transform[] = [
-        { type: "groupBy", column: "department", aggregations: [{ column: "salary", fn: "sum" }] },
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [{ column: "salary", fn: "sum" }],
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       const eng = result.find((r) => r.department === "Engineering");
@@ -131,7 +169,11 @@ describe("applyTransforms", () => {
 
     it("groups by column with avg aggregation", () => {
       const transforms: Transform[] = [
-        { type: "groupBy", column: "department", aggregations: [{ column: "salary", fn: "avg" }] },
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [{ column: "salary", fn: "avg" }],
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       const eng = result.find((r) => r.department === "Engineering");
@@ -168,7 +210,11 @@ describe("applyTransforms", () => {
 
     it("adds a calculated column with addition", () => {
       const transforms: Transform[] = [
-        { type: "calculatedColumn", name: "adjusted", expression: "salary + 5000" },
+        {
+          type: "calculatedColumn",
+          name: "adjusted",
+          expression: "salary + 5000",
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result[0].adjusted).toBe(125000);
@@ -184,7 +230,11 @@ describe("applyTransforms", () => {
 
     it("adds a calculated column with division", () => {
       const transforms: Transform[] = [
-        { type: "calculatedColumn", name: "monthly", expression: "salary / 12" },
+        {
+          type: "calculatedColumn",
+          name: "monthly",
+          expression: "salary / 12",
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result[0].monthly).toBe(10000);
@@ -201,7 +251,11 @@ describe("applyTransforms", () => {
 
     it("returns null for invalid expression", () => {
       const transforms: Transform[] = [
-        { type: "calculatedColumn", name: "bad", expression: "nonexistent_column * 2" },
+        {
+          type: "calculatedColumn",
+          name: "bad",
+          expression: "nonexistent_column * 2",
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result[0].bad).toBeNull();
@@ -228,7 +282,10 @@ describe("applyTransforms", () => {
   describe("renameColumns", () => {
     it("renames columns", () => {
       const transforms: Transform[] = [
-        { type: "renameColumns", mapping: { name: "Employee", salary: "Annual Salary" } },
+        {
+          type: "renameColumns",
+          mapping: { name: "Employee", salary: "Annual Salary" },
+        },
       ];
       const result = applyTransforms(sampleData, transforms);
       expect(result[0]["Employee"]).toBe("Alice");
@@ -265,7 +322,12 @@ describe("applyTransforms", () => {
   describe("pipeline (multiple transforms)", () => {
     it("applies transforms in order: filter then sort then limit", () => {
       const transforms: Transform[] = [
-        { type: "filter", column: "department", operator: "==", value: "Engineering" },
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Engineering",
+        },
         { type: "sort", column: "salary", direction: "desc" },
         { type: "limit", count: 2 },
       ];
@@ -283,6 +345,169 @@ describe("applyTransforms", () => {
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(2);
       expect(result[0].dept).toBe("Sales");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Parameter-aware transforms
+  // ---------------------------------------------------------------------------
+
+  describe("parameter-aware filter", () => {
+    it("resolves paramRef from paramValues for == filter", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "",
+          paramRef: "dept",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, { dept: "Sales" });
+      expect(result).toHaveLength(2);
+      expect(result.every((r) => r.department === "Sales")).toBe(true);
+    });
+
+    it("resolves paramRef for numeric > filter", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "salary",
+          operator: ">",
+          value: 0,
+          paramRef: "min_salary",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, {
+        min_salary: 100000,
+      });
+      expect(result).toHaveLength(3);
+      expect(result.every((r) => (r.salary as number) > 100000)).toBe(true);
+    });
+
+    it("falls back to static value when paramRef is not in paramValues", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Engineering",
+          paramRef: "missing",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, {});
+      expect(result).toHaveLength(3);
+      expect(result.every((r) => r.department === "Engineering")).toBe(true);
+    });
+
+    it("falls back to static value when no paramValues provided", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Sales",
+          paramRef: "dept",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2);
+    });
+
+    it("resolves paramRef for contains filter", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "name",
+          operator: "contains",
+          value: "",
+          paramRef: "search",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, { search: "li" });
+      expect(result).toHaveLength(2); // Alice, Charlie
+    });
+  });
+
+  describe("parameter-aware calculatedColumn", () => {
+    it("resolves $param_xxx in expressions", () => {
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "bonus",
+          expression: "salary * $param_rate",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, { rate: 0.1 });
+      expect(result[0].bonus).toBe(12000); // 120000 * 0.1
+      expect(result[1].bonus).toBe(8000); // 80000 * 0.1
+    });
+
+    it("returns null when referenced param is missing", () => {
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "bonus",
+          expression: "salary * $param_missing",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, {});
+      expect(result[0].bonus).toBeNull();
+    });
+
+    it("resolves $param_xxx in addition expressions", () => {
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "adjusted",
+          expression: "salary + $param_raise",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, { raise: 5000 });
+      expect(result[0].adjusted).toBe(125000);
+    });
+
+    it("works without paramValues (backward compatible)", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "doubled", expression: "salary * 2" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].doubled).toBe(240000);
+    });
+  });
+
+  describe("pipeline with parameters", () => {
+    it("filter by param then sort then limit", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "salary",
+          operator: ">=",
+          value: 0,
+          paramRef: "threshold",
+        },
+        { type: "sort", column: "salary", direction: "desc" },
+        { type: "limit", count: 2 },
+      ];
+      const result = applyTransforms(sampleData, transforms, {
+        threshold: 110000,
+      });
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("Eve"); // 130k
+      expect(result[1].name).toBe("Alice"); // 120k
+    });
+
+    it("calculated column with param then filter", () => {
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "bonus",
+          expression: "salary * $param_rate",
+        },
+        { type: "filter", column: "bonus", operator: ">", value: 10000 },
+      ];
+      const result = applyTransforms(sampleData, transforms, { rate: 0.1 });
+      expect(result).toHaveLength(3); // Charlie (11k), Alice (12k), Eve (13k)
     });
   });
 });

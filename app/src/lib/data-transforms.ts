@@ -4,11 +4,23 @@
 
 type Row = Record<string, unknown>;
 
+export type FilterOperator =
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "=="
+  | "!="
+  | "contains"
+  | "not_contains";
+
 export interface FilterTransform {
   type: "filter";
   column: string;
-  operator: ">" | ">=" | "<" | "<=" | "==" | "!=" | "contains" | "not_contains";
+  operator: FilterOperator;
   value: string | number;
+  /** When set, the comparison value is resolved from paramValues[$param_xxx] at runtime */
+  paramRef?: string;
 }
 
 export interface SortTransform {
@@ -57,19 +69,29 @@ export type Transform =
 // Operators
 // ---------------------------------------------------------------------------
 
-function matchesFilter(value: unknown, operator: FilterTransform["operator"], compare: string | number): boolean {
+function matchesFilter(
+  value: unknown,
+  operator: FilterTransform["operator"],
+  compare: string | number,
+): boolean {
   // Numeric comparison
   const numLeft = Number(value);
   const numRight = Number(compare);
 
   if (!Number.isNaN(numLeft) && !Number.isNaN(numRight)) {
     switch (operator) {
-      case ">":  return numLeft > numRight;
-      case ">=": return numLeft >= numRight;
-      case "<":  return numLeft < numRight;
-      case "<=": return numLeft <= numRight;
-      case "==": return numLeft === numRight;
-      case "!=": return numLeft !== numRight;
+      case ">":
+        return numLeft > numRight;
+      case ">=":
+        return numLeft >= numRight;
+      case "<":
+        return numLeft < numRight;
+      case "<=":
+        return numLeft <= numRight;
+      case "==":
+        return numLeft === numRight;
+      case "!=":
+        return numLeft !== numRight;
     }
   }
 
@@ -78,11 +100,16 @@ function matchesFilter(value: unknown, operator: FilterTransform["operator"], co
   const strRight = String(compare).toLowerCase();
 
   switch (operator) {
-    case "==": return strLeft === strRight;
-    case "!=": return strLeft !== strRight;
-    case "contains": return strLeft.includes(strRight);
-    case "not_contains": return !strLeft.includes(strRight);
-    default: return false;
+    case "==":
+      return strLeft === strRight;
+    case "!=":
+      return strLeft !== strRight;
+    case "contains":
+      return strLeft.includes(strRight);
+    case "not_contains":
+      return !strLeft.includes(strRight);
+    default:
+      return false;
   }
 }
 
@@ -90,8 +117,26 @@ function matchesFilter(value: unknown, operator: FilterTransform["operator"], co
 // Individual transform functions
 // ---------------------------------------------------------------------------
 
-function applyFilter(data: Row[], t: FilterTransform): Row[] {
-  return data.filter((row) => matchesFilter(row[t.column], t.operator, t.value));
+function resolveFilterValue(
+  t: FilterTransform,
+  paramValues?: Record<string, unknown>,
+): string | number {
+  if (t.paramRef && paramValues) {
+    const resolved = paramValues[t.paramRef];
+    if (resolved !== undefined && resolved !== null) return String(resolved);
+  }
+  return t.value;
+}
+
+function applyFilter(
+  data: Row[],
+  t: FilterTransform,
+  paramValues?: Record<string, unknown>,
+): Row[] {
+  const compareValue = resolveFilterValue(t, paramValues);
+  return data.filter((row) =>
+    matchesFilter(row[t.column], t.operator, compareValue),
+  );
 }
 
 function applySort(data: Row[], t: SortTransform): Row[] {
@@ -144,7 +189,9 @@ function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
           aggregated[outKey] = nums.reduce((a, b) => a + b, 0);
           break;
         case "avg":
-          aggregated[outKey] = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+          aggregated[outKey] = nums.length
+            ? nums.reduce((a, b) => a + b, 0) / nums.length
+            : 0;
           break;
         case "min":
           aggregated[outKey] = nums.length ? Math.min(...nums) : null;
@@ -164,7 +211,11 @@ function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
  * Supports: +, -, *, / with numeric operands (column values or literals).
  * Returns null if the expression cannot be evaluated.
  */
-function safeEvaluateExpression(expression: string, row: Row): unknown {
+function safeEvaluateExpression(
+  expression: string,
+  row: Row,
+  paramValues?: Record<string, unknown>,
+): unknown {
   // Tokenize: split on operators while keeping them
   const tokens: string[] = [];
   let current = "";
@@ -182,6 +233,12 @@ function safeEvaluateExpression(expression: string, row: Row): unknown {
   if (tokens.length === 0) return null;
 
   function resolveToken(token: string): number | null {
+    // Parameter reference ($param_xxx)
+    if (token.startsWith("$param_") && paramValues) {
+      const paramName = token.slice(7); // strip "$param_"
+      const val = Number(paramValues[paramName]);
+      return Number.isNaN(val) ? null : val;
+    }
     // Column reference
     if (token in row) {
       const val = Number(row[token]);
@@ -202,11 +259,20 @@ function safeEvaluateExpression(expression: string, row: Row): unknown {
     if (right === null) return null;
 
     switch (op) {
-      case "+": result += right; break;
-      case "-": result -= right; break;
-      case "*": result *= right; break;
-      case "/": result = right !== 0 ? result / right : null; break;
-      default: return null;
+      case "+":
+        result += right;
+        break;
+      case "-":
+        result -= right;
+        break;
+      case "*":
+        result *= right;
+        break;
+      case "/":
+        result = right !== 0 ? result / right : null;
+        break;
+      default:
+        return null;
     }
     if (result === null) return null;
   }
@@ -214,9 +280,13 @@ function safeEvaluateExpression(expression: string, row: Row): unknown {
   return result;
 }
 
-function applyCalculatedColumn(data: Row[], t: CalculatedColumnTransform): Row[] {
+function applyCalculatedColumn(
+  data: Row[],
+  t: CalculatedColumnTransform,
+  paramValues?: Record<string, unknown>,
+): Row[] {
   return data.map((row) => {
-    const result = safeEvaluateExpression(t.expression, row);
+    const result = safeEvaluateExpression(t.expression, row, paramValues);
     return { ...row, [t.name]: result };
   });
 }
@@ -248,12 +318,13 @@ function applyLimit(data: Row[], t: LimitTransform): Row[] {
 export function applyTransforms(
   data: Row[],
   transforms: Transform[],
+  paramValues?: Record<string, unknown>,
 ): Row[] {
   let result = data;
   for (const t of transforms) {
     switch (t.type) {
       case "filter":
-        result = applyFilter(result, t);
+        result = applyFilter(result, t, paramValues);
         break;
       case "sort":
         result = applySort(result, t);
@@ -262,7 +333,7 @@ export function applyTransforms(
         result = applyGroupBy(result, t);
         break;
       case "calculatedColumn":
-        result = applyCalculatedColumn(result, t);
+        result = applyCalculatedColumn(result, t, paramValues);
         break;
       case "renameColumns":
         result = applyRenameColumns(result, t);
