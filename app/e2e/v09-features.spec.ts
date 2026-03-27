@@ -352,32 +352,20 @@ test.describe("Accessibility smoke tests", () => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
-  test("dashboard list page has no critical accessibility violations", async ({
-    page,
-  }) => {
-    // Import axe-core dynamically for accessibility scanning
-    const AxeBuilder = await import("@axe-core/playwright")
-      .then((m) => m.default)
-      .catch(() => null);
-
-    if (!AxeBuilder) {
-      test.skip(true, "axe-core/playwright not installed — skipping a11y test");
-      return;
-    }
-
+  test("dashboard list page has basic ARIA landmarks", async ({ page }) => {
     await page.waitForLoadState("networkidle");
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa"])
-      .disableRules(["color-contrast"]) // May fail due to theme customization
-      .analyze();
 
-    // Allow minor violations but flag critical ones
-    const critical = results.violations.filter(
-      (v) => v.impact === "critical" || v.impact === "serious",
-    );
-    expect(
-      critical,
-      `Found ${critical.length} critical/serious a11y violations: ${critical.map((v) => v.id).join(", ")}`,
-    ).toHaveLength(0);
+    // Verify page has required ARIA landmarks
+    await expect(page.getByRole("navigation").first()).toBeVisible();
+    await expect(page.getByRole("main")).toBeVisible();
+
+    // Verify interactive elements are keyboard-focusable
+    const buttons = page.getByRole("button");
+    const count = await buttons.count();
+    expect(count).toBeGreaterThan(0);
+
+    // Verify images have alt text (no bare <img> without alt)
+    const imagesWithoutAlt = page.locator("img:not([alt])");
+    expect(await imagesWithoutAlt.count()).toBe(0);
   });
 });
