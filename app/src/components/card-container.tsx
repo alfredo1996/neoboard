@@ -176,15 +176,16 @@ export function CardContainer({
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
-  function handleChartClick(point: Record<string, unknown>) {
-    const result = resolveClickActions(widget, point);
-    if (!result) return;
+  const setParameter = useParameterStore((s) => s.setParameter);
+  const handleChartClick = useCallback(
+    (point: Record<string, unknown>) => {
+      const result = resolveClickActions(widget, point);
+      if (!result) return;
 
-    if (result.setParameter) {
-      const { parameterName, value, label, sourceField } = result.setParameter;
-      useParameterStore
-        .getState()
-        .setParameter(
+      if (result.setParameter) {
+        const { parameterName, value, label, sourceField } =
+          result.setParameter;
+        setParameter(
           parameterName,
           value,
           label,
@@ -193,12 +194,14 @@ export function CardContainer({
           "click-action",
           widget.id,
         );
-    }
+      }
 
-    if (result.navigateToPageId) {
-      onNavigateToPage?.(result.navigateToPageId);
-    }
-  }
+      if (result.navigateToPageId) {
+        onNavigateToPage?.(result.navigateToPageId);
+      }
+    },
+    [widget, setParameter, onNavigateToPage],
+  );
   const ws = widget.settings ?? {};
   const clickAction = ws.clickAction as ClickAction | undefined;
   const hasClickAction = !!clickAction;
