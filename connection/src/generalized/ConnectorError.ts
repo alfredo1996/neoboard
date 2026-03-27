@@ -108,14 +108,18 @@ export function wrapError(
     dbType === "neo4j"
       ? detectNeo4jErrorType(err)
       : detectPostgresErrorType(err);
-  const message =
-    err instanceof Error
-      ? err.message
-      : typeof err === "object" &&
-          err !== null &&
-          "message" in err &&
-          typeof (err as { message?: unknown }).message === "string"
-        ? (err as { message: string }).message
-        : String(err);
+  let message: string;
+  if (err instanceof Error) {
+    message = err.message;
+  } else if (
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof (err as { message?: unknown }).message === "string"
+  ) {
+    message = (err as { message: string }).message;
+  } else {
+    message = String(err);
+  }
   return new ConnectorError(message, type, err);
 }

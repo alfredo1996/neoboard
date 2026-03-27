@@ -150,6 +150,62 @@ export interface WidgetEditorState {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers (extracted to reduce buildClickAction cognitive complexity)
+// ---------------------------------------------------------------------------
+
+function validateActionRules(
+  rules: ClickActionRule[],
+  validPageIds: Set<string>,
+): boolean {
+  for (const rule of rules) {
+    const needsParam =
+      rule.type === "set-parameter" ||
+      rule.type === "set-parameter-and-navigate";
+    if (needsParam && !rule.parameterMapping?.parameterName?.trim())
+      return false;
+    const needsPage =
+      rule.type === "navigate-to-page" ||
+      rule.type === "set-parameter-and-navigate";
+    if (
+      needsPage &&
+      (!rule.targetPageId || !validPageIds.has(rule.targetPageId))
+    )
+      return false;
+  }
+  return true;
+}
+
+function buildLegacyClickAction(
+  s: Pick<
+    WidgetEditorState,
+    "clickActionType" | "parameterName" | "sourceField" | "targetPageId"
+  >,
+  validPageIds: Set<string>,
+  clickableColumns?: string[],
+): ClickAction | undefined {
+  const action: ClickAction = { type: s.clickActionType };
+  if (
+    s.clickActionType === "set-parameter" ||
+    s.clickActionType === "set-parameter-and-navigate"
+  ) {
+    if (!s.parameterName.trim()) return undefined;
+    action.parameterMapping = {
+      parameterName: s.parameterName,
+      sourceField: s.sourceField || s.parameterName,
+    };
+  }
+  if (
+    s.clickActionType === "navigate-to-page" ||
+    s.clickActionType === "set-parameter-and-navigate"
+  ) {
+    if (!s.targetPageId || !validPageIds.has(s.targetPageId)) return undefined;
+    action.targetPageId = s.targetPageId;
+  }
+  if (clickableColumns?.length) action.clickableColumns = clickableColumns;
+  return action;
+}
+
+// ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
@@ -327,61 +383,20 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
     if (!s.clickActionEnabled || !chartSupportsClickAction(s.chartType))
       return undefined;
 
-    // Advanced rules mode — validate each rule before persisting
+    const pageIds = new Set((layout?.pages ?? []).map((p) => p.id));
+    const cols = s.clickableColumns.length > 0 ? s.clickableColumns : undefined;
+
+    // Advanced rules mode
     if (s.actionRules.length > 0) {
-      const validPageIds = new Set((layout?.pages ?? []).map((p) => p.id));
-      for (const rule of s.actionRules) {
-        const needsParam =
-          rule.type === "set-parameter" ||
-          rule.type === "set-parameter-and-navigate";
-        if (needsParam && !rule.parameterMapping?.parameterName?.trim())
-          return undefined;
-        const needsPage =
-          rule.type === "navigate-to-page" ||
-          rule.type === "set-parameter-and-navigate";
-        if (
-          needsPage &&
-          (!rule.targetPageId || !validPageIds.has(rule.targetPageId))
-        )
-          return undefined;
-      }
+      if (!validateActionRules(s.actionRules, pageIds)) return undefined;
       return {
         type: s.actionRules[0].type,
         rules: s.actionRules,
-        clickableColumns:
-          s.clickableColumns.length > 0 ? s.clickableColumns : undefined,
+        clickableColumns: cols,
       };
     }
 
     // Legacy single-rule mode
-    const {
-      clickActionType,
-      parameterName,
-      sourceField,
-      targetPageId,
-      clickableColumns,
-    } = s;
-    const action: ClickAction = { type: clickActionType };
-    if (
-      clickActionType === "set-parameter" ||
-      clickActionType === "set-parameter-and-navigate"
-    ) {
-      if (!parameterName.trim()) return undefined;
-      action.parameterMapping = {
-        parameterName,
-        sourceField: sourceField || parameterName,
-      };
-    }
-    if (
-      clickActionType === "navigate-to-page" ||
-      clickActionType === "set-parameter-and-navigate"
-    ) {
-      if (!targetPageId) return undefined;
-      const validPageIds = (layout?.pages ?? []).map((p) => p.id);
-      if (!validPageIds.includes(targetPageId)) return undefined;
-      action.targetPageId = targetPageId;
-    }
-    if (clickableColumns.length > 0) action.clickableColumns = clickableColumns;
-    return action;
+    return buildLegacyClickAction(s, pageIds, cols);
   },
 }));
