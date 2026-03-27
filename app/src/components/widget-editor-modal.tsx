@@ -1718,7 +1718,7 @@ export function WidgetEditorModal({
                           Run a query to see the preview
                         </div>
                       )}
-                    </div>
+                    </>
                     )}
 
                     {/* Data Transforms */}
