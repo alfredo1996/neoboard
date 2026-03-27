@@ -1,6 +1,8 @@
 #!/bin/bash
 # Auto-format and lint TypeScript files after edits
-FILE_PATH=$(echo "$CLAUDE_FILE_PATHS" | head -1)
+# Reads file path from stdin JSON (PostToolUse provides tool_input)
+INPUT=$(cat)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
 [ -z "$FILE_PATH" ] && exit 0
 
 # Only process TypeScript files
@@ -10,7 +12,7 @@ echo "$FILE_PATH" | grep -qE '\.(ts|tsx)$' || exit 0
 npx prettier --write "$FILE_PATH" 2>/dev/null || true
 
 # Determine package and run appropriate linter
-PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null)"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -z "$PROJECT_DIR" ] && exit 0
 
 REL_PATH="${FILE_PATH#$PROJECT_DIR/}"
