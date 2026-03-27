@@ -1,9 +1,9 @@
-import { ConnectionTypes } from '../ConnectionModuleConfig';
+import { ConnectionTypes } from "../ConnectionModuleConfig";
 
 /**
  * Access mode for database connections: read-only or read-write.
  */
-export type AccessMode = 'READ' | 'WRITE';
+export type AccessMode = "READ" | "WRITE";
 
 /**
  * Types of supported authentication methods.
@@ -50,10 +50,10 @@ export interface AuthConfig {
  * Useful when no credentials are provided or authentication is intentionally disabled.
  */
 export const DEFAULT_AUTHENTICATION_CONFIG: AuthConfig = {
-  username: '',
-  password: '',
+  username: "",
+  password: "",
   authType: AuthType.EMPTY,
-  uri: '',
+  uri: "",
 };
 
 /**
@@ -76,7 +76,7 @@ export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig = {
   /**
    * Default access mode: READ.
    */
-  accessMode: 'READ',
+  accessMode: "READ",
 
   /**
    * Timeout (ms) for Cypher query execution.
@@ -221,15 +221,19 @@ export interface QueryParams {
   params?: Record<string, unknown>; // Optional parameters for the query.
 }
 
-/** Optional advanced settings passed from the app layer to driver constructors. */
-export interface AdvancedConnectionOptions {
-  // Neo4j-specific
+/** Base advanced options shared across all connectors. Currently empty — extend as common options emerge. */
+export interface BaseAdvancedOptions {}
+
+/** Neo4j-specific advanced connection options. */
+export interface Neo4jAdvancedOptions extends BaseAdvancedOptions {
   neo4jConnectionTimeout?: number;
   neo4jQueryTimeout?: number;
   neo4jMaxPoolSize?: number;
   neo4jAcquisitionTimeout?: number;
+}
 
-  // PostgreSQL-specific
+/** PostgreSQL-specific advanced connection options. */
+export interface PostgresAdvancedOptions extends BaseAdvancedOptions {
   pgConnectionTimeoutMillis?: number;
   pgIdleTimeoutMillis?: number;
   pgMaxPoolSize?: number;
@@ -237,5 +241,10 @@ export interface AdvancedConnectionOptions {
   pgSslRejectUnauthorized?: boolean;
 }
 
+/** Union of all per-connector advanced options. The factory accepts this; each module narrows to its own type. */
+export type AdvancedConnectionOptions =
+  | Neo4jAdvancedOptions
+  | PostgresAdvancedOptions;
+
 // Re-export ConnectionTypes for convenience
-export { ConnectionTypes } from '../ConnectionModuleConfig';
+export { ConnectionTypes } from "../ConnectionModuleConfig";
