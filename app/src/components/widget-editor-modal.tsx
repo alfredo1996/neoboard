@@ -298,7 +298,9 @@ export function WidgetEditorModal({
 
   // refreshWidgetIds — local since no sub-editor writes to it
   const refreshWidgetIds = useWidgetEditorStore((s) => s.refreshWidgetIds);
-  const setRefreshWidgetIds = useWidgetEditorStore((s) => s.setRefreshWidgetIds);
+  const setRefreshWidgetIds = useWidgetEditorStore(
+    (s) => s.setRefreshWidgetIds,
+  );
 
   // Seed query preview options — populated when user clicks "Test Seed Query"
   const seedQueryExecution = useQueryExecution();
@@ -1666,49 +1668,23 @@ export function WidgetEditorModal({
                         </div>
                       )}
                     </>
-                    )}
-
-                    {/* Data Transforms */}
-                    {!isContentOnly && (
-                    <div className="space-y-4 border-t pt-4">
-                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                        Data Transforms
-                      </h4>
-                      <TransformEditor
-                        transforms={transforms}
-                        onChange={setTransforms}
-                        columns={availableFields}
-                      />
-                    </div>
-                    )}
-                  </div>
-                )
-              }
-            />
-          </div>
-
-          {/* Right column: preview */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="mb-0">Preview</Label>
-              {!isParamSelect && !isForm && !isContentOnly && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreview}
-                  disabled={!connectionId || !query.trim() || previewQuery.isPending}
-                >
-                  {previewQuery.isPending ? (
-                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
-                  ) : (
-                    <Play className="h-3 w-3 mr-1.5" />
                   )}
-                  Run query
-                  <span className="ml-1.5 text-[10px] text-muted-foreground/70">
-                    {navigator.platform?.includes("Mac") ? "⌘" : "Ctrl"}+Enter
-                  </span>
-                </Button>
-              )}
+                </div>
+
+                {/* Data Transforms */}
+                {!isContentOnly && (
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                      Data Transforms
+                    </h4>
+                    <TransformEditor
+                      transforms={transforms}
+                      onChange={setTransforms}
+                      columns={availableFields}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter>
