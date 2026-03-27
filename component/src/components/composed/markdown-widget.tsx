@@ -11,27 +11,33 @@ export interface MarkdownWidgetProps {
 }
 
 /**
- * Returns true if a URL uses a safe protocol.
- * Only allows http:, https:, and data:image/ (for inline images).
- * All other schemes (javascript:, vbscript:, blob:, file:, mailto:, etc.)
- * are blocked.
+ * Returns true if a URL is safe for use in `<a href>`.
+ * Only allows http:, https:, and relative URLs.
+ * Blocks data:, javascript:, vbscript:, blob:, file:, etc.
  */
-function isSafeUrl(url: string): boolean {
+function isSafeLinkUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://"))
     return true;
-  if (trimmed.startsWith("data:image/")) return true;
-  // Relative URLs (no scheme) are safe — they resolve against the page origin.
   if (
     trimmed.startsWith("/") ||
     trimmed.startsWith("#") ||
     trimmed.startsWith("?")
   )
     return true;
-  // Reject anything with an explicit scheme that didn't match above.
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return false;
-  // Bare text (e.g., "example.com") — treat as relative, safe.
   return true;
+}
+
+/**
+ * Returns true if a URL is safe for use in `<img src>`.
+ * Allows http:, https:, data:image/ (inline images), and relative URLs.
+ * data: URIs are only safe in img src (cannot execute scripts), never in links.
+ */
+function isSafeImageUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed.startsWith("data:image/")) return true;
+  return isSafeLinkUrl(url);
 }
 
 /**
@@ -285,7 +291,7 @@ function processInline(text: string): string {
   result = result.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_match, alt: string, url: string) => {
-      if (!isSafeUrl(url)) return `[image blocked: unsafe URL]`;
+      if (!isSafeImageUrl(url)) return `[image blocked: unsafe URL]`;
       return `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`;
     },
   );
@@ -296,7 +302,7 @@ function processInline(text: string): string {
   result = result.replace(
     /\[([^\]]{1,500})\]\(([^)\s]{1,2000})\)/g,
     (_match, linkText: string, url: string) => {
-      if (!isSafeUrl(url)) return linkText;
+      if (!isSafeLinkUrl(url)) return linkText;
       return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${linkText}</a>`;
     },
   );
@@ -350,7 +356,7 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
         className,
       )}
       // Safe: parseMarkdown escapes all user text via escapeHtml and validates
-      // URLs via isSafeUrl. No raw user HTML reaches the DOM.
+      // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
       dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
     />
   );

@@ -5,7 +5,13 @@
 export function escapeCsvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
   const str = typeof value === "object" ? JSON.stringify(value) : String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+  const needsQuoting =
+    str.includes(",") ||
+    str.includes('"') ||
+    str.includes("\n") ||
+    str.includes("\r") ||
+    /^[=@+\-]/.test(str);
+  if (needsQuoting) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -19,7 +25,9 @@ export function buildCsvString(data: Record<string, unknown>[]): string {
   if (!data.length) return "";
   const headers = Object.keys(data[0]);
   const headerLine = headers.map(escapeCsvCell).join(",");
-  const rows = data.map((row) => headers.map((h) => escapeCsvCell(row[h])).join(","));
+  const rows = data.map((row) =>
+    headers.map((h) => escapeCsvCell(row[h])).join(","),
+  );
   return [headerLine, ...rows].join("\n");
 }
 
@@ -58,7 +66,11 @@ export function buildExportFilename(
  * Trigger a browser file download from a string or data URL.
  * Works by creating a temporary anchor element.
  */
-export function triggerDownload(content: string, filename: string, mimeType = "text/csv"): void {
+export function triggerDownload(
+  content: string,
+  filename: string,
+  mimeType = "text/csv",
+): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -67,7 +79,8 @@ export function triggerDownload(content: string, filename: string, mimeType = "t
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Defer revocation so the browser can read the Blob before it's freed (Firefox)
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 /**

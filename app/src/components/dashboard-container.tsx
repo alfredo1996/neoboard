@@ -9,6 +9,8 @@ import {
   triggerDownload,
   buildExportFilename,
 } from "@neoboard/components";
+import { applyTransforms } from "@/lib/data-transforms";
+import type { Transform } from "@/lib/data-transforms";
 import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
@@ -151,15 +153,19 @@ export function DashboardContainer({
   }
 
   function exportWidgetCsv(widget: DashboardWidget) {
-    const cached = queryClient.getQueryData<{ data: unknown }>([
-      "widget-query",
-      widget.connectionId,
-      widget.query,
-      widget.params,
-    ]);
+    // Use partial key match — params vary with parameter store values
+    const entries = queryClient.getQueriesData<{ data: unknown }>({
+      queryKey: ["widget-query", widget.connectionId, widget.query],
+    });
+    const cached = entries.length > 0 ? entries[0][1] : undefined;
     const rawData = cached?.data;
     if (!Array.isArray(rawData) || rawData.length === 0) return;
-    const csv = buildCsvString(rawData as Record<string, unknown>[]);
+    // Apply transforms so the export matches what the user sees
+    const transforms = (widget.settings?.transforms ?? []) as Transform[];
+    const exportData = transforms.length
+      ? applyTransforms(rawData as Record<string, unknown>[], transforms)
+      : rawData;
+    const csv = buildCsvString(exportData as Record<string, unknown>[]);
     const title = (widget.settings?.title as string) || widget.chartType;
     const filename = buildExportFilename(title, "csv", page.title);
     triggerDownload(csv, filename);

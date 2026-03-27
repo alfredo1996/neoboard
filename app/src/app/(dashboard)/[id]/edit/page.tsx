@@ -319,11 +319,13 @@ export default function DashboardEditorPage({
   >();
 
   function openEditWidget(widget: DashboardWidget) {
-    // Grab cached query data so the editor preview shows instantly
-    const cached = queryClient.getQueryData<{
+    // Grab cached query data so the editor preview shows instantly.
+    // Use getQueriesData with partial key — params vary with parameter store values.
+    const cachedEntries = queryClient.getQueriesData<{
       data: unknown;
       resultId: string;
-    }>(["widget-query", widget.connectionId, widget.query, undefined]);
+    }>({ queryKey: ["widget-query", widget.connectionId, widget.query] });
+    const cached = cachedEntries.length > 0 ? cachedEntries[0][1] : undefined;
     setCachedPreviewData(cached ?? undefined);
     setEditorMode("edit");
     setEditingWidget(widget);
@@ -344,7 +346,7 @@ export default function DashboardEditorPage({
       updateWidget(widget.id, widget);
     }
     queryClient.invalidateQueries({
-      queryKey: ["widget-query", widget.id],
+      queryKey: ["widget-query", widget.connectionId, widget.query],
     });
   }
 
