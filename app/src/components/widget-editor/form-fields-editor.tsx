@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 import {
   Accordion,
@@ -39,14 +40,14 @@ import type { FormFieldDef } from "@/lib/form-field-def";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
 
-interface FormFieldsEditorProps {
-  fields: FormFieldDef[];
-  onChange: (fields: FormFieldDef[]) => void;
-  connectionId: string;
-}
+// Props interface kept empty — FormFieldsEditor reads from widget-editor store.
+
+interface FormFieldsEditorProps {}
 
 function needsSeedQuery(type: ParameterType): boolean {
-  return type === "select" || type === "multi-select" || type === "cascading-select";
+  return (
+    type === "select" || type === "multi-select" || type === "cascading-select"
+  );
 }
 
 interface LabeledInputProps {
@@ -57,7 +58,13 @@ interface LabeledInputProps {
   type?: string;
 }
 
-function LabeledInput({ label, value, onChange, placeholder, type = "text" }: LabeledInputProps) {
+function LabeledInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: LabeledInputProps) {
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
@@ -79,7 +86,12 @@ interface SortableFieldItemProps {
   onUpdate: (id: string, patch: Partial<FormFieldDef>) => void;
 }
 
-function SortableFieldItem({ field, index, onRemove, onUpdate }: SortableFieldItemProps) {
+function SortableFieldItem({
+  field,
+  index,
+  onRemove,
+  onUpdate,
+}: SortableFieldItemProps) {
   const {
     attributes,
     listeners,
@@ -98,7 +110,12 @@ function SortableFieldItem({ field, index, onRemove, onUpdate }: SortableFieldIt
   };
 
   return (
-    <AccordionItem ref={setNodeRef} style={style} value={field.id} className="border rounded-lg">
+    <AccordionItem
+      ref={setNodeRef}
+      style={style}
+      value={field.id}
+      className="border rounded-lg"
+    >
       <div className="flex items-center pr-1">
         <button
           type="button"
@@ -113,9 +130,7 @@ function SortableFieldItem({ field, index, onRemove, onUpdate }: SortableFieldIt
           <span className="flex items-center gap-2">
             Field {index + 1}
             {field.label ? ` — ${field.label}` : " — Untitled"}
-            {field.required && (
-              <span className="text-destructive">*</span>
-            )}
+            {field.required && <span className="text-destructive">*</span>}
             <Badge variant="outline" className="ml-1 text-xs">
               {field.parameterType}
             </Badge>
@@ -179,7 +194,9 @@ function SortableFieldItem({ field, index, onRemove, onUpdate }: SortableFieldIt
               <SelectItem value="date">Date Picker</SelectItem>
               <SelectItem value="date-range">Date Range</SelectItem>
               <SelectItem value="date-relative">Relative Date</SelectItem>
-              <SelectItem value="number-range">Number Range (Slider)</SelectItem>
+              <SelectItem value="number-range">
+                Number Range (Slider)
+              </SelectItem>
               <SelectItem value="cascading-select">Cascading Select</SelectItem>
             </SelectContent>
           </Select>
@@ -191,7 +208,9 @@ function SortableFieldItem({ field, index, onRemove, onUpdate }: SortableFieldIt
             <Label className="text-xs">Options Query</Label>
             <Textarea
               value={field.seedQuery ?? ""}
-              onChange={(e) => onUpdate(field.id, { seedQuery: e.target.value })}
+              onChange={(e) =>
+                onUpdate(field.id, { seedQuery: e.target.value })
+              }
               placeholder="SELECT value, label FROM ..."
               rows={3}
               className="text-xs font-mono"
@@ -268,13 +287,17 @@ function SortableFieldItem({ field, index, onRemove, onUpdate }: SortableFieldIt
   );
 }
 
-export function FormFieldsEditor({ fields, onChange }: FormFieldsEditorProps) {
+export function FormFieldsEditor(_props: FormFieldsEditorProps) {
+  const fields = useWidgetEditorStore((s) => s.formFields);
+  const onChange = useWidgetEditorStore((s) => s.setFormFields);
   const { openItems, setOpenItems, addItem, removeItem, updateItem } =
     useAccordionCrud<FormFieldDef>(fields, onChange);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   function handleDragEnd(event: DragEndEvent) {
@@ -322,7 +345,10 @@ export function FormFieldsEditor({ fields, onChange }: FormFieldsEditorProps) {
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={fields.map((f) => f.id)}
+            strategy={verticalListSortingStrategy}
+          >
             <Accordion
               type="multiple"
               value={openItems}

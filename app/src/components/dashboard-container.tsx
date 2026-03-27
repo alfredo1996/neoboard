@@ -37,61 +37,56 @@ import {
   AlertDialogTitle,
 } from "@neoboard/components";
 
-interface DashboardContainerProps {
-  /** The active page to render. */
-  page: DashboardPage;
-  editable?: boolean;
+/** Widget action callbacks — grouped to reduce prop count. */
+export interface WidgetActions {
   onRemoveWidget?: (widgetId: string) => void;
   onEditWidget?: (widget: DashboardWidget) => void;
   onDuplicateWidget?: (widgetId: string) => void;
   onLayoutChange?: (gridLayout: GridLayoutItem[]) => void;
-  /**
-   * Called when a widget's settings are updated inline (e.g. column mapping).
-   * The caller should persist the updated widget to the dashboard layout.
-   */
   onWidgetSettingsChange?: (
     widgetId: string,
     settings: Record<string, unknown>,
   ) => void;
-  /** TanStack Query refetchInterval — periodically re-executes all widget queries. */
-  refetchInterval?: number | false;
-  /** Called when a click action navigates to a different page. */
   onNavigateToPage?: (pageId: string) => void;
-  /** Called when the user chooses "Save to Widget Lab" for a widget. */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
-  /** Map of template ID → template for outdated-sync detection. */
-  templateMap?: Record<string, WidgetTemplate>;
-  /** Called when the user confirms "Sync with template". */
   onSyncWidget?: (widget: DashboardWidget) => void;
-  /** Called when the user chooses "Detach from template". */
   onDetachWidget?: (widgetId: string) => void;
-  /** When false, the parameter bar is hidden. Defaults to true. */
+}
+
+interface DashboardContainerProps {
+  page: DashboardPage;
+  editable?: boolean;
+  actions?: WidgetActions;
+  refetchInterval?: number | false;
+  templateMap?: Record<string, WidgetTemplate>;
   showParameterBar?: boolean;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
-  if (widget.settings?.title && typeof widget.settings.title === "string") {
-    return widget.settings.title;
-  }
+  const title = (widget.settings ?? {}).title;
+  if (title && typeof title === "string") return title;
   return getChartConfig(widget.chartType)?.label ?? widget.chartType;
 }
 
 export function DashboardContainer({
   page,
   editable = false,
-  onRemoveWidget,
-  onEditWidget,
-  onDuplicateWidget,
-  onLayoutChange,
-  onWidgetSettingsChange,
+  actions,
   refetchInterval,
-  onNavigateToPage,
-  onSaveAsTemplate,
   templateMap,
-  onSyncWidget,
-  onDetachWidget,
   showParameterBar = true,
 }: DashboardContainerProps) {
+  const {
+    onRemoveWidget,
+    onEditWidget,
+    onDuplicateWidget,
+    onLayoutChange,
+    onWidgetSettingsChange,
+    onNavigateToPage,
+    onSaveAsTemplate,
+    onSyncWidget,
+    onDetachWidget,
+  } = actions ?? {};
   const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
@@ -210,92 +205,92 @@ export function DashboardContainer({
         </ParameterBar>
       )}
       <div className="w-full min-w-0">
-      <DashboardGrid
-        layout={page.gridLayout as GridLayoutItem[]}
-        onLayoutChange={(items) => onLayoutChange?.(items as GridLayoutItem[])}
-        isDraggable={editable}
-        isResizable={editable}
-      >
-        {page.widgets.map((widget) => {
-          const outdated = editable && isWidgetOutdated(widget);
-          const chartOpts = (widget.settings?.chartOptions ?? {}) as Record<
-            string,
-            unknown
-          >;
-          const showRefresh = shouldShowRefreshButton(chartOpts);
-          return (
-            <div
-              key={widget.id}
-              data-testid="widget-card"
-              data-widget-id={widget.id}
-            >
-              <WidgetCard
-                title={interpolateTitle(getWidgetTitle(widget), parameters)}
-                subtitle={undefined}
-                className="h-full"
-                draggable={editable}
-                actions={buildActions(widget)}
-                onRefresh={
-                  showRefresh
-                    ? () => {
-                        // Invalidate all TanStack Query entries matching this widget's
-                        // connection + query combo. This triggers a refetch.
-                        void queryClient.invalidateQueries({
-                          queryKey: [
-                            "widget-query",
-                            widget.connectionId,
-                            widget.query,
-                            widget.params,
-                          ],
-                        });
-                      }
-                    : undefined
-                }
-                headerExtra={
-                  <>
-                    {outdated && (
+        <DashboardGrid
+          layout={page.gridLayout as GridLayoutItem[]}
+          onLayoutChange={(items) =>
+            onLayoutChange?.(items as GridLayoutItem[])
+          }
+          isDraggable={editable}
+          isResizable={editable}
+        >
+          {page.widgets.map((widget) => {
+            const outdated = editable && isWidgetOutdated(widget);
+            const chartOpts = ((widget.settings ?? {}).chartOptions ??
+              {}) as Record<string, unknown>;
+            const showRefresh = shouldShowRefreshButton(chartOpts);
+            return (
+              <div
+                key={widget.id}
+                data-testid="widget-card"
+                data-widget-id={widget.id}
+              >
+                <WidgetCard
+                  title={interpolateTitle(getWidgetTitle(widget), parameters)}
+                  subtitle={undefined}
+                  className="h-full"
+                  draggable={editable}
+                  actions={buildActions(widget)}
+                  onRefresh={
+                    showRefresh
+                      ? () => {
+                          // Invalidate all TanStack Query entries matching this widget's
+                          // connection + query combo. This triggers a refetch.
+                          void queryClient.invalidateQueries({
+                            queryKey: [
+                              "widget-query",
+                              widget.connectionId,
+                              widget.query,
+                              widget.params,
+                            ],
+                          });
+                        }
+                      : undefined
+                  }
+                  headerExtra={
+                    <>
+                      {outdated && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-500"
+                          onClick={() => setPendingSyncWidget(widget)}
+                          title="Template update available — click to sync"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          <span className="sr-only">
+                            Template update available
+                          </span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-amber-500"
-                        onClick={() => setPendingSyncWidget(widget)}
-                        title="Template update available — click to sync"
+                        className="h-8 w-8"
+                        onClick={() => openFullscreen(widget)}
                       >
-                        <RefreshCw className="h-4 w-4" />
-                        <span className="sr-only">
-                          Template update available
-                        </span>
+                        <Maximize2 className="h-4 w-4" />
+                        <span className="sr-only">Fullscreen</span>
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openFullscreen(widget)}
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                      <span className="sr-only">Fullscreen</span>
-                    </Button>
-                  </>
-                }
-              >
-                <CardContainer
-                  widget={widget}
-                  isEditMode={editable}
-                  onWidgetSettingsChange={
-                    onWidgetSettingsChange
-                      ? (settings) =>
-                          onWidgetSettingsChange(widget.id, settings)
-                      : undefined
+                    </>
                   }
-                  refetchInterval={refetchInterval}
-                  onNavigateToPage={onNavigateToPage}
-                />
-              </WidgetCard>
-            </div>
-          );
-        })}
-      </DashboardGrid>
+                >
+                  <CardContainer
+                    widget={widget}
+                    isEditMode={editable}
+                    onWidgetSettingsChange={
+                      onWidgetSettingsChange
+                        ? (settings) =>
+                            onWidgetSettingsChange(widget.id, settings)
+                        : undefined
+                    }
+                    refetchInterval={refetchInterval}
+                    onNavigateToPage={onNavigateToPage}
+                  />
+                </WidgetCard>
+              </div>
+            );
+          })}
+        </DashboardGrid>
       </div>
 
       <Dialog

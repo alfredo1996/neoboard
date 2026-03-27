@@ -258,11 +258,12 @@ export interface ClickActionRule {
 
 // StylingRule, StylingConfig, StylingOperator — single source of truth in component package.
 // Re-exported here so app/ code can import from "@/lib/db/schema" without breaking existing imports.
+// Use direct chart path to avoid pulling in the full component barrel (breaks Vitest resolution).
 export type {
   StylingRule,
   StylingConfig,
   StylingOperator,
-} from "@neoboard/components";
+} from "@neoboard/components/charts";
 
 export interface ClickAction {
   type: "set-parameter" | "navigate-to-page" | "set-parameter-and-navigate";

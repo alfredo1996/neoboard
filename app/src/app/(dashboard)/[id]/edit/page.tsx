@@ -485,7 +485,9 @@ export default function DashboardEditorPage({
             initialTemplate={
               pendingTemplateId ? templateMap[pendingTemplateId] : undefined
             }
-            initialPreviewData={editorMode === "edit" ? cachedPreviewData : undefined}
+            initialPreviewData={
+              editorMode === "edit" ? cachedPreviewData : undefined
+            }
           />
 
           {templateWidget &&
@@ -545,23 +547,24 @@ export default function DashboardEditorPage({
                   <DashboardContainer
                     page={page}
                     editable
-                    onRemoveWidget={removeWidget}
-                    onEditWidget={openEditWidget}
-                    onDuplicateWidget={duplicateWidget}
-                    onLayoutChange={isActive ? updateGridLayout : undefined}
-                    onWidgetSettingsChange={(widgetId, settings) => {
-                      const target = page.widgets.find(
-                        (w) => w.id === widgetId,
-                      );
-                      if (target) {
-                        updateWidget(widgetId, { ...target, settings });
-                      }
+                    actions={{
+                      onRemoveWidget: removeWidget,
+                      onEditWidget: openEditWidget,
+                      onDuplicateWidget: duplicateWidget,
+                      onLayoutChange: isActive ? updateGridLayout : undefined,
+                      onWidgetSettingsChange: (widgetId, settings) => {
+                        const target = page.widgets.find(
+                          (w) => w.id === widgetId,
+                        );
+                        if (target)
+                          updateWidget(widgetId, { ...target, settings });
+                      },
+                      onNavigateToPage: handleNavigateToPage,
+                      onSaveAsTemplate: setTemplateWidget,
+                      onSyncWidget: handleSyncWidget,
+                      onDetachWidget: handleDetachWidget,
                     }}
-                    onNavigateToPage={handleNavigateToPage}
-                    onSaveAsTemplate={setTemplateWidget}
                     templateMap={templateMap}
-                    onSyncWidget={handleSyncWidget}
-                    onDetachWidget={handleDetachWidget}
                     showParameterBar={showParameterBar}
                   />
                 </div>
