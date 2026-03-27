@@ -1,17 +1,18 @@
-import { ConnectionModule } from '../generalized/ConnectionModule';
-import { PostgresAuthenticationModule } from './PostgresAuthenticationModule';
+import { ConnectionModule } from "../generalized/ConnectionModule";
+import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import {
   AuthConfig,
-  AdvancedConnectionOptions,
+  PostgresAdvancedOptions,
   ConnectionConfig,
   QueryCallback,
   QueryParams,
   QueryStatus,
-} from '../generalized/interfaces';
-import { PostgresRecordParser } from './PostgresRecordParser';
-import { Pool, PoolClient } from 'pg';
-import { extractTableSchemaFromFields, errorHasMessage, isTimeoutError, isAuthenticationError } from './utils';
-import { determineQueryStatus } from '../generalized/utils';
+} from "../generalized/interfaces";
+import { PostgresRecordParser } from "./PostgresRecordParser";
+import { Pool, PoolClient } from "pg";
+import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
+import { determineQueryStatus } from "../generalized/utils";
+import { wrapError, ConnectorErrorType } from "../generalized/ConnectorError";
 
 /**
  * PostgreSQL Connection Module
@@ -26,7 +27,7 @@ export class PostgresConnectionModule extends ConnectionModule {
    * @param config - The authentication configuration
    * @param advancedOptions - Optional advanced pool/timeout settings
    */
-  constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
+  constructor(config: AuthConfig, advancedOptions?: PostgresAdvancedOptions) {
     super();
     this.authModule = new PostgresAuthenticationModule(config, advancedOptions);
     this.parser = new PostgresRecordParser();
@@ -51,7 +52,7 @@ export class PostgresConnectionModule extends ConnectionModule {
   async runQuery<T>(
     queryParams: QueryParams,
     callbacks: QueryCallback<T>,
-    config: ConnectionConfig
+    config: ConnectionConfig,
   ): Promise<void> {
     const { query, params = {} } = queryParams;
 
@@ -59,14 +60,16 @@ export class PostgresConnectionModule extends ConnectionModule {
 
     // Ensure connection is established
     if (!this.authModule.getPool()) {
-      const authenticated = await this.authModule.verifyAuthentication().catch((err) => {
-        // Only swallow auth errors; re-throw network/pool/DNS failures for visibility
-        if (isAuthenticationError(err)) return false;
-        throw err;
-      });
+      const authenticated = await this.authModule
+        .verifyAuthentication()
+        .catch((err) => {
+          // Only swallow auth errors; re-throw network/pool/DNS failures for visibility
+          if (isAuthenticationError(err)) return false;
+          throw err;
+        });
       if (!authenticated) {
         callbacks.setStatus?.(QueryStatus.ERROR);
-        callbacks.onFail?.(new Error('Failed to authenticate with PostgreSQL'));
+        callbacks.onFail?.(new Error("Failed to authenticate with PostgreSQL"));
         return;
       }
     }
@@ -85,7 +88,7 @@ export class PostgresConnectionModule extends ConnectionModule {
     query: string,
     callbacks: QueryCallback<T>,
     config: ConnectionConfig,
-    params: Record<string, unknown> = {}
+    params: Record<string, unknown> = {},
   ): Promise<void> {
     // Pool is guaranteed to exist — runQuery ensures authentication before calling this method
     const pool = this.authModule.getPool()!;
@@ -93,7 +96,7 @@ export class PostgresConnectionModule extends ConnectionModule {
 
     try {
       // Start transaction based on access mode
-      const isReadOnly = config.accessMode === 'READ';
+      const isReadOnly = config.accessMode === "READ";
       await this._beginTransaction(client, isReadOnly);
 
       // Set statement timeout if specified.
@@ -110,15 +113,18 @@ export class PostgresConnectionModule extends ConnectionModule {
       // Params arrive as { "0": val0, "1": val1, ... } from rewriteParamsForPostgres.
       // Sort keys numerically to guarantee correct $1, $2, ... ordering.
       const paramKeys = Object.keys(params);
-      const paramValues = paramKeys.length > 0
-        ? paramKeys.sort((a, b) => Number(a) - Number(b)).map((k) => params[k])
-        : [];
+      const paramValues =
+        paramKeys.length > 0
+          ? paramKeys
+              .sort((a, b) => Number(a) - Number(b))
+              .map((k) => params[k])
+          : [];
 
       // Execute query with positional parameters
       const result = await client.query(query, paramValues);
 
       // Commit transaction
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       const rowCount = result.rowCount || 0;
       const isTruncated = rowCount > config.rowLimit;
@@ -132,7 +138,9 @@ export class PostgresConnectionModule extends ConnectionModule {
       callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
 
       // Parse results to NeodashRecord format
-      const limitedRows = isTruncated ? result.rows.slice(0, config.rowLimit) : result.rows;
+      const limitedRows = isTruncated
+        ? result.rows.slice(0, config.rowLimit)
+        : result.rows;
       const parsedRecords = config.parseToNeodashRecord
         ? this.parser.bulkParse(limitedRows)
         : limitedRows;
@@ -141,7 +149,9 @@ export class PostgresConnectionModule extends ConnectionModule {
       if (callbacks.setFields) {
         if (parsedRecords.length > 0 && config.parseToNeodashRecord) {
           const firstRecord = this.parser.bulkParse([result.rows[0]])[0];
-          callbacks.setFields(firstRecord.getFields(config.useNodePropsAsFields));
+          callbacks.setFields(
+            firstRecord.getFields(config.useNodePropsAsFields),
+          );
         } else {
           callbacks.setFields([]);
         }
@@ -153,22 +163,24 @@ export class PostgresConnectionModule extends ConnectionModule {
     } catch (error: unknown) {
       // Rollback transaction on error
       try {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
       } catch (rollbackError) {
         // Log only error type — never the full error which may contain connection details
-        const code = rollbackError instanceof Error ? rollbackError.message.split(':')[0] : 'unknown';
-        console.error('Error during rollback:', code);
+        const code =
+          rollbackError instanceof Error
+            ? rollbackError.message.split(":")[0]
+            : "unknown";
+        console.error("Error during rollback:", code);
       }
 
-      // Determine error type
-      if (errorHasMessage(error)) {
-        const isTimeout = isTimeoutError(error);
-        callbacks.setStatus?.(isTimeout ? QueryStatus.TIMED_OUT : QueryStatus.ERROR);
-      } else {
-        callbacks.setStatus?.(QueryStatus.ERROR);
-      }
-
-      callbacks.onFail?.(error);
+      // Wrap raw error into normalized ConnectorError
+      const wrapped = wrapError(error, "postgresql");
+      callbacks.setStatus?.(
+        wrapped.type === ConnectorErrorType.TIMEOUT
+          ? QueryStatus.TIMED_OUT
+          : QueryStatus.ERROR,
+      );
+      callbacks.onFail?.(wrapped);
     } finally {
       client.release();
     }
@@ -179,11 +191,14 @@ export class PostgresConnectionModule extends ConnectionModule {
    * @param client - The database client
    * @param readOnly - Whether the transaction is read-only
    */
-  private async _beginTransaction(client: PoolClient, readOnly: boolean): Promise<void> {
+  private async _beginTransaction(
+    client: PoolClient,
+    readOnly: boolean,
+  ): Promise<void> {
     if (readOnly) {
-      await client.query('BEGIN TRANSACTION READ ONLY');
+      await client.query("BEGIN TRANSACTION READ ONLY");
     } else {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
     }
   }
 
@@ -191,29 +206,33 @@ export class PostgresConnectionModule extends ConnectionModule {
    * Checks if the database connection is active and healthy.
    * @returns true if connection is valid, false otherwise
    */
-  async checkConnection(_connectionConfig?: ConnectionConfig): Promise<boolean> {
+  async checkConnection(
+    _connectionConfig?: ConnectionConfig,
+  ): Promise<boolean> {
     try {
       const pool = this.authModule.getPool();
       if (!pool) {
         // Try to authenticate first — only swallow auth errors
-        const authenticated = await this.authModule.verifyAuthentication().catch((err) => {
-          if (isAuthenticationError(err)) return false;
-          throw err;
-        });
+        const authenticated = await this.authModule
+          .verifyAuthentication()
+          .catch((err) => {
+            if (isAuthenticationError(err)) return false;
+            throw err;
+          });
         if (!authenticated) return false;
       }
 
       const client = await this.authModule.getPool()!.connect();
       try {
-        await client.query('SELECT 1');
+        await client.query("SELECT 1");
         return true;
       } finally {
         client.release();
       }
     } catch (error) {
+      const wrapped = wrapError(error, "postgresql");
       // Log only error type — never the full error which may contain connection details
-      const code = error instanceof Error ? error.message.split(':')[0] : 'unknown';
-      console.error('Connection check failed:', code);
+      console.error("Connection check failed:", wrapped.type);
       return false;
     }
   }
