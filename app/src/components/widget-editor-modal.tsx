@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
@@ -91,6 +92,7 @@ import { ParameterPreview } from "./widget-editor/parameter-preview";
 import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 
 export interface WidgetEditorModalProps {
@@ -809,6 +811,71 @@ export function WidgetEditorModal({
     return [];
   }, [previewQuery.data, initialPreviewData]);
 
+  // Sync local state → widget editor store (bridge for sub-editors reading from store).
+  // useLayoutEffect ensures the store is updated synchronously before paint,
+  // so sub-editors see current values on the first render (not stale from previous frame).
+  useLayoutEffect(() => {
+    useWidgetEditorStore.setState({ chartType, connectionId, query });
+  }, [chartType, connectionId, query]);
+  useLayoutEffect(() => {
+    useWidgetEditorStore.setState({ availableFields });
+  }, [availableFields]);
+  useLayoutEffect(() => {
+    useWidgetEditorStore.setState({ parameterSuggestions });
+  }, [parameterSuggestions]);
+
+  // Bidirectional sync for mutable state between local state and store.
+  const syncingFromStore = useRef(false);
+  useLayoutEffect(() => {
+    if (!syncingFromStore.current) {
+      useWidgetEditorStore.setState({
+        stylingRules,
+        actionRules,
+        formFields,
+        query,
+        chartOptions,
+        connectionId,
+        paramUIType,
+        dateSub,
+        multiSelect,
+        paramWidgetName,
+      });
+    }
+  }, [
+    stylingRules,
+    actionRules,
+    formFields,
+    query,
+    chartOptions,
+    connectionId,
+    paramUIType,
+    dateSub,
+    multiSelect,
+    paramWidgetName,
+  ]);
+  // Reverse: store → local when sub-editors modify state
+  useEffect(() => {
+    return useWidgetEditorStore.subscribe((state, prev) => {
+      syncingFromStore.current = true;
+      if (state.stylingRules !== prev.stylingRules)
+        setStylingRules(state.stylingRules);
+      if (state.actionRules !== prev.actionRules)
+        setActionRules(state.actionRules);
+      if (state.formFields !== prev.formFields) setFormFields(state.formFields);
+      if (state.query !== prev.query) setQuery(state.query);
+      if (state.chartOptions !== prev.chartOptions)
+        setChartOptions(state.chartOptions);
+      if (state.paramUIType !== prev.paramUIType)
+        setParamUIType(state.paramUIType);
+      if (state.dateSub !== prev.dateSub) setDateSub(state.dateSub);
+      if (state.multiSelect !== prev.multiSelect)
+        setMultiSelect(state.multiSelect);
+      if (state.paramWidgetName !== prev.paramWidgetName)
+        setParamWidgetName(state.paramWidgetName);
+      syncingFromStore.current = false;
+    });
+  }, []);
+
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
   const isMarkdown = chartType === "markdown";
@@ -936,23 +1003,10 @@ export function WidgetEditorModal({
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
       >
         {dialogStep === "styling-rules" ? (
-          <StylingRulesEditor
-            rules={stylingRules}
-            onRulesChange={setStylingRules}
-            onBack={() => setDialogStep("main")}
-            chartType={chartType}
-            availableFields={availableFields}
-            parameterSuggestions={parameterSuggestions}
-            stylingTargets={getStylingTargets(chartType)}
-          />
+          <StylingRulesEditor onBack={() => setDialogStep("main")} />
         ) : dialogStep === "rules" ? (
           <ActionRulesEditor
-            rules={actionRules}
-            onRulesChange={setActionRules}
             onBack={() => setDialogStep("main")}
-            chartType={chartType}
-            availableFields={availableFields}
-            parameterSuggestions={parameterSuggestions}
             pages={(layout?.pages ?? []).map((p) => ({
               id: p.id,
               title: p.title,
@@ -1193,17 +1247,6 @@ export function WidgetEditorModal({
                       {/* Parameter config (when parameter-select) */}
                       {isParamSelect && (
                         <ParameterConfigSection
-                          paramUIType={paramUIType}
-                          onParamUITypeChange={setParamUIType}
-                          dateSub={dateSub}
-                          onDateSubChange={setDateSub}
-                          multiSelect={multiSelect}
-                          onMultiSelectChange={setMultiSelect}
-                          paramWidgetName={paramWidgetName}
-                          onParamWidgetNameChange={setParamWidgetName}
-                          chartOptions={chartOptions}
-                          onChartOptionsChange={setChartOptions}
-                          connectionId={connectionId}
                           seedQueryExecution={seedQueryExecution}
                           seedPreviewOptions={seedPreviewOptions}
                         />
@@ -1233,24 +1276,14 @@ export function WidgetEditorModal({
                       {/* Query editor (non-parameter and non-content types) */}
                       {!isParamSelect && !isContentOnly && (
                         <QueryEditorPanel
-                          chartType={chartType}
-                          query={query}
-                          onQueryChange={setQuery}
                           onRun={isForm ? undefined : handlePreview}
                           editorLanguage={editorLanguage}
-                          connectionId={connectionId}
                           running={previewQuery.isPending}
                         />
                       )}
 
                       {/* Form fields editor (form type only) */}
-                      {isForm && (
-                        <FormFieldsEditor
-                          fields={formFields}
-                          onChange={setFormFields}
-                          connectionId={connectionId}
-                        />
-                      )}
+                      {isForm && <FormFieldsEditor />}
                     </div>
                   }
                   styleTab={
@@ -1698,7 +1731,7 @@ export function WidgetEditorModal({
                       ? !paramWidgetName.trim() ||
                         (paramUIType === "select" &&
                           (!connectionId ||
-                            !(chartOptions.seedQuery as string)?.trim()))
+                            !String(chartOptions.seedQuery ?? "").trim()))
                       : isContentOnly
                         ? false
                         : isForm

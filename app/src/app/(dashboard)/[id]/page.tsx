@@ -1,8 +1,22 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import React, {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Filter, Pencil, LayoutDashboard, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Filter,
+  Pencil,
+  LayoutDashboard,
+  RefreshCw,
+} from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
@@ -79,7 +93,7 @@ export default function DashboardViewerPage({
   const [showParameterBar, setShowParameterBar] = useState(true);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
-    () => new Set([0])
+    () => new Set([0]),
   );
 
   function markVisited(index: number) {
@@ -98,13 +112,17 @@ export default function DashboardViewerPage({
   const [isPending, startTransition] = useTransition();
   const layout = useMemo(
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
-    [dashboard]
+    [dashboard],
   );
 
   // Auto-refresh: local override (null = use persisted settings from layout).
   // Keyed by dashboard id so navigating to a different dashboard resets the override.
-  const [localSettings, setLocalSettings] = useState<{ dashboardId: string; settings: DashboardSettings } | null>(null);
-  const activeLocalSettings = localSettings?.dashboardId === id ? localSettings.settings : null;
+  const [localSettings, setLocalSettings] = useState<{
+    dashboardId: string;
+    settings: DashboardSettings;
+  } | null>(null);
+  const activeLocalSettings =
+    localSettings?.dashboardId === id ? localSettings.settings : null;
   const autoRefreshSettings = activeLocalSettings ?? layout?.settings ?? {};
   const refetchInterval = getRefetchInterval(autoRefreshSettings);
 
@@ -126,12 +144,18 @@ export default function DashboardViewerPage({
           : { autoRefresh: true, refreshIntervalSeconds: seconds };
       setLocalSettings({ dashboardId: id, settings: newSettings });
       if (layout) {
-        const payload = { id, layoutJson: { ...layout, settings: newSettings } };
+        const payload = {
+          id,
+          layoutJson: { ...layout, settings: newSettings },
+        };
         persistQueueRef.current = persistQueueRef.current
           .catch(() => undefined)
           .then(() => updateDashboard.mutateAsync(payload))
           .catch((err: unknown) => {
-            console.error("[auto-save] Failed to persist dashboard settings:", err);
+            console.error(
+              "[auto-save] Failed to persist dashboard settings:",
+              err,
+            );
           });
       }
     },
@@ -154,15 +178,19 @@ export default function DashboardViewerPage({
   }, [customSeconds, applyInterval]);
 
   // Derive display values from the effective (normalized) interval
-  const effectiveSeconds = typeof refetchInterval === "number" ? refetchInterval / 1000 : null;
-  const intervalLabel = effectiveSeconds !== null
-    ? formatInterval(effectiveSeconds)
-    : "Auto-refresh";
-  const dropdownValue = effectiveSeconds !== null ? String(effectiveSeconds) : "off";
+  const effectiveSeconds =
+    typeof refetchInterval === "number" ? refetchInterval / 1000 : null;
+  const intervalLabel =
+    effectiveSeconds !== null
+      ? formatInterval(effectiveSeconds)
+      : "Auto-refresh";
+  const dropdownValue =
+    effectiveSeconds !== null ? String(effectiveSeconds) : "off";
   // Toolbar button label: show interval + live countdown when active
-  const buttonLabel = countdown !== null
-    ? `${intervalLabel} · ${formatCountdown(countdown)}`
-    : intervalLabel;
+  const buttonLabel =
+    countdown !== null
+      ? `${intervalLabel} · ${formatCountdown(countdown)}`
+      : intervalLabel;
 
   const handleNavigateToPage = useCallback(
     (pageId: string) => {
@@ -173,7 +201,7 @@ export default function DashboardViewerPage({
         setActivePageIndex(index);
       }
     },
-    [layout]
+    [layout],
   );
 
   if (isLoading) {
@@ -211,17 +239,16 @@ export default function DashboardViewerPage({
   // layout is non-null here because dashboard is defined (guarded above)
   const resolvedLayout = layout!;
   const safeIndex = Math.min(activePageIndex, resolvedLayout.pages.length - 1);
-  const canEdit = dashboard.role === "owner" || dashboard.role === "editor" || dashboard.role === "admin";
+  const canEdit =
+    dashboard.role === "owner" ||
+    dashboard.role === "editor" ||
+    dashboard.role === "admin";
 
   return (
     <div className="flex flex-col h-full">
       <Toolbar>
         <ToolbarSection>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/")}
-          >
+          <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
@@ -231,7 +258,9 @@ export default function DashboardViewerPage({
           <Badge variant="secondary">{dashboard.role}</Badge>
           <span className="text-xs text-muted-foreground">
             · updated <TimeAgo date={dashboard.updatedAt} showTooltip={false} />
-            {dashboard.updatedByName ? <> by {dashboard.updatedByName}</> : null}
+            {dashboard.updatedByName ? (
+              <> by {dashboard.updatedByName}</>
+            ) : null}
           </span>
         </ToolbarSection>
         <ToolbarSection>
@@ -241,16 +270,24 @@ export default function DashboardViewerPage({
             size="sm"
             disabled={!hasParameters}
             onClick={() => setShowParameterBar((prev) => !prev)}
-            aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
+            aria-label={
+              showParameterBar ? "Hide parameters" : "Show parameters"
+            }
           >
             <Filter className="mr-2 h-4 w-4" />
-            {!hasParameters || showParameterBar ? "Filters" : `Filters (${parameterCount})`}
+            {!hasParameters || showParameterBar
+              ? "Filters"
+              : `Filters (${parameterCount})`}
           </Button>
           {canEdit && (
             <>
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" data-testid="auto-refresh-trigger">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="auto-refresh-trigger"
+                  >
                     <RefreshCw
                       className={`mr-2 h-4 w-4${isFetching ? " animate-spin" : ""}`}
                     />
@@ -264,23 +301,39 @@ export default function DashboardViewerPage({
                     value={dropdownValue}
                     onValueChange={handleIntervalChange}
                   >
-                    <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="30">30 seconds</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="60">1 minute</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="300">5 minutes</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="600">10 minutes</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="off">
+                      Off
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="30">
+                      30 seconds
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="60">
+                      1 minute
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="300">
+                      5 minutes
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="600">
+                      10 minutes
+                    </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                   <DropdownMenuSeparator />
                   <div className="px-2 py-1.5 space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Custom (seconds)</p>
+                    <p className="text-xs text-muted-foreground">
+                      Custom (seconds)
+                    </p>
                     <div className="flex gap-1.5">
                       <Input
                         type="number"
                         min={5}
                         placeholder="e.g. 5"
                         value={customSeconds}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomSeconds(e.target.value)}
-                        onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter") handleCustomApply(); }}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setCustomSeconds(e.target.value)
+                        }
+                        onKeyDown={(e: React.KeyboardEvent) => {
+                          if (e.key === "Enter") handleCustomApply();
+                        }}
                         className="h-7 text-xs"
                         data-testid="custom-interval-input"
                       />
@@ -302,7 +355,11 @@ export default function DashboardViewerPage({
                 size="sm"
                 loading={isPending}
                 loadingText="Opening editor..."
-                onClick={() => startTransition(() => router.push(`/${id}/edit?page=${safeIndex}`))}
+                onClick={() =>
+                  startTransition(() =>
+                    router.push(`/${id}/edit?page=${safeIndex}`),
+                  )
+                }
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
@@ -350,7 +407,12 @@ export default function DashboardViewerPage({
               className={isActive ? undefined : "hidden"}
               aria-hidden={!isActive}
             >
-              <DashboardContainer page={page} refetchInterval={refetchInterval} onNavigateToPage={handleNavigateToPage} showParameterBar={showParameterBar} />
+              <DashboardContainer
+                page={page}
+                refetchInterval={refetchInterval}
+                actions={{ onNavigateToPage: handleNavigateToPage }}
+                showParameterBar={showParameterBar}
+              />
             </div>
           );
         })}

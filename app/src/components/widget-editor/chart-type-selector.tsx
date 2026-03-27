@@ -20,32 +20,41 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import {
-  Label,
-  Combobox,
-} from "@neoboard/components";
+import { Label, Combobox } from "@neoboard/components";
 import type { ChartType } from "@/lib/chart-registry";
+import { getChartConfig } from "@/lib/chart-registry";
 
-/** Icon + label map for chart type dropdown (keeps chart-registry free of UI concerns) */
-export const chartTypeMeta: Record<ChartType, { label: string; Icon: LucideIcon }> = {
-  bar: { label: "Bar Chart", Icon: BarChart3 },
-  line: { label: "Line Chart", Icon: LineChartIcon },
-  pie: { label: "Pie Chart", Icon: PieChartIcon },
-  "single-value": { label: "Single Value", Icon: Hash },
-  graph: { label: "Graph", Icon: GitGraph },
-  map: { label: "Map", Icon: Map },
-  table: { label: "Data Table", Icon: Table2 },
-  json: { label: "JSON Viewer", Icon: Braces },
-  "parameter-select": { label: "Parameter Selector", Icon: SlidersHorizontal },
-  form: { label: "Form", Icon: FileEdit },
-  markdown: { label: "Markdown", Icon: FileText },
-  iframe: { label: "iFrame", Icon: Globe },
-  gauge: { label: "Gauge", Icon: Gauge },
-  sankey: { label: "Sankey", Icon: Workflow },
-  sunburst: { label: "Sunburst", Icon: Sun },
-  radar: { label: "Radar", Icon: Radar },
-  treemap: { label: "Treemap", Icon: LayoutGrid },
+/** Icon map for chart type dropdown (labels come from chartRegistry, icons stay in UI layer) */
+export const chartTypeIcons: Record<ChartType, LucideIcon> = {
+  bar: BarChart3,
+  line: LineChartIcon,
+  pie: PieChartIcon,
+  "single-value": Hash,
+  graph: GitGraph,
+  map: Map,
+  table: Table2,
+  json: Braces,
+  "parameter-select": SlidersHorizontal,
+  form: FileEdit,
+  markdown: FileText,
+  iframe: Globe,
+  gauge: Gauge,
+  sankey: Workflow,
+  sunburst: Sun,
+  radar: Radar,
+  treemap: LayoutGrid,
 };
+
+/** Get label + Icon for a chart type. Label from registry, Icon from UI layer. */
+export function getChartTypeMeta(type: ChartType): {
+  label: string;
+  Icon: LucideIcon;
+} {
+  return {
+    label: getChartConfig(type)?.label ?? type,
+    Icon: chartTypeIcons[type] ?? Braces,
+  };
+}
 
 interface ConnectionOption {
   id: string;
@@ -74,7 +83,7 @@ export function ChartTypeSelector({
 }: ChartTypeSelectorProps) {
   const chartTypeOptions = compatibleChartTypes.map((type) => ({
     value: type,
-    label: chartTypeMeta[type].label,
+    label: getChartTypeMeta(type).label,
   }));
 
   const chartTypeSelect = (
@@ -99,7 +108,9 @@ export function ChartTypeSelector({
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-1.5">
-        <Label>Connection <span className="text-destructive">*</span></Label>
+        <Label>
+          Connection <span className="text-destructive">*</span>
+        </Label>
         <Combobox
           value={connectionId}
           onChange={onConnectionChange}

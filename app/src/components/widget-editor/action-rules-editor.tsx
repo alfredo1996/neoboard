@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { ClickActionRule } from "@/lib/db/schema";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import {
   Accordion,
@@ -23,24 +24,18 @@ import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
 
 interface ActionRulesEditorProps {
-  rules: ClickActionRule[];
-  onRulesChange: (rules: ClickActionRule[]) => void;
   onBack: () => void;
-  chartType: string;
-  availableFields: string[];
-  parameterSuggestions: string[];
   pages: { id: string; title: string }[];
 }
 
-export function ActionRulesEditor({
-  rules,
-  onRulesChange,
-  onBack,
-  chartType,
-  availableFields,
-  parameterSuggestions,
-  pages,
-}: ActionRulesEditorProps) {
+export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
+  const rules = useWidgetEditorStore((s) => s.actionRules);
+  const onRulesChange = useWidgetEditorStore((s) => s.setActionRules);
+  const chartType = useWidgetEditorStore((s) => s.chartType);
+  const availableFields = useWidgetEditorStore((s) => s.availableFields);
+  const parameterSuggestions = useWidgetEditorStore(
+    (s) => s.parameterSuggestions,
+  );
   const isTable = chartType === "table";
 
   const { openItems, setOpenItems, addItem, removeItem, updateItem } =
@@ -59,8 +54,11 @@ export function ActionRulesEditor({
     addItem(() => ({
       id: crypto.randomUUID(),
       type: "set-parameter",
-      triggerColumn: isTable ? availableFields[0] ?? "" : undefined,
-      parameterMapping: { parameterName: "", sourceField: availableFields[0] ?? "" },
+      triggerColumn: isTable ? (availableFields[0] ?? "") : undefined,
+      parameterMapping: {
+        parameterName: "",
+        sourceField: availableFields[0] ?? "",
+      },
     }));
   }
 
@@ -82,9 +80,17 @@ export function ActionRulesEditor({
           </p>
         )}
 
-        <Accordion type="multiple" value={openItems} onValueChange={setOpenItems}>
+        <Accordion
+          type="multiple"
+          value={openItems}
+          onValueChange={setOpenItems}
+        >
           {rules.map((rule, index) => (
-            <AccordionItem key={rule.id} value={rule.id} className="border rounded-lg">
+            <AccordionItem
+              key={rule.id}
+              value={rule.id}
+              className="border rounded-lg"
+            >
               <div className="flex items-center pr-2">
                 <AccordionTrigger className="flex-1 px-4 py-3 text-sm font-medium">
                   Rule {index + 1}
@@ -108,7 +114,9 @@ export function ActionRulesEditor({
                     <Label>Trigger Column</Label>
                     <FieldSelectorInput
                       value={rule.triggerColumn ?? ""}
-                      onChange={(v) => updateItem(rule.id, { triggerColumn: v })}
+                      onChange={(v) =>
+                        updateItem(rule.id, { triggerColumn: v })
+                      }
                       fields={availableFields}
                       label="Trigger Column"
                       placeholder="Select column..."
@@ -131,15 +139,22 @@ export function ActionRulesEditor({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="set-parameter">Set Parameter</SelectItem>
-                      <SelectItem value="navigate-to-page">Navigate to Page</SelectItem>
-                      <SelectItem value="set-parameter-and-navigate">Set Parameter & Navigate</SelectItem>
+                      <SelectItem value="set-parameter">
+                        Set Parameter
+                      </SelectItem>
+                      <SelectItem value="navigate-to-page">
+                        Navigate to Page
+                      </SelectItem>
+                      <SelectItem value="set-parameter-and-navigate">
+                        Set Parameter & Navigate
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {/* Parameter name */}
-                {(rule.type === "set-parameter" || rule.type === "set-parameter-and-navigate") && (
+                {(rule.type === "set-parameter" ||
+                  rule.type === "set-parameter-and-navigate") && (
                   <>
                     <div className="space-y-1.5">
                       <Label>Parameter Name</Label>
@@ -150,7 +165,8 @@ export function ActionRulesEditor({
                           updateItem(rule.id, {
                             parameterMapping: {
                               parameterName: v,
-                              sourceField: rule.parameterMapping?.sourceField ?? "",
+                              sourceField:
+                                rule.parameterMapping?.sourceField ?? "",
                             },
                           })
                         }
@@ -167,7 +183,8 @@ export function ActionRulesEditor({
                           onChange={(v) =>
                             updateItem(rule.id, {
                               parameterMapping: {
-                                parameterName: rule.parameterMapping?.parameterName ?? "",
+                                parameterName:
+                                  rule.parameterMapping?.parameterName ?? "",
                                 sourceField: v,
                               },
                             })
@@ -182,13 +199,16 @@ export function ActionRulesEditor({
                 )}
 
                 {/* Target page */}
-                {(rule.type === "navigate-to-page" || rule.type === "set-parameter-and-navigate") && (
+                {(rule.type === "navigate-to-page" ||
+                  rule.type === "set-parameter-and-navigate") && (
                   <div className="space-y-1.5">
                     <Label>Target Page</Label>
                     {pages.length > 0 ? (
                       <Select
                         value={rule.targetPageId ?? ""}
-                        onValueChange={(v) => updateItem(rule.id, { targetPageId: v })}
+                        onValueChange={(v) =>
+                          updateItem(rule.id, { targetPageId: v })
+                        }
                       >
                         <SelectTrigger aria-label="Target Page">
                           <SelectValue placeholder="Select a page..." />
@@ -213,7 +233,12 @@ export function ActionRulesEditor({
           ))}
         </Accordion>
 
-        <Button variant="outline" size="sm" onClick={addRule} className="w-full">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={addRule}
+          className="w-full"
+        >
           <Plus className="h-4 w-4 mr-1.5" />
           Add Rule
         </Button>
