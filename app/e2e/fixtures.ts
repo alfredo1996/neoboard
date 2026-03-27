@@ -160,26 +160,15 @@ export async function typeInEditor(
       return;
     }
 
-    // Strategy 2: Keyboard fallback (for environments where cmView is not accessible
-    // or when the view is temporarily readonly during initialization)
+    // __cmView not ready yet — retry (editor may be re-mounting)
     if (dispatched === "no-view" || dispatched === "readonly") {
-      await expect(cm).toHaveAttribute("contenteditable", "true", {
-        timeout: 2_000,
-      });
-      await cm.click();
-      await page.keyboard.press("ControlOrMeta+a");
-      await page.keyboard.press("Backspace");
-      await page.keyboard.insertText(query);
-      const text = await cm.textContent();
-      if (!text || !text.includes(query.substring(0, 20))) {
-        throw new Error("Keyboard fallback: text not inserted");
-      }
+      throw new Error(`CM6 __cmView not available (${dispatched}) — retrying`);
       return;
     }
 
     // Retry-worthy states: no-editor, dispatch-failed
     throw new Error(`CM6 dispatch returned "${dispatched}" — retrying`);
-  }).toPass({ timeout: 20_000 });
+  }).toPass({ timeout: 30_000 });
 }
 
 /**
