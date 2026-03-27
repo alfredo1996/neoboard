@@ -3,6 +3,246 @@ import type { ColorThreshold } from "./color-threshold";
 import { resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
+import type { PieChartDataPoint } from "./types";
+
+// ---------------------------------------------------------------------------
+// Number formatting
+// ---------------------------------------------------------------------------
+
+export type NumberFormat = "plain" | "comma" | "compact" | "percent";
+
+export interface NumberFormatConfig {
+  numberFormat?: NumberFormat;
+  decimalPlaces?: number;
+  prefix?: string;
+  suffix?: string;
+}
+
+/**
+ * Format a numeric value with optional decimal places, locale formatting,
+ * compact notation, prefix, and suffix. Non-numeric values pass through as-is.
+ */
+export function formatNumber(
+  value: number | string,
+  config: NumberFormatConfig = {},
+): string {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return String(value);
+
+  const {
+    numberFormat = "plain",
+    decimalPlaces,
+    prefix = "",
+    suffix = "",
+  } = config;
+
+  let formatted: string;
+
+  switch (numberFormat) {
+    case "comma":
+      formatted =
+        decimalPlaces !== undefined
+          ? value.toLocaleString("en-US", {
+              minimumFractionDigits: decimalPlaces,
+              maximumFractionDigits: decimalPlaces,
+            })
+          : value.toLocaleString("en-US");
+      break;
+    case "compact":
+      formatted = Intl.NumberFormat("en", {
+        notation: "compact",
+        ...(decimalPlaces !== undefined
+          ? {
+              minimumFractionDigits: decimalPlaces,
+              maximumFractionDigits: decimalPlaces,
+            }
+          : {}),
+      }).format(value);
+      break;
+    case "percent":
+      formatted =
+        decimalPlaces !== undefined
+          ? `${value.toFixed(decimalPlaces)}%`
+          : `${value}%`;
+      break;
+    default: // "plain"
+      formatted =
+        decimalPlaces !== undefined
+          ? value.toFixed(decimalPlaces)
+          : String(value);
+      break;
+  }
+
+  return `${prefix}${formatted}${suffix}`;
+}
+
+// ---------------------------------------------------------------------------
+// ECharts tooltip formatter
+// ---------------------------------------------------------------------------
+
+export interface TooltipParam {
+  seriesName?: string;
+  name?: string;
+  value?: number | string | (number | string)[];
+  marker?: string;
+}
+
+/**
+ * Build an ECharts tooltip formatter function that applies consistent number
+ * formatting across all chart types. Works with both single and array params
+ * (item trigger vs axis trigger).
+ */
+export function buildTooltipFormatter(
+  config: NumberFormatConfig = {},
+): (params: unknown) => string {
+  // Tooltip always uses comma format for readability unless explicitly set
+  const tooltipConfig: NumberFormatConfig = {
+    numberFormat: "comma",
+    ...config,
+  };
+
+  return (params: unknown) => {
+    const items = Array.isArray(params)
+      ? (params as TooltipParam[])
+      : [params as TooltipParam];
+    const header = items[0]?.name ?? "";
+    const lines = items.map((p) => {
+      const raw = Array.isArray(p.value) ? p.value[1] : p.value;
+      const val =
+        typeof raw === "number"
+          ? formatNumber(raw, tooltipConfig)
+          : String(raw ?? "");
+      const label = p.seriesName ? `${p.seriesName}: ` : "";
+      const marker = typeof p.marker === "string" ? p.marker : "";
+      return `${marker} ${label}<b>${val}</b>`;
+    });
+    return header
+      ? `${header}<br/>${lines.join("<br/>")}`
+      : lines.join("<br/>");
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Axis label auto-rotation and truncation
+// ---------------------------------------------------------------------------
+
+export interface CategoryAxisLabelOptions {
+  /** Override the automatic rotation angle. -1 means automatic (sentinel). */
+  rotateOverride?: number;
+  /** Maximum label length before truncation (default: 15). */
+  maxLabelLength?: number;
+  /** Whether the chart is in compact mode (hides labels). */
+  compact?: boolean;
+}
+
+export interface CategoryAxisLabelConfig {
+  show: boolean;
+  rotate: number;
+  formatter?: (value: string) => string;
+  tooltip: { show: boolean };
+}
+
+/**
+ * Compute axis label rotation and truncation based on category count.
+ * - 8+ categories: rotate 30°
+ * - 15+ categories: rotate 45°
+ * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
+ * - ECharts axisPointer tooltip shows the full text on hover
+ *
+ * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
+ * normalized to undefined so the category-count heuristic applies.
+ */
+export function buildCategoryAxisLabel(
+  categoryCount: number,
+  options: CategoryAxisLabelOptions = {},
+): CategoryAxisLabelConfig {
+  const { maxLabelLength = 15, compact = false } = options;
+  // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
+  // default auto-rotation instead of receiving an invalid rotate: -1.
+  const rotateOverride =
+    options.rotateOverride === -1 ? undefined : options.rotateOverride;
+
+  let rotate: number;
+  if (rotateOverride !== undefined) {
+    rotate = rotateOverride;
+  } else if (categoryCount >= 15) {
+    rotate = 45;
+  } else if (categoryCount >= 8) {
+    rotate = 30;
+  } else {
+    rotate = 0;
+  }
+
+  const needsTruncation = categoryCount >= 8;
+  const formatter = needsTruncation
+    ? (value: string) =>
+        value.length > maxLabelLength
+          ? value.slice(0, maxLabelLength - 1) + "\u2026"
+          : value
+    : undefined;
+
+  return {
+    show: !compact,
+    rotate,
+    formatter,
+    tooltip: { show: true },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reference lines (markLine)
+// ---------------------------------------------------------------------------
+
+export interface ReferenceLine {
+  value: number;
+  label?: string;
+  color?: string;
+}
+
+/**
+ * Parse a JSON string of reference lines. Returns empty array on
+ * invalid input or missing values.
+ */
+export function parseReferenceLines(
+  input: string | undefined,
+): ReferenceLine[] {
+  if (!input) return [];
+  try {
+    const parsed = JSON.parse(input);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item: unknown): item is ReferenceLine =>
+        typeof item === "object" &&
+        item !== null &&
+        "value" in item &&
+        typeof (item as ReferenceLine).value === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Build ECharts markLine data from reference lines.
+ */
+export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
+  if (!lines.length) return undefined;
+  return {
+    silent: true,
+    symbol: "none",
+    data: lines.map((line) => ({
+      yAxis: line.value,
+      label: {
+        formatter: line.label ?? String(line.value),
+        position: "insideEndTop" as const,
+      },
+      lineStyle: {
+        color: line.color ?? "#888",
+        type: "dashed" as const,
+      },
+    })),
+  };
+}
 
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
@@ -96,4 +336,57 @@ export function resolveItemColor(
     return resolveThresholdColor(value, thresholds);
   }
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Gauge threshold zones
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse gauge threshold zones from a JSON string into the ECharts
+ * axisLine.lineStyle.color format: [[percentage, color], ...]
+ * Each zone's value is normalized to a 0-1 percentage of the min-max range.
+ */
+export function parseGaugeThresholdZones(
+  input: string | undefined,
+  min: number,
+  max: number,
+): [number, string][] {
+  const DEFAULT_ZONE: [number, string][] = [[1, "#E6EBF8"]];
+  if (!input) return DEFAULT_ZONE;
+  try {
+    const parsed = JSON.parse(input);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_ZONE;
+    const range = max - min;
+    if (range <= 0) return DEFAULT_ZONE;
+    const zones = parsed.filter(
+      (z: unknown): z is { value: number; color: string } =>
+        typeof z === "object" && z !== null && "value" in z && "color" in z,
+    );
+    return zones.map(
+      (z) => [(z.value - min) / range, z.color] as [number, string],
+    );
+  } catch {
+    return DEFAULT_ZONE;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pie chart Top-N grouping
+// ---------------------------------------------------------------------------
+
+/**
+ * Group pie chart data by keeping the top N slices and aggregating the rest
+ * into an "Other" slice. Returns the original data when topN is 0 or >= data length.
+ * Data must already be sorted descending by value.
+ */
+export function groupTopN(
+  data: PieChartDataPoint[],
+  topN: number,
+): PieChartDataPoint[] {
+  if (!data.length || topN <= 0 || topN >= data.length) return data;
+  const top = data.slice(0, topN);
+  const rest = data.slice(topN);
+  const otherValue = rest.reduce((sum, d) => sum + d.value, 0);
+  return [...top, { name: "Other", value: otherValue }];
 }

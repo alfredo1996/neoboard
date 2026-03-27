@@ -19,12 +19,15 @@ import {
 } from "@/components/ui/tooltip";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MultiSelect } from "./multi-select";
 
 export interface ChartOptionsPanelProps {
   chartType: string;
   settings: Record<string, unknown>;
   onSettingsChange: (settings: Record<string, unknown>) => void;
   className?: string;
+  /** Available column names from query results — used for column-multi-select fields. */
+  columns?: string[];
 }
 
 function OptionLabel({ option }: { option: ChartOptionDef }) {
@@ -56,10 +59,12 @@ function OptionField({
   option,
   value,
   onChange,
+  columns,
 }: {
   option: ChartOptionDef;
   value: unknown;
   onChange: (key: string, value: unknown) => void;
+  columns?: string[];
 }) {
   switch (option.type) {
     case "boolean":
@@ -95,6 +100,38 @@ function OptionField({
           </Select>
         </div>
       );
+
+    case "column-multi-select": {
+      // Fall back to text input when columns are not yet available (no preview query)
+      if (!columns?.length) {
+        return (
+          <div className="space-y-1.5">
+            <OptionLabel option={option} />
+            <Input
+              id={option.key}
+              value={String(value ?? option.default ?? "")}
+              onChange={(e) => onChange(option.key, e.target.value)}
+              placeholder="Run a preview query to select columns"
+            />
+          </div>
+        );
+      }
+      const csv = String(value ?? option.default ?? "");
+      const selected = csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      const multiOptions = columns.map((col) => ({ value: col, label: col }));
+      return (
+        <div className="space-y-1.5">
+          <OptionLabel option={option} />
+          <MultiSelect
+            options={multiOptions}
+            value={selected}
+            onChange={(vals) => onChange(option.key, vals.join(","))}
+            placeholder="Select columns…"
+            className="w-full"
+          />
+        </div>
+      );
+    }
 
     case "text":
       return (
@@ -162,6 +199,7 @@ function ChartOptionsPanel({
   settings,
   onSettingsChange,
   className,
+  columns,
 }: ChartOptionsPanelProps) {
   const [search, setSearch] = React.useState("");
   const options = getChartOptions(chartType);
@@ -217,6 +255,7 @@ function ChartOptionsPanel({
                 option={opt}
                 value={settings[opt.key]}
                 onChange={handleChange}
+                columns={columns}
               />
             ))}
           </CategorySection>

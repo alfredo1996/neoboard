@@ -59,7 +59,7 @@ async function buildExtensions(
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
     { defaultKeymap, historyKeymap, history: historyExt },
-    { autocompletion, completionKeymap },
+    { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap },
     { oneDark },
   ] = await Promise.all([
     import("@codemirror/view"),
@@ -96,13 +96,20 @@ async function buildExtensions(
       overflow: "auto",
       fontFamily: "var(--font-mono, monospace)",
       fontSize: "0.875rem",
+      paddingBottom: "0.5rem",
     },
     ".cm-content": { padding: "1rem" },
   });
 
   return [
     historyExt(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+    closeBrackets(),
+    keymap.of([
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...completionKeymap,
+      ...closeBracketsKeymap,
+    ]),
     runKeymap,
     langCompartmentExt,
     autocompletion(),
@@ -216,15 +223,18 @@ function QueryEditor({
 
       if (typeof window === "undefined" || !containerRef.current) return;
 
-      // Remove leftover DOM nodes and clear the ready signal
+      // Remove leftover DOM nodes and clear the ready signal + stale E2E handle
       delete containerRef.current.dataset.editorReady;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (containerRef.current as any).__cmView;
       while (containerRef.current.firstChild) {
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
 
-      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all(
-        [import("@codemirror/view"), import("@codemirror/state")],
-      );
+      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all([
+        import("@codemirror/view"),
+        import("@codemirror/state"),
+      ]);
 
       if (abortSignal.aborted) return;
 
@@ -286,6 +296,10 @@ function QueryEditor({
       }
 
       containerRef.current?.setAttribute("data-editor-ready", "true");
+      // Expose the EditorView on the DOM element for E2E test access.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (containerRef.current)
+        (containerRef.current as any).__cmView = viewRef.current;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [placeholder],

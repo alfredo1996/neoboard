@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { Info, RefreshCw } from "lucide-react";
 import {
   Label,
@@ -53,27 +54,23 @@ export const QUERY_HINTS: Partial<Record<ChartType, string>> = {
 };
 
 export interface QueryEditorPanelProps {
-  chartType: string;
-  query: string;
-  onQueryChange: (q: string) => void;
   /** When omitted, the Ctrl/Cmd+Enter run shortcut is disabled (e.g. form widgets). */
   onRun?: () => void;
   /** Connector type or language name — mapped to editor extension by the language resolver registry. */
   editorLanguage: string;
-  connectionId: string;
   /** When true, shows a running/loading indicator on the query editor. */
   running?: boolean;
 }
 
 export function QueryEditorPanel({
-  chartType,
-  query,
-  onQueryChange,
   onRun,
   editorLanguage,
-  connectionId,
   running,
 }: QueryEditorPanelProps) {
+  const chartType = useWidgetEditorStore((s) => s.chartType);
+  const query = useWidgetEditorStore((s) => s.query);
+  const onQueryChange = useWidgetEditorStore((s) => s.setQuery);
+  const connectionId = useWidgetEditorStore((s) => s.connectionId);
   // Prefetch schema for autocompletion. The hook caches for 10 min
   // and also writes to the Zustand store for synchronous reads.
   const { isFetching, refreshSchema } = useConnectionSchema(connectionId);

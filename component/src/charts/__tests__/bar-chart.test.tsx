@@ -149,4 +149,30 @@ describe("BarChart", () => {
     expect(optionsCall.xAxis.name).toBe("Revenue");
     expect(optionsCall.yAxis.name).toBe("Product");
   });
+
+  // --- Reference lines (markLine) ---
+
+  it("attaches markLine to the first series when referenceLines is provided", () => {
+    const refs = JSON.stringify([{ value: 150, label: "Target", color: "#ff0000" }]);
+    render(<BarChart data={sampleData} referenceLines={refs} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].markLine).toBeDefined();
+    expect(optionsCall.series[0].markLine.data).toHaveLength(1);
+    expect(optionsCall.series[0].markLine.data[0].yAxis).toBe(150);
+  });
+
+  it("does not attach markLine when referenceLines is not provided", () => {
+    render(<BarChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].markLine).toBeUndefined();
+  });
+
+  // --- DataZoom ---
+
+  it("passes enableDataZoom to BaseChart", () => {
+    render(<BarChart data={sampleData} enableDataZoom />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.dataZoom).toBeDefined();
+    expect(optionsCall.dataZoom.length).toBeGreaterThan(0);
+  });
 });

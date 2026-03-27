@@ -103,6 +103,8 @@ function BaseChart({
   onChartReady,
   onClick,
   onDataZoom,
+  enableDataZoom = false,
+  ariaDescription,
   colorblindMode = false,
   colorPalette,
 }: BaseChartProps) {
@@ -154,14 +156,23 @@ function BaseChart({
     const merged: EChartsOption = {
       color: resolvedColors,
       ...options,
+      ...(enableDataZoom
+        ? {
+            dataZoom: [
+              { type: "inside", xAxisIndex: 0 },
+              { type: "inside", yAxisIndex: 0 },
+            ],
+          }
+        : {}),
       aria: {
         enabled: true,
         ...userAria,
+        ...(ariaDescription ? { label: { description: ariaDescription } } : {}),
         decal: { show: colorblindMode, ...userDecal },
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, colorblindMode, colorPalette, dark]);
+  }, [options, enableDataZoom, colorblindMode, colorPalette, dark, ariaDescription]);
 
   // Loading state
   useEffect(() => {
@@ -217,7 +228,9 @@ function BaseChart({
       ref={containerRef}
       className={cn("h-full w-full", className)}
       data-testid="base-chart"
-      aria-label="Chart visualization"
+      role="img"
+      aria-label={ariaDescription ?? "Chart visualization"}
+      tabIndex={0}
     />
   );
 }

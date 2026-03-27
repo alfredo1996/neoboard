@@ -2,7 +2,10 @@
 
 import React from "react";
 import type { StylingRule, StylingOperator } from "@/lib/db/schema";
-import { ArrowLeft, GripVertical, Plus, Trash2 } from "lucide-react";
+import { getOperatorGroups } from "@neoboard/components/charts";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
+import { getStylingTargets } from "@/lib/chart-registry";
+import { ArrowLeft, GripVertical, Plus, Trash2, Bold } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -41,55 +44,25 @@ import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
 import { ValueOrParamInput } from "./value-or-param-input";
 
-const OPERATOR_GROUPS: { label: string; operators: { value: StylingOperator; label: string }[] }[] = [
-  {
-    label: "Numeric",
-    operators: [
-      { value: "<=", label: "<= (less or equal)" },
-      { value: ">=", label: ">= (greater or equal)" },
-      { value: "<", label: "< (less than)" },
-      { value: ">", label: "> (greater than)" },
-      { value: "==", label: "== (equals)" },
-      { value: "!=", label: "!= (not equal)" },
-      { value: "between", label: "between" },
-    ],
-  },
-  {
-    label: "Text",
-    operators: [
-      { value: "contains", label: "contains" },
-      { value: "not_contains", label: "not contains" },
-      { value: "starts_with", label: "starts with" },
-      { value: "ends_with", label: "ends with" },
-    ],
-  },
-  {
-    label: "Null",
-    operators: [
-      { value: "is_null", label: "is null" },
-      { value: "is_not_null", label: "is not null" },
-    ],
-  },
-];
+// Operator groups derived from the shared registry (single source of truth)
+const OPERATOR_GROUPS = getOperatorGroups();
 
 const NULL_OPS = new Set<StylingOperator>(["is_null", "is_not_null"]);
-const STRING_OPS = new Set<StylingOperator>(["contains", "not_contains", "starts_with", "ends_with"]);
+const STRING_OPS = new Set<StylingOperator>([
+  "contains",
+  "not_contains",
+  "starts_with",
+  "ends_with",
+]);
 
 interface StylingRulesEditorProps {
-  rules: StylingRule[];
-  onRulesChange: (rules: StylingRule[]) => void;
   onBack: () => void;
-  chartType: string;
-  targetColumn: string;
-  onTargetColumnChange: (col: string) => void;
-  availableFields: string[];
-  parameterSuggestions: string[];
-  stylingTargets: { value: string; label: string }[];
 }
 
 function ruleSummary(rule: StylingRule): string {
+  const col = rule.column ? `${rule.column} ` : "";
   const op = rule.operator ?? "<=";
-  if (NULL_OPS.has(op)) return op.replace("_", " ");
+  if (NULL_OPS.has(op)) return `${col}${op.replace("_", " ")}`;
   const val = rule.parameterRef
     ? `$param_${rule.parameterRef}`
     : String(rule.value);
@@ -97,9 +70,9 @@ function ruleSummary(rule: StylingRule): string {
     const valTo = rule.parameterRefTo
       ? `$param_${rule.parameterRefTo}`
       : String(rule.valueTo ?? "?");
-    return `between ${val} and ${valTo}`;
+    return `${col}between ${val} and ${valTo}`;
   }
-  return `${op.replace("_", " ")} ${val}`;
+  return `${col}${op.replace("_", " ")} ${val}`;
 }
 
 interface SortableRuleItemProps {
@@ -109,6 +82,8 @@ interface SortableRuleItemProps {
   onUpdate: (id: string, updates: Partial<StylingRule>) => void;
   parameterSuggestions: string[];
   stylingTargets: { value: string; label: string }[];
+  isTable: boolean;
+  availableFields: string[];
 }
 
 function SortableRuleItem({
@@ -118,6 +93,8 @@ function SortableRuleItem({
   onUpdate,
   parameterSuggestions,
   stylingTargets,
+  isTable,
+  availableFields,
 }: SortableRuleItemProps) {
   const {
     attributes,
@@ -140,7 +117,12 @@ function SortableRuleItem({
   const valuePlaceholder = STRING_OPS.has(rule.operator) ? "text value" : "0";
 
   return (
-    <AccordionItem ref={setNodeRef} style={style} value={rule.id} className="border rounded-lg">
+    <AccordionItem
+      ref={setNodeRef}
+      style={style}
+      value={rule.id}
+      className="border rounded-lg"
+    >
       <div className="flex items-center pr-2">
         <button
           type="button"
@@ -154,11 +136,13 @@ function SortableRuleItem({
         <AccordionTrigger className="flex-1 px-2 py-3 text-sm font-medium">
           Rule {index + 1}
           <span className="ml-1 text-xs font-normal text-muted-foreground">
-            {" — "}{ruleSummary(rule)}{" "}
+            {" — "}
+            {ruleSummary(rule)}{" "}
             <span
               className="inline-block w-3 h-3 rounded-sm border align-middle"
               style={{ backgroundColor: rule.color }}
             />
+            {rule.bold && <span className="ml-1 font-bold">B</span>}
           </span>
         </AccordionTrigger>
         <Button
@@ -171,6 +155,20 @@ function SortableRuleItem({
         </Button>
       </div>
       <AccordionContent className="px-4 pb-4 space-y-3">
+        {/* Column — per-rule column selector for tables */}
+        {isTable && (
+          <div className="space-y-1.5">
+            <Label>Column</Label>
+            <FieldSelectorInput
+              value={rule.column ?? ""}
+              onChange={(v) => onUpdate(rule.id, { column: v || undefined })}
+              fields={availableFields}
+              label="Column"
+              placeholder="Auto (first numeric)"
+            />
+          </div>
+        )}
+
         {/* Operator */}
         <div className="space-y-1.5">
           <Label>Operator</Label>
@@ -200,45 +198,51 @@ function SortableRuleItem({
 
         {/* Compare against: Value or Parameter — hidden for null ops */}
         {!NULL_OPS.has(rule.operator) && rule.operator !== "between" && (
-        <div className="space-y-1.5">
-          <Label>Compare Against</Label>
-          <ValueOrParamInput
-            parameterRef={rule.parameterRef}
-            onParamRefChange={(ref) => onUpdate(rule.id, { parameterRef: ref })}
-            value={rule.value}
-            onValueChange={(v) => onUpdate(rule.id, { value: v })}
-            parameterSuggestions={parameterSuggestions}
-            inputType={inputType}
-            placeholder={valuePlaceholder}
-          />
-        </div>
+          <div className="space-y-1.5">
+            <Label>Compare Against</Label>
+            <ValueOrParamInput
+              parameterRef={rule.parameterRef}
+              onParamRefChange={(ref) =>
+                onUpdate(rule.id, { parameterRef: ref })
+              }
+              value={rule.value}
+              onValueChange={(v) => onUpdate(rule.id, { value: v })}
+              parameterSuggestions={parameterSuggestions}
+              inputType={inputType}
+              placeholder={valuePlaceholder}
+            />
+          </div>
         )}
 
         {/* Between: two-bound range input */}
         {rule.operator === "between" && (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>From (min)</Label>
-            <ValueOrParamInput
-              parameterRef={rule.parameterRef}
-              onParamRefChange={(ref) => onUpdate(rule.id, { parameterRef: ref })}
-              value={rule.value}
-              onValueChange={(v) => onUpdate(rule.id, { value: v })}
-              parameterSuggestions={parameterSuggestions}
-            />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>From (min)</Label>
+              <ValueOrParamInput
+                parameterRef={rule.parameterRef}
+                onParamRefChange={(ref) =>
+                  onUpdate(rule.id, { parameterRef: ref })
+                }
+                value={rule.value}
+                onValueChange={(v) => onUpdate(rule.id, { value: v })}
+                parameterSuggestions={parameterSuggestions}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>To (max)</Label>
+              <ValueOrParamInput
+                parameterRef={rule.parameterRefTo}
+                onParamRefChange={(ref) =>
+                  onUpdate(rule.id, { parameterRefTo: ref })
+                }
+                value={rule.valueTo ?? ""}
+                onValueChange={(v) => onUpdate(rule.id, { valueTo: v })}
+                parameterSuggestions={parameterSuggestions}
+                placeholder="100"
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>To (max)</Label>
-            <ValueOrParamInput
-              parameterRef={rule.parameterRefTo}
-              onParamRefChange={(ref) => onUpdate(rule.id, { parameterRefTo: ref })}
-              value={rule.valueTo ?? ""}
-              onValueChange={(v) => onUpdate(rule.id, { valueTo: v })}
-              parameterSuggestions={parameterSuggestions}
-              placeholder="100"
-            />
-          </div>
-        </div>
         )}
 
         {/* Color */}
@@ -247,23 +251,35 @@ function SortableRuleItem({
           <div className="flex items-center gap-2">
             <Input
               value={rule.color}
-              onChange={(e) =>
-                onUpdate(rule.id, { color: e.target.value })
-              }
+              onChange={(e) => onUpdate(rule.id, { color: e.target.value })}
               placeholder="#3b82f6"
               className="flex-1"
             />
             <input
               type="color"
               value={rule.color}
-              onChange={(e) =>
-                onUpdate(rule.id, { color: e.target.value })
-              }
+              onChange={(e) => onUpdate(rule.id, { color: e.target.value })}
               className="h-9 w-9 rounded border cursor-pointer"
               aria-label="Pick color"
             />
           </div>
         </div>
+
+        {/* Bold */}
+        <button
+          type="button"
+          className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+            rule.bold
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-muted-foreground border-input hover:bg-accent"
+          }`}
+          onClick={() => onUpdate(rule.id, { bold: !rule.bold })}
+          aria-label="Toggle bold"
+          aria-pressed={!!rule.bold}
+        >
+          <Bold className="h-3.5 w-3.5" />
+          Bold
+        </button>
 
         {/* Target — only when multiple targets available */}
         {stylingTargets.length > 1 && (
@@ -295,17 +311,15 @@ function SortableRuleItem({
   );
 }
 
-export function StylingRulesEditor({
-  rules,
-  onRulesChange,
-  onBack,
-  chartType,
-  targetColumn,
-  onTargetColumnChange,
-  availableFields,
-  parameterSuggestions,
-  stylingTargets,
-}: StylingRulesEditorProps) {
+export function StylingRulesEditor({ onBack }: StylingRulesEditorProps) {
+  const rules = useWidgetEditorStore((s) => s.stylingRules);
+  const onRulesChange = useWidgetEditorStore((s) => s.setStylingRules);
+  const chartType = useWidgetEditorStore((s) => s.chartType);
+  const availableFields = useWidgetEditorStore((s) => s.availableFields);
+  const parameterSuggestions = useWidgetEditorStore(
+    (s) => s.parameterSuggestions,
+  );
+  const stylingTargets = getStylingTargets(chartType);
   const isTable = chartType === "table";
 
   const { openItems, setOpenItems, addItem, removeItem, updateItem } =
@@ -317,13 +331,15 @@ export function StylingRulesEditor({
       operator: "<=",
       value: 0,
       color: "#3b82f6",
-      target: stylingTargets[0]?.value as StylingRule["target"] ?? "color",
+      target: (stylingTargets[0]?.value as StylingRule["target"]) ?? "color",
     }));
   }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   function handleDragEnd(event: DragEndEvent) {
@@ -350,23 +366,6 @@ export function StylingRulesEditor({
       </DialogHeader>
 
       <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-        {/* Target column selector — for tables only */}
-        {isTable && (
-          <div className="space-y-1.5">
-            <Label>Target Column</Label>
-            <p className="text-xs text-muted-foreground">
-              Column to evaluate rules against. Leave blank to use the first numeric column.
-            </p>
-            <FieldSelectorInput
-              value={targetColumn}
-              onChange={onTargetColumnChange}
-              fields={availableFields}
-              label="Target Column"
-              placeholder="Auto (first numeric)"
-            />
-          </div>
-        )}
-
         {rules.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-6">
             No styling rules yet. Add one to get started.
@@ -378,8 +377,15 @@ export function StylingRulesEditor({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={rules.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-            <Accordion type="multiple" value={openItems} onValueChange={setOpenItems}>
+          <SortableContext
+            items={rules.map((r) => r.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <Accordion
+              type="multiple"
+              value={openItems}
+              onValueChange={setOpenItems}
+            >
               {rules.map((rule, index) => (
                 <SortableRuleItem
                   key={rule.id}
@@ -389,13 +395,20 @@ export function StylingRulesEditor({
                   onUpdate={updateItem}
                   parameterSuggestions={parameterSuggestions}
                   stylingTargets={stylingTargets}
+                  isTable={isTable}
+                  availableFields={availableFields}
                 />
               ))}
             </Accordion>
           </SortableContext>
         </DndContext>
 
-        <Button variant="outline" size="sm" onClick={addRule} className="w-full">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={addRule}
+          className="w-full"
+        >
           <Plus className="h-4 w-4 mr-1.5" />
           Add Rule
         </Button>

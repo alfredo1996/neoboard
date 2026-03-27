@@ -18,14 +18,40 @@ export interface MarkdownWidgetProps {
  */
 function isSafeUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return true;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://"))
+    return true;
   if (trimmed.startsWith("data:image/")) return true;
   // Relative URLs (no scheme) are safe — they resolve against the page origin.
-  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) return true;
+  if (
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("?")
+  )
+    return true;
   // Reject anything with an explicit scheme that didn't match above.
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return false;
   // Bare text (e.g., "example.com") — treat as relative, safe.
   return true;
+}
+
+/**
+ * Checks whether a line is a GFM table alignment row (e.g. `| --- | :---: |`).
+ * Uses a linear split-and-check approach instead of a single regex to avoid
+ * ReDoS (catastrophic backtracking) on adversarial input.
+ */
+function isTableAlignmentRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  // Split by pipe, trim each cell, filter out empty leading/trailing cells
+  const cells = trimmed.split("|").map((c) => c.trim());
+  // Remove empty strings caused by leading/trailing pipes
+  const filtered = cells.filter(
+    (c, i) => c.length > 0 || (i > 0 && i < cells.length - 1),
+  );
+  if (filtered.length === 0) return false;
+  // Each non-empty cell must match :?-{3,}:?
+  const cellPattern = /^:?-{3,}:?$/;
+  return filtered.every((c) => c.length === 0 || cellPattern.test(c));
 }
 
 /**
@@ -116,7 +142,7 @@ function parseMarkdown(md: string): string {
     if (
       line.includes("|") &&
       i + 1 < lines.length &&
-      /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(lines[i + 1])
+      isTableAlignmentRow(lines[i + 1])
     ) {
       closeList();
       const parseCells = (row: string) => {
@@ -145,14 +171,18 @@ function parseMarkdown(md: string): string {
       result.push("<thead><tr>");
       for (let h = 0; h < headers.length; h++) {
         const align = alignments[h] ?? "text-left";
-        result.push(`<th class="border border-border px-3 py-1.5 font-semibold bg-muted/30 ${align}">${escapeHtml(headers[h])}</th>`);
+        result.push(
+          `<th class="border border-border px-3 py-1.5 font-semibold bg-muted/30 ${align}">${escapeHtml(headers[h])}</th>`,
+        );
       }
       result.push("</tr></thead><tbody>");
       for (const row of bodyRows) {
         result.push("<tr>");
         for (let c = 0; c < headers.length; c++) {
           const align = alignments[c] ?? "text-left";
-          result.push(`<td class="border border-border px-3 py-1.5 ${align}">${escapeHtml(row[c] ?? "")}</td>`);
+          result.push(
+            `<td class="border border-border px-3 py-1.5 ${align}">${escapeHtml(row[c] ?? "")}</td>`,
+          );
         }
         result.push("</tr>");
       }
@@ -167,9 +197,7 @@ function parseMarkdown(md: string): string {
         result.push('<ul class="list-disc pl-6 my-2 space-y-1">');
         listType = "ul";
       }
-      result.push(
-        `<li>${processInline(line.replace(/^[-*+]\s+/, ""))}</li>`,
-      );
+      result.push(`<li>${processInline(line.replace(/^[-*+]\s+/, ""))}</li>`);
       continue;
     } else if (listType === "ul") {
       closeList();
@@ -182,9 +210,7 @@ function parseMarkdown(md: string): string {
         result.push('<ol class="list-decimal pl-6 my-2 space-y-1">');
         listType = "ol";
       }
-      result.push(
-        `<li>${processInline(line.replace(/^\d+\.\s+/, ""))}</li>`,
-      );
+      result.push(`<li>${processInline(line.replace(/^\d+\.\s+/, ""))}</li>`);
       continue;
     }
 
@@ -266,8 +292,9 @@ function processInline(text: string): string {
 
   // Links: [text](url) — validate URL.
   // linkText is already HTML-escaped; url needs attribute-quoting via escapeAttr.
+  // Use atomic-style groups (negated char classes) to prevent catastrophic backtracking.
   result = result.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
+    /\[([^\]]{1,500})\]\(([^)\s]{1,2000})\)/g,
     (_match, linkText: string, url: string) => {
       if (!isSafeUrl(url)) return linkText;
       return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${linkText}</a>`;
@@ -275,10 +302,7 @@ function processInline(text: string): string {
   );
 
   // Bold+Italic: ***text*** or ___text___
-  result = result.replace(
-    /\*\*\*(.+?)\*\*\*/g,
-    "<strong><em>$1</em></strong>",
-  );
+  result = result.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
   result = result.replace(/___(.+?)___/g, "<strong><em>$1</em></strong>");
 
   // Bold: **text** or __text__

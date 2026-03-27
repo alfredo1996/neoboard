@@ -34,7 +34,7 @@ function CodePreview({ value, language, maxLines = 3, className }: Readonly<Code
       )}
     >
       {language && (
-        <span className="absolute top-1 right-1.5 text-[9px] font-medium text-muted-foreground/50 uppercase select-none pointer-events-none">
+        <span className="absolute top-1 right-1.5 text-[9px] font-medium text-muted-foreground uppercase select-none pointer-events-none">
           {language}
         </span>
       )}

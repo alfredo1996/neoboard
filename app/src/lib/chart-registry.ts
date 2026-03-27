@@ -63,6 +63,14 @@ export interface ChartConfig {
    * can't apply conditional colors (graph, map, json, parameter-select, form).
    */
   supportsStyling?: boolean;
+  /** Whether this chart renders via ECharts (used by screenshot capture). */
+  isECharts?: boolean;
+  /** Whether this chart supports column mapping overlays. */
+  supportsColumnMapping?: boolean;
+  /** Available styling targets (backgroundColor, textColor, color, etc.). */
+  stylingTargets?: { value: string; label: string }[];
+  /** Whether this widget type needs a query to render. Defaults to true. */
+  requiresQuery?: boolean;
 }
 
 /**
@@ -90,7 +98,11 @@ function resolveLabelKey(keys: string[], mapping?: ColumnMapping): string {
 /**
  * Resolve value/series keys from a mapping, falling back to all non-label columns.
  */
-function resolveValueKeys(keys: string[], labelKey: string, mapping?: ColumnMapping): string[] {
+function resolveValueKeys(
+  keys: string[],
+  labelKey: string,
+  mapping?: ColumnMapping,
+): string[] {
   if (mapping?.yAxis && mapping.yAxis.length > 0) {
     const valid = mapping.yAxis.filter((k) => keys.includes(k));
     if (valid.length > 0) return valid;
@@ -115,7 +127,9 @@ function transformToBarData(data: unknown, mapping?: ColumnMapping): unknown {
   const valueKeys = resolveValueKeys(keys, labelKey, mapping);
 
   return records.map((r) => {
-    const point: Record<string, unknown> = { label: String(normalizeValue(r[labelKey]) ?? "") };
+    const point: Record<string, unknown> = {
+      label: String(normalizeValue(r[labelKey]) ?? ""),
+    };
     for (const k of valueKeys) {
       point[k] = Number(r[k]) || 0;
     }
@@ -161,7 +175,7 @@ function transformToPieData(data: unknown, mapping?: ColumnMapping): unknown {
   const valueKey =
     mapping?.yAxis?.[0] && keys.includes(mapping.yAxis[0])
       ? mapping.yAxis[0]
-      : keys.find((k) => k !== nameKey) ?? keys[1];
+      : (keys.find((k) => k !== nameKey) ?? keys[1]);
 
   return records.map((r) => ({
     name: String(normalizeValue(r[nameKey]) ?? ""),
@@ -192,10 +206,11 @@ function transformToTableData(data: unknown): unknown {
   return toRecords(data);
 }
 
-
 // ─── Graph helpers (extracted from transformToGraphData) ────────────────────
 
-function normalizeProps(props: Record<string, unknown>): Record<string, unknown> {
+function normalizeProps(
+  props: Record<string, unknown>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(props)) {
     out[k] = normalizeValue(v) ?? v;
@@ -212,7 +227,13 @@ function isRelationship(v: Record<string, unknown>): boolean {
 }
 
 function isPath(v: Record<string, unknown>): boolean {
-  return "segments" in v && Array.isArray(v.segments) && "start" in v && "end" in v && !("type" in v);
+  return (
+    "segments" in v &&
+    Array.isArray(v.segments) &&
+    "start" in v &&
+    "end" in v &&
+    !("type" in v)
+  );
 }
 
 /**
@@ -243,7 +264,9 @@ function transformToGraphData(data: unknown): unknown {
 
   function addEdge(v: Record<string, unknown>) {
     const edgeId = String(
-      v.elementId ?? v.identity ?? `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`
+      v.elementId ??
+        v.identity ??
+        `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`,
     );
     if (!edgesMap.has(edgeId)) {
       const rawProps = (v.properties ?? {}) as Record<string, unknown>;
@@ -288,7 +311,10 @@ function transformToGraphData(data: unknown): unknown {
     }
   }
 
-  return { nodes: Array.from(nodesMap.values()), edges: Array.from(edgesMap.values()) };
+  return {
+    nodes: Array.from(nodesMap.values()),
+    edges: Array.from(edgesMap.values()),
+  };
 }
 
 /**
@@ -339,7 +365,9 @@ function transformToSelectData(data: unknown): unknown {
   if (!records.length) return [];
   const firstKey = Object.keys(records[0])[0];
   if (!firstKey) return [];
-  return records.map((r) => r[firstKey]).filter((v) => v !== null && v !== undefined);
+  return records
+    .map((r) => r[firstKey])
+    .filter((v) => v !== null && v !== undefined);
 }
 
 // ─── New chart type transforms ──────────────────────────────────────────────
@@ -357,7 +385,9 @@ function transformToGaugeData(data: unknown): unknown {
 
   // Look for explicit "value"/"name" keys, then fall back to positional
   const valueKey = keys.find((k) => /^value$/i.test(k)) ?? keys[0];
-  const nameKey = keys.find((k) => /^(name|label|title)$/i.test(k) && k !== valueKey) ?? keys[1];
+  const nameKey =
+    keys.find((k) => /^(name|label|title)$/i.test(k) && k !== valueKey) ??
+    keys[1];
 
   return [
     {
@@ -379,8 +409,15 @@ function transformToSankeyData(data: unknown): unknown {
 
   // Resolve source/target/value columns heuristically
   const sourceKey = keys.find((k) => /source|from|start/i.test(k)) ?? keys[0];
-  const targetKey = keys.find((k) => /target|to|end/i.test(k) && k !== sourceKey) ?? keys[1];
-  const valueKey = keys.find((k) => /value|count|weight|amount/i.test(k) && k !== sourceKey && k !== targetKey) ?? keys[2];
+  const targetKey =
+    keys.find((k) => /target|to|end/i.test(k) && k !== sourceKey) ?? keys[1];
+  const valueKey =
+    keys.find(
+      (k) =>
+        /value|count|weight|amount/i.test(k) &&
+        k !== sourceKey &&
+        k !== targetKey,
+    ) ?? keys[2];
 
   const nodeNames = new Set<string>();
   const links: Array<{ source: string; target: string; value: number }> = [];
@@ -422,8 +459,11 @@ function transformToHierarchicalData(data: unknown): unknown {
   // Case 2: flat with parent column — build hierarchy
   const hasParent = keys.includes("parent");
   if (hasParent) {
-    const nameKey = keys.find((k) => /^(name|label|title)$/i.test(k)) ?? keys[0];
-    const valueKey = keys.find((k) => /^(value|count|size)$/i.test(k) && k !== nameKey) ?? keys.find((k) => k !== nameKey && k !== "parent");
+    const nameKey =
+      keys.find((k) => /^(name|label|title)$/i.test(k)) ?? keys[0];
+    const valueKey =
+      keys.find((k) => /^(value|count|size)$/i.test(k) && k !== nameKey) ??
+      keys.find((k) => k !== nameKey && k !== "parent");
 
     type HierNode = { name: string; value: number; children?: HierNode[] };
     const nodeMap = new Map<string, HierNode>();
@@ -457,7 +497,8 @@ function transformToHierarchicalData(data: unknown): unknown {
   }
 
   // Case 3: flat name/value pairs
-  const nameKey = keys.find((k) => /^(name|label|title|category)$/i.test(k)) ?? keys[0];
+  const nameKey =
+    keys.find((k) => /^(name|label|title|category)$/i.test(k)) ?? keys[0];
   const valueKey = keys.find((k) => k !== nameKey) ?? keys[1];
 
   return records.map((r) => ({
@@ -477,10 +518,20 @@ function transformToRadarData(data: unknown): unknown {
   if (!records.length) return { indicators: [], series: [] };
 
   const keys = Object.keys(records[0]);
-  const indicatorKey = keys.find((k) => /^(indicator|axis|dimension|category)$/i.test(k));
-  const valueKey = keys.find((k) => /^(value|score)$/i.test(k) && k !== indicatorKey);
+  const indicatorKey = keys.find((k) =>
+    /^(indicator|axis|dimension|category)$/i.test(k),
+  );
+  const valueKey = keys.find(
+    (k) => /^(value|score)$/i.test(k) && k !== indicatorKey,
+  );
   const maxKey = keys.find((k) => /^(max|maximum)$/i.test(k));
-  const seriesKey = keys.find((k) => /^(series|group|name|label)$/i.test(k) && k !== indicatorKey && k !== valueKey && k !== maxKey);
+  const seriesKey = keys.find(
+    (k) =>
+      /^(series|group|name|label)$/i.test(k) &&
+      k !== indicatorKey &&
+      k !== valueKey &&
+      k !== maxKey,
+  );
 
   if (indicatorKey && valueKey) {
     // Long-format: one row per (series, indicator) combination
@@ -491,24 +542,36 @@ function transformToRadarData(data: unknown): unknown {
     for (const r of records) {
       const indName = String(normalizeValue(r[indicatorKey]) ?? "");
       const val = Number(r[valueKey]) || 0;
-      const serName = seriesKey ? String(normalizeValue(r[seriesKey]) ?? "Default") : "Default";
+      const serName = seriesKey
+        ? String(normalizeValue(r[seriesKey]) ?? "Default")
+        : "Default";
 
       if (maxKey) {
-        const explicitMax = Number(r[maxKey]) || 100;
-        if (!indicatorExplicitMax.has(indName)) indicatorExplicitMax.set(indName, explicitMax);
+        const explicitMax = Number(r[maxKey]);
+        if (
+          Number.isFinite(explicitMax) &&
+          explicitMax > 0 &&
+          !indicatorExplicitMax.has(indName)
+        ) {
+          indicatorExplicitMax.set(indName, explicitMax);
+        }
       }
-      indicatorMaxFromData.set(indName, Math.max(indicatorMaxFromData.get(indName) ?? 0, val));
+      indicatorMaxFromData.set(
+        indName,
+        Math.max(indicatorMaxFromData.get(indName) ?? 0, val),
+      );
       if (!seriesMap.has(serName)) seriesMap.set(serName, new Map());
       seriesMap.get(serName)!.set(indName, val);
     }
 
-    // Use explicit max if provided, otherwise auto-scale from observed values (+10% headroom)
+    // Use explicit max if provided, otherwise use a single global max across all
+    // indicators so relative magnitudes are visible (e.g. 172 vs 9).
     const indicatorEntries = Array.from(indicatorMaxFromData.keys());
+    const globalMax =
+      Math.ceil(Math.max(...indicatorMaxFromData.values()) * 1.1) || 100;
     const indicators = indicatorEntries.map((name) => ({
       name,
-      max: maxKey && indicatorExplicitMax.has(name)
-        ? indicatorExplicitMax.get(name)!
-        : Math.ceil((indicatorMaxFromData.get(name) ?? 100) * 1.1) || 100,
+      max: indicatorExplicitMax.get(name) ?? globalMax,
     }));
     const series = Array.from(seriesMap.entries()).map(([name, valMap]) => ({
       name,
@@ -519,17 +582,18 @@ function transformToRadarData(data: unknown): unknown {
   }
 
   // Wide-format: each column is an indicator, each row is a series
-  // Auto-scale max from observed values per column (+10% headroom)
-  const maxPerCol = new Map<string, number>();
+  // Use a single global max so all axes share the same scale
+  let wideGlobalMax = 0;
   for (const r of records) {
     for (const k of keys) {
       const v = Number(r[k]) || 0;
-      maxPerCol.set(k, Math.max(maxPerCol.get(k) ?? 0, v));
+      if (v > wideGlobalMax) wideGlobalMax = v;
     }
   }
+  const wideMax = Math.ceil(wideGlobalMax * 1.1) || 100;
   const indicators = keys.map((k) => ({
     name: k,
-    max: Math.ceil((maxPerCol.get(k) ?? 100) * 1.1) || 100,
+    max: wideMax,
   }));
   const series = records.map((r, i) => ({
     name: String(i + 1),
@@ -609,6 +673,8 @@ function validateMapData(data: unknown): string | null {
   return null;
 }
 
+const COLOR_TARGET = [{ value: "color", label: "Color" }];
+
 export const chartRegistry: Record<ChartType, ChartConfig> = {
   bar: {
     type: "bar",
@@ -617,6 +683,9 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToBarData,
     validate: validateBarData,
     compatibleWith: ["neo4j", "postgresql"],
+    isECharts: true,
+    supportsColumnMapping: true,
+    stylingTargets: COLOR_TARGET,
   },
   line: {
     type: "line",
@@ -625,6 +694,9 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToLineData,
     validate: validateLineData,
     compatibleWith: ["neo4j", "postgresql"],
+    isECharts: true,
+    supportsColumnMapping: true,
+    stylingTargets: COLOR_TARGET,
   },
   pie: {
     type: "pie",
@@ -633,6 +705,9 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToPieData,
     validate: validatePieData,
     compatibleWith: ["neo4j", "postgresql"],
+    isECharts: true,
+    supportsColumnMapping: true,
+    stylingTargets: COLOR_TARGET,
   },
   table: {
     type: "table",
@@ -640,6 +715,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToTableData,
     transformWithMapping: transformToTableData,
     compatibleWith: ["neo4j", "postgresql"],
+    stylingTargets: [
+      { value: "backgroundColor", label: "Background Color" },
+      { value: "textColor", label: "Text Color" },
+    ],
   },
   "single-value": {
     type: "single-value",
@@ -649,8 +728,12 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     validate: validateValueData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
+    isECharts: true,
+    stylingTargets: [
+      { value: "color", label: "Text Color" },
+      { value: "backgroundColor", label: "Background Color" },
+    ],
   },
-  // Graph visualization requires Neo4j node/relationship structures — not available from PostgreSQL.
   graph: {
     type: "graph",
     label: "Graph",
@@ -686,6 +769,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
     supportsStyling: false,
+    requiresQuery: false,
   },
   form: {
     type: "form",
@@ -694,6 +778,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: () => [],
     compatibleWith: ["neo4j", "postgresql"],
     supportsStyling: false,
+    requiresQuery: false,
   },
   markdown: {
     type: "markdown",
@@ -703,6 +788,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
     supportsStyling: false,
+    requiresQuery: false,
   },
   iframe: {
     type: "iframe",
@@ -712,6 +798,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
     supportsStyling: false,
+    requiresQuery: false,
   },
   gauge: {
     type: "gauge",
@@ -720,6 +807,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
+    isECharts: true,
+    stylingTargets: [{ value: "color", label: "Gauge Color" }],
   },
   sankey: {
     type: "sankey",
@@ -727,6 +816,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToSankeyData,
     transformWithMapping: transformToSankeyData,
     compatibleWith: ["neo4j", "postgresql"],
+    isECharts: true,
+    stylingTargets: [{ value: "color", label: "Link Color" }],
   },
   sunburst: {
     type: "sunburst",
@@ -734,6 +825,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToHierarchicalData,
     transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
+    isECharts: true,
+    stylingTargets: [{ value: "color", label: "Segment Color" }],
   },
   radar: {
     type: "radar",
@@ -742,6 +835,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToRadarData,
     compatibleWith: ["neo4j", "postgresql"],
     supportsClickAction: false,
+    isECharts: true,
+    stylingTargets: [{ value: "color", label: "Area Color" }],
   },
   treemap: {
     type: "treemap",
@@ -749,6 +844,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToHierarchicalData,
     transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
+    isECharts: true,
+    stylingTargets: [{ value: "color", label: "Block Color" }],
   },
 };
 
@@ -777,35 +874,25 @@ export function chartSupportsStyling(type: string): boolean {
 }
 
 /**
- * Returns the available styling targets for a chart type.
- * Each target describes what visual property a styling rule can affect.
+ * Returns empty default chart settings for a type. Used by the widget editor
+ * store to initialize chart options without importing the component package.
+ * Returns an empty object — the actual defaults are applied at render time
+ * by the ChartOptionsPanel component.
  */
-export function getStylingTargets(type: string): { value: string; label: string }[] {
-  if (!chartSupportsStyling(type)) return [];
-  switch (type) {
-    case "single-value":
-      return [
-        { value: "color", label: "Text Color" },
-        { value: "backgroundColor", label: "Background Color" },
-      ];
-    case "table":
-      return [
-        { value: "backgroundColor", label: "Background Color" },
-        { value: "textColor", label: "Text Color" },
-      ];
-    case "gauge":
-      return [{ value: "color", label: "Gauge Color" }];
-    case "sankey":
-      return [{ value: "color", label: "Link Color" }];
-    case "sunburst":
-      return [{ value: "color", label: "Segment Color" }];
-    case "radar":
-      return [{ value: "color", label: "Area Color" }];
-    case "treemap":
-      return [{ value: "color", label: "Block Color" }];
-    default:
-      return [{ value: "color", label: "Color" }];
-  }
+export function getChartDefaults(_type: string): Record<string, unknown> {
+  return {};
+}
+
+/**
+ * Returns the available styling targets for a chart type.
+ * Reads from the registry's `stylingTargets` field — no switch statement.
+ */
+export function getStylingTargets(
+  type: string,
+): { value: string; label: string }[] {
+  const config = getChartConfig(type);
+  if (!config || config.supportsStyling === false) return [];
+  return config.stylingTargets ?? COLOR_TARGET;
 }
 
 /**

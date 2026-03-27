@@ -1,4 +1,8 @@
-import type { DashboardLayoutV2, ClickAction, DashboardWidget } from "./db/schema";
+import type {
+  DashboardLayoutV2,
+  ClickAction,
+  DashboardWidget,
+} from "./db/schema";
 
 const PARAM_REGEX = /\$param_(\w+)/g;
 
@@ -9,7 +13,8 @@ export interface ParameterCollision {
 
 export function getWidgetParameterNames(widget: DashboardWidget): string[] {
   const names: string[] = [];
-  const clickAction = widget.settings?.clickAction as ClickAction | undefined;
+  const ws = widget.settings ?? {};
+  const clickAction = ws.clickAction as ClickAction | undefined;
 
   // Click action top-level parameterMapping
   if (clickAction?.parameterMapping?.parameterName) {
@@ -27,7 +32,7 @@ export function getWidgetParameterNames(widget: DashboardWidget): string[] {
 
   // Param-select chartOptions.parameterName
   if (widget.chartType === "parameter-select") {
-    const opts = widget.settings?.chartOptions as Record<string, unknown> | undefined;
+    const opts = ws.chartOptions as Record<string, unknown> | undefined;
     if (opts?.parameterName && typeof opts.parameterName === "string") {
       names.push(opts.parameterName);
     }
@@ -65,7 +70,7 @@ export function collectParameterNames(layout: DashboardLayoutV2): string[] {
     }
   }
 
-  return [...names].sort();
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -77,7 +82,7 @@ export function collectParameterNames(layout: DashboardLayoutV2): string[] {
 export function findParameterCollisions(
   layout: DashboardLayoutV2,
   currentWidgetId: string,
-  parameterName: string
+  parameterName: string,
 ): ParameterCollision[] {
   if (!parameterName) return [];
 
@@ -87,7 +92,7 @@ export function findParameterCollisions(
     for (const widget of page.widgets) {
       if (widget.id === currentWidgetId) continue;
       if (getWidgetParameterNames(widget).includes(parameterName)) {
-        const titleSetting = widget.settings?.title;
+        const titleSetting = (widget.settings ?? {}).title;
         const title =
           titleSetting && typeof titleSetting === "string"
             ? titleSetting

@@ -56,12 +56,19 @@ export function useAccordionCrud<T extends { id: string }>(
 
   useEffect(() => {
     const currentIds = items.map((item) => item.id);
-    setOpenItems((prev) => computeOpenItems(prevIdsRef.current, currentIds, prev));
+    setOpenItems((prev) =>
+      computeOpenItems(prevIdsRef.current, currentIds, prev),
+    );
     prevIdsRef.current = new Set(currentIds);
   }, [items]);
 
   function addItem(factory: () => T) {
-    onItemsChange(addItemToList(items, factory));
+    const newItem = factory();
+    prevIdsRef.current = new Set([...prevIdsRef.current, newItem.id]);
+    onItemsChange([...items, newItem]);
+    setOpenItems((prev) =>
+      prev.includes(newItem.id) ? prev : [...prev, newItem.id],
+    );
   }
 
   function removeItem(id: string) {

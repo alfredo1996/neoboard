@@ -70,17 +70,30 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"w10","x":6,"y":12,"w":6,"h":4}
        ]},
        {"id":"page-styling","title":"Rule-Based Styling","widgets":[
-         {"id":"w11","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade","settings":{"title":"Movies by Decade (styled)","stylingConfig":{"enabled":true,"rules":[{"id":"r1","operator":"<=","value":2,"color":"#ef4444","target":"color"},{"id":"r2","operator":"<=","value":5,"color":"#f59e0b","target":"color"},{"id":"r3","operator":"<=","value":10,"color":"#22c55e","target":"color"}]}}},
-         {"id":"w12","chartType":"single-value","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value","settings":{"title":"Total Movies (blue > 30)","stylingConfig":{"enabled":true,"rules":[{"id":"r4","operator":">","value":30,"color":"#3b82f6","target":"color"}]}}}
+         {"id":"w11","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade","settings":{"title":"Movies by Decade (styled bars)","stylingConfig":{"enabled":true,"rules":[{"id":"r1","operator":"<=","value":3,"color":"#ef4444","target":"color"},{"id":"r2","operator":"<=","value":8,"color":"#f59e0b","target":"color"},{"id":"r3","operator":">=","value":1,"color":"#22c55e","target":"color"}]}}},
+         {"id":"w12","chartType":"single-value","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value","settings":{"title":"Total Movies (blue > 30)","stylingConfig":{"enabled":true,"rules":[{"id":"r4","operator":">","value":30,"color":"#3b82f6","target":"color"}]}}},
+         {"id":"w18","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 15","settings":{"title":"Actors — styled rows (bg + bold)","chartOptions":{"enableSorting":true,"enablePagination":true,"pageSize":10},"stylingConfig":{"enabled":true,"rules":[{"id":"rs1","column":"movies","operator":">=","value":4,"color":"#22c55e","target":"backgroundColor","bold":true},{"id":"rs2","column":"movies","operator":"<=","value":1,"color":"#ef4444","target":"backgroundColor"},{"id":"rs3","column":"movies","operator":"between","value":2,"valueTo":3,"color":"#fbbf24","target":"backgroundColor"}]}}},
+         {"id":"w19","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 15","settings":{"title":"Actors — color scale gradient","chartOptions":{"enableSorting":true,"enablePagination":true,"pageSize":10},"conditionalFormatting":{"colorScales":[{"column":"movies","minColor":"#fde68a","maxColor":"#16a34a"}]}}}
        ],"gridLayout":[
          {"i":"w11","x":0,"y":0,"w":6,"h":4},
-         {"i":"w12","x":6,"y":0,"w":3,"h":2}
+         {"i":"w12","x":6,"y":0,"w":3,"h":2},
+         {"i":"w18","x":0,"y":4,"w":6,"h":5},
+         {"i":"w19","x":6,"y":4,"w":6,"h":5}
+       ]},
+       {"id":"page-table","title":"Table Features","widgets":[
+         {"id":"w20","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN p.name AS actor, m.title AS movie, m.released AS year ORDER BY actor, year DESC LIMIT 50","settings":{"title":"Grouped by Actor (count)","chartOptions":{"enableSorting":true,"enableColumnResizing":true,"enablePagination":true,"pageSize":15,"enableGrouping":true,"groupBy":"actor","aggregationFn":"count"}}},
+         {"id":"w21","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, p.name AS person, m.title AS movie, m.released AS year ORDER BY role, person LIMIT 60","settings":{"title":"Grouped by Role + Person (count)","chartOptions":{"enableSorting":true,"enableColumnResizing":true,"enablePagination":true,"pageSize":20,"enableGrouping":true,"groupBy":"role","aggregationFn":"count"}}},
+         {"id":"w22","chartType":"table","connectionId":"conn-pg-001","query":"SELECT m.title, m.released, p.name AS director FROM movies m JOIN roles r ON r.movie_id = m.id AND r.relationship = ''DIRECTED'' JOIN people p ON p.id = r.person_id ORDER BY m.released DESC","settings":{"title":"PostgreSQL — resizable columns","chartOptions":{"enableSorting":true,"enableColumnResizing":true,"enableGlobalFilter":true,"enableColumnFilters":true,"enablePagination":true,"pageSize":10}}}
+       ],"gridLayout":[
+         {"i":"w20","x":0,"y":0,"w":6,"h":6},
+         {"i":"w21","x":6,"y":0,"w":6,"h":6},
+         {"i":"w22","x":0,"y":6,"w":12,"h":5}
        ]},
        {"id":"page-palettes","title":"Color Palettes","widgets":[
-         {"id":"w13","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"deep-ocean","colorPalette":"deep-ocean"}},
-         {"id":"w14","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"warm-sunset","colorPalette":"warm-sunset"}},
-         {"id":"w15","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"neon","colorPalette":"neon"}},
-         {"id":"w16","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"monochrome","colorPalette":"monochrome"}}
+         {"id":"w13","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"deep-ocean","chartOptions":{"colorPalette":"deep-ocean"}}},
+         {"id":"w14","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"warm-sunset","chartOptions":{"colorPalette":"warm-sunset"}}},
+         {"id":"w15","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"neon","chartOptions":{"colorPalette":"neon"}}},
+         {"id":"w16","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"monochrome","chartOptions":{"colorPalette":"monochrome"}}}
        ],"gridLayout":[
          {"i":"w13","x":0,"y":0,"w":6,"h":4},
          {"i":"w14","x":6,"y":0,"w":6,"h":4},
@@ -88,7 +101,7 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"w16","x":6,"y":4,"w":6,"h":4}
        ]},
        {"id":"page-a11y","title":"Accessibility","widgets":[
-         {"id":"w17","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade","settings":{"title":"Colorblind Mode","colorblindMode":true}}
+         {"id":"w17","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade","settings":{"title":"Colorblind Mode","chartOptions":{"colorblindMode":true}}}
        ],"gridLayout":[
          {"i":"w17","x":0,"y":0,"w":8,"h":5}
        ]}

@@ -1,18 +1,48 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import type { DashboardWidget, DashboardLayoutV2, ClickAction, ClickActionRule, WidgetTemplate, StylingRule, StylingConfig } from "@/lib/db/schema";
+import type {
+  DashboardWidget,
+  DashboardLayoutV2,
+  ClickAction,
+  ClickActionRule,
+  WidgetTemplate,
+  StylingRule,
+  StylingConfig,
+} from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
-import { collectParameterNames, findParameterCollisions, aggregateClickActionParamNames } from "@/lib/collect-parameter-names";
-import { AlertCircle, AlertTriangle, Info, Play, FlaskConical } from "lucide-react";
-import { useWidgetTemplates, useCreateWidgetTemplate, useUpdateWidgetTemplate } from "@/hooks/use-widget-templates";
+import {
+  collectParameterNames,
+  findParameterCollisions,
+  aggregateClickActionParamNames,
+} from "@/lib/collect-parameter-names";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  Play,
+  FlaskConical,
+} from "lucide-react";
+import {
+  useWidgetTemplates,
+  useCreateWidgetTemplate,
+  useUpdateWidgetTemplate,
+} from "@/hooks/use-widget-templates";
 
 import {
   ChartOptionsPanel,
   ChartSettingsPanel,
   getDefaultChartSettings,
+  ColorScalePanel,
   Badge,
   Button,
   LoadingButton,
@@ -31,6 +61,7 @@ import {
   MarkdownWidget,
   IframeWidget,
 } from "@neoboard/components";
+import type { ColorScaleConfig } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   getChartConfig,
@@ -53,11 +84,15 @@ import {
   resolveInternalParamType,
   reverseParamTypeMapping,
 } from "./widget-editor/parameter-config-section";
-import type { ParamUIType, DateSubType } from "./widget-editor/parameter-config-section";
+import type {
+  ParamUIType,
+  DateSubType,
+} from "./widget-editor/parameter-config-section";
 import { ParameterPreview } from "./widget-editor/parameter-preview";
 import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
+import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 import type { Transform } from "@/lib/data-transforms";
 import { TransformEditor } from "./widget-editor/transform-editor";
@@ -80,6 +115,8 @@ export interface WidgetEditorModalProps {
   layout?: DashboardLayoutV2;
   /** Template to auto-apply when opening in add mode (from Widget Lab "Use in Dashboard") */
   initialTemplate?: WidgetTemplate;
+  /** Cached query data from the dashboard — shown as preview immediately without re-running */
+  initialPreviewData?: { data: unknown; resultId: string };
 }
 
 export function WidgetEditorModal({
@@ -93,69 +130,89 @@ export function WidgetEditorModal({
   onLabSaved,
   layout,
   initialTemplate,
+  initialPreviewData,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
   const [chartType, setChartType] = useState(widget?.chartType ?? "bar");
   const [connectionId, setConnectionId] = useState(widget?.connectionId ?? "");
   const [query, setQuery] = useState(widget?.query ?? "");
-  const [title, setTitle] = useState(
-    (widget?.settings?.title as string) ?? ""
+  const [title, setTitle] = useState((widget?.settings?.title as string) ?? "");
+  const [templateId, setTemplateId] = useState<string | undefined>(
+    widget?.templateId,
   );
-  const [templateId, setTemplateId] = useState<string | undefined>(widget?.templateId);
-  const [templateSyncedAt, setTemplateSyncedAt] = useState<string | undefined>(widget?.templateSyncedAt);
+  const [templateSyncedAt, setTemplateSyncedAt] = useState<string | undefined>(
+    widget?.templateSyncedAt,
+  );
   const [chartOptions, setChartOptions] = useState<Record<string, unknown>>(
     () => {
       if (widget?.settings?.chartOptions) {
         return widget.settings.chartOptions as Record<string, unknown>;
       }
       return getDefaultChartSettings(widget?.chartType ?? "bar");
-    }
+    },
   );
 
   // Click action state
-  const existingClickAction = widget?.settings?.clickAction as ClickAction | undefined;
-  const [clickActionEnabled, setClickActionEnabled] = useState(!!existingClickAction);
+  const existingClickAction = widget?.settings?.clickAction as
+    | ClickAction
+    | undefined;
+  const existingParamMapping = existingClickAction?.parameterMapping;
+  const [clickActionEnabled, setClickActionEnabled] =
+    useState(!!existingClickAction);
   const [clickActionType, setClickActionType] = useState<ClickAction["type"]>(
-    existingClickAction?.type ?? "set-parameter"
+    existingClickAction?.type ?? "set-parameter",
   );
   const [parameterName, setParameterName] = useState(
-    existingClickAction?.parameterMapping?.parameterName ?? ""
+    existingParamMapping?.parameterName ?? "",
   );
   const [sourceField, setSourceField] = useState(
-    existingClickAction?.parameterMapping?.sourceField ?? ""
+    existingParamMapping?.sourceField ?? "",
   );
   const [targetPageId, setTargetPageId] = useState(
-    existingClickAction?.targetPageId ?? ""
+    existingClickAction?.targetPageId ?? "",
   );
   const [clickableColumns, setClickableColumns] = useState<string[]>(
-    existingClickAction?.clickableColumns ?? []
+    existingClickAction?.clickableColumns ?? [],
   );
   const [actionRules, setActionRules] = useState<ClickActionRule[]>(
-    existingClickAction?.rules ?? []
+    existingClickAction?.rules ?? [],
   );
 
   // Styling rules state
-  const existingStylingConfig = widget?.settings?.stylingConfig as StylingConfig | undefined;
-  const [stylingEnabled, setStylingEnabled] = useState(!!existingStylingConfig?.enabled);
-  const [stylingRules, setStylingRules] = useState<StylingRule[]>(
-    existingStylingConfig?.rules ?? []
+  const existingStylingConfig = widget?.settings?.stylingConfig as
+    | StylingConfig
+    | undefined;
+  const [stylingEnabled, setStylingEnabled] = useState(
+    !!existingStylingConfig?.enabled,
   );
-  const [stylingTargetColumn, setStylingTargetColumn] = useState(
-    existingStylingConfig?.targetColumn ?? ""
+  const [stylingRules, setStylingRules] = useState<StylingRule[]>(
+    existingStylingConfig?.rules ?? [],
+  );
+  // Color scales state (gradient cell backgrounds for tables)
+  const existingConditionalFormatting = widget?.settings
+    ?.conditionalFormatting as { colorScales?: ColorScaleConfig[] } | undefined;
+  const [colorScales, setColorScales] = useState<ColorScaleConfig[]>(
+    existingConditionalFormatting?.colorScales ?? [],
   );
 
   // Data transforms state
   const [transforms, setTransforms] = useState<Transform[]>(
-    (widget?.settings?.transforms ?? []) as Transform[]
+    (widget?.settings?.transforms ?? []) as Transform[],
   );
 
-  const [dialogStep, setDialogStep] = useState<"main" | "rules" | "styling-rules" | "templates">("main");
+  const [dialogStep, setDialogStep] = useState<
+    "main" | "rules" | "styling-rules" | "templates"
+  >("main");
   const [templateSearch, setTemplateSearch] = useState("");
 
   // Lab-mode metadata state
   const [labName, setLabName] = useState(templateProp?.name ?? "");
-  const [labDescription, setLabDescription] = useState(templateProp?.description ?? "");
-  const [labTagsInput, setLabTagsInput] = useState((templateProp?.tags ?? []).join(", "));
+  const [labDescription, setLabDescription] = useState(
+    templateProp?.description ?? "",
+  );
+  const [labTagsInput, setLabTagsInput] = useState(
+    (templateProp?.tags ?? []).join(", "),
+  );
 
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
@@ -165,7 +222,7 @@ export function WidgetEditorModal({
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
     () => (layout ? collectParameterNames(layout) : []),
-    [layout]
+    [layout],
   );
 
   // Derive other widgets from layout for the "After Submit" refresh config.
@@ -175,19 +232,25 @@ export function WidgetEditorModal({
     return layout.pages
       .flatMap((p) => p.widgets)
       .filter((w) => w.id !== widget?.id)
-      .map((w) => ({ id: w.id, title: (w.settings?.title as string) ?? "", chartType: w.chartType }));
+      .map((w) => ({
+        id: w.id,
+        title: (w.settings?.title as string) ?? "",
+        chartType: w.chartType,
+      }));
   }, [layout, widget?.id]);
 
   // Save status for visual feedback after CMD+Shift+Enter
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cache settings
   const [enableCache, setEnableCache] = useState(
-    widget?.settings?.enableCache !== false
+    widget?.settings?.enableCache !== false,
   );
   const [cacheTtlMinutes, setCacheTtlMinutes] = useState(
-    (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5
+    (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5,
   );
 
   // Parameter widget editor state (only used when chartType === "parameter-select")
@@ -203,12 +266,16 @@ export function WidgetEditorModal({
       layout
         ? findParameterCollisions(layout, widget?.id ?? "", paramWidgetName)
         : [],
-    [layout, widget?.id, paramWidgetName]
+    [layout, widget?.id, paramWidgetName],
   );
 
   const clickActionCollisions = useMemo(() => {
     if (!layout) return [];
-    const names = aggregateClickActionParamNames(clickActionEnabled, parameterName, actionRules);
+    const names = aggregateClickActionParamNames(
+      clickActionEnabled,
+      parameterName,
+      actionRules,
+    );
     const all: ReturnType<typeof findParameterCollisions> = [];
     for (const name of names) {
       for (const c of findParameterCollisions(layout, widget?.id ?? "", name)) {
@@ -241,7 +308,10 @@ export function WidgetEditorModal({
       const keys = Object.keys(r);
       return {
         value: String(r[keys[0]] ?? ""),
-        label: keys.length > 1 ? String(r[keys[1]] ?? r[keys[0]] ?? "") : String(r[keys[0]] ?? ""),
+        label:
+          keys.length > 1
+            ? String(r[keys[1]] ?? r[keys[0]] ?? "")
+            : String(r[keys[0]] ?? ""),
       };
     });
   }, [seedQueryExecution.data]);
@@ -256,7 +326,7 @@ export function WidgetEditorModal({
   // Derive the selected connection object so we can read its type
   const selectedConnection = useMemo(
     () => connections.find((c) => c.id === connectionId) ?? null,
-    [connections, connectionId]
+    [connections, connectionId],
   );
 
   // Template picker — only used in add mode
@@ -264,7 +334,7 @@ export function WidgetEditorModal({
   const { data: templates, isLoading: templatesLoading } = useWidgetTemplates(
     mode === "add" && dialogStep === "templates"
       ? { connectorType: selectedConnectorType }
-      : undefined
+      : undefined,
   );
 
   // Guard against the add-mode chartType reset effect overwriting template settings
@@ -275,13 +345,14 @@ export function WidgetEditorModal({
     setTemplateId(t.id);
     // API returns dates as ISO strings (JSON serialization), not Date objects
     setTemplateSyncedAt(
-      t.updatedAt ? String(t.updatedAt) : new Date().toISOString()
+      t.updatedAt ? String(t.updatedAt) : new Date().toISOString(),
     );
     setChartType(t.chartType);
     setQuery(t.query ?? "");
     setTitle((t.settings?.title as string) ?? "");
     setChartOptions(
-      (t.settings?.chartOptions as Record<string, unknown>) ?? getDefaultChartSettings(t.chartType)
+      (t.settings?.chartOptions as Record<string, unknown>) ??
+        getDefaultChartSettings(t.chartType),
     );
 
     // Auto-populate connector if none selected yet
@@ -309,7 +380,7 @@ export function WidgetEditorModal({
       selectedConnection
         ? getCompatibleChartTypes(selectedConnection.type)
         : (Object.keys(chartRegistry) as ChartType[]),
-    [selectedConnection]
+    [selectedConnection],
   );
 
   // Unified connection-change handler for both add and edit modes.
@@ -328,7 +399,7 @@ export function WidgetEditorModal({
         }
       }
     },
-    [connections, chartType, mode, widget?.connectionId]
+    [connections, chartType, mode, widget?.connectionId],
   );
 
   const handleChartTypeChange = useCallback(
@@ -346,7 +417,7 @@ export function WidgetEditorModal({
         setStylingEnabled(false);
       }
     },
-    [mode]
+    [mode],
   );
 
   // Reset state when opening
@@ -376,78 +447,72 @@ export function WidgetEditorModal({
         setActionRules([]);
         setStylingEnabled(false);
         setStylingRules([]);
-        setStylingTargetColumn("");
+        setColorScales([]);
         setDialogStep("main");
         seedQueryExecution.reset();
         previewQuery.reset();
       } else if (widget) {
+        const s = widget.settings ?? {};
+        const opts = (s.chartOptions as Record<string, unknown>) ?? {};
+        const ca = s.clickAction as ClickAction | undefined;
+        const caMapping = ca?.parameterMapping;
+        const sc = s.stylingConfig as StylingConfig | undefined;
+        const cf = s.conditionalFormatting as
+          | { colorScales?: ColorScaleConfig[] }
+          | undefined;
+
         setChartType(widget.chartType);
         setConnectionId(widget.connectionId);
         setQuery(widget.query);
-        setTitle((widget.settings?.title as string) ?? "");
+        setTitle((s.title as string) ?? "");
         setChartOptions(
-          (widget.settings?.chartOptions as Record<string, unknown>) ??
-            getDefaultChartSettings(widget.chartType)
+          Object.keys(opts).length > 0
+            ? opts
+            : getDefaultChartSettings(widget.chartType),
         );
-        const ca = widget.settings?.clickAction as ClickAction | undefined;
+
+        // Click action
         setClickActionEnabled(!!ca);
         setClickActionType(ca?.type ?? "set-parameter");
-        setParameterName(ca?.parameterMapping?.parameterName ?? "");
-        setSourceField(ca?.parameterMapping?.sourceField ?? "");
+        setParameterName(caMapping?.parameterName ?? "");
+        setSourceField(caMapping?.sourceField ?? "");
         setTargetPageId(ca?.targetPageId ?? "");
         setClickableColumns(ca?.clickableColumns ?? []);
         setActionRules(ca?.rules ?? []);
 
-        // Initialize styling rules from existing widget
-        const sc = widget.settings?.stylingConfig as StylingConfig | undefined;
+        // Styling rules (new format or migrated from legacy)
         if (sc) {
           setStylingEnabled(sc.enabled);
           setStylingRules(sc.rules ?? []);
-          setStylingTargetColumn(sc.targetColumn ?? "");
         } else {
-          // Try migrating from legacy colorThresholds
-          const legacyThresholds = (widget.settings?.chartOptions as Record<string, unknown> | undefined)?.colorThresholds;
-          const legacyColumn = (widget.settings?.chartOptions as Record<string, unknown> | undefined)?.colorThresholdsColumn;
+          const legacyThresholds = opts.colorThresholds;
           if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
-            const migrated = migrateColorThresholds(
-              legacyThresholds,
-              typeof legacyColumn === "string" ? legacyColumn : undefined,
-            );
-            if (migrated) {
-              setStylingEnabled(migrated.enabled);
-              setStylingRules(migrated.rules);
-              setStylingTargetColumn(migrated.targetColumn ?? "");
-            } else {
-              setStylingEnabled(false);
-              setStylingRules([]);
-              setStylingTargetColumn("");
-            }
+            const migrated = migrateColorThresholds(legacyThresholds);
+            setStylingEnabled(!!migrated?.enabled);
+            setStylingRules(migrated?.rules ?? []);
           } else {
             setStylingEnabled(false);
             setStylingRules([]);
-            setStylingTargetColumn("");
           }
         }
 
+        // Color scales
+        setColorScales(cf?.colorScales ?? []);
+
         setDialogStep("main");
-        setEnableCache(widget.settings?.enableCache !== false);
-        setCacheTtlMinutes((widget.settings?.cacheTtlMinutes as number | undefined) ?? 5);
+        setEnableCache(s.enableCache !== false);
+        setCacheTtlMinutes((s.cacheTtlMinutes as number | undefined) ?? 5);
         setConnectorChanged(false);
-
-        // Initialize form fields from existing widget
-        setFormFields(
-          (widget.settings?.formFields as FormFieldDef[] | undefined) ?? [],
-        );
-
-        // Initialize refresh widget IDs from existing form widget options
+        setFormFields((s.formFields as FormFieldDef[] | undefined) ?? []);
         setRefreshWidgetIds(
-          ((widget.settings?.chartOptions as Record<string, unknown> | undefined)
-            ?.refreshWidgetIds as string[] | undefined) ?? [],
+          (opts.refreshWidgetIds as string[] | undefined) ?? [],
         );
 
         // Initialize parameter editor state from existing widget
         if (widget.chartType === "parameter-select") {
-          const opts = widget.settings?.chartOptions as Record<string, unknown> | undefined;
+          const opts = widget.settings?.chartOptions as
+            | Record<string, unknown>
+            | undefined;
           const internalType = (opts?.parameterType as string) ?? "select";
           const mapped = reverseParamTypeMapping(internalType);
           setParamUIType(mapped.uiType);
@@ -483,7 +548,7 @@ export function WidgetEditorModal({
         setActionRules([]);
         setStylingEnabled(false);
         setStylingRules([]);
-        setStylingTargetColumn("");
+        setColorScales([]);
         setLabName("");
         setLabDescription("");
         setLabTagsInput("");
@@ -498,7 +563,7 @@ export function WidgetEditorModal({
         setTitle((templateProp.settings?.title as string) ?? "");
         setChartOptions(
           (templateProp.settings?.chartOptions as Record<string, unknown>) ??
-            getDefaultChartSettings(templateProp.chartType)
+            getDefaultChartSettings(templateProp.chartType),
         );
         setLabName(templateProp.name);
         setLabDescription(templateProp.description ?? "");
@@ -506,7 +571,7 @@ export function WidgetEditorModal({
         setClickActionEnabled(false);
         setStylingEnabled(false);
         setStylingRules([]);
-        setStylingTargetColumn("");
+        setColorScales([]);
         setActionRules([]);
         setDialogStep("main");
         seedQueryExecution.reset();
@@ -549,16 +614,22 @@ export function WidgetEditorModal({
 
   // Build click action from current editor state
   const buildClickAction = useCallback((): ClickAction | undefined => {
-    if (!clickActionEnabled || !chartSupportsClickAction(chartType)) return undefined;
-    const needsParam = clickActionType === "set-parameter" || clickActionType === "set-parameter-and-navigate";
-    const needsPage = clickActionType === "navigate-to-page" || clickActionType === "set-parameter-and-navigate";
+    if (!clickActionEnabled || !chartSupportsClickAction(chartType))
+      return undefined;
+    const needsParam =
+      clickActionType === "set-parameter" ||
+      clickActionType === "set-parameter-and-navigate";
+    const needsPage =
+      clickActionType === "navigate-to-page" ||
+      clickActionType === "set-parameter-and-navigate";
     const trimmedParamName = parameterName.trim();
     const trimmedSourceField = sourceField.trim();
     const trimmedTargetPageId = targetPageId.trim();
     if (needsParam && !trimmedParamName) return undefined;
     // For tables, sourceField is empty (cell-click provides the value directly)
     const resolvedSourceField = chartType === "table" ? "" : trimmedSourceField;
-    if (needsParam && chartType !== "table" && !resolvedSourceField) return undefined;
+    if (needsParam && chartType !== "table" && !resolvedSourceField)
+      return undefined;
     if (needsPage && !trimmedTargetPageId) return undefined;
     // Validate targetPageId against current layout pages to prevent stale references
     if (needsPage && layout) {
@@ -567,12 +638,35 @@ export function WidgetEditorModal({
     }
     return {
       type: actionRules.length > 0 ? actionRules[0].type : clickActionType,
-      ...(needsParam && actionRules.length === 0 ? { parameterMapping: { parameterName: trimmedParamName, sourceField: resolvedSourceField } } : {}),
-      ...(needsPage && actionRules.length === 0 ? { targetPageId: trimmedTargetPageId } : {}),
-      ...(chartType === "table" && clickableColumns.length > 0 && actionRules.length === 0 ? { clickableColumns } : {}),
+      ...(needsParam && actionRules.length === 0
+        ? {
+            parameterMapping: {
+              parameterName: trimmedParamName,
+              sourceField: resolvedSourceField,
+            },
+          }
+        : {}),
+      ...(needsPage && actionRules.length === 0
+        ? { targetPageId: trimmedTargetPageId }
+        : {}),
+      ...(chartType === "table" &&
+      clickableColumns.length > 0 &&
+      actionRules.length === 0
+        ? { clickableColumns }
+        : {}),
       ...(actionRules.length > 0 ? { rules: actionRules } : {}),
     };
-  }, [clickActionEnabled, clickActionType, parameterName, sourceField, chartType, targetPageId, layout, clickableColumns, actionRules]);
+  }, [
+    clickActionEnabled,
+    clickActionType,
+    parameterName,
+    sourceField,
+    chartType,
+    targetPageId,
+    layout,
+    clickableColumns,
+    actionRules,
+  ]);
 
   const buildStylingConfig = useCallback((): StylingConfig | undefined => {
     if (!stylingEnabled || !chartSupportsStyling(chartType)) return undefined;
@@ -580,19 +674,41 @@ export function WidgetEditorModal({
     return {
       enabled: true,
       rules: stylingRules,
-      targetColumn: stylingTargetColumn || undefined,
     };
-  }, [stylingEnabled, chartType, stylingRules, stylingTargetColumn]);
+  }, [stylingEnabled, chartType, stylingRules]);
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
       const referenced = extractReferencedParams(query, allParamValues);
-      const params = Object.keys(referenced).length > 0 ? referenced : undefined;
+      const params =
+        Object.keys(referenced).length > 0 ? referenced : undefined;
       const connectorType = selectedConnection?.type ?? "neo4j";
       const previewQuery_ = wrapWithPreviewLimit(query, connectorType);
       previewQuery.mutate({ connectionId, query: previewQuery_, params });
     }
   }, [connectionId, query, previewQuery, allParamValues, selectedConnection]);
+
+  // Auto-run preview when editing an existing widget so column selectors are populated.
+  // Skip if initialPreviewData was provided (we already have data to show).
+  const autoPreviewTriggered = useRef(false);
+  useEffect(() => {
+    if (!open || (mode !== "edit" && mode !== "lab-edit")) {
+      autoPreviewTriggered.current = false;
+      return;
+    }
+    if (autoPreviewTriggered.current) return;
+    if (!connectionId || !query.trim()) return;
+    if (initialPreviewData) {
+      autoPreviewTriggered.current = true;
+      return;
+    }
+    autoPreviewTriggered.current = true;
+    // setTimeout ensures the reset effect's setState calls have flushed
+    const timer = setTimeout(() => {
+      handlePreview();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
@@ -627,6 +743,9 @@ export function WidgetEditorModal({
               clickAction: buildClickAction(),
               stylingConfig: buildStylingConfig(),
               transforms: transforms.length ? transforms : undefined,
+              conditionalFormatting: colorScales.length
+                ? { colorScales }
+                : undefined,
               enableCache,
               cacheTtlMinutes,
             },
@@ -638,7 +757,7 @@ export function WidgetEditorModal({
         onError: () => {
           setSaveStatus("idle");
         },
-      }
+      },
     );
   }, [
     query,
@@ -654,6 +773,7 @@ export function WidgetEditorModal({
     transforms,
     enableCache,
     cacheTtlMinutes,
+    colorScales,
     previewQuery,
     onSave,
     onOpenChange,
@@ -687,13 +807,83 @@ export function WidgetEditorModal({
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
-    if (!previewQuery.data?.data) return [];
-    const data = previewQuery.data.data;
-    if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object" && data[0] !== null) {
-      return Object.keys(data[0] as Record<string, unknown>);
+    const src = previewQuery.data?.data ?? initialPreviewData?.data;
+    if (!src) return [];
+    if (
+      Array.isArray(src) &&
+      src.length > 0 &&
+      typeof src[0] === "object" &&
+      src[0] !== null
+    ) {
+      return Object.keys(src[0] as Record<string, unknown>);
     }
     return [];
-  }, [previewQuery.data]);
+  }, [previewQuery.data, initialPreviewData]);
+
+  // Sync local state → widget editor store (bridge for sub-editors reading from store).
+  // useLayoutEffect ensures the store is updated synchronously before paint,
+  // so sub-editors see current values on the first render (not stale from previous frame).
+  useLayoutEffect(() => {
+    useWidgetEditorStore.setState({ chartType, connectionId, query });
+  }, [chartType, connectionId, query]);
+  useLayoutEffect(() => {
+    useWidgetEditorStore.setState({ availableFields });
+  }, [availableFields]);
+  useLayoutEffect(() => {
+    useWidgetEditorStore.setState({ parameterSuggestions });
+  }, [parameterSuggestions]);
+
+  // Bidirectional sync for mutable state between local state and store.
+  const syncingFromStore = useRef(false);
+  useLayoutEffect(() => {
+    if (!syncingFromStore.current) {
+      useWidgetEditorStore.setState({
+        stylingRules,
+        actionRules,
+        formFields,
+        query,
+        chartOptions,
+        connectionId,
+        paramUIType,
+        dateSub,
+        multiSelect,
+        paramWidgetName,
+      });
+    }
+  }, [
+    stylingRules,
+    actionRules,
+    formFields,
+    query,
+    chartOptions,
+    connectionId,
+    paramUIType,
+    dateSub,
+    multiSelect,
+    paramWidgetName,
+  ]);
+  // Reverse: store → local when sub-editors modify state
+  useEffect(() => {
+    return useWidgetEditorStore.subscribe((state, prev) => {
+      syncingFromStore.current = true;
+      if (state.stylingRules !== prev.stylingRules)
+        setStylingRules(state.stylingRules);
+      if (state.actionRules !== prev.actionRules)
+        setActionRules(state.actionRules);
+      if (state.formFields !== prev.formFields) setFormFields(state.formFields);
+      if (state.query !== prev.query) setQuery(state.query);
+      if (state.chartOptions !== prev.chartOptions)
+        setChartOptions(state.chartOptions);
+      if (state.paramUIType !== prev.paramUIType)
+        setParamUIType(state.paramUIType);
+      if (state.dateSub !== prev.dateSub) setDateSub(state.dateSub);
+      if (state.multiSelect !== prev.multiSelect)
+        setMultiSelect(state.multiSelect);
+      if (state.paramWidgetName !== prev.paramWidgetName)
+        setParamWidgetName(state.paramWidgetName);
+      syncingFromStore.current = false;
+    });
+  }, []);
 
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
@@ -709,15 +899,25 @@ export function WidgetEditorModal({
     const resolvedChartOptions = isParamSelect
       ? {
           ...chartOptions,
-          parameterType: resolveInternalParamType(paramUIType, dateSub, multiSelect),
+          parameterType: resolveInternalParamType(
+            paramUIType,
+            dateSub,
+            multiSelect,
+          ),
           parameterName: paramWidgetName,
-          seedQuery: paramUIType === "select" ? (chartOptions.seedQuery ?? "") : undefined,
+          seedQuery:
+            paramUIType === "select"
+              ? (chartOptions.seedQuery ?? "")
+              : undefined,
         }
       : chartOptions;
     onSave({
       id,
       chartType,
-      connectionId: (isParamSelect && paramUIType !== "select") || isContentOnly ? "" : connectionId,
+      connectionId:
+        (isParamSelect && paramUIType !== "select") || isContentOnly
+          ? ""
+          : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
       params: widget?.params,
       settings: {
@@ -731,10 +931,22 @@ export function WidgetEditorModal({
             }
           : resolvedChartOptions,
         formFields: isForm ? formFields : undefined,
-        clickAction: (isParamSelect || isForm || isContentOnly) ? undefined : clickAction,
-        stylingConfig: (isParamSelect || isForm || isContentOnly) ? undefined : stylingConfig,
-        enableCache: (isParamSelect || isForm || isContentOnly) ? undefined : enableCache,
-        cacheTtlMinutes: (isParamSelect || isForm || isContentOnly) ? undefined : cacheTtlMinutes,
+        clickAction:
+          isParamSelect || isForm || isContentOnly ? undefined : clickAction,
+        stylingConfig:
+          isParamSelect || isForm || isContentOnly ? undefined : stylingConfig,
+        conditionalFormatting:
+          isParamSelect || isForm || isContentOnly
+            ? undefined
+            : colorScales.length
+              ? { colorScales }
+              : undefined,
+        enableCache:
+          isParamSelect || isForm || isContentOnly ? undefined : enableCache,
+        cacheTtlMinutes:
+          isParamSelect || isForm || isContentOnly
+            ? undefined
+            : cacheTtlMinutes,
       },
       templateId,
       templateSyncedAt,
@@ -762,7 +974,7 @@ export function WidgetEditorModal({
       tags: tags.length > 0 ? tags : undefined,
       chartType,
       connectorType,
-      connectionId: isContentOnly ? undefined : (connectionId || undefined),
+      connectionId: isContentOnly ? undefined : connectionId || undefined,
       query: isContentOnly ? "" : query,
       settings: {
         title: title || undefined,
@@ -770,19 +982,25 @@ export function WidgetEditorModal({
         stylingConfig: buildStylingConfig(),
         clickAction: buildClickAction(),
         transforms: transforms.length ? transforms : undefined,
+        conditionalFormatting: colorScales.length ? { colorScales } : undefined,
       },
     };
 
     try {
       if (mode === "lab-edit" && templateProp) {
-        await updateTemplate.mutateAsync({ id: templateProp.id, ...templateData });
+        await updateTemplate.mutateAsync({
+          id: templateProp.id,
+          ...templateData,
+        });
       } else {
         await createTemplate.mutateAsync(templateData);
       }
       onLabSaved?.();
       onOpenChange(false);
     } catch (err) {
-      setLabError(err instanceof Error ? err.message : "Failed to save template");
+      setLabError(
+        err instanceof Error ? err.message : "Failed to save template",
+      );
     }
   }
 
@@ -790,28 +1008,19 @@ export function WidgetEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="full" className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent
+        size="full"
+        className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
+      >
         {dialogStep === "styling-rules" ? (
-          <StylingRulesEditor
-            rules={stylingRules}
-            onRulesChange={setStylingRules}
-            onBack={() => setDialogStep("main")}
-            chartType={chartType}
-            targetColumn={stylingTargetColumn}
-            onTargetColumnChange={setStylingTargetColumn}
-            availableFields={availableFields}
-            parameterSuggestions={parameterSuggestions}
-            stylingTargets={getStylingTargets(chartType)}
-          />
+          <StylingRulesEditor onBack={() => setDialogStep("main")} />
         ) : dialogStep === "rules" ? (
           <ActionRulesEditor
-            rules={actionRules}
-            onRulesChange={setActionRules}
             onBack={() => setDialogStep("main")}
-            chartType={chartType}
-            availableFields={availableFields}
-            parameterSuggestions={parameterSuggestions}
-            pages={(layout?.pages ?? []).map((p) => ({ id: p.id, title: p.title }))}
+            pages={(layout?.pages ?? []).map((p) => ({
+              id: p.id,
+              title: p.title,
+            }))}
           />
         ) : null}
         {dialogStep === "templates" && (
@@ -836,402 +1045,677 @@ export function WidgetEditorModal({
               {!templatesLoading && (!templates || templates.length === 0) && (
                 <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
                   <FlaskConical className="h-8 w-8 opacity-40" />
-                  <p className="text-sm">No templates available{selectedConnectorType ? ` for ${selectedConnectorType}` : ""}.</p>
+                  <p className="text-sm">
+                    No templates available
+                    {selectedConnectorType
+                      ? ` for ${selectedConnectorType}`
+                      : ""}
+                    .
+                  </p>
                 </div>
               )}
-              {!templatesLoading && templates && templates.length > 0 && (() => {
-                const filtered = templateSearch
-                  ? templates.filter((t) => t.name.toLowerCase().includes(templateSearch.toLowerCase()))
-                  : templates;
-                return filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                    <p className="text-sm">No templates match &ldquo;{templateSearch}&rdquo;</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {filtered.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => applyTemplate(t)}
-                        className="text-left rounded-lg border p-2 hover:bg-accent transition-colors flex flex-col gap-1.5"
-                      >
-                        <CodePreview
-                          value={t.query}
-                          language={t.connectorType === "postgresql" ? "SQL" : "Cypher"}
-                          maxLines={2}
-                        />
-                        <span className="font-medium text-xs truncate w-full">{t.name}</span>
-                        <div className="flex gap-1 flex-wrap">
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{getChartConfig(t.chartType)?.label ?? t.chartType}</Badge>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{t.connectorType}</Badge>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
+              {!templatesLoading &&
+                templates &&
+                templates.length > 0 &&
+                (() => {
+                  const filtered = templateSearch
+                    ? templates.filter((t) =>
+                        t.name
+                          .toLowerCase()
+                          .includes(templateSearch.toLowerCase()),
+                      )
+                    : templates;
+                  return filtered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
+                      <p className="text-sm">
+                        No templates match &ldquo;{templateSearch}&rdquo;
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {filtered.map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => applyTemplate(t)}
+                          className="text-left rounded-lg border p-2 hover:bg-accent transition-colors flex flex-col gap-1.5"
+                        >
+                          <CodePreview
+                            value={t.query}
+                            language={
+                              t.connectorType === "postgresql"
+                                ? "SQL"
+                                : "Cypher"
+                            }
+                            maxLines={2}
+                          />
+                          <span className="font-medium text-xs truncate w-full">
+                            {t.name}
+                          </span>
+                          <div className="flex gap-1 flex-wrap">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {getChartConfig(t.chartType)?.label ??
+                                t.chartType}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {t.connectorType}
+                            </Badge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setTemplateSearch(""); setDialogStep("main"); }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTemplateSearch("");
+                  setDialogStep("main");
+                }}
+              >
                 Back
               </Button>
             </DialogFooter>
           </>
         )}
         {dialogStep === "main" && (
-        <>
-        <DialogHeader>
-          <DialogTitle>
-            {(() => {
-              switch (mode) {
-                case "lab-edit": return "Edit Template";
-                case "lab-create": return "Create Template";
-                case "edit": return "Edit Widget";
-                default: return "Add Widget";
-              }
-            })()}
-          </DialogTitle>
-        </DialogHeader>
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {(() => {
+                  switch (mode) {
+                    case "lab-edit":
+                      return "Edit Template";
+                    case "lab-create":
+                      return "Create Template";
+                    case "edit":
+                      return "Edit Widget";
+                    default:
+                      return "Add Widget";
+                  }
+                })()}
+              </DialogTitle>
+            </DialogHeader>
 
-        <div className="py-4 min-h-[520px] flex-1 overflow-y-auto" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "1.5rem" }}>
-          {/* Left column: tabs + settings */}
-          <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
-            {/* Lab mode: template metadata */}
-            {isLabMode && (
-              <div className="space-y-3 mb-4 pb-4 border-b">
-                <div className="space-y-1.5">
-                  <Label htmlFor="lab-template-name">Template Name <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="lab-template-name"
-                    value={labName}
-                    onChange={(e) => setLabName(e.target.value)}
-                    placeholder="My chart template"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lab-template-desc">Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
-                  <Input
-                    id="lab-template-desc"
-                    value={labDescription}
-                    onChange={(e) => setLabDescription(e.target.value)}
-                    placeholder="What does this template do?"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lab-template-tags">Tags <span className="text-muted-foreground text-xs">(comma-separated)</span></Label>
-                  <Input
-                    id="lab-template-tags"
-                    value={labTagsInput}
-                    onChange={(e) => setLabTagsInput(e.target.value)}
-                    placeholder="e.g. neo4j, monitoring, kpi"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Widget title — always visible above tabs */}
-            <div className="space-y-1.5 mb-4">
-              <Label htmlFor="widget-title">Widget Title</Label>
-              <Input
-                id="widget-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Optional custom title"
-              />
-            </div>
-
-            <ChartSettingsPanel
-              dataTab={
-                <div className="space-y-4">
-                  <ChartTypeSelector
-                    connectionId={connectionId}
-                    onConnectionChange={handleConnectionChange}
-                    chartType={chartType}
-                    onChartTypeChange={handleChartTypeChange}
-                    compatibleChartTypes={compatibleChartTypes}
-                    connections={connections}
-                    showConnection={!isContentOnly && (isForm || !isParamSelect || paramUIType === "select")}
-                  />
-
-                  {mode === "add" && !isLabMode && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setDialogStep("templates")}
-                    >
-                      <FlaskConical className="h-4 w-4" />
-                      From Template
-                    </Button>
-                  )}
-
-                  {/* Connector-changed warning */}
-                  {!isParamSelect && !isContentOnly && connectorChanged && (
-                    <Alert variant="default" className="py-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle className="text-sm">Connector changed</AlertTitle>
-                      <AlertDescription className="text-xs">
-                        Switching connectors may make the existing query invalid.
-                        Review the query before saving.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Parameter config (when parameter-select) */}
-                  {isParamSelect && (
-                    <ParameterConfigSection
-                      paramUIType={paramUIType}
-                      onParamUITypeChange={setParamUIType}
-                      dateSub={dateSub}
-                      onDateSubChange={setDateSub}
-                      multiSelect={multiSelect}
-                      onMultiSelectChange={setMultiSelect}
-                      paramWidgetName={paramWidgetName}
-                      onParamWidgetNameChange={setParamWidgetName}
-                      chartOptions={chartOptions}
-                      onChartOptionsChange={setChartOptions}
-                      connectionId={connectionId}
-                      seedQueryExecution={seedQueryExecution}
-                      seedPreviewOptions={seedPreviewOptions}
-                    />
-                  )}
-
-                  {/* Collision warning for param-select */}
-                  {isParamSelect && paramSelectCollisions.length > 0 && (
-                    <Alert variant="default" className="py-2" data-testid="param-collision-banner">
-                      <Info className="h-4 w-4" />
-                      <AlertTitle className="text-sm">Parameter name already in use</AlertTitle>
-                      <AlertDescription className="text-xs">
-                        {paramSelectCollisions.length === 1
-                          ? `"${paramWidgetName}" is also set by: ${paramSelectCollisions[0].title}.`
-                          : `"${paramWidgetName}" is also set by: ${paramSelectCollisions.map((c) => c.title).join(", ")}.`}
-                        {" "}Multiple widgets writing to the same parameter may conflict.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Query editor (non-parameter and non-content types) */}
-                  {!isParamSelect && !isContentOnly && (
-                    <QueryEditorPanel
-                      chartType={chartType}
-                      query={query}
-                      onQueryChange={setQuery}
-                      onRun={isForm ? undefined : handlePreview}
-                      editorLanguage={editorLanguage}
-                      connectionId={connectionId}
-                      running={previewQuery.isPending}
-                    />
-                  )}
-
-                  {/* Form fields editor (form type only) */}
-                  {isForm && (
-                    <FormFieldsEditor
-                      fields={formFields}
-                      onChange={setFormFields}
-                      connectionId={connectionId}
-                    />
-                  )}
-                </div>
-              }
-              styleTab={
-                <div className="space-y-4">
-                  <ChartOptionsPanel
-                    chartType={chartType}
-                    settings={chartOptions}
-                    onSettingsChange={setChartOptions}
-                  />
-                  {chartOptions.cacheMode === "forever" && (
-                    <div
-                      className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
-                      data-testid="cache-forever-info"
-                    >
-                      <Info className="h-4 w-4 shrink-0" />
-                      <span>Data will be fetched once and cached until manually refreshed.</span>
+            <div
+              className="py-4 min-h-[520px] flex-1 overflow-y-auto"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                gap: "1.5rem",
+              }}
+            >
+              {/* Left column: tabs + settings */}
+              <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
+                {/* Lab mode: template metadata */}
+                {isLabMode && (
+                  <div className="space-y-3 mb-4 pb-4 border-b">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lab-template-name">
+                        Template Name{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="lab-template-name"
+                        value={labName}
+                        onChange={(e) => setLabName(e.target.value)}
+                        placeholder="My chart template"
+                      />
                     </div>
-                  )}
-                </div>
-              }
-              advancedTab={
-                isParamSelect ? (
-                  <p className="text-sm text-muted-foreground">
-                    No advanced options for parameter widgets.
-                  </p>
-                ) : isForm ? (
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                      After Submit
-                    </h4>
-                    <p className="text-xs text-muted-foreground">
-                      Refresh these widgets when the form submits successfully.
-                    </p>
-                    {otherWidgets && otherWidgets.length > 0 ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
-                            {refreshWidgetIds.length} of {otherWidgets.length} selected
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs px-2"
-                            onClick={() => {
-                              const allSelected = otherWidgets.every((w) =>
-                                refreshWidgetIds.includes(w.id),
-                              );
-                              setRefreshWidgetIds(
-                                allSelected ? [] : otherWidgets.map((w) => w.id),
-                              );
-                            }}
-                          >
-                            {otherWidgets.every((w) => refreshWidgetIds.includes(w.id))
-                              ? "Deselect all"
-                              : "Select all"}
-                          </Button>
-                        </div>
-                        {otherWidgets.map((w) => (
-                          <div key={w.id} className="flex items-center gap-2">
-                            <Checkbox
-                              id={`refresh-widget-${w.id}`}
-                              checked={refreshWidgetIds.includes(w.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setRefreshWidgetIds((prev) => [...prev, w.id]);
-                                } else {
-                                  setRefreshWidgetIds((prev) =>
-                                    prev.filter((id) => id !== w.id),
-                                  );
-                                }
-                              }}
-                            />
-                            <Label
-                              htmlFor={`refresh-widget-${w.id}`}
-                              className="text-sm flex items-center gap-1.5"
-                            >
-                              {w.title || "(untitled)"}
-                              <Badge variant="outline" className="text-xs font-normal">
-                                {chartRegistry[w.chartType as ChartType]?.label ?? w.chartType}
-                              </Badge>
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No other widgets on this page.
-                      </p>
-                    )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lab-template-desc">
+                        Description{" "}
+                        <span className="text-muted-foreground text-xs">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="lab-template-desc"
+                        value={labDescription}
+                        onChange={(e) => setLabDescription(e.target.value)}
+                        placeholder="What does this template do?"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lab-template-tags">
+                        Tags{" "}
+                        <span className="text-muted-foreground text-xs">
+                          (comma-separated)
+                        </span>
+                      </Label>
+                      <Input
+                        id="lab-template-tags"
+                        value={labTagsInput}
+                        onChange={(e) => setLabTagsInput(e.target.value)}
+                        placeholder="e.g. neo4j, monitoring, kpi"
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Caching */}
-                    <div className="space-y-4">
-                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                        Caching
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="enable-cache"
-                          checked={enableCache}
-                          onCheckedChange={(checked) => setEnableCache(!!checked)}
-                        />
-                        <Label htmlFor="enable-cache" className="text-sm">
-                          Cache query results
-                        </Label>
-                      </div>
-                      {enableCache && (
-                        <div className="pl-6 space-y-1.5">
-                          <Label htmlFor="cache-ttl" className="text-sm">
-                            Cache timeout (minutes)
-                          </Label>
-                          <Input
-                            id="cache-ttl"
-                            type="number"
-                            min={1}
-                            max={1440}
-                            value={cacheTtlMinutes}
-                            onChange={(e) =>
-                              setCacheTtlMinutes(Math.max(1, Number(e.target.value)))
-                            }
-                            className="w-24"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Results are reused for up to {cacheTtlMinutes} minute{cacheTtlMinutes !== 1 ? "s" : ""} before re-querying.
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                )}
 
-                    {/* Interactivity — hidden for chart types that don't support click actions */}
-                    {chartSupportsClickAction(chartType) && (
-                    <div className="space-y-4 border-t pt-4">
-                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                        Interactivity
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="click-action-enabled"
-                          checked={clickActionEnabled}
-                          onCheckedChange={(checked) => setClickActionEnabled(!!checked)}
+                {/* Widget title — always visible above tabs */}
+                <div className="space-y-1.5 mb-4">
+                  <Label htmlFor="widget-title">Widget Title</Label>
+                  <Input
+                    id="widget-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Optional custom title"
+                  />
+                </div>
+
+                <ChartSettingsPanel
+                  dataTab={
+                    <div className="space-y-4">
+                      <ChartTypeSelector
+                        connectionId={connectionId}
+                        onConnectionChange={handleConnectionChange}
+                        chartType={chartType}
+                        onChartTypeChange={handleChartTypeChange}
+                        compatibleChartTypes={compatibleChartTypes}
+                        connections={connections}
+                        showConnection={
+                          !isContentOnly &&
+                          (isForm || !isParamSelect || paramUIType === "select")
+                        }
+                      />
+
+                      {mode === "add" && !isLabMode && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setDialogStep("templates")}
+                        >
+                          <FlaskConical className="h-4 w-4" />
+                          From Template
+                        </Button>
+                      )}
+
+                      {/* Connector-changed warning */}
+                      {!isParamSelect && !isContentOnly && connectorChanged && (
+                        <Alert variant="default" className="py-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle className="text-sm">
+                            Connector changed
+                          </AlertTitle>
+                          <AlertDescription className="text-xs">
+                            Switching connectors may make the existing query
+                            invalid. Review the query before saving.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {/* Parameter config (when parameter-select) */}
+                      {isParamSelect && (
+                        <ParameterConfigSection
+                          seedQueryExecution={seedQueryExecution}
+                          seedPreviewOptions={seedPreviewOptions}
                         />
-                        <Label htmlFor="click-action-enabled" className="text-sm">
-                          Enable click action
-                        </Label>
-                      </div>
-                      {clickActionEnabled && (
-                        <div className="space-y-3 pl-6">
-                          <p className="text-sm text-muted-foreground">
-                            {actionRules.length === 0
-                              ? "No action rules configured."
-                              : `${actionRules.length} action rule(s) configured.`}
-                          </p>
-                          <Button variant="outline" size="sm" onClick={() => setDialogStep("rules")}>
-                            Manage Action Rules
-                          </Button>
-                          {clickActionCollisions.length > 0 && (
-                            <Alert variant="default" className="py-2" data-testid="click-action-collision-banner">
-                              <Info className="h-4 w-4" />
-                              <AlertTitle className="text-sm">Parameter name already in use</AlertTitle>
-                              <AlertDescription className="text-xs">
-                                {clickActionCollisions.length === 1
-                                  ? `A parameter set here is also set by: ${clickActionCollisions[0].title}.`
-                                  : `Parameters set here are also set by: ${clickActionCollisions.map((c) => c.title).join(", ")}.`}
-                                {" "}Multiple widgets writing to the same parameter may conflict.
-                              </AlertDescription>
-                            </Alert>
+                      )}
+
+                      {/* Collision warning for param-select */}
+                      {isParamSelect && paramSelectCollisions.length > 0 && (
+                        <Alert
+                          variant="default"
+                          className="py-2"
+                          data-testid="param-collision-banner"
+                        >
+                          <Info className="h-4 w-4" />
+                          <AlertTitle className="text-sm">
+                            Parameter name already in use
+                          </AlertTitle>
+                          <AlertDescription className="text-xs">
+                            {paramSelectCollisions.length === 1
+                              ? `"${paramWidgetName}" is also set by: ${paramSelectCollisions[0].title}.`
+                              : `"${paramWidgetName}" is also set by: ${paramSelectCollisions.map((c) => c.title).join(", ")}.`}{" "}
+                            Multiple widgets writing to the same parameter may
+                            conflict.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {/* Query editor (non-parameter and non-content types) */}
+                      {!isParamSelect && !isContentOnly && (
+                        <QueryEditorPanel
+                          onRun={isForm ? undefined : handlePreview}
+                          editorLanguage={editorLanguage}
+                          running={previewQuery.isPending}
+                        />
+                      )}
+
+                      {/* Form fields editor (form type only) */}
+                      {isForm && <FormFieldsEditor />}
+                    </div>
+                  }
+                  styleTab={
+                    <div className="space-y-4">
+                      <ChartOptionsPanel
+                        chartType={chartType}
+                        settings={chartOptions}
+                        onSettingsChange={setChartOptions}
+                        columns={availableFields}
+                      />
+                      {chartType === "table" && (
+                        <div className="space-y-3 border-t pt-4">
+                          <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                            Color Scales
+                          </h4>
+                          {availableFields.length === 0 ? (
+                            <p className="text-xs text-muted-foreground italic">
+                              Run a preview query to configure color scales.
+                            </p>
+                          ) : (
+                            <ColorScalePanel
+                              columns={availableFields}
+                              colorScales={colorScales}
+                              onColorScalesChange={setColorScales}
+                            />
                           )}
                         </div>
                       )}
+                      {chartOptions.cacheMode === "forever" && (
+                        <div
+                          className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
+                          data-testid="cache-forever-info"
+                        >
+                          <Info className="h-4 w-4 shrink-0" />
+                          <span>
+                            Data will be fetched once and cached until manually
+                            refreshed.
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    )}
-
-                    {/* Rule-based styling — hidden for unsupported chart types */}
-                    {chartSupportsStyling(chartType) && (
-                    <div className="space-y-4 border-t pt-4">
-                      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                        Rule-Based Styling
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="styling-enabled"
-                          checked={stylingEnabled}
-                          onCheckedChange={(checked) => setStylingEnabled(!!checked)}
-                        />
-                        <Label htmlFor="styling-enabled" className="text-sm">
-                          Enable rule-based styling
-                        </Label>
-                      </div>
-                      {stylingEnabled && (
-                        <div className="space-y-3 pl-6">
-                          <p className="text-sm text-muted-foreground">
-                            {stylingRules.length === 0
-                              ? "No styling rules configured."
-                              : `${stylingRules.length} styling rule(s) configured.`}
+                  }
+                  advancedTab={
+                    isParamSelect ? (
+                      <p className="text-sm text-muted-foreground">
+                        No advanced options for parameter widgets.
+                      </p>
+                    ) : isForm ? (
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                          After Submit
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Refresh these widgets when the form submits
+                          successfully.
+                        </p>
+                        {otherWidgets && otherWidgets.length > 0 ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">
+                                {refreshWidgetIds.length} of{" "}
+                                {otherWidgets.length} selected
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                onClick={() => {
+                                  const allSelected = otherWidgets.every((w) =>
+                                    refreshWidgetIds.includes(w.id),
+                                  );
+                                  setRefreshWidgetIds(
+                                    allSelected
+                                      ? []
+                                      : otherWidgets.map((w) => w.id),
+                                  );
+                                }}
+                              >
+                                {otherWidgets.every((w) =>
+                                  refreshWidgetIds.includes(w.id),
+                                )
+                                  ? "Deselect all"
+                                  : "Select all"}
+                              </Button>
+                            </div>
+                            {otherWidgets.map((w) => (
+                              <div
+                                key={w.id}
+                                className="flex items-center gap-2"
+                              >
+                                <Checkbox
+                                  id={`refresh-widget-${w.id}`}
+                                  checked={refreshWidgetIds.includes(w.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setRefreshWidgetIds((prev) => [
+                                        ...prev,
+                                        w.id,
+                                      ]);
+                                    } else {
+                                      setRefreshWidgetIds((prev) =>
+                                        prev.filter((id) => id !== w.id),
+                                      );
+                                    }
+                                  }}
+                                />
+                                <Label
+                                  htmlFor={`refresh-widget-${w.id}`}
+                                  className="text-sm flex items-center gap-1.5"
+                                >
+                                  {w.title || "(untitled)"}
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs font-normal"
+                                  >
+                                    {chartRegistry[w.chartType as ChartType]
+                                      ?.label ?? w.chartType}
+                                  </Badge>
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No other widgets on this page.
                           </p>
-                          <Button variant="outline" size="sm" onClick={() => setDialogStep("styling-rules")}>
-                            Manage Styling Rules
-                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Caching */}
+                        <div className="space-y-4">
+                          <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                            Caching
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="enable-cache"
+                              checked={enableCache}
+                              onCheckedChange={(checked) =>
+                                setEnableCache(!!checked)
+                              }
+                            />
+                            <Label htmlFor="enable-cache" className="text-sm">
+                              Cache query results
+                            </Label>
+                          </div>
+                          {enableCache && (
+                            <div className="pl-6 space-y-1.5">
+                              <Label htmlFor="cache-ttl" className="text-sm">
+                                Cache timeout (minutes)
+                              </Label>
+                              <Input
+                                id="cache-ttl"
+                                type="number"
+                                min={1}
+                                max={1440}
+                                value={cacheTtlMinutes}
+                                onChange={(e) =>
+                                  setCacheTtlMinutes(
+                                    Math.max(1, Number(e.target.value)),
+                                  )
+                                }
+                                className="w-24"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Results are reused for up to {cacheTtlMinutes}{" "}
+                                minute{cacheTtlMinutes !== 1 ? "s" : ""} before
+                                re-querying.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Interactivity — hidden for chart types that don't support click actions */}
+                        {chartSupportsClickAction(chartType) && (
+                          <div className="space-y-4 border-t pt-4">
+                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                              Interactivity
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="click-action-enabled"
+                                checked={clickActionEnabled}
+                                onCheckedChange={(checked) =>
+                                  setClickActionEnabled(!!checked)
+                                }
+                              />
+                              <Label
+                                htmlFor="click-action-enabled"
+                                className="text-sm"
+                              >
+                                Enable click action
+                              </Label>
+                            </div>
+                            {clickActionEnabled && (
+                              <div className="space-y-3 pl-6">
+                                <p className="text-sm text-muted-foreground">
+                                  {actionRules.length === 0
+                                    ? "No action rules configured."
+                                    : `${actionRules.length} action rule(s) configured.`}
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDialogStep("rules")}
+                                >
+                                  Manage Action Rules
+                                </Button>
+                                {clickActionCollisions.length > 0 && (
+                                  <Alert
+                                    variant="default"
+                                    className="py-2"
+                                    data-testid="click-action-collision-banner"
+                                  >
+                                    <Info className="h-4 w-4" />
+                                    <AlertTitle className="text-sm">
+                                      Parameter name already in use
+                                    </AlertTitle>
+                                    <AlertDescription className="text-xs">
+                                      {clickActionCollisions.length === 1
+                                        ? `A parameter set here is also set by: ${clickActionCollisions[0].title}.`
+                                        : `Parameters set here are also set by: ${clickActionCollisions.map((c) => c.title).join(", ")}.`}{" "}
+                                      Multiple widgets writing to the same
+                                      parameter may conflict.
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Styling — row-level rules + cell-level formatting */}
+                        {chartSupportsStyling(chartType) && (
+                          <div className="space-y-4 border-t pt-4">
+                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                              Styling
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="styling-enabled"
+                                checked={stylingEnabled}
+                                onCheckedChange={(checked) =>
+                                  setStylingEnabled(!!checked)
+                                }
+                              />
+                              <Label
+                                htmlFor="styling-enabled"
+                                className="text-sm"
+                              >
+                                Enable rule-based styling
+                              </Label>
+                            </div>
+                            {stylingEnabled && (
+                              <div className="space-y-3 pl-6">
+                                <p className="text-sm text-muted-foreground">
+                                  {stylingRules.length === 0
+                                    ? "No styling rules configured."
+                                    : `${stylingRules.length} styling rule(s) configured.`}
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDialogStep("styling-rules")}
+                                >
+                                  Manage Styling Rules
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Data Transforms */}
+                        {!isContentOnly && (
+                          <div className="space-y-4 border-t pt-4">
+                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                              Data Transforms
+                            </h4>
+                            <TransformEditor
+                              transforms={transforms}
+                              onChange={setTransforms}
+                              columns={availableFields}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                />
+              </div>
+
+              {/* Right column: preview */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Label className="mb-0">Preview</Label>
+                  {!isParamSelect && !isForm && !isContentOnly && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePreview}
+                      disabled={
+                        !connectionId || !query.trim() || previewQuery.isPending
+                      }
+                    >
+                      {previewQuery.isPending ? (
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
+                      ) : (
+                        <Play className="h-3 w-3 mr-1.5" />
+                      )}
+                      Run
+                    </Button>
+                  )}
+                </div>
+                {!isParamSelect &&
+                  !isForm &&
+                  !isContentOnly &&
+                  previewQuery.isError && (
+                    <Alert variant="destructive" className="mb-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Query Failed</AlertTitle>
+                      <AlertDescription className="space-y-1">
+                        <p>{previewQuery.error.message}</p>
+                        <p
+                          className="text-xs font-mono opacity-70 truncate"
+                          title={query}
+                        >
+                          {query}
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                <div
+                  ref={previewRef}
+                  data-testid="widget-preview"
+                  className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative"
+                >
+                  {isMarkdown ? (
+                    <MarkdownWidget
+                      content={chartOptions.content as string | undefined}
+                    />
+                  ) : isIframe ? (
+                    <IframeWidget
+                      url={chartOptions.url as string | undefined}
+                      title={chartOptions.iframeTitle as string | undefined}
+                      sandbox={chartOptions.sandbox as string | undefined}
+                    />
+                  ) : isParamSelect ? (
+                    <ParameterPreview
+                      paramUIType={paramUIType}
+                      dateSub={dateSub}
+                      multiSelect={multiSelect}
+                      paramWidgetName={paramWidgetName}
+                      chartOptions={chartOptions}
+                      seedPreviewOptions={seedPreviewOptions}
+                      seedQueryPending={seedQueryExecution.isPending}
+                    />
+                  ) : isForm ? (
+                    formFields.length > 0 ? (
+                      <div className="p-4 space-y-3 overflow-auto h-full">
+                        {formFields.map((f) => (
+                          <div key={f.id} className="space-y-1.5">
+                            <Label className="text-sm">
+                              {f.label || f.parameterName}
+                            </Label>
+                            <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
+                              {f.parameterType}
+                            </div>
+                          </div>
+                        ))}
+                        <Button disabled className="w-full mt-2">
+                          {(chartOptions.submitButtonText as string) ||
+                            "Submit"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
+                        Add fields in the Fields section below to see the form
+                        preview
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      {previewQuery.isPending && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                      )}
+                      {previewQuery.data || initialPreviewData ? (
+                        <CardContainer
+                          widget={{
+                            id: "preview",
+                            chartType,
+                            connectionId,
+                            query,
+                            settings: {
+                              title: title || undefined,
+                              chartOptions,
+                              stylingConfig: buildStylingConfig(),
+                              conditionalFormatting: colorScales.length
+                                ? { colorScales }
+                                : undefined,
+                            },
+                          }}
+                          previewData={
+                            (previewQuery.data ?? initialPreviewData)!.data
+                          }
+                          previewResultId={
+                            (previewQuery.data ?? initialPreviewData)!.resultId
+                          }
+                        />
+                      ) : (mode === "edit" || mode === "lab-edit") &&
+                        connectionId &&
+                        query.trim() ? (
+                        <div className="h-full flex items-center justify-center">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                          Run a query to see the preview
                         </div>
                       )}
                     </div>
@@ -1272,139 +1756,61 @@ export function WidgetEditorModal({
                   ) : (
                     <Play className="h-3 w-3 mr-1.5" />
                   )}
-                  Run
-                </Button>
-              )}
+                </div>
+              </div>
             </div>
-            {!isParamSelect && !isForm && !isContentOnly && previewQuery.isError && (
-              <Alert variant="destructive" className="mb-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Query Failed</AlertTitle>
-                <AlertDescription className="space-y-1">
-                  <p>{previewQuery.error.message}</p>
-                  <p className="text-xs font-mono opacity-70 truncate" title={query}>
-                    {query}
-                  </p>
-                </AlertDescription>
-              </Alert>
-            )}
 
-            <div ref={previewRef} data-testid="widget-preview" className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative">
-              {isMarkdown ? (
-                <MarkdownWidget content={chartOptions.content as string | undefined} />
-              ) : isIframe ? (
-                <IframeWidget
-                  url={chartOptions.url as string | undefined}
-                  title={chartOptions.iframeTitle as string | undefined}
-                  sandbox={chartOptions.sandbox as string | undefined}
-                />
-              ) : isParamSelect ? (
-                <ParameterPreview
-                  paramUIType={paramUIType}
-                  dateSub={dateSub}
-                  multiSelect={multiSelect}
-                  paramWidgetName={paramWidgetName}
-                  chartOptions={chartOptions}
-                  seedPreviewOptions={seedPreviewOptions}
-                  seedQueryPending={seedQueryExecution.isPending}
-                />
-              ) : isForm ? (
-                formFields.length > 0 ? (
-                  <div className="p-4 space-y-3 overflow-auto h-full">
-                    {formFields.map((f) => (
-                      <div key={f.id} className="space-y-1.5">
-                        <Label className="text-sm">{f.label || f.parameterName}</Label>
-                        <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
-                          {f.parameterType}
-                        </div>
-                      </div>
-                    ))}
-                    <Button disabled className="w-full mt-2">
-                      {(chartOptions.submitButtonText as string) || "Submit"}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
-                    Add fields in the Fields section below to see the form preview
-                  </div>
-                )
+            <DialogFooter>
+              {labError && (
+                <p className="text-sm text-destructive mr-auto">{labError}</p>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              {isLabMode ? (
+                <LoadingButton
+                  type="button"
+                  disabled={
+                    !labName.trim() || (!isContentOnly && !query.trim())
+                  }
+                  loading={labSaving}
+                  loadingText="Saving..."
+                  onClick={handleLabSave}
+                >
+                  {mode === "lab-edit" ? "Save Template" : "Create Template"}
+                </LoadingButton>
               ) : (
-                <>
-                  {previewQuery.isPending && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    </div>
-                  )}
-                  {previewQuery.data ? (
-                    <CardContainer
-                      widget={{
-                        id: "preview",
-                        chartType,
-                        connectionId,
-                        query,
-                        settings: { chartOptions },
-                      }}
-                      previewData={previewQuery.data.data}
-                      previewResultId={previewQuery.data.resultId}
-                    />
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                      Run a query to see the preview
-                    </div>
-                  )}
-                </>
+                <LoadingButton
+                  type="button"
+                  disabled={
+                    isParamSelect
+                      ? !paramWidgetName.trim() ||
+                        (paramUIType === "select" &&
+                          (!connectionId ||
+                            !String(chartOptions.seedQuery ?? "").trim()))
+                      : isContentOnly
+                        ? false
+                        : isForm
+                          ? !connectionId || !query.trim()
+                          : !query.trim()
+                  }
+                  loading={saveStatus === "saving"}
+                  loadingText="Saving..."
+                  onClick={handleSave}
+                >
+                  {saveStatus === "saved"
+                    ? "Saved!"
+                    : mode === "edit"
+                      ? "Save Changes"
+                      : "Add Widget"}
+                </LoadingButton>
               )}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          {labError && (
-            <p className="text-sm text-destructive mr-auto">{labError}</p>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          {isLabMode ? (
-            <LoadingButton
-              type="button"
-              disabled={!labName.trim() || (!isContentOnly && !query.trim())}
-              loading={labSaving}
-              loadingText="Saving..."
-              onClick={handleLabSave}
-            >
-              {mode === "lab-edit" ? "Save Template" : "Create Template"}
-            </LoadingButton>
-          ) : (
-            <LoadingButton
-              type="button"
-              disabled={
-                isParamSelect
-                  ? !paramWidgetName.trim() ||
-                    (paramUIType === "select" && (!connectionId || !(chartOptions.seedQuery as string)?.trim()))
-                  : isContentOnly
-                    ? false
-                    : isForm
-                      ? !connectionId || !query.trim()
-                      : !query.trim()
-              }
-              loading={saveStatus === "saving"}
-              loadingText="Saving..."
-              onClick={handleSave}
-            >
-              {saveStatus === "saved"
-                ? "Saved!"
-                : mode === "edit"
-                  ? "Save Changes"
-                  : "Add Widget"}
-            </LoadingButton>
-          )}
-        </DialogFooter>
-        </>
+            </DialogFooter>
+          </>
         )}
       </DialogContent>
     </Dialog>
