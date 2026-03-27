@@ -74,8 +74,12 @@ export function detectPostgresErrorType(err: unknown): ConnectorErrorType {
     return ConnectorErrorType.TIMEOUT;
   }
   // Authentication errors
-  if (["28P01", "28000", "28001", "3D000"].includes(code)) {
+  if (["28P01", "28000", "28001"].includes(code)) {
     return ConnectorErrorType.AUTHENTICATION;
+  }
+  // 3D000 = invalid_catalog_name (missing database) — connection issue, not auth
+  if (code === "3D000") {
+    return ConnectorErrorType.CONNECTION;
   }
   // Connection errors
   if (
@@ -104,6 +108,14 @@ export function wrapError(
     dbType === "neo4j"
       ? detectNeo4jErrorType(err)
       : detectPostgresErrorType(err);
-  const message = err instanceof Error ? err.message : String(err);
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof (err as { message?: unknown }).message === "string"
+        ? (err as { message: string }).message
+        : String(err);
   return new ConnectorError(message, type, err);
 }

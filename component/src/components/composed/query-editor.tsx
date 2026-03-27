@@ -223,8 +223,10 @@ function QueryEditor({
 
       if (typeof window === "undefined" || !containerRef.current) return;
 
-      // Remove leftover DOM nodes and clear the ready signal
+      // Remove leftover DOM nodes and clear the ready signal + stale E2E handle
       delete containerRef.current.dataset.editorReady;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (containerRef.current as any).__cmView;
       while (containerRef.current.firstChild) {
         containerRef.current.removeChild(containerRef.current.firstChild);
       }

@@ -327,8 +327,24 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
     if (!s.clickActionEnabled || !chartSupportsClickAction(s.chartType))
       return undefined;
 
-    // Advanced rules mode
+    // Advanced rules mode — validate each rule before persisting
     if (s.actionRules.length > 0) {
+      const validPageIds = new Set((layout?.pages ?? []).map((p) => p.id));
+      for (const rule of s.actionRules) {
+        const needsParam =
+          rule.type === "set-parameter" ||
+          rule.type === "set-parameter-and-navigate";
+        if (needsParam && !rule.parameterMapping?.parameterName?.trim())
+          return undefined;
+        const needsPage =
+          rule.type === "navigate-to-page" ||
+          rule.type === "set-parameter-and-navigate";
+        if (
+          needsPage &&
+          (!rule.targetPageId || !validPageIds.has(rule.targetPageId))
+        )
+          return undefined;
+      }
       return {
         type: s.actionRules[0].type,
         rules: s.actionRules,
