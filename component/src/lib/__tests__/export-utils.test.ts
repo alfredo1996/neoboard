@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildCsvString, triggerDownload, buildExportFilename, escapeCsvCell } from "../export-utils";
+import {
+  buildCsvString,
+  triggerDownload,
+  buildExportFilename,
+  escapeCsvCell,
+} from "../export-utils";
 
 describe("escapeCsvCell", () => {
   it("returns empty string for null", () => {
@@ -66,7 +71,7 @@ describe("buildCsvString", () => {
       { name: "Bob", age: 25 },
     ];
     const csv = buildCsvString(data);
-    const lines = csv.split("\n");
+    const lines = csv.split("\r\n");
     expect(lines[0]).toBe("name,age");
     expect(lines[1]).toBe("Alice,30");
     expect(lines[2]).toBe("Bob,25");
@@ -99,7 +104,7 @@ describe("buildCsvString", () => {
   it("handles null and undefined values", () => {
     const data = [{ a: null, b: undefined, c: 1 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe("a,b,c\n,,1");
+    expect(csv).toBe("a,b,c\r\n,,1");
   });
 
   it("handles nested objects by JSON-stringifying them", () => {
@@ -111,13 +116,13 @@ describe("buildCsvString", () => {
   it("escapes headers that contain commas", () => {
     const data = [{ "col,a": 1 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe('"col,a"\n1');
+    expect(csv).toBe('"col,a"\r\n1');
   });
 
   it("escapes headers that contain double quotes", () => {
     const data = [{ 'col"b': 2 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe('"col""b"\n2');
+    expect(csv).toBe('"col""b"\r\n2');
   });
 
   it("escapes headers that contain newlines", () => {
@@ -130,14 +135,14 @@ describe("buildCsvString", () => {
   it("escapes headers that contain carriage returns", () => {
     const data = [{ "col\ra": 1 }];
     const csv = buildCsvString(data);
-    const headerLine = csv.split("\n")[0];
+    const headerLine = csv.split("\r\n")[0];
     expect(headerLine).toBe('"col\ra"');
   });
 
   it("handles single row with single column", () => {
     const data = [{ value: 42 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe("value\n42");
+    expect(csv).toBe("value\r\n42");
   });
 
   it("uses first row keys for all rows even if later rows have different keys", () => {
@@ -146,7 +151,7 @@ describe("buildCsvString", () => {
       { a: 3, c: 4 },
     ];
     const csv = buildCsvString(data);
-    const lines = csv.split("\n");
+    const lines = csv.split("\r\n");
     expect(lines[0]).toBe("a,b");
     // second row: a=3, b=undefined → empty
     expect(lines[2]).toBe("3,");
@@ -187,9 +192,9 @@ describe("buildExportFilename", () => {
   });
 
   it("strips special characters from both names", () => {
-    expect(buildExportFilename("Widget @#$% Title!", "csv", "Dashboard (v2)")).toBe(
-      "dashboard-v2_widget-title.csv",
-    );
+    expect(
+      buildExportFilename("Widget @#$% Title!", "csv", "Dashboard (v2)"),
+    ).toBe("dashboard-v2_widget-title.csv");
   });
 
   it("handles numeric-only strings", () => {
