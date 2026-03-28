@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 export interface ChartSettingsPanelProps {
   dataTab?: React.ReactNode;
   styleTab?: React.ReactNode;
+  transformTab?: React.ReactNode;
   advancedTab?: React.ReactNode;
   defaultTab?: string;
   className?: string;
@@ -13,6 +14,7 @@ export interface ChartSettingsPanelProps {
 function ChartSettingsPanel({
   dataTab,
   styleTab,
+  transformTab,
   advancedTab,
   defaultTab = "data",
   className,
@@ -20,6 +22,9 @@ function ChartSettingsPanel({
   const tabs = [
     { value: "data", label: "Data", content: dataTab },
     { value: "style", label: "Style", content: styleTab },
+    ...(transformTab
+      ? [{ value: "transform", label: "Transform", content: transformTab }]
+      : []),
     ...(advancedTab
       ? [{ value: "advanced", label: "Advanced", content: advancedTab }]
       : []),

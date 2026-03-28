@@ -94,6 +94,8 @@ import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
+import type { Transform } from "@/lib/data-transforms";
+import { TransformEditor } from "./widget-editor/transform-editor";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -131,9 +133,47 @@ export function WidgetEditorModal({
   initialPreviewData,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
-  const [chartType, setChartType] = useState(widget?.chartType ?? "bar");
-  const [connectionId, setConnectionId] = useState(widget?.connectionId ?? "");
-  const [query, setQuery] = useState(widget?.query ?? "");
+
+  // ── Store-backed state (shared with sub-editors) ───────────────────
+  // The store is initialized via loadFromWidget/resetForAdd in a useEffect below.
+  const chartType = useWidgetEditorStore((s) => s.chartType);
+  const setChartType = useWidgetEditorStore((s) => s.setChartType);
+  const connectionId = useWidgetEditorStore((s) => s.connectionId);
+  const setConnectionId = useWidgetEditorStore((s) => s.setConnectionId);
+  const query = useWidgetEditorStore((s) => s.query);
+  const setQuery = useWidgetEditorStore((s) => s.setQuery);
+  const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
+  const setChartOptions = useWidgetEditorStore((s) => s.setChartOptions);
+  const stylingRules = useWidgetEditorStore((s) => s.stylingRules);
+  const setStylingRules = useWidgetEditorStore((s) => s.setStylingRules);
+  const actionRules = useWidgetEditorStore((s) => s.actionRules);
+  const setActionRules = useWidgetEditorStore((s) => s.setActionRules);
+  const formFields = useWidgetEditorStore((s) => s.formFields);
+  const setFormFields = useWidgetEditorStore((s) => s.setFormFields);
+  const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
+  const setParamUIType = useWidgetEditorStore((s) => s.setParamUIType);
+  const dateSub = useWidgetEditorStore((s) => s.dateSub);
+  const setDateSub = useWidgetEditorStore((s) => s.setDateSub);
+  const multiSelect = useWidgetEditorStore((s) => s.multiSelect);
+  const setMultiSelect = useWidgetEditorStore((s) => s.setMultiSelect);
+  const paramWidgetName = useWidgetEditorStore((s) => s.paramWidgetName);
+  const setParamWidgetName = useWidgetEditorStore((s) => s.setParamWidgetName);
+  const transforms = useWidgetEditorStore((s) => s.transforms);
+  const setTransforms = useWidgetEditorStore((s) => s.setTransforms);
+
+  // ── Initialize store when modal opens ────────────────────────────
+  // loadFromWidget / resetForAdd sets all store fields from the widget prop.
+  // This replaces the old bidirectional sync approach.
+  useEffect(() => {
+    if (!open) return;
+    if (widget) {
+      useWidgetEditorStore.getState().loadFromWidget(widget);
+    } else {
+      useWidgetEditorStore.getState().resetForAdd();
+    }
+  }, [open, widget]);
+
+  // ── Local-only state ───────────────────────────────────────────────
   const [title, setTitle] = useState((widget?.settings?.title as string) ?? "");
   const [templateId, setTemplateId] = useState<string | undefined>(
     widget?.templateId,
@@ -141,16 +181,7 @@ export function WidgetEditorModal({
   const [templateSyncedAt, setTemplateSyncedAt] = useState<string | undefined>(
     widget?.templateSyncedAt,
   );
-  const [chartOptions, setChartOptions] = useState<Record<string, unknown>>(
-    () => {
-      if (widget?.settings?.chartOptions) {
-        return widget.settings.chartOptions as Record<string, unknown>;
-      }
-      return getDefaultChartSettings(widget?.chartType ?? "bar");
-    },
-  );
-
-  // Click action state
+  // Click action state — these remain local because no sub-editor writes to them
   const existingClickAction = widget?.settings?.clickAction as
     | ClickAction
     | undefined;
@@ -172,21 +203,14 @@ export function WidgetEditorModal({
   const [clickableColumns, setClickableColumns] = useState<string[]>(
     existingClickAction?.clickableColumns ?? [],
   );
-  const [actionRules, setActionRules] = useState<ClickActionRule[]>(
-    existingClickAction?.rules ?? [],
-  );
 
-  // Styling rules state
+  // Styling toggle + color scales — local (not written by sub-editors)
   const existingStylingConfig = widget?.settings?.stylingConfig as
     | StylingConfig
     | undefined;
   const [stylingEnabled, setStylingEnabled] = useState(
     !!existingStylingConfig?.enabled,
   );
-  const [stylingRules, setStylingRules] = useState<StylingRule[]>(
-    existingStylingConfig?.rules ?? [],
-  );
-  // Color scales state (gradient cell backgrounds for tables)
   const existingConditionalFormatting = widget?.settings
     ?.conditionalFormatting as { colorScales?: ColorScaleConfig[] } | undefined;
   const [colorScales, setColorScales] = useState<ColorScaleConfig[]>(
@@ -246,12 +270,6 @@ export function WidgetEditorModal({
     (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5,
   );
 
-  // Parameter widget editor state (only used when chartType === "parameter-select")
-  const [paramUIType, setParamUIType] = useState<ParamUIType>("select");
-  const [dateSub, setDateSub] = useState<DateSubType>("single");
-  const [multiSelect, setMultiSelect] = useState(false);
-  const [paramWidgetName, setParamWidgetName] = useState("");
-
   // Widgets that already set the same parameter name (collision warning).
   // Use widget?.id ?? "" so new widgets (no id yet) still get collision checks.
   const paramSelectCollisions = useMemo(
@@ -278,16 +296,10 @@ export function WidgetEditorModal({
     return all;
   }, [layout, widget?.id, clickActionEnabled, parameterName, actionRules]);
 
-  // Form fields state (only used when chartType === "form")
-  const [formFields, setFormFields] = useState<FormFieldDef[]>(
-    () => (widget?.settings?.formFields as FormFieldDef[] | undefined) ?? [],
-  );
-
-  // Widget IDs to refresh when this form submits successfully
-  const [refreshWidgetIds, setRefreshWidgetIds] = useState<string[]>(
-    () =>
-      ((widget?.settings?.chartOptions as Record<string, unknown> | undefined)
-        ?.refreshWidgetIds as string[] | undefined) ?? [],
+  // refreshWidgetIds — local since no sub-editor writes to it
+  const refreshWidgetIds = useWidgetEditorStore((s) => s.refreshWidgetIds);
+  const setRefreshWidgetIds = useWidgetEditorStore(
+    (s) => s.setRefreshWidgetIds,
   );
 
   // Seed query preview options — populated when user clicks "Test Seed Query"
@@ -735,6 +747,7 @@ export function WidgetEditorModal({
               formFields: chartType === "form" ? formFields : undefined,
               clickAction: buildClickAction(),
               stylingConfig: buildStylingConfig(),
+              transforms: transforms.length ? transforms : undefined,
               conditionalFormatting: colorScales.length
                 ? { colorScales }
                 : undefined,
@@ -762,6 +775,7 @@ export function WidgetEditorModal({
     title,
     chartOptions,
     formFields,
+    transforms,
     enableCache,
     cacheTtlMinutes,
     colorScales,
@@ -811,70 +825,14 @@ export function WidgetEditorModal({
     return [];
   }, [previewQuery.data, initialPreviewData]);
 
-  // Sync local state → widget editor store (bridge for sub-editors reading from store).
-  // useLayoutEffect ensures the store is updated synchronously before paint,
-  // so sub-editors see current values on the first render (not stale from previous frame).
-  useLayoutEffect(() => {
-    useWidgetEditorStore.setState({ chartType, connectionId, query });
-  }, [chartType, connectionId, query]);
+  // Push derived data to the store so sub-editors can access it via selectors.
+  // These are computed in the modal but not directly settable by sub-editors.
   useLayoutEffect(() => {
     useWidgetEditorStore.setState({ availableFields });
   }, [availableFields]);
   useLayoutEffect(() => {
     useWidgetEditorStore.setState({ parameterSuggestions });
   }, [parameterSuggestions]);
-
-  // Bidirectional sync for mutable state between local state and store.
-  const syncingFromStore = useRef(false);
-  useLayoutEffect(() => {
-    if (!syncingFromStore.current) {
-      useWidgetEditorStore.setState({
-        stylingRules,
-        actionRules,
-        formFields,
-        query,
-        chartOptions,
-        connectionId,
-        paramUIType,
-        dateSub,
-        multiSelect,
-        paramWidgetName,
-      });
-    }
-  }, [
-    stylingRules,
-    actionRules,
-    formFields,
-    query,
-    chartOptions,
-    connectionId,
-    paramUIType,
-    dateSub,
-    multiSelect,
-    paramWidgetName,
-  ]);
-  // Reverse: store → local when sub-editors modify state
-  useEffect(() => {
-    return useWidgetEditorStore.subscribe((state, prev) => {
-      syncingFromStore.current = true;
-      if (state.stylingRules !== prev.stylingRules)
-        setStylingRules(state.stylingRules);
-      if (state.actionRules !== prev.actionRules)
-        setActionRules(state.actionRules);
-      if (state.formFields !== prev.formFields) setFormFields(state.formFields);
-      if (state.query !== prev.query) setQuery(state.query);
-      if (state.chartOptions !== prev.chartOptions)
-        setChartOptions(state.chartOptions);
-      if (state.paramUIType !== prev.paramUIType)
-        setParamUIType(state.paramUIType);
-      if (state.dateSub !== prev.dateSub) setDateSub(state.dateSub);
-      if (state.multiSelect !== prev.multiSelect)
-        setMultiSelect(state.multiSelect);
-      if (state.paramWidgetName !== prev.paramWidgetName)
-        setParamWidgetName(state.paramWidgetName);
-      syncingFromStore.current = false;
-    });
-  }, []);
 
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
@@ -938,6 +896,12 @@ export function WidgetEditorModal({
           isParamSelect || isForm || isContentOnly
             ? undefined
             : cacheTtlMinutes,
+        transforms:
+          isParamSelect || isForm || isContentOnly
+            ? undefined
+            : transforms.length
+              ? transforms
+              : undefined,
       },
       templateId,
       templateSyncedAt,
@@ -972,6 +936,7 @@ export function WidgetEditorModal({
         chartOptions,
         stylingConfig: buildStylingConfig(),
         clickAction: buildClickAction(),
+        transforms: transforms.length ? transforms : undefined,
         conditionalFormatting: colorScales.length ? { colorScales } : undefined,
       },
     };
@@ -1326,6 +1291,18 @@ export function WidgetEditorModal({
                       )}
                     </div>
                   }
+                  transformTab={
+                    !isContentOnly && !isParamSelect ? (
+                      <div className="space-y-4">
+                        <TransformEditor
+                          transforms={transforms}
+                          onChange={setTransforms}
+                          columns={availableFields}
+                          parameterSuggestions={parameterSuggestions}
+                        />
+                      </div>
+                    ) : undefined
+                  }
                   advancedTab={
                     isParamSelect ? (
                       <p className="text-sm text-muted-foreground">
@@ -1380,13 +1357,15 @@ export function WidgetEditorModal({
                                   checked={refreshWidgetIds.includes(w.id)}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
-                                      setRefreshWidgetIds((prev) => [
-                                        ...prev,
+                                      setRefreshWidgetIds([
+                                        ...refreshWidgetIds,
                                         w.id,
                                       ]);
                                     } else {
-                                      setRefreshWidgetIds((prev) =>
-                                        prev.filter((id) => id !== w.id),
+                                      setRefreshWidgetIds(
+                                        refreshWidgetIds.filter(
+                                          (id: string) => id !== w.id,
+                                        ),
                                       );
                                     }
                                   }}
@@ -1673,6 +1652,9 @@ export function WidgetEditorModal({
                               stylingConfig: buildStylingConfig(),
                               conditionalFormatting: colorScales.length
                                 ? { colorScales }
+                                : undefined,
+                              transforms: transforms.length
+                                ? transforms
                                 : undefined,
                             },
                           }}

@@ -15,6 +15,7 @@ import {
   getChartDefaults,
 } from "@/lib/chart-registry";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
+import type { Transform } from "@/lib/data-transforms";
 
 // ParamUIType/DateSubType are string unions — define locally to avoid importing
 // the React component file (which pulls in @neoboard/components UI barrel).
@@ -85,6 +86,9 @@ export interface WidgetEditorState {
   formFields: FormFieldDef[];
   refreshWidgetIds: string[];
 
+  // ── Data transforms ───────────────────────────────────────────
+  transforms: Transform[];
+
   // ── Lab mode ────────────────────────────────────────────────────
   labName: string;
   labDescription: string;
@@ -130,6 +134,7 @@ export interface WidgetEditorState {
 
   setFormFields: (v: FormFieldDef[]) => void;
   setRefreshWidgetIds: (v: string[]) => void;
+  setTransforms: (v: Transform[]) => void;
 
   setLabName: (v: string) => void;
   setLabDescription: (v: string) => void;
@@ -236,6 +241,7 @@ function getInitialState() {
     paramWidgetName: "",
     formFields: [] as FormFieldDef[],
     refreshWidgetIds: [] as string[],
+    transforms: [] as Transform[],
     labName: "",
     labDescription: "",
     labTagsInput: "",
@@ -284,6 +290,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
 
   setFormFields: (v) => set({ formFields: v }),
   setRefreshWidgetIds: (v) => set({ refreshWidgetIds: v }),
+  setTransforms: (v) => set({ transforms: v }),
 
   setLabName: (v) => set({ labName: v }),
   setLabDescription: (v) => set({ labDescription: v }),
@@ -366,6 +373,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
       paramWidgetName,
       formFields: (s.formFields as FormFieldDef[] | undefined) ?? [],
       refreshWidgetIds: (opts.refreshWidgetIds as string[] | undefined) ?? [],
+      transforms: (s.transforms as Transform[] | undefined) ?? [],
       dialogStep: "main",
       connectorChanged: false,
     });

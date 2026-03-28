@@ -4,6 +4,13 @@ import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { getChartConfig } from "@/lib/chart-registry";
+import {
+  buildCsvString,
+  triggerDownload,
+  buildExportFilename,
+} from "@neoboard/components";
+import { applyTransforms } from "@/lib/data-transforms";
+import type { Transform } from "@/lib/data-transforms";
 import { interpolateTitle } from "@/lib/interpolate-title";
 import type {
   DashboardPage,
@@ -11,7 +18,11 @@ import type {
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import { useParameterStore } from "@/stores/parameter-store";
+import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
+import {
+  useParameterStore,
+  useParameterValues,
+} from "@/stores/parameter-store";
 import {
   formatParameterValue,
   filterParentParams,
@@ -47,7 +58,9 @@ export interface WidgetActions {
     widgetId: string,
     settings: Record<string, unknown>,
   ) => void;
-  onNavigateToPage?: (pageId: string) => void;
+  /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
+  /** Called when the user chooses "Save to Widget Lab" for a widget. */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
   onSyncWidget?: (widget: DashboardWidget) => void;
   onDetachWidget?: (widgetId: string) => void;
@@ -60,6 +73,8 @@ interface DashboardContainerProps {
   refetchInterval?: number | false;
   templateMap?: Record<string, WidgetTemplate>;
   showParameterBar?: boolean;
+  /** Maps parameter names to the widgets that set them (for clickable badges). */
+  parameterSourceMap?: ParameterSourceMap;
 }
 
 function getWidgetTitle(widget: DashboardWidget): string {
@@ -75,6 +90,7 @@ export function DashboardContainer({
   refetchInterval,
   templateMap,
   showParameterBar = true,
+  parameterSourceMap,
 }: DashboardContainerProps) {
   const {
     onRemoveWidget,
@@ -108,6 +124,7 @@ export function DashboardContainer({
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
+  const allParamValues = useParameterValues();
   const allEntries = Object.entries(parameters);
   const displayEntries = useMemo(
     () => filterParentParams(allEntries),
@@ -139,9 +156,47 @@ export function DashboardContainer({
     return new Date(tmpl.updatedAt) > new Date(widget.templateSyncedAt);
   }
 
+  function exportWidgetCsv(widget: DashboardWidget) {
+    // Use partial key match — params vary with parameter store values
+    const entries = queryClient.getQueriesData<{ data: unknown }>({
+      queryKey: ["widget-query", widget.connectionId, widget.query],
+    });
+    const cached = entries.length > 0 ? entries[0][1] : undefined;
+    const rawData = cached?.data;
+    if (!Array.isArray(rawData) || rawData.length === 0) return;
+    // Apply transforms so the export matches what the user sees
+    const transforms = (widget.settings?.transforms ?? []) as Transform[];
+    const exportData = transforms.length
+      ? applyTransforms(
+          rawData as Record<string, unknown>[],
+          transforms,
+          allParamValues,
+        )
+      : rawData;
+    const csv = buildCsvString(exportData as Record<string, unknown>[]);
+    const title = (widget.settings?.title as string) || widget.chartType;
+    const filename = buildExportFilename(title, "csv", page.title);
+    triggerDownload(csv, filename);
+  }
+
   const buildActions = (widget: DashboardWidget) => {
-    if (!editable) return undefined;
     const actions = [];
+
+    // Export CSV — available for data-producing widgets in both edit and view mode
+    const isDataWidget = ![
+      "markdown",
+      "iframe",
+      "form",
+      "parameter-select",
+    ].includes(widget.chartType);
+    if (isDataWidget) {
+      actions.push({
+        label: "Export CSV",
+        onClick: () => exportWidgetCsv(widget),
+      });
+    }
+
+    if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {
       actions.push({
         label: "Edit",
@@ -285,6 +340,7 @@ export function DashboardContainer({
                     }
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
+                    parameterSourceMap={parameterSourceMap}
                   />
                 </WidgetCard>
               </div>
@@ -312,6 +368,7 @@ export function DashboardContainer({
                     widget={fullscreenWidget}
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
+                    parameterSourceMap={parameterSourceMap}
                     autoFit
                   />
                 ) : (

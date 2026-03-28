@@ -3,12 +3,13 @@
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
-import type { ColumnMapping } from "@/lib/chart-registry";
+import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
 import type {
   DashboardWidget,
   ClickAction,
   StylingConfig,
 } from "@/lib/db/schema";
+import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
 import {
   useParameterStore,
@@ -18,6 +19,9 @@ import {
   resolveClickActions,
   deriveClickableColumns,
 } from "@/lib/resolve-click-action";
+import { scrollAndHighlight } from "@/lib/scroll-to-widget";
+import { applyTransforms } from "@/lib/data-transforms";
+import type { Transform } from "@/lib/data-transforms";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -26,6 +30,9 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
 } from "@neoboard/components";
 import {
   EmptyState,
@@ -60,10 +67,12 @@ interface CardContainerProps {
   onWidgetSettingsChange?: (settings: Record<string, unknown>) => void;
   /** TanStack Query refetchInterval — periodically re-executes the widget query. */
   refetchInterval?: number | false;
-  /** Called when a click action navigates to a different page. */
-  onNavigateToPage?: (pageId: string) => void;
+  /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
   /** When true, graph widgets trigger a fit-to-viewport after mount. */
   autoFit?: boolean;
+  /** Maps parameter names to the widgets that set them (for clickable badges). */
+  parameterSourceMap?: ParameterSourceMap;
 }
 
 /**
@@ -76,6 +85,74 @@ function extractColumnNames(data: unknown): string[] {
   const first = records[0] as Record<string, unknown> | undefined;
   if (!first || typeof first !== "object") return [];
   return Object.keys(first);
+}
+
+/**
+ * Renders a parameter badge in the "Waiting for parameters" section.
+ * When source widgets exist, shows a clickable badge with a popover listing
+ * which widgets set that parameter and enabling navigation to them.
+ */
+function MissingParamBadge({
+  name,
+  parameterSourceMap,
+  onNavigateToPage,
+}: {
+  name: string;
+  parameterSourceMap?: ParameterSourceMap;
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
+}) {
+  const sources = parameterSourceMap?.[name];
+
+  if (!sources || sources.length === 0) {
+    return (
+      <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
+        $param_{name}
+      </code>
+    );
+  }
+
+  function handleNavigateToWidget(pageId: string, widgetId: string) {
+    // Try same-page scroll first
+    if (scrollAndHighlight(widgetId)) return;
+    // Cross-page navigation
+    onNavigateToPage?.(pageId, widgetId);
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground hover:bg-accent cursor-pointer transition-colors"
+        >
+          $param_{name}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="center">
+        <p className="text-xs font-medium text-muted-foreground mb-2">
+          Set by {sources.length} widget{sources.length !== 1 ? "s" : ""}
+        </p>
+        <ul className="space-y-1">
+          {sources.map((source) => (
+            <li key={`${source.pageId}-${source.widgetId}`}>
+              <button
+                type="button"
+                className="w-full text-left rounded px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+                onClick={() =>
+                  handleNavigateToWidget(source.pageId, source.widgetId)
+                }
+              >
+                <span className="font-medium">{source.widgetTitle}</span>
+                <span className="text-muted-foreground text-xs ml-1">
+                  ({source.pageTitle})
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /**
@@ -95,18 +172,20 @@ export function CardContainer({
   refetchInterval,
   onNavigateToPage,
   autoFit,
+  parameterSourceMap,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
 
-  function handleChartClick(point: Record<string, unknown>) {
-    const result = resolveClickActions(widget, point);
-    if (!result) return;
+  const setParameter = useParameterStore((s) => s.setParameter);
+  const handleChartClick = useCallback(
+    (point: Record<string, unknown>) => {
+      const result = resolveClickActions(widget, point);
+      if (!result) return;
 
-    if (result.setParameter) {
-      const { parameterName, value, label, sourceField } = result.setParameter;
-      useParameterStore
-        .getState()
-        .setParameter(
+      if (result.setParameter) {
+        const { parameterName, value, label, sourceField } =
+          result.setParameter;
+        setParameter(
           parameterName,
           value,
           label,
@@ -115,12 +194,14 @@ export function CardContainer({
           "click-action",
           widget.id,
         );
-    }
+      }
 
-    if (result.navigateToPageId) {
-      onNavigateToPage?.(result.navigateToPageId);
-    }
-  }
+      if (result.navigateToPageId) {
+        onNavigateToPage?.(result.navigateToPageId);
+      }
+    },
+    [widget, setParameter, onNavigateToPage],
+  );
   const ws = widget.settings ?? {};
   const clickAction = ws.clickAction as ClickAction | undefined;
   const hasClickAction = !!clickAction;
@@ -139,6 +220,12 @@ export function CardContainer({
   const chartOptions = useMemo(
     () => (ws.chartOptions ?? {}) as Record<string, unknown>,
     [ws.chartOptions],
+  );
+
+  // Client-side transforms pipeline (applied post-query, pre-render)
+  const dataTransforms = useMemo(
+    () => (widget.settings?.transforms ?? []) as Transform[],
+    [widget.settings?.transforms],
   );
 
   const { staleTime, gcTime } = useMemo(
@@ -245,10 +332,19 @@ export function CardContainer({
         />
       );
     }
-    const transformedData = chartConfig.transformWithMapping(
+    const mappedData = chartConfig.transformWithMapping(
       previewData,
       columnMapping,
     );
+    // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
+    const transformedData =
+      dataTransforms.length && widget.chartType !== "graph"
+        ? applyTransforms(
+            mappedData as Record<string, unknown>[],
+            dataTransforms,
+            allParamValues,
+          )
+        : mappedData;
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
@@ -392,12 +488,12 @@ export function CardContainer({
           {missingParams.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5">
               {missingParams.map((name) => (
-                <code
+                <MissingParamBadge
                   key={name}
-                  className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground"
-                >
-                  $param_{name}
-                </code>
+                  name={name}
+                  parameterSourceMap={parameterSourceMap}
+                  onNavigateToPage={onNavigateToPage}
+                />
               ))}
             </div>
           )}
@@ -459,10 +555,14 @@ export function CardContainer({
     );
   }
 
-  const transformedData = chartConfig.transformWithMapping(
-    rawData,
-    columnMapping,
-  );
+  const mappedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const transformedData = dataTransforms.length
+    ? applyTransforms(
+        mappedData as Record<string, unknown>[],
+        dataTransforms,
+        allParamValues,
+      )
+    : mappedData;
   const availableColumns = extractColumnNames(rawData);
 
   return (
