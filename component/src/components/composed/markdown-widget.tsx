@@ -16,7 +16,12 @@ export interface MarkdownWidgetProps {
  * Blocks data:, javascript:, vbscript:, blob:, file:, etc.
  */
 function isSafeLinkUrl(url: string): boolean {
-  const trimmed = url.trim().toLowerCase();
+  // Strip ASCII tabs and newlines that browsers silently remove before parsing,
+  // which could bypass protocol checks (e.g. "ja\tvascript:" → "javascript:")
+  const trimmed = url
+    .replace(/[\t\n\r]/g, "")
+    .trim()
+    .toLowerCase();
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://"))
     return true;
   if (
@@ -35,7 +40,10 @@ function isSafeLinkUrl(url: string): boolean {
  * data: URIs are only safe in img src (cannot execute scripts), never in links.
  */
 function isSafeImageUrl(url: string): boolean {
-  const trimmed = url.trim().toLowerCase();
+  const trimmed = url
+    .replace(/[\t\n\r]/g, "")
+    .trim()
+    .toLowerCase();
   if (trimmed.startsWith("data:image/")) return true;
   return isSafeLinkUrl(url);
 }

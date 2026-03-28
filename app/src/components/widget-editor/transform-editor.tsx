@@ -243,7 +243,15 @@ function TransformCard({
                 onValueChange={(v) =>
                   onChange({
                     ...transform,
-                    aggregations: [{ ...transform.aggregations[0], column: v }],
+                    aggregations: [
+                      {
+                        ...(transform.aggregations[0] ?? {
+                          column: "",
+                          fn: "count" as const,
+                        }),
+                        column: v,
+                      },
+                    ],
                   })
                 }
               >
@@ -268,7 +276,10 @@ function TransformCard({
                     ...transform,
                     aggregations: [
                       {
-                        ...transform.aggregations[0],
+                        ...(transform.aggregations[0] ?? {
+                          column: columns[0] ?? "",
+                          fn: "count" as const,
+                        }),
                         fn: v as "count" | "sum" | "avg" | "min" | "max",
                       },
                     ],
@@ -303,14 +314,16 @@ function TransformCard({
               />
             </div>
             <div className="space-y-1 flex-1">
-              <Label className="text-xs">Expression</Label>
+              <Label className="text-xs">
+                Expression (left-to-right, +&minus;*/)
+              </Label>
               <Input
                 className="h-8 text-xs"
                 value={transform.expression}
                 onChange={(e) =>
                   onChange({ ...transform, expression: e.target.value })
                 }
-                placeholder="e.g. salary * 0.1"
+                placeholder="e.g. salary * 0.1 or col + $param_rate"
               />
             </div>
           </>

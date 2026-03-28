@@ -74,6 +74,18 @@ function matchesFilter(
   operator: FilterTransform["operator"],
   compare: string | number,
 ): boolean {
+  // Null/undefined/empty never match numeric comparisons — guard against
+  // Number(null)===0 and Number("")===0 producing false positives.
+  if (value === null || value === undefined || value === "") {
+    // String operators still work on empty strings
+    if (operator === "==" || operator === "!=") {
+      const strLeft = String(value ?? "").toLowerCase();
+      const strRight = String(compare).toLowerCase();
+      return operator === "==" ? strLeft === strRight : strLeft !== strRight;
+    }
+    return false;
+  }
+
   // Numeric comparison
   const numLeft = Number(value);
   const numRight = Number(compare);
@@ -320,8 +332,10 @@ export function applyTransforms(
   transforms: Transform[],
   paramValues?: Record<string, unknown>,
 ): Row[] {
+  if (!Array.isArray(data) || !Array.isArray(transforms)) return data;
   let result = data;
   for (const t of transforms) {
+    if (!t || typeof t !== "object" || !t.type) continue;
     switch (t.type) {
       case "filter":
         result = applyFilter(result, t, paramValues);

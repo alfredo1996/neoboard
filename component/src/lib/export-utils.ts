@@ -28,7 +28,7 @@ export function buildCsvString(data: Record<string, unknown>[]): string {
   const rows = data.map((row) =>
     headers.map((h) => escapeCsvCell(row[h])).join(","),
   );
-  return [headerLine, ...rows].join("\n");
+  return [headerLine, ...rows].join("\r\n");
 }
 
 /**

@@ -336,13 +336,15 @@ export function CardContainer({
       previewData,
       columnMapping,
     );
-    const transformedData = dataTransforms.length
-      ? applyTransforms(
-          mappedData as Record<string, unknown>[],
-          dataTransforms,
-          allParamValues,
-        )
-      : mappedData;
+    // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
+    const transformedData =
+      dataTransforms.length && widget.chartType !== "graph"
+        ? applyTransforms(
+            mappedData as Record<string, unknown>[],
+            dataTransforms,
+            allParamValues,
+          )
+        : mappedData;
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
