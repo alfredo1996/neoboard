@@ -896,6 +896,12 @@ export function WidgetEditorModal({
           isParamSelect || isForm || isContentOnly
             ? undefined
             : cacheTtlMinutes,
+        transforms:
+          isParamSelect || isForm || isContentOnly
+            ? undefined
+            : transforms.length
+              ? transforms
+              : undefined,
       },
       templateId,
       templateSyncedAt,
@@ -1646,6 +1652,9 @@ export function WidgetEditorModal({
                               stylingConfig: buildStylingConfig(),
                               conditionalFormatting: colorScales.length
                                 ? { colorScales }
+                                : undefined,
+                              transforms: transforms.length
+                                ? transforms
                                 : undefined,
                             },
                           }}

@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@neoboard/components";
 import type { Transform } from "@/lib/data-transforms";
+import { ValueOrParamInput } from "./value-or-param-input";
 
 export interface TransformEditorProps {
   transforms: Transform[];
@@ -160,61 +161,17 @@ function TransformCard({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">
-                Value{" "}
-                {transform.paramRef && (
-                  <span className="text-primary">(param)</span>
-                )}
-              </Label>
-              {parameterSuggestions?.length ? (
-                <Select
-                  value={
-                    transform.paramRef
-                      ? `$param_${transform.paramRef}`
-                      : "__literal__"
-                  }
-                  onValueChange={(v) => {
-                    if (v === "__literal__") {
-                      onChange({ ...transform, paramRef: undefined });
-                    } else {
-                      onChange({
-                        ...transform,
-                        paramRef: v.replace("$param_", ""),
-                        value: "",
-                      });
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-[140px] h-8 text-xs">
-                    <SelectValue placeholder="Pick value..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__literal__">Static value</SelectItem>
-                    {parameterSuggestions.map((p) => (
-                      <SelectItem key={p} value={`$param_${p}`}>
-                        ${p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-              {!transform.paramRef && (
-                <Input
-                  className="w-[100px] h-8 text-xs"
-                  placeholder="Enter value..."
-                  value={String(transform.value)}
-                  onChange={(e) => {
-                    const num = Number(e.target.value);
-                    onChange({
-                      ...transform,
-                      value:
-                        !Number.isNaN(num) && e.target.value !== ""
-                          ? num
-                          : e.target.value,
-                    });
-                  }}
-                />
-              )}
+              <Label className="text-xs">Value</Label>
+              <ValueOrParamInput
+                parameterRef={transform.paramRef}
+                onParamRefChange={(ref) =>
+                  onChange({ ...transform, paramRef: ref })
+                }
+                value={transform.value}
+                onValueChange={(v) => onChange({ ...transform, value: v })}
+                parameterSuggestions={parameterSuggestions ?? []}
+                placeholder="value or param"
+              />
             </div>
           </>
         )}
