@@ -57,11 +57,16 @@ Rules:
 | Zustand stores | Vitest (no mocks) | State transitions, cascading logic |
 | Store orchestration | Vitest (no DOM) | parameter-widget-renderer interactions, type coercion |
 | Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
-| UI components + pages | Playwright E2E | Real rendering, real data, real interactions |
+| UI components (app/) | Vitest (jsdom) | Render tests, branch coverage, error states — `.test.tsx` files |
+| Full user flows | Playwright E2E | Real rendering, real data, real interactions |
 
 **Coverage target: 80% per package** (unit + E2E combined). Track with `npm run test:coverage` in each package.
 
-**Do NOT add Vitest render tests (jsdom + @testing-library/react) in `app/`.** Component rendering is tested via Playwright E2E with real data and **server-side coverage collection** (`collectServer: true` in nextcov config). Vitest in `app/` is for pure logic, API routes, stores, and hooks only. UI component tests belong in `component/` (isolated, no business logic) or as Playwright E2E specs.
+**Vitest in `app/` uses two project environments:**
+- **`unit`** (node): `.test.ts` files — pure logic, API routes, stores, hooks. No DOM.
+- **`component`** (jsdom): `.test.tsx` files — render tests with `@testing-library/react`. Mock `@neoboard/components` and Next.js modules (`next/navigation`, `next/dynamic`). Use for branch coverage of UI components that E2E can't reach (error states, edge cases, loading states).
+
+Playwright E2E with **server-side coverage collection** (`collectServer: true` in nextcov config) complements jsdom tests for full user flows. UI component tests in `component/` package remain isolated (no business logic).
 
 **Vendored code** (e.g., `component/src/lib/cypher-lang/`) is excluded from SonarCloud coverage requirements but should have basic smoke tests to catch regressions from local modifications.
 
