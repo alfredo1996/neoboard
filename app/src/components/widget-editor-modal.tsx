@@ -1351,13 +1351,15 @@ export function WidgetEditorModal({
                                   checked={refreshWidgetIds.includes(w.id)}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
-                                      setRefreshWidgetIds((prev) => [
-                                        ...prev,
+                                      setRefreshWidgetIds([
+                                        ...refreshWidgetIds,
                                         w.id,
                                       ]);
                                     } else {
-                                      setRefreshWidgetIds((prev) =>
-                                        prev.filter((id) => id !== w.id),
+                                      setRefreshWidgetIds(
+                                        refreshWidgetIds.filter(
+                                          (id: string) => id !== w.id,
+                                        ),
                                       );
                                     }
                                   }}
