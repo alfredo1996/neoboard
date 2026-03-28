@@ -3,15 +3,18 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
-import { getChartConfig } from "@/lib/chart-registry";
 import {
   buildCsvString,
   triggerDownload,
   buildExportFilename,
 } from "@neoboard/components";
-import { applyTransforms } from "@/lib/data-transforms";
-import type { Transform } from "@/lib/data-transforms";
 import { interpolateTitle } from "@/lib/interpolate-title";
+import { buildExportData } from "@/lib/card-utils";
+import {
+  getWidgetDisplayTitle,
+  isWidgetTemplateOutdated,
+} from "@/lib/widget-utils";
+import { isDataWidget } from "@/lib/widget-actions";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -77,11 +80,7 @@ interface DashboardContainerProps {
   parameterSourceMap?: ParameterSourceMap;
 }
 
-function getWidgetTitle(widget: DashboardWidget): string {
-  const title = (widget.settings ?? {}).title;
-  if (title && typeof title === "string") return title;
-  return getChartConfig(widget.chartType)?.label ?? widget.chartType;
-}
+// getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget-utils
 
 export function DashboardContainer({
   page,
@@ -149,31 +148,20 @@ export function DashboardContainer({
     );
   }
 
-  function isWidgetOutdated(widget: DashboardWidget): boolean {
-    if (!widget.templateId || !widget.templateSyncedAt) return false;
-    const tmpl = templateMap?.[widget.templateId];
-    if (!tmpl?.updatedAt) return false;
-    return new Date(tmpl.updatedAt) > new Date(widget.templateSyncedAt);
-  }
-
   function exportWidgetCsv(widget: DashboardWidget) {
-    // Use partial key match — params vary with parameter store values
     const entries = queryClient.getQueriesData<{ data: unknown }>({
       queryKey: ["widget-query", widget.connectionId, widget.query],
     });
     const cached = entries.length > 0 ? entries[0][1] : undefined;
-    const rawData = cached?.data;
-    if (!Array.isArray(rawData) || rawData.length === 0) return;
-    // Apply transforms so the export matches what the user sees
-    const transforms = (widget.settings?.transforms ?? []) as Transform[];
-    const exportData = transforms.length
-      ? applyTransforms(
-          rawData as Record<string, unknown>[],
-          transforms,
-          allParamValues,
-        )
-      : rawData;
-    const csv = buildCsvString(exportData as Record<string, unknown>[]);
+    const transforms = (widget.settings?.transforms ??
+      []) as import("@/lib/data-transforms").Transform[];
+    const exportData = buildExportData(
+      cached?.data,
+      transforms,
+      allParamValues,
+    );
+    if (exportData.length === 0) return;
+    const csv = buildCsvString(exportData);
     const title = (widget.settings?.title as string) || widget.chartType;
     const filename = buildExportFilename(title, "csv", page.title);
     triggerDownload(csv, filename);
@@ -182,14 +170,7 @@ export function DashboardContainer({
   const buildActions = (widget: DashboardWidget) => {
     const actions = [];
 
-    // Export CSV — available for data-producing widgets in both edit and view mode
-    const isDataWidget = ![
-      "markdown",
-      "iframe",
-      "form",
-      "parameter-select",
-    ].includes(widget.chartType);
-    if (isDataWidget) {
+    if (isDataWidget(widget.chartType)) {
       actions.push({
         label: "Export CSV",
         onClick: () => exportWidgetCsv(widget),
@@ -216,7 +197,7 @@ export function DashboardContainer({
       });
     }
     if (widget.templateId) {
-      if (isWidgetOutdated(widget) && onSyncWidget) {
+      if (isWidgetTemplateOutdated(widget, templateMap) && onSyncWidget) {
         actions.push({
           label: "Sync with template",
           onClick: () => setPendingSyncWidget(widget),
@@ -269,7 +250,8 @@ export function DashboardContainer({
           isResizable={editable}
         >
           {page.widgets.map((widget) => {
-            const outdated = editable && isWidgetOutdated(widget);
+            const outdated =
+              editable && isWidgetTemplateOutdated(widget, templateMap);
             const chartOpts = ((widget.settings ?? {}).chartOptions ??
               {}) as Record<string, unknown>;
             const showRefresh = shouldShowRefreshButton(chartOpts);
@@ -280,7 +262,10 @@ export function DashboardContainer({
                 data-widget-id={widget.id}
               >
                 <WidgetCard
-                  title={interpolateTitle(getWidgetTitle(widget), parameters)}
+                  title={interpolateTitle(
+                    getWidgetDisplayTitle(widget),
+                    parameters,
+                  )}
                   subtitle={undefined}
                   className="h-full"
                   draggable={editable}
@@ -359,7 +344,10 @@ export function DashboardContainer({
           {fullscreenWidget && (
             <>
               <h2 className="text-lg font-semibold mb-2">
-                {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
+                {interpolateTitle(
+                  getWidgetDisplayTitle(fullscreenWidget),
+                  parameters,
+                )}
               </h2>
               <div className="flex-1 min-h-0">
                 {fullscreenReady ? (

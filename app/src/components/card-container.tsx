@@ -22,6 +22,7 @@ import {
 import { scrollAndHighlight } from "@/lib/scroll-to-widget";
 import { applyTransforms } from "@/lib/data-transforms";
 import type { Transform } from "@/lib/data-transforms";
+import { extractColumnNames, resolveStylingConfig } from "@/lib/card-utils";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -40,7 +41,6 @@ import {
   substituteParams,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
-import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 
 /** Chart types that support column mapping. */
 /** Derived from registry — chart types that support column mapping overlays. */
@@ -75,17 +75,7 @@ interface CardContainerProps {
   parameterSourceMap?: ParameterSourceMap;
 }
 
-/**
- * Extracts column names from raw query result data.
- * Both Neo4j and PostgreSQL now return a flat Record[] array.
- */
-function extractColumnNames(data: unknown): string[] {
-  const records = Array.isArray(data) ? data : [];
-  if (!records.length) return [];
-  const first = records[0] as Record<string, unknown> | undefined;
-  if (!first || typeof first !== "object") return [];
-  return Object.keys(first);
-}
+// extractColumnNames imported from @/lib/card-utils
 
 /**
  * Renders a parameter badge in the "Waiting for parameters" section.
@@ -291,16 +281,14 @@ export function CardContainer({
 
   // Resolve styling config (new format or migrated from legacy)
   const allParamValues = useParameterValues();
-  const resolvedStylingConfig = useMemo<StylingConfig | undefined>(() => {
-    const sc = ws.stylingConfig as StylingConfig | undefined;
-    if (sc?.enabled) return sc;
-    // Try migrating from legacy colorThresholds
-    const legacyThresholds = chartOptions.colorThresholds;
-    if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
-      return migrateColorThresholds(legacyThresholds);
-    }
-    return undefined;
-  }, [ws.stylingConfig, chartOptions]);
+  const resolvedStylingConfig = useMemo<StylingConfig | undefined>(
+    () =>
+      resolveStylingConfig(
+        ws.stylingConfig as StylingConfig | undefined,
+        chartOptions.colorThresholds as string | undefined,
+      ),
+    [ws.stylingConfig, chartOptions],
+  );
 
   // Resolve color scales config
   const conditionalFormatting = ws.conditionalFormatting as
