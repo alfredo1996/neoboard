@@ -476,6 +476,91 @@ describe("applyTransforms", () => {
     });
   });
 
+  describe("edge cases", () => {
+    it("filter on non-existent column returns no rows for == check", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "nonexistent", operator: "==", value: "x" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(0);
+    });
+
+    it("filter on non-existent column returns all rows for != check", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "nonexistent", operator: "!=", value: "x" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(5);
+    });
+
+    it("sort handles null/undefined values without crashing", () => {
+      const data = [
+        { name: "Alice", score: 10 },
+        { name: "Bob", score: null },
+        { name: "Charlie" }, // score is undefined
+        { name: "Diana", score: 5 },
+      ];
+      const transforms: Transform[] = [
+        { type: "sort", column: "score", direction: "asc" },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result).toHaveLength(4);
+    });
+
+    it("groupBy with multiple aggregations on same column", () => {
+      const transforms: Transform[] = [
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [
+            { column: "salary", fn: "sum" },
+            { column: "salary", fn: "avg" },
+            { column: "salary", fn: "count" },
+          ],
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      const eng = result.find((r) => r.department === "Engineering");
+      expect(eng?.salary_sum).toBe(360000);
+      expect(eng?.salary_avg).toBe(120000);
+      expect(eng?.salary_count).toBe(3);
+    });
+
+    it("calculated column with multiple $param_ tokens", () => {
+      const data = [{ base: 100 }];
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "total",
+          expression: "base * $param_rate + $param_bonus",
+        },
+      ];
+      const result = applyTransforms(data, transforms, { rate: 2, bonus: 50 });
+      expect(result[0].total).toBe(250); // 100 * 2 + 50
+    });
+
+    it("filter with paramRef pointing to null param value uses static value", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Sales",
+          paramRef: "dept",
+        },
+      ];
+      const result = applyTransforms(sampleData, transforms, { dept: null });
+      // null param → falls back to static value "Sales"
+      expect(result).toHaveLength(2);
+    });
+
+    it("limit count of 0 returns empty array", () => {
+      const transforms: Transform[] = [{ type: "limit", count: 0 }];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(0);
+    });
+  });
+
   describe("pipeline with parameters", () => {
     it("filter by param then sort then limit", () => {
       const transforms: Transform[] = [
