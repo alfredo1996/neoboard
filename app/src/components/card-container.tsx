@@ -3,7 +3,7 @@
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
-import type { ChartType, ColumnMapping } from "@/lib/chart-registry";
+import type { ColumnMapping } from "@/lib/chart-registry";
 import type {
   DashboardWidget,
   ClickAction,
@@ -213,9 +213,13 @@ export function CardContainer({
   );
 
   // Client-side transforms pipeline (applied post-query, pre-render)
+  const transformsEnabled = widget.settings?.transformsEnabled !== false;
   const dataTransforms = useMemo(
-    () => (widget.settings?.transforms ?? []) as Transform[],
-    [widget.settings?.transforms],
+    () =>
+      transformsEnabled
+        ? ((widget.settings?.transforms ?? []) as Transform[])
+        : [],
+    [widget.settings?.transforms, transformsEnabled],
   );
 
   const { staleTime, gcTime } = useMemo(

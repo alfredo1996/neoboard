@@ -88,6 +88,7 @@ export interface WidgetEditorState {
 
   // ── Data transforms ───────────────────────────────────────────
   transforms: Transform[];
+  transformsEnabled: boolean;
 
   // ── Lab mode ────────────────────────────────────────────────────
   labName: string;
@@ -135,6 +136,7 @@ export interface WidgetEditorState {
   setFormFields: (v: FormFieldDef[]) => void;
   setRefreshWidgetIds: (v: string[]) => void;
   setTransforms: (v: Transform[]) => void;
+  setTransformsEnabled: (v: boolean) => void;
 
   setLabName: (v: string) => void;
   setLabDescription: (v: string) => void;
@@ -242,6 +244,7 @@ function getInitialState() {
     formFields: [] as FormFieldDef[],
     refreshWidgetIds: [] as string[],
     transforms: [] as Transform[],
+    transformsEnabled: true,
     labName: "",
     labDescription: "",
     labTagsInput: "",
@@ -291,6 +294,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
   setFormFields: (v) => set({ formFields: v }),
   setRefreshWidgetIds: (v) => set({ refreshWidgetIds: v }),
   setTransforms: (v) => set({ transforms: v }),
+  setTransformsEnabled: (v) => set({ transformsEnabled: v }),
 
   setLabName: (v) => set({ labName: v }),
   setLabDescription: (v) => set({ labDescription: v }),
@@ -374,6 +378,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
       formFields: (s.formFields as FormFieldDef[] | undefined) ?? [],
       refreshWidgetIds: (opts.refreshWidgetIds as string[] | undefined) ?? [],
       transforms: (s.transforms as Transform[] | undefined) ?? [],
+      transformsEnabled: s.transformsEnabled !== false,
       dialogStep: "main",
       connectorChanged: false,
     });

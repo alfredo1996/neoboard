@@ -14,9 +14,7 @@ import type {
   DashboardWidget,
   DashboardLayoutV2,
   ClickAction,
-  ClickActionRule,
   WidgetTemplate,
-  StylingRule,
   StylingConfig,
 } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
@@ -68,7 +66,6 @@ import {
   chartRegistry,
   chartSupportsClickAction,
   chartSupportsStyling,
-  getStylingTargets,
 } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
 import { useParameterValues } from "@/stores/parameter-store";
@@ -84,17 +81,13 @@ import {
   resolveInternalParamType,
   reverseParamTypeMapping,
 } from "./widget-editor/parameter-config-section";
-import type {
-  ParamUIType,
-  DateSubType,
-} from "./widget-editor/parameter-config-section";
+// ParamUIType/DateSubType types used by the store, not directly in modal
 import { ParameterPreview } from "./widget-editor/parameter-preview";
 import type { FormFieldDef } from "@/lib/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
-import type { Transform } from "@/lib/data-transforms";
 import { TransformEditor } from "./widget-editor/transform-editor";
 
 export interface WidgetEditorModalProps {
@@ -160,6 +153,10 @@ export function WidgetEditorModal({
   const setParamWidgetName = useWidgetEditorStore((s) => s.setParamWidgetName);
   const transforms = useWidgetEditorStore((s) => s.transforms);
   const setTransforms = useWidgetEditorStore((s) => s.setTransforms);
+  const transformsEnabled = useWidgetEditorStore((s) => s.transformsEnabled);
+  const setTransformsEnabled = useWidgetEditorStore(
+    (s) => s.setTransformsEnabled,
+  );
 
   // ── Initialize store when modal opens ────────────────────────────
   // loadFromWidget / resetForAdd sets all store fields from the widget prop.
@@ -748,6 +745,7 @@ export function WidgetEditorModal({
               clickAction: buildClickAction(),
               stylingConfig: buildStylingConfig(),
               transforms: transforms.length ? transforms : undefined,
+              transformsEnabled,
               conditionalFormatting: colorScales.length
                 ? { colorScales }
                 : undefined,
@@ -1299,6 +1297,8 @@ export function WidgetEditorModal({
                           onChange={setTransforms}
                           columns={availableFields}
                           parameterSuggestions={parameterSuggestions}
+                          enabled={transformsEnabled}
+                          onEnabledChange={setTransformsEnabled}
                         />
                       </div>
                     ) : undefined

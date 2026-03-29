@@ -19,6 +19,9 @@ export interface TransformEditorProps {
   columns: string[];
   /** Available parameter names for $param_xxx references in filter values and expressions */
   parameterSuggestions?: string[];
+  /** Enable/disable the entire transform pipeline */
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
 }
 
 const TRANSFORM_TYPES = [
@@ -236,67 +239,84 @@ function TransformCard({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Aggregate</Label>
-              <Select
-                value={transform.aggregations[0]?.column ?? columns[0]}
-                onValueChange={(v) =>
-                  onChange({
-                    ...transform,
-                    aggregations: [
-                      {
-                        ...(transform.aggregations[0] ?? {
-                          column: "",
-                          fn: "count" as const,
-                        }),
-                        column: v,
-                      },
-                    ],
-                  })
-                }
+            <div className="space-y-2 w-full">
+              <Label className="text-xs">
+                Aggregations → output: column_fn
+              </Label>
+              {transform.aggregations.map((agg, ai) => (
+                <div key={ai} className="flex items-center gap-2">
+                  <Select
+                    value={agg.column}
+                    onValueChange={(v) => {
+                      const next = [...transform.aggregations];
+                      next[ai] = { ...agg, column: v };
+                      onChange({ ...transform, aggregations: next });
+                    }}
+                  >
+                    <SelectTrigger className="w-[100px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columns.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={agg.fn}
+                    onValueChange={(v) => {
+                      const next = [...transform.aggregations];
+                      next[ai] = { ...agg, fn: v as typeof agg.fn };
+                      onChange({ ...transform, aggregations: next });
+                    }}
+                  >
+                    <SelectTrigger className="w-[90px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGG_FUNCTIONS.map((f) => (
+                        <SelectItem key={f.value} value={f.value}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[10px] text-muted-foreground">
+                    → {agg.column}_{agg.fn}
+                  </span>
+                  {transform.aggregations.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        const next = transform.aggregations.filter(
+                          (_, j) => j !== ai,
+                        );
+                        onChange({ ...transform, aggregations: next });
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const next = [
+                    ...transform.aggregations,
+                    { column: columns[0] ?? "", fn: "count" as const },
+                  ];
+                  onChange({ ...transform, aggregations: next });
+                }}
               >
-                <SelectTrigger className="w-[100px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Function</Label>
-              <Select
-                value={transform.aggregations[0]?.fn ?? "count"}
-                onValueChange={(v) =>
-                  onChange({
-                    ...transform,
-                    aggregations: [
-                      {
-                        ...(transform.aggregations[0] ?? {
-                          column: columns[0] ?? "",
-                          fn: "count" as const,
-                        }),
-                        fn: v as "count" | "sum" | "avg" | "min" | "max",
-                      },
-                    ],
-                  })
-                }
-              >
-                <SelectTrigger className="w-[90px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AGG_FUNCTIONS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Plus className="h-3 w-3 mr-1" /> Add aggregation
+              </Button>
             </div>
           </>
         )}
@@ -378,6 +398,8 @@ export function TransformEditor({
   onChange,
   columns,
   parameterSuggestions,
+  enabled = true,
+  onEnabledChange,
 }: TransformEditorProps) {
   const [addType, setAddType] = React.useState<string>("filter");
 
@@ -405,7 +427,26 @@ export function TransformEditor({
 
   return (
     <div className="space-y-3">
-      {transforms.length === 0 && (
+      {onEnabledChange && (
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="transforms-enabled"
+            checked={enabled}
+            onChange={(e) => onEnabledChange(e.target.checked)}
+            className="h-4 w-4 rounded border-input"
+          />
+          <Label htmlFor="transforms-enabled" className="text-sm font-medium">
+            Enable transforms
+          </Label>
+        </div>
+      )}
+      {!enabled && transforms.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Transforms are disabled. The chart shows raw query data.
+        </p>
+      )}
+      {enabled && transforms.length === 0 && (
         <p className="text-xs text-muted-foreground">
           No transforms configured. Transforms modify query results client-side
           without changing the original query.
