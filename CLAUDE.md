@@ -42,6 +42,7 @@ Follow Red → Green → Refactor on every change:
 3. **Refactor** — Clean up without breaking tests.
 
 Rules:
+
 - Write the test **before** the implementation. No exceptions.
 - Run the relevant test suite before and after every change to confirm Red → Green.
 - Every new behavior, bug fix, and edge case gets a test.
@@ -50,19 +51,20 @@ Rules:
 
 ## Testing Boundaries (app/ package)
 
-| Layer | Tool | Examples |
-|-------|------|---------|
-| Pure functions/utils | Vitest (no DOM) | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
-| API routes | Vitest (mocked DB/auth) | Validation, permissions, error handling |
-| Zustand stores | Vitest (no mocks) | State transitions, cascading logic |
-| Store orchestration | Vitest (no DOM) | parameter-widget-renderer interactions, type coercion |
-| Auth helpers | Vitest (mocked auth) | Session extraction, signup validation |
-| UI components (app/) | Vitest (jsdom) | Render tests, branch coverage, error states — `.test.tsx` files |
-| Full user flows | Playwright E2E | Real rendering, real data, real interactions |
+| Layer                | Tool                    | Examples                                                                         |
+| -------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| Pure functions/utils | Vitest (no DOM)         | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| API routes           | Vitest (mocked DB/auth) | Validation, permissions, error handling                                          |
+| Zustand stores       | Vitest (no mocks)       | State transitions, cascading logic                                               |
+| Store orchestration  | Vitest (no DOM)         | parameter-widget-renderer interactions, type coercion                            |
+| Auth helpers         | Vitest (mocked auth)    | Session extraction, signup validation                                            |
+| UI components (app/) | Vitest (jsdom)          | Render tests, branch coverage, error states — `.test.tsx` files                  |
+| Full user flows      | Playwright E2E          | Real rendering, real data, real interactions                                     |
 
 **Coverage target: 80% per package** (unit + E2E combined). Track with `npm run test:coverage` in each package.
 
 **Vitest in `app/` uses two project environments:**
+
 - **`unit`** (node): `.test.ts` files — pure logic, API routes, stores, hooks. No DOM.
 - **`component`** (jsdom): `.test.tsx` files — render tests with `@testing-library/react`. Mock `@neoboard/components` and Next.js modules (`next/navigation`, `next/dynamic`). Use for branch coverage of UI components that E2E can't reach (error states, edge cases, loading states).
 
@@ -73,13 +75,23 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 ## Working Rules
 
 **Code quality:**
+
 - TypeScript strict. No `any` without a comment explaining why.
 - Run `cd app && npx next lint --fix` after every change to `app/`.
 - Run `npm run lint` from the repo root to lint all packages.
 - Run `npm run build` before committing to catch type errors.
 - Use `npm`, not `pnpm` or `yarn`.
 
+**Requirements drill (mandatory before new work):**
+
+- Before creating a branch or starting implementation on any issue, run `/drill <issue-number>`.
+- The drill gathers scope, UX flow, edge cases, security concerns, and acceptance criteria.
+- Do NOT skip the drill. Do NOT start coding, branching, or planning without it.
+- The drill output becomes the source of truth for what to build and how to verify it.
+- For trivial fixes (typos, one-line changes), a minimal drill (1 round) is sufficient.
+
 **Git & PRs:**
+
 - Conventional Commits: `type(scope): description`.
 - Branch from `dev`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
 - PRs target `dev` (integration) before merging to `main`.
@@ -88,6 +100,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 - After finishing: PR targeting `dev`, correct milestone/labels, link issue via `Closes #N`.
 
 **PR reviews:**
+
 - Read `gh pr view <number> --comments` when resuming work on an existing PR.
 - Address all CodeRabbit suggestions or dismiss with justification.
 - SonarQube quality gate must pass (coverage, duplications, code smells).
@@ -143,9 +156,11 @@ Test version-skip paths. `--skip-migrations` flag exists for emergency debugging
 ## Design Review
 
 Before touching any UI code:
+
 1. Read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns. Source of truth for visual consistency.
 2. Read `.claude/skills/screenshot-review/skill.md` — screenshot workflow.
 
 Rules:
+
 - Screenshot before AND after any visual change (`.screenshots/before/`, `.screenshots/after/`).
 - Keep the baseline suite (`.screenshots/baseline-*/`) up to date for new pages/flows.
