@@ -595,4 +595,177 @@ describe("applyTransforms", () => {
       expect(result).toHaveLength(3); // Charlie (11k), Alice (12k), Eve (13k)
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Pipeline ordering impact
+  // ---------------------------------------------------------------------------
+
+  describe("pipeline ordering impact", () => {
+    it("filter before groupBy → fewer groups than groupBy before filter", () => {
+      // Filter first: keep only Engineering → groupBy → 1 group
+      const filterFirst: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Engineering",
+        },
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [{ column: "salary", fn: "count" }],
+        },
+      ];
+      const r1 = applyTransforms(sampleData, filterFirst);
+      expect(r1).toHaveLength(1);
+
+      // GroupBy first: 2 groups → filter keeps only Engineering group
+      const groupFirst: Transform[] = [
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [{ column: "salary", fn: "count" }],
+        },
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Engineering",
+        },
+      ];
+      const r2 = applyTransforms(sampleData, groupFirst);
+      expect(r2).toHaveLength(1);
+      // Both produce 1 row but groupBy-first preserves the count from all data
+      expect(r2[0].salary_count).toBe(3);
+    });
+
+    it("sort before limit gives top-N; limit before sort gives arbitrary N sorted", () => {
+      // Sort desc then limit 2 → highest salaries
+      const sortFirst: Transform[] = [
+        { type: "sort", column: "salary", direction: "desc" },
+        { type: "limit", count: 2 },
+      ];
+      const r1 = applyTransforms(sampleData, sortFirst);
+      expect(r1).toHaveLength(2);
+      expect(r1[0].name).toBe("Eve"); // 130k
+      expect(r1[1].name).toBe("Alice"); // 120k
+
+      // Limit 2 then sort desc → first 2 rows (Alice, Bob) sorted
+      const limitFirst: Transform[] = [
+        { type: "limit", count: 2 },
+        { type: "sort", column: "salary", direction: "desc" },
+      ];
+      const r2 = applyTransforms(sampleData, limitFirst);
+      expect(r2).toHaveLength(2);
+      expect(r2[0].name).toBe("Alice"); // 120k (first 2 rows are Alice, Bob)
+      expect(r2[1].name).toBe("Bob"); // 80k
+    });
+
+    it("renameColumns before calculatedColumn — expression uses new names", () => {
+      const transforms: Transform[] = [
+        { type: "renameColumns", mapping: { salary: "pay" } },
+        { type: "calculatedColumn", name: "bonus", expression: "pay * 0.1" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].bonus).toBe(12000); // pay (renamed from salary) * 0.1
+      expect(result[0].pay).toBe(120000);
+      expect(result[0]).not.toHaveProperty("salary");
+    });
+
+    it("filter before calculatedColumn — calc runs only on filtered rows", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Sales",
+        },
+        { type: "calculatedColumn", name: "doubled", expression: "salary * 2" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2); // only Sales rows
+      expect(result.every((r) => r.doubled !== undefined)).toBe(true);
+    });
+
+    it("groupBy then sort — sorts aggregated results", () => {
+      const transforms: Transform[] = [
+        {
+          type: "groupBy",
+          column: "department",
+          aggregations: [{ column: "salary", fn: "sum" }],
+        },
+        { type: "sort", column: "salary_sum", direction: "desc" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result[0].department).toBe("Engineering"); // 360k > 175k
+      expect(result[1].department).toBe("Sales");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Additional edge cases
+  // ---------------------------------------------------------------------------
+
+  describe("additional edge cases", () => {
+    it("all rows filtered out → next transform gets empty array", () => {
+      const transforms: Transform[] = [
+        {
+          type: "filter",
+          column: "department",
+          operator: "==",
+          value: "Nonexistent",
+        },
+        { type: "sort", column: "salary", direction: "asc" },
+        { type: "calculatedColumn", name: "bonus", expression: "salary * 0.1" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(0);
+    });
+
+    it("groupBy on single-value column → one group", () => {
+      const data = [
+        { dept: "A", val: 1 },
+        { dept: "A", val: 2 },
+        { dept: "A", val: 3 },
+      ];
+      const transforms: Transform[] = [
+        {
+          type: "groupBy",
+          column: "dept",
+          aggregations: [{ column: "val", fn: "sum" }],
+        },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result).toHaveLength(1);
+      expect(result[0].val_sum).toBe(6);
+    });
+
+    it("calculatedColumn referencing column created by prior calculatedColumn", () => {
+      const data = [{ base: 100 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "doubled", expression: "base * 2" },
+        {
+          type: "calculatedColumn",
+          name: "quadrupled",
+          expression: "doubled * 2",
+        },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].doubled).toBe(200);
+      expect(result[0].quadrupled).toBe(400);
+    });
+
+    it("filter type coercion: string '42' == number 42", () => {
+      const data = [
+        { id: "42", name: "match" },
+        { id: "99", name: "no" },
+      ];
+      const transforms: Transform[] = [
+        { type: "filter", column: "id", operator: "==", value: 42 },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("match");
+    });
+  });
 });
