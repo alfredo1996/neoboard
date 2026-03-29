@@ -11,27 +11,41 @@ export interface MarkdownWidgetProps {
 }
 
 /**
- * Returns true if a URL uses a safe protocol.
- * Only allows http:, https:, and data:image/ (for inline images).
- * All other schemes (javascript:, vbscript:, blob:, file:, mailto:, etc.)
- * are blocked.
+ * Returns true if a URL is safe for use in `<a href>`.
+ * Only allows http:, https:, and relative URLs.
+ * Blocks data:, javascript:, vbscript:, blob:, file:, etc.
  */
-function isSafeUrl(url: string): boolean {
-  const trimmed = url.trim().toLowerCase();
+function isSafeLinkUrl(url: string): boolean {
+  // Strip ASCII tabs and newlines that browsers silently remove before parsing,
+  // which could bypass protocol checks (e.g. "ja\tvascript:" → "javascript:")
+  const trimmed = url
+    .replace(/[\t\n\r]/g, "")
+    .trim()
+    .toLowerCase();
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://"))
     return true;
-  if (trimmed.startsWith("data:image/")) return true;
-  // Relative URLs (no scheme) are safe — they resolve against the page origin.
   if (
     trimmed.startsWith("/") ||
     trimmed.startsWith("#") ||
     trimmed.startsWith("?")
   )
     return true;
-  // Reject anything with an explicit scheme that didn't match above.
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return false;
-  // Bare text (e.g., "example.com") — treat as relative, safe.
   return true;
+}
+
+/**
+ * Returns true if a URL is safe for use in `<img src>`.
+ * Allows http:, https:, data:image/ (inline images), and relative URLs.
+ * data: URIs are only safe in img src (cannot execute scripts), never in links.
+ */
+function isSafeImageUrl(url: string): boolean {
+  const trimmed = url
+    .replace(/[\t\n\r]/g, "")
+    .trim()
+    .toLowerCase();
+  if (trimmed.startsWith("data:image/")) return true;
+  return isSafeLinkUrl(url);
 }
 
 /**
@@ -145,31 +159,43 @@ function parseMarkdown(md: string): string {
       isTableAlignmentRow(lines[i + 1])
     ) {
       closeList();
-      const parseCells = (row: string) =>
-        row
-          .split("|")
-          .map((c: string) => c.trim())
-          .filter((c: string) => c.length > 0);
+      const parseCells = (row: string) => {
+        const parts = row.split("|").map((c) => c.trim());
+        // Strip leading/trailing empty strings produced by outer pipes,
+        // but preserve empty middle cells to maintain column alignment.
+        if (parts.length > 0 && parts[0] === "") parts.shift();
+        if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
+        return parts;
+      };
       const headers = parseCells(line);
+      // Parse alignment markers (:---, :---:, ---:) from the separator row
+      const alignments = parseCells(lines[i + 1]).map((cell) => {
+        const v = cell.trim();
+        if (v.startsWith(":") && v.endsWith(":")) return "text-center";
+        if (v.endsWith(":")) return "text-right";
+        return "text-left";
+      });
       i++; // skip alignment row
-      const bodyRows = [];
+      const bodyRows: string[][] = [];
       while (i + 1 < lines.length && lines[i + 1].includes("|")) {
         i++;
         bodyRows.push(parseCells(lines[i]));
       }
       result.push('<table class="w-full border-collapse my-2 text-sm">');
       result.push("<thead><tr>");
-      for (const h of headers) {
+      for (let h = 0; h < headers.length; h++) {
+        const align = alignments[h] ?? "text-left";
         result.push(
-          `<th class="border border-border px-3 py-1.5 font-semibold text-left bg-muted/30">${escapeHtml(h)}</th>`,
+          `<th class="border border-border px-3 py-1.5 font-semibold bg-muted/30 ${align}">${escapeHtml(headers[h])}</th>`,
         );
       }
       result.push("</tr></thead><tbody>");
       for (const row of bodyRows) {
         result.push("<tr>");
         for (let c = 0; c < headers.length; c++) {
+          const align = alignments[c] ?? "text-left";
           result.push(
-            `<td class="border border-border px-3 py-1.5">${escapeHtml(row[c] ?? "")}</td>`,
+            `<td class="border border-border px-3 py-1.5 ${align}">${escapeHtml(row[c] ?? "")}</td>`,
           );
         }
         result.push("</tr>");
@@ -273,7 +299,7 @@ function processInline(text: string): string {
   result = result.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_match, alt: string, url: string) => {
-      if (!isSafeUrl(url)) return `[image blocked: unsafe URL]`;
+      if (!isSafeImageUrl(url)) return `[image blocked: unsafe URL]`;
       return `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`;
     },
   );
@@ -284,7 +310,7 @@ function processInline(text: string): string {
   result = result.replace(
     /\[([^\]]{1,500})\]\(([^)\s]{1,2000})\)/g,
     (_match, linkText: string, url: string) => {
-      if (!isSafeUrl(url)) return linkText;
+      if (!isSafeLinkUrl(url)) return linkText;
       return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${linkText}</a>`;
     },
   );
@@ -337,7 +363,9 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
         "text-sm text-foreground",
         className,
       )}
-      dangerouslySetInnerHTML={{ __html: html! }}
+      // Safe: parseMarkdown escapes all user text via escapeHtml and validates
+      // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
+      dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
     />
   );
 }

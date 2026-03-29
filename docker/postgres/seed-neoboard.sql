@@ -107,6 +107,30 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
        ]}
      ]}'::jsonb);
 
+-- dash-004: Transform Playground — demonstrates all transform types with pre-configured pipelines
+INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "isPublic", "updated_by", "layoutJson") VALUES
+    ('dash-004', 'user-alice-001', 'default', 'Transform Playground', 'Test data transforms: filter, sort, groupBy, calculatedColumn, rename, limit — with live preview.', true, 'user-alice-001',
+     '{"version":2,"pages":[
+       {"id":"page-filter","title":"Filter & Sort","widgets":[
+         {"id":"tf1","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 20","settings":{"title":"Top Movies — filter cast_size > 3","transforms":[{"type":"filter","column":"cast_size","operator":">","value":3}]}},
+         {"id":"tf2","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 30","settings":{"title":"Actors sorted by movies desc + limit 10","chartOptions":{"enableSorting":true},"transforms":[{"type":"sort","column":"movies","direction":"desc"},{"type":"limit","count":10}]}},
+         {"id":"tf3","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year","settings":{"title":"Movies by Year — only 1990s (filter year >= 1990, year < 2000)","transforms":[{"type":"filter","column":"year","operator":">=","value":1990},{"type":"filter","column":"year","operator":"<","value":2000}]}}
+       ],"gridLayout":[
+         {"i":"tf1","x":0,"y":0,"w":6,"h":4},
+         {"i":"tf2","x":6,"y":0,"w":6,"h":5},
+         {"i":"tf3","x":0,"y":5,"w":8,"h":4}
+       ]},
+       {"id":"page-agg","title":"GroupBy & Calculated","widgets":[
+         {"id":"tf4","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, p.name AS person, m.released AS year","settings":{"title":"Group by role — count + avg year","chartOptions":{"enableSorting":true},"transforms":[{"type":"groupBy","column":"role","aggregations":[{"column":"person","fn":"count"},{"column":"year","fn":"avg"}]}]}},
+         {"id":"tf5","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 20","settings":{"title":"Calculated: movies × 10 = score","chartOptions":{"enableSorting":true},"transforms":[{"type":"calculatedColumn","name":"score","expression":"movies * 10"}]}},
+         {"id":"tf6","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 15","settings":{"title":"Rename → filter → limit pipeline","transforms":[{"type":"renameColumns","mapping":{"actor":"Star","movies":"Films"}},{"type":"filter","column":"Films","operator":">=","value":3},{"type":"limit","count":5}]}}
+       ],"gridLayout":[
+         {"i":"tf4","x":0,"y":0,"w":6,"h":5},
+         {"i":"tf5","x":6,"y":0,"w":6,"h":5},
+         {"i":"tf6","x":0,"y":5,"w":8,"h":4}
+       ]}
+     ]}'::jsonb);
+
 -- Seed dashboard share (Alice shares her dashboard with Bob as viewer)
 INSERT INTO "dashboard_share" ("id", "dashboardId", "userId", "tenant_id", "role") VALUES
     ('share-001', 'dash-001', 'user-bob-002', 'default', 'viewer');

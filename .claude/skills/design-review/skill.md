@@ -1,3 +1,9 @@
+---
+name: design-review
+description: Design Review — NeoBoard Design Taste Document
+model: haiku
+user-invocable: false
+---
 # Design Review — NeoBoard Design Taste Document
 
 Extracted from the actual codebase. Not aspirational — this IS the system.

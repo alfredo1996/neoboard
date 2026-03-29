@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'release/*']
     paths:
       - 'app/**'
       - 'component/**'
@@ -10,7 +10,7 @@ on:
       - 'sonar-project.properties'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, 'release/*']
     paths:
       - 'app/**'
       - 'component/**'

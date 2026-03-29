@@ -18,7 +18,7 @@
  */
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryEditor } from "../query-editor";
 
 // ---------------------------------------------------------------------------
@@ -120,6 +120,11 @@ beforeEach(() => {
   mockFocus.mockClear();
   mockResolveLanguageExt.mockClear();
   capturedUpdateListener = null;
+});
+
+// Ensure no dangling timers leak between tests
+afterEach(() => {
+  vi.clearAllTimers();
 });
 
 // Helper: wait for async initEditor to resolve.
@@ -396,11 +401,7 @@ describe("QueryEditor — controlled value sync", () => {
 
 describe("QueryEditor — history select", () => {
   it("renders History select trigger when history prop is provided", async () => {
-    render(
-      <QueryEditor
-        history={["MATCH (n) RETURN n", "RETURN 1"]}
-      />,
-    );
+    render(<QueryEditor history={["MATCH (n) RETURN n", "RETURN 1"]} />);
     await flushAsync();
 
     expect(screen.getByText("History")).toBeInTheDocument();
