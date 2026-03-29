@@ -323,9 +323,32 @@ function applyLimit(data: Row[], t: LimitTransform): Row[] {
 // ---------------------------------------------------------------------------
 
 /**
+ * Check if a transform has enough configuration to execute.
+ * Incomplete transforms (e.g. newly added filter with empty value) are skipped.
+ */
+function isTransformReady(t: Transform): boolean {
+  switch (t.type) {
+    case "filter":
+      return !!t.column && (t.value !== "" || !!t.paramRef);
+    case "sort":
+      return !!t.column;
+    case "groupBy":
+      return !!t.column && t.aggregations.length > 0;
+    case "calculatedColumn":
+      return !!t.name && !!t.expression;
+    case "renameColumns":
+      return Object.keys(t.mapping).length > 0;
+    case "limit":
+      return t.count > 0;
+    default:
+      return true;
+  }
+}
+
+/**
  * Apply an ordered array of transforms to tabular data.
  * Each transform operates on the output of the previous one.
- * The original data is never mutated.
+ * The original data is never mutated. Incomplete transforms are skipped.
  */
 export function applyTransforms(
   data: Row[],
@@ -336,6 +359,8 @@ export function applyTransforms(
   let result = data;
   for (const t of transforms) {
     if (!t || typeof t !== "object" || !t.type) continue;
+    // Skip incomplete transforms (e.g. newly added filter with empty value)
+    if (!isTransformReady(t)) continue;
     switch (t.type) {
       case "filter":
         result = applyFilter(result, t, paramValues);

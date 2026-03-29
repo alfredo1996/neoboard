@@ -261,12 +261,13 @@ describe("applyTransforms", () => {
       expect(result[0].bad).toBeNull();
     });
 
-    it("returns null for empty expression", () => {
+    it("skips empty expression (incomplete transform)", () => {
       const transforms: Transform[] = [
         { type: "calculatedColumn", name: "empty", expression: "" },
       ];
       const result = applyTransforms(sampleData, transforms);
-      expect(result[0].empty).toBeNull();
+      // Incomplete transform is skipped — column not added
+      expect(result[0]).not.toHaveProperty("empty");
     });
 
     it("handles column-to-column operations", () => {
@@ -554,10 +555,11 @@ describe("applyTransforms", () => {
       expect(result).toHaveLength(2);
     });
 
-    it("limit count of 0 returns empty array", () => {
+    it("limit count of 0 is skipped (incomplete transform)", () => {
       const transforms: Transform[] = [{ type: "limit", count: 0 }];
       const result = applyTransforms(sampleData, transforms);
-      expect(result).toHaveLength(0);
+      // Limit 0 is treated as incomplete — data passes through
+      expect(result).toHaveLength(5);
     });
   });
 
@@ -766,6 +768,34 @@ describe("applyTransforms", () => {
       const result = applyTransforms(data, transforms);
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe("match");
+    });
+
+    it("skips incomplete filter with empty value — data passes through", () => {
+      const transforms: Transform[] = [
+        { type: "filter", column: "department", operator: "==", value: "" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(5); // all rows pass through
+    });
+
+    it("skips incomplete calculatedColumn with empty expression", () => {
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "x", expression: "" },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(5);
+      expect(result[0]).not.toHaveProperty("x"); // column not added
+    });
+
+    it("applies preceding transforms but skips incomplete ones", () => {
+      const transforms: Transform[] = [
+        { type: "sort", column: "salary", direction: "desc" },
+        { type: "filter", column: "department", operator: "==", value: "" }, // skipped
+        { type: "limit", count: 2 },
+      ];
+      const result = applyTransforms(sampleData, transforms);
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("Eve"); // sorted desc, filter skipped, limit 2
     });
   });
 });
