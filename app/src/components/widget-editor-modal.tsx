@@ -823,6 +823,20 @@ export function WidgetEditorModal({
     return [];
   }, [previewQuery.data, initialPreviewData]);
 
+  // First row of query results — used for column pipeline simulation in TransformEditor
+  const sampleRow = useMemo(() => {
+    const src = previewQuery.data?.data ?? initialPreviewData?.data;
+    if (
+      Array.isArray(src) &&
+      src.length > 0 &&
+      typeof src[0] === "object" &&
+      src[0] !== null
+    ) {
+      return src[0] as Record<string, unknown>;
+    }
+    return undefined;
+  }, [previewQuery.data, initialPreviewData]);
+
   // Push derived data to the store so sub-editors can access it via selectors.
   // These are computed in the modal but not directly settable by sub-editors.
   useLayoutEffect(() => {
@@ -1296,6 +1310,7 @@ export function WidgetEditorModal({
                           transforms={transforms}
                           onChange={setTransforms}
                           columns={availableFields}
+                          sampleRow={sampleRow}
                           parameterSuggestions={parameterSuggestions}
                           enabled={transformsEnabled}
                           onEnabledChange={setTransformsEnabled}
@@ -1656,6 +1671,7 @@ export function WidgetEditorModal({
                               transforms: transforms.length
                                 ? transforms
                                 : undefined,
+                              transformsEnabled,
                             },
                           }}
                           previewData={

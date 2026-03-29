@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyTransforms } from "../data-transforms";
+import { applyTransforms, computeColumnsPerStep } from "../data-transforms";
 import type { Transform } from "../data-transforms";
 
 const sampleData = [
@@ -767,5 +767,94 @@ describe("applyTransforms", () => {
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe("match");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeColumnsPerStep — pipeline column propagation
+// ---------------------------------------------------------------------------
+
+describe("computeColumnsPerStep", () => {
+  const cols = ["name", "department", "salary"];
+  const sample = { name: "Alice", department: "Engineering", salary: 120000 };
+
+  it("returns original columns when no transforms", () => {
+    const result = computeColumnsPerStep(cols, []);
+    expect(result).toEqual([cols]);
+  });
+
+  it("filter/sort/limit don't change columns", () => {
+    const transforms: Transform[] = [
+      { type: "filter", column: "salary", operator: ">", value: 100000 },
+      { type: "sort", column: "name", direction: "asc" },
+      { type: "limit", count: 5 },
+    ];
+    const result = computeColumnsPerStep(cols, transforms, sample);
+    // All 4 entries should have the same columns
+    expect(result).toHaveLength(4);
+    for (const step of result) {
+      expect(step).toEqual(cols);
+    }
+  });
+
+  it("renameColumns: next step sees renamed columns", () => {
+    const transforms: Transform[] = [
+      { type: "renameColumns", mapping: { salary: "pay" } },
+      { type: "filter", column: "pay", operator: ">", value: 0 },
+    ];
+    const result = computeColumnsPerStep(cols, transforms, sample);
+    expect(result[0]).toEqual(cols); // step 0: original
+    expect(result[1]).toContain("pay"); // step 1: after rename
+    expect(result[1]).not.toContain("salary");
+    expect(result[2]).toContain("pay"); // step 2: still renamed
+  });
+
+  it("groupBy: next step sees group column + aggregation columns", () => {
+    const transforms: Transform[] = [
+      {
+        type: "groupBy",
+        column: "department",
+        aggregations: [
+          { column: "salary", fn: "sum" },
+          { column: "salary", fn: "count" },
+        ],
+      },
+      { type: "sort", column: "salary_sum", direction: "desc" },
+    ];
+    const result = computeColumnsPerStep(cols, transforms, sample);
+    expect(result[0]).toEqual(cols); // step 0: original
+    expect(result[1]).toContain("department"); // step 1: group key
+    expect(result[1]).toContain("salary_sum"); // step 1: agg column
+    expect(result[1]).toContain("salary_count"); // step 1: agg column
+    expect(result[1]).not.toContain("name"); // original col removed
+  });
+
+  it("calculatedColumn: next step sees new column", () => {
+    const transforms: Transform[] = [
+      { type: "calculatedColumn", name: "bonus", expression: "salary * 0.1" },
+      { type: "filter", column: "bonus", operator: ">", value: 10000 },
+    ];
+    const result = computeColumnsPerStep(cols, transforms, sample);
+    expect(result[0]).toEqual(cols);
+    expect(result[1]).toContain("bonus"); // new column visible
+    expect(result[1]).toContain("salary"); // original still there
+  });
+
+  it("chained: rename → calc → groupBy — each step sees correct columns", () => {
+    const transforms: Transform[] = [
+      { type: "renameColumns", mapping: { salary: "pay" } },
+      { type: "calculatedColumn", name: "bonus", expression: "pay * 0.1" },
+      {
+        type: "groupBy",
+        column: "department",
+        aggregations: [{ column: "bonus", fn: "sum" }],
+      },
+    ];
+    const result = computeColumnsPerStep(cols, transforms, sample);
+    expect(result[0]).toEqual(cols); // original
+    expect(result[1]).toContain("pay"); // after rename
+    expect(result[2]).toContain("bonus"); // after calc
+    expect(result[3]).toContain("department"); // after groupBy
+    expect(result[3]).toContain("bonus_sum"); // agg column
   });
 });

@@ -359,3 +359,40 @@ export function applyTransforms(
   }
   return result;
 }
+
+/**
+ * Compute the column names available at each step in a transform pipeline.
+ *
+ * result[0] = original columns (what step 0 sees)
+ * result[i] = columns after applying transforms[0..i-1] (what step i sees)
+ *
+ * Uses a lightweight simulation with a single sample row.
+ */
+export function computeColumnsPerStep(
+  originalColumns: string[],
+  transforms: Transform[],
+  sampleRow?: Record<string, unknown>,
+): string[][] {
+  const fakeRow: Row = { ...(sampleRow ?? {}) };
+  for (const col of originalColumns) {
+    if (!(col in fakeRow)) fakeRow[col] = "";
+  }
+
+  const result: string[][] = [originalColumns];
+  let currentData: Row[] = [fakeRow];
+
+  for (let i = 0; i < transforms.length; i++) {
+    try {
+      currentData = applyTransforms(currentData, [transforms[i]]);
+    } catch {
+      // Transform failed on fake data — keep previous columns
+    }
+    const cols =
+      currentData.length > 0
+        ? Object.keys(currentData[0])
+        : result[result.length - 1];
+    result.push(cols);
+  }
+
+  return result;
+}

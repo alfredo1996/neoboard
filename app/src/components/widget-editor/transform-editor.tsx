@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@neoboard/components";
 import type { Transform } from "@/lib/data-transforms";
+import { computeColumnsPerStep } from "@/lib/data-transforms";
 import { ValueOrParamInput } from "./value-or-param-input";
 
 export interface TransformEditorProps {
@@ -19,6 +20,8 @@ export interface TransformEditorProps {
   columns: string[];
   /** Available parameter names for $param_xxx references in filter values and expressions */
   parameterSuggestions?: string[];
+  /** First row of query results, used to simulate pipeline column output */
+  sampleRow?: Record<string, unknown>;
   /** Enable/disable the entire transform pipeline */
   enabled?: boolean;
   onEnabledChange?: (enabled: boolean) => void;
@@ -398,10 +401,17 @@ export function TransformEditor({
   onChange,
   columns,
   parameterSuggestions,
+  sampleRow,
   enabled = true,
   onEnabledChange,
 }: TransformEditorProps) {
   const [addType, setAddType] = React.useState<string>("filter");
+
+  // Compute per-step columns: each transform sees output of all preceding steps
+  const columnsPerStep = React.useMemo(
+    () => computeColumnsPerStep(columns, transforms, sampleRow),
+    [columns, transforms, sampleRow],
+  );
 
   function addTransform() {
     onChange([...transforms, makeDefault(addType, columns)]);
@@ -457,7 +467,7 @@ export function TransformEditor({
           key={i}
           transform={t}
           index={i}
-          columns={columns}
+          columns={columnsPerStep[i] ?? columns}
           parameterSuggestions={parameterSuggestions}
           onChange={(updated) => updateTransform(i, updated)}
           onRemove={() => removeTransform(i)}

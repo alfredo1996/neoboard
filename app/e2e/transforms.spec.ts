@@ -154,4 +154,27 @@ test.describe("Data Transforms", () => {
       timeout: 5_000,
     });
   });
+
+  test("Enable transforms toggle controls preview", async ({ page }) => {
+    test.setTimeout(90_000);
+    const dialog = await setupWidgetWithQuery(page);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+
+    // Add a limit transform (reduces data)
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Filter")).toBeVisible();
+
+    // Toggle should be checked by default
+    const toggle = dialog.locator("#transforms-enabled");
+    await expect(toggle).toBeChecked();
+
+    // Uncheck — transforms should be disabled
+    await toggle.uncheck();
+    await expect(toggle).not.toBeChecked();
+
+    // Re-check — transforms re-enabled
+    await toggle.check();
+    await expect(toggle).toBeChecked();
+  });
 });
