@@ -1776,6 +1776,17 @@ async function main() {
       true
     );
 
+    const transformLayout = buildTransformPlayground(neo4jConnId);
+    patchGridIds(transformLayout);
+    await upsertDashboard(
+      sql,
+      adminId,
+      "Transform Playground",
+      "Test data transforms: filter, sort, groupBy, calculatedColumn, rename, limit — with live preview.",
+      transformLayout,
+      true
+    );
+
     console.log("    Demo dashboards seeded.");
   } finally {
     await sql.end();
@@ -3081,6 +3092,60 @@ async function upsertDashboard(sql, userId, name, description, layout, isPublic 
   `;
   console.log(`    Dashboard "${name}" created.`);
   return id;
+}
+
+// ─── Transform Playground ─────────────────────────────────────────────────
+export function buildTransformPlayground(neo4jConnId) {
+  const w = (id, chartType, query, settings) => ({
+    id, chartType, connectionId: neo4jConnId, query,
+    settings: { ...settings, chartOptions: settings.chartOptions ?? {} },
+  });
+
+  return {
+    version: 2,
+    pages: [
+      {
+        id: "page-filter-sort",
+        title: "Filter & Sort",
+        widgets: [
+          w("tf1", "bar",
+            "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 20",
+            { title: "Top Movies — filter cast_size > 3", transforms: [{ type: "filter", column: "cast_size", operator: ">", value: 3 }] }),
+          w("tf2", "table",
+            "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 30",
+            { title: "Actors sorted desc + limit 10", chartOptions: { enableSorting: true }, transforms: [{ type: "sort", column: "movies", direction: "desc" }, { type: "limit", count: 10 }] }),
+          w("tf3", "bar",
+            "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
+            { title: "1990s only (chained filters)", transforms: [{ type: "filter", column: "year", operator: ">=", value: 1990 }, { type: "filter", column: "year", operator: "<", value: 2000 }] }),
+        ],
+        gridLayout: [
+          { i: "tf1", x: 0, y: 0, w: 6, h: 4 },
+          { i: "tf2", x: 6, y: 0, w: 6, h: 5 },
+          { i: "tf3", x: 0, y: 5, w: 8, h: 4 },
+        ],
+      },
+      {
+        id: "page-agg-calc",
+        title: "GroupBy & Calculated",
+        widgets: [
+          w("tf4", "table",
+            "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, p.name AS person, m.released AS year",
+            { title: "Group by role — count + avg year", chartOptions: { enableSorting: true }, transforms: [{ type: "groupBy", column: "role", aggregations: [{ column: "person", fn: "count" }, { column: "year", fn: "avg" }] }] }),
+          w("tf5", "table",
+            "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 20",
+            { title: "Calculated: movies × 10 = score", chartOptions: { enableSorting: true }, transforms: [{ type: "calculatedColumn", name: "score", expression: "movies * 10" }] }),
+          w("tf6", "bar",
+            "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 15",
+            { title: "rename → filter → limit pipeline", transforms: [{ type: "renameColumns", mapping: { actor: "Star", movies: "Films" } }, { type: "filter", column: "Films", operator: ">=", value: 3 }, { type: "limit", count: 5 }] }),
+        ],
+        gridLayout: [
+          { i: "tf4", x: 0, y: 0, w: 6, h: 5 },
+          { i: "tf5", x: 6, y: 0, w: 6, h: 5 },
+          { i: "tf6", x: 0, y: 5, w: 8, h: 4 },
+        ],
+      },
+    ],
+  };
 }
 
 main().catch((err) => {

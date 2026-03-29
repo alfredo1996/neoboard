@@ -56,8 +56,8 @@ function buildAdvancedOptions(credentials: ConnectionCredentials) {
 
 function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): unknown {
   const key = getCacheKey(type, credentials);
-  let module = moduleCache.get(key);
-  if (!module) {
+  let connModule = moduleCache.get(key);
+  if (!connModule) {
     const connectionType = toConnectionType(type);
     const authConfig = {
       uri: ensureDatabaseInUri(credentials.uri, credentials.database),
@@ -66,10 +66,10 @@ function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): un
       authType: 1, // NATIVE
     };
     const advancedOptions = buildAdvancedOptions(credentials);
-    module = createConnectionModule(connectionType, authConfig, advancedOptions);
-    moduleCache.set(key, module);
+    connModule = createConnectionModule(connectionType, authConfig, advancedOptions);
+    moduleCache.set(key, connModule);
   }
-  return module;
+  return connModule;
 }
 
 /**
@@ -81,7 +81,7 @@ export async function executeQuery(
   queryParams: { query: string; params?: Record<string, unknown> },
   options?: { accessMode?: "READ" | "WRITE" },
 ): Promise<{ data: unknown; fields?: unknown }> {
-  const module = getOrCreateModule(type, credentials) as {
+  const connModule = getOrCreateModule(type, credentials) as {
     runQuery: (
       params: unknown,
       callbacks: Record<string, unknown>,
@@ -105,7 +105,7 @@ export async function executeQuery(
   }
 
   return new Promise((resolve, reject) => {
-    module.runQuery(
+    connModule.runQuery(
       finalQueryParams,
       {
         onSuccess: (result: unknown) => resolve({ data: result }),
@@ -125,7 +125,7 @@ export async function testConnection(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<boolean> {
-  const module = getOrCreateModule(type, credentials) as {
+  const connModule = getOrCreateModule(type, credentials) as {
     checkConnection: (config: unknown) => Promise<boolean>;
   };
 
@@ -135,5 +135,5 @@ export async function testConnection(
     database: credentials.database,
   };
 
-  return module.checkConnection(config);
+  return connModule.checkConnection(config);
 }

@@ -1,7 +1,7 @@
-import { AuthenticationModule } from '../generalized/AuthenticationModule';
-import { AuthConfig, AdvancedConnectionOptions } from '../generalized/interfaces';
-import { Pool } from 'pg';
-import { isAuthenticationError } from './utils';
+import { AuthenticationModule } from "../generalized/AuthenticationModule";
+import { AuthConfig, PostgresAdvancedOptions } from "../generalized/interfaces";
+import { Pool } from "pg";
+import { isAuthenticationError } from "./utils";
 
 /**
  * PostgreSQL Authentication Module
@@ -11,17 +11,17 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
   private _poolInitPromise: Promise<boolean> | null = null;
   protected _authConfig!: AuthConfig;
-  private readonly _advancedOptions?: AdvancedConnectionOptions;
+  private readonly _advancedOptions?: PostgresAdvancedOptions;
 
   /**
    * Creates a new PostgreSQL authentication module.
    * @param config - The authentication configuration
    * @param advancedOptions - Optional advanced pool/timeout settings
    */
-  constructor(config: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
+  constructor(config: AuthConfig, advancedOptions?: PostgresAdvancedOptions) {
     super();
     this._checkConfigurationConsistency(config);
-    this._validateUri(config.uri, ['postgresql:', 'postgres:']);
+    this._validateUri(config.uri, ["postgresql:", "postgres:"]);
     this._authConfig = config;
     this._advancedOptions = advancedOptions;
     this.pool = this.createDriver();
@@ -36,39 +36,44 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
     try {
       // Parse URI
       const url = new URL(this._authConfig.uri);
-      const database = url.pathname.slice(1) || 'postgres';
+      const database = url.pathname.slice(1) || "postgres";
 
       // Build SSL config if specified
-      const ssl = this._advancedOptions?.pgSslRejectUnauthorized === undefined
-        ? undefined
-        : { rejectUnauthorized: this._advancedOptions.pgSslRejectUnauthorized };
+      const ssl =
+        this._advancedOptions?.pgSslRejectUnauthorized === undefined
+          ? undefined
+          : {
+              rejectUnauthorized: this._advancedOptions.pgSslRejectUnauthorized,
+            };
 
       // Create connection pool
       const pool = new Pool({
         user: this._authConfig.username,
         password: this._authConfig.password,
         host: url.hostname,
-        port: parseInt(url.port || '5432', 10),
+        port: parseInt(url.port || "5432", 10),
         database: database,
-        connectionTimeoutMillis: this._advancedOptions?.pgConnectionTimeoutMillis ?? 10000,
+        connectionTimeoutMillis:
+          this._advancedOptions?.pgConnectionTimeoutMillis ?? 10000,
         idleTimeoutMillis: this._advancedOptions?.pgIdleTimeoutMillis ?? 10000,
         max: this._advancedOptions?.pgMaxPoolSize ?? 10,
         ...(ssl ? { ssl } : {}),
       });
 
       // Suppress unhandled errors from idle connections during shutdown
-      pool.on('error', (err) => {
+      pool.on("error", (err) => {
         // Only log error code/type if this is not a shutdown error — never log the full error
-        if (!err.message?.includes('terminating connection')) {
-          console.error('Pool error:', err.code ?? 'unknown');
+        if (!err.message?.includes("terminating connection")) {
+          console.error("Pool error:", err.code ?? "unknown");
         }
       });
 
       return pool;
     } catch (error) {
       // Log only error type — never the full error which may contain credentials
-      const code = error instanceof Error ? error.message.split(':')[0] : 'unknown';
-      console.error('Failed to create PostgreSQL pool:', code);
+      const code =
+        error instanceof Error ? error.message.split(":")[0] : "unknown";
+      console.error("Failed to create PostgreSQL pool:", code);
       throw error;
     }
   }
@@ -99,7 +104,7 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
 
       const client = await this.pool.connect();
       try {
-        await client.query('SELECT 1');
+        await client.query("SELECT 1");
         return true;
       } finally {
         client.release();
@@ -145,15 +150,18 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
     if (this.pool) {
       try {
         // Remove error handlers before closing to suppress shutdown errors
-        this.pool.removeAllListeners('error');
+        this.pool.removeAllListeners("error");
 
         // End the pool - drains existing connections and rejects new ones
         await this.pool.end();
       } catch (error) {
         // Suppress "terminating connection" errors during shutdown — never log full error
-        const msg = error instanceof Error ? error.message : '';
-        if (!msg.includes('terminating connection')) {
-          console.error('Error closing PostgreSQL pool:', msg.split(':')[0] || 'unknown');
+        const msg = error instanceof Error ? error.message : "";
+        if (!msg.includes("terminating connection")) {
+          console.error(
+            "Error closing PostgreSQL pool:",
+            msg.split(":")[0] || "unknown",
+          );
         }
       } finally {
         this.pool = null;

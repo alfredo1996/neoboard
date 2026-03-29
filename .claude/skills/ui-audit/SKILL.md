@@ -1,6 +1,7 @@
 ---
 name: ui-audit
 description: Run a systematic quality audit across accessibility, performance, responsive design, theming, and anti-patterns. Generates a severity-rated findings report with actionable recommendations.
+model: sonnet
 user-invokable: true
 args:
   - name: area

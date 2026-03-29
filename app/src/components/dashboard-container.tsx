@@ -3,15 +3,29 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
-import { getChartConfig } from "@/lib/chart-registry";
+import {
+  buildCsvString,
+  triggerDownload,
+  buildExportFilename,
+} from "@neoboard/components";
 import { interpolateTitle } from "@/lib/interpolate-title";
+import { buildExportData } from "@/lib/card-utils";
+import {
+  getWidgetDisplayTitle,
+  isWidgetTemplateOutdated,
+} from "@/lib/widget-utils";
+import { isDataWidget } from "@/lib/widget-actions";
 import type {
   DashboardPage,
   DashboardWidget,
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import { useParameterStore } from "@/stores/parameter-store";
+import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
+import {
+  useParameterStore,
+  useParameterValues,
+} from "@/stores/parameter-store";
 import {
   formatParameterValue,
   filterParentParams,
@@ -47,7 +61,9 @@ export interface WidgetActions {
     widgetId: string,
     settings: Record<string, unknown>,
   ) => void;
-  onNavigateToPage?: (pageId: string) => void;
+  /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
+  onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
+  /** Called when the user chooses "Save to Widget Lab" for a widget. */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
   onSyncWidget?: (widget: DashboardWidget) => void;
   onDetachWidget?: (widgetId: string) => void;
@@ -60,13 +76,11 @@ interface DashboardContainerProps {
   refetchInterval?: number | false;
   templateMap?: Record<string, WidgetTemplate>;
   showParameterBar?: boolean;
+  /** Maps parameter names to the widgets that set them (for clickable badges). */
+  parameterSourceMap?: ParameterSourceMap;
 }
 
-function getWidgetTitle(widget: DashboardWidget): string {
-  const title = (widget.settings ?? {}).title;
-  if (title && typeof title === "string") return title;
-  return getChartConfig(widget.chartType)?.label ?? widget.chartType;
-}
+// getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget-utils
 
 export function DashboardContainer({
   page,
@@ -75,6 +89,7 @@ export function DashboardContainer({
   refetchInterval,
   templateMap,
   showParameterBar = true,
+  parameterSourceMap,
 }: DashboardContainerProps) {
   const {
     onRemoveWidget,
@@ -108,6 +123,7 @@ export function DashboardContainer({
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
+  const allParamValues = useParameterValues();
   const allEntries = Object.entries(parameters);
   const displayEntries = useMemo(
     () => filterParentParams(allEntries),
@@ -132,16 +148,36 @@ export function DashboardContainer({
     );
   }
 
-  function isWidgetOutdated(widget: DashboardWidget): boolean {
-    if (!widget.templateId || !widget.templateSyncedAt) return false;
-    const tmpl = templateMap?.[widget.templateId];
-    if (!tmpl?.updatedAt) return false;
-    return new Date(tmpl.updatedAt) > new Date(widget.templateSyncedAt);
+  function exportWidgetCsv(widget: DashboardWidget) {
+    const entries = queryClient.getQueriesData<{ data: unknown }>({
+      queryKey: ["widget-query", widget.connectionId, widget.query],
+    });
+    const cached = entries.length > 0 ? entries[0][1] : undefined;
+    const transforms = (widget.settings?.transforms ??
+      []) as import("@/lib/data-transforms").Transform[];
+    const exportData = buildExportData(
+      cached?.data,
+      transforms,
+      allParamValues,
+    );
+    if (exportData.length === 0) return;
+    const csv = buildCsvString(exportData);
+    const title = (widget.settings?.title as string) || widget.chartType;
+    const filename = buildExportFilename(title, "csv", page.title);
+    triggerDownload(csv, filename);
   }
 
   const buildActions = (widget: DashboardWidget) => {
-    if (!editable) return undefined;
     const actions = [];
+
+    if (isDataWidget(widget.chartType)) {
+      actions.push({
+        label: "Export CSV",
+        onClick: () => exportWidgetCsv(widget),
+      });
+    }
+
+    if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {
       actions.push({
         label: "Edit",
@@ -161,7 +197,7 @@ export function DashboardContainer({
       });
     }
     if (widget.templateId) {
-      if (isWidgetOutdated(widget) && onSyncWidget) {
+      if (isWidgetTemplateOutdated(widget, templateMap) && onSyncWidget) {
         actions.push({
           label: "Sync with template",
           onClick: () => setPendingSyncWidget(widget),
@@ -214,7 +250,8 @@ export function DashboardContainer({
           isResizable={editable}
         >
           {page.widgets.map((widget) => {
-            const outdated = editable && isWidgetOutdated(widget);
+            const outdated =
+              editable && isWidgetTemplateOutdated(widget, templateMap);
             const chartOpts = ((widget.settings ?? {}).chartOptions ??
               {}) as Record<string, unknown>;
             const showRefresh = shouldShowRefreshButton(chartOpts);
@@ -225,7 +262,10 @@ export function DashboardContainer({
                 data-widget-id={widget.id}
               >
                 <WidgetCard
-                  title={interpolateTitle(getWidgetTitle(widget), parameters)}
+                  title={interpolateTitle(
+                    getWidgetDisplayTitle(widget),
+                    parameters,
+                  )}
                   subtitle={undefined}
                   className="h-full"
                   draggable={editable}
@@ -285,6 +325,7 @@ export function DashboardContainer({
                     }
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
+                    parameterSourceMap={parameterSourceMap}
                   />
                 </WidgetCard>
               </div>
@@ -303,7 +344,10 @@ export function DashboardContainer({
           {fullscreenWidget && (
             <>
               <h2 className="text-lg font-semibold mb-2">
-                {interpolateTitle(getWidgetTitle(fullscreenWidget), parameters)}
+                {interpolateTitle(
+                  getWidgetDisplayTitle(fullscreenWidget),
+                  parameters,
+                )}
               </h2>
               <div className="flex-1 min-h-0">
                 {fullscreenReady ? (
@@ -312,6 +356,7 @@ export function DashboardContainer({
                     widget={fullscreenWidget}
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
+                    parameterSourceMap={parameterSourceMap}
                     autoFit
                   />
                 ) : (

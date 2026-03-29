@@ -20,6 +20,8 @@ import {
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
+import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
@@ -192,13 +194,21 @@ export default function DashboardViewerPage({
       ? `${intervalLabel} · ${formatCountdown(countdown)}`
       : intervalLabel;
 
+  const parameterSourceMap = useMemo(
+    () => (layout ? buildParameterSourceMap(layout) : {}),
+    [layout],
+  );
+
   const handleNavigateToPage = useCallback(
-    (pageId: string) => {
+    (pageId: string, scrollToWidgetId?: string) => {
       if (!layout) return;
       const index = layout.pages.findIndex((p) => p.id === pageId);
       if (index >= 0) {
         markVisited(index);
         setActivePageIndex(index);
+        if (scrollToWidgetId) {
+          scrollToWidgetWhenReady(scrollToWidgetId);
+        }
       }
     },
     [layout],
@@ -412,6 +422,7 @@ export default function DashboardViewerPage({
                 refetchInterval={refetchInterval}
                 actions={{ onNavigateToPage: handleNavigateToPage }}
                 showParameterBar={showParameterBar}
+                parameterSourceMap={parameterSourceMap}
               />
             </div>
           );

@@ -1,6 +1,7 @@
 ---
 name: polish
 description: Final quality pass before shipping. Fixes alignment, spacing, interaction states, transitions, copy consistency, and detail issues across NeoBoard UI.
+model: sonnet
 user-invokable: true
 args:
   - name: target

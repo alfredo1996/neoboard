@@ -1,17 +1,28 @@
-import { AuthenticationModule } from '../generalized/AuthenticationModule';
-import { AuthConfig, AuthType, AdvancedConnectionOptions } from '../generalized/interfaces';
-import neo4j from 'neo4j-driver';
-import { Driver } from 'neo4j-driver-core';
+import { AuthenticationModule } from "../generalized/AuthenticationModule";
+import {
+  AuthConfig,
+  AuthType,
+  Neo4jAdvancedOptions,
+} from "../generalized/interfaces";
+import neo4j from "neo4j-driver";
+import { Driver } from "neo4j-driver-core";
 
 export class Neo4jAuthenticationModule extends AuthenticationModule {
   private _authConfig!: AuthConfig;
-  private readonly _advancedOptions?: AdvancedConnectionOptions;
+  private readonly _advancedOptions?: Neo4jAdvancedOptions;
   private driver!: Driver;
 
-  constructor(authConfig: AuthConfig, advancedOptions?: AdvancedConnectionOptions) {
+  constructor(authConfig: AuthConfig, advancedOptions?: Neo4jAdvancedOptions) {
     super();
     this._checkConfigurationConsistency(authConfig);
-    this._validateUri(authConfig.uri, ['bolt:', 'bolt+s:', 'bolt+ssc:', 'neo4j:', 'neo4j+s:', 'neo4j+ssc:']);
+    this._validateUri(authConfig.uri, [
+      "bolt:",
+      "bolt+s:",
+      "bolt+ssc:",
+      "neo4j:",
+      "neo4j+s:",
+      "neo4j+ssc:",
+    ]);
     this._authConfig = authConfig;
     this._advancedOptions = advancedOptions;
     this.driver = this.createDriver();
@@ -51,7 +62,7 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
    */
   createDriver(): Driver {
     if (this._authConfig.authType === AuthType.SINGLE_SIGN_ON) {
-      throw new Error('Neo4j SSO authentication is not yet supported');
+      throw new Error("Neo4j SSO authentication is not yet supported");
     }
     const auth =
       this._authConfig.authType === AuthType.NATIVE
@@ -60,7 +71,8 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
     return neo4j.driver(this._authConfig.uri, auth, {
       connectionTimeout: this._advancedOptions?.neo4jConnectionTimeout ?? 30000,
       maxConnectionPoolSize: this._advancedOptions?.neo4jMaxPoolSize,
-      connectionAcquisitionTimeout: this._advancedOptions?.neo4jAcquisitionTimeout,
+      connectionAcquisitionTimeout:
+        this._advancedOptions?.neo4jAcquisitionTimeout,
     });
   }
 }
