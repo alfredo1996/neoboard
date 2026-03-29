@@ -45,23 +45,26 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("next/image", () => ({
   __esModule: true,
-  default: (props: Record<string, unknown>) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    const { fill, priority, ...rest } = props;
-    return <img {...rest} />;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  default: ({ fill, priority, ...rest }: Record<string, unknown>) => {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img alt="" {...rest} />;
   },
 }));
 
 // next/dynamic → render the component synchronously in tests
 vi.mock("next/dynamic", () => ({
   __esModule: true,
-  default: (loader: () => Promise<{ default: React.ComponentType }>, _opts?: unknown) => {
-    // In test environment, resolve the dynamic import synchronously
+  default: (loader: () => Promise<{ default: React.ComponentType }>) => {
     let Component: React.ComponentType | null = null;
     loader().then((mod) => {
       Component = mod.default;
     });
     return (props: Record<string, unknown>) =>
-      Component ? <Component {...props} /> : <div data-testid="dynamic-loading" />;
+      Component ? (
+        <Component {...props} />
+      ) : (
+        <div data-testid="dynamic-loading" />
+      );
   },
 }));

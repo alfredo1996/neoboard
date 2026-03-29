@@ -192,12 +192,13 @@ describe("useSeedQuery", () => {
       let capturedQueryFn:
         | ((ctx: { signal: AbortSignal }) => Promise<unknown>)
         | undefined;
-       
+
       vi.mocked(useQuery).mockImplementation(((
         config: Record<string, unknown>,
       ) => {
         capturedQueryFn = config.queryFn as typeof capturedQueryFn;
         return { data: null, isLoading: false };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any);
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
