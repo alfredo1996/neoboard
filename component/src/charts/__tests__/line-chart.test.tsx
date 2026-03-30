@@ -163,14 +163,20 @@ describe("LineChart", () => {
   // --- Reference lines ---
 
   it("attaches markLine to the first series when referenceLines is provided", () => {
-    const refs = JSON.stringify([{ value: 50, label: "Target", color: "#ff0000" }]);
+    const refs = JSON.stringify([
+      { value: 50, label: "Target", color: "#ff0000" },
+    ]);
     render(<LineChart data={sampleData} referenceLines={refs} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].markLine).toBeDefined();
     expect(optionsCall.series[0].markLine.data).toHaveLength(1);
     expect(optionsCall.series[0].markLine.data[0].yAxis).toBe(50);
-    expect(optionsCall.series[0].markLine.data[0].label.formatter).toBe("Target");
-    expect(optionsCall.series[0].markLine.data[0].lineStyle.color).toBe("#ff0000");
+    expect(optionsCall.series[0].markLine.data[0].label.formatter).toBe(
+      "Target",
+    );
+    expect(optionsCall.series[0].markLine.data[0].lineStyle.color).toBe(
+      "#ff0000",
+    );
   });
 
   it("does not attach markLine when referenceLines is not provided", () => {
@@ -194,5 +200,37 @@ describe("LineChart", () => {
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.dataZoom).toBeDefined();
     expect(optionsCall.dataZoom.length).toBeGreaterThan(0);
+  });
+
+  // --- Time axis ---
+
+  it("auto-detects ISO date strings and uses time axis", () => {
+    const timeData = [
+      { x: "2024-01-15", y: 100 },
+      { x: "2024-02-15", y: 200 },
+      { x: "2024-03-15", y: 150 },
+    ];
+    render(<LineChart data={timeData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.xAxis.type).toBe("time");
+    // Time axis uses [x, y] pairs in series data
+    expect(optionsCall.series[0].data[0]).toEqual(["2024-01-15", 100]);
+  });
+
+  it("uses category axis for non-date strings", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.xAxis.type).toBe("category");
+  });
+
+  it("uses category axis for year numbers (1900-2100)", () => {
+    const yearData = [
+      { x: 1990, y: 5 },
+      { x: 2000, y: 10 },
+      { x: 2010, y: 15 },
+    ];
+    render(<LineChart data={yearData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.xAxis.type).toBe("category");
   });
 });
