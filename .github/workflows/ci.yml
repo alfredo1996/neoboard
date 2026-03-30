@@ -169,12 +169,17 @@ jobs:
             component/coverage/lcov.info
             connection/coverage/lcov.info
 
-  # ── Job 2: E2E tests with coverage ─────────────────────────────────────────
-  # Playwright + Testcontainers. Runs in parallel with unit-tests.
+  # ── Job 2: E2E tests — 5 shards with isolated containers ──────────────────
+  # Each shard gets its own runner + Testcontainers (no shared state).
+  # Playwright's --shard flag splits test files across shards automatically.
   e2e:
-    name: E2E Tests (Playwright)
+    name: E2E (shard ${{ matrix.shard }}/5)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
 
     steps:
       - name: Checkout
@@ -243,26 +248,95 @@ jobs:
           CI: 'true'
           E2E_COVERAGE: '1'
 
-      - name: Run E2E tests
+      - name: Run E2E tests (shard ${{ matrix.shard }}/5)
         working-directory: app
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/5
         env:
           CI: 'true'
           E2E_COVERAGE: '1'
 
-      - name: Upload Playwright report
+      - name: Upload blob report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: blob-report-${{ matrix.shard }}
+          retention-days: 1
+          path: app/blob-report/
+
+      - name: Upload test results (on failure)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.shard }}
           retention-days: 14
-          path: |
-            app/playwright-report/
-            app/test-results/
+          path: app/test-results/
 
       - name: Upload E2E coverage
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
+        with:
+          name: e2e-coverage-${{ matrix.shard }}
+          retention-days: 1
+          path: app/coverage-e2e/lcov.info
+          if-no-files-found: warn
+
+  # ── Job 2b: Merge E2E shard results ─────────────────────────────────────────
+  # Combines blob reports into a single HTML report and merges coverage files.
+  e2e-report:
+    name: Merge E2E Results
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: ${{ !cancelled() }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies (for Playwright merge)
+        run: npm ci --prefix app
+
+      - name: Download all blob reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+
+      - name: Merge Playwright reports
+        working-directory: app
+        run: npx playwright merge-reports --reporter html ../all-blob-reports
+
+      - name: Upload merged Playwright report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          retention-days: 14
+          path: app/playwright-report/
+
+      - name: Download all coverage shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: e2e-coverage-*
+          path: coverage-shards
+
+      - name: Merge coverage files
+        run: |
+          mkdir -p app/coverage-e2e
+          find coverage-shards -name "lcov.info" -exec cat {} + > app/coverage-e2e/lcov.info || true
+          SHARD_COUNT=$(find coverage-shards -name "lcov.info" | wc -l)
+          echo "Merged coverage from $SHARD_COUNT shards"
+          wc -l app/coverage-e2e/lcov.info
+
+      - name: Upload merged E2E coverage
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-coverage
           retention-days: 1
@@ -274,7 +348,7 @@ jobs:
   sonar:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    needs: [typecheck, unit-tests, e2e]
+    needs: [typecheck, unit-tests, e2e-report]
     if: ${{ !cancelled() }}
     timeout-minutes: 10
 
