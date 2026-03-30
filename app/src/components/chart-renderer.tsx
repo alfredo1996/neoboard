@@ -319,6 +319,8 @@ export function ChartRenderer({
               : undefined
           }
           autoFit={autoFit}
+          stylingRules={stylingRules}
+          paramValues={paramValues}
         />
       );
     }
@@ -344,6 +346,8 @@ export function ChartRenderer({
                   })
               : undefined
           }
+          stylingRules={stylingRules}
+          paramValues={paramValues}
         />
       );
     }
