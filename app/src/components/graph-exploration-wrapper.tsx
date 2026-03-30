@@ -6,10 +6,6 @@ import {
   GraphChart,
   useGraphExploration,
   PropertyPanel,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@neoboard/components";
 import type {
   GraphNode,
@@ -110,6 +106,31 @@ function NodeContextMenu({
   );
 }
 
+function edgeToSections(edge: GraphEdge): PropertySection[] {
+  const props = edge.properties ?? {};
+  const propertyItems = Object.entries(props).map(([key, value]) => {
+    const normalized = normalizeValue(value) ?? value;
+    return {
+      key,
+      value:
+        typeof normalized === "object" && normalized !== null
+          ? JSON.stringify(normalized)
+          : String(normalized ?? ""),
+    };
+  });
+  const metaItems = [
+    { key: "type", value: edge.label ?? "UNKNOWN" },
+    { key: "source", value: edge.source },
+    { key: "target", value: edge.target },
+  ];
+  return [
+    { title: "Metadata", items: metaItems, collapsible: false as const },
+    ...(propertyItems.length > 0
+      ? [{ title: "Properties", items: propertyItems }]
+      : []),
+  ];
+}
+
 function nodeToSections(node: GraphNode): PropertySection[] {
   const props = node.properties ?? {};
   const propertyItems = Object.entries(props).map(([key, value]) => {
@@ -148,7 +169,12 @@ export function GraphExplorationWrapper({
 }: GraphExplorationWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<NodeMenu | null>(null);
-  const [propertiesNode, setPropertiesNode] = useState<GraphNode | null>(null);
+  type InspectedElement =
+    | { type: "node"; node: GraphNode }
+    | { type: "edge"; edge: GraphEdge }
+    | null;
+  const [inspectedElement, setInspectedElement] =
+    useState<InspectedElement>(null);
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
 
@@ -232,8 +258,18 @@ export function GraphExplorationWrapper({
           if (onChartClick && ids.length) {
             onChartClick({ nodeId: ids[0] });
           }
+          // Open property panel on single-click
+          if (ids.length === 1) {
+            const node = exploration.nodes.find((n) => n.id === ids[0]);
+            if (node) setInspectedElement({ type: "node", node });
+          } else {
+            setInspectedElement(null);
+          }
         }}
         onNodeRightClick={handleNodeRightClick}
+        onRelationshipClick={(event) => {
+          setInspectedElement({ type: "edge", edge: event.edge });
+        }}
         layout={settings.layout as "force" | "circular" | undefined}
         initialLayout={storedIsValid ? stored.layout : undefined}
         initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
@@ -276,7 +312,7 @@ export function GraphExplorationWrapper({
           menu={menu}
           onClose={() => setMenu(null)}
           onProperties={() => {
-            setPropertiesNode(menu.node);
+            setInspectedElement({ type: "node", node: menu.node });
             setMenu(null);
           }}
           onExpand={
@@ -292,26 +328,36 @@ export function GraphExplorationWrapper({
         />
       )}
 
-      {/* Node properties dialog */}
-      <Dialog
-        open={propertiesNode !== null}
-        onOpenChange={(open) => {
-          if (!open) setPropertiesNode(null);
-        }}
-      >
-        <DialogContent size="sm">
-          <DialogHeader>
-            <DialogTitle>
-              {propertiesNode?.label ?? propertiesNode?.id ?? "Node Properties"}
-            </DialogTitle>
-          </DialogHeader>
-          {propertiesNode && (
-            <div className="overflow-y-auto max-h-[400px]">
-              <PropertyPanel sections={nodeToSections(propertiesNode)} />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Property inspector side panel */}
+      {inspectedElement && (
+        <div className="absolute top-0 right-0 bottom-0 w-80 border-l bg-background/95 backdrop-blur-sm overflow-y-auto z-20 shadow-lg">
+          <div className="flex items-center justify-between p-3 border-b">
+            <h3 className="text-sm font-semibold">
+              {inspectedElement.type === "node"
+                ? (inspectedElement.node.label ??
+                  inspectedElement.node.id ??
+                  "Node")
+                : (inspectedElement.edge.label ?? "Relationship")}
+            </h3>
+            <button
+              onClick={() => setInspectedElement(null)}
+              className="text-muted-foreground hover:text-foreground text-lg leading-none"
+              aria-label="Close properties panel"
+            >
+              &times;
+            </button>
+          </div>
+          <div className="p-2">
+            <PropertyPanel
+              sections={
+                inspectedElement.type === "node"
+                  ? nodeToSections(inspectedElement.node)
+                  : edgeToSections(inspectedElement.edge)
+              }
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

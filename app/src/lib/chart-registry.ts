@@ -879,6 +879,7 @@ export function chartSupportsStyling(type: string): boolean {
  * Returns an empty object — the actual defaults are applied at render time
  * by the ChartOptionsPanel component.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getChartDefaults(_type: string): Record<string, unknown> {
   return {};
 }
