@@ -32,10 +32,19 @@
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-scripts/setup.sh    # Installs deps, starts Docker, runs migrations, seeds demo data, starts dev server
+scripts/setup.sh   # Installs deps, starts Docker, runs migrations
+npm run dev         # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Demo login: `admin@neoboard.local` / `admin123`
+Create your first admin at `/signup` using the bootstrap token printed during setup.
+
+Want pre-loaded demo dashboards instead?
+
+```bash
+scripts/setup-local-demo.sh   # Everything above + demo user, connectors, dashboards
+```
+
+Demo login: `admin@neoboard.local` / `admin123`
 
 ### Docker (Production)
 
