@@ -6,7 +6,12 @@ import type {
   Node as NvlNode,
   Relationship as NvlRelationship,
 } from "@neo4j-nvl/base";
-import type { GraphNode, GraphEdge, GraphNodeEvent } from "./types";
+import type {
+  GraphNode,
+  GraphEdge,
+  GraphNodeEvent,
+  GraphEdgeEvent,
+} from "./types";
 import {
   Popover,
   PopoverTrigger,
@@ -109,6 +114,8 @@ export interface GraphChartProps {
   onNodeDoubleClick?: (event: GraphNodeEvent) => void;
   /** Context-menu trigger — fired on right-click */
   onNodeRightClick?: (event: GraphNodeEvent) => void;
+  /** Fired when a relationship (edge) is clicked */
+  onRelationshipClick?: (event: GraphEdgeEvent) => void;
   /** Called whenever the user changes the layout */
   onLayoutChange?: (layout: GraphLayout) => void;
   /** Called whenever the user changes a caption mapping */
@@ -156,7 +163,10 @@ function buildLabelPropertyMap(nodes: GraphNode[]): Map<string, string[]> {
   }
   const result = new Map<string, string[]>();
   for (const [lbl, set] of map) {
-    result.set(lbl, Array.from(set).sort((a, b) => a.localeCompare(b)));
+    result.set(
+      lbl,
+      Array.from(set).sort((a, b) => a.localeCompare(b)),
+    );
   }
   return result;
 }
@@ -290,6 +300,7 @@ export function GraphChart({
   onExpandRequest,
   onNodeDoubleClick,
   onNodeRightClick,
+  onRelationshipClick,
   onLayoutChange,
   onCaptionMapChange,
   autoFit,
@@ -349,9 +360,13 @@ export function GraphChart({
   onNodeDoubleClickRef.current = onNodeDoubleClick;
   const onNodeRightClickRef = useRef(onNodeRightClick);
   onNodeRightClickRef.current = onNodeRightClick;
+  const onRelationshipClickRef = useRef(onRelationshipClick);
+  onRelationshipClickRef.current = onRelationshipClick;
 
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
   const selectedRef = useRef(selectedNodeIds);
   selectedRef.current = selectedNodeIds;
 
@@ -425,6 +440,20 @@ export function GraphChart({
         };
         onNodeRightClickRef.current({
           node: graphNode,
+          position: { x: event.clientX, y: event.clientY },
+        });
+      },
+      onRelationshipClick: (
+        rel: NvlRelationship,
+        _hit: unknown,
+        event: MouseEvent,
+      ) => {
+        if (!onRelationshipClickRef.current) return;
+        const graphEdge = edgesRef.current.find(
+          (e) => e.source === rel.from && e.target === rel.to,
+        ) ?? { source: rel.from, target: rel.to, label: rel.type };
+        onRelationshipClickRef.current({
+          edge: graphEdge as GraphEdge,
           position: { x: event.clientX, y: event.clientY },
         });
       },

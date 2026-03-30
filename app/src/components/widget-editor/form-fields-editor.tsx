@@ -40,8 +40,7 @@ import type { FormFieldDef } from "@/lib/form-field-def";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
 
-// Props interface kept empty — FormFieldsEditor reads from widget-editor store.
-
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- props kept empty; FormFieldsEditor reads from widget-editor store
 interface FormFieldsEditorProps {}
 
 function needsSeedQuery(type: ParameterType): boolean {
@@ -287,6 +286,7 @@ function SortableFieldItem({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function FormFieldsEditor(_props: FormFieldsEditorProps) {
   const fields = useWidgetEditorStore((s) => s.formFields);
   const onChange = useWidgetEditorStore((s) => s.setFormFields);
