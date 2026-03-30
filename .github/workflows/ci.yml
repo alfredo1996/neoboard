@@ -243,7 +243,7 @@ jobs:
 
       - name: Build Next.js
         working-directory: app
-        run: npx next build
+        run: npm run build
         env:
           CI: 'true'
           E2E_COVERAGE: '1'
