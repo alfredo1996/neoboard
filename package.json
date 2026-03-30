@@ -1,6 +1,7 @@
 {
   "name": "neoboard",
   "private": true,
+  "license": "Elastic-2.0",
   "type": "module",
   "scripts": {
     "dev": "npm run dev --prefix app",
