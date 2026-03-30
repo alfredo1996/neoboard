@@ -238,7 +238,12 @@ const lineOptions: ChartOptionDef[] = [
     label: "Sampling Method",
     type: "select",
     default: "lttb",
-    options: ["lttb", "average", "max", "min"],
+    options: [
+      { label: "LTTB", value: "lttb" },
+      { label: "Average", value: "average" },
+      { label: "Max", value: "max" },
+      { label: "Min", value: "min" },
+    ],
     category: "Performance",
     description: "Algorithm for downsampling large datasets.",
   },
