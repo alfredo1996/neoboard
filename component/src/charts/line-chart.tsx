@@ -12,6 +12,7 @@ import {
   buildTooltipFormatter,
   parseReferenceLines,
   buildMarkLineFromRefs,
+  isTimeSeriesData,
 } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
@@ -71,8 +72,10 @@ function LineChart({
   colorThresholds,
   stylingRules,
   paramValues,
+  samplingThreshold = 1000,
+  samplingMethod = "lttb",
   ...rest
-}: LineChartProps) {
+}: LineChartProps & { samplingThreshold?: number; samplingMethod?: string }) {
   const { width, height, containerRef } = useContainerSize();
   const { compact, hideLegend } = getCompactState(width, height);
 
@@ -80,10 +83,18 @@ function LineChart({
     if (!data.length) return buildEmptyDataOption();
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
-    const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
-    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
+    const effectiveShowLegend = resolveShowLegend(
+      showLegend,
+      seriesKeys.length,
+      hideLegend,
+    );
+    const thresholds = stylingRules
+      ? []
+      : parseColorThresholds(colorThresholds ?? "");
     const refLines = parseReferenceLines(referenceLinesJson);
     const markLine = buildMarkLineFromRefs(refLines);
+    const xValues = data.map((d) => d.x);
+    const useTimeAxis = isTimeSeriesData(xValues);
 
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
@@ -93,8 +104,8 @@ function LineChart({
         left: compact ? 8 : 48,
       },
       xAxis: {
-        type: "category",
-        data: data.map((d) => String(d.x)),
+        type: useTimeAxis ? "time" : "category",
+        ...(useTimeAxis ? {} : { data: xValues.map(String) }),
         name: compact ? undefined : xAxisLabel,
         nameLocation: "middle",
         nameGap: 30,
@@ -117,13 +128,16 @@ function LineChart({
             break;
           }
         }
-        const seriesColor = lastValue !== undefined
-          ? resolveItemColor(lastValue, stylingRules, paramValues, thresholds)
-          : undefined;
+        const seriesColor =
+          lastValue !== undefined
+            ? resolveItemColor(lastValue, stylingRules, paramValues, thresholds)
+            : undefined;
         return {
           name: key,
           type: "line" as const,
-          data: data.map((d) => d[key] as number),
+          data: useTimeAxis
+            ? data.map((d) => [d.x, d[key]])
+            : data.map((d) => d[key] as number),
           smooth,
           step: stepped ? ("start" as const) : undefined,
           lineStyle: { width: lineWidth, color: seriesColor },
@@ -131,12 +145,35 @@ function LineChart({
           showSymbol: showPoints,
           areaStyle: area ? {} : undefined,
           emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
+          // LTTB downsampling for large datasets
+          ...(samplingThreshold > 0 && data.length > samplingThreshold
+            ? { sampling: samplingMethod as "lttb" | "average" | "max" | "min" }
+            : {}),
           // Attach reference lines to the first series only
           ...(idx === 0 && markLine ? { markLine } : {}),
         };
       }),
     };
-  }, [data, xAxisLabel, yAxisLabel, smooth, area, showLegend, showPoints, lineWidth, showGridLines, stepped, referenceLinesJson, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
+  }, [
+    data,
+    xAxisLabel,
+    yAxisLabel,
+    smooth,
+    area,
+    showLegend,
+    showPoints,
+    lineWidth,
+    showGridLines,
+    stepped,
+    referenceLinesJson,
+    colorThresholds,
+    stylingRules,
+    paramValues,
+    compact,
+    hideLegend,
+    samplingThreshold,
+    samplingMethod,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
