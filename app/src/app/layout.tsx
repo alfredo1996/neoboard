@@ -7,7 +7,25 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "NeoBoard",
-  description: "Dashboard builder for Neo4j and PostgreSQL",
+  description:
+    "Open-source dashboards for Neo4j + PostgreSQL — the modern alternative to NeoDash",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
+  manifest: "/site.webmanifest",
+  openGraph: {
+    title: "NeoBoard",
+    description: "Open-source dashboards for Neo4j + PostgreSQL",
+    images: [{ url: "/og-image.svg", width: 1200, height: 630 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NeoBoard",
+    description: "Open-source dashboards for Neo4j + PostgreSQL",
+    images: ["/og-image.svg"],
+  },
 };
 
 export default function RootLayout({
