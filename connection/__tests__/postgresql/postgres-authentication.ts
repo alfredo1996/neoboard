@@ -1,13 +1,16 @@
-import { PostgresAuthenticationModule } from '../../src/postgresql';
-import {PostgreSqlContainer, StartedPostgreSqlContainer} from '@testcontainers/postgresql';
-import { AuthType } from '../../src/generalized/interfaces';
+import { PostgresAuthenticationModule } from "../../src/postgresql";
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
+import { AuthType } from "../../src/generalized/interfaces";
 
-describe('PostgreSQL Authentication', () => {
+describe("PostgreSQL Authentication", () => {
   let container: StartedPostgreSqlContainer;
   let authModule: PostgresAuthenticationModule;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer().start();
+    container = await new PostgreSqlContainer("postgres:16-alpine").start();
   }, 30000);
 
   afterAll(async () => {
@@ -28,7 +31,7 @@ describe('PostgreSQL Authentication', () => {
     }
   });
 
-  test('should authenticate with valid credentials', async () => {
+  test("should authenticate with valid credentials", async () => {
     authModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
       password: container.getPassword(),
@@ -41,15 +44,17 @@ describe('PostgreSQL Authentication', () => {
     expect(authModule.getPool()).toBeDefined();
   });
 
-  test('should fail with invalid credentials', async () => {
+  test("should fail with invalid credentials", async () => {
     const invalidAuthModule = new PostgresAuthenticationModule({
-      username: 'invalid_user',
-      password: 'invalid_password',
+      username: "invalid_user",
+      password: "invalid_password",
       authType: AuthType.NATIVE,
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
 
-    const result = await invalidAuthModule.verifyAuthentication().catch(() => false);
+    const result = await invalidAuthModule
+      .verifyAuthentication()
+      .catch(() => false);
     expect(result).toBe(false);
     // Pool is created in constructor, but authentication fails
     expect(invalidAuthModule.getPool()).toBeDefined();
@@ -57,7 +62,7 @@ describe('PostgreSQL Authentication', () => {
     await invalidAuthModule.close();
   });
 
-  test('should handle connection URI parsing', async () => {
+  test("should handle connection URI parsing", async () => {
     // Test with full URI including user and password
     authModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
@@ -70,7 +75,7 @@ describe('PostgreSQL Authentication', () => {
     expect(result).toBe(true);
   });
 
-  test('should close pool properly', async () => {
+  test("should close pool properly", async () => {
     authModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
       password: container.getPassword(),
@@ -85,7 +90,7 @@ describe('PostgreSQL Authentication', () => {
     expect(authModule.getPool()).toBeNull();
   });
 
-  test('should create driver automatically in constructor', () => {
+  test("should create driver automatically in constructor", () => {
     const newAuthModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
       password: container.getPassword(),
@@ -97,7 +102,7 @@ describe('PostgreSQL Authentication', () => {
     expect(newAuthModule.getPool()).not.toBeNull();
   });
 
-  test('should implement verifyAuthentication', async () => {
+  test("should implement verifyAuthentication", async () => {
     authModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
       password: container.getPassword(),
@@ -109,10 +114,10 @@ describe('PostgreSQL Authentication', () => {
     expect(isValid).toBe(true);
   });
 
-  test('should return false for verifyAuthentication with invalid credentials', async () => {
+  test("should return false for verifyAuthentication with invalid credentials", async () => {
     const invalidAuthModule = new PostgresAuthenticationModule({
-      username: 'wrong_user',
-      password: 'wrong_password',
+      username: "wrong_user",
+      password: "wrong_password",
       authType: AuthType.NATIVE,
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
@@ -128,7 +133,7 @@ describe('PostgreSQL Authentication', () => {
     await invalidAuthModule.close();
   });
 
-  test('should update auth config', async () => {
+  test("should update auth config", async () => {
     authModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
       password: container.getPassword(),
@@ -151,13 +156,13 @@ describe('PostgreSQL Authentication', () => {
     expect(isValid2).toBe(true);
   });
 
-  test('should throw error for invalid config', () => {
+  test("should throw error for invalid config", () => {
     expect(() => {
       new PostgresAuthenticationModule({
-        username: '',
-        password: '',
+        username: "",
+        password: "",
         authType: AuthType.EMPTY,
-        uri: '',
+        uri: "",
       });
     }).toThrow();
   });

@@ -1,3 +1,6 @@
+# Dev containers for Neo4j + PostgreSQL.
+# After starting, run: scripts/setup.sh
+# This runs migrations, seeds demo users/connections/dashboards, and starts the dev server.
 services:
   postgres:
     image: postgres:16-alpine
