@@ -13,6 +13,48 @@ import {
   IframeWidget,
 } from "@neoboard/components";
 
+// ── Error Boundary ──────────────────────────────────────────────────────────
+// Catches render errors from any chart component so one broken widget
+// doesn't crash the entire dashboard.
+
+interface ChartErrorBoundaryState {
+  error: Error | null;
+}
+
+class ChartErrorBoundary extends React.Component<
+  { chartType: string; children: React.ReactNode },
+  ChartErrorBoundaryState
+> {
+  state: ChartErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error(
+      `[ChartErrorBoundary] ${this.props.chartType} crashed:`,
+      error,
+      info.componentStack,
+    );
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+          <p className="text-sm font-medium">Chart failed to render</p>
+          <p className="text-xs text-muted-foreground max-w-[300px] truncate">
+            {this.state.error.message}
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Chart components use ECharts (browser APIs) — must be loaded client-side only
 const BarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
@@ -173,368 +215,383 @@ export function ChartRenderer({
     };
   }, [onChartClick, data]);
 
-  switch (type) {
-    case "bar":
-      return (
-        <BarChart
-          data={(data as BarChartDataPoint[]) ?? []}
-          orientation={
-            settings.orientation as "vertical" | "horizontal" | undefined
-          }
-          stacked={settings.stacked as boolean | undefined}
-          showValues={settings.showValues as boolean | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          barWidth={settings.barWidth as number | undefined}
-          barGap={settings.barGap as string | undefined}
-          xAxisLabel={settings.xAxisLabel as string | undefined}
-          yAxisLabel={settings.yAxisLabel as string | undefined}
-          showGridLines={settings.showGridLines as boolean | undefined}
-          axisLabelRotation={settings.axisLabelRotation as number | undefined}
-          referenceLines={settings.referenceLines as string | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          enableDataZoom={settings.enableDataZoom as boolean | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
+  const chart = renderChart();
+  return (
+    <ChartErrorBoundary chartType={type} key={`${type}-${widgetId ?? ""}`}>
+      {chart}
+    </ChartErrorBoundary>
+  );
 
-    case "line":
-      return (
-        <LineChart
-          data={(data as LineChartDataPoint[]) ?? []}
-          smooth={settings.smooth as boolean | undefined}
-          area={settings.area as boolean | undefined}
-          xAxisLabel={settings.xAxisLabel as string | undefined}
-          yAxisLabel={settings.yAxisLabel as string | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          lineWidth={settings.lineWidth as number | undefined}
-          stepped={settings.stepped as boolean | undefined}
-          showPoints={settings.showPoints as boolean | undefined}
-          showGridLines={settings.showGridLines as boolean | undefined}
-          referenceLines={settings.referenceLines as string | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          enableDataZoom={settings.enableDataZoom as boolean | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-
-    case "pie":
-      return (
-        <PieChart
-          data={(data as PieChartDataPoint[]) ?? []}
-          donut={settings.donut as boolean | undefined}
-          showLabel={settings.showLabel as boolean | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          roseMode={settings.roseMode as boolean | undefined}
-          labelPosition={
-            settings.labelPosition as
-              | "outside"
-              | "inside"
-              | "center"
-              | undefined
-          }
-          showPercentage={settings.showPercentage as boolean | undefined}
-          sortSlices={settings.sortSlices as boolean | undefined}
-          topN={settings.topN as number | undefined}
-          donutCenterText={settings.donutCenterText as string | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          colorPalette={settings.colorPalette as string | undefined}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-
-    case "single-value": {
-      const raw = data ?? 0;
-      const val =
-        typeof raw === "number" || typeof raw === "string"
-          ? raw
-          : (normalizeValue(raw) ?? String(raw));
-      return (
-        <SingleValueChart
-          value={
-            typeof val === "number" || typeof val === "string"
-              ? val
-              : String(val)
-          }
-          title={settings.title as string | undefined}
-          prefix={settings.prefix as string | undefined}
-          suffix={settings.suffix as string | undefined}
-          fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
-          numberFormat={
-            settings.numberFormat as
-              | "plain"
-              | "comma"
-              | "compact"
-              | "percent"
-              | undefined
-          }
-          decimalPlaces={settings.decimalPlaces as number | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-        />
-      );
-    }
-
-    case "graph": {
-      const graphData = (data ?? { nodes: [], edges: [] }) as {
-        nodes: GraphNode[];
-        edges: GraphEdge[];
-      };
-      if (connectionId) {
+  function renderChart() {
+    switch (type) {
+      case "bar":
         return (
-          <GraphExplorationWrapper
-            widgetId={widgetId ?? connectionId}
+          <BarChart
+            data={(data as BarChartDataPoint[]) ?? []}
+            orientation={
+              settings.orientation as "vertical" | "horizontal" | undefined
+            }
+            stacked={settings.stacked as boolean | undefined}
+            showValues={settings.showValues as boolean | undefined}
+            showLegend={settings.showLegend as boolean | undefined}
+            barWidth={settings.barWidth as number | undefined}
+            barGap={settings.barGap as string | undefined}
+            xAxisLabel={settings.xAxisLabel as string | undefined}
+            yAxisLabel={settings.yAxisLabel as string | undefined}
+            showGridLines={settings.showGridLines as boolean | undefined}
+            axisLabelRotation={settings.axisLabelRotation as number | undefined}
+            referenceLines={settings.referenceLines as string | undefined}
+            colorThresholds={colorThresholds}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            onClick={handleEChartsClick}
+            enableDataZoom={settings.enableDataZoom as boolean | undefined}
+            colorPalette={settings.colorPalette as string | undefined}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+
+      case "line":
+        return (
+          <LineChart
+            data={(data as LineChartDataPoint[]) ?? []}
+            smooth={settings.smooth as boolean | undefined}
+            area={settings.area as boolean | undefined}
+            xAxisLabel={settings.xAxisLabel as string | undefined}
+            yAxisLabel={settings.yAxisLabel as string | undefined}
+            showLegend={settings.showLegend as boolean | undefined}
+            lineWidth={settings.lineWidth as number | undefined}
+            stepped={settings.stepped as boolean | undefined}
+            showPoints={settings.showPoints as boolean | undefined}
+            showGridLines={settings.showGridLines as boolean | undefined}
+            referenceLines={settings.referenceLines as string | undefined}
+            colorThresholds={colorThresholds}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            onClick={handleEChartsClick}
+            enableDataZoom={settings.enableDataZoom as boolean | undefined}
+            colorPalette={settings.colorPalette as string | undefined}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+
+      case "pie":
+        return (
+          <PieChart
+            data={(data as PieChartDataPoint[]) ?? []}
+            donut={settings.donut as boolean | undefined}
+            showLabel={settings.showLabel as boolean | undefined}
+            showLegend={settings.showLegend as boolean | undefined}
+            roseMode={settings.roseMode as boolean | undefined}
+            labelPosition={
+              settings.labelPosition as
+                | "outside"
+                | "inside"
+                | "center"
+                | undefined
+            }
+            showPercentage={settings.showPercentage as boolean | undefined}
+            sortSlices={settings.sortSlices as boolean | undefined}
+            topN={settings.topN as number | undefined}
+            donutCenterText={settings.donutCenterText as string | undefined}
+            colorThresholds={colorThresholds}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            onClick={handleEChartsClick}
+            colorPalette={settings.colorPalette as string | undefined}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+
+      case "single-value": {
+        const raw = data ?? 0;
+        const val =
+          typeof raw === "number" || typeof raw === "string"
+            ? raw
+            : (normalizeValue(raw) ?? String(raw));
+        return (
+          <SingleValueChart
+            value={
+              typeof val === "number" || typeof val === "string"
+                ? val
+                : String(val)
+            }
+            title={settings.title as string | undefined}
+            prefix={settings.prefix as string | undefined}
+            suffix={settings.suffix as string | undefined}
+            fontSize={
+              settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined
+            }
+            numberFormat={
+              settings.numberFormat as
+                | "plain"
+                | "comma"
+                | "compact"
+                | "percent"
+                | undefined
+            }
+            decimalPlaces={settings.decimalPlaces as number | undefined}
+            colorThresholds={colorThresholds}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+          />
+        );
+      }
+
+      case "graph": {
+        const graphData = (data ?? { nodes: [], edges: [] }) as {
+          nodes: GraphNode[];
+          edges: GraphEdge[];
+        };
+        if (connectionId) {
+          return (
+            <GraphExplorationWrapper
+              widgetId={widgetId ?? connectionId}
+              nodes={graphData.nodes ?? []}
+              edges={graphData.edges ?? []}
+              connectionId={connectionId}
+              settings={settings}
+              onChartClick={onChartClick}
+              resultId={resultId}
+              autoFit={autoFit}
+            />
+          );
+        }
+        return (
+          <GraphChart
             nodes={graphData.nodes ?? []}
             edges={graphData.edges ?? []}
-            connectionId={connectionId}
-            settings={settings}
-            onChartClick={onChartClick}
-            resultId={resultId}
+            layout={settings.layout as "force" | "circular" | undefined}
+            showLabels={settings.showLabels as boolean | undefined}
+            onNodeSelect={
+              onChartClick
+                ? (ids) => {
+                    if (ids.length) onChartClick({ nodeId: ids[0] });
+                  }
+                : undefined
+            }
             autoFit={autoFit}
           />
         );
       }
-      return (
-        <GraphChart
-          nodes={graphData.nodes ?? []}
-          edges={graphData.edges ?? []}
-          layout={settings.layout as "force" | "circular" | undefined}
-          showLabels={settings.showLabels as boolean | undefined}
-          onNodeSelect={
-            onChartClick
-              ? (ids) => {
-                  if (ids.length) onChartClick({ nodeId: ids[0] });
-                }
-              : undefined
-          }
-          autoFit={autoFit}
-        />
-      );
-    }
 
-    case "map": {
-      const markers = (data ?? []) as MapMarker[];
-      return (
-        <MapChart
-          markers={markers}
-          tileLayer={settings.tileLayer as string | undefined}
-          zoom={settings.zoom as number | undefined}
-          minZoom={settings.minZoom as number | undefined}
-          maxZoom={settings.maxZoom as number | undefined}
-          autoFitBounds={settings.autoFitBounds !== false}
-          onMarkerClick={
-            onChartClick
-              ? (m) =>
-                  onChartClick({
-                    id: m.id,
-                    label: m.label,
-                    lat: m.lat,
-                    lng: m.lng,
-                  })
-              : undefined
-          }
-        />
-      );
-    }
-
-    case "table":
-      return (
-        <TableRenderer
-          data={data}
-          settings={settings}
-          onCellClick={
-            onChartClick
-              ? (info) =>
-                  onChartClick({
-                    _clickedColumn: info.column,
-                    _clickedValue: info.value,
-                  })
-              : undefined
-          }
-          clickableColumns={clickableColumns}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          colorScales={colorScales}
-        />
-      );
-
-    case "parameter-select": {
-      const pName = settings.parameterName as string | undefined;
-      if (!pName) {
+      case "map": {
+        const markers = (data ?? []) as MapMarker[];
         return (
-          <EmptyState
-            title="No parameter name"
-            description="Configure a parameter name in the widget settings."
-            className="py-6"
+          <MapChart
+            markers={markers}
+            tileLayer={settings.tileLayer as string | undefined}
+            zoom={settings.zoom as number | undefined}
+            minZoom={settings.minZoom as number | undefined}
+            maxZoom={settings.maxZoom as number | undefined}
+            autoFitBounds={settings.autoFitBounds !== false}
+            onMarkerClick={
+              onChartClick
+                ? (m) =>
+                    onChartClick({
+                      id: m.id,
+                      label: m.label,
+                      lat: m.lat,
+                      lng: m.lng,
+                    })
+                : undefined
+            }
           />
         );
       }
-      return (
-        <div className="p-4">
-          <ParameterWidgetRenderer
-            parameterName={pName}
-            parameterType={
-              (settings.parameterType as ParameterType | undefined) ?? "select"
-            }
-            connectionId={connectionId}
-            seedQuery={settings.seedQuery as string | undefined}
-            parentParameterName={
-              settings.parentParameterName as string | undefined
-            }
-            rangeMin={(settings.rangeMin as number | undefined) ?? 0}
-            rangeMax={(settings.rangeMax as number | undefined) ?? 100}
-            rangeStep={(settings.rangeStep as number | undefined) ?? 1}
-            placeholder={
-              (settings.placeholder as string | undefined) || undefined
-            }
-            searchable={(settings.searchable as boolean | undefined) ?? true}
-            widgetId={widgetId}
-          />
-        </div>
-      );
-    }
 
-    case "json":
-      return (
-        <div className="h-full overflow-auto">
-          <JsonViewer
+      case "table":
+        return (
+          <TableRenderer
             data={data}
-            initialExpanded={(settings.initialExpanded as number) ?? 2}
+            settings={settings}
+            onCellClick={
+              onChartClick
+                ? (info) =>
+                    onChartClick({
+                      _clickedColumn: info.column,
+                      _clickedValue: info.value,
+                    })
+                : undefined
+            }
+            clickableColumns={clickableColumns}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            colorScales={colorScales}
           />
-        </div>
-      );
+        );
 
-    case "form":
-      return (
-        <FormWidgetRenderer
-          connectionId={connectionId ?? ""}
-          query={query ?? ""}
-          settings={settings}
-        />
-      );
+      case "parameter-select": {
+        const pName = settings.parameterName as string | undefined;
+        if (!pName) {
+          return (
+            <EmptyState
+              title="No parameter name"
+              description="Configure a parameter name in the widget settings."
+              className="py-6"
+            />
+          );
+        }
+        return (
+          <div className="p-4">
+            <ParameterWidgetRenderer
+              parameterName={pName}
+              parameterType={
+                (settings.parameterType as ParameterType | undefined) ??
+                "select"
+              }
+              connectionId={connectionId}
+              seedQuery={settings.seedQuery as string | undefined}
+              parentParameterName={
+                settings.parentParameterName as string | undefined
+              }
+              rangeMin={(settings.rangeMin as number | undefined) ?? 0}
+              rangeMax={(settings.rangeMax as number | undefined) ?? 100}
+              rangeStep={(settings.rangeStep as number | undefined) ?? 1}
+              placeholder={
+                (settings.placeholder as string | undefined) || undefined
+              }
+              searchable={(settings.searchable as boolean | undefined) ?? true}
+              widgetId={widgetId}
+            />
+          </div>
+        );
+      }
 
-    case "markdown":
-      return (
-        <MarkdownWidget content={settings.content as string | undefined} />
-      );
+      case "json":
+        return (
+          <div className="h-full overflow-auto">
+            <JsonViewer
+              data={data}
+              initialExpanded={(settings.initialExpanded as number) ?? 2}
+            />
+          </div>
+        );
 
-    case "iframe":
-      return (
-        <IframeWidget
-          url={settings.url as string | undefined}
-          title={settings.iframeTitle as string | undefined}
-          sandbox={settings.sandbox as string | undefined}
-        />
-      );
+      case "form":
+        return (
+          <FormWidgetRenderer
+            connectionId={connectionId ?? ""}
+            query={query ?? ""}
+            settings={settings}
+          />
+        );
 
-    case "gauge":
-      return (
-        <GaugeChart
-          data={(data as GaugeDataPoint[]) ?? []}
-          min={settings.min as number | undefined}
-          max={settings.max as number | undefined}
-          showProgress={settings.showProgress as boolean | undefined}
-          showPointer={settings.showPointer as boolean | undefined}
-          showDetail={settings.showDetail as boolean | undefined}
-          startAngle={settings.startAngle as number | undefined}
-          endAngle={settings.endAngle as number | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
+      case "markdown":
+        return (
+          <MarkdownWidget content={settings.content as string | undefined} />
+        );
 
-    case "sankey": {
-      const sankeyData = (data as SankeyChartData) ?? { nodes: [], links: [] };
-      return (
-        <SankeyChart
-          data={sankeyData}
-          orient={settings.orient as "horizontal" | "vertical" | undefined}
-          showLabels={settings.showLabels as boolean | undefined}
-          nodeWidth={settings.nodeWidth as number | undefined}
-          nodeGap={settings.nodeGap as number | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
+      case "iframe":
+        return (
+          <IframeWidget
+            url={settings.url as string | undefined}
+            title={settings.iframeTitle as string | undefined}
+            sandbox={settings.sandbox as string | undefined}
+          />
+        );
+
+      case "gauge":
+        return (
+          <GaugeChart
+            data={(data as GaugeDataPoint[]) ?? []}
+            min={settings.min as number | undefined}
+            max={settings.max as number | undefined}
+            showProgress={settings.showProgress as boolean | undefined}
+            showPointer={settings.showPointer as boolean | undefined}
+            showDetail={settings.showDetail as boolean | undefined}
+            startAngle={settings.startAngle as number | undefined}
+            endAngle={settings.endAngle as number | undefined}
+            colorPalette={settings.colorPalette as string | undefined}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+
+      case "sankey": {
+        const sankeyData = (data as SankeyChartData) ?? {
+          nodes: [],
+          links: [],
+        };
+        return (
+          <SankeyChart
+            data={sankeyData}
+            orient={settings.orient as "horizontal" | "vertical" | undefined}
+            showLabels={settings.showLabels as boolean | undefined}
+            nodeWidth={settings.nodeWidth as number | undefined}
+            nodeGap={settings.nodeGap as number | undefined}
+            colorPalette={settings.colorPalette as string | undefined}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            onClick={handleEChartsClick}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+      }
+
+      case "sunburst":
+        return (
+          <SunburstChart
+            data={(data as SunburstDataItem[]) ?? []}
+            showLabels={settings.showLabels as boolean | undefined}
+            sort={settings.sort as "desc" | "asc" | "none" | undefined}
+            highlightOnHover={settings.highlightOnHover as boolean | undefined}
+            colorPalette={settings.colorPalette as string | undefined}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            onClick={handleEChartsClick}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+
+      case "radar": {
+        const radarData = (data as RadarChartData) ?? {
+          indicators: [],
+          series: [],
+        };
+        return (
+          <RadarChart
+            data={radarData}
+            shape={settings.shape as "polygon" | "circle" | undefined}
+            filled={settings.filled as boolean | undefined}
+            showLegend={settings.showLegend as boolean | undefined}
+            showValues={settings.showValues as boolean | undefined}
+            colorPalette={settings.colorPalette as string | undefined}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+      }
+
+      case "treemap":
+        return (
+          <TreemapChart
+            data={(data as TreemapDataItem[]) ?? []}
+            showLabels={settings.showLabels as boolean | undefined}
+            showBreadcrumb={settings.showBreadcrumb as boolean | undefined}
+            showValues={settings.showValues as boolean | undefined}
+            colorSaturation={
+              settings.colorSaturation as "low" | "medium" | "high" | undefined
+            }
+            colorPalette={settings.colorPalette as string | undefined}
+            stylingRules={stylingRules}
+            paramValues={paramValues}
+            onClick={handleEChartsClick}
+            colorblindMode={settings.colorblindMode as boolean | undefined}
+          />
+        );
+
+      default:
+        return (
+          <EmptyState
+            icon={<AlertCircle className="h-8 w-8" />}
+            title="Unknown chart type"
+            description={`Chart type "${type}" is not supported.`}
+            className="py-6"
+          />
+        );
     }
-
-    case "sunburst":
-      return (
-        <SunburstChart
-          data={(data as SunburstDataItem[]) ?? []}
-          showLabels={settings.showLabels as boolean | undefined}
-          sort={settings.sort as "desc" | "asc" | "none" | undefined}
-          highlightOnHover={settings.highlightOnHover as boolean | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-
-    case "radar": {
-      const radarData = (data as RadarChartData) ?? {
-        indicators: [],
-        series: [],
-      };
-      return (
-        <RadarChart
-          data={radarData}
-          shape={settings.shape as "polygon" | "circle" | undefined}
-          filled={settings.filled as boolean | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          showValues={settings.showValues as boolean | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-    }
-
-    case "treemap":
-      return (
-        <TreemapChart
-          data={(data as TreemapDataItem[]) ?? []}
-          showLabels={settings.showLabels as boolean | undefined}
-          showBreadcrumb={settings.showBreadcrumb as boolean | undefined}
-          showValues={settings.showValues as boolean | undefined}
-          colorSaturation={
-            settings.colorSaturation as "low" | "medium" | "high" | undefined
-          }
-          colorPalette={settings.colorPalette as string | undefined}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-
-    default:
-      return (
-        <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
-          title="Unknown chart type"
-          description={`Chart type "${type}" is not supported.`}
-          className="py-6"
-        />
-      );
   }
 }
