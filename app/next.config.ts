@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: process.env.E2E_COVERAGE === "1",
   outputFileTracingRoot: resolve(import.meta.dirname, ".."),
   transpilePackages: ["@neoboard/components"],
-  serverExternalPackages: ["connection", "postgres"],
+  serverExternalPackages: ["connection", "postgres", "pg"],
   webpack: (config, { isServer }) => {
     if (isServer) {
       // The instrumentation file is compiled in a separate webpack pass that does
@@ -34,10 +34,10 @@ const nextConfig: NextConfig = {
       // (net, tls, stream, crypto) in that compilation.
       const prev = config.externals;
       config.externals = Array.isArray(prev)
-        ? [...prev, "postgres"]
+        ? [...prev, "postgres", "pg"]
         : prev
-          ? [prev, "postgres"]
-          : ["postgres"];
+          ? [prev, "postgres", "pg"]
+          : ["postgres", "pg"];
     }
 
     // Enable full source maps for E2E coverage collection.
