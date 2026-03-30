@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
-    "test:e2e:coverage": "E2E_COVERAGE=1 npx playwright test"
+    "test:e2e:coverage": "E2E_COVERAGE=1 npx playwright test",
+    "test:e2e:mock": "npx playwright test --config playwright.mock.config.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",

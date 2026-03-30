@@ -12,6 +12,7 @@ import {
   buildTooltipFormatter,
   parseReferenceLines,
   buildMarkLineFromRefs,
+  isTimeSeriesData,
 } from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
@@ -92,6 +93,8 @@ function LineChart({
       : parseColorThresholds(colorThresholds ?? "");
     const refLines = parseReferenceLines(referenceLinesJson);
     const markLine = buildMarkLineFromRefs(refLines);
+    const xValues = data.map((d) => d.x);
+    const useTimeAxis = isTimeSeriesData(xValues);
 
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
@@ -101,8 +104,8 @@ function LineChart({
         left: compact ? 8 : 48,
       },
       xAxis: {
-        type: "category",
-        data: data.map((d) => String(d.x)),
+        type: useTimeAxis ? "time" : "category",
+        ...(useTimeAxis ? {} : { data: xValues.map(String) }),
         name: compact ? undefined : xAxisLabel,
         nameLocation: "middle",
         nameGap: 30,
@@ -132,7 +135,9 @@ function LineChart({
         return {
           name: key,
           type: "line" as const,
-          data: data.map((d) => d[key] as number),
+          data: useTimeAxis
+            ? data.map((d) => [d.x, d[key]])
+            : data.map((d) => d[key] as number),
           smooth,
           step: stepped ? ("start" as const) : undefined,
           lineStyle: { width: lineWidth, color: seriesColor },
