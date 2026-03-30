@@ -23,11 +23,9 @@ export default defineConfig({
   // CI: 2 workers for parallel execution against the production server.
   // Locally: let Playwright auto-detect based on CPU cores.
   workers: process.env.CI ? 2 : undefined,
-  // CI: github (PR annotations) + list (real-time stream) + html (artifact for debugging).
+  // CI: github (PR annotations) + list (real-time stream) + blob (for cross-shard merge).
   // Local: interactive HTML report.
-  reporter: process.env.CI
-    ? [["github"], ["list"], ["html", { open: "never" }]]
-    : "html",
+  reporter: process.env.CI ? [["github"], ["list"], ["blob"]] : "html",
   // Production build eliminates cold-start compilation — tighter timeouts are safe.
   timeout: 30_000,
   expect: { timeout: 5_000 },
@@ -49,5 +47,4 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-
 });
