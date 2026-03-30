@@ -81,7 +81,7 @@ describe("isNeoDashFormat", () => {
           { title: "P1", reports: [] },
           { title: "P2" }, // missing reports
         ],
-      })
+      }),
     ).toBe(false);
   });
 
@@ -100,7 +100,7 @@ describe("isNeoDashFormat", () => {
           { title: "P1", reports: [{ id: "r1", type: "table", query: "q" }] },
           { title: "P2", reports: [] },
         ],
-      })
+      }),
     ).toBe(true);
   });
 });
@@ -123,47 +123,266 @@ describe("convertNeoDash", () => {
 
   it("maps table type correctly", () => {
     const result = convertNeoDash(NEODASH_SIMPLE);
-    const widget = result.layout.pages[0].widgets.find((w) => w.chartType === "table");
+    const widget = result.layout.pages[0].widgets.find(
+      (w) => w.chartType === "table",
+    );
     expect(widget).toBeDefined();
   });
 
   it("maps bar type correctly", () => {
     const result = convertNeoDash(NEODASH_SIMPLE);
-    const widget = result.layout.pages[0].widgets.find((w) => w.chartType === "bar");
+    const widget = result.layout.pages[0].widgets.find(
+      (w) => w.chartType === "bar",
+    );
     expect(widget).toBeDefined();
   });
 
   it("maps value type to single-value", () => {
     const nd = {
       ...NEODASH_SIMPLE,
-      pages: [{ title: "P1", reports: [{ id: "r1", title: "KPI", type: "value", query: "RETURN 42", x: 0, y: 0, width: 3, height: 2, settings: {}, parameters: {} }] }],
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "KPI",
+              type: "value",
+              query: "RETURN 42",
+              x: 0,
+              y: 0,
+              width: 3,
+              height: 2,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
     expect(result.layout.pages[0].widgets[0].chartType).toBe("single-value");
   });
 
-  it("maps iframe type to json (fallback)", () => {
+  it("maps iframe type to iframe", () => {
     const nd = {
       ...NEODASH_SIMPLE,
-      pages: [{ title: "P1", reports: [{ id: "r1", title: "Frame", type: "iframe", query: "", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }] }],
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Frame",
+              type: "iframe",
+              query: "",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
-    expect(result.layout.pages[0].widgets[0].chartType).toBe("json");
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("iframe");
   });
 
-  it("maps markdown type to json (fallback)", () => {
+  it("maps iFrame (camelCase) type to iframe", () => {
     const nd = {
       ...NEODASH_SIMPLE,
-      pages: [{ title: "P1", reports: [{ id: "r1", title: "Docs", type: "markdown", query: "# Hello", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }] }],
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Frame",
+              type: "iFrame",
+              query: "",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
-    expect(result.layout.pages[0].widgets[0].chartType).toBe("json");
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("iframe");
+  });
+
+  it("maps markdown type to markdown", () => {
+    const nd = {
+      ...NEODASH_SIMPLE,
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Docs",
+              type: "markdown",
+              query: "# Hello",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("markdown");
+  });
+
+  it("maps gauge type", () => {
+    const nd = {
+      ...NEODASH_SIMPLE,
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "G",
+              type: "gauge",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 3,
+              height: 3,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("gauge");
+  });
+
+  it("maps select type to parameter-select", () => {
+    const nd = {
+      ...NEODASH_SIMPLE,
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "S",
+              type: "select",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 3,
+              height: 2,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.layout.pages[0].widgets[0].chartType).toBe(
+      "parameter-select",
+    );
+  });
+
+  it("maps area type to line with area option", () => {
+    const nd = {
+      ...NEODASH_SIMPLE,
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "A",
+              type: "area",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("line");
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toEqual({ area: true });
+  });
+
+  it("converts $neodash_ parameter syntax to $param_", () => {
+    const nd = {
+      ...NEODASH_SIMPLE,
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Q",
+              type: "table",
+              query: "MATCH (n) WHERE n.name = $neodash_userName RETURN n",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.layout.pages[0].widgets[0].query).toBe(
+      "MATCH (n) WHERE n.name = $param_userName RETURN n",
+    );
   });
 
   it("maps unknown type to json (fallback)", () => {
     const nd = {
       ...NEODASH_SIMPLE,
-      pages: [{ title: "P1", reports: [{ id: "r1", title: "Weird", type: "unknown_type", query: "", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }] }],
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Weird",
+              type: "unknown_type",
+              query: "",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
     expect(result.layout.pages[0].widgets[0].chartType).toBe("json");
@@ -204,8 +423,40 @@ describe("convertNeoDash", () => {
       title: "Multi",
       version: "2.4",
       pages: [
-        { title: "P1", reports: [{ id: "r1", title: "T", type: "table", query: "q", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }] },
-        { title: "P2", reports: [{ id: "r2", title: "B", type: "bar", query: "q2", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }] },
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "T",
+              type: "table",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+        {
+          title: "P2",
+          reports: [
+            {
+              id: "r2",
+              title: "B",
+              type: "bar",
+              query: "q2",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
       ],
     };
     const result = convertNeoDash(multiPage);
@@ -222,14 +473,23 @@ describe("convertNeoDash", () => {
 
   it("falls back to defaults when report fields are missing", () => {
     const nd = {
-      pages: [{
-        title: "P",
-        reports: [{
-          id: "r1", title: "W", type: "table",
-          // query, settings, parameters all missing
-          x: 0, y: 0, width: 6, height: 4,
-        }],
-      }],
+      pages: [
+        {
+          title: "P",
+          reports: [
+            {
+              id: "r1",
+              title: "W",
+              type: "table",
+              // query, settings, parameters all missing
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
     const widget = result.layout.pages[0].widgets[0];
@@ -240,10 +500,25 @@ describe("convertNeoDash", () => {
 
   it("falls back to 'Imported Dashboard' when title is missing", () => {
     const nd = {
-      pages: [{
-        title: "P",
-        reports: [{ id: "r1", title: "W", type: "table", query: "q", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }],
-      }],
+      pages: [
+        {
+          title: "P",
+          reports: [
+            {
+              id: "r1",
+              title: "W",
+              type: "table",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
     expect(result.dashboard.name).toBe("Imported Dashboard");
@@ -259,14 +534,25 @@ describe("convertNeoDash", () => {
     const nd = {
       title: "T",
       version: "2.4",
-      pages: [{
-        title: "P",
-        reports: [{
-          id: "r1", title: "W", type: "table", query: "q",
-          x: NaN, y: Infinity, width: undefined, height: "bad",
-          settings: {}, parameters: {},
-        }],
-      }],
+      pages: [
+        {
+          title: "P",
+          reports: [
+            {
+              id: "r1",
+              title: "W",
+              type: "table",
+              query: "q",
+              x: NaN,
+              y: Infinity,
+              width: undefined,
+              height: "bad",
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
     const grid = result.layout.pages[0].gridLayout[0];
@@ -280,14 +566,25 @@ describe("convertNeoDash", () => {
     const nd = {
       title: "T",
       version: "2.4",
-      pages: [{
-        title: "P",
-        reports: [{
-          id: "r1", title: "W", type: "bar", query: "q",
-          x: 3, y: 5, width: 8, height: 6,
-          settings: {}, parameters: {},
-        }],
-      }],
+      pages: [
+        {
+          title: "P",
+          reports: [
+            {
+              id: "r1",
+              title: "W",
+              type: "bar",
+              query: "q",
+              x: 3,
+              y: 5,
+              width: 8,
+              height: 6,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
     };
     const result = convertNeoDash(nd);
     const grid = result.layout.pages[0].gridLayout[0];
@@ -295,12 +592,42 @@ describe("convertNeoDash", () => {
   });
 
   it("all chart type mappings", () => {
-    const types = ["table", "bar", "line", "graph", "map", "pie"];
+    const types = [
+      "table",
+      "bar",
+      "line",
+      "graph",
+      "map",
+      "pie",
+      "gauge",
+      "sunburst",
+      "treemap",
+      "sankey",
+      "radar",
+    ];
     for (const type of types) {
       const nd = {
         title: "T",
         version: "2.4",
-        pages: [{ title: "P", reports: [{ id: "r1", title: "W", type, query: "q", x: 0, y: 0, width: 6, height: 4, settings: {}, parameters: {} }] }],
+        pages: [
+          {
+            title: "P",
+            reports: [
+              {
+                id: "r1",
+                title: "W",
+                type,
+                query: "q",
+                x: 0,
+                y: 0,
+                width: 6,
+                height: 4,
+                settings: {},
+                parameters: {},
+              },
+            ],
+          },
+        ],
       };
       const result = convertNeoDash(nd);
       expect(result.layout.pages[0].widgets[0].chartType).toBe(type);
