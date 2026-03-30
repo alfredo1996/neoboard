@@ -4,11 +4,18 @@ import { resolve, sep } from "path";
 // Canonicalise all mobx imports to the single copy installed under component/
 // to prevent the "multiple mobx instances" MobX warning when @neo4j-nvl
 // is transpiled via transpilePackages.
-const mobxPath = resolve(import.meta.dirname, "..", "component", "node_modules", "mobx");
+const mobxPath = resolve(
+  import.meta.dirname,
+  "..",
+  "component",
+  "node_modules",
+  "mobx",
+);
 
 const componentSrc = resolve(import.meta.dirname, "..", "component", "src");
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   turbopack: {
     resolveAlias: {
       mobx: mobxPath,
