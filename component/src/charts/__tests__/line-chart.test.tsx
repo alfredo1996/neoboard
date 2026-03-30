@@ -163,14 +163,20 @@ describe("LineChart", () => {
   // --- Reference lines ---
 
   it("attaches markLine to the first series when referenceLines is provided", () => {
-    const refs = JSON.stringify([{ value: 50, label: "Target", color: "#ff0000" }]);
+    const refs = JSON.stringify([
+      { value: 50, label: "Target", color: "#ff0000" },
+    ]);
     render(<LineChart data={sampleData} referenceLines={refs} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].markLine).toBeDefined();
     expect(optionsCall.series[0].markLine.data).toHaveLength(1);
     expect(optionsCall.series[0].markLine.data[0].yAxis).toBe(50);
-    expect(optionsCall.series[0].markLine.data[0].label.formatter).toBe("Target");
-    expect(optionsCall.series[0].markLine.data[0].lineStyle.color).toBe("#ff0000");
+    expect(optionsCall.series[0].markLine.data[0].label.formatter).toBe(
+      "Target",
+    );
+    expect(optionsCall.series[0].markLine.data[0].lineStyle.color).toBe(
+      "#ff0000",
+    );
   });
 
   it("does not attach markLine when referenceLines is not provided", () => {
@@ -194,5 +200,37 @@ describe("LineChart", () => {
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.dataZoom).toBeDefined();
     expect(optionsCall.dataZoom.length).toBeGreaterThan(0);
+  });
+
+  // --- Sampling ---
+
+  it("enables sampling when data exceeds threshold", () => {
+    // Create large dataset (> 5 points with threshold=5)
+    const largeData = Array.from({ length: 10 }, (_, i) => ({
+      x: i,
+      y: i * 10,
+    }));
+    render(
+      <LineChart
+        data={largeData}
+        samplingThreshold={5}
+        samplingMethod="lttb"
+      />,
+    );
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].sampling).toBe("lttb");
+  });
+
+  it("does not enable sampling when data is below threshold", () => {
+    render(<LineChart data={sampleData} samplingThreshold={1000} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].sampling).toBeUndefined();
+  });
+
+  it("does not enable sampling when threshold is 0", () => {
+    const largeData = Array.from({ length: 2000 }, (_, i) => ({ x: i, y: i }));
+    render(<LineChart data={largeData} samplingThreshold={0} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].sampling).toBeUndefined();
   });
 });
