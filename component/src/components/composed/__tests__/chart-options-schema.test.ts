@@ -96,6 +96,11 @@ describe("getChartOptions", () => {
       "map",
       "table",
       "json",
+      "gauge",
+      "sankey",
+      "sunburst",
+      "radar",
+      "treemap",
     ];
     for (const type of types) {
       for (const opt of getChartOptions(type)) {
@@ -125,6 +130,11 @@ describe("getChartOptions", () => {
       "map",
       "table",
       "json",
+      "gauge",
+      "sankey",
+      "sunburst",
+      "radar",
+      "treemap",
     ];
     for (const type of types) {
       for (const opt of getChartOptions(type)) {
@@ -185,6 +195,11 @@ describe("getDefaultChartSettings", () => {
       "map",
       "table",
       "json",
+      "gauge",
+      "sankey",
+      "sunburst",
+      "radar",
+      "treemap",
     ];
     for (const type of types) {
       const options = getChartOptions(type);
@@ -207,6 +222,11 @@ describe("getDefaultChartSettings", () => {
       "map",
       "table",
       "json",
+      "gauge",
+      "sankey",
+      "sunburst",
+      "radar",
+      "treemap",
     ];
     for (const type of typesWithBehavior) {
       const keys = getChartOptions(type).map((o) => o.key);
@@ -253,6 +273,11 @@ describe("getDefaultChartSettings", () => {
       "map",
       "table",
       "json",
+      "gauge",
+      "sankey",
+      "sunburst",
+      "radar",
+      "treemap",
     ];
     for (const type of types) {
       const keys = getChartOptions(type).map((o) => o.key);
@@ -478,23 +503,6 @@ describe("gauge chart options", () => {
     expect(defaults.min).toBe(0);
     expect(defaults.max).toBe(100);
   });
-
-  it("includes behavior options (showRefreshButton, manualRun, cacheMode)", () => {
-    const keys = getChartOptions("gauge").map((o) => o.key);
-    expect(keys).toContain("showRefreshButton");
-    expect(keys).toContain("manualRun");
-    expect(keys).toContain("cacheMode");
-  });
-
-  it("every option has required fields", () => {
-    for (const opt of getChartOptions("gauge")) {
-      expect(opt).toHaveProperty("key");
-      expect(opt).toHaveProperty("label");
-      expect(opt).toHaveProperty("type");
-      expect(opt).toHaveProperty("default");
-      expect(opt).toHaveProperty("category");
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -520,22 +528,6 @@ describe("sankey chart options", () => {
       value: "vertical",
     });
   });
-
-  it("includes behavior options", () => {
-    const keys = getChartOptions("sankey").map((o) => o.key);
-    expect(keys).toContain("showRefreshButton");
-    expect(keys).toContain("cacheMode");
-  });
-
-  it("every option has required fields", () => {
-    for (const opt of getChartOptions("sankey")) {
-      expect(opt).toHaveProperty("key");
-      expect(opt).toHaveProperty("label");
-      expect(opt).toHaveProperty("type");
-      expect(opt).toHaveProperty("default");
-      expect(opt).toHaveProperty("category");
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -546,22 +538,6 @@ describe("sunburst chart options", () => {
     const keys = getChartOptions("sunburst").map((o) => o.key);
     expect(keys).toContain("showLabels");
     expect(keys).toContain("sort");
-  });
-
-  it("includes behavior options", () => {
-    const keys = getChartOptions("sunburst").map((o) => o.key);
-    expect(keys).toContain("showRefreshButton");
-    expect(keys).toContain("cacheMode");
-  });
-
-  it("every option has required fields", () => {
-    for (const opt of getChartOptions("sunburst")) {
-      expect(opt).toHaveProperty("key");
-      expect(opt).toHaveProperty("label");
-      expect(opt).toHaveProperty("type");
-      expect(opt).toHaveProperty("default");
-      expect(opt).toHaveProperty("category");
-    }
   });
 });
 
@@ -586,22 +562,6 @@ describe("radar chart options", () => {
     });
     expect(shape?.options).toContainEqual({ label: "Circle", value: "circle" });
   });
-
-  it("includes behavior options", () => {
-    const keys = getChartOptions("radar").map((o) => o.key);
-    expect(keys).toContain("showRefreshButton");
-    expect(keys).toContain("cacheMode");
-  });
-
-  it("every option has required fields", () => {
-    for (const opt of getChartOptions("radar")) {
-      expect(opt).toHaveProperty("key");
-      expect(opt).toHaveProperty("label");
-      expect(opt).toHaveProperty("type");
-      expect(opt).toHaveProperty("default");
-      expect(opt).toHaveProperty("category");
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -612,21 +572,5 @@ describe("treemap chart options", () => {
     const keys = getChartOptions("treemap").map((o) => o.key);
     expect(keys).toContain("showLabels");
     expect(keys).toContain("showBreadcrumb");
-  });
-
-  it("includes behavior options", () => {
-    const keys = getChartOptions("treemap").map((o) => o.key);
-    expect(keys).toContain("showRefreshButton");
-    expect(keys).toContain("cacheMode");
-  });
-
-  it("every option has required fields", () => {
-    for (const opt of getChartOptions("treemap")) {
-      expect(opt).toHaveProperty("key");
-      expect(opt).toHaveProperty("label");
-      expect(opt).toHaveProperty("type");
-      expect(opt).toHaveProperty("default");
-      expect(opt).toHaveProperty("category");
-    }
   });
 });

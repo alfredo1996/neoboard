@@ -12,6 +12,66 @@ export interface ChartOptionDef {
   description?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Shared option constants — reused across multiple chart type definitions
+// to avoid duplication.
+// ---------------------------------------------------------------------------
+
+const SHARED_SHOW_LEGEND: ChartOptionDef = {
+  key: "showLegend",
+  label: "Show Legend",
+  type: "boolean",
+  default: true,
+  category: "Labels",
+  description: "Show the chart legend identifying each data series.",
+};
+
+const SHARED_X_AXIS_LABEL: ChartOptionDef = {
+  key: "xAxisLabel",
+  label: "X-Axis Label",
+  type: "text",
+  default: "",
+  category: "Labels",
+  description: "Custom label displayed below the horizontal axis.",
+};
+
+const SHARED_Y_AXIS_LABEL: ChartOptionDef = {
+  key: "yAxisLabel",
+  label: "Y-Axis Label",
+  type: "text",
+  default: "",
+  category: "Labels",
+  description: "Custom label displayed beside the vertical axis.",
+};
+
+const SHARED_SHOW_GRID_LINES: ChartOptionDef = {
+  key: "showGridLines",
+  label: "Show Grid Lines",
+  type: "boolean",
+  default: true,
+  category: "Style",
+  description: "Show faint horizontal reference lines behind the chart.",
+};
+
+const SHARED_REFERENCE_LINES: ChartOptionDef = {
+  key: "referenceLines",
+  label: "Reference Lines (JSON)",
+  type: "text",
+  default: "",
+  category: "Annotations",
+  description:
+    'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
+};
+
+const SHARED_SHOW_LABELS: ChartOptionDef = {
+  key: "showLabels",
+  label: "Show Labels",
+  type: "boolean",
+  default: true,
+  category: "Labels",
+  description: "Show the name label on each element.",
+};
+
 /** DataZoom option for axis-based charts (bar, line). */
 const dataZoomOptions: ChartOptionDef[] = [
   {
@@ -87,38 +147,10 @@ const barOptions: ChartOptionDef[] = [
     category: "Labels",
     description: "Display the numeric value as a label on each bar.",
   },
-  {
-    key: "showLegend",
-    label: "Show Legend",
-    type: "boolean",
-    default: true,
-    category: "Labels",
-    description: "Show the chart legend identifying each data series.",
-  },
-  {
-    key: "xAxisLabel",
-    label: "X-Axis Label",
-    type: "text",
-    default: "",
-    category: "Labels",
-    description: "Custom label displayed below the horizontal axis.",
-  },
-  {
-    key: "yAxisLabel",
-    label: "Y-Axis Label",
-    type: "text",
-    default: "",
-    category: "Labels",
-    description: "Custom label displayed beside the vertical axis.",
-  },
-  {
-    key: "showGridLines",
-    label: "Show Grid Lines",
-    type: "boolean",
-    default: true,
-    category: "Style",
-    description: "Show faint horizontal reference lines behind the bars.",
-  },
+  SHARED_SHOW_LEGEND,
+  SHARED_X_AXIS_LABEL,
+  SHARED_Y_AXIS_LABEL,
+  SHARED_SHOW_GRID_LINES,
   {
     key: "axisLabelRotation",
     label: "Axis Label Rotation (°)",
@@ -128,15 +160,7 @@ const barOptions: ChartOptionDef[] = [
     description:
       "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories).",
   },
-  {
-    key: "referenceLines",
-    label: "Reference Lines (JSON)",
-    type: "text",
-    default: "",
-    category: "Annotations",
-    description:
-      'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
-  },
+  SHARED_REFERENCE_LINES,
 ];
 
 const lineOptions: ChartOptionDef[] = [
@@ -183,47 +207,11 @@ const lineOptions: ChartOptionDef[] = [
     category: "Style",
     description: "Draw a dot at each data point along the line.",
   },
-  {
-    key: "showGridLines",
-    label: "Show Grid Lines",
-    type: "boolean",
-    default: true,
-    category: "Style",
-    description: "Show faint horizontal reference lines behind the line.",
-  },
-  {
-    key: "xAxisLabel",
-    label: "X-Axis Label",
-    type: "text",
-    default: "",
-    category: "Labels",
-    description: "Custom label displayed below the horizontal axis.",
-  },
-  {
-    key: "yAxisLabel",
-    label: "Y-Axis Label",
-    type: "text",
-    default: "",
-    category: "Labels",
-    description: "Custom label displayed beside the vertical axis.",
-  },
-  {
-    key: "showLegend",
-    label: "Show Legend",
-    type: "boolean",
-    default: true,
-    category: "Labels",
-    description: "Show the chart legend identifying each data series.",
-  },
-  {
-    key: "referenceLines",
-    label: "Reference Lines (JSON)",
-    type: "text",
-    default: "",
-    category: "Annotations",
-    description:
-      'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
-  },
+  SHARED_SHOW_GRID_LINES,
+  SHARED_X_AXIS_LABEL,
+  SHARED_Y_AXIS_LABEL,
+  SHARED_SHOW_LEGEND,
+  SHARED_REFERENCE_LINES,
   {
     key: "samplingThreshold",
     label: "Sampling Threshold",
@@ -298,11 +286,7 @@ const pieOptions: ChartOptionDef[] = [
     description: "Show the percentage value on each slice.",
   },
   {
-    key: "showLegend",
-    label: "Show Legend",
-    type: "boolean",
-    default: true,
-    category: "Labels",
+    ...SHARED_SHOW_LEGEND,
     description: "Show the chart legend identifying each slice.",
   },
   {
@@ -437,11 +421,7 @@ const graphOptions: ChartOptionDef[] = [
     ],
   },
   {
-    key: "showLabels",
-    label: "Show Labels",
-    type: "boolean",
-    default: true,
-    category: "Labels",
+    ...SHARED_SHOW_LABELS,
     description: "Show the node label (first string property) on each node.",
   },
   {
@@ -936,11 +916,8 @@ const sankeyOptions: ChartOptionDef[] = [
     ],
   },
   {
-    key: "showLabels",
+    ...SHARED_SHOW_LABELS,
     label: "Show Node Labels",
-    type: "boolean",
-    default: true,
-    category: "Labels",
     description: "Show the node name alongside each block.",
   },
   {
@@ -962,14 +939,7 @@ const sankeyOptions: ChartOptionDef[] = [
 ];
 
 const sunburstOptions: ChartOptionDef[] = [
-  {
-    key: "showLabels",
-    label: "Show Labels",
-    type: "boolean",
-    default: true,
-    category: "Labels",
-    description: "Show the name of each segment.",
-  },
+  { ...SHARED_SHOW_LABELS, description: "Show the name of each segment." },
   {
     key: "sort",
     label: "Sort Segments",
@@ -1015,11 +985,7 @@ const radarOptions: ChartOptionDef[] = [
     description: "Fill the area enclosed by the data polygon.",
   },
   {
-    key: "showLegend",
-    label: "Show Legend",
-    type: "boolean",
-    default: true,
-    category: "Labels",
+    ...SHARED_SHOW_LEGEND,
     description: "Show the legend identifying each series.",
   },
   {
@@ -1033,14 +999,7 @@ const radarOptions: ChartOptionDef[] = [
 ];
 
 const treemapOptions: ChartOptionDef[] = [
-  {
-    key: "showLabels",
-    label: "Show Labels",
-    type: "boolean",
-    default: true,
-    category: "Labels",
-    description: "Show the name of each rectangle.",
-  },
+  { ...SHARED_SHOW_LABELS, description: "Show the name of each rectangle." },
   {
     key: "showBreadcrumb",
     label: "Show Breadcrumb",
