@@ -415,8 +415,12 @@ describe("colorPalette option", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorPalette");
     expect(opt?.options).toBeDefined();
-    expect(opt?.options!.map((o) => o.value)).toContain("deep-ocean");
-    expect(opt?.options!.map((o) => o.value)).toContain("warm-sunset");
+    expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
+      "deep-ocean",
+    );
+    expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
+      "warm-sunset",
+    );
   });
 
   it("colorPalette select options all have non-empty label and value", () => {

@@ -1,4 +1,5 @@
-export { type ChartOptionDef } from "./shared";
+import type { ChartOptionDef } from "./shared";
+export type { ChartOptionDef } from "./shared";
 import {
   behaviorOptions,
   appearanceOptions,
