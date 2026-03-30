@@ -709,6 +709,15 @@ const parameterSelectOptions: ChartOptionDef[] = [
     description:
       "Allow the user to type to filter the option list in real time.",
   },
+  {
+    key: "defaultValue",
+    label: "Default Value",
+    type: "text",
+    default: "",
+    category: "Parameter",
+    description:
+      "Value used on dashboard load when no selection has been made. Leave empty for no default.",
+  },
 ];
 
 const formOptions: ChartOptionDef[] = [
