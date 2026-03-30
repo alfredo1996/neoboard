@@ -14,12 +14,28 @@ export interface ChartOptionDef {
 
 /** DataZoom option for axis-based charts (bar, line). */
 const dataZoomOptions: ChartOptionDef[] = [
-  { key: "enableDataZoom", label: "Enable Scroll Zoom", type: "boolean", default: false, category: "Interaction", description: "Allow scroll-to-zoom on the data axis to explore large datasets." },
+  {
+    key: "enableDataZoom",
+    label: "Enable Scroll Zoom",
+    type: "boolean",
+    default: false,
+    category: "Interaction",
+    description:
+      "Allow scroll-to-zoom on the data axis to explore large datasets.",
+  },
 ];
 
 /** Shared number formatting options for tooltip values on axis-based charts. */
 const tooltipFormatOptions: ChartOptionDef[] = [
-  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Labels", description: "Fixed number of decimal places in tooltips (0-6). Set to -1 for automatic." },
+  {
+    key: "decimalPlaces",
+    label: "Decimal Places",
+    type: "number",
+    default: -1,
+    category: "Labels",
+    description:
+      "Fixed number of decimal places in tooltips (0-6). Set to -1 for automatic.",
+  },
 ];
 
 const barOptions: ChartOptionDef[] = [
@@ -29,40 +45,224 @@ const barOptions: ChartOptionDef[] = [
     type: "select",
     default: "vertical",
     category: "Layout",
-    description: "Vertical bars grow upward; horizontal bars grow left-to-right.",
+    description:
+      "Vertical bars grow upward; horizontal bars grow left-to-right.",
     options: [
       { label: "Vertical", value: "vertical" },
       { label: "Horizontal", value: "horizontal" },
     ],
   },
-  { key: "stacked", label: "Stacked", type: "boolean", default: false, category: "Layout", description: "Stack series on top of each other instead of placing them side by side." },
-  { key: "barWidth", label: "Bar Width (px, 0=auto)", type: "number", default: 0, category: "Layout", description: "Width of each bar in pixels. Set to 0 to let the chart auto-size." },
-  { key: "barGap", label: "Bar Gap", type: "text", default: "30%", category: "Layout", description: "Gap between bar groups as a percentage of the bar width (e.g. '30%')." },
-  { key: "showValues", label: "Show Values", type: "boolean", default: false, category: "Labels", description: "Display the numeric value as a label on each bar." },
-  { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each data series." },
-  { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
-  { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
-  { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the bars." },
-  { key: "axisLabelRotation", label: "Axis Label Rotation (°)", type: "number", default: -1, category: "Labels", description: "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories)." },
-  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
+  {
+    key: "stacked",
+    label: "Stacked",
+    type: "boolean",
+    default: false,
+    category: "Layout",
+    description:
+      "Stack series on top of each other instead of placing them side by side.",
+  },
+  {
+    key: "barWidth",
+    label: "Bar Width (px, 0=auto)",
+    type: "number",
+    default: 0,
+    category: "Layout",
+    description:
+      "Width of each bar in pixels. Set to 0 to let the chart auto-size.",
+  },
+  {
+    key: "barGap",
+    label: "Bar Gap",
+    type: "text",
+    default: "30%",
+    category: "Layout",
+    description:
+      "Gap between bar groups as a percentage of the bar width (e.g. '30%').",
+  },
+  {
+    key: "showValues",
+    label: "Show Values",
+    type: "boolean",
+    default: false,
+    category: "Labels",
+    description: "Display the numeric value as a label on each bar.",
+  },
+  {
+    key: "showLegend",
+    label: "Show Legend",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the chart legend identifying each data series.",
+  },
+  {
+    key: "xAxisLabel",
+    label: "X-Axis Label",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description: "Custom label displayed below the horizontal axis.",
+  },
+  {
+    key: "yAxisLabel",
+    label: "Y-Axis Label",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description: "Custom label displayed beside the vertical axis.",
+  },
+  {
+    key: "showGridLines",
+    label: "Show Grid Lines",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description: "Show faint horizontal reference lines behind the bars.",
+  },
+  {
+    key: "axisLabelRotation",
+    label: "Axis Label Rotation (°)",
+    type: "number",
+    default: -1,
+    category: "Labels",
+    description:
+      "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories).",
+  },
+  {
+    key: "referenceLines",
+    label: "Reference Lines (JSON)",
+    type: "text",
+    default: "",
+    category: "Annotations",
+    description:
+      'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
+  },
 ];
 
 const lineOptions: ChartOptionDef[] = [
-  { key: "smooth", label: "Smooth Curve", type: "boolean", default: false, category: "Style", description: "Render lines as smooth Bézier curves instead of straight segments." },
-  { key: "area", label: "Fill Area", type: "boolean", default: false, category: "Style", description: "Fill the area beneath the line to emphasise volume over time." },
-  { key: "lineWidth", label: "Line Width (px)", type: "number", default: 2, category: "Style", description: "Stroke width of the line in pixels." },
-  { key: "stepped", label: "Stepped Line", type: "boolean", default: false, category: "Style", description: "Draw the line as a step function — useful for discrete state changes." },
-  { key: "showPoints", label: "Show Data Points", type: "boolean", default: false, category: "Style", description: "Draw a dot at each data point along the line." },
-  { key: "showGridLines", label: "Show Grid Lines", type: "boolean", default: true, category: "Style", description: "Show faint horizontal reference lines behind the line." },
-  { key: "xAxisLabel", label: "X-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed below the horizontal axis." },
-  { key: "yAxisLabel", label: "Y-Axis Label", type: "text", default: "", category: "Labels", description: "Custom label displayed beside the vertical axis." },
-  { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each data series." },
-  { key: "referenceLines", label: "Reference Lines (JSON)", type: "text", default: "", category: "Annotations", description: 'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]' },
+  {
+    key: "smooth",
+    label: "Smooth Curve",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description:
+      "Render lines as smooth Bézier curves instead of straight segments.",
+  },
+  {
+    key: "area",
+    label: "Fill Area",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description:
+      "Fill the area beneath the line to emphasise volume over time.",
+  },
+  {
+    key: "lineWidth",
+    label: "Line Width (px)",
+    type: "number",
+    default: 2,
+    category: "Style",
+    description: "Stroke width of the line in pixels.",
+  },
+  {
+    key: "stepped",
+    label: "Stepped Line",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description:
+      "Draw the line as a step function — useful for discrete state changes.",
+  },
+  {
+    key: "showPoints",
+    label: "Show Data Points",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description: "Draw a dot at each data point along the line.",
+  },
+  {
+    key: "showGridLines",
+    label: "Show Grid Lines",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description: "Show faint horizontal reference lines behind the line.",
+  },
+  {
+    key: "xAxisLabel",
+    label: "X-Axis Label",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description: "Custom label displayed below the horizontal axis.",
+  },
+  {
+    key: "yAxisLabel",
+    label: "Y-Axis Label",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description: "Custom label displayed beside the vertical axis.",
+  },
+  {
+    key: "showLegend",
+    label: "Show Legend",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the chart legend identifying each data series.",
+  },
+  {
+    key: "referenceLines",
+    label: "Reference Lines (JSON)",
+    type: "text",
+    default: "",
+    category: "Annotations",
+    description:
+      'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
+  },
+  {
+    key: "samplingThreshold",
+    label: "Sampling Threshold",
+    type: "number",
+    default: 1000,
+    category: "Performance",
+    description:
+      "Enable LTTB downsampling when data points exceed this count. Set to 0 to disable.",
+  },
+  {
+    key: "samplingMethod",
+    label: "Sampling Method",
+    type: "select",
+    default: "lttb",
+    options: ["lttb", "average", "max", "min"],
+    category: "Performance",
+    description: "Algorithm for downsampling large datasets.",
+  },
 ];
 
 const pieOptions: ChartOptionDef[] = [
-  { key: "donut", label: "Donut Style", type: "boolean", default: false, category: "Style", description: "Cut a circular hole in the centre to render the chart as a donut." },
-  { key: "roseMode", label: "Rose/Nightingale Mode", type: "boolean", default: false, category: "Style", description: "Vary each slice's radius by its value (Nightingale / rose chart)." },
+  {
+    key: "donut",
+    label: "Donut Style",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description:
+      "Cut a circular hole in the centre to render the chart as a donut.",
+  },
+  {
+    key: "roseMode",
+    label: "Rose/Nightingale Mode",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description:
+      "Vary each slice's radius by its value (Nightingale / rose chart).",
+  },
   {
     key: "labelPosition",
     label: "Label Position",
@@ -76,19 +276,93 @@ const pieOptions: ChartOptionDef[] = [
       { label: "Center", value: "center" },
     ],
   },
-  { key: "showLabel", label: "Show Labels", type: "boolean", default: true, category: "Labels", description: "Show the category name on each slice." },
-  { key: "showPercentage", label: "Show Percentage", type: "boolean", default: true, category: "Labels", description: "Show the percentage value on each slice." },
-  { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the chart legend identifying each slice." },
-  { key: "sortSlices", label: "Sort Slices by Value", type: "boolean", default: false, category: "Layout", description: "Sort slices by value (largest first) for a cleaner visual layout." },
-  { key: "topN", label: "Top N Slices", type: "number", default: 0, category: "Layout", description: "Show only the top N slices and group the rest into 'Other'. Set to 0 to show all." },
-  { key: "donutCenterText", label: "Donut Center Text", type: "text", default: "", category: "Labels", description: "Custom text in the donut center. Leave blank to show the total." },
+  {
+    key: "showLabel",
+    label: "Show Labels",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the category name on each slice.",
+  },
+  {
+    key: "showPercentage",
+    label: "Show Percentage",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the percentage value on each slice.",
+  },
+  {
+    key: "showLegend",
+    label: "Show Legend",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the chart legend identifying each slice.",
+  },
+  {
+    key: "sortSlices",
+    label: "Sort Slices by Value",
+    type: "boolean",
+    default: false,
+    category: "Layout",
+    description:
+      "Sort slices by value (largest first) for a cleaner visual layout.",
+  },
+  {
+    key: "topN",
+    label: "Top N Slices",
+    type: "number",
+    default: 0,
+    category: "Layout",
+    description:
+      "Show only the top N slices and group the rest into 'Other'. Set to 0 to show all.",
+  },
+  {
+    key: "donutCenterText",
+    label: "Donut Center Text",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description:
+      "Custom text in the donut center. Leave blank to show the total.",
+  },
 ];
 
 const singleValueOptions: ChartOptionDef[] = [
-  { key: "title", label: "Title", type: "text", default: "", category: "Display", description: "Custom heading shown above the value. Leave blank to hide." },
-  { key: "prefix", label: "Prefix", type: "text", default: "", category: "Display", description: "Text prepended to the value (e.g. '$', '€')." },
-  { key: "suffix", label: "Suffix", type: "text", default: "", category: "Display", description: "Text appended to the value (e.g. '%', ' items')." },
-  { key: "decimalPlaces", label: "Decimal Places", type: "number", default: -1, category: "Display", description: "Fixed number of decimal places (0-6). Set to -1 for automatic." },
+  {
+    key: "title",
+    label: "Title",
+    type: "text",
+    default: "",
+    category: "Display",
+    description: "Custom heading shown above the value. Leave blank to hide.",
+  },
+  {
+    key: "prefix",
+    label: "Prefix",
+    type: "text",
+    default: "",
+    category: "Display",
+    description: "Text prepended to the value (e.g. '$', '€').",
+  },
+  {
+    key: "suffix",
+    label: "Suffix",
+    type: "text",
+    default: "",
+    category: "Display",
+    description: "Text appended to the value (e.g. '%', ' items').",
+  },
+  {
+    key: "decimalPlaces",
+    label: "Decimal Places",
+    type: "number",
+    default: -1,
+    category: "Display",
+    description:
+      "Fixed number of decimal places (0-6). Set to -1 for automatic.",
+  },
   {
     key: "fontSize",
     label: "Font Size",
@@ -109,7 +383,8 @@ const singleValueOptions: ChartOptionDef[] = [
     type: "select",
     default: "plain",
     category: "Display",
-    description: "How to format the numeric value — plain, comma-separated, compact (1.2k), or percentage.",
+    description:
+      "How to format the numeric value — plain, comma-separated, compact (1.2k), or percentage.",
     options: [
       { label: "Plain", value: "plain" },
       { label: "Comma", value: "comma" },
@@ -117,7 +392,15 @@ const singleValueOptions: ChartOptionDef[] = [
       { label: "Percent", value: "percent" },
     ],
   },
-  { key: "trendEnabled", label: "Show Trend Indicator", type: "boolean", default: false, category: "Display", description: "Show a trend arrow comparing the current value to the previous period (requires 2 rows in the query result)." },
+  {
+    key: "trendEnabled",
+    label: "Show Trend Indicator",
+    type: "boolean",
+    default: false,
+    category: "Display",
+    description:
+      "Show a trend arrow comparing the current value to the previous period (requires 2 rows in the query result).",
+  },
 ];
 
 const graphOptions: ChartOptionDef[] = [
@@ -127,7 +410,8 @@ const graphOptions: ChartOptionDef[] = [
     type: "select",
     default: "force",
     category: "Layout",
-    description: "Algorithm used to position nodes: force simulation, circular ring, or hierarchical tree.",
+    description:
+      "Algorithm used to position nodes: force simulation, circular ring, or hierarchical tree.",
     options: [
       { label: "Force", value: "force" },
       { label: "Circular", value: "circular" },
@@ -147,9 +431,31 @@ const graphOptions: ChartOptionDef[] = [
       { label: "Large", value: "large" },
     ],
   },
-  { key: "showLabels", label: "Show Labels", type: "boolean", default: true, category: "Labels", description: "Show the node label (first string property) on each node." },
-  { key: "showRelationshipLabels", label: "Show Relationship Labels", type: "boolean", default: true, category: "Labels", description: "Show the relationship type name on each edge." },
-  { key: "physics", label: "Enable Physics", type: "boolean", default: true, category: "Style", description: "Enable physics simulation so nodes repel and edges act as springs." },
+  {
+    key: "showLabels",
+    label: "Show Labels",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the node label (first string property) on each node.",
+  },
+  {
+    key: "showRelationshipLabels",
+    label: "Show Relationship Labels",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the relationship type name on each edge.",
+  },
+  {
+    key: "physics",
+    label: "Enable Physics",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description:
+      "Enable physics simulation so nodes repel and edges act as springs.",
+  },
 ];
 
 const mapOptions: ChartOptionDef[] = [
@@ -159,38 +465,190 @@ const mapOptions: ChartOptionDef[] = [
     type: "select",
     default: "osm",
     category: "Map",
-    description: "Base-map tile provider. OpenStreetMap is open and free; Carto variants are cleaner for data overlays.",
+    description:
+      "Base-map tile provider. OpenStreetMap is open and free; Carto variants are cleaner for data overlays.",
     options: [
       { label: "OpenStreetMap", value: "osm" },
       { label: "Carto Light", value: "carto-light" },
       { label: "Carto Dark", value: "carto-dark" },
     ],
   },
-  { key: "zoom", label: "Default Zoom", type: "number", default: 3, category: "Map", description: "Initial zoom level when the map first renders (1 = world view, 18 = street level)." },
-  { key: "minZoom", label: "Min Zoom", type: "number", default: 2, category: "Map", description: "Minimum zoom level the user can zoom out to." },
-  { key: "maxZoom", label: "Max Zoom", type: "number", default: 18, category: "Map", description: "Maximum zoom level the user can zoom in to." },
-  { key: "autoFitBounds", label: "Auto-fit Bounds", type: "boolean", default: true, category: "Map", description: "Automatically pan and zoom to fit all markers on the initial load." },
-  { key: "markerSize", label: "Marker Size (px)", type: "number", default: 6, category: "Markers", description: "Radius of each map marker circle in pixels." },
-  { key: "clusterMarkers", label: "Cluster Markers", type: "boolean", default: false, category: "Markers", description: "Group nearby markers into a single cluster badge at lower zoom levels." },
-  { key: "showPopup", label: "Show Popup on Click", type: "boolean", default: true, category: "Markers", description: "Show a popup with the row data when the user clicks a marker." },
+  {
+    key: "zoom",
+    label: "Default Zoom",
+    type: "number",
+    default: 3,
+    category: "Map",
+    description:
+      "Initial zoom level when the map first renders (1 = world view, 18 = street level).",
+  },
+  {
+    key: "minZoom",
+    label: "Min Zoom",
+    type: "number",
+    default: 2,
+    category: "Map",
+    description: "Minimum zoom level the user can zoom out to.",
+  },
+  {
+    key: "maxZoom",
+    label: "Max Zoom",
+    type: "number",
+    default: 18,
+    category: "Map",
+    description: "Maximum zoom level the user can zoom in to.",
+  },
+  {
+    key: "autoFitBounds",
+    label: "Auto-fit Bounds",
+    type: "boolean",
+    default: true,
+    category: "Map",
+    description:
+      "Automatically pan and zoom to fit all markers on the initial load.",
+  },
+  {
+    key: "markerSize",
+    label: "Marker Size (px)",
+    type: "number",
+    default: 6,
+    category: "Markers",
+    description: "Radius of each map marker circle in pixels.",
+  },
+  {
+    key: "clusterMarkers",
+    label: "Cluster Markers",
+    type: "boolean",
+    default: false,
+    category: "Markers",
+    description:
+      "Group nearby markers into a single cluster badge at lower zoom levels.",
+  },
+  {
+    key: "showPopup",
+    label: "Show Popup on Click",
+    type: "boolean",
+    default: true,
+    category: "Markers",
+    description:
+      "Show a popup with the row data when the user clicks a marker.",
+  },
 ];
 
 const tableOptions: ChartOptionDef[] = [
-  { key: "enableSorting", label: "Enable Sorting", type: "boolean", default: true, category: "Features", description: "Allow clicking column headers to sort rows ascending or descending." },
-  { key: "enableSelection", label: "Row Selection", type: "boolean", default: false, category: "Features", description: "Allow selecting individual rows by clicking them." },
-  { key: "enableGlobalFilter", label: "Global Search", type: "boolean", default: true, category: "Features", description: "Show a search box that filters all rows across all columns." },
-  { key: "enableColumnFilters", label: "Column Filters", type: "boolean", default: true, category: "Features", description: "Show per-column filter inputs below each column header." },
-  { key: "enableColumnResizing", label: "Column Resizing", type: "boolean", default: false, category: "Features", description: "Allow drag-to-resize column borders. Double-click to auto-fit." },
-  { key: "enablePagination", label: "Enable Pagination", type: "boolean", default: true, category: "Pagination", description: "Show Previous / Next controls to page through large result sets." },
-  { key: "pageSize", label: "Page Size", type: "number", default: 10, category: "Pagination", description: "Number of rows shown per page when pagination is enabled." },
-  { key: "emptyMessage", label: "Empty Message", type: "text", default: "No results", category: "Display", description: "Text displayed when the query returns no rows." },
-  { key: "enableGrouping", label: "Enable Row Grouping", type: "boolean", default: false, category: "Grouping", description: "Allow grouping rows by column values. Columns to group by are set in the groupBy field below." },
-  { key: "groupBy", label: "Group By Columns", type: "column-multi-select", default: "", category: "Grouping", description: "Select columns to group by. Nested grouping is supported — order determines nesting hierarchy." },
-  { key: "aggregationFn", label: "Aggregation Function", type: "select", default: "sum", category: "Grouping", description: "Aggregation function for numeric columns in grouped rows.", options: [{ label: "Sum", value: "sum" }, { label: "Average", value: "mean" }, { label: "Median", value: "median" }, { label: "Count", value: "count" }, { label: "Min", value: "min" }, { label: "Max", value: "max" }] },
+  {
+    key: "enableSorting",
+    label: "Enable Sorting",
+    type: "boolean",
+    default: true,
+    category: "Features",
+    description:
+      "Allow clicking column headers to sort rows ascending or descending.",
+  },
+  {
+    key: "enableSelection",
+    label: "Row Selection",
+    type: "boolean",
+    default: false,
+    category: "Features",
+    description: "Allow selecting individual rows by clicking them.",
+  },
+  {
+    key: "enableGlobalFilter",
+    label: "Global Search",
+    type: "boolean",
+    default: true,
+    category: "Features",
+    description: "Show a search box that filters all rows across all columns.",
+  },
+  {
+    key: "enableColumnFilters",
+    label: "Column Filters",
+    type: "boolean",
+    default: true,
+    category: "Features",
+    description: "Show per-column filter inputs below each column header.",
+  },
+  {
+    key: "enableColumnResizing",
+    label: "Column Resizing",
+    type: "boolean",
+    default: false,
+    category: "Features",
+    description:
+      "Allow drag-to-resize column borders. Double-click to auto-fit.",
+  },
+  {
+    key: "enablePagination",
+    label: "Enable Pagination",
+    type: "boolean",
+    default: true,
+    category: "Pagination",
+    description:
+      "Show Previous / Next controls to page through large result sets.",
+  },
+  {
+    key: "pageSize",
+    label: "Page Size",
+    type: "number",
+    default: 10,
+    category: "Pagination",
+    description: "Number of rows shown per page when pagination is enabled.",
+  },
+  {
+    key: "emptyMessage",
+    label: "Empty Message",
+    type: "text",
+    default: "No results",
+    category: "Display",
+    description: "Text displayed when the query returns no rows.",
+  },
+  {
+    key: "enableGrouping",
+    label: "Enable Row Grouping",
+    type: "boolean",
+    default: false,
+    category: "Grouping",
+    description:
+      "Allow grouping rows by column values. Columns to group by are set in the groupBy field below.",
+  },
+  {
+    key: "groupBy",
+    label: "Group By Columns",
+    type: "column-multi-select",
+    default: "",
+    category: "Grouping",
+    description:
+      "Select columns to group by. Nested grouping is supported — order determines nesting hierarchy.",
+  },
+  {
+    key: "aggregationFn",
+    label: "Aggregation Function",
+    type: "select",
+    default: "sum",
+    category: "Grouping",
+    description: "Aggregation function for numeric columns in grouped rows.",
+    options: [
+      { label: "Sum", value: "sum" },
+      { label: "Average", value: "mean" },
+      { label: "Median", value: "median" },
+      { label: "Count", value: "count" },
+      { label: "Min", value: "min" },
+      { label: "Max", value: "max" },
+    ],
+  },
 ];
 
 const jsonOptions: ChartOptionDef[] = [
-  { key: "initialExpanded", label: "Initial Expand Depth", type: "number", default: 2, category: "Display", description: "How many levels deep the JSON tree is expanded when first rendered (0 = collapsed)." },
+  {
+    key: "initialExpanded",
+    label: "Initial Expand Depth",
+    type: "number",
+    default: 2,
+    category: "Display",
+    description:
+      "How many levels deep the JSON tree is expanded when first rendered (0 = collapsed).",
+  },
   {
     key: "fontSize",
     label: "Font Size",
@@ -204,7 +662,15 @@ const jsonOptions: ChartOptionDef[] = [
       { label: "Large", value: "lg" },
     ],
   },
-  { key: "showCopyButton", label: "Show Copy Button", type: "boolean", default: true, category: "Display", description: "Show a button to copy the full JSON payload to the clipboard." },
+  {
+    key: "showCopyButton",
+    label: "Show Copy Button",
+    type: "boolean",
+    default: true,
+    category: "Display",
+    description:
+      "Show a button to copy the full JSON payload to the clipboard.",
+  },
   {
     key: "theme",
     label: "Theme",
@@ -220,24 +686,93 @@ const jsonOptions: ChartOptionDef[] = [
 ];
 
 const parameterSelectOptions: ChartOptionDef[] = [
-  { key: "placeholder", label: "Placeholder", type: "text", default: "", category: "Parameter", description: "Hint text shown inside the selector when no value has been chosen." },
-  { key: "searchable", label: "Search-as-you-type", type: "boolean", default: true, category: "Parameter", description: "Allow the user to type to filter the option list in real time." },
+  {
+    key: "placeholder",
+    label: "Placeholder",
+    type: "text",
+    default: "",
+    category: "Parameter",
+    description:
+      "Hint text shown inside the selector when no value has been chosen.",
+  },
+  {
+    key: "searchable",
+    label: "Search-as-you-type",
+    type: "boolean",
+    default: true,
+    category: "Parameter",
+    description:
+      "Allow the user to type to filter the option list in real time.",
+  },
 ];
 
 const formOptions: ChartOptionDef[] = [
-  { key: "submitButtonText", label: "Submit Button Text", type: "text", default: "Submit", category: "Form", description: "Label for the form submit button." },
-  { key: "successMessage", label: "Success Message", type: "text", default: "Form submitted successfully", category: "Form", description: "Message shown after a successful submission." },
-  { key: "resetOnSuccess", label: "Reset on Success", type: "boolean", default: true, category: "Form", description: "Clear all form fields after a successful submission." },
+  {
+    key: "submitButtonText",
+    label: "Submit Button Text",
+    type: "text",
+    default: "Submit",
+    category: "Form",
+    description: "Label for the form submit button.",
+  },
+  {
+    key: "successMessage",
+    label: "Success Message",
+    type: "text",
+    default: "Form submitted successfully",
+    category: "Form",
+    description: "Message shown after a successful submission.",
+  },
+  {
+    key: "resetOnSuccess",
+    label: "Reset on Success",
+    type: "boolean",
+    default: true,
+    category: "Form",
+    description: "Clear all form fields after a successful submission.",
+  },
 ];
 
 const markdownOptions: ChartOptionDef[] = [
-  { key: "content", label: "Markdown Content", type: "text", default: "", category: "Content", description: "Markdown text to render. Supports headings, bold, italic, links, lists, code blocks, and blockquotes." },
+  {
+    key: "content",
+    label: "Markdown Content",
+    type: "text",
+    default: "",
+    category: "Content",
+    description:
+      "Markdown text to render. Supports headings, bold, italic, links, lists, code blocks, and blockquotes.",
+  },
 ];
 
 const iframeOptions: ChartOptionDef[] = [
-  { key: "url", label: "URL", type: "text", default: "", category: "Content", description: "The URL of the external page to embed. Must be an https:// URL." },
-  { key: "iframeTitle", label: "Title", type: "text", default: "Embedded content", category: "Content", description: "Accessible title for the embedded content (used by screen readers)." },
-  { key: "sandbox", label: "Sandbox Policy", type: "text", default: "allow-scripts allow-popups", category: "Security", description: "HTML sandbox attributes controlling what the embedded page can do. Restrict for untrusted content." },
+  {
+    key: "url",
+    label: "URL",
+    type: "text",
+    default: "",
+    category: "Content",
+    description:
+      "The URL of the external page to embed. Must be an https:// URL.",
+  },
+  {
+    key: "iframeTitle",
+    label: "Title",
+    type: "text",
+    default: "Embedded content",
+    category: "Content",
+    description:
+      "Accessible title for the embedded content (used by screen readers).",
+  },
+  {
+    key: "sandbox",
+    label: "Sandbox Policy",
+    type: "text",
+    default: "allow-scripts allow-popups",
+    category: "Security",
+    description:
+      "HTML sandbox attributes controlling what the embedded page can do. Restrict for untrusted content.",
+  },
 ];
 
 /** Accessibility options for ECharts-based chart types. */
@@ -262,7 +797,10 @@ const appearanceOptions: ChartOptionDef[] = [
     default: "deep-ocean",
     category: "Appearance",
     description: "Color scheme for chart series and data points.",
-    options: Object.entries(COLOR_PALETTES).map(([k, v]) => ({ value: k, label: v.label })),
+    options: Object.entries(COLOR_PALETTES).map(([k, v]) => ({
+      value: k,
+      label: v.label,
+    })),
   },
 ];
 
@@ -274,7 +812,8 @@ const behaviorOptions: ChartOptionDef[] = [
     type: "boolean",
     default: false,
     category: "Behavior",
-    description: "Display a refresh button in the widget header to manually re-fetch the query.",
+    description:
+      "Display a refresh button in the widget header to manually re-fetch the query.",
   },
   {
     key: "manualRun",
@@ -301,14 +840,71 @@ const behaviorOptions: ChartOptionDef[] = [
 ];
 
 const gaugeOptions: ChartOptionDef[] = [
-  { key: "min", label: "Min Value", type: "number", default: 0, category: "Range", description: "Minimum value on the gauge scale." },
-  { key: "max", label: "Max Value", type: "number", default: 100, category: "Range", description: "Maximum value on the gauge scale." },
-  { key: "showProgress", label: "Show Progress Arc", type: "boolean", default: true, category: "Style", description: "Fill the gauge arc to show progress toward the maximum." },
-  { key: "showPointer", label: "Show Pointer", type: "boolean", default: true, category: "Style", description: "Display a needle pointer on the gauge." },
-  { key: "showDetail", label: "Show Value Detail", type: "boolean", default: true, category: "Labels", description: "Show the numeric value and name below the gauge." },
-  { key: "startAngle", label: "Start Angle (°)", type: "number", default: 225, category: "Layout", description: "Starting angle of the gauge arc in degrees (0 = 3 o'clock)." },
-  { key: "endAngle", label: "End Angle (°)", type: "number", default: -45, category: "Layout", description: "Ending angle of the gauge arc in degrees." },
-  { key: "thresholdZones", label: "Threshold Zones (JSON)", type: "text", default: "", category: "Style", description: 'Colored zones on the gauge arc: [{"value":30,"color":"#67e0e3"},{"value":70,"color":"#37a2da"},{"value":100,"color":"#fd666d"}]' },
+  {
+    key: "min",
+    label: "Min Value",
+    type: "number",
+    default: 0,
+    category: "Range",
+    description: "Minimum value on the gauge scale.",
+  },
+  {
+    key: "max",
+    label: "Max Value",
+    type: "number",
+    default: 100,
+    category: "Range",
+    description: "Maximum value on the gauge scale.",
+  },
+  {
+    key: "showProgress",
+    label: "Show Progress Arc",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description: "Fill the gauge arc to show progress toward the maximum.",
+  },
+  {
+    key: "showPointer",
+    label: "Show Pointer",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description: "Display a needle pointer on the gauge.",
+  },
+  {
+    key: "showDetail",
+    label: "Show Value Detail",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the numeric value and name below the gauge.",
+  },
+  {
+    key: "startAngle",
+    label: "Start Angle (°)",
+    type: "number",
+    default: 225,
+    category: "Layout",
+    description: "Starting angle of the gauge arc in degrees (0 = 3 o'clock).",
+  },
+  {
+    key: "endAngle",
+    label: "End Angle (°)",
+    type: "number",
+    default: -45,
+    category: "Layout",
+    description: "Ending angle of the gauge arc in degrees.",
+  },
+  {
+    key: "thresholdZones",
+    label: "Threshold Zones (JSON)",
+    type: "text",
+    default: "",
+    category: "Style",
+    description:
+      'Colored zones on the gauge arc: [{"value":30,"color":"#67e0e3"},{"value":70,"color":"#37a2da"},{"value":100,"color":"#fd666d"}]',
+  },
 ];
 
 const sankeyOptions: ChartOptionDef[] = [
@@ -318,19 +914,48 @@ const sankeyOptions: ChartOptionDef[] = [
     type: "select",
     default: "horizontal",
     category: "Layout",
-    description: "Direction of the flow: left-to-right (horizontal) or top-to-bottom (vertical).",
+    description:
+      "Direction of the flow: left-to-right (horizontal) or top-to-bottom (vertical).",
     options: [
       { label: "Horizontal", value: "horizontal" },
       { label: "Vertical", value: "vertical" },
     ],
   },
-  { key: "showLabels", label: "Show Node Labels", type: "boolean", default: true, category: "Labels", description: "Show the node name alongside each block." },
-  { key: "nodeWidth", label: "Node Width (px)", type: "number", default: 20, category: "Layout", description: "Width of each node block in pixels." },
-  { key: "nodeGap", label: "Node Gap (px)", type: "number", default: 8, category: "Layout", description: "Vertical gap between nodes at the same level in pixels." },
+  {
+    key: "showLabels",
+    label: "Show Node Labels",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the node name alongside each block.",
+  },
+  {
+    key: "nodeWidth",
+    label: "Node Width (px)",
+    type: "number",
+    default: 20,
+    category: "Layout",
+    description: "Width of each node block in pixels.",
+  },
+  {
+    key: "nodeGap",
+    label: "Node Gap (px)",
+    type: "number",
+    default: 8,
+    category: "Layout",
+    description: "Vertical gap between nodes at the same level in pixels.",
+  },
 ];
 
 const sunburstOptions: ChartOptionDef[] = [
-  { key: "showLabels", label: "Show Labels", type: "boolean", default: true, category: "Labels", description: "Show the name of each segment." },
+  {
+    key: "showLabels",
+    label: "Show Labels",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the name of each segment.",
+  },
   {
     key: "sort",
     label: "Sort Segments",
@@ -344,7 +969,14 @@ const sunburstOptions: ChartOptionDef[] = [
       { label: "Natural (data order)", value: "none" },
     ],
   },
-  { key: "highlightOnHover", label: "Highlight on Hover", type: "boolean", default: true, category: "Style", description: "Enlarge and emphasise a segment when hovered." },
+  {
+    key: "highlightOnHover",
+    label: "Highlight on Hover",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description: "Enlarge and emphasise a segment when hovered.",
+  },
 ];
 
 const radarOptions: ChartOptionDef[] = [
@@ -360,22 +992,66 @@ const radarOptions: ChartOptionDef[] = [
       { label: "Circle", value: "circle" },
     ],
   },
-  { key: "filled", label: "Fill Area", type: "boolean", default: true, category: "Style", description: "Fill the area enclosed by the data polygon." },
-  { key: "showLegend", label: "Show Legend", type: "boolean", default: true, category: "Labels", description: "Show the legend identifying each series." },
-  { key: "showValues", label: "Show Values on Points", type: "boolean", default: false, category: "Labels", description: "Display the numeric value at each data point on the radar." },
+  {
+    key: "filled",
+    label: "Fill Area",
+    type: "boolean",
+    default: true,
+    category: "Style",
+    description: "Fill the area enclosed by the data polygon.",
+  },
+  {
+    key: "showLegend",
+    label: "Show Legend",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the legend identifying each series.",
+  },
+  {
+    key: "showValues",
+    label: "Show Values on Points",
+    type: "boolean",
+    default: false,
+    category: "Labels",
+    description: "Display the numeric value at each data point on the radar.",
+  },
 ];
 
 const treemapOptions: ChartOptionDef[] = [
-  { key: "showLabels", label: "Show Labels", type: "boolean", default: true, category: "Labels", description: "Show the name of each rectangle." },
-  { key: "showBreadcrumb", label: "Show Breadcrumb", type: "boolean", default: true, category: "Labels", description: "Show the navigation breadcrumb when drilling down into nested data." },
-  { key: "showValues", label: "Show Values", type: "boolean", default: false, category: "Labels", description: "Display the numeric value inside each rectangle." },
+  {
+    key: "showLabels",
+    label: "Show Labels",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description: "Show the name of each rectangle.",
+  },
+  {
+    key: "showBreadcrumb",
+    label: "Show Breadcrumb",
+    type: "boolean",
+    default: true,
+    category: "Labels",
+    description:
+      "Show the navigation breadcrumb when drilling down into nested data.",
+  },
+  {
+    key: "showValues",
+    label: "Show Values",
+    type: "boolean",
+    default: false,
+    category: "Labels",
+    description: "Display the numeric value inside each rectangle.",
+  },
   {
     key: "colorSaturation",
     label: "Color Saturation Range",
     type: "select",
     default: "medium",
     category: "Style",
-    description: "Controls the saturation gradient used to shade child rectangles within a parent.",
+    description:
+      "Controls the saturation gradient used to shade child rectangles within a parent.",
     options: [
       { label: "Low", value: "low" },
       { label: "Medium", value: "medium" },
@@ -385,9 +1061,29 @@ const treemapOptions: ChartOptionDef[] = [
 ];
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
-  bar: [...barOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  line: [...lineOptions, ...dataZoomOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
-  pie: [...pieOptions, ...tooltipFormatOptions, ...behaviorOptions, ...appearanceOptions, ...accessibilityOptions],
+  bar: [
+    ...barOptions,
+    ...dataZoomOptions,
+    ...tooltipFormatOptions,
+    ...behaviorOptions,
+    ...appearanceOptions,
+    ...accessibilityOptions,
+  ],
+  line: [
+    ...lineOptions,
+    ...dataZoomOptions,
+    ...tooltipFormatOptions,
+    ...behaviorOptions,
+    ...appearanceOptions,
+    ...accessibilityOptions,
+  ],
+  pie: [
+    ...pieOptions,
+    ...tooltipFormatOptions,
+    ...behaviorOptions,
+    ...appearanceOptions,
+    ...accessibilityOptions,
+  ],
   "single-value": [...singleValueOptions, ...behaviorOptions],
   graph: [...graphOptions, ...behaviorOptions],
   map: [...mapOptions, ...behaviorOptions],
@@ -408,7 +1104,9 @@ export function getChartOptions(chartType: string): ChartOptionDef[] {
   return chartOptionsRegistry[chartType] ?? [];
 }
 
-export function getDefaultChartSettings(chartType: string): Record<string, unknown> {
+export function getDefaultChartSettings(
+  chartType: string,
+): Record<string, unknown> {
   const options = getChartOptions(chartType);
   const defaults: Record<string, unknown> = {};
   for (const opt of options) {
