@@ -12,8 +12,8 @@
     "url": "https://github.com/neo-technology/neodash-commercial.git"
   },
   "dependencies": {
-    "neo4j-driver": "^5.28.1",
-    "neo4j-driver-core": "^5.28.1",
+    "neo4j-driver": "^6.0.1",
+    "neo4j-driver-core": "^6.0.1",
     "pg": "^8.11.0"
   },
   "devDependencies": {
