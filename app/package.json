@@ -29,7 +29,7 @@
     "connection": "file:../connection",
     "drizzle-orm": "^0.39.3",
     "lucide-react": "^0.564.0",
-    "next": "^15.3.3",
+    "next": "^16.2.1",
     "next-auth": "^5.0.0-beta.25",
     "pg": "^8.20.0",
     "postgres": "^3.4.5",
