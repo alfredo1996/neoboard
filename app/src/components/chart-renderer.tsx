@@ -52,7 +52,7 @@ import type {
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
 import type { ParameterType } from "@/stores/parameter-store";
 import { GraphExplorationWrapper } from "./graph-exploration-wrapper";
-import { TableRenderer } from "./table-renderer";
+import { TableRenderer } from "@neoboard/components";
 
 // Form widget — direct import (client component, no SSR concern since chart-renderer is "use client")
 import { FormWidgetRenderer } from "./form-widget-renderer";

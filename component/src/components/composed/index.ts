@@ -66,6 +66,7 @@ export {
 } from "./dashboard-mini-preview";
 
 // Tables & Data
+export { TableRenderer, type TableRendererProps } from "./table-renderer";
 export { DataGrid, type DataGridProps, type DataGridColumn } from "./data-grid";
 export {
   DataGridColumnHeader,

@@ -1,22 +1,45 @@
 "use client";
 
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import { EmptyState } from "./empty-state";
+import { DataGrid } from "./data-grid";
+import { DataGridColumnHeader } from "./data-grid-column-header";
+import { DataGridViewOptions } from "./data-grid-view-options";
+import { DataGridPagination } from "./data-grid-pagination";
 import {
-  EmptyState,
-  DataGrid,
-  DataGridColumnHeader,
-  DataGridViewOptions,
-  DataGridPagination,
   parseColorThresholds,
   resolveThresholdColor,
+} from "../../charts/color-threshold";
+import {
   resolveStylingRuleColor,
   interpolateColor,
-} from "@neoboard/components";
-import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
+  type StylingRule,
+  type ColorScaleConfig,
+} from "../../charts/styling-rule";
 import type { ColumnDef } from "@tanstack/react-table";
-import { parseGroupByColumns } from "@/lib/table-utils";
 
-const AGG_SYMBOLS: Record<string, string> = { sum: "Σ", mean: "μ", median: "M̃", count: "#", min: "min", max: "max" };
+/** Parses comma-separated groupBy string into column ID array. */
+export function parseGroupByColumns(
+  enableGrouping: boolean,
+  groupBy: string,
+): string[] | undefined {
+  if (!enableGrouping) return undefined;
+  const raw = typeof groupBy === "string" ? groupBy : "";
+  if (!raw.trim()) return undefined;
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const AGG_SYMBOLS: Record<string, string> = {
+  sum: "Σ",
+  mean: "μ",
+  median: "M̃",
+  count: "#",
+  min: "min",
+  max: "max",
+};
 
 export interface TableRendererProps {
   data: unknown;
@@ -37,10 +60,20 @@ export interface TableRendererProps {
  * Uses a ResizeObserver on the wrapper div to pass a live containerHeight so
  * DataGrid can calculate the dynamic page size automatically.
  */
-export function TableRenderer({ data, settings = {}, onCellClick, clickableColumns, stylingRules, paramValues, colorScales }: TableRendererProps) {
+export function TableRenderer({
+  data,
+  settings = {},
+  onCellClick,
+  clickableColumns,
+  stylingRules,
+  paramValues,
+  colorScales,
+}: TableRendererProps) {
   const records = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
+  const [containerHeight, setContainerHeight] = useState<number | undefined>(
+    undefined,
+  );
 
   // Track the container's height so DataGrid can compute the page size.
   useEffect(() => {
@@ -68,7 +101,13 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
     [enableGrouping, settings.groupBy],
   );
 
-  const aggregationFn = ((settings.aggregationFn as string) || "sum") as "sum" | "mean" | "median" | "count" | "min" | "max";
+  const aggregationFn = ((settings.aggregationFn as string) || "sum") as
+    | "sum"
+    | "mean"
+    | "median"
+    | "count"
+    | "min"
+    | "max";
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
@@ -88,8 +127,7 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
           const v = getValue();
           if (v === null || v === undefined)
             return <span className="text-muted-foreground">null</span>;
-          const display =
-            typeof v === "object" ? JSON.stringify(v) : String(v);
+          const display = typeof v === "object" ? JSON.stringify(v) : String(v);
           return (
             <span className="block truncate max-w-[240px]" title={display}>
               {display}
@@ -103,7 +141,8 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
                 const v = getValue();
                 return v != null ? (
                   <span className="text-muted-foreground text-xs font-medium">
-                    {aggSymbol} {typeof v === "number" ? v.toLocaleString() : String(v)}
+                    {aggSymbol}{" "}
+                    {typeof v === "number" ? v.toLocaleString() : String(v)}
                   </span>
                 ) : null;
               },
@@ -122,7 +161,9 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   }, [settings.colorThresholds]);
 
   const thresholdColumn =
-    typeof settings.colorThresholdsColumn === "string" ? settings.colorThresholdsColumn : "";
+    typeof settings.colorThresholdsColumn === "string"
+      ? settings.colorThresholdsColumn
+      : "";
 
   // Compute a single fallback numeric column once so every row is colored consistently.
   const fallbackThresholdColumn = useMemo(() => {
@@ -138,9 +179,10 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
   const getRowStyle = useMemo(() => {
     if (stylingRules?.length) {
       // Fallback column for rules without an explicit column
-      const defaultCol =
-        thresholdColumn || fallbackThresholdColumn;
-      return (row: Record<string, unknown>): React.CSSProperties | undefined => {
+      const defaultCol = thresholdColumn || fallbackThresholdColumn;
+      return (
+        row: Record<string, unknown>,
+      ): React.CSSProperties | undefined => {
         const style: React.CSSProperties = {};
         let hasStyle = false;
         let bgSet = false;
@@ -175,7 +217,9 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
       };
     }
     if (thresholds.length > 0) {
-      return (row: Record<string, unknown>): React.CSSProperties | undefined => {
+      return (
+        row: Record<string, unknown>,
+      ): React.CSSProperties | undefined => {
         const col =
           thresholdColumn && thresholdColumn in row
             ? thresholdColumn
@@ -188,18 +232,31 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
       };
     }
     return undefined;
-  }, [stylingRules, paramValues, thresholds, thresholdColumn, fallbackThresholdColumn]);
+  }, [
+    stylingRules,
+    paramValues,
+    thresholds,
+    thresholdColumn,
+    fallbackThresholdColumn,
+  ]);
 
   // Compute per-column min/max for color scales
   const columnMinMax = useMemo(() => {
-    if (!colorScales?.length || !records.length) return new Map<string, { min: number; max: number }>();
+    if (!colorScales?.length || !records.length)
+      return new Map<string, { min: number; max: number }>();
     const result = new Map<string, { min: number; max: number }>();
     for (const scale of colorScales) {
       let min = Infinity;
       let max = -Infinity;
       for (const row of records) {
         const raw = (row as Record<string, unknown>)[scale.column];
-        if (raw === null || raw === undefined || raw === "" || (typeof raw === "string" && !raw.trim())) continue;
+        if (
+          raw === null ||
+          raw === undefined ||
+          raw === "" ||
+          (typeof raw === "string" && !raw.trim())
+        )
+          continue;
         const val = Number(raw);
         if (!Number.isNaN(val)) {
           if (val < min) min = val;
@@ -213,18 +270,30 @@ export function TableRenderer({ data, settings = {}, onCellClick, clickableColum
 
   const getCellStyle = useMemo(() => {
     if (!colorScales?.length) return undefined;
-    return (row: Record<string, unknown>, columnId: string): React.CSSProperties | undefined => {
+    return (
+      row: Record<string, unknown>,
+      columnId: string,
+    ): React.CSSProperties | undefined => {
       const scale = colorScales.find((s) => s.column === columnId);
       if (!scale) return undefined;
       const bounds = columnMinMax.get(columnId);
       if (!bounds) return undefined;
       const val = Number(row[columnId]);
       if (Number.isNaN(val)) return undefined;
-      return { backgroundColor: interpolateColor(val, bounds.min, bounds.max, scale.minColor, scale.maxColor) };
+      return {
+        backgroundColor: interpolateColor(
+          val,
+          bounds.min,
+          bounds.max,
+          scale.minColor,
+          scale.maxColor,
+        ),
+      };
     };
   }, [colorScales, columnMinMax]);
 
-  const emptyMessage = (settings.emptyMessage as string | undefined) ?? "No results";
+  const emptyMessage =
+    (settings.emptyMessage as string | undefined) ?? "No results";
   if (!records.length) {
     return <EmptyState title={emptyMessage} className="py-6" />;
   }

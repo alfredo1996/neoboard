@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseGroupByColumns } from "../table-utils";
+import { parseGroupByColumns } from "../table-renderer";
 
 describe("parseGroupByColumns", () => {
   it("returns undefined when grouping is disabled", () => {
@@ -19,7 +19,10 @@ describe("parseGroupByColumns", () => {
   });
 
   it("parses multiple comma-separated columns", () => {
-    expect(parseGroupByColumns(true, "country,city")).toEqual(["country", "city"]);
+    expect(parseGroupByColumns(true, "country,city")).toEqual([
+      "country",
+      "city",
+    ]);
   });
 
   it("trims whitespace around column names", () => {
@@ -31,12 +34,16 @@ describe("parseGroupByColumns", () => {
   });
 
   it("filters out empty entries from trailing commas", () => {
-    expect(parseGroupByColumns(true, "country,,city,")).toEqual(["country", "city"]);
+    expect(parseGroupByColumns(true, "country,,city,")).toEqual([
+      "country",
+      "city",
+    ]);
   });
 
   it("handles non-string groupBy gracefully", () => {
-    // Runtime safety: groupBy might come from JSON settings as number/undefined
-    expect(parseGroupByColumns(true, undefined as unknown as string)).toBeUndefined();
+    expect(
+      parseGroupByColumns(true, undefined as unknown as string),
+    ).toBeUndefined();
     expect(parseGroupByColumns(true, 123 as unknown as string)).toBeUndefined();
   });
 });

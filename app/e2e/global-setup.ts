@@ -13,6 +13,7 @@ import { initCoverage, loadNextcovConfig } from "nextcov/playwright";
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const SERVER_PID_FILE = path.join(__dirname, ".server-pid");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
+const KEEP_ALIVE_FILE = path.join(__dirname, ".keep-alive");
 
 // Stable test secrets (not real — only for local E2E)
 const TEST_ENCRYPTION_KEY =
@@ -31,19 +32,6 @@ function encryptJson(data: unknown): string {
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   const authTag = cipher.getAuthTag();
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
-}
-
-/** Bind to port 0 to let the OS assign an available port, then release it. */
-function getFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, () => {
-      const addr = srv.address();
-      const port = typeof addr === "object" && addr ? addr.port : 0;
-      srv.close(() => resolve(port));
-    });
-    srv.on("error", reject);
-  });
 }
 
 const MIGRATIONS_FOLDER = path.resolve(
@@ -108,49 +96,110 @@ async function updateConnectionConfigs(
   }
 }
 
+/** Check if a KEEP_ALIVE server from a previous run is still responding. */
+async function tryReuseServer(serverPort: number): Promise<boolean> {
+  if (!fs.existsSync(SERVER_PID_FILE)) return false;
+
+  const pid = parseInt(fs.readFileSync(SERVER_PID_FILE, "utf-8"), 10);
+  try {
+    process.kill(pid, 0); // signal 0 = check if alive
+  } catch {
+    return false;
+  }
+
+  try {
+    await waitForPort(serverPort, 5_000);
+    console.log(
+      `♻️  Reusing Next.js server (pid ${pid}) on port ${serverPort}`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── KEEP_ALIVE mode ─────────────────────────────────────────────────────────
+// Set KEEP_ALIVE=1 to keep containers + Next.js server alive between runs.
+// Containers use Testcontainers .withReuse() — identical config = same container.
+// Next.js server reuse is checked via PID file + port probe.
+//
+// First run:  ~5 min (containers + server start)
+// Next runs:  ~2 min (containers already running, server already up)
+//
+// Usage:
+//   KEEP_ALIVE=1 npx playwright test        # first run + subsequent
+//   npx playwright test                      # normal (tears down after)
+//   npm run test:e2e:fast                    # convenience alias
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default async function globalSetup() {
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
   const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
   const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
+  const keepAlive = process.env.KEEP_ALIVE === "1";
+  const serverPort =
+    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) || 3100;
 
-  console.log("\n⏳ Starting test containers...\n");
+  // Write/clean KEEP_ALIVE marker for teardown (env vars don't always propagate)
+  if (keepAlive) {
+    fs.writeFileSync(KEEP_ALIVE_FILE, "1");
+  } else {
+    try {
+      fs.unlinkSync(KEEP_ALIVE_FILE);
+    } catch {}
+  }
 
-  // Start both containers in parallel to minimise total startup time.
+  console.log(
+    keepAlive
+      ? "\n⏳ Starting containers (with reuse)...\n"
+      : "\n⏳ Starting test containers...\n",
+  );
+
+  // ── Start containers ──────────────────────────────────────────────────────
+  // .withReuse() tells Testcontainers to reuse an existing container with the
+  // same configuration instead of starting a new one. On first run it starts
+  // fresh; on subsequent runs it returns the already-running container instantly.
+  const pgBuilder = new GenericContainer("postgres:16-alpine")
+    .withEnvironment({
+      POSTGRES_USER: "neoboard",
+      POSTGRES_PASSWORD: "neoboard",
+      POSTGRES_DB: "neoboard",
+    })
+    .withExposedPorts(5432)
+    .withCopyFilesToContainer([
+      {
+        source: pgInitSql,
+        target: "/docker-entrypoint-initdb.d/init-test.sql",
+      },
+    ])
+    .withWaitStrategy(
+      Wait.forLogMessage(/database system is ready to accept connections/, 2),
+    )
+    .withStartupTimeout(60_000);
+
+  const neo4jBuilder = new GenericContainer("neo4j:5-community")
+    .withEnvironment({
+      NEO4J_AUTH: "neo4j/neoboard123",
+      NEO4J_PLUGINS: '[""]',
+    })
+    .withExposedPorts(7474, 7687)
+    .withCopyFilesToContainer([
+      {
+        source: neo4jInitCypher,
+        target: "/var/lib/neo4j/import/init.cypher",
+      },
+    ])
+    .withWaitStrategy(Wait.forLogMessage(/Started\./, 1))
+    .withStartupTimeout(120_000);
+
+  if (keepAlive) {
+    pgBuilder.withReuse();
+    neo4jBuilder.withReuse();
+  }
+
   const [pgContainer, neo4jContainer] = await Promise.all([
-    new GenericContainer("postgres:16-alpine")
-      .withEnvironment({
-        POSTGRES_USER: "neoboard",
-        POSTGRES_PASSWORD: "neoboard",
-        POSTGRES_DB: "neoboard",
-      })
-      .withExposedPorts(5432)
-      .withCopyFilesToContainer([
-        {
-          source: pgInitSql,
-          target: "/docker-entrypoint-initdb.d/init-test.sql",
-        },
-      ])
-      .withWaitStrategy(
-        Wait.forLogMessage(/database system is ready to accept connections/, 2),
-      )
-      .withStartupTimeout(60_000)
-      .start(),
-
-    new GenericContainer("neo4j:5-community")
-      .withEnvironment({
-        NEO4J_AUTH: "neo4j/neoboard123",
-        NEO4J_PLUGINS: '[""]',
-      })
-      .withExposedPorts(7474, 7687)
-      .withCopyFilesToContainer([
-        {
-          source: neo4jInitCypher,
-          target: "/var/lib/neo4j/import/init.cypher",
-        },
-      ])
-      .withWaitStrategy(Wait.forLogMessage(/Started\./, 1))
-      .withStartupTimeout(120_000)
-      .start(),
+    pgBuilder.start(),
+    neo4jBuilder.start(),
   ]);
 
   const pgHost = pgContainer.getHost();
@@ -163,22 +212,40 @@ export default async function globalSetup() {
     `✅ Neo4j ready at bolt port ${neo4jBoltPort}, http port ${neo4jHttpPort}`,
   );
 
-  // Seed Neo4j with the init.cypher via cypher-shell inside the container.
-  console.log("⏳ Seeding Neo4j with movies dataset...");
-  const seedResult = await neo4jContainer.exec([
+  // Seed Neo4j with the init.cypher — skip if data already exists (reused container).
+  const countResult = await neo4jContainer.exec([
     "cypher-shell",
     "-u",
     "neo4j",
     "-p",
     "neoboard123",
-    "-f",
-    "/var/lib/neo4j/import/init.cypher",
+    "MATCH (n) RETURN count(n) AS c",
   ]);
-  if (seedResult.exitCode !== 0) {
-    console.error("❌ Neo4j seed failed:", seedResult.output);
-    throw new Error(`Neo4j seed failed with exit code ${seedResult.exitCode}`);
+  const nodeCount = parseInt(
+    countResult.output.trim().split("\n").pop() || "0",
+    10,
+  );
+  if (nodeCount > 0) {
+    console.log(`♻️  Neo4j already has ${nodeCount} nodes — skipping seed`);
+  } else {
+    console.log("⏳ Seeding Neo4j with movies dataset...");
+    const seedResult = await neo4jContainer.exec([
+      "cypher-shell",
+      "-u",
+      "neo4j",
+      "-p",
+      "neoboard123",
+      "-f",
+      "/var/lib/neo4j/import/init.cypher",
+    ]);
+    if (seedResult.exitCode !== 0) {
+      console.error("❌ Neo4j seed failed:", seedResult.output);
+      throw new Error(
+        `Neo4j seed failed with exit code ${seedResult.exitCode}`,
+      );
+    }
+    console.log("✅ Neo4j seeded successfully");
   }
-  console.log("✅ Neo4j seeded successfully");
 
   // Save container IDs so teardown can remove them.
   fs.writeFileSync(
@@ -195,22 +262,21 @@ export default async function globalSetup() {
   await runDrizzleMigrations(databaseUrl);
   console.log("✅ Drizzle migrations applied");
 
-  // ── Seed neoboard with test data (users, connections, dashboards) ──────
-  console.log("⏳ Seeding neoboard database...");
-  await seedNeoboard(databaseUrl);
-  console.log("✅ Neoboard seeded");
+  // ── Seed neoboard with test data (skip if already seeded) ──────────────
+  const checkSql = postgres(databaseUrl, { max: 1 });
+  const [{ count }] = await checkSql`SELECT count(*)::int AS count FROM "user"`;
+  await checkSql.end();
+  if (count > 0) {
+    console.log(`♻️  PostgreSQL already has ${count} user(s) — skipping seed`);
+  } else {
+    console.log("⏳ Seeding neoboard database...");
+    await seedNeoboard(databaseUrl);
+    console.log("✅ Neoboard seeded");
+  }
 
   // ── Encrypt real connection configs and update the seeded rows ──────────
   console.log("⏳ Updating seeded connection configs with encrypted values...");
   await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
-
-  // ── Resolve the server port ──────────────────────────────────────────────
-  // Use TEST_SERVER_PORT when set; otherwise default to 3100 to stay in sync
-  // with playwright.config.ts which uses the same env var and the same default.
-  // Using getFreePort() here would desync the server port from the baseURL that
-  // Playwright evaluates before globalSetup runs.
-  const serverPort =
-    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) || (await getFreePort());
 
   // ── Write .env.test for the Next.js dev server ──────────────────────────
   const envContent = [
@@ -240,8 +306,15 @@ export default async function globalSetup() {
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
 
-  // ── Start the Next.js server on a dynamically allocated port ────────────
-  // Env vars are passed directly to the process — .env.local is never touched.
+  // ── Start Next.js server (or reuse existing one in KEEP_ALIVE mode) ────
+  if (keepAlive) {
+    const reused = await tryReuseServer(serverPort);
+    if (reused) {
+      console.log("\n✅ All ready (reused). Starting tests...\n");
+      return;
+    }
+  }
+
   const appDir = path.resolve(__dirname, "..");
   const serverCmd = process.env.CI ? "start" : "dev";
   console.log(

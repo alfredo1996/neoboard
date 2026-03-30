@@ -10,6 +10,7 @@
     "test:app": "npm run test --prefix app",
     "test:components": "npm run test --prefix component",
     "test:e2e": "npm run test:e2e --prefix app",
+    "test:e2e:fast": "KEEP_ALIVE=1 npm run test:e2e --prefix app",
     "storybook": "npm run storybook --prefix component",
     "lint": "eslint .",
     "db:migrate": "npm run db:migrate --prefix app",

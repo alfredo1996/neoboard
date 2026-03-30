@@ -6,8 +6,25 @@ import { finalizeCoverage, loadNextcovConfig } from "nextcov/playwright";
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const SERVER_PID_FILE = path.join(__dirname, ".server-pid");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
+const KEEP_ALIVE_FILE = path.join(__dirname, ".keep-alive");
 
 export default async function globalTeardown() {
+  // KEEP_ALIVE: leave containers + server running for the next run.
+  const keepAlive =
+    process.env.KEEP_ALIVE === "1" || fs.existsSync(KEEP_ALIVE_FILE);
+  if (keepAlive) {
+    console.log(
+      "\n♻️  KEEP_ALIVE=1 — skipping teardown. Server and containers stay alive.",
+    );
+    console.log(
+      "   Next run with KEEP_ALIVE=1 will reuse them (~2 min instead of ~25 min).",
+    );
+    console.log(
+      "   To stop: KEEP_ALIVE=0 npx playwright test, or kill manually.\n",
+    );
+    return;
+  }
+
   // In CI the databases are GitHub Actions service containers — GitHub stops
   // them automatically after the job; we must not try to remove them ourselves.
   const isServiceContainerMode = process.env.CI_SERVICE_CONTAINERS === "true";
@@ -27,7 +44,9 @@ export default async function globalTeardown() {
   }
 
   if (isServiceContainerMode) {
-    console.log("CI service containers — skipping docker rm (GitHub manages them).");
+    console.log(
+      "CI service containers — skipping docker rm (GitHub manages them).",
+    );
   } else {
     if (!fs.existsSync(STATE_FILE)) {
       console.log("No container state file found, nothing to clean up.");
@@ -60,9 +79,15 @@ export default async function globalTeardown() {
   }
 
   // Clean up temp files
-  try { fs.unlinkSync(STATE_FILE); } catch {}
-  try { fs.unlinkSync(SERVER_PID_FILE); } catch {}
-  try { fs.unlinkSync(ENV_FILE); } catch {}
+  try {
+    fs.unlinkSync(STATE_FILE);
+  } catch {}
+  try {
+    fs.unlinkSync(SERVER_PID_FILE);
+  } catch {}
+  try {
+    fs.unlinkSync(ENV_FILE);
+  } catch {}
 
   console.log("✅ Cleanup complete.\n");
 }
