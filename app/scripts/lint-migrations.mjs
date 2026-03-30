@@ -108,7 +108,7 @@ if (violations.length === 0) {
     console.error(`    Line:    ${v.text}\n`);
   }
   console.error(
-    "Wrap DDL in idempotent guards. See claude_code_docs/plans/idempotent-migrations.md for patterns."
+    "Wrap DDL in idempotent guards. Use DO $$ IF NOT EXISTS blocks for CREATE/ALTER statements."
   );
   process.exit(1);
 }
