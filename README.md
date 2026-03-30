@@ -33,7 +33,7 @@
 # Clone and start
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-docker compose -f docker-compose.prod.yml up
+docker compose -f docker/docker-compose.prod.yml up
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -80,7 +80,7 @@ Three packages with **strict boundaries**: `app/` orchestrates, `component/` ren
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, branch naming, PR workflow, and code style.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for setup instructions, branch naming, PR workflow, and code style.
 
 Looking for a first contribution? Check issues labeled [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
 

@@ -26,10 +26,7 @@ out
 *.njsproj
 *.sln
 *.sw?
-.claude/projects
-.claude/todos
-.claude/settings.local.json
-.claude/worktrees
+.claude/
 *storybook.log
 storybook-static
 
@@ -53,6 +50,13 @@ app/coverage-e2e/
 .screenshots/after/
 .screenshots/diff/
 .playwright-mcp
+
+# Claude Code (all local-only)
+claude_code_docs/
+CLAUDE.md
+.mcp.json
+scripts/claude-setup.sh
+.github/workflows/claude.yml
 
 # Fumadocs generated
 docs/.source
