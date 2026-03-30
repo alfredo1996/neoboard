@@ -1,7 +1,13 @@
+# Production NeoBoard container.
+# Required env vars: DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET
+# See ../.env.example for documentation on each variable.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.prod.yml up
 services:
   neoboard:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
     ports:
       - "3000:3000"

@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "npm run dev --prefix app",
     "build": "npm run build --prefix app",
-    "storybook": "npm run storybook --prefix component",
+    "test": "npm run test --prefix app && npm run test --prefix component",
+    "test:app": "npm run test --prefix app",
     "test:components": "npm run test --prefix component",
+    "test:e2e": "npm run test:e2e --prefix app",
+    "storybook": "npm run storybook --prefix component",
     "lint": "eslint .",
+    "db:migrate": "npm run db:migrate --prefix app",
+    "db:generate": "npm run db:generate --prefix app",
     "docs:dev": "npm run dev --prefix docs",
     "docs:build": "npm run build --prefix docs",
     "prepare": "husky"

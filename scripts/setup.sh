@@ -39,6 +39,7 @@ echo "==> Installing dependencies..."
 npm install --prefix "$ROOT_DIR"
 npm install --prefix "$ROOT_DIR/app"
 npm install --prefix "$ROOT_DIR/component"
+npm install --prefix "$ROOT_DIR/connection"
 echo ""
 
 # 3. Generate .env.local if it doesn't exist
