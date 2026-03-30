@@ -22,16 +22,6 @@ until docker inspect --format='{{.State.Health.Status}}' neoboard-neo4j 2>/dev/n
   sleep 3
 done
 echo "    Neo4j is healthy."
-
-# Seed Neo4j if empty
-SEEDED=$(docker exec neoboard-neo4j cypher-shell -u neo4j -p neoboard123 "MATCH (n) RETURN count(n) AS c" 2>/dev/null | tail -1)
-if [ "$SEEDED" = "0" ] || [ -z "$SEEDED" ]; then
-  echo "    Seeding Neo4j..."
-  docker exec neoboard-neo4j cypher-shell -u neo4j -p neoboard123 -f /var/lib/neo4j/import/init.cypher
-  echo "    Neo4j seed complete."
-else
-  echo "    Neo4j already has data ($SEEDED nodes), skipping seed."
-fi
 echo ""
 
 # 2. Install dependencies
@@ -77,26 +67,13 @@ npm run db:generate --prefix "$ROOT_DIR/app" 2>/dev/null || true
 npm run db:migrate --prefix "$ROOT_DIR/app"
 echo ""
 
-# 4b. Seed demo connectors and dashboards
-echo "==> Seeding demo connectors and dashboards..."
-node "$ROOT_DIR/scripts/seed-demo.mjs"
+# 5. Done
+echo "==> Setup complete!"
 echo ""
-
-# 5. Check if first admin setup is needed
-echo "==> Checking neoboard user data..."
-USER_COUNT=$(docker exec neoboard-postgres psql -U neoboard -d neoboard -tAc "SELECT count(*) FROM \"user\"" 2>/dev/null || echo "0")
-if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
-  echo "    No users found — seed script may have failed."
-  echo "    Visit http://localhost:3000/signup to create admin manually."
-else
-  echo "    Found $USER_COUNT user(s)."
-  echo "    Login: admin@neoboard.local / admin123"
-fi
+echo "    Start the dev server:  npm run dev"
+echo "    App:                   http://localhost:3000"
+echo "    Storybook:             npm run storybook (port 6006)"
 echo ""
-
-# 6. Start dev server
-echo "==> Starting development server..."
-echo "    App:       http://localhost:3000"
-echo "    Storybook: npm run storybook (port 6006)"
+echo "    Create your first admin at /signup using the bootstrap token above."
 echo ""
-npm run dev --prefix "$ROOT_DIR"
+echo "    Want demo data? Run: scripts/setup-local-demo.sh"
