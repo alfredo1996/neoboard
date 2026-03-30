@@ -1,23 +1,32 @@
-import { getNeo4jAuth, NEO4J_TEST_CONNECTION_CONFIG } from '../utils/setup';
-import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { PostgresConnectionModule } from '../../src/postgresql/PostgresConnectionModule';
-import { DEFAULT_CONNECTION_CONFIG, QueryCallback, QueryParams, QueryStatus, AuthType, ConnectionTypes } from '../../src/generalized/interfaces';
-import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { getNeo4jAuth, NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
+import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
+import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
+import {
+  DEFAULT_CONNECTION_CONFIG,
+  QueryCallback,
+  QueryParams,
+  QueryStatus,
+  AuthType,
+  ConnectionTypes,
+} from "../../src/generalized/interfaces";
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
-describe('Connection Resilience — Neo4j', () => {
-  test('follow-up query works after a query error', async () => {
+describe("Connection Resilience — Neo4j", () => {
+  test("follow-up query works after a query error", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     // First: run an invalid query that will fail
     let firstError: unknown = null;
     await connection.runQuery(
-      { query: 'INVALID CYPHER SYNTAX !!!', params: {} },
+      { query: "INVALID CYPHER SYNTAX !!!", params: {} },
       {
-        onFail: (err) => { firstError = err; },
+        onFail: (err) => {
+          firstError = err;
+        },
         setStatus: () => {},
       },
-      NEO4J_TEST_CONNECTION_CONFIG
+      NEO4J_TEST_CONNECTION_CONFIG,
     );
     expect(firstError).toBeDefined();
 
@@ -25,18 +34,22 @@ describe('Connection Resilience — Neo4j', () => {
     let result: any = null;
     let status: QueryStatus | null = null;
     await connection.runQuery(
-      { query: 'RETURN 1 AS value', params: {} },
+      { query: "RETURN 1 AS value", params: {} },
       {
-        onSuccess: (r) => { result = r; },
-        setStatus: (s) => { status = s; },
+        onSuccess: (r) => {
+          result = r;
+        },
+        setStatus: (s) => {
+          status = s;
+        },
       },
-      NEO4J_TEST_CONNECTION_CONFIG
+      NEO4J_TEST_CONNECTION_CONFIG,
     );
     expect(status).toBe(QueryStatus.COMPLETE);
     expect(result).toBeDefined();
   });
 
-  test('multiple driver.close() calls are safe (idempotent)', async () => {
+  test("multiple driver.close() calls are safe (idempotent)", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -46,38 +59,42 @@ describe('Connection Resilience — Neo4j', () => {
     await expect(driver.close()).resolves.not.toThrow();
   });
 
-  test('query with params: {} succeeds', async () => {
+  test("query with params: {} succeeds", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     let status: QueryStatus | null = null;
     await connection.runQuery(
-      { query: 'RETURN 1 AS value', params: {} },
+      { query: "RETURN 1 AS value", params: {} },
       {
-        setStatus: (s) => { status = s; },
+        setStatus: (s) => {
+          status = s;
+        },
       },
-      NEO4J_TEST_CONNECTION_CONFIG
+      NEO4J_TEST_CONNECTION_CONFIG,
     );
     expect(status).toBe(QueryStatus.COMPLETE);
   });
 
-  test('query with params: undefined succeeds', async () => {
+  test("query with params: undefined succeeds", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     let status: QueryStatus | null = null;
     await connection.runQuery(
-      { query: 'RETURN 1 AS value' }, // no params key at all
+      { query: "RETURN 1 AS value" }, // no params key at all
       {
-        setStatus: (s) => { status = s; },
+        setStatus: (s) => {
+          status = s;
+        },
       },
-      NEO4J_TEST_CONNECTION_CONFIG
+      NEO4J_TEST_CONNECTION_CONFIG,
     );
     expect(status).toBe(QueryStatus.COMPLETE);
   });
 });
 
-describe('Connection Resilience — PostgreSQL', () => {
+describe("Connection Resilience — PostgreSQL", () => {
   let container: PostgreSqlContainer;
   let connectionModule: PostgresConnectionModule;
 
@@ -89,7 +106,7 @@ describe('Connection Resilience — PostgreSQL', () => {
   };
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer().start();
+    container = await new PostgreSqlContainer("postgres:16-alpine").start();
 
     connectionModule = new PostgresConnectionModule({
       username: container.getUsername(),
@@ -98,13 +115,16 @@ describe('Connection Resilience — PostgreSQL', () => {
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
 
-    const authenticated = await connectionModule.authModule.verifyAuthentication();
+    const authenticated =
+      await connectionModule.authModule.verifyAuthentication();
     expect(authenticated).toBe(true);
 
     // Create a simple table for testing
     const client = await connectionModule.getPool()!.connect();
     try {
-      await client.query('CREATE TABLE resilience_test (id SERIAL PRIMARY KEY, name TEXT)');
+      await client.query(
+        "CREATE TABLE resilience_test (id SERIAL PRIMARY KEY, name TEXT)",
+      );
       await client.query("INSERT INTO resilience_test (name) VALUES ('seed')");
     } finally {
       client.release();
@@ -112,20 +132,26 @@ describe('Connection Resilience — PostgreSQL', () => {
   }, 60000);
 
   afterAll(async () => {
-    try { await connectionModule.close(); } catch (_) {}
-    try { await container.stop(); } catch (_) {}
+    try {
+      await connectionModule.close();
+    } catch (_) {}
+    try {
+      await container.stop();
+    } catch (_) {}
   });
 
-  test('follow-up query works after a query error', async () => {
+  test("follow-up query works after a query error", async () => {
     // First: run a query that will fail
     let firstError: unknown = null;
     await connectionModule.runQuery(
-      { query: 'SELECT * FROM nonexistent_table_xyz' },
+      { query: "SELECT * FROM nonexistent_table_xyz" },
       {
-        onFail: (e) => { firstError = e; },
+        onFail: (e) => {
+          firstError = e;
+        },
         setStatus: () => {},
       },
-      pgConfig
+      pgConfig,
     );
     expect(firstError).toBeDefined();
 
@@ -133,18 +159,22 @@ describe('Connection Resilience — PostgreSQL', () => {
     let result: any = null;
     let status: QueryStatus | null = null;
     await connectionModule.runQuery(
-      { query: 'SELECT * FROM resilience_test' },
+      { query: "SELECT * FROM resilience_test" },
       {
-        onSuccess: (r) => { result = r; },
-        setStatus: (s) => { status = s; },
+        onSuccess: (r) => {
+          result = r;
+        },
+        setStatus: (s) => {
+          status = s;
+        },
       },
-      pgConfig
+      pgConfig,
     );
     expect(status).toBe(QueryStatus.COMPLETE);
     expect(result).toHaveLength(1);
   });
 
-  test('multiple close() calls are safe (idempotent)', async () => {
+  test("multiple close() calls are safe (idempotent)", async () => {
     // Create a disposable module for this test
     const disposable = new PostgresConnectionModule({
       username: container.getUsername(),
@@ -159,26 +189,30 @@ describe('Connection Resilience — PostgreSQL', () => {
     await expect(disposable.close()).resolves.not.toThrow();
   });
 
-  test('query with params: {} succeeds', async () => {
+  test("query with params: {} succeeds", async () => {
     let status: QueryStatus | null = null;
     await connectionModule.runQuery(
-      { query: 'SELECT * FROM resilience_test', params: {} },
+      { query: "SELECT * FROM resilience_test", params: {} },
       {
-        setStatus: (s) => { status = s; },
+        setStatus: (s) => {
+          status = s;
+        },
       },
-      pgConfig
+      pgConfig,
     );
     expect(status).toBe(QueryStatus.COMPLETE);
   });
 
-  test('query with params: undefined succeeds', async () => {
+  test("query with params: undefined succeeds", async () => {
     let status: QueryStatus | null = null;
     await connectionModule.runQuery(
-      { query: 'SELECT * FROM resilience_test' }, // no params key
+      { query: "SELECT * FROM resilience_test" }, // no params key
       {
-        setStatus: (s) => { status = s; },
+        setStatus: (s) => {
+          status = s;
+        },
       },
-      pgConfig
+      pgConfig,
     );
     expect(status).toBe(QueryStatus.COMPLETE);
   });

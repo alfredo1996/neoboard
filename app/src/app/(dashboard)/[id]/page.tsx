@@ -9,7 +9,7 @@ import React, {
   useState,
   useTransition,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ArrowLeft,
   Filter,
@@ -22,6 +22,7 @@ import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
+import { parseUrlParams, buildUrlParams } from "@/lib/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/migrate-layout";
@@ -83,6 +84,42 @@ export default function DashboardViewerPage({
       saveToDashboard(id);
     };
   }, [id, saveToDashboard, restoreFromDashboard]);
+
+  // URL parameter deep-linking: read URL params on mount (takes precedence)
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const initialUrlParamsApplied = useRef(false);
+
+  useEffect(() => {
+    if (initialUrlParamsApplied.current) return;
+    initialUrlParamsApplied.current = true;
+    const urlParams = parseUrlParams(searchParams);
+    const store = useParameterStore.getState();
+    for (const [name, value] of Object.entries(urlParams)) {
+      store.setParameter(name, value, value, "", "text", "url", "");
+    }
+  }, [searchParams]);
+
+  // Sync parameter store changes → URL (shallow replace, no navigation)
+  useEffect(() => {
+    return useParameterStore.subscribe((state) => {
+      const values: Record<string, unknown> = {};
+      for (const [key, entry] of Object.entries(state.parameters)) {
+        if (
+          entry?.value !== undefined &&
+          entry.value !== null &&
+          String(entry.value) !== ""
+        ) {
+          values[key] = entry.value;
+        }
+      }
+      const newParams = buildUrlParams(values);
+      const newUrl = newParams.toString()
+        ? `${pathname}?${newParams.toString()}`
+        : pathname;
+      router.replace(newUrl, { scroll: false });
+    });
+  }, [pathname, router]);
 
   const { data: dashboard, isLoading, isFetching } = useDashboard(id);
   const updateDashboard = useUpdateDashboard();
