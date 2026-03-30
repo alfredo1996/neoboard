@@ -27,28 +27,24 @@
 
 ## Quick Start
 
-### Docker (Production)
-
-```bash
-# Clone and start
-git clone https://github.com/alfredo1996/neoboard.git
-cd neoboard
-docker compose -f docker/docker-compose.prod.yml up
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
 ### Development
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-npm install
-scripts/setup.sh    # Starts Neo4j + PostgreSQL, runs migrations, seeds demo data
-npm run dev          # http://localhost:3000
+scripts/setup.sh    # Installs deps, starts Docker, runs migrations, seeds demo data, starts dev server
 ```
 
-Demo credentials: `alice@example.com` / `password123`
+Open [http://localhost:3000](http://localhost:3000). Demo login: `admin@neoboard.local` / `admin123`
+
+### Docker (Production)
+
+```bash
+cp .env.example app/.env.local   # Fill in your secrets
+docker compose -f docker/docker-compose.prod.yml up
+```
+
+See [`.env.example`](.env.example) for required environment variables.
 
 ## Features
 

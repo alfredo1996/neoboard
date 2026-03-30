@@ -15,15 +15,12 @@ Thank you for your interest in contributing to NeoBoard! This guide will help yo
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-npm install
-scripts/setup.sh    # Starts Docker, runs migrations, seeds demo data
-npm run dev          # Start dev server at http://localhost:3000
+scripts/setup.sh    # Installs deps, starts Docker, runs migrations, seeds demo data, starts dev server
 ```
 
 ### Demo Credentials
 
-- **Admin**: alice@example.com / password123
-- **Creator**: bob@example.com / password123
+- **Admin**: admin@neoboard.local / admin123
 
 ## Development Workflow
 

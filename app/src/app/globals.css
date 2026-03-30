@@ -1,4 +1,4 @@
-@import "../../../design-tokens.css";
+@import "../../../component/design-tokens.css";
 
 @tailwind base;
 @tailwind components;
@@ -14,9 +14,15 @@
 }
 
 @keyframes widget-highlight-pulse {
-  0%   { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5); }
-  50%  { box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3); }
-  100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+  }
 }
 
 .widget-highlight {
