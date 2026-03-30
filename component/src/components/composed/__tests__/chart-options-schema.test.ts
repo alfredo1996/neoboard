@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { getChartOptions, getDefaultChartSettings } from "../chart-options-schema";
+import {
+  getChartOptions,
+  getDefaultChartSettings,
+} from "../chart-options-schema";
 
 describe("getChartOptions", () => {
   it("returns options for bar chart", () => {
@@ -75,8 +78,8 @@ describe("getChartOptions", () => {
   it("returns only secondary options for parameter-select", () => {
     const options = getChartOptions("parameter-select");
     const keys = options.map((o) => o.key);
-    expect(keys).toEqual(["placeholder", "searchable"]);
-    expect(options).toHaveLength(2);
+    expect(keys).toEqual(["placeholder", "searchable", "defaultValue"]);
+    expect(options).toHaveLength(3);
   });
 
   it("returns empty array for unknown chart type", () => {
@@ -84,7 +87,16 @@ describe("getChartOptions", () => {
   });
 
   it("every option has required fields", () => {
-    const types = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    const types = [
+      "bar",
+      "line",
+      "pie",
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+    ];
     for (const type of types) {
       for (const opt of getChartOptions(type)) {
         expect(opt).toHaveProperty("key");
@@ -92,13 +104,28 @@ describe("getChartOptions", () => {
         expect(opt).toHaveProperty("type");
         expect(opt).toHaveProperty("default");
         expect(opt).toHaveProperty("category");
-        expect(["boolean", "select", "text", "number", "column-multi-select"]).toContain(opt.type);
+        expect([
+          "boolean",
+          "select",
+          "text",
+          "number",
+          "column-multi-select",
+        ]).toContain(opt.type);
       }
     }
   });
 
   it("select-type options have non-empty options array", () => {
-    const types = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    const types = [
+      "bar",
+      "line",
+      "pie",
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+    ];
     for (const type of types) {
       for (const opt of getChartOptions(type)) {
         if (opt.type === "select") {
@@ -149,7 +176,16 @@ describe("getDefaultChartSettings", () => {
   });
 
   it("includes a key for every defined option", () => {
-    const types = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    const types = [
+      "bar",
+      "line",
+      "pie",
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+    ];
     for (const type of types) {
       const options = getChartOptions(type);
       const defaults = getDefaultChartSettings(type);
@@ -162,7 +198,16 @@ describe("getDefaultChartSettings", () => {
   // ── Behavior options (showRefreshButton, manualRun) ──────────────────────
 
   it("includes showRefreshButton and manualRun for all chart types except parameter-select and form", () => {
-    const typesWithBehavior = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    const typesWithBehavior = [
+      "bar",
+      "line",
+      "pie",
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+    ];
     for (const type of typesWithBehavior) {
       const keys = getChartOptions(type).map((o) => o.key);
       expect(keys).toContain("showRefreshButton");
@@ -199,7 +244,16 @@ describe("getDefaultChartSettings", () => {
   // ── cacheMode ─────────────────────────────────────────────────────────────
 
   it("includes cacheMode for all chart types except parameter-select and form", () => {
-    const types = ["bar", "line", "pie", "single-value", "graph", "map", "table", "json"];
+    const types = [
+      "bar",
+      "line",
+      "pie",
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+    ];
     for (const type of types) {
       const keys = getChartOptions(type).map((o) => o.key);
       expect(keys).toContain("cacheMode");
@@ -227,8 +281,14 @@ describe("getDefaultChartSettings", () => {
     expect(cacheMode?.type).toBe("select");
     expect(cacheMode?.category).toBe("Behavior");
     expect(cacheMode?.options).toHaveLength(2);
-    expect(cacheMode?.options).toContainEqual({ label: "TTL (time-based)", value: "ttl" });
-    expect(cacheMode?.options).toContainEqual({ label: "Forever (until refresh)", value: "forever" });
+    expect(cacheMode?.options).toContainEqual({
+      label: "TTL (time-based)",
+      value: "ttl",
+    });
+    expect(cacheMode?.options).toContainEqual({
+      label: "Forever (until refresh)",
+      value: "forever",
+    });
   });
 
   // ── Accessibility options (colorblindMode) ─────────────────────────────
@@ -241,7 +301,15 @@ describe("getDefaultChartSettings", () => {
   });
 
   it("does NOT include colorblindMode for non-ECharts chart types", () => {
-    for (const type of ["single-value", "graph", "map", "table", "json", "parameter-select", "form"]) {
+    for (const type of [
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+      "parameter-select",
+      "form",
+    ]) {
       const keys = getChartOptions(type).map((o) => o.key);
       expect(keys).not.toContain("colorblindMode");
     }
@@ -264,27 +332,50 @@ describe("getDefaultChartSettings", () => {
 // colorPalette option
 // ---------------------------------------------------------------------------
 describe("colorPalette option", () => {
-  const echartsTypes = ["bar", "line", "pie", "gauge", "sankey", "sunburst", "radar", "treemap"];
-  const nonEchartsTypes = ["single-value", "graph", "map", "table", "json", "parameter-select", "form"];
+  const echartsTypes = [
+    "bar",
+    "line",
+    "pie",
+    "gauge",
+    "sankey",
+    "sunburst",
+    "radar",
+    "treemap",
+  ];
+  const nonEchartsTypes = [
+    "single-value",
+    "graph",
+    "map",
+    "table",
+    "json",
+    "parameter-select",
+    "form",
+  ];
 
   it("includes colorPalette for all ECharts chart types", () => {
     for (const type of echartsTypes) {
       const keys = getChartOptions(type).map((o) => o.key);
-      expect(keys, `${type} should have colorPalette`).toContain("colorPalette");
+      expect(keys, `${type} should have colorPalette`).toContain(
+        "colorPalette",
+      );
     }
   });
 
   it("does NOT include colorPalette for non-ECharts chart types", () => {
     for (const type of nonEchartsTypes) {
       const keys = getChartOptions(type).map((o) => o.key);
-      expect(keys, `${type} should NOT have colorPalette`).not.toContain("colorPalette");
+      expect(keys, `${type} should NOT have colorPalette`).not.toContain(
+        "colorPalette",
+      );
     }
   });
 
   it("colorPalette defaults to 'deep-ocean'", () => {
     for (const type of echartsTypes) {
       const defaults = getDefaultChartSettings(type);
-      expect(defaults.colorPalette, `${type} default colorPalette`).toBe("deep-ocean");
+      expect(defaults.colorPalette, `${type} default colorPalette`).toBe(
+        "deep-ocean",
+      );
     }
   });
 
@@ -420,8 +511,14 @@ describe("sankey chart options", () => {
     const opts = getChartOptions("sankey");
     const orient = opts.find((o) => o.key === "orient");
     expect(orient?.type).toBe("select");
-    expect(orient?.options).toContainEqual({ label: "Horizontal", value: "horizontal" });
-    expect(orient?.options).toContainEqual({ label: "Vertical", value: "vertical" });
+    expect(orient?.options).toContainEqual({
+      label: "Horizontal",
+      value: "horizontal",
+    });
+    expect(orient?.options).toContainEqual({
+      label: "Vertical",
+      value: "vertical",
+    });
   });
 
   it("includes behavior options", () => {
@@ -483,7 +580,10 @@ describe("radar chart options", () => {
     const opts = getChartOptions("radar");
     const shape = opts.find((o) => o.key === "shape");
     expect(shape?.type).toBe("select");
-    expect(shape?.options).toContainEqual({ label: "Polygon", value: "polygon" });
+    expect(shape?.options).toContainEqual({
+      label: "Polygon",
+      value: "polygon",
+    });
     expect(shape?.options).toContainEqual({ label: "Circle", value: "circle" });
   });
 
