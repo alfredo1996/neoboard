@@ -1,4 +1,8 @@
-import type { DashboardLayoutV2, GridLayoutItem, DashboardWidget } from "@/lib/db/schema";
+import type {
+  DashboardLayoutV2,
+  GridLayoutItem,
+  DashboardWidget,
+} from "@/lib/db/schema";
 import type { NeoboardExport } from "@/lib/dashboard-export";
 
 const CHART_TYPE_MAP: Record<string, string> = {
@@ -9,9 +13,27 @@ const CHART_TYPE_MAP: Record<string, string> = {
   map: "map",
   pie: "pie",
   value: "single-value",
-  iframe: "json",
-  markdown: "json",
+  gauge: "gauge",
+  sunburst: "sunburst",
+  treemap: "treemap",
+  sankey: "sankey",
+  radar: "radar",
+  area: "line",
+  iFrame: "iframe",
+  iframe: "iframe",
+  select: "parameter-select",
+  markdown: "markdown",
+  form: "form",
+  json: "json",
 };
+
+/**
+ * Convert NeoDash parameter syntax to NeoBoard syntax.
+ * NeoDash: $neodash_paramName → NeoBoard: $param_paramName
+ */
+function convertParamSyntax(query: string): string {
+  return query.replace(/\$neodash_/g, "$param_");
+}
 
 interface NeoDashReport {
   id: string;
@@ -65,9 +87,13 @@ export function convertNeoDash(json: unknown): NeoboardExport {
         id: widgetId,
         chartType,
         connectionId: "",
-        query: report.query ?? "",
+        query: convertParamSyntax(report.query ?? ""),
         params: report.parameters ?? {},
-        settings: report.settings ?? {},
+        settings: {
+          ...(report.settings ?? {}),
+          // Set area mode for NeoDash "area" chart type
+          ...(report.type === "area" ? { chartOptions: { area: true } } : {}),
+        },
       });
 
       gridLayout.push({
