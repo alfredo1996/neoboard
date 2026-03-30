@@ -390,3 +390,23 @@ export function groupTopN(
   const otherValue = rest.reduce((sum, d) => sum + d.value, 0);
   return [...top, { name: "Other", value: otherValue }];
 }
+
+// ---------------------------------------------------------------------------
+// Time-axis detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if x-axis values look like dates/timestamps.
+ * Samples up to the first 5 values — if all parse as valid dates, returns true.
+ */
+export function isTimeSeriesData(values: unknown[]): boolean {
+  if (values.length === 0) return false;
+  const sample = values.slice(0, 5);
+  return sample.every((v) => {
+    if (v === null || v === undefined) return false;
+    // Skip pure numbers that look like years (1900-2100) — those are category, not time
+    if (typeof v === "number" && v >= 1900 && v <= 2100) return false;
+    const d = new Date(v as string | number);
+    return !isNaN(d.getTime());
+  });
+}
