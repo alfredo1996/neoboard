@@ -87,3 +87,13 @@ export interface GraphNodeEvent {
   node: GraphNode;
   position: { x: number; y: number };
 }
+
+export interface GraphEdgeEvent {
+  edge: GraphEdge;
+  position: { x: number; y: number };
+}
+
+/** Union type for inspected graph elements (node or edge) */
+export type InspectedGraphElement =
+  | { type: "node"; node: GraphNode }
+  | { type: "edge"; edge: GraphEdge };
