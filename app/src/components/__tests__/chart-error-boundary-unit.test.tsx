@@ -5,7 +5,7 @@ import { ChartErrorBoundary } from "../chart-error-boundary";
 
 const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-function ThrowingChild() {
+function ThrowingChild(): React.JSX.Element {
   throw new Error("test explosion");
 }
 
