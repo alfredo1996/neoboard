@@ -78,4 +78,6 @@ export type {
   GraphNode,
   GraphEdge,
   GraphNodeEvent,
+  GraphEdgeEvent,
+  InspectedGraphElement,
 } from "./types";
