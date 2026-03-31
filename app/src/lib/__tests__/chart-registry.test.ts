@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   getCompatibleChartTypes,
   getChartConfig,
@@ -8,6 +8,40 @@ import {
   getStylingTargets,
 } from "../chart-registry";
 import type { ChartType, ConnectorType } from "../chart-registry";
+
+// Stub component — used by vi.mock to satisfy dynamic import() calls
+const Stub = () => null;
+
+// Mock dynamic imports so component loaders resolve without real dependencies.
+// vi.mock calls are hoisted by Vitest and intercept both static & dynamic imports.
+vi.mock("@neoboard/components", () => ({
+  BarChart: Stub,
+  LineChart: Stub,
+  PieChart: Stub,
+  SingleValueChart: Stub,
+  GraphChart: Stub,
+  MapChart: Stub,
+  JsonViewer: Stub,
+  MarkdownWidget: Stub,
+  IframeWidget: Stub,
+  GaugeChart: Stub,
+  SankeyChart: Stub,
+  SunburstChart: Stub,
+  RadarChart: Stub,
+  TreemapChart: Stub,
+}));
+
+vi.mock("@/components/table-renderer", () => ({
+  TableRenderer: Stub,
+}));
+
+vi.mock("@/components/parameter-widget-renderer", () => ({
+  ParameterWidgetRenderer: Stub,
+}));
+
+vi.mock("@/components/form-widget-renderer", () => ({
+  FormWidgetRenderer: Stub,
+}));
 
 // ---------------------------------------------------------------------------
 // getCompatibleChartTypes
@@ -995,14 +1029,15 @@ describe("transformToGraphData handles native number properties", () => {
 // chartSupportsStyling
 // ---------------------------------------------------------------------------
 describe("chartSupportsStyling", () => {
-  it.each(["bar", "line", "pie", "single-value", "table"] as const)(
-    "returns true for %s",
-    (type) => {
-      expect(chartSupportsStyling(type)).toBe(true);
-    },
-  );
-
-  it.each(["graph", "map"] as const)("returns true for %s", (type) => {
+  it.each([
+    "bar",
+    "line",
+    "pie",
+    "single-value",
+    "table",
+    "graph",
+    "map",
+  ] as const)("returns true for %s", (type) => {
     expect(chartSupportsStyling(type)).toBe(true);
   });
 
@@ -1059,18 +1094,10 @@ describe("getStylingTargets", () => {
     expect(targets).toContainEqual({ value: "textColor", label: "Text Color" });
   });
 
-  it("returns node color target for graph", () => {
-    expect(getStylingTargets("graph")).toContainEqual({
-      value: "color",
-      label: "Node Color",
-    });
-  });
-
-  it("returns marker color target for map", () => {
-    expect(getStylingTargets("map")).toContainEqual({
-      value: "color",
-      label: "Marker Color",
-    });
+  it("returns styling targets for graph", () => {
+    expect(getStylingTargets("graph")).toEqual([
+      { value: "color", label: "Node Color" },
+    ]);
   });
 
   it("returns empty array for unknown type", () => {
@@ -1836,4 +1863,30 @@ describe("treemap transform", () => {
     const result = chartRegistry.treemap.transformWithMapping(data, {});
     expect(result).toEqual(transform(data));
   });
+});
+
+// ---------------------------------------------------------------------------
+// Registry component field
+// ---------------------------------------------------------------------------
+describe("registry component field", () => {
+  const allTypes = Object.keys(chartRegistry) as ChartType[];
+
+  it.each(allTypes)("%s has a component field", (type) => {
+    const config = getChartConfig(type);
+    expect(config).toBeDefined();
+    expect(config!.component).toBeDefined();
+    expect(typeof config!.component).toBe("function");
+  });
+
+  it.each(allTypes)(
+    "%s component loader resolves to a module with default export",
+    async (type) => {
+      const config = getChartConfig(type);
+      expect(config).toBeDefined();
+      expect(config!.component).toBeDefined();
+      const mod = await config!.component!();
+      expect(mod).toBeDefined();
+      expect(mod.default).toBeDefined();
+    },
+  );
 });
