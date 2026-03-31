@@ -28,4 +28,13 @@ export const parameterSelectOptions: ChartOptionDef[] = [
     description:
       "Value used on dashboard load when no selection has been made. Leave empty for no default.",
   },
+  {
+    key: "syncToUrl",
+    label: "Sync to URL",
+    type: "boolean",
+    default: false,
+    category: "Parameter",
+    description:
+      "Persist the selected value as a URL search parameter so it survives page reloads and can be shared via link.",
+  },
 ];
