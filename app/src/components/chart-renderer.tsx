@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AlertCircle } from "lucide-react";
 import { normalizeValue } from "@/lib/normalize-value";
 import type { ChartType } from "@/lib/chart-registry";
+import { ChartErrorBoundary } from "./chart-error-boundary";
 import {
   Skeleton,
   EmptyState,
@@ -136,9 +137,20 @@ export interface ChartRendererProps {
 
 /**
  * Renders the appropriate chart component based on widget type and data.
- * Forwards chart-specific settings as props to the underlying chart component.
+ * Wrapped in an error boundary so one broken widget doesn't crash the dashboard.
  */
-export function ChartRenderer({
+export function ChartRenderer(props: ChartRendererProps) {
+  return (
+    <ChartErrorBoundary
+      chartType={props.type}
+      key={`${props.type}-${props.meta?.widgetId ?? ""}`}
+    >
+      <ChartRendererInner {...props} />
+    </ChartErrorBoundary>
+  );
+}
+
+function ChartRendererInner({
   type,
   data,
   settings = {},
