@@ -698,6 +698,15 @@ const parameterSelectOptions: ChartOptionDef[] = [
     description:
       "Value used on dashboard load when no selection has been made. Leave empty for no default.",
   },
+  {
+    key: "syncToUrl",
+    label: "Sync to URL",
+    type: "boolean",
+    default: true,
+    category: "Parameter",
+    description:
+      "Include this parameter in the URL query string for deep-linking. Disable for noisy or internal params.",
+  },
 ];
 
 const formOptions: ChartOptionDef[] = [
