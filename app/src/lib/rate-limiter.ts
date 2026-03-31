@@ -74,7 +74,7 @@ export class RateLimiter {
 
 /** Shared rate limiter instances for auth endpoints. */
 export const loginRateLimiter = new RateLimiter({
-  maxAttempts: 20,
+  maxAttempts: 100,
   windowMs: 60_000,
 });
 
