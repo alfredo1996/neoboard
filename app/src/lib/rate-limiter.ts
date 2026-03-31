@@ -37,8 +37,9 @@ export class RateLimiter {
   }
 
   check(key: string): RateLimitResult {
-    // Skip rate limiting in test/E2E environments to avoid blocking test logins
-    if (process.env.NODE_ENV === "test" || process.env.E2E === "1") {
+    // Skip rate limiting during E2E runs to avoid blocking repeated test logins.
+    // Unit tests (vitest) should still verify blocking — only bypass for Playwright.
+    if (process.env.PLAYWRIGHT === "1") {
       return { allowed: true, remaining: this.maxAttempts };
     }
 

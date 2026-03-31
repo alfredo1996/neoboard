@@ -210,7 +210,8 @@ export default async function globalSetup() {
   // Using getFreePort() here would desync the server port from the baseURL that
   // Playwright evaluates before globalSetup runs.
   const serverPort =
-    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) || (await getFreePort());
+    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) ||
+    (await getFreePort());
 
   // ── Write .env.test for the Next.js dev server ──────────────────────────
   const envContent = [
@@ -259,6 +260,7 @@ export default async function globalSetup() {
       API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
       NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
       NEXTAUTH_URL: `http://localhost:${serverPort}`,
+      PLAYWRIGHT: "1",
     },
     detached: true,
   });
