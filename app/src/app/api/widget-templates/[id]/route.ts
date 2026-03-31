@@ -4,13 +4,18 @@ import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { apiSuccess } from "@/lib/api-response";
-import { forbidden, notFound, badRequest, handleRouteError } from "@/lib/api-utils";
+import {
+  forbidden,
+  notFound,
+  badRequest,
+  handleRouteError,
+} from "@/lib/api-utils";
 import { previewImageUrlSchema } from "../shared";
 
 const updateTemplateSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(1000).optional(),
+  tags: z.array(z.string().max(100)).max(20).optional(),
   chartType: z.string().min(1).optional(),
   connectorType: z.enum(["neo4j", "postgresql"]).optional(),
   connectionId: z.string().nullable().optional(),
@@ -32,7 +37,9 @@ async function requireOwnedTemplate(id: string) {
   const [existing] = await db
     .select()
     .from(widgetTemplates)
-    .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
+    .where(
+      and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)),
+    )
     .limit(1);
 
   if (!existing) {
@@ -48,7 +55,7 @@ async function requireOwnedTemplate(id: string) {
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { tenantId } = await requireSession();
@@ -57,7 +64,9 @@ export async function GET(
     const [template] = await db
       .select()
       .from(widgetTemplates)
-      .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
+      .where(
+        and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)),
+      )
       .limit(1);
 
     if (!template) {
@@ -72,7 +81,7 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -95,7 +104,9 @@ export async function PUT(
     const [updated] = await db
       .update(widgetTemplates)
       .set({ ...data, settings, updatedAt: new Date() })
-      .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)))
+      .where(
+        and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)),
+      )
       .returning();
 
     return apiSuccess(updated);
@@ -106,7 +117,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -116,7 +127,9 @@ export async function DELETE(
 
     await db
       .delete(widgetTemplates)
-      .where(and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)));
+      .where(
+        and(eq(widgetTemplates.id, id), eq(widgetTemplates.tenantId, tenantId)),
+      );
 
     return apiSuccess({ deleted: true });
   } catch (err) {
