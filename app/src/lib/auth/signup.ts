@@ -25,7 +25,7 @@ export async function areUsersEmpty(): Promise<boolean> {
 }
 
 export async function signup(formData: FormData): Promise<SignupResult> {
-  // Rate limit by IP — 3 attempts per minute
+  // Rate limit by IP — 5 attempts per minute
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rateResult = signupRateLimiter.check(ip);

@@ -1,6 +1,10 @@
 /**
  * In-memory rate limiter using a sliding window counter per key (typically IP).
  * Suitable for single-instance deployments. Resets on server restart.
+ *
+ * Note: In multi-instance deployments (e.g. multiple replicas behind a load
+ * balancer), each instance maintains its own map. For distributed rate limiting,
+ * replace with a Redis-backed store in a future iteration.
  */
 
 interface RateLimitEntry {
@@ -25,6 +29,7 @@ export class RateLimiter {
   private store = new Map<string, RateLimitEntry>();
   private maxAttempts: number;
   private windowMs: number;
+  private lastCleanup = 0;
 
   constructor({ maxAttempts, windowMs }: RateLimiterOptions) {
     this.maxAttempts = maxAttempts;
@@ -33,9 +38,18 @@ export class RateLimiter {
 
   check(key: string): RateLimitResult {
     const now = Date.now();
+
+    // Lazy cleanup: sweep expired entries every 5 minutes to prevent unbounded growth
+    if (now - this.lastCleanup > 5 * 60_000) {
+      this.lastCleanup = now;
+      for (const [k, entry] of this.store) {
+        if (now >= entry.resetAt) this.store.delete(k);
+      }
+    }
+
     let entry = this.store.get(key);
 
-    // Window expired — reset
+    // Window expired — start fresh
     if (!entry || now >= entry.resetAt) {
       entry = { count: 0, resetAt: now + this.windowMs };
       this.store.set(key, entry);
@@ -65,6 +79,6 @@ export const loginRateLimiter = new RateLimiter({
 });
 
 export const signupRateLimiter = new RateLimiter({
-  maxAttempts: 3,
+  maxAttempts: 5,
   windowMs: 60_000,
 });
