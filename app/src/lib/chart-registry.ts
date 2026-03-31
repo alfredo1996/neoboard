@@ -48,8 +48,8 @@ export interface ChartConfig {
    * For charts that don't need lazy loading (e.g., JSON, Markdown), this
    * can return the component directly wrapped in `{ default: Component }`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  component: () => Promise<{ default: React.ComponentType<any> }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- props differ per chart type; caller provides correct props
+  component?: () => Promise<{ default: React.ComponentType<any> }>;
   /**
    * Validates raw data shape before transform. Returns an error string
    * when data exists but has the wrong shape for this chart type.
@@ -69,8 +69,9 @@ export interface ChartConfig {
   supportsClickAction?: boolean;
   /**
    * Whether this chart type supports rule-based styling.
-   * Defaults to true if omitted. Set to false for chart types that
-   * can't apply conditional colors (graph, map, json, parameter-select, form).
+   * Defaults to true if `stylingTargets` is defined, false otherwise.
+   * Set to false explicitly for chart types that can't apply conditional
+   * colors (json, parameter-select, form).
    */
   supportsStyling?: boolean;
   /** Whether this chart renders via ECharts (used by screenshot capture). */
@@ -685,6 +686,9 @@ function validateMapData(data: unknown): string | null {
 
 const COLOR_TARGET = [{ value: "color", label: "Color" }];
 
+// Note: `component` fields below will replace the parallel lazy-loaders in
+// chart-renderer.tsx in a follow-up PR. Until then, chart-renderer.tsx owns
+// the active loaders at runtime; these registry entries are for future use.
 export const chartRegistry: Record<ChartType, ChartConfig> = {
   bar: {
     type: "bar",
