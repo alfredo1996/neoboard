@@ -3,21 +3,33 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { validateBody, badRequest, notFound, handleRouteError } from "@/lib/api-utils";
+import {
+  validateBody,
+  badRequest,
+  notFound,
+  handleRouteError,
+} from "@/lib/api-utils";
 import { apiSuccess } from "@/lib/api-response";
 
 const updateUserSchema = z
   .object({
     role: z.enum(["admin", "creator", "reader"]).optional(),
     canWrite: z.boolean().optional(),
+    disabled: z.boolean().optional(),
   })
-  .refine((d) => d.role !== undefined || d.canWrite !== undefined, {
-    message: "At least one field must be provided",
-  });
+  .refine(
+    (d) =>
+      d.role !== undefined ||
+      d.canWrite !== undefined ||
+      d.disabled !== undefined,
+    {
+      message: "At least one field must be provided",
+    },
+  );
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAdmin();
@@ -30,6 +42,8 @@ export async function GET(
         email: users.email,
         role: users.role,
         canWrite: users.canWrite,
+        disabledAt: users.disabledAt,
+        lastLoginAt: users.lastLoginAt,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -48,7 +62,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, canWrite } = await requireAdmin();
@@ -63,9 +77,16 @@ export async function PATCH(
     const result = validateBody(updateUserSchema, body);
     if (!result.success) return result.response;
 
-    const updateFields: { role?: "admin" | "creator" | "reader"; canWrite?: boolean } = {};
+    const updateFields: {
+      role?: "admin" | "creator" | "reader";
+      canWrite?: boolean;
+      disabledAt?: Date | null;
+    } = {};
     if (result.data.role !== undefined) updateFields.role = result.data.role;
-    if (result.data.canWrite !== undefined) updateFields.canWrite = result.data.canWrite;
+    if (result.data.canWrite !== undefined)
+      updateFields.canWrite = result.data.canWrite;
+    if (result.data.disabled !== undefined)
+      updateFields.disabledAt = result.data.disabled ? new Date() : null;
 
     const [updated] = await db
       .update(users)
@@ -77,6 +98,8 @@ export async function PATCH(
         email: users.email,
         role: users.role,
         canWrite: users.canWrite,
+        disabledAt: users.disabledAt,
+        lastLoginAt: users.lastLoginAt,
         createdAt: users.createdAt,
       });
 
@@ -92,7 +115,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, canWrite } = await requireAdmin();
