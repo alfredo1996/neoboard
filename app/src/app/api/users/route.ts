@@ -5,12 +5,18 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { validateBody, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess, apiList, apiError, parsePagination } from "@/lib/api-response";
+import {
+  apiSuccess,
+  apiList,
+  apiError,
+  parsePagination,
+} from "@/lib/api-response";
+import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: newPasswordSchema,
   role: z.enum(["admin", "creator", "reader"]).optional().default("creator"),
   canWrite: z.boolean().optional().default(true),
 });
@@ -20,9 +26,7 @@ export async function GET(request: Request) {
     await requireAdmin();
     const { limit, offset } = parsePagination(request);
 
-    const [{ count: total }] = await db
-      .select({ count: count() })
-      .from(users);
+    const [{ count: total }] = await db.select({ count: count() }).from(users);
 
     const rows = await db
       .select({
@@ -31,6 +35,8 @@ export async function GET(request: Request) {
         email: users.email,
         role: users.role,
         canWrite: users.canWrite,
+        disabledAt: users.disabledAt,
+        lastLoginAt: users.lastLoginAt,
         createdAt: users.createdAt,
       })
       .from(users)

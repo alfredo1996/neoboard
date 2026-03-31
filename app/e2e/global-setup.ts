@@ -210,7 +210,8 @@ export default async function globalSetup() {
   // Using getFreePort() here would desync the server port from the baseURL that
   // Playwright evaluates before globalSetup runs.
   const serverPort =
-    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) || (await getFreePort());
+    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) ||
+    (await getFreePort());
 
   // ── Write .env.test for the Next.js dev server ──────────────────────────
   const envContent = [
