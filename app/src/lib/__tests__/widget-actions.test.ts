@@ -184,7 +184,7 @@ describe("buildStylingConfigFromEditor", () => {
     expect(
       buildStylingConfigFromEditor({
         stylingEnabled: true,
-        chartType: "graph",
+        chartType: "json",
         stylingRules: [sampleRule],
       }),
     ).toBeUndefined();

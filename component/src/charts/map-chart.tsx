@@ -3,6 +3,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
+import type { StylingRule } from "./styling-rule";
+import { resolveStylingRuleColor } from "./styling-rule";
 import { useDarkMode } from "./base-chart";
 
 export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
@@ -38,21 +40,31 @@ export interface MapChartProps {
   loading?: boolean;
   error?: Error | null;
   onMarkerClick?: (marker: MapMarker) => void;
+  /** Rule-based styling rules for marker color/size */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for styling rule evaluation */
+  paramValues?: Record<string, unknown>;
   className?: string;
 }
 
-const TILE_PRESETS: Record<TileLayerPreset, { url: string; attribution: string }> = {
+const TILE_PRESETS: Record<
+  TileLayerPreset,
+  { url: string; attribution: string }
+> = {
   osm: {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
   "carto-light": {
     url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
   },
   "carto-dark": {
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
   },
 };
 
@@ -73,7 +85,9 @@ function resolveTileLayer(
   }
   return {
     url: effectivePreset,
-    attribution: attribution ?? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    attribution:
+      attribution ??
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   };
 }
 
@@ -111,6 +125,8 @@ function MapChart({
   loading = false,
   error = null,
   onMarkerClick,
+  stylingRules,
+  paramValues,
   className,
 }: MapChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,7 +150,9 @@ function MapChart({
       maxZoom,
     });
 
-    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(map);
+    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(
+      map,
+    );
     tileLayerRef.current = tl;
     markersLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -161,7 +179,9 @@ function MapChart({
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
     }
-    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(map);
+    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(
+      map,
+    );
     tileLayerRef.current = tl;
   }, [tile.url, tile.attribution]);
 
@@ -181,10 +201,17 @@ function MapChart({
     layer.clearLayers();
 
     markers.forEach((m) => {
+      // Rule-based color: evaluate against marker.value
+      const ruleColor =
+        stylingRules?.length && m.value != null
+          ? resolveStylingRuleColor(m.value, stylingRules, paramValues)
+          : undefined;
+      const markerColor = ruleColor ?? m.color ?? MAP_MARKER_DEFAULT_COLOR;
+
       const circleMarker = L.circleMarker([m.lat, m.lng], {
         radius: m.value ? Math.min(Math.max(m.value, 4), 30) : markerSize,
-        fillColor: m.color ?? MAP_MARKER_DEFAULT_COLOR,
-        color: m.color ?? MAP_MARKER_DEFAULT_COLOR,
+        fillColor: markerColor,
+        color: markerColor,
         weight: 1,
         opacity: 0.8,
         fillOpacity: 0.6,
@@ -212,10 +239,21 @@ function MapChart({
 
     // Auto-fit bounds
     if (autoFitBounds && map && markers.length > 0) {
-      const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng] as [number, number]));
+      const bounds = L.latLngBounds(
+        markers.map((m) => [m.lat, m.lng] as [number, number]),
+      );
       map.fitBounds(bounds, { padding: fitBoundsPadding });
     }
-  }, [markers, onMarkerClick, autoFitBounds, fitBoundsPadding, markerSize, showPopup]);
+  }, [
+    markers,
+    onMarkerClick,
+    autoFitBounds,
+    fitBoundsPadding,
+    markerSize,
+    showPopup,
+    stylingRules,
+    paramValues,
+  ]);
 
   if (error) {
     return (
