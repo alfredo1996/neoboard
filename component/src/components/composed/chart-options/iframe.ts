@@ -23,7 +23,7 @@ export const iframeOptions: ChartOptionDef[] = [
     key: "sandbox",
     label: "Sandbox Policy",
     type: "text",
-    default: "allow-scripts allow-popups",
+    default: "",
     category: "Security",
     description:
       "HTML sandbox attributes controlling what the embedded page can do. Restrict for untrusted content.",
