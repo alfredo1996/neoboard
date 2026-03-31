@@ -119,12 +119,23 @@ export async function typeInEditor(
     // The QueryEditor component exposes `__cmView` on the container DOM element
     // when initialization completes. This is more reliable than the internal
     // `cmTile` property which may be mangled or inaccessible in production builds.
+    //
+    // The readOnly compartment may lag behind the data-readonly attribute, so we
+    // poll briefly inside the evaluate before giving up.
     const dispatched = await cmContainer.evaluate(
-      (el: HTMLElement, text: string) => {
+      async (el: HTMLElement, text: string) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const view = (el as any).__cmView;
+        let view = (el as any).__cmView;
         if (!el.querySelector(".cm-content")) return "no-editor";
         if (!view) return "no-view";
+
+        // Poll for writable state (readOnly compartment may lag behind React prop)
+        for (let i = 0; i < 10 && view.state.readOnly; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          view = (el as any).__cmView;
+          if (!view) return "no-view";
+        }
         if (view.state.readOnly) return "readonly";
 
         // Replace entire document content
@@ -168,7 +179,7 @@ export async function typeInEditor(
 
     // Retry-worthy states: no-editor, dispatch-failed
     throw new Error(`CM6 dispatch returned "${dispatched}" — retrying`);
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 45_000 });
 }
 
 /**
