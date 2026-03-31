@@ -6,9 +6,10 @@ import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { badRequest, notFound, handleRouteError } from "@/lib/api-utils";
 import { apiSuccess } from "@/lib/api-response";
+import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const resetPasswordSchema = z.object({
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  newPassword: newPasswordSchema,
 });
 
 export async function POST(

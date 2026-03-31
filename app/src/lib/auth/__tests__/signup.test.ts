@@ -114,7 +114,7 @@ describe("signup", () => {
 
   it("returns error when name is missing", async () => {
     const res = await signup(
-      makeForm({ name: "", email: "a@b.com", password: "password" }),
+      makeForm({ name: "", email: "a@b.com", password: "password1" }),
     );
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/name/i);
@@ -122,13 +122,13 @@ describe("signup", () => {
 
   it("returns error for invalid email", async () => {
     const res = await signup(
-      makeForm({ name: "Alice", email: "not-an-email", password: "password" }),
+      makeForm({ name: "Alice", email: "not-an-email", password: "password1" }),
     );
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/email/i);
   });
 
-  it("returns error for password shorter than 6 characters", async () => {
+  it("returns error for password shorter than 8 characters", async () => {
     const res = await signup(
       makeForm({ name: "Alice", email: "a@b.com", password: "12345" }),
     );
@@ -139,7 +139,7 @@ describe("signup", () => {
   it("requires bootstrap token when DB is empty", async () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([])); // areUsersEmpty → true
     const res = await signup(
-      makeForm({ name: "Admin", email: "admin@b.com", password: "adminpass" }),
+      makeForm({ name: "Admin", email: "admin@b.com", password: "adminpass1" }),
     );
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/bootstrap token/i);
@@ -151,7 +151,7 @@ describe("signup", () => {
     const form = makeForm({
       name: "Admin",
       email: "admin@b.com",
-      password: "adminpass",
+      password: "adminpass1",
     });
     form.append("bootstrapToken", "wrong-token");
     const res = await signup(form);
@@ -166,7 +166,7 @@ describe("signup", () => {
     const form = makeForm({
       name: "Admin",
       email: "admin@b.com",
-      password: "adminpass",
+      password: "adminpass1",
     });
     form.append("bootstrapToken", "correct-secret");
     const res = await signup(form);
@@ -177,7 +177,7 @@ describe("signup", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[]]); // tx: email not taken (no admin re-check for creator)
     const res = await signup(
-      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass" }),
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
     );
     expect(res.success).toBe(true);
   });
@@ -186,7 +186,7 @@ describe("signup", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[{ id: "u2" }]]); // tx: email already taken
     const res = await signup(
-      makeForm({ name: "Bob", email: "existing@b.com", password: "bobpass" }),
+      makeForm({ name: "Bob", email: "existing@b.com", password: "bobpass12" }),
     );
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/already exists/i);

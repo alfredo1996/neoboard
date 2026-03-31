@@ -8,11 +8,12 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { signupRateLimiter } from "@/lib/rate-limiter";
+import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: newPasswordSchema,
 });
 
 export type SignupResult =
@@ -25,7 +26,7 @@ export async function areUsersEmpty(): Promise<boolean> {
 }
 
 export async function signup(formData: FormData): Promise<SignupResult> {
-  // Rate limit by IP — 5 attempts per minute
+  // Rate limit by IP — 10 attempts per minute
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rateResult = signupRateLimiter.check(ip);
