@@ -1,21 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
-import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
 import {
-  ParamSelector,
-  ParamMultiSelector,
-  DatePickerParameter,
-  DateRangeParameter,
-  DateRelativePicker,
-  NumberRangeSlider,
-  CascadingSelector,
-  type RelativeDatePreset,
-} from "@neoboard/components";
-import { DebouncedTextInput } from "./debounced-text-input";
-import { useSeedQuery } from "@/hooks/use-seed-query";
+  useParamActions,
+  useSeedQueryOptions,
+  useCascadingClear,
+  ParamText,
+  ParamSelect,
+  ParamMultiSelect,
+  ParamDate,
+  ParamDateRange,
+  ParamDateRelative,
+  ParamNumberRange,
+  ParamCascadingSelect,
+} from "./parameters";
 
 // ─── Widget config ───────────────────────────────────────────────────────────
 
@@ -44,15 +42,13 @@ export interface ParameterWidgetConfig {
   widgetId?: string;
 }
 
-// ─── Main renderer ───────────────────────────────────────────────────────────
+// ─── Main renderer (thin dispatcher) ─────────────────────────────────────────
 
 /**
  * ParameterWidgetRenderer — app-layer orchestrator.
  *
- * Architecture boundary:
- * - Reads/writes the parameter Zustand store (app concern)
- * - Fetches seed query options via the /api/query route (app concern)
- * - Delegates pure rendering to the presentational components in component/
+ * Hooks handle store interactions, seed queries, and cascading logic.
+ * Per-type components in ./parameters/ handle the rendering.
  */
 export function ParameterWidgetRenderer({
   parameterName,
@@ -68,290 +64,99 @@ export function ParameterWidgetRenderer({
   className,
   widgetId,
 }: ParameterWidgetConfig) {
-  const parameters = useParameterStore((s) => s.parameters);
-  const setParameter = useParameterStore((s) => s.setParameter);
-  const clearParameter = useParameterStore((s) => s.clearParameter);
-
-  // Read tenantId from the Auth.js session for defense-in-depth tenant scoping
-  // on seed query requests. The server independently enforces connection ownership,
-  // but passing tenantId allows an additional assertion server-side.
-  const { data: session } = useSession();
-  const tenantId = session?.user?.tenantId;
-
-  // ── Searchable: debounced search term ─────────────────────────────────────
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  useEffect(() => {
-    if (!searchable) return;
-    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm, searchable]);
-
-  // ── Parent value (for cascading) ──────────────────────────────────────────
-  const parentValue = parentParameterName
-    ? String(parameters[parentParameterName]?.value ?? "")
-    : undefined;
-
-  const parentParams = useMemo(
-    () =>
-      parentParameterName && parentValue
-        ? { [`param_${parentParameterName}`]: parentValue }
-        : {},
-    [parentParameterName, parentValue]
-  );
-
-  // ── Seed query (select, multi-select, cascading) ──────────────────────────
-  const needsSeed =
-    parameterType === "select" ||
-    parameterType === "multi-select" ||
-    parameterType === "cascading-select";
-
-  const cascadingEnabled =
-    parameterType !== "cascading-select" ||
-    (parentParameterName !== undefined ? !!parentValue : true);
-
-  const seedExtraParams = useMemo(() => {
-    const base = parameterType === "cascading-select" ? parentParams : {};
-    if (searchable && debouncedSearch) {
-      return { ...base, param_search: debouncedSearch };
-    }
-    return Object.keys(base).length > 0 ? base : undefined;
-  }, [parameterType, parentParams, searchable, debouncedSearch]);
-
-  const { options, loading } = useSeedQuery(
+  const actions = useParamActions(parameterName, parameterType, widgetId);
+  const seed = useSeedQueryOptions(
+    parameterType,
     connectionId,
     seedQuery,
-    needsSeed && cascadingEnabled,
-    seedExtraParams,
-    tenantId
+    parentParameterName,
+    searchable,
+  );
+  useCascadingClear(
+    parameterName,
+    parameterType,
+    parentParameterName,
+    seed.parentValue,
   );
 
-  // ── Convenience helpers ───────────────────────────────────────────────────
-  const set = useCallback(
-    (value: unknown) =>
-      setParameter(parameterName, value, "Parameter Selector", parameterName, parameterType, "selector-widget", widgetId),
-    [parameterName, parameterType, setParameter, widgetId]
-  );
-
-  const clear = useCallback(
-    () => clearParameter(parameterName),
-    [parameterName, clearParameter]
-  );
-
-  // ── Clear cascading child when parent value changes ─────────────────────
-  const prevParentValue = useRef(parentValue);
-  useEffect(() => {
-    if (
-      parameterType === "cascading-select" &&
-      parentParameterName &&
-      prevParentValue.current !== parentValue
-    ) {
-      prevParentValue.current = parentValue;
-      clearParameter(parameterName);
-    }
-  }, [parameterType, parentParameterName, parentValue, parameterName, clearParameter]);
-
-  // ── Read current value from store ─────────────────────────────────────────
-  const currentEntry = parameters[parameterName];
-
-  // ── Render per type ───────────────────────────────────────────────────────
   switch (parameterType) {
-    case "text": {
-      const textValue = currentEntry ? String(currentEntry.value ?? "") : "";
+    case "text":
       return (
-        <DebouncedTextInput
+        <ParamText
           parameterName={parameterName}
-          value={textValue}
-          onChange={(v) => (v ? set(v) : clear())}
+          actions={actions}
           placeholder={placeholder}
           className={className}
         />
       );
-    }
-
-    case "select": {
-      const selectValue = currentEntry ? String(currentEntry.value ?? "") : "";
+    case "select":
       return (
-        <ParamSelector
+        <ParamSelect
           parameterName={parameterName}
-          options={options}
-          value={selectValue}
-          onChange={(v) => {
-            if (!v) { clear(); return; }
-            // Store the raw typed value from the option, fall back to string
-            const opt = options.find((o) => o.value === v);
-            set(opt?.rawValue !== undefined ? opt.rawValue : v);
-          }}
-          placeholder={placeholder}
-          loading={loading}
+          actions={actions}
+          seed={seed}
           searchable={searchable}
-          onSearch={searchable ? setSearchTerm : undefined}
-          className={className}
-        />
-      );
-    }
-
-    case "multi-select": {
-      const rawValues = currentEntry?.value;
-      const multiValues: string[] = Array.isArray(rawValues)
-        ? (rawValues as unknown[]).map(String)
-        : rawValues
-        ? [String(rawValues)]
-        : [];
-      return (
-        <ParamMultiSelector
-          parameterName={parameterName}
-          options={options}
-          values={multiValues}
-          onChange={(vals) => {
-            if (vals.length === 0) { clear(); return; }
-            // Preserve raw typed values from options
-            const rawVals = vals.map((v) => {
-              const opt = options.find((o) => o.value === v);
-              return opt?.rawValue !== undefined ? opt.rawValue : v;
-            });
-            set(rawVals);
-          }}
           placeholder={placeholder}
-          loading={loading}
+          className={className}
+        />
+      );
+    case "multi-select":
+      return (
+        <ParamMultiSelect
+          parameterName={parameterName}
+          actions={actions}
+          seed={seed}
           searchable={searchable}
-          onSearch={searchable ? setSearchTerm : undefined}
+          placeholder={placeholder}
           className={className}
         />
       );
-    }
-
-    case "date": {
-      const dateValue = currentEntry ? String(currentEntry.value ?? "") : "";
+    case "date":
       return (
-        <DatePickerParameter
+        <ParamDate
           parameterName={parameterName}
-          value={dateValue}
-          onChange={(v) => (v ? set(v) : clear())}
+          actions={actions}
           className={className}
         />
       );
-    }
-
-    case "date-range": {
-      // Range stores an object {from, to} in the entry value
-      const rangeEntry = currentEntry?.value as { from?: string; to?: string } | undefined;
-      const fromVal = rangeEntry?.from ?? "";
-      const toVal = rangeEntry?.to ?? "";
-
-      // Convenience: also set the flat `{name}_from` and `{name}_to` parameters
-      // so queries can reference $param_{name}_from and $param_{name}_to directly.
-      const handleRangeChange = (from: string, to: string) => {
-        if (!from && !to) {
-          clear();
-          clearParameter(`${parameterName}_from`);
-          clearParameter(`${parameterName}_to`);
-          return;
-        }
-        set({ from, to });
-        if (from) {
-          setParameter(`${parameterName}_from`, from, "Parameter Selector", `${parameterName}_from`, "date", "selector-widget", widgetId);
-        } else {
-          clearParameter(`${parameterName}_from`);
-        }
-        if (to) {
-          setParameter(`${parameterName}_to`, to, "Parameter Selector", `${parameterName}_to`, "date", "selector-widget", widgetId);
-        } else {
-          clearParameter(`${parameterName}_to`);
-        }
-      };
-
+    case "date-range":
       return (
-        <DateRangeParameter
+        <ParamDateRange
           parameterName={parameterName}
-          from={fromVal}
-          to={toVal}
-          onChange={handleRangeChange}
+          actions={actions}
           className={className}
         />
       );
-    }
-
-    case "date-relative": {
-      const relValue = currentEntry
-        ? (currentEntry.value as RelativeDatePreset | "")
-        : "";
-      const handleRelChange = (preset: RelativeDatePreset | "") => {
-        if (!preset) {
-          clear();
-          return;
-        }
-        // Store only the preset key (e.g. "last_7_days").
-        // _from/_to are resolved dynamically at query-execution time by
-        // useWidgetQuery so they always reflect today's date, not the date
-        // the user clicked the preset.
-        set(preset);
-      };
+    case "date-relative":
       return (
-        <DateRelativePicker
+        <ParamDateRelative
           parameterName={parameterName}
-          value={relValue}
-          onChange={handleRelChange}
+          actions={actions}
           className={className}
         />
       );
-    }
-
-    case "number-range": {
-      const rawRange = currentEntry?.value;
-      const rangeValue: [number, number] | null = Array.isArray(rawRange)
-        ? [Number(rawRange[0]), Number(rawRange[1])]
-        : null;
-
-      const handleRangeChange = (vals: [number, number]) => {
-        set(vals);
-        // Also set flat _min/_max for direct query use
-        setParameter(`${parameterName}_min`, vals[0], "Parameter Selector", `${parameterName}_min`, "number-range", "selector-widget", widgetId);
-        setParameter(`${parameterName}_max`, vals[1], "Parameter Selector", `${parameterName}_max`, "number-range", "selector-widget", widgetId);
-      };
-
-      const handleClear = () => {
-        clear();
-        clearParameter(`${parameterName}_min`);
-        clearParameter(`${parameterName}_max`);
-      };
-
+    case "number-range":
       return (
-        <NumberRangeSlider
+        <ParamNumberRange
           parameterName={parameterName}
-          min={rangeMin}
-          max={rangeMax}
-          step={rangeStep}
-          value={rangeValue}
-          onChange={handleRangeChange}
-          onClear={handleClear}
-          showInputs
+          actions={actions}
+          rangeMin={rangeMin}
+          rangeMax={rangeMax}
+          rangeStep={rangeStep}
           className={className}
         />
       );
-    }
-
-    case "cascading-select": {
-      const cascadeValue = currentEntry ? String(currentEntry.value ?? "") : "";
+    case "cascading-select":
       return (
-        <CascadingSelector
+        <ParamCascadingSelect
           parameterName={parameterName}
-          options={options}
-          value={cascadeValue}
-          onChange={(v) => {
-            if (!v) { clear(); return; }
-            const opt = options.find((o) => o.value === v);
-            set(opt?.rawValue !== undefined ? opt.rawValue : v);
-          }}
-          parentValue={parentValue}
+          actions={actions}
+          seed={seed}
           parentParameterName={parentParameterName}
-          loading={loading}
           placeholder={placeholder}
           className={className}
         />
       );
-    }
-
     default:
       return null;
   }
