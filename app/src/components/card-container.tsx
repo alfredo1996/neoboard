@@ -1,24 +1,14 @@
 "use client";
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
+import { useClickAction } from "@/hooks/use-click-action";
 import { resolveCacheOptions } from "@/lib/resolve-cache-options";
 import { getChartConfig } from "@/lib/chart-registry";
 import type { ColumnMapping } from "@/lib/chart-registry";
-import type {
-  DashboardWidget,
-  ClickAction,
-  StylingConfig,
-} from "@/lib/db/schema";
+import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
-import {
-  useParameterStore,
-  useParameterValues,
-} from "@/stores/parameter-store";
-import {
-  resolveClickActions,
-  deriveClickableColumns,
-} from "@/lib/resolve-click-action";
+import { useParameterValues } from "@/stores/parameter-store";
 import { scrollAndHighlight } from "@/lib/scroll-to-widget";
 import { applyTransforms } from "@/lib/data-transforms";
 import type { Transform } from "@/lib/data-transforms";
@@ -165,37 +155,11 @@ export function CardContainer({
   parameterSourceMap,
 }: CardContainerProps) {
   const chartConfig = getChartConfig(widget.chartType);
-
-  const setParameter = useParameterStore((s) => s.setParameter);
-  const handleChartClick = useCallback(
-    (point: Record<string, unknown>) => {
-      const result = resolveClickActions(widget, point);
-      if (!result) return;
-
-      if (result.setParameter) {
-        const { parameterName, value, label, sourceField } =
-          result.setParameter;
-        setParameter(
-          parameterName,
-          value,
-          label,
-          sourceField,
-          "text",
-          "click-action",
-          widget.id,
-        );
-      }
-
-      if (result.navigateToPageId) {
-        onNavigateToPage?.(result.navigateToPageId);
-      }
-    },
-    [widget, setParameter, onNavigateToPage],
+  const { handleChartClick, hasClickAction, clickableColumns } = useClickAction(
+    widget,
+    onNavigateToPage,
   );
   const ws = widget.settings ?? {};
-  const clickAction = ws.clickAction as ClickAction | undefined;
-  const hasClickAction = !!clickAction;
-  const clickableColumns = deriveClickableColumns(clickAction);
 
   // Cache settings from widget config. Default: cache enabled, 5-min TTL.
   const enableCache = ws.enableCache !== false;

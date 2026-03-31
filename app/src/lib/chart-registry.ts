@@ -9,6 +9,7 @@
  * The toRecords helper is kept as a safety net for backward compatibility.
  */
 
+import type React from "react";
 import { normalizeValue } from "./normalize-value";
 import type { ColumnMapping } from "@neoboard/components";
 
@@ -41,6 +42,15 @@ export interface ChartConfig {
   transform: (data: unknown) => unknown;
   transformWithMapping: (data: unknown, mapping: ColumnMapping) => unknown;
   /**
+   * Lazy component loader for this chart type. Used by chart-renderer
+   * to dynamically import the component. Returns a module with a default export.
+   *
+   * For charts that don't need lazy loading (e.g., JSON, Markdown), this
+   * can return the component directly wrapped in `{ default: Component }`.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- props differ per chart type; caller provides correct props
+  component?: () => Promise<{ default: React.ComponentType<any> }>;
+  /**
    * Validates raw data shape before transform. Returns an error string
    * when data exists but has the wrong shape for this chart type.
    * Returns null when data is valid OR empty (empty = separate "No data" state).
@@ -59,8 +69,9 @@ export interface ChartConfig {
   supportsClickAction?: boolean;
   /**
    * Whether this chart type supports rule-based styling.
-   * Defaults to true if omitted. Set to false for chart types that
-   * can't apply conditional colors (graph, map, json, parameter-select, form).
+   * Defaults to true if `stylingTargets` is defined, false otherwise.
+   * Set to false explicitly for chart types that can't apply conditional
+   * colors (json, parameter-select, form).
    */
   supportsStyling?: boolean;
   /** Whether this chart renders via ECharts (used by screenshot capture). */
@@ -675,10 +686,15 @@ function validateMapData(data: unknown): string | null {
 
 const COLOR_TARGET = [{ value: "color", label: "Color" }];
 
+// Note: `component` fields below will replace the parallel lazy-loaders in
+// chart-renderer.tsx in a follow-up PR. Until then, chart-renderer.tsx owns
+// the active loaders at runtime; these registry entries are for future use.
 export const chartRegistry: Record<ChartType, ChartConfig> = {
   bar: {
     type: "bar",
     label: "Bar Chart",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.BarChart })),
     transform: transformToBarData,
     transformWithMapping: transformToBarData,
     validate: validateBarData,
@@ -690,6 +706,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   line: {
     type: "line",
     label: "Line Chart",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.LineChart })),
     transform: transformToLineData,
     transformWithMapping: transformToLineData,
     validate: validateLineData,
@@ -701,6 +719,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   pie: {
     type: "pie",
     label: "Pie Chart",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.PieChart })),
     transform: transformToPieData,
     transformWithMapping: transformToPieData,
     validate: validatePieData,
@@ -712,6 +732,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   table: {
     type: "table",
     label: "Data Table",
+    component: () =>
+      import("@/components/table-renderer").then((m) => ({
+        default: m.TableRenderer,
+      })),
     transform: transformToTableData,
     transformWithMapping: transformToTableData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -723,6 +747,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   "single-value": {
     type: "single-value",
     label: "Single Value",
+    component: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.SingleValueChart,
+      })),
     transform: transformToValueData,
     transformWithMapping: transformToValueData,
     validate: validateValueData,
@@ -737,6 +765,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   graph: {
     type: "graph",
     label: "Graph",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.GraphChart })),
     transform: transformToGraphData,
     transformWithMapping: transformToGraphData,
     validate: validateGraphData,
@@ -746,6 +776,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   map: {
     type: "map",
     label: "Map",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.MapChart })),
     transform: transformToMapData,
     transformWithMapping: transformToMapData,
     validate: validateMapData,
@@ -755,6 +787,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   json: {
     type: "json",
     label: "JSON Viewer",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.JsonViewer })),
     transform: transformToJsonData,
     transformWithMapping: transformToJsonData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -764,6 +798,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   "parameter-select": {
     type: "parameter-select",
     label: "Parameter Selector",
+    component: () =>
+      import("@/components/parameter-widget-renderer").then((m) => ({
+        default: m.ParameterWidgetRenderer,
+      })),
     transform: transformToSelectData,
     transformWithMapping: transformToSelectData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -774,6 +812,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   form: {
     type: "form",
     label: "Form",
+    component: () =>
+      import("@/components/form-widget-renderer").then((m) => ({
+        default: m.FormWidgetRenderer,
+      })),
     transform: () => [],
     transformWithMapping: () => [],
     compatibleWith: ["neo4j", "postgresql"],
@@ -783,6 +825,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   markdown: {
     type: "markdown",
     label: "Markdown",
+    component: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.MarkdownWidget,
+      })),
     transform: () => null,
     transformWithMapping: () => null,
     compatibleWith: ["neo4j", "postgresql"],
@@ -793,6 +839,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   iframe: {
     type: "iframe",
     label: "iFrame",
+    component: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.IframeWidget,
+      })),
     transform: () => null,
     transformWithMapping: () => null,
     compatibleWith: ["neo4j", "postgresql"],
@@ -803,6 +853,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   gauge: {
     type: "gauge",
     label: "Gauge",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
     transform: transformToGaugeData,
     transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -813,6 +865,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   sankey: {
     type: "sankey",
     label: "Sankey",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.SankeyChart })),
     transform: transformToSankeyData,
     transformWithMapping: transformToSankeyData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -822,6 +876,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   sunburst: {
     type: "sunburst",
     label: "Sunburst",
+    component: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.SunburstChart,
+      })),
     transform: transformToHierarchicalData,
     transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -831,6 +889,8 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   radar: {
     type: "radar",
     label: "Radar",
+    component: () =>
+      import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
     transform: transformToRadarData,
     transformWithMapping: transformToRadarData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -841,6 +901,10 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
   treemap: {
     type: "treemap",
     label: "Treemap",
+    component: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.TreemapChart,
+      })),
     transform: transformToHierarchicalData,
     transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
