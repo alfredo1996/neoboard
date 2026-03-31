@@ -78,8 +78,13 @@ describe("getChartOptions", () => {
   it("returns only secondary options for parameter-select", () => {
     const options = getChartOptions("parameter-select");
     const keys = options.map((o) => o.key);
-    expect(keys).toEqual(["placeholder", "searchable", "defaultValue"]);
-    expect(options).toHaveLength(3);
+    expect(keys).toEqual([
+      "placeholder",
+      "searchable",
+      "defaultValue",
+      "syncToUrl",
+    ]);
+    expect(options).toHaveLength(4);
   });
 
   it("returns empty array for unknown chart type", () => {
@@ -415,8 +420,12 @@ describe("colorPalette option", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorPalette");
     expect(opt?.options).toBeDefined();
-    expect(opt?.options!.map((o) => o.value)).toContain("deep-ocean");
-    expect(opt?.options!.map((o) => o.value)).toContain("warm-sunset");
+    expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
+      "deep-ocean",
+    );
+    expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
+      "warm-sunset",
+    );
   });
 
   it("colorPalette select options all have non-empty label and value", () => {

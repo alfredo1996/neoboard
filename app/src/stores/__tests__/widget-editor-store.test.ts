@@ -44,7 +44,7 @@ describe("widget-editor-store", () => {
 
     it("disables styling for unsupported types", () => {
       getState().setStylingEnabled(true);
-      getState().setChartType("graph"); // doesn't support styling
+      getState().setChartType("json"); // doesn't support styling
       expect(getState().stylingEnabled).toBe(false);
     });
   });
@@ -193,7 +193,7 @@ describe("widget-editor-store", () => {
     });
 
     it("returns undefined for unsupported chart types", () => {
-      getState().setChartType("graph");
+      getState().setChartType("json");
       getState().setStylingEnabled(true);
       expect(getState().buildStylingConfig()).toBeUndefined();
     });
