@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   getCompatibleChartTypes,
   getChartConfig,
@@ -8,6 +8,40 @@ import {
   getStylingTargets,
 } from "../chart-registry";
 import type { ChartType, ConnectorType } from "../chart-registry";
+
+// Stub component — used by vi.mock to satisfy dynamic import() calls
+const Stub = () => null;
+
+// Mock dynamic imports so component loaders resolve without real dependencies.
+// vi.mock calls are hoisted by Vitest and intercept both static & dynamic imports.
+vi.mock("@neoboard/components", () => ({
+  BarChart: Stub,
+  LineChart: Stub,
+  PieChart: Stub,
+  SingleValueChart: Stub,
+  GraphChart: Stub,
+  MapChart: Stub,
+  JsonViewer: Stub,
+  MarkdownWidget: Stub,
+  IframeWidget: Stub,
+  GaugeChart: Stub,
+  SankeyChart: Stub,
+  SunburstChart: Stub,
+  RadarChart: Stub,
+  TreemapChart: Stub,
+}));
+
+vi.mock("@/components/table-renderer", () => ({
+  TableRenderer: Stub,
+}));
+
+vi.mock("@/components/parameter-widget-renderer", () => ({
+  ParameterWidgetRenderer: Stub,
+}));
+
+vi.mock("@/components/form-widget-renderer", () => ({
+  FormWidgetRenderer: Stub,
+}));
 
 // ---------------------------------------------------------------------------
 // getCompatibleChartTypes
@@ -1836,4 +1870,15 @@ describe("registry component field", () => {
     expect(config!.component).toBeDefined();
     expect(typeof config!.component).toBe("function");
   });
+
+  it.each(allTypes)(
+    "%s component loader resolves to a module with default export",
+    async (type) => {
+      const config = getChartConfig(type);
+      expect(config).toBeDefined();
+      const mod = await config!.component();
+      expect(mod).toBeDefined();
+      expect(mod.default).toBeDefined();
+    },
+  );
 });
