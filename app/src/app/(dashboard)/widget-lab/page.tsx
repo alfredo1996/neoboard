@@ -34,6 +34,7 @@ import {
   SelectValue,
   ConfirmDialog,
   CodePreview,
+  useToast,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
@@ -173,6 +174,7 @@ export default function WidgetLabPage() {
   const userId = session?.user?.id ?? "";
   const role = session?.user?.role ?? "creator";
 
+  const { toast } = useToast();
   const { data: templates, isLoading } = useWidgetTemplates();
   const deleteTemplate = useDeleteWidgetTemplate();
   const createTemplate = useCreateWidgetTemplate();
@@ -245,16 +247,33 @@ export default function WidgetLabPage() {
   }
 
   function handleDuplicate(template: WidgetTemplate) {
-    createTemplate.mutate({
-      name: `${template.name} (copy)`,
-      description: template.description ?? undefined,
-      tags: template.tags ?? undefined,
-      chartType: template.chartType,
-      connectorType: template.connectorType as "neo4j" | "postgresql",
-      connectionId: template.connectionId ?? undefined,
-      query: template.query,
-      settings: (template.settings as Record<string, unknown>) ?? undefined,
-    });
+    const baseName = template.name.replace(/\s*\(copy(?:\s*\d+)?\)$/, "");
+    createTemplate.mutate(
+      {
+        name: `${baseName} (copy)`,
+        description: template.description ?? undefined,
+        tags: template.tags ?? undefined,
+        chartType: template.chartType,
+        connectorType: template.connectorType as "neo4j" | "postgresql",
+        connectionId: template.connectionId ?? undefined,
+        query: template.query,
+        settings: (template.settings as Record<string, unknown>) ?? undefined,
+      },
+      {
+        onSuccess: () =>
+          toast({
+            title: "Template duplicated",
+            description: `"${baseName} (copy)" has been created.`,
+          }),
+        onError: (err) =>
+          toast({
+            title: "Failed to duplicate template",
+            description:
+              err instanceof Error ? err.message : "Something went wrong.",
+            variant: "destructive",
+          }),
+      },
+    );
   }
 
   async function handleTestQuery(template: WidgetTemplate) {
@@ -269,17 +288,32 @@ export default function WidgetLabPage() {
           query: template.query,
           params: template.params ?? {},
         }),
+        signal: AbortSignal.timeout(30_000),
       });
       if (res.ok) {
-        alert("Query executed successfully.");
+        toast({
+          title: "Query executed successfully",
+          description: `Template "${template.name}" query returned a valid response.`,
+        });
       } else {
         const err = await res.json();
-        alert(`Query failed: ${err.error?.message ?? res.statusText}`);
+        toast({
+          title: "Query failed",
+          description: err.error?.message ?? res.statusText,
+          variant: "destructive",
+        });
       }
     } catch (e) {
-      alert(
-        `Query failed: ${e instanceof Error ? e.message : "Unknown error"}`,
-      );
+      const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
+      toast({
+        title: isTimeout ? "Query timed out" : "Query failed",
+        description: isTimeout
+          ? "The query did not respond within 30 seconds."
+          : e instanceof Error
+            ? e.message
+            : "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setTestingTemplateId(null);
     }
