@@ -104,7 +104,9 @@ describe("MapChart", () => {
     render(<MapChart />);
     expect(L.tileLayer).toHaveBeenCalledWith(
       expect.stringContaining("basemaps.cartocdn.com/light_all"),
-      expect.objectContaining({ attribution: expect.stringContaining("OpenStreetMap") }),
+      expect.objectContaining({
+        attribution: expect.stringContaining("OpenStreetMap"),
+      }),
     );
   });
 
@@ -142,27 +144,42 @@ describe("MapChart", () => {
       [40.7, -74.0],
       [51.5, -0.1],
     ]);
-    expect(mockFitBounds).toHaveBeenCalledWith(mockLatLngBounds, { padding: [20, 20] });
+    expect(mockFitBounds).toHaveBeenCalledWith(mockLatLngBounds, {
+      padding: [20, 20],
+    });
   });
 
   it("respects custom fitBoundsPadding", () => {
     const markers = [{ id: "1", lat: 10, lng: 20 }];
-    render(<MapChart markers={markers} autoFitBounds fitBoundsPadding={[50, 50]} />);
-    expect(mockFitBounds).toHaveBeenCalledWith(mockLatLngBounds, { padding: [50, 50] });
+    render(
+      <MapChart markers={markers} autoFitBounds fitBoundsPadding={[50, 50]} />,
+    );
+    expect(mockFitBounds).toHaveBeenCalledWith(mockLatLngBounds, {
+      padding: [50, 50],
+    });
   });
 
   it("does not call setView when autoFitBounds is true", () => {
-    render(<MapChart markers={[{ id: "1", lat: 10, lng: 20 }]} autoFitBounds />);
+    render(
+      <MapChart markers={[{ id: "1", lat: 10, lng: 20 }]} autoFitBounds />,
+    );
     // setView is called on mount via L.map config, but the setView useEffect should not fire
     expect(mockSetView).not.toHaveBeenCalled();
   });
 
   it("binds popup when marker has popup", () => {
     const markers = [
-      { id: "1", lat: 40.7, lng: -74.0, popup: "<b>New York</b><br/>Population: 8M" },
+      {
+        id: "1",
+        lat: 40.7,
+        lng: -74.0,
+        popup: "<b>New York</b><br/>Population: 8M",
+      },
     ];
     render(<MapChart markers={markers} />);
-    expect(mockBindPopup).toHaveBeenCalledWith("<b>New York</b><br/>Population: 8M");
+    expect(mockBindPopup).toHaveBeenCalledWith(
+      "<b>New York</b><br/>Population: 8M",
+    );
   });
 
   it("does not bind popup when marker has no popup", () => {
@@ -225,5 +242,49 @@ describe("MapChart", () => {
     const markers = [{ id: "1", lat: 10, lng: 20, popup: "<b>Hello</b>" }];
     render(<MapChart markers={markers} showPopup={false} />);
     expect(mockBindPopup).not.toHaveBeenCalled();
+  });
+
+  describe("rule-based styling", () => {
+    it("applies styling rule color to markers matching the rule", () => {
+      const markers = [
+        { id: "1", lat: 10, lng: 20, value: 80 },
+        { id: "2", lat: 30, lng: 40, value: 20 },
+      ];
+      const rules = [
+        { id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" },
+      ];
+      render(<MapChart markers={markers} stylingRules={rules} />);
+
+      const calls = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls;
+      // First marker (value=80) matches >= 50 → red
+      expect(calls[0][1].fillColor).toBe("#ff0000");
+      // Second marker (value=20) does NOT match → default color
+      expect(calls[1][1].fillColor).not.toBe("#ff0000");
+    });
+
+    it("styling rule color takes priority over explicit marker.color", () => {
+      const markers = [
+        { id: "1", lat: 10, lng: 20, value: 100, color: "#00ff00" },
+      ];
+      const rules = [
+        { id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" },
+      ];
+      render(<MapChart markers={markers} stylingRules={rules} />);
+
+      const calls = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls[0][1].fillColor).toBe("#ff0000");
+    });
+
+    it("does not apply styling when marker has no value", () => {
+      const markers = [{ id: "1", lat: 10, lng: 20 }];
+      const rules = [
+        { id: "r1", operator: ">=" as const, value: 0, color: "#ff0000" },
+      ];
+      render(<MapChart markers={markers} stylingRules={rules} />);
+
+      const calls = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls;
+      // No value → rule not evaluated → default color
+      expect(calls[0][1].fillColor).not.toBe("#ff0000");
+    });
   });
 });
