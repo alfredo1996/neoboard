@@ -4,8 +4,10 @@ import crypto from "crypto";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { signupRateLimiter } from "@/lib/rate-limiter";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -23,6 +25,17 @@ export async function areUsersEmpty(): Promise<boolean> {
 }
 
 export async function signup(formData: FormData): Promise<SignupResult> {
+  // Rate limit by IP — 3 attempts per minute
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rateResult = signupRateLimiter.check(ip);
+  if (!rateResult.allowed) {
+    return {
+      success: false,
+      error: "Too many signup attempts. Please try again later.",
+    };
+  }
+
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -44,8 +57,12 @@ export async function signup(formData: FormData): Promise<SignupResult> {
     const tokenValid =
       token &&
       expected &&
-      Buffer.byteLength(token, "utf8") === Buffer.byteLength(expected, "utf8") &&
-      crypto.timingSafeEqual(Buffer.from(token, "utf8"), Buffer.from(expected, "utf8"));
+      Buffer.byteLength(token, "utf8") ===
+        Buffer.byteLength(expected, "utf8") &&
+      crypto.timingSafeEqual(
+        Buffer.from(token, "utf8"),
+        Buffer.from(expected, "utf8"),
+      );
     if (!tokenValid) {
       return {
         success: false,
@@ -65,7 +82,10 @@ export async function signup(formData: FormData): Promise<SignupResult> {
       .limit(1);
 
     if (existing.length > 0) {
-      return { success: false as const, error: "An account with this email already exists" };
+      return {
+        success: false as const,
+        error: "An account with this email already exists",
+      };
     }
 
     // Re-check inside the transaction to close the TOCTOU window for admin bootstrap

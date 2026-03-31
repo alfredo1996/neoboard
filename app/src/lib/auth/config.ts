@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
+import { loginRateLimiter } from "@/lib/rate-limiter";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -35,6 +36,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
+        // Rate limit by email — 5 attempts per minute per account
+        const rateResult = loginRateLimiter.check(parsed.data.email);
+        if (!rateResult.allowed) return null;
+
         const user = await db
           .select()
           .from(users)
@@ -46,7 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const isValid = await bcrypt.compare(
           parsed.data.password,
-          user.passwordHash
+          user.passwordHash,
         );
         if (!isValid) return null;
 
@@ -94,7 +99,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role;
         session.user.canWrite = (token.canWrite as boolean) ?? true;
-        session.user.tenantId = token.tenantId ?? process.env.TENANT_ID ?? "default";
+        session.user.tenantId =
+          token.tenantId ?? process.env.TENANT_ID ?? "default";
       }
       return session;
     },
