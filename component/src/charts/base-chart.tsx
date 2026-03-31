@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
-import { BarChart as EBarChart, LineChart as ELineChart, PieChart as EPieChart, GraphChart as EGraphChart, RadarChart as ERadarChart } from "echarts/charts";
+import {
+  BarChart as EBarChart,
+  LineChart as ELineChart,
+  PieChart as EPieChart,
+  GraphChart as EGraphChart,
+  RadarChart as ERadarChart,
+} from "echarts/charts";
 import {
   TitleComponent,
   TooltipComponent,
@@ -66,8 +72,16 @@ function resolveChartColors(): string[] {
 }
 
 const CHART_COLOR_VARS = [
-  "--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5",
-  "--chart-6", "--chart-7", "--chart-8", "--chart-9", "--chart-10",
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
+  "--chart-6",
+  "--chart-7",
+  "--chart-8",
+  "--chart-9",
+  "--chart-10",
 ];
 const CHART_COLORS_FALLBACK = DEEP_OCEAN_LIGHT;
 
@@ -77,15 +91,34 @@ function isDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-/** Watch the `dark` class on `<html>` and re-render when it toggles. */
+/**
+ * Reactive dark-mode hook that listens to theme changes via:
+ * 1. `neoboard-theme-change` custom event (dispatched by the app's useTheme)
+ * 2. OS `prefers-color-scheme` media query changes
+ * 3. `storage` events (cross-tab theme sync)
+ *
+ * Falls back to reading `<html class="dark">` — works regardless of
+ * whether the host app uses NeoBoard's useTheme or any other theme library.
+ */
 function useDarkMode(): boolean {
   const [dark, setDark] = useState(isDarkMode);
 
   useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
-    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    const sync = () => setDark(isDarkMode());
+
+    // App-level theme change event (NeoBoard's useTheme dispatches this)
+    globalThis.addEventListener("neoboard-theme-change", sync);
+    // Cross-tab sync (localStorage theme key changed in another tab)
+    globalThis.addEventListener("storage", sync);
+    // OS-level dark mode toggle
+    const mql = globalThis.matchMedia?.("(prefers-color-scheme: dark)");
+    mql?.addEventListener("change", sync);
+
+    return () => {
+      globalThis.removeEventListener("neoboard-theme-change", sync);
+      globalThis.removeEventListener("storage", sync);
+      mql?.removeEventListener("change", sync);
+    };
   }, []);
 
   return dark;
@@ -172,7 +205,14 @@ function BaseChart({
       },
     };
     instance.setOption(merged, { notMerge: true });
-  }, [options, enableDataZoom, colorblindMode, colorPalette, dark, ariaDescription]);
+  }, [
+    options,
+    enableDataZoom,
+    colorblindMode,
+    colorPalette,
+    dark,
+    ariaDescription,
+  ]);
 
   // Loading state
   useEffect(() => {
@@ -181,9 +221,7 @@ function BaseChart({
     if (loading) {
       instance.showLoading("default", {
         text: "",
-        maskColor: dark
-          ? "rgba(10, 15, 30, 0.6)"
-          : "rgba(255, 255, 255, 0.6)",
+        maskColor: dark ? "rgba(10, 15, 30, 0.6)" : "rgba(255, 255, 255, 0.6)",
         zlevel: 0,
       });
     } else {
@@ -197,7 +235,9 @@ function BaseChart({
     if (!instance) return;
 
     if (onClick) {
-      instance.on("click", (params: unknown) => onClick(params as EChartsClickEvent));
+      instance.on("click", (params: unknown) =>
+        onClick(params as EChartsClickEvent),
+      );
     }
     if (onDataZoom) {
       instance.on("dataZoom", onDataZoom);
@@ -235,4 +275,9 @@ function BaseChart({
   );
 }
 
-export { BaseChart, CHART_COLORS_FALLBACK as CHART_COLORS, resolveChartColors, useDarkMode };
+export {
+  BaseChart,
+  CHART_COLORS_FALLBACK as CHART_COLORS,
+  resolveChartColors,
+  useDarkMode,
+};

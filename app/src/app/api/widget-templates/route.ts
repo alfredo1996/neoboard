@@ -8,9 +8,9 @@ import { forbidden, badRequest, handleRouteError } from "@/lib/api-utils";
 import { previewImageUrlSchema } from "./shared";
 
 const createTemplateSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  name: z.string().min(1).max(255),
+  description: z.string().max(1000).optional(),
+  tags: z.array(z.string().max(100)).max(20).optional(),
   chartType: z.string().min(1),
   connectorType: z.enum(["neo4j", "postgresql"]),
   connectionId: z.string().optional(),
