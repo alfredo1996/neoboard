@@ -75,6 +75,8 @@ CREATE TABLE "user" (
 	"passwordHash" text,
 	"role" "user_role" DEFAULT 'creator' NOT NULL,
 	"can_write" boolean DEFAULT true NOT NULL,
+	"disabledAt" timestamp,
+	"lastLoginAt" timestamp,
 	"createdAt" timestamp DEFAULT now(),
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );

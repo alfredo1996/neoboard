@@ -52,12 +52,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .then((rows) => rows[0]);
 
         if (!user?.passwordHash) return null;
+        if (user.disabledAt) return null;
 
         const isValid = await bcrypt.compare(
           parsed.data.password,
           user.passwordHash,
         );
         if (!isValid) return null;
+
+        // Update lastLoginAt (fire-and-forget — don't block login on this)
+        db.update(users)
+          .set({ lastLoginAt: new Date() })
+          .where(eq(users.id, user.id))
+          .then(
+            () => {},
+            () => {},
+          );
 
         return {
           id: user.id,
@@ -84,11 +94,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         try {
           const [dbUser] = await db
-            .select({ role: users.role, canWrite: users.canWrite })
+            .select({
+              role: users.role,
+              canWrite: users.canWrite,
+              disabledAt: users.disabledAt,
+            })
             .from(users)
             .where(eq(users.id, token.id as string))
             .limit(1);
           if (dbUser) {
+            // Disabled users get their session invalidated on next token refresh
+            if (dbUser.disabledAt) return null;
             token.role = dbUser.role;
             token.canWrite = dbUser.canWrite;
           }
