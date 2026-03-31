@@ -20,7 +20,9 @@ export function useSeedQueryOptions(
   parentParameterName?: string,
   searchable = true,
 ): SeedQueryResult {
-  const parameters = useParameterStore((s) => s.parameters);
+  const parentRawValue = useParameterStore((s) =>
+    parentParameterName ? s.parameters[parentParameterName]?.value : undefined,
+  );
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
 
@@ -35,7 +37,9 @@ export function useSeedQueryOptions(
 
   // Parent value (for cascading)
   const parentValue = parentParameterName
-    ? String(parameters[parentParameterName]?.value ?? "")
+    ? parentRawValue !== undefined
+      ? String(parentRawValue)
+      : undefined
     : undefined;
 
   const parentParams = useMemo(

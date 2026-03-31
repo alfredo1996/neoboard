@@ -19,7 +19,7 @@ export function useParamActions(
   parameterType: ParameterType,
   widgetId?: string,
 ): ParamActions {
-  const parameters = useParameterStore((s) => s.parameters);
+  const currentEntry = useParameterStore((s) => s.parameters[parameterName]);
   const setParameter = useParameterStore((s) => s.setParameter);
   const clearParameter = useParameterStore((s) => s.clearParameter);
 
@@ -66,6 +66,6 @@ export function useParamActions(
     clear,
     setCompanion,
     clearCompanion,
-    currentEntry: parameters[parameterName],
+    currentEntry,
   };
 }
