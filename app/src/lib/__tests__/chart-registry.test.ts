@@ -1029,14 +1029,19 @@ describe("transformToGraphData handles native number properties", () => {
 // chartSupportsStyling
 // ---------------------------------------------------------------------------
 describe("chartSupportsStyling", () => {
-  it.each(["bar", "line", "pie", "single-value", "table"] as const)(
-    "returns true for %s",
-    (type) => {
-      expect(chartSupportsStyling(type)).toBe(true);
-    },
-  );
+  it.each([
+    "bar",
+    "line",
+    "pie",
+    "single-value",
+    "table",
+    "graph",
+    "map",
+  ] as const)("returns true for %s", (type) => {
+    expect(chartSupportsStyling(type)).toBe(true);
+  });
 
-  it.each(["graph", "map", "json", "parameter-select", "form"] as const)(
+  it.each(["json", "parameter-select", "form"] as const)(
     "returns false for %s",
     (type) => {
       expect(chartSupportsStyling(type)).toBe(false);
@@ -1089,8 +1094,10 @@ describe("getStylingTargets", () => {
     expect(targets).toContainEqual({ value: "textColor", label: "Text Color" });
   });
 
-  it("returns empty array for graph", () => {
-    expect(getStylingTargets("graph")).toEqual([]);
+  it("returns styling targets for graph", () => {
+    expect(getStylingTargets("graph")).toEqual([
+      { value: "color", label: "Node Color" },
+    ]);
   });
 
   it("returns empty array for unknown type", () => {
