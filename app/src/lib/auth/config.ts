@@ -32,12 +32,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        // Rate limit by email — 5 attempts per minute per account
-        const rateResult = loginRateLimiter.check(parsed.data.email);
+        // Rate limit by IP — 5 attempts per minute.
+        // In deployments behind a reverse proxy (Vercel, nginx), the first
+        // x-forwarded-for value is the client IP set by the trusted proxy.
+        const forwarded = request?.headers?.get?.("x-forwarded-for");
+        const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+        const rateResult = loginRateLimiter.check(ip);
         if (!rateResult.allowed) return null;
 
         const user = await db
