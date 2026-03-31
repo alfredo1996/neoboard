@@ -78,8 +78,13 @@ describe("getChartOptions", () => {
   it("returns only secondary options for parameter-select", () => {
     const options = getChartOptions("parameter-select");
     const keys = options.map((o) => o.key);
-    expect(keys).toEqual(["placeholder", "searchable", "defaultValue"]);
-    expect(options).toHaveLength(3);
+    expect(keys).toEqual([
+      "placeholder",
+      "searchable",
+      "defaultValue",
+      "syncToUrl",
+    ]);
+    expect(options).toHaveLength(4);
   });
 
   it("returns empty array for unknown chart type", () => {

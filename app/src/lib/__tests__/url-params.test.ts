@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseUrlParams, buildUrlParams } from "../url-params";
+import {
+  parseUrlParams,
+  buildUrlParams,
+  extractNoSyncParams,
+} from "../url-params";
+import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 describe("parseUrlParams", () => {
   it("extracts param_ prefixed keys and strips prefix", () => {
@@ -59,5 +64,74 @@ describe("buildUrlParams", () => {
   it("sorts params alphabetically", () => {
     const sp = buildUrlParams({ z: "1", a: "2", m: "3" });
     expect(sp.toString()).toBe("param_a=2&param_m=3&param_z=1");
+  });
+
+  it("excludes params in the excludeFromUrl set", () => {
+    const sp = buildUrlParams(
+      { year: "1999", secret: "hidden", dept: "Sales" },
+      new Set(["secret"]),
+    );
+    expect(sp.has("param_year")).toBe(true);
+    expect(sp.has("param_dept")).toBe(true);
+    expect(sp.has("param_secret")).toBe(false);
+  });
+});
+
+describe("extractNoSyncParams", () => {
+  it("returns empty set when no widgets have syncToUrl: false", () => {
+    const layout: DashboardLayoutV2 = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [
+            {
+              id: "w1",
+              chartType: "parameter-select",
+              connectionId: "c1",
+              query: "",
+              settings: {
+                chartOptions: { parameterName: "year", syncToUrl: true },
+              },
+            },
+          ],
+          gridLayout: [],
+        },
+      ],
+    };
+    expect(extractNoSyncParams(layout)).toEqual(new Set());
+  });
+
+  it("returns param names where syncToUrl is false", () => {
+    const layout: DashboardLayoutV2 = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [
+            {
+              id: "w1",
+              chartType: "parameter-select",
+              connectionId: "c1",
+              query: "",
+              settings: {
+                chartOptions: { parameterName: "secret", syncToUrl: false },
+              },
+            },
+            {
+              id: "w2",
+              chartType: "parameter-select",
+              connectionId: "c1",
+              query: "",
+              settings: { chartOptions: { parameterName: "visible" } },
+            },
+          ],
+          gridLayout: [],
+        },
+      ],
+    };
+    expect(extractNoSyncParams(layout)).toEqual(new Set(["secret"]));
   });
 });
