@@ -729,7 +729,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     type: "table",
     label: "Data Table",
     component: () =>
-      import("@neoboard/components").then((m) => ({
+      import("@/components/table-renderer").then((m) => ({
         default: m.TableRenderer,
       })),
     transform: transformToTableData,
