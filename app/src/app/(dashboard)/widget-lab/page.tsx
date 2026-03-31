@@ -2,9 +2,21 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { FlaskConical, Trash2, Pencil, Plus, LayoutDashboard } from "lucide-react";
+import {
+  FlaskConical,
+  Trash2,
+  Pencil,
+  Plus,
+  LayoutDashboard,
+  Copy,
+  Play,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useWidgetTemplates, useDeleteWidgetTemplate } from "@/hooks/use-widget-templates";
+import {
+  useWidgetTemplates,
+  useDeleteWidgetTemplate,
+  useCreateWidgetTemplate,
+} from "@/hooks/use-widget-templates";
 import { useConnections } from "@/hooks/use-connections";
 import { getChartConfig } from "@/lib/chart-registry";
 import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
@@ -22,6 +34,7 @@ import {
   SelectValue,
   ConfirmDialog,
   CodePreview,
+  useToast,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
@@ -32,6 +45,9 @@ function TemplateCard({
   canDelete,
   onEdit,
   onDelete,
+  onDuplicate,
+  onTestQuery,
+  testQueryLoading,
   onUseInDashboard,
 }: {
   readonly template: WidgetTemplate;
@@ -39,13 +55,19 @@ function TemplateCard({
   readonly canDelete: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  readonly onDuplicate: () => void;
+  readonly onTestQuery: () => void;
+  readonly testQueryLoading: boolean;
   readonly onUseInDashboard: () => void;
 }) {
   const chartLabel =
     getChartConfig(template.chartType)?.label ?? template.chartType;
 
   return (
-    <div className="rounded-lg border bg-card flex flex-col overflow-hidden" data-testid="template-card">
+    <div
+      className="rounded-lg border bg-card flex flex-col overflow-hidden"
+      data-testid="template-card"
+    >
       <div className="p-3 flex flex-col gap-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -66,6 +88,27 @@ function TemplateCard({
             >
               <LayoutDashboard className="h-3.5 w-3.5" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onDuplicate}
+              aria-label="Duplicate template"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            {template.query && template.connectionId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={onTestQuery}
+                disabled={testQueryLoading}
+                aria-label="Test query"
+              >
+                <Play className="h-3.5 w-3.5" />
+              </Button>
+            )}
             {canEdit && (
               <Button
                 variant="ghost"
@@ -98,10 +141,18 @@ function TemplateCard({
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
-            <Badge variant="secondary" className="text-xs">{chartLabel}</Badge>
-            <Badge variant="outline" className="text-xs">{template.connectorType}</Badge>
+            <Badge variant="secondary" className="text-xs">
+              {chartLabel}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {template.connectorType}
+            </Badge>
             {(template.tags ?? []).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-[10px] font-normal">
+              <Badge
+                key={tag}
+                variant="outline"
+                className="text-[10px] font-normal"
+              >
                 {tag}
               </Badge>
             ))}
@@ -123,9 +174,14 @@ export default function WidgetLabPage() {
   const userId = session?.user?.id ?? "";
   const role = session?.user?.role ?? "creator";
 
+  const { toast } = useToast();
   const { data: templates, isLoading } = useWidgetTemplates();
   const deleteTemplate = useDeleteWidgetTemplate();
+  const createTemplate = useCreateWidgetTemplate();
   const { data: connections = [] } = useConnections();
+  const [testingTemplateId, setTestingTemplateId] = useState<string | null>(
+    null,
+  );
 
   const [search, setSearch] = useState("");
   const [filterChartType, setFilterChartType] = useState<string>("all");
@@ -136,12 +192,18 @@ export default function WidgetLabPage() {
 
   // Editor modal state
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<WidgetTemplate | undefined>();
-  const editorMode = editingTemplate ? "lab-edit" as const : "lab-create" as const;
+  const [editingTemplate, setEditingTemplate] = useState<
+    WidgetTemplate | undefined
+  >();
+  const editorMode = editingTemplate
+    ? ("lab-edit" as const)
+    : ("lab-create" as const);
 
   const chartTypes = useMemo(() => {
     if (!templates) return [];
-    return [...new Set(templates.map((t) => t.chartType))].sort((a, b) => a.localeCompare(b));
+    return [...new Set(templates.map((t) => t.chartType))].sort((a, b) =>
+      a.localeCompare(b),
+    );
   }, [templates]);
 
   const allTags = useMemo(() => {
@@ -182,6 +244,79 @@ export default function WidgetLabPage() {
   function handleEdit(template: WidgetTemplate) {
     setEditingTemplate(template);
     setEditorOpen(true);
+  }
+
+  function handleDuplicate(template: WidgetTemplate) {
+    const baseName = template.name.replace(/\s*\(copy(?:\s*\d+)?\)$/, "");
+    createTemplate.mutate(
+      {
+        name: `${baseName} (copy)`,
+        description: template.description ?? undefined,
+        tags: template.tags ?? undefined,
+        chartType: template.chartType,
+        connectorType: template.connectorType as "neo4j" | "postgresql",
+        connectionId: template.connectionId ?? undefined,
+        query: template.query,
+        settings: (template.settings as Record<string, unknown>) ?? undefined,
+      },
+      {
+        onSuccess: () =>
+          toast({
+            title: "Template duplicated",
+            description: `"${baseName} (copy)" has been created.`,
+          }),
+        onError: (err) =>
+          toast({
+            title: "Failed to duplicate template",
+            description:
+              err instanceof Error ? err.message : "Something went wrong.",
+            variant: "destructive",
+          }),
+      },
+    );
+  }
+
+  async function handleTestQuery(template: WidgetTemplate) {
+    if (!template.connectionId || !template.query) return;
+    setTestingTemplateId(template.id);
+    try {
+      const res = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId: template.connectionId,
+          query: template.query,
+          params: template.params ?? {},
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (res.ok) {
+        toast({
+          title: "Query executed successfully",
+          description: `Template "${template.name}" query returned a valid response.`,
+        });
+      } else {
+        const err = await res.json();
+        toast({
+          title: "Query failed",
+          description: err.error?.message ?? res.statusText,
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
+      toast({
+        title: isTimeout ? "Query timed out" : "Query failed",
+        description: isTimeout
+          ? "The query did not respond within 30 seconds."
+          : e instanceof Error
+            ? e.message
+            : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingTemplateId(null);
+    }
   }
 
   return (
@@ -239,7 +374,9 @@ export default function WidgetLabPage() {
               <SelectContent>
                 <SelectItem value="all">All tags</SelectItem>
                 {allTags.map((tag) => (
-                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -247,8 +384,9 @@ export default function WidgetLabPage() {
         </div>
 
         <LoadingOverlay loading={isLoading} text="Loading templates...">
-          {!isLoading && filtered.length === 0 && (
-            templates?.length === 0 ? (
+          {!isLoading &&
+            filtered.length === 0 &&
+            (templates?.length === 0 ? (
               <EmptyState
                 icon={<FlaskConical className="h-12 w-12" />}
                 title="No templates yet"
@@ -260,8 +398,7 @@ export default function WidgetLabPage() {
                 title="No templates match your filters"
                 description="Try adjusting the search or filter options."
               />
-            )
-          )}
+            ))}
           {!isLoading && filtered.length > 0 && (
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {filtered.map((template) => (
@@ -272,6 +409,9 @@ export default function WidgetLabPage() {
                   canDelete={canEditOrDelete(template)}
                   onEdit={() => handleEdit(template)}
                   onDelete={() => setDeleteTarget(template.id)}
+                  onDuplicate={() => handleDuplicate(template)}
+                  onTestQuery={() => handleTestQuery(template)}
+                  testQueryLoading={testingTemplateId === template.id}
                   onUseInDashboard={() => setUseTarget(template.id)}
                 />
               ))}
@@ -303,13 +443,17 @@ export default function WidgetLabPage() {
         mode={editorMode}
         template={editingTemplate}
         connections={connections}
-        onSave={() => {/* not used in lab mode */}}
+        onSave={() => {
+          /* not used in lab mode */
+        }}
         onLabSaved={() => setEditorOpen(false)}
       />
 
       <DashboardPickerDialog
         open={useTarget !== null}
-        onOpenChange={(open) => { if (!open) setUseTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setUseTarget(null);
+        }}
         onSelect={(dashboardId) => {
           router.push(`/${dashboardId}/edit?templateId=${useTarget}`);
         }}
