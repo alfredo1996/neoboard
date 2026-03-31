@@ -9,6 +9,16 @@ const ENV_FILE = path.join(__dirname, "..", ".env.test");
 const KEEP_ALIVE_FILE = path.join(__dirname, ".keep-alive");
 
 export default async function globalTeardown() {
+  // Always finalize coverage — even in KEEP_ALIVE mode — so reports are written.
+  if (process.env.E2E_COVERAGE) {
+    console.log("⏳ Finalizing E2E coverage reports...");
+    const nextcovConfig = await loadNextcovConfig(
+      path.resolve(__dirname, "..", "playwright.config.ts"),
+    );
+    await finalizeCoverage(nextcovConfig);
+    console.log("✅ E2E coverage reports written");
+  }
+
   // KEEP_ALIVE: leave containers + server running for the next run.
   const keepAlive =
     process.env.KEEP_ALIVE === "1" || fs.existsSync(KEEP_ALIVE_FILE);
@@ -66,16 +76,6 @@ export default async function globalTeardown() {
         }
       }
     }
-  }
-
-  // ── Finalize E2E coverage (nextcov) ──────────────────────────────────────
-  if (process.env.E2E_COVERAGE) {
-    console.log("⏳ Finalizing E2E coverage reports...");
-    const nextcovConfig = await loadNextcovConfig(
-      path.resolve(__dirname, "..", "playwright.config.ts"),
-    );
-    await finalizeCoverage(nextcovConfig);
-    console.log("✅ E2E coverage reports written");
   }
 
   // Clean up temp files

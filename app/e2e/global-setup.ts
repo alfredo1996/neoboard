@@ -4,7 +4,7 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import * as net from "node:net";
 import * as http from "node:http";
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -132,6 +132,40 @@ async function tryReuseServer(serverPort: number): Promise<boolean> {
 //   npm run test:e2e:fast                    # convenience alias
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Stop server and containers left behind by a previous KEEP_ALIVE run. */
+function cleanupPreviousRun() {
+  if (fs.existsSync(SERVER_PID_FILE)) {
+    const pid = parseInt(fs.readFileSync(SERVER_PID_FILE, "utf-8"), 10);
+    try {
+      process.kill(-pid, "SIGTERM");
+      console.log(`  ✅ Stopped old Next.js server (pid ${pid})`);
+    } catch {
+      // already gone
+    }
+    try {
+      fs.unlinkSync(SERVER_PID_FILE);
+    } catch {}
+  }
+
+  if (fs.existsSync(STATE_FILE)) {
+    const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
+      pgContainerId: string;
+      neo4jContainerId: string;
+    };
+    for (const [name, id] of Object.entries(state)) {
+      try {
+        execSync(`docker rm -f ${id}`, { stdio: "pipe" });
+        console.log(`  ✅ Removed ${name}: ${id.slice(0, 12)}`);
+      } catch {
+        // already removed
+      }
+    }
+    try {
+      fs.unlinkSync(STATE_FILE);
+    } catch {}
+  }
+}
+
 export default async function globalSetup() {
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
   const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
@@ -144,6 +178,12 @@ export default async function globalSetup() {
   if (keepAlive) {
     fs.writeFileSync(KEEP_ALIVE_FILE, "1");
   } else {
+    // Transitioning from KEEP_ALIVE → normal: stop the old server & containers
+    // so we don't leak resources before starting fresh ones.
+    if (fs.existsSync(KEEP_ALIVE_FILE)) {
+      console.log("🔄 KEEP_ALIVE → normal: cleaning up previous resources...");
+      cleanupPreviousRun();
+    }
     try {
       fs.unlinkSync(KEEP_ALIVE_FILE);
     } catch {}
