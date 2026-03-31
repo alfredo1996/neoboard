@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
+import { loginRateLimiter } from "@/lib/rate-limiter";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -31,9 +32,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
+
+        // Rate limit by IP — 20 attempts per minute.
+        // In deployments behind a reverse proxy (Vercel, nginx), the first
+        // x-forwarded-for value is the client IP set by the trusted proxy.
+        const forwarded = request?.headers?.get?.("x-forwarded-for");
+        const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+        const rateResult = loginRateLimiter.check(ip);
+        if (!rateResult.allowed) return null;
 
         const user = await db
           .select()
@@ -43,12 +52,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .then((rows) => rows[0]);
 
         if (!user?.passwordHash) return null;
+        if (user.disabledAt) return null;
 
         const isValid = await bcrypt.compare(
           parsed.data.password,
-          user.passwordHash
+          user.passwordHash,
         );
         if (!isValid) return null;
+
+        // Update lastLoginAt (fire-and-forget — don't block login on this)
+        db.update(users)
+          .set({ lastLoginAt: new Date() })
+          .where(eq(users.id, user.id))
+          .then(
+            () => {},
+            (err) => console.error("[auth] lastLoginAt update failed", err),
+          );
 
         return {
           id: user.id,
@@ -75,11 +94,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         try {
           const [dbUser] = await db
-            .select({ role: users.role, canWrite: users.canWrite })
+            .select({
+              role: users.role,
+              canWrite: users.canWrite,
+              disabledAt: users.disabledAt,
+            })
             .from(users)
             .where(eq(users.id, token.id as string))
             .limit(1);
           if (dbUser) {
+            // Disabled users get their session invalidated on next token refresh
+            if (dbUser.disabledAt) return null;
             token.role = dbUser.role;
             token.canWrite = dbUser.canWrite;
           }
@@ -94,7 +119,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role;
         session.user.canWrite = (token.canWrite as boolean) ?? true;
-        session.user.tenantId = token.tenantId ?? process.env.TENANT_ID ?? "default";
+        session.user.tenantId =
+          token.tenantId ?? process.env.TENANT_ID ?? "default";
       }
       return session;
     },
