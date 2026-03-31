@@ -1832,7 +1832,8 @@ describe("registry component field", () => {
 
   it.each(allTypes)("%s has a component field", (type) => {
     const config = getChartConfig(type);
-    expect(config.component).toBeDefined();
-    expect(typeof config.component).toBe("function");
+    expect(config).toBeDefined();
+    expect(config!.component).toBeDefined();
+    expect(typeof config!.component).toBe("function");
   });
 });
