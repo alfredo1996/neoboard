@@ -81,7 +81,7 @@ export const tableOptions: ChartOptionDef[] = [
     key: "groupBy",
     label: "Group By Columns",
     type: "column-multi-select",
-    default: "",
+    default: [],
     category: "Grouping",
     description:
       "Select columns to group by. Nested grouping is supported — order determines nesting hierarchy.",
