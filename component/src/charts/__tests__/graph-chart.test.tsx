@@ -8,10 +8,20 @@
  *   - Click callback wiring
  *   - Layout mapping
  */
-import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  cleanup,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphChart } from "../graph-chart";
-import type { Node as NvlNode, Relationship as NvlRelationship } from "@neo4j-nvl/base";
+import type {
+  Node as NvlNode,
+  Relationship as NvlRelationship,
+} from "@neo4j-nvl/base";
 
 /** Capture the last set of props passed to InteractiveNvlWrapper */
 let capturedProps: Record<string, unknown> = {};
@@ -102,7 +112,9 @@ describe("GraphChart", () => {
   });
 
   it("maps 'force' layout to 'forceDirected'", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} layout="force" />);
+    render(
+      <GraphChart nodes={sampleNodes} edges={sampleEdges} layout="force" />,
+    );
     expect(capturedProps.layout).toBe("forceDirected");
   });
 
@@ -115,7 +127,12 @@ describe("GraphChart", () => {
 
   it("seeds layout state from initialLayout prop", () => {
     render(
-      <GraphChart nodes={sampleNodes} edges={sampleEdges} layout="force" initialLayout="circular" />,
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        layout="force"
+        initialLayout="circular"
+      />,
     );
     expect(capturedProps.layout).toBe("circular");
   });
@@ -123,9 +140,15 @@ describe("GraphChart", () => {
   it("fires onLayoutChange when layout is changed", async () => {
     const onLayoutChange = vi.fn();
     render(
-      <GraphChart nodes={sampleNodes} edges={sampleEdges} onLayoutChange={onLayoutChange} />,
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        onLayoutChange={onLayoutChange}
+      />,
     );
-    fireEvent.change(screen.getByLabelText("Graph layout"), { target: { value: "circular" } });
+    fireEvent.change(screen.getByLabelText("Graph layout"), {
+      target: { value: "circular" },
+    });
     expect(onLayoutChange).toHaveBeenCalledWith("circular");
   });
 
@@ -195,7 +218,12 @@ describe("GraphChart", () => {
 
   it("explicit node.color takes precedence over label-derived color", () => {
     const nodes = [
-      { id: "p1", labels: ["Person"], properties: { name: "Alice" }, color: "#custom" },
+      {
+        id: "p1",
+        labels: ["Person"],
+        properties: { name: "Alice" },
+        color: "#custom",
+      },
     ];
     render(<GraphChart nodes={nodes} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
@@ -227,7 +255,9 @@ describe("GraphChart", () => {
   // --- Pinned nodes ---
 
   it("maps fixed=true to NVL pinned=true", () => {
-    const pinnedNodes = [{ id: "1", label: "Fixed", fixed: true, x: 100, y: 200 }];
+    const pinnedNodes = [
+      { id: "1", label: "Fixed", fixed: true, x: 100, y: 200 },
+    ];
     render(<GraphChart nodes={pinnedNodes} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
     expect(nvlNodes[0].pinned).toBe(true);
@@ -240,7 +270,11 @@ describe("GraphChart", () => {
   it("wires onNodeClick to toggle node selection", () => {
     const onNodeSelect = vi.fn();
     render(
-      <GraphChart nodes={sampleNodes} edges={sampleEdges} onNodeSelect={onNodeSelect} />,
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        onNodeSelect={onNodeSelect}
+      />,
     );
     const callbacks = capturedProps.mouseEventCallbacks as {
       onNodeClick?: (node: { id: string }) => void;
@@ -279,7 +313,11 @@ describe("GraphChart", () => {
 
   it("applies custom className to wrapper when data is present", () => {
     const { container } = render(
-      <GraphChart nodes={sampleNodes} edges={sampleEdges} className="my-graph" />,
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        className="my-graph"
+      />,
     );
     expect(container.firstChild).toHaveClass("my-graph");
   });
@@ -294,13 +332,30 @@ describe("GraphChart", () => {
   // --- Label property selector ---
 
   const labeledNodes = [
-    { id: "p1", label: "Tom Hanks", labels: ["Person"], properties: { name: "Tom Hanks", born: 1956 } },
-    { id: "p2", label: "Keanu Reeves", labels: ["Person"], properties: { name: "Keanu Reeves", born: 1964 } },
-    { id: "m1", label: "The Matrix", labels: ["Movie"], properties: { title: "The Matrix", released: 1999, tagline: "Welcome to the Real World" } },
+    {
+      id: "p1",
+      label: "Tom Hanks",
+      labels: ["Person"],
+      properties: { name: "Tom Hanks", born: 1956 },
+    },
+    {
+      id: "p2",
+      label: "Keanu Reeves",
+      labels: ["Person"],
+      properties: { name: "Keanu Reeves", born: 1964 },
+    },
+    {
+      id: "m1",
+      label: "The Matrix",
+      labels: ["Movie"],
+      properties: {
+        title: "The Matrix",
+        released: 1999,
+        tagline: "Welcome to the Real World",
+      },
+    },
   ];
-  const labeledEdges = [
-    { source: "p2", target: "m1", label: "ACTED_IN" },
-  ];
+  const labeledEdges = [{ source: "p2", target: "m1", label: "ACTED_IN" }];
 
   it("shows label settings button when nodes have labels", () => {
     render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
@@ -309,7 +364,9 @@ describe("GraphChart", () => {
 
   it("does not show label settings button when nodes have no labels", () => {
     render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
-    expect(screen.queryByTestId("label-settings-button")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("label-settings-button"),
+    ).not.toBeInTheDocument();
   });
 
   it("opens label settings panel when button is clicked", async () => {
@@ -333,7 +390,9 @@ describe("GraphChart", () => {
     render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
     fireEvent.click(screen.getByTestId("label-settings-button"));
     await waitFor(() => {
-      const personSelect = screen.getByTestId("caption-select-Person") as HTMLSelectElement;
+      const personSelect = screen.getByTestId(
+        "caption-select-Person",
+      ) as HTMLSelectElement;
       const options = Array.from(personSelect.options).map((o) => o.value);
       expect(options).toContain("name");
       expect(options).toContain("born");
@@ -356,7 +415,9 @@ describe("GraphChart", () => {
       expect(screen.getByTestId("caption-select-Person")).toBeInTheDocument();
     });
     // Change Person caption to 'born'
-    fireEvent.change(screen.getByTestId("caption-select-Person"), { target: { value: "born" } });
+    fireEvent.change(screen.getByTestId("caption-select-Person"), {
+      target: { value: "born" },
+    });
     // Check that NVL nodes now show born year for Person nodes
     const nvlNodes = capturedProps.nodes as NvlNode[];
     const personNode = nvlNodes.find((n) => n.id === "p1");
@@ -365,13 +426,23 @@ describe("GraphChart", () => {
 
   it("fires onCaptionMapChange when caption property is changed", async () => {
     const onCaptionMapChange = vi.fn();
-    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} onCaptionMapChange={onCaptionMapChange} />);
+    render(
+      <GraphChart
+        nodes={labeledNodes}
+        edges={labeledEdges}
+        onCaptionMapChange={onCaptionMapChange}
+      />,
+    );
     fireEvent.click(screen.getByTestId("label-settings-button"));
     await waitFor(() => {
       expect(screen.getByTestId("caption-select-Person")).toBeInTheDocument();
     });
-    fireEvent.change(screen.getByTestId("caption-select-Person"), { target: { value: "born" } });
-    expect(onCaptionMapChange).toHaveBeenCalledWith(expect.objectContaining({ Person: "born" }));
+    fireEvent.change(screen.getByTestId("caption-select-Person"), {
+      target: { value: "born" },
+    });
+    expect(onCaptionMapChange).toHaveBeenCalledWith(
+      expect.objectContaining({ Person: "born" }),
+    );
   });
 
   it("seeds captionMap from initialCaptionMap prop", () => {
@@ -391,7 +462,11 @@ describe("GraphChart", () => {
   it("resolves caption from properties even without label settings interaction", () => {
     // Nodes with labels + properties should auto-resolve via default captionMap
     const nodesWithProps = [
-      { id: "x1", labels: ["City"], properties: { name: "Berlin", population: 3600000 } },
+      {
+        id: "x1",
+        labels: ["City"],
+        properties: { name: "Berlin", population: 3600000 },
+      },
     ];
     render(<GraphChart nodes={nodesWithProps} edges={[]} />);
     const nvlNodes = capturedProps.nodes as NvlNode[];
@@ -433,13 +508,25 @@ describe("GraphChart", () => {
   });
 
   it("includes relationship caption when showRelationshipLabels is true (default)", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} showRelationshipLabels />);
+    render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        showRelationshipLabels
+      />,
+    );
     const nvlRels = capturedProps.rels as NvlRelationship[];
     expect(nvlRels[0].caption).toBe("knows");
   });
 
   it("omits relationship caption when showRelationshipLabels is false", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} showRelationshipLabels={false} />);
+    render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        showRelationshipLabels={false}
+      />,
+    );
     const nvlRels = capturedProps.rels as NvlRelationship[];
     expect(nvlRels[0].caption).toBeUndefined();
   });
@@ -451,7 +538,9 @@ describe("GraphChart", () => {
   });
 
   it("passes useStaticLayout true to NVL when physics is disabled", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} physics={false} />);
+    render(
+      <GraphChart nodes={sampleNodes} edges={sampleEdges} physics={false} />,
+    );
     const opts = capturedProps.nvlOptions as Record<string, unknown>;
     expect(opts.useStaticLayout).toBe(true);
   });
@@ -540,7 +629,9 @@ describe("GraphChart", () => {
 
     it("does not show loading overlay when there are no nodes", () => {
       render(<GraphChart nodes={[]} edges={[]} />);
-      expect(screen.queryByTestId("graph-loading-overlay")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
     });
 
     it("removes loading overlay after onLayoutDone fires", () => {
@@ -548,19 +639,33 @@ describe("GraphChart", () => {
       expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
 
       // Simulate NVL calling onLayoutDone
-      const callbacks = capturedProps.nvlCallbacks as { onLayoutDone?: () => void };
-      act(() => { callbacks.onLayoutDone?.(); });
+      const callbacks = capturedProps.nvlCallbacks as {
+        onLayoutDone?: () => void;
+      };
+      act(() => {
+        callbacks.onLayoutDone?.();
+      });
 
-      expect(screen.queryByTestId("graph-loading-overlay")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
     });
 
     it("resets loading overlay when nodes change", () => {
-      const { rerender } = render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      const { rerender } = render(
+        <GraphChart nodes={sampleNodes} edges={sampleEdges} />,
+      );
 
       // Fire onLayoutDone to clear overlay
-      const callbacks = capturedProps.nvlCallbacks as { onLayoutDone?: () => void };
-      act(() => { callbacks.onLayoutDone?.(); });
-      expect(screen.queryByTestId("graph-loading-overlay")).not.toBeInTheDocument();
+      const callbacks = capturedProps.nvlCallbacks as {
+        onLayoutDone?: () => void;
+      };
+      act(() => {
+        callbacks.onLayoutDone?.();
+      });
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
 
       // Change nodes — overlay should reappear
       const newNodes = [
@@ -595,10 +700,75 @@ describe("GraphChart", () => {
     it("calls fitGraph (via onLayoutDone) when autoFit and layout completes", () => {
       render(<GraphChart nodes={sampleNodes} edges={sampleEdges} autoFit />);
       // Fire onLayoutDone
-      const callbacks = capturedProps.nvlCallbacks as { onLayoutDone?: () => void };
-      act(() => { callbacks.onLayoutDone?.(); });
+      const callbacks = capturedProps.nvlCallbacks as {
+        onLayoutDone?: () => void;
+      };
+      act(() => {
+        callbacks.onLayoutDone?.();
+      });
       // Overlay should be gone — fitGraph was called
-      expect(screen.queryByTestId("graph-loading-overlay")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("rule-based styling", () => {
+    const styledNodes = [
+      { id: "1", label: "Alice", value: 10, labels: ["Person"] },
+      { id: "2", label: "Bob", value: 50, labels: ["Person"] },
+      { id: "3", label: "Charlie", value: 90, labels: ["Person"] },
+    ];
+
+    it("applies styling rule color to nodes matching the rule", () => {
+      const rules = [
+        { id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" },
+      ];
+      render(
+        <GraphChart nodes={styledNodes} edges={[]} stylingRules={rules} />,
+      );
+      const nvlNodes = capturedProps.nodes as Array<{
+        id: string;
+        color?: string;
+      }>;
+      // Node "2" (value=50) and "3" (value=90) match >= 50
+      expect(nvlNodes.find((n) => n.id === "2")?.color).toBe("#ff0000");
+      expect(nvlNodes.find((n) => n.id === "3")?.color).toBe("#ff0000");
+      // Node "1" (value=10) does NOT match — falls back to palette
+      expect(nvlNodes.find((n) => n.id === "1")?.color).not.toBe("#ff0000");
+    });
+
+    it("styling rule takes priority over explicit node.color", () => {
+      const nodesWithColor = [
+        { id: "1", label: "X", value: 100, color: "#00ff00" },
+      ];
+      const rules = [
+        { id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" },
+      ];
+      render(
+        <GraphChart nodes={nodesWithColor} edges={[]} stylingRules={rules} />,
+      );
+      const nvlNodes = capturedProps.nodes as Array<{
+        id: string;
+        color?: string;
+      }>;
+      expect(nvlNodes[0].color).toBe("#ff0000");
+    });
+
+    it("does not apply styling when node has no value", () => {
+      const noValueNodes = [{ id: "1", label: "NoVal", labels: ["Thing"] }];
+      const rules = [
+        { id: "r1", operator: ">=" as const, value: 0, color: "#ff0000" },
+      ];
+      render(
+        <GraphChart nodes={noValueNodes} edges={[]} stylingRules={rules} />,
+      );
+      const nvlNodes = capturedProps.nodes as Array<{
+        id: string;
+        color?: string;
+      }>;
+      // No value → rule not evaluated → palette color
+      expect(nvlNodes[0].color).not.toBe("#ff0000");
     });
   });
 });

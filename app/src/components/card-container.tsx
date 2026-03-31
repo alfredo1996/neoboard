@@ -399,6 +399,7 @@ export function CardContainer({
             type={chartConfig.type}
             data={null}
             settings={resolvedContentOptions}
+            meta={{ widgetId: widget.id }}
           />
         </div>
       </div>

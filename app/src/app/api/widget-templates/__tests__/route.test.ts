@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  makeInsertChain,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
@@ -7,7 +10,12 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // ---------------------------------------------------------------------------
 
 const mockRequireSession = vi.fn<
-  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
 >();
 
 const mockDb = {
@@ -64,8 +72,18 @@ describe("GET /api/widget-templates", () => {
   });
 
   it("returns all tenant templates with pagination meta", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const template = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j" };
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const template = {
+      id: "t1",
+      name: "My Template",
+      chartType: "bar",
+      connectorType: "neo4j",
+    };
     // First call -> count query ([{ total: 1 }]), second call -> rows
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([{ total: 1 }]))
@@ -79,7 +97,12 @@ describe("GET /api/widget-templates", () => {
   });
 
   it("supports filtering by chartType", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
       .mockReturnValueOnce(makeSelectChain([]));
@@ -88,7 +111,12 @@ describe("GET /api/widget-templates", () => {
   });
 
   it("supports filtering by connectorType", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
       .mockReturnValueOnce(makeSelectChain([]));
@@ -118,42 +146,159 @@ describe("POST /api/widget-templates", () => {
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireSession.mockRejectedValue(new UnauthorizedError());
-    const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }));
+    const res = await POST(
+      makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns 403 for reader role", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "reader", canWrite: false, tenantId: "default" });
-    const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }));
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "reader",
+      canWrite: false,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({ name: "T", chartType: "bar", connectorType: "neo4j" }),
+    );
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error.message).toBe("Forbidden");
   });
 
   it("returns 400 when name is missing", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const res = await POST(makeRequest({ chartType: "bar", connectorType: "neo4j" }));
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({ chartType: "bar", connectorType: "neo4j" }),
+    );
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when chartType is missing", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
     const res = await POST(makeRequest({ name: "T", connectorType: "neo4j" }));
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when connectorType is invalid", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const res = await POST(makeRequest({ name: "T", chartType: "bar", connectorType: "mysql" }));
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({ name: "T", chartType: "bar", connectorType: "mysql" }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when name exceeds 255 characters", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({
+        name: "x".repeat(256),
+        chartType: "bar",
+        connectorType: "neo4j",
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when description exceeds 1000 characters", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({
+        name: "T",
+        chartType: "bar",
+        connectorType: "neo4j",
+        description: "x".repeat(1001),
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when tags exceed 20 items", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const tags = Array.from({ length: 21 }, (_, i) => `tag-${i}`);
+    const res = await POST(
+      makeRequest({
+        name: "T",
+        chartType: "bar",
+        connectorType: "neo4j",
+        tags,
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when a tag exceeds 100 characters", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({
+        name: "T",
+        chartType: "bar",
+        connectorType: "neo4j",
+        tags: ["x".repeat(101)],
+      }),
+    );
     expect(res.status).toBe(400);
   });
 
   it("creates template and returns 201 with envelope", async () => {
-    mockRequireSession.mockResolvedValue({ userId: "user-1", role: "creator", canWrite: true, tenantId: "default" });
-    const created = { id: "t1", name: "My Template", chartType: "bar", connectorType: "neo4j", createdBy: "user-1" };
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const created = {
+      id: "t1",
+      name: "My Template",
+      chartType: "bar",
+      connectorType: "neo4j",
+      createdBy: "user-1",
+    };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 
-    const res = await POST(makeRequest({ name: "My Template", chartType: "bar", connectorType: "neo4j" }));
+    const res = await POST(
+      makeRequest({
+        name: "My Template",
+        chartType: "bar",
+        connectorType: "neo4j",
+      }),
+    );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data).toEqual(created);
