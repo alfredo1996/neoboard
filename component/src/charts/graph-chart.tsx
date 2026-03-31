@@ -12,6 +12,8 @@ import type {
   GraphNodeEvent,
   GraphEdgeEvent,
 } from "./types";
+import type { StylingRule } from "./styling-rule";
+import { resolveStylingRuleColor } from "./styling-rule";
 import {
   Popover,
   PopoverTrigger,
@@ -125,6 +127,10 @@ export interface GraphChartProps {
    * Useful when the container size may change after initial render (e.g. fullscreen dialogs).
    */
   autoFit?: boolean;
+  /** Rule-based styling rules for node color/size */
+  stylingRules?: StylingRule[];
+  /** Resolved parameter values for styling rule evaluation */
+  paramValues?: Record<string, unknown>;
   /** Additional CSS classes */
   className?: string;
 }
@@ -229,6 +235,8 @@ function toNvlNode(
   captionMap: Record<string, string>,
   labelColorMap: Map<string, string>,
   nodeSizeScale: number,
+  stylingRules?: StylingRule[],
+  paramValues?: Record<string, unknown>,
 ): NvlNode {
   let x = node.x;
   let y = node.y;
@@ -238,15 +246,26 @@ function toNvlNode(
     x = Math.cos(angle) * radius;
     y = Math.sin(angle) * radius;
   }
-  // Use the last label to determine the color (most specific label wins)
+
+  // Rule-based color: evaluate against node.value (numeric property)
+  const ruleColor =
+    stylingRules?.length && node.value != null
+      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
+      : undefined;
+
+  // Color priority: styling rule > explicit node.color > label palette
   const color =
+    ruleColor ??
     node.color ??
     (node.labels?.length
       ? labelColorMap.get(node.labels[node.labels.length - 1])
       : undefined);
+
+  // Size: base from node.value, scaled by nodeSizeScale
   const baseSize = node.value
     ? Math.max(20, Math.min(60, node.value))
     : undefined;
+
   return {
     id: node.id,
     caption: showLabels ? resolveCaption(node, captionMap) : undefined,
@@ -304,6 +323,8 @@ export function GraphChart({
   onLayoutChange,
   onCaptionMapChange,
   autoFit,
+  stylingRules,
+  paramValues,
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
@@ -383,9 +404,19 @@ export function GraphChart({
           captionMap,
           labelColorMap,
           nodeSizeScale,
+          stylingRules,
+          paramValues,
         ),
       ),
-    [nodes, showLabels, captionMap, labelColorMap, nodeSizeScale],
+    [
+      nodes,
+      showLabels,
+      captionMap,
+      labelColorMap,
+      nodeSizeScale,
+      stylingRules,
+      paramValues,
+    ],
   );
 
   const nvlRels = useMemo(
