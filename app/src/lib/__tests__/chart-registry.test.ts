@@ -1883,7 +1883,8 @@ describe("registry component field", () => {
     async (type) => {
       const config = getChartConfig(type);
       expect(config).toBeDefined();
-      const mod = await config!.component();
+      expect(config!.component).toBeDefined();
+      const mod = await config!.component!();
       expect(mod).toBeDefined();
       expect(mod.default).toBeDefined();
     },
