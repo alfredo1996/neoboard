@@ -767,7 +767,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToGraphData,
     validate: validateGraphData,
     compatibleWith: ["neo4j"],
-    supportsStyling: false,
+    stylingTargets: [{ value: "color", label: "Node Color" }],
   },
   map: {
     type: "map",
@@ -778,7 +778,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transformWithMapping: transformToMapData,
     validate: validateMapData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsStyling: false,
+    stylingTargets: [{ value: "color", label: "Marker Color" }],
   },
   json: {
     type: "json",

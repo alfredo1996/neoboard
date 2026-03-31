@@ -53,7 +53,7 @@ interface ParameterState {
     field: string,
     type?: ParameterType,
     sourceType?: ParameterSource,
-    sourceWidgetId?: string
+    sourceWidgetId?: string,
   ) => void;
   clearParameter: (name: string) => void;
   clearAll: () => void;
@@ -64,6 +64,40 @@ interface ParameterState {
 }
 
 const STORAGE_PREFIX = "nb-params:";
+
+/**
+ * Coerce a value to the expected type. Returns the coerced value,
+ * or undefined if the value can't be coerced (caller should reject).
+ */
+function coerceValue(
+  value: unknown,
+  type: ParameterType,
+): { ok: true; value: unknown } | { ok: false; reason: string } {
+  switch (type) {
+    case "number-range": {
+      if (typeof value === "number") return { ok: true, value };
+      if (typeof value === "string") {
+        const n = Number(value);
+        if (!Number.isNaN(n)) return { ok: true, value: n };
+        return { ok: false, reason: `Cannot coerce "${value}" to number` };
+      }
+      return { ok: true, value };
+    }
+    case "date":
+    case "date-range":
+    case "date-relative": {
+      // Accept strings (ISO dates) and Date objects
+      if (typeof value === "string" || value instanceof Date)
+        return { ok: true, value };
+      if (typeof value === "number")
+        return { ok: true, value: new Date(value).toISOString() };
+      return { ok: true, value };
+    }
+    default:
+      // text, select, multi-select, cascading-select — accept as-is
+      return { ok: true, value };
+  }
+}
 
 export const useParameterStore = create<ParameterState>((set, get) => ({
   parameters: {},
@@ -76,13 +110,29 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
     type = "text",
     sourceType = "click-action",
     sourceWidgetId?,
-  ) =>
+  ) => {
+    const result = coerceValue(value, type);
+    if (!result.ok) {
+      console.warn(
+        `[parameter-store] Type mismatch for "${name}" (${type}):`,
+        result.reason,
+      );
+      return;
+    }
     set((state) => ({
       parameters: {
         ...state.parameters,
-        [name]: { value, source, field, type, sourceType, sourceWidgetId },
+        [name]: {
+          value: result.value,
+          source,
+          field,
+          type,
+          sourceType,
+          sourceWidgetId,
+        },
       },
-    })),
+    }));
+  },
 
   clearParameter: (name) =>
     set((state) => {
@@ -105,15 +155,15 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
     } catch {
       // localStorage may throw on quota exceeded (e.g. Safari Private Mode).
       // Silently degrade — parameters will not persist across navigation.
-      console.warn("[parameter-store] Failed to save parameters to localStorage");
+      console.warn(
+        "[parameter-store] Failed to save parameters to localStorage",
+      );
     }
   },
 
   restoreFromDashboard: (dashboardId) => {
     try {
-      const stored = localStorage.getItem(
-        `${STORAGE_PREFIX}${dashboardId}`
-      );
+      const stored = localStorage.getItem(`${STORAGE_PREFIX}${dashboardId}`);
       set({ parameters: stored ? JSON.parse(stored) : {} });
     } catch {
       set({ parameters: {} });
