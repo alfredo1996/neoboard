@@ -63,7 +63,7 @@ describe("getCompatibleChartTypes", () => {
   it("postgresql result excludes only neo4j-only chart types", () => {
     const allTypes = Object.keys(chartRegistry) as ChartType[];
     const neo4jOnlyCount = allTypes.filter(
-      (t) => !chartRegistry[t].compatibleWith?.includes("postgresql")
+      (t) => !chartRegistry[t].compatibleWith?.includes("postgresql"),
     ).length;
     const result = getCompatibleChartTypes("postgresql");
     expect(result).toHaveLength(allTypes.length - neo4jOnlyCount);
@@ -107,7 +107,10 @@ describe("chartRegistry compatibleWith field", () => {
 
   it("every registry entry has a compatibleWith field", () => {
     for (const [type, cfg] of Object.entries(chartRegistry)) {
-      expect(cfg.compatibleWith, `${type} missing compatibleWith`).toBeDefined();
+      expect(
+        cfg.compatibleWith,
+        `${type} missing compatibleWith`,
+      ).toBeDefined();
       expect(Array.isArray(cfg.compatibleWith)).toBe(true);
     }
   });
@@ -129,7 +132,9 @@ describe("chartRegistry compatibleWith field", () => {
 
   it("single-value is compatible with both connector types", () => {
     expect(chartRegistry["single-value"].compatibleWith).toContain("neo4j");
-    expect(chartRegistry["single-value"].compatibleWith).toContain("postgresql");
+    expect(chartRegistry["single-value"].compatibleWith).toContain(
+      "postgresql",
+    );
   });
 
   it("map is compatible with both connector types", () => {
@@ -144,7 +149,9 @@ describe("chartRegistry compatibleWith field", () => {
 
   it("parameter-select is compatible with both connector types", () => {
     expect(chartRegistry["parameter-select"].compatibleWith).toContain("neo4j");
-    expect(chartRegistry["parameter-select"].compatibleWith).toContain("postgresql");
+    expect(chartRegistry["parameter-select"].compatibleWith).toContain(
+      "postgresql",
+    );
   });
 });
 
@@ -455,10 +462,7 @@ describe("map transform", () => {
   });
 
   it("filters out records that have no numeric values", () => {
-    const data = [
-      { name: "text-only" },
-      { lat: 10.0, lng: 20.0 },
-    ];
+    const data = [{ name: "text-only" }, { lat: 10.0, lng: 20.0 }];
     const result = transform(data) as Array<Record<string, unknown>>;
     // "text-only" row filtered out; lat/lng row kept
     expect(result).toHaveLength(1);
@@ -951,7 +955,10 @@ describe("transformToGraphData handles native number properties", () => {
         },
       },
     ];
-    const result = transform(data) as { nodes: Record<string, unknown>[]; edges: Record<string, unknown>[] };
+    const result = transform(data) as {
+      nodes: Record<string, unknown>[];
+      edges: Record<string, unknown>[];
+    };
     expect(result.nodes).toHaveLength(1);
     const props = result.nodes[0].properties as Record<string, unknown>;
     expect(props.age).toBe(30);
@@ -974,7 +981,10 @@ describe("transformToGraphData handles native number properties", () => {
         },
       },
     ];
-    const result = transform(data) as { nodes: Record<string, unknown>[]; edges: Record<string, unknown>[] };
+    const result = transform(data) as {
+      nodes: Record<string, unknown>[];
+      edges: Record<string, unknown>[];
+    };
     expect(result.edges).toHaveLength(1);
     const props = result.edges[0].properties as Record<string, unknown>;
     expect(props.weight).toBe(5);
@@ -992,7 +1002,11 @@ describe("chartSupportsStyling", () => {
     },
   );
 
-  it.each(["graph", "map", "json", "parameter-select", "form"] as const)(
+  it.each(["graph", "map"] as const)("returns true for %s", (type) => {
+    expect(chartSupportsStyling(type)).toBe(true);
+  });
+
+  it.each(["json", "parameter-select", "form"] as const)(
     "returns false for %s",
     (type) => {
       expect(chartSupportsStyling(type)).toBe(false);
@@ -1014,29 +1028,49 @@ describe("getStylingTargets", () => {
   });
 
   it("returns [color] for line", () => {
-    expect(getStylingTargets("line")).toEqual([{ value: "color", label: "Color" }]);
+    expect(getStylingTargets("line")).toEqual([
+      { value: "color", label: "Color" },
+    ]);
   });
 
   it("returns [color] for pie", () => {
-    expect(getStylingTargets("pie")).toEqual([{ value: "color", label: "Color" }]);
+    expect(getStylingTargets("pie")).toEqual([
+      { value: "color", label: "Color" },
+    ]);
   });
 
   it("returns color + backgroundColor for single-value", () => {
     const targets = getStylingTargets("single-value");
     expect(targets).toHaveLength(2);
     expect(targets).toContainEqual({ value: "color", label: "Text Color" });
-    expect(targets).toContainEqual({ value: "backgroundColor", label: "Background Color" });
+    expect(targets).toContainEqual({
+      value: "backgroundColor",
+      label: "Background Color",
+    });
   });
 
   it("returns backgroundColor + textColor for table", () => {
     const targets = getStylingTargets("table");
     expect(targets).toHaveLength(2);
-    expect(targets).toContainEqual({ value: "backgroundColor", label: "Background Color" });
+    expect(targets).toContainEqual({
+      value: "backgroundColor",
+      label: "Background Color",
+    });
     expect(targets).toContainEqual({ value: "textColor", label: "Text Color" });
   });
 
-  it("returns empty array for graph", () => {
-    expect(getStylingTargets("graph")).toEqual([]);
+  it("returns node color target for graph", () => {
+    expect(getStylingTargets("graph")).toContainEqual({
+      value: "color",
+      label: "Node Color",
+    });
+  });
+
+  it("returns marker color target for map", () => {
+    expect(getStylingTargets("map")).toContainEqual({
+      value: "color",
+      label: "Marker Color",
+    });
   });
 
   it("returns empty array for unknown type", () => {
@@ -1076,7 +1110,9 @@ describe("markdown chart type", () => {
   });
 
   it("transformWithMapping returns null", () => {
-    expect(chartRegistry.markdown.transformWithMapping([{ a: 1 }], {})).toBeNull();
+    expect(
+      chartRegistry.markdown.transformWithMapping([{ a: 1 }], {}),
+    ).toBeNull();
   });
 
   it("supportsClickAction is false", () => {
@@ -1118,7 +1154,9 @@ describe("iframe chart type", () => {
   });
 
   it("transformWithMapping returns null", () => {
-    expect(chartRegistry.iframe.transformWithMapping([{ a: 1 }], {})).toBeNull();
+    expect(
+      chartRegistry.iframe.transformWithMapping([{ a: 1 }], {}),
+    ).toBeNull();
   });
 
   it("supportsClickAction is false", () => {
@@ -1163,7 +1201,9 @@ describe("gauge chart type", () => {
   });
 
   it("getStylingTargets returns Gauge Color target", () => {
-    expect(getStylingTargets("gauge")).toEqual([{ value: "color", label: "Gauge Color" }]);
+    expect(getStylingTargets("gauge")).toEqual([
+      { value: "color", label: "Gauge Color" },
+    ]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1249,7 +1289,9 @@ describe("sankey chart type", () => {
   });
 
   it("getStylingTargets returns Link Color target", () => {
-    expect(getStylingTargets("sankey")).toEqual([{ value: "color", label: "Link Color" }]);
+    expect(getStylingTargets("sankey")).toEqual([
+      { value: "color", label: "Link Color" },
+    ]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1266,7 +1308,10 @@ describe("sankey transform", () => {
       { source: "A", target: "B", value: 10 },
       { source: "B", target: "C", value: 5 },
     ];
-    const result = transform(data) as { nodes: Array<{ name: string }>; links: Array<{ source: string; target: string; value: number }> };
+    const result = transform(data) as {
+      nodes: Array<{ name: string }>;
+      links: Array<{ source: string; target: string; value: number }>;
+    };
     expect(result.nodes).toBeDefined();
     expect(result.links).toBeDefined();
     expect(result.links).toHaveLength(2);
@@ -1280,7 +1325,10 @@ describe("sankey transform", () => {
       { source: "A", target: "B", value: 10 },
       { source: "A", target: "C", value: 5 },
     ];
-    const result = transform(data) as { nodes: Array<{ name: string }>; links: unknown[] };
+    const result = transform(data) as {
+      nodes: Array<{ name: string }>;
+      links: unknown[];
+    };
     const nodeNames = result.nodes.map((n) => n.name);
     expect(nodeNames.filter((n) => n === "A")).toHaveLength(1);
     expect(nodeNames).toContain("B");
@@ -1301,7 +1349,10 @@ describe("sankey transform", () => {
 
   it("handles postgresql { records } wrapper format", () => {
     const data = { records: [{ source: "X", target: "Y", value: 3 }] };
-    const result = transform(data) as { nodes: unknown[]; links: Array<{ value: number }> };
+    const result = transform(data) as {
+      nodes: unknown[];
+      links: Array<{ value: number }>;
+    };
     expect(result.links[0].value).toBe(3);
   });
 
@@ -1342,7 +1393,9 @@ describe("sunburst chart type", () => {
   });
 
   it("getStylingTargets returns Segment Color target", () => {
-    expect(getStylingTargets("sunburst")).toEqual([{ value: "color", label: "Segment Color" }]);
+    expect(getStylingTargets("sunburst")).toEqual([
+      { value: "color", label: "Segment Color" },
+    ]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1355,8 +1408,14 @@ describe("sunburst transform", () => {
   const { transform } = chartRegistry.sunburst;
 
   it("passes through hierarchical data unchanged", () => {
-    const data = [{ name: "Root", value: 100, children: [{ name: "Child", value: 50 }] }];
-    const result = transform(data) as Array<{ name: string; value: number; children?: unknown[] }>;
+    const data = [
+      { name: "Root", value: 100, children: [{ name: "Child", value: 50 }] },
+    ];
+    const result = transform(data) as Array<{
+      name: string;
+      value: number;
+      children?: unknown[];
+    }>;
     expect(result[0].name).toBe("Root");
     expect(result[0].value).toBe(100);
     expect(result[0].children).toHaveLength(1);
@@ -1368,7 +1427,10 @@ describe("sunburst transform", () => {
       { name: "A", parent: "root", value: 10 },
       { name: "B", parent: "root", value: 20 },
     ];
-    const result = transform(data) as Array<{ name: string; children?: Array<{ name: string }> }>;
+    const result = transform(data) as Array<{
+      name: string;
+      children?: Array<{ name: string }>;
+    }>;
     // Top-level nodes (no parent or parent is "")
     expect(result.some((r) => r.name === "root")).toBe(true);
     const rootNode = result.find((r) => r.name === "root");
@@ -1432,7 +1494,9 @@ describe("radar chart type", () => {
   });
 
   it("getStylingTargets returns Area Color target", () => {
-    expect(getStylingTargets("radar")).toEqual([{ value: "color", label: "Area Color" }]);
+    expect(getStylingTargets("radar")).toEqual([
+      { value: "color", label: "Area Color" },
+    ]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1450,7 +1514,10 @@ describe("radar transform", () => {
       { indicator: "Strength", value: 60, max: 100 },
       { indicator: "Agility", value: 90, max: 100 },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: Array<{ name: string; values: number[] }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+      series: Array<{ name: string; values: number[] }>;
+    };
     expect(result.indicators).toBeDefined();
     expect(result.series).toBeDefined();
     expect(result.indicators).toHaveLength(3);
@@ -1467,14 +1534,20 @@ describe("radar transform", () => {
       { indicator: "Speed", value: 70, max: 100, series: "Player B" },
       { indicator: "Strength", value: 85, max: 100, series: "Player B" },
     ];
-    const result = transform(data) as { indicators: unknown[]; series: Array<{ name: string; values: number[] }> };
+    const result = transform(data) as {
+      indicators: unknown[];
+      series: Array<{ name: string; values: number[] }>;
+    };
     expect(result.series).toHaveLength(2);
     expect(result.series.map((s) => s.name)).toContain("Player A");
     expect(result.series.map((s) => s.name)).toContain("Player B");
   });
 
   it("returns empty { indicators: [], series: [] } for empty input", () => {
-    const result = transform([]) as { indicators: unknown[]; series: unknown[] };
+    const result = transform([]) as {
+      indicators: unknown[];
+      series: unknown[];
+    };
     expect(result.indicators).toEqual([]);
     expect(result.series).toEqual([]);
   });
@@ -1487,13 +1560,19 @@ describe("radar transform", () => {
 
   it("handles postgresql { records } wrapper format", () => {
     const data = { records: [{ indicator: "X", value: 50, max: 100 }] };
-    const result = transform(data) as { indicators: Array<{ name: string }>; series: unknown[] };
+    const result = transform(data) as {
+      indicators: Array<{ name: string }>;
+      series: unknown[];
+    };
     expect(result.indicators[0].name).toBe("X");
   });
 
   it("auto-scales max from data when max column is missing (single indicator)", () => {
     const data = [{ indicator: "Speed", value: 80 }];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: unknown[] };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+      series: unknown[];
+    };
     // 80 * 1.1 = 88, ceil → 88
     expect(result.indicators[0].max).toBe(88);
   });
@@ -1506,7 +1585,10 @@ describe("radar transform", () => {
       { indicator: "WROTE", value: 10 },
       { indicator: "REVIEWED", value: 9 },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: Array<{ values: number[] }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+      series: Array<{ values: number[] }>;
+    };
     // Global max: ceil(172 * 1.1) = 190
     const globalMax = Math.ceil(172 * 1.1);
     expect(result.indicators).toHaveLength(5);
@@ -1517,7 +1599,7 @@ describe("radar transform", () => {
     // The shape should NOT be uniform — values differ significantly
     const values = result.series[0].values;
     expect(values[0]).toBe(172); // ACTED_IN
-    expect(values[4]).toBe(9);   // REVIEWED
+    expect(values[4]).toBe(9); // REVIEWED
   });
 
   it("preserves explicit max column values when provided", () => {
@@ -1525,14 +1607,19 @@ describe("radar transform", () => {
       { indicator: "Speed", value: 80, max: 200 },
       { indicator: "Strength", value: 40, max: 150 },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     expect(result.indicators[0].max).toBe(200);
     expect(result.indicators[1].max).toBe(150);
   });
 
   it("uses global max for wide-format tabular data", () => {
     const data = [{ Speed: 80, Strength: 60, Agility: 90 }];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }>; series: Array<{ values: number[] }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+      series: Array<{ values: number[] }>;
+    };
     // Global max: ceil(90 * 1.1) = 99
     const globalMax = Math.ceil(90 * 1.1);
     for (const ind of result.indicators) {
@@ -1551,7 +1638,9 @@ describe("radar transform", () => {
       { indicator: "Strength", value: 60, max: undefined },
       { indicator: "Agility", value: 90, max: NaN },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     // globalMax: ceil(90 * 1.1) = 99
     const globalMax = Math.ceil(90 * 1.1);
     for (const ind of result.indicators) {
@@ -1564,7 +1653,9 @@ describe("radar transform", () => {
       { indicator: "Speed", value: 50, max: 0 },
       { indicator: "Strength", value: 30, max: 0 },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     // 0 is not a valid explicit max (not > 0), so globalMax is used
     const globalMax = Math.ceil(50 * 1.1);
     for (const ind of result.indicators) {
@@ -1577,7 +1668,9 @@ describe("radar transform", () => {
       { indicator: "Speed", value: 50, max: -100 },
       { indicator: "Strength", value: 30, max: -50 },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     const globalMax = Math.ceil(50 * 1.1);
     for (const ind of result.indicators) {
       expect(ind.max).toBe(globalMax);
@@ -1590,12 +1683,14 @@ describe("radar transform", () => {
       { indicator: "Strength", value: 60, max: null },
       { indicator: "Agility", value: 90, max: 150 },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     const globalMax = Math.ceil(90 * 1.1);
     // Speed and Agility have valid explicit max; Strength falls back to globalMax
-    expect(result.indicators[0].max).toBe(200);   // Speed — explicit
+    expect(result.indicators[0].max).toBe(200); // Speed — explicit
     expect(result.indicators[1].max).toBe(globalMax); // Strength — fallback
-    expect(result.indicators[2].max).toBe(150);   // Agility — explicit
+    expect(result.indicators[2].max).toBe(150); // Agility — explicit
   });
 
   it("falls back to globalMax when max column contains non-numeric strings", () => {
@@ -1603,7 +1698,9 @@ describe("radar transform", () => {
       { indicator: "Speed", value: 80, max: "not-a-number" },
       { indicator: "Strength", value: 60, max: "" },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     const globalMax = Math.ceil(80 * 1.1);
     for (const ind of result.indicators) {
       expect(ind.max).toBe(globalMax);
@@ -1615,7 +1712,9 @@ describe("radar transform", () => {
       { indicator: "Speed", value: 80, max: Infinity },
       { indicator: "Strength", value: 60, max: -Infinity },
     ];
-    const result = transform(data) as { indicators: Array<{ name: string; max: number }> };
+    const result = transform(data) as {
+      indicators: Array<{ name: string; max: number }>;
+    };
     const globalMax = Math.ceil(80 * 1.1);
     for (const ind of result.indicators) {
       expect(ind.max).toBe(globalMax);
@@ -1653,7 +1752,9 @@ describe("treemap chart type", () => {
   });
 
   it("getStylingTargets returns Block Color target", () => {
-    expect(getStylingTargets("treemap")).toEqual([{ value: "color", label: "Block Color" }]);
+    expect(getStylingTargets("treemap")).toEqual([
+      { value: "color", label: "Block Color" },
+    ]);
   });
 
   it("is included in compatible chart types for both connectors", () => {
@@ -1682,7 +1783,11 @@ describe("treemap transform", () => {
     const data = [
       { name: "Root", value: 100, children: [{ name: "Child", value: 50 }] },
     ];
-    const result = transform(data) as Array<{ name: string; value: number; children?: unknown[] }>;
+    const result = transform(data) as Array<{
+      name: string;
+      value: number;
+      children?: unknown[];
+    }>;
     expect(result[0].children).toHaveLength(1);
   });
 
@@ -1691,7 +1796,10 @@ describe("treemap transform", () => {
       { name: "root", parent: "", value: 0 },
       { name: "A", parent: "root", value: 10 },
     ];
-    const result = transform(data) as Array<{ name: string; children?: unknown[] }>;
+    const result = transform(data) as Array<{
+      name: string;
+      children?: unknown[];
+    }>;
     const rootNode = result.find((r) => r.name === "root");
     expect(rootNode?.children).toBeDefined();
   });
@@ -1729,4 +1837,3 @@ describe("treemap transform", () => {
     expect(result).toEqual(transform(data));
   });
 });
-

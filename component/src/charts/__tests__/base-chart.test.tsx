@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BaseChart } from "../base-chart";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
@@ -168,7 +168,12 @@ describe("BaseChart", () => {
   });
 
   it("uses default palette colors when colorPalette is 'deep-ocean'", () => {
-    render(<BaseChart options={{ title: { text: "Test" } }} colorPalette="deep-ocean" />);
+    render(
+      <BaseChart
+        options={{ title: { text: "Test" } }}
+        colorPalette="deep-ocean"
+      />,
+    );
     // deep-ocean triggers the default CSS-var path (same as unset)
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -179,7 +184,12 @@ describe("BaseChart", () => {
   });
 
   it("overrides colors with warm-sunset palette when colorPalette is set", () => {
-    render(<BaseChart options={{ title: { text: "Test" } }} colorPalette="warm-sunset" />);
+    render(
+      <BaseChart
+        options={{ title: { text: "Test" } }}
+        colorPalette="warm-sunset"
+      />,
+    );
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
         // warm-sunset first color is tomato red
@@ -224,15 +234,41 @@ describe("BaseChart", () => {
     expect(call.dataZoom).toBeDefined();
     expect(Array.isArray(call.dataZoom)).toBe(true);
     expect(call.dataZoom).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "inside" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ type: "inside" })]),
     );
   });
 
   it("does not inject dataZoom when enableDataZoom is false", () => {
-    render(<BaseChart options={{ title: { text: "Test" } }} enableDataZoom={false} />);
+    render(
+      <BaseChart
+        options={{ title: { text: "Test" } }}
+        enableDataZoom={false}
+      />,
+    );
     const call = mockSetOption.mock.calls[0][0];
     expect(call.dataZoom).toBeUndefined();
+  });
+
+  // --- Dark mode via events ---
+
+  describe("dark mode reactivity", () => {
+    afterEach(() => {
+      document.documentElement.classList.remove("dark");
+    });
+
+    it("re-renders chart when neoboard-theme-change event fires", () => {
+      const onReady = vi.fn();
+      render(<BaseChart options={{}} onChartReady={onReady} />);
+      const callsBefore = onReady.mock.calls.length;
+
+      // Simulate app theme toggle: add dark class + fire custom event
+      act(() => {
+        document.documentElement.classList.add("dark");
+        globalThis.dispatchEvent(new Event("neoboard-theme-change"));
+      });
+
+      // Chart should reinitialize (new onChartReady call)
+      expect(onReady.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
   });
 });
