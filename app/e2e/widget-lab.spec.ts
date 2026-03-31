@@ -133,8 +133,7 @@ test.describe("Widget Lab", () => {
       templateId = saved?.id;
     });
 
-    // Flaky: template card locator timeout in CI
-    test.fixme("can delete a template from Widget Lab", async ({ page }) => {
+    test("can delete a template from Widget Lab", async ({ page }) => {
       // First save a template via the API so we don't depend on the UI flow
       const templateName = `E2E Delete ${Date.now()}`;
       const createRes = await page.request.post("/api/widget-templates", {
@@ -155,9 +154,9 @@ test.describe("Widget Lab", () => {
         timeout: 10_000,
       });
 
-      // Click the delete icon on the template card
+      // Use data-testid for reliable card selection instead of .grid > div
       const card = page
-        .locator(".grid > div")
+        .getByTestId("template-card")
         .filter({ hasText: templateName });
       await card.getByRole("button", { name: "Delete template" }).click();
 
