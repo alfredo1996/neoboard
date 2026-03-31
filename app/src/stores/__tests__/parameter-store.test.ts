@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useParameterStore } from "../parameter-store";
 import type { ParameterType, ParameterSource } from "../parameter-store";
 
@@ -45,7 +45,14 @@ describe("useParameterStore", () => {
 
   it("sets a parameter with explicit type and sourceType", () => {
     const { setParameter } = useParameterStore.getState();
-    setParameter("genre", "Action", "GenreSelector", "genre", "select", "selector-widget");
+    setParameter(
+      "genre",
+      "Action",
+      "GenreSelector",
+      "genre",
+      "select",
+      "selector-widget",
+    );
     const entry = useParameterStore.getState().parameters["genre"];
     expect(entry.type).toBe("select");
     expect(entry.sourceType).toBe("selector-widget");
@@ -54,7 +61,14 @@ describe("useParameterStore", () => {
 
   it("sets a multi-select parameter with an array value", () => {
     const { setParameter } = useParameterStore.getState();
-    setParameter("tags", ["a", "b", "c"], "TagSelector", "tags", "multi-select", "selector-widget");
+    setParameter(
+      "tags",
+      ["a", "b", "c"],
+      "TagSelector",
+      "tags",
+      "multi-select",
+      "selector-widget",
+    );
     const entry = useParameterStore.getState().parameters["tags"];
     expect(entry.value).toEqual(["a", "b", "c"]);
     expect(entry.type).toBe("multi-select");
@@ -83,7 +97,14 @@ describe("useParameterStore", () => {
   it("can store date-range as an object value", () => {
     const { setParameter } = useParameterStore.getState();
     const dateRange = { from: "2024-01-01", to: "2024-01-31" };
-    setParameter("period", dateRange, "DateRangePicker", "period", "date-range", "selector-widget");
+    setParameter(
+      "period",
+      dateRange,
+      "DateRangePicker",
+      "period",
+      "date-range",
+      "selector-widget",
+    );
     const entry = useParameterStore.getState().parameters["period"];
     expect(entry.value).toEqual(dateRange);
     expect(entry.type).toBe("date-range");
@@ -91,8 +112,22 @@ describe("useParameterStore", () => {
 
   it("can store companion _from and _to parameters for date-range", () => {
     const { setParameter } = useParameterStore.getState();
-    setParameter("period_from", "2024-01-01", "DateRangePicker", "period_from", "date", "selector-widget");
-    setParameter("period_to", "2024-01-31", "DateRangePicker", "period_to", "date", "selector-widget");
+    setParameter(
+      "period_from",
+      "2024-01-01",
+      "DateRangePicker",
+      "period_from",
+      "date",
+      "selector-widget",
+    );
+    setParameter(
+      "period_to",
+      "2024-01-31",
+      "DateRangePicker",
+      "period_to",
+      "date",
+      "selector-widget",
+    );
     const params = useParameterStore.getState().parameters;
     expect(params["period_from"].value).toBe("2024-01-01");
     expect(params["period_to"].value).toBe("2024-01-31");
@@ -102,9 +137,30 @@ describe("useParameterStore", () => {
 
   it("can store number-range as a tuple value and companion _min/_max", () => {
     const { setParameter } = useParameterStore.getState();
-    setParameter("price", [10, 500], "PriceSlider", "price", "number-range", "selector-widget");
-    setParameter("price_min", 10, "PriceSlider", "price_min", "number-range", "selector-widget");
-    setParameter("price_max", 500, "PriceSlider", "price_max", "number-range", "selector-widget");
+    setParameter(
+      "price",
+      [10, 500],
+      "PriceSlider",
+      "price",
+      "number-range",
+      "selector-widget",
+    );
+    setParameter(
+      "price_min",
+      10,
+      "PriceSlider",
+      "price_min",
+      "number-range",
+      "selector-widget",
+    );
+    setParameter(
+      "price_max",
+      500,
+      "PriceSlider",
+      "price_max",
+      "number-range",
+      "selector-widget",
+    );
     const params = useParameterStore.getState().parameters;
     expect(params["price"].value).toEqual([10, 500]);
     expect(params["price_min"].value).toBe(10);
@@ -143,7 +199,15 @@ describe("useParameterStore", () => {
 
   it("stores sourceWidgetId when provided", () => {
     const { setParameter } = useParameterStore.getState();
-    setParameter("category", "Electronics", "Bar Chart", "category", "text", "click-action", "widget-abc-123");
+    setParameter(
+      "category",
+      "Electronics",
+      "Bar Chart",
+      "category",
+      "text",
+      "click-action",
+      "widget-abc-123",
+    );
     const entry = useParameterStore.getState().parameters["category"];
     expect(entry.sourceWidgetId).toBe("widget-abc-123");
   });
@@ -178,10 +242,23 @@ describe("useParameterStore", () => {
       "cascading-select",
     ];
     const { setParameter, clearAll } = useParameterStore.getState();
+    // Use type-appropriate values so coercion passes for all types
+    const values: Record<ParameterType, unknown> = {
+      text: "val",
+      select: "val",
+      "multi-select": ["a"],
+      date: "2026-01-01",
+      "date-range": "2026-01-01",
+      "date-relative": "last7",
+      "number-range": 42,
+      "cascading-select": "val",
+    };
     for (const t of types) {
-      setParameter(`p_${t}`, "val", "test", t, t, "selector-widget");
+      setParameter(`p_${t}`, values[t], "test", t, t, "selector-widget");
     }
-    expect(Object.keys(useParameterStore.getState().parameters)).toHaveLength(types.length);
+    expect(Object.keys(useParameterStore.getState().parameters)).toHaveLength(
+      types.length,
+    );
     clearAll();
   });
 
@@ -234,7 +311,14 @@ describe("useParameterStore", () => {
 
     it("saves parameters to localStorage keyed by dashboard ID", () => {
       const { setParameter, saveToDashboard } = useParameterStore.getState();
-      setParameter("genre", "Action", "Selector", "genre", "select", "selector-widget");
+      setParameter(
+        "genre",
+        "Action",
+        "Selector",
+        "genre",
+        "select",
+        "selector-widget",
+      );
       saveToDashboard("dash-1");
 
       const stored = localStorage.getItem("nb-params:dash-1");
@@ -248,7 +332,14 @@ describe("useParameterStore", () => {
       const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
         useParameterStore.getState();
 
-      setParameter("year", 2024, "YearPicker", "year", "text", "selector-widget");
+      setParameter(
+        "year",
+        2024,
+        "YearPicker",
+        "year",
+        "text",
+        "selector-widget",
+      );
       saveToDashboard("dash-2");
       clearAll();
       expect(useParameterStore.getState().parameters).toEqual({});
@@ -260,7 +351,8 @@ describe("useParameterStore", () => {
     });
 
     it("restores empty parameters when no data exists for dashboard", () => {
-      const { setParameter, restoreFromDashboard } = useParameterStore.getState();
+      const { setParameter, restoreFromDashboard } =
+        useParameterStore.getState();
       setParameter("leftover", "stale", "Old", "x");
 
       restoreFromDashboard("never-visited-dashboard");
@@ -278,13 +370,27 @@ describe("useParameterStore", () => {
         useParameterStore.getState();
 
       // Set and save Dashboard A params
-      setParameter("movie", "The Matrix", "MovieSelector", "movie", "select", "selector-widget");
+      setParameter(
+        "movie",
+        "The Matrix",
+        "MovieSelector",
+        "movie",
+        "select",
+        "selector-widget",
+      );
       setParameter("year", 1999, "YearPicker", "year");
       saveToDashboard("dash-A");
 
       // Clear and set Dashboard B params
       useParameterStore.getState().clearAll();
-      setParameter("city", "Berlin", "CityPicker", "city", "select", "selector-widget");
+      setParameter(
+        "city",
+        "Berlin",
+        "CityPicker",
+        "city",
+        "select",
+        "selector-widget",
+      );
       saveToDashboard("dash-B");
 
       // Restore Dashboard A — should have movie+year, not city
@@ -325,7 +431,9 @@ describe("useParameterStore", () => {
 
       // Restore should get the latest
       restoreFromDashboard("dash-overwrite");
-      expect(useParameterStore.getState().parameters["color"].value).toBe("blue");
+      expect(useParameterStore.getState().parameters["color"].value).toBe(
+        "blue",
+      );
     });
 
     it("preserves all entry fields through save/restore cycle", () => {
@@ -338,7 +446,7 @@ describe("useParameterStore", () => {
         "TagSelector",
         "tags",
         "multi-select",
-        "selector-widget"
+        "selector-widget",
       );
       saveToDashboard("dash-fields");
       clearAll();
@@ -374,6 +482,50 @@ describe("useParameterStore", () => {
       const params = useParameterStore.getState().parameters;
       expect(params["x"].sourceWidgetId).toBe("wid-1");
       expect(params["y"].sourceWidgetId).toBeUndefined();
+    });
+  });
+
+  describe("type coercion", () => {
+    it("coerces a numeric string to number for number-range type", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("count", "42", "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"].value).toBe(42);
+    });
+
+    it("coerces an ISO string to the same string for date type", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("d", "2026-03-30", "click", "d", "date");
+      expect(useParameterStore.getState().parameters["d"].value).toBe(
+        "2026-03-30",
+      );
+    });
+
+    it("rejects non-parseable string for number-range with console warning", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { setParameter } = useParameterStore.getState();
+      setParameter("count", "abc", "click", "count", "number-range");
+      // Value should NOT be set
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[parameter-store]"),
+        expect.anything(),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("accepts arrays for multi-select type", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("tags", ["a", "b"], "widget", "tags", "multi-select");
+      expect(useParameterStore.getState().parameters["tags"].value).toEqual([
+        "a",
+        "b",
+      ]);
+    });
+
+    it("accepts any value for text type without coercion", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("q", 123, "click", "q", "text");
+      expect(useParameterStore.getState().parameters["q"].value).toBe(123);
     });
   });
 });

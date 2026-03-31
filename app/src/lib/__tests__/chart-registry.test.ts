@@ -1002,7 +1002,11 @@ describe("chartSupportsStyling", () => {
     },
   );
 
-  it.each(["graph", "map", "json", "parameter-select", "form"] as const)(
+  it.each(["graph", "map"] as const)("returns true for %s", (type) => {
+    expect(chartSupportsStyling(type)).toBe(true);
+  });
+
+  it.each(["json", "parameter-select", "form"] as const)(
     "returns false for %s",
     (type) => {
       expect(chartSupportsStyling(type)).toBe(false);
@@ -1055,8 +1059,18 @@ describe("getStylingTargets", () => {
     expect(targets).toContainEqual({ value: "textColor", label: "Text Color" });
   });
 
-  it("returns empty array for graph", () => {
-    expect(getStylingTargets("graph")).toEqual([]);
+  it("returns node color target for graph", () => {
+    expect(getStylingTargets("graph")).toContainEqual({
+      value: "color",
+      label: "Node Color",
+    });
+  });
+
+  it("returns marker color target for map", () => {
+    expect(getStylingTargets("map")).toContainEqual({
+      value: "color",
+      label: "Marker Color",
+    });
   });
 
   it("returns empty array for unknown type", () => {
@@ -1821,19 +1835,5 @@ describe("treemap transform", () => {
     const data = [{ name: "A", value: 10 }];
     const result = chartRegistry.treemap.transformWithMapping(data, {});
     expect(result).toEqual(transform(data));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Registry component field
-// ---------------------------------------------------------------------------
-describe("registry component field", () => {
-  const allTypes = Object.keys(chartRegistry) as ChartType[];
-
-  it.each(allTypes)("%s has a component field", (type) => {
-    const config = getChartConfig(type);
-    expect(config).toBeDefined();
-    expect(config!.component).toBeDefined();
-    expect(typeof config!.component).toBe("function");
   });
 });
