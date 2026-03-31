@@ -5,14 +5,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[a-zA-Z]/, "Password must contain at least one letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
+  newPassword: newPasswordSchema,
 });
 
 export async function PUT(req: Request) {

@@ -11,11 +11,12 @@ import {
   apiError,
   parsePagination,
 } from "@/lib/api-response";
+import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: newPasswordSchema,
   role: z.enum(["admin", "creator", "reader"]).optional().default("creator"),
   canWrite: z.boolean().optional().default(true),
 });

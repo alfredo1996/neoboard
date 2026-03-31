@@ -36,7 +36,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        // Rate limit by IP — 5 attempts per minute.
+        // Rate limit by IP — 20 attempts per minute.
         // In deployments behind a reverse proxy (Vercel, nginx), the first
         // x-forwarded-for value is the client IP set by the trusted proxy.
         const forwarded = request?.headers?.get?.("x-forwarded-for");
@@ -66,7 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.id, user.id))
           .then(
             () => {},
-            () => {},
+            (err) => console.error("[auth] lastLoginAt update failed", err),
           );
 
         return {

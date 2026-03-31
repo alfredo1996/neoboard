@@ -260,7 +260,6 @@ export default async function globalSetup() {
       API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
       NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
       NEXTAUTH_URL: `http://localhost:${serverPort}`,
-      PLAYWRIGHT: "1",
     },
     detached: true,
   });
