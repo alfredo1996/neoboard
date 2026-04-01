@@ -102,12 +102,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             .from(users)
             .where(eq(users.id, token.id as string))
             .limit(1);
-          if (dbUser) {
-            // Disabled users get their session invalidated on next token refresh
-            if (dbUser.disabledAt) return null;
-            token.role = dbUser.role;
-            token.canWrite = dbUser.canWrite;
-          }
+          if (!dbUser) return null; // User deleted — invalidate token
+          if (dbUser.disabledAt) return null; // User disabled — invalidate token
+          token.role = dbUser.role;
+          token.canWrite = dbUser.canWrite;
         } catch {
           // DB unavailable — keep existing token values (graceful degradation)
         }

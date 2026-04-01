@@ -31,6 +31,7 @@ out
 storybook-static
 
 # Environment
+.env
 .env*.local
 .env.test
 !.env.example

@@ -66,7 +66,7 @@ export async function PATCH(
 ) {
   try {
     const { userId, canWrite } = await requireAdmin();
-    if (!canWrite) throw new Error("Forbidden");
+    if (!canWrite) return forbidden();
     const { id } = await params;
 
     if (id === userId) {
@@ -119,7 +119,7 @@ export async function DELETE(
 ) {
   try {
     const { userId, canWrite } = await requireAdmin();
-    if (!canWrite) throw new Error("Forbidden");
+    if (!canWrite) return forbidden();
     const { id } = await params;
 
     if (id === userId) {
