@@ -33,7 +33,7 @@ export async function fetchConnectionSchema(
   if (type === "neo4j") {
     const { Neo4jSchemaManager } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("../../../connection/src/schema/neo4j-schema") as {
+      require("@neoboard/connection/src/schema/neo4j-schema") as {
         Neo4jSchemaManager: new () => {
           fetchSchema: (a: typeof authConfig) => Promise<unknown>;
         };
@@ -43,7 +43,7 @@ export async function fetchConnectionSchema(
   } else {
     const { PostgresSchemaManager } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("../../../connection/src/schema/pg-schema") as {
+      require("@neoboard/connection/src/schema/pg-schema") as {
         PostgresSchemaManager: new () => {
           fetchSchema: (a: typeof authConfig) => Promise<unknown>;
         };
