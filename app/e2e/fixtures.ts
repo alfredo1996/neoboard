@@ -65,80 +65,37 @@ export function getPreview(dialog: import("@playwright/test").Locator) {
  * Falls back to keyboard insertion if the CM6 view is not accessible
  * (e.g. in production builds where `cmView` may be inaccessible).
  */
+/**
+ * Type text into the CodeMirror editor inside a dialog.
+ *
+ * Waits for `data-cm-readonly="false"` — the actual CM6 readOnly state
+ * exposed by QueryEditor in the same synchronous turn as the compartment
+ * reconfigure. This eliminates the async race between the React prop and
+ * the CM6 state that caused persistent flakes on CI.
+ */
 export async function typeInEditor(
   dialog: import("@playwright/test").Locator,
-  page: import("@playwright/test").Page,
+  _page: import("@playwright/test").Page,
   query: string,
 ) {
   const cmContainer = dialog.locator("[data-testid='codemirror-container']");
-  const cm = cmContainer.locator(".cm-content");
 
-  // Retry until text is successfully inserted via CM6 dispatch or keyboard fallback.
-  // All waits are inside the retry loop to handle chart-type changes that
-  // destroy and recreate the CM6 editor mid-flow.
   await expect(async () => {
-    // Wait for CM6 to mount (re-checked each iteration in case of remount)
-    await cmContainer
-      .locator(".cm-editor")
-      .waitFor({ state: "visible", timeout: 5_000 });
-
-    // Wait for the React wrapper to signal writable
-    await expect(cmContainer).toHaveAttribute("data-readonly", "false", {
-      timeout: 5_000,
-    });
-
-    // Wait for initEditor to complete (view + compartments fully initialized).
-    // This prevents the race where data-readonly is "false" but the CM6 view
-    // hasn't been created yet because async imports are still in progress.
+    // Wait for editor to be fully initialized and writable at the CM6 level
     await expect(cmContainer).toHaveAttribute("data-editor-ready", "true", {
       timeout: 5_000,
     });
+    await expect(cmContainer).toHaveAttribute("data-cm-readonly", "false", {
+      timeout: 5_000,
+    });
 
-    // Pre-dispatch stability: poll until the editor has been continuously
-    // ready for 3 consecutive checks (600ms stable window). Connection and
-    // chart-type selections trigger async operations (schema fetch, dynamic
-    // imports for Graph/NVL/Map) that can re-mount the editor. Polling
-    // detects re-mounts regardless of how long the async operation takes.
-    let stableCount = 0;
-    for (let poll = 0; poll < 15; poll++) {
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(200);
-      const ready = await cmContainer.getAttribute("data-editor-ready");
-      if (ready === "true") {
-        stableCount++;
-        if (stableCount >= 3) break;
-      } else {
-        stableCount = 0;
-      }
-    }
-    if (stableCount < 3) {
-      throw new Error("Editor not stable after polling — retrying");
-    }
-
-    // Strategy 1: Use CM6's internal dispatch API (most reliable).
-    // The QueryEditor component exposes `__cmView` on the container DOM element
-    // when initialization completes. This is more reliable than the internal
-    // `cmTile` property which may be mangled or inaccessible in production builds.
-    //
-    // The readOnly compartment may lag behind the data-readonly attribute, so we
-    // poll briefly inside the evaluate before giving up.
-    const dispatched = await cmContainer.evaluate(
-      async (el: HTMLElement, text: string) => {
+    // Dispatch text replacement via CM6 API
+    const result = await cmContainer.evaluate(
+      (el: HTMLElement, text: string) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let view = (el as any).__cmView;
-        if (!el.querySelector(".cm-content")) return "no-editor";
+        const view = (el as any).__cmView;
         if (!view) return "no-view";
-
-        // Poll for writable state (readOnly compartment may lag behind React prop)
-        for (let i = 0; i < 10 && view.state.readOnly; i++) {
-          await new Promise((r) => setTimeout(r, 100));
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          view = (el as any).__cmView;
-          if (!view) return "no-view";
-        }
         if (view.state.readOnly) return "readonly";
-
-        // Replace entire document content
         view.dispatch({
           changes: { from: 0, to: view.state.doc.length, insert: text },
         });
@@ -149,37 +106,10 @@ export async function typeInEditor(
       query,
     );
 
-    if (dispatched === "ok") {
-      // Post-dispatch stability: verify text survives any late re-renders.
-      // The pre-dispatch check handles most cases; this is a safety net.
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(300);
-      const stillPresent = await cmContainer.evaluate(
-        (el: HTMLElement, text: string) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const view = (el as any).__cmView;
-          if (!view) return false;
-          return view.state.doc.toString().includes(text.substring(0, 20));
-        },
-        query,
-      );
-      if (!stillPresent) {
-        throw new Error(
-          "Text overwritten after dispatch (editor re-mounted) — retrying",
-        );
-      }
-      return;
+    if (result !== "ok") {
+      throw new Error(`CM6 dispatch: ${result} — retrying`);
     }
-
-    // __cmView not ready yet — retry (editor may be re-mounting)
-    if (dispatched === "no-view" || dispatched === "readonly") {
-      throw new Error(`CM6 __cmView not available (${dispatched}) — retrying`);
-      return;
-    }
-
-    // Retry-worthy states: no-editor, dispatch-failed
-    throw new Error(`CM6 dispatch returned "${dispatched}" — retrying`);
-  }).toPass({ timeout: 45_000 });
+  }).toPass({ timeout: 30_000 });
 }
 
 /**
