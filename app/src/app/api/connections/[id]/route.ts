@@ -5,12 +5,13 @@ import { requireSession } from "@/lib/auth/session";
 import { encryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { updateConnectionSchema } from "@/lib/schemas";
+import type { ConnectorType } from "@/lib/connector-types";
 import { validateBody, notFound, handleRouteError } from "@/lib/api-utils";
 import { apiSuccess } from "@/lib/api-response";
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, tenantId, role } = await requireSession();
@@ -26,7 +27,13 @@ export async function GET(
         updatedAt: connections.updatedAt,
       })
       .from(connections)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
+      .where(
+        and(
+          eq(connections.id, id),
+          eq(connections.userId, userId),
+          eq(connections.tenantId, tenantId),
+        ),
+      )
       .limit(1);
 
     // Admin fallback: admin can view any connection in the same tenant.
@@ -56,7 +63,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, tenantId } = await requireSession();
@@ -67,12 +74,19 @@ export async function PATCH(
 
     const updates: Record<string, unknown> = {};
     if (result.data.name) updates.name = result.data.name;
-    if (result.data.config) updates.configEncrypted = encryptJson(result.data.config);
+    if (result.data.config)
+      updates.configEncrypted = encryptJson(result.data.config);
 
     const [connection] = await db
       .update(connections)
       .set(updates)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
+      .where(
+        and(
+          eq(connections.id, id),
+          eq(connections.userId, userId),
+          eq(connections.tenantId, tenantId),
+        ),
+      )
       .returning({
         id: connections.id,
         name: connections.name,
@@ -87,7 +101,7 @@ export async function PATCH(
 
     // Fire-and-forget: re-warm the schema cache after credential update
     if (result.data.config) {
-      prefetchSchema(connection.type as "neo4j" | "postgresql", result.data.config);
+      prefetchSchema(connection.type as ConnectorType, result.data.config);
     }
 
     return apiSuccess(connection);
@@ -98,7 +112,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, tenantId } = await requireSession();
@@ -106,7 +120,13 @@ export async function DELETE(
 
     const deleted = await db
       .delete(connections)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
+      .where(
+        and(
+          eq(connections.id, id),
+          eq(connections.userId, userId),
+          eq(connections.tenantId, tenantId),
+        ),
+      )
       .returning({ id: connections.id });
 
     if (deleted.length === 0) {

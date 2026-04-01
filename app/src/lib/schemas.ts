@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONNECTOR_TYPES } from "@/lib/connector-types";
 
 /**
  * Shared Zod schemas for API route validation.
@@ -14,7 +15,12 @@ export const connectionConfigSchema = z.object({
   connectionTimeout: z.number().int().min(1000).max(300_000).optional(),
   queryTimeout: z.number().int().min(1000).max(300_000).optional(),
   maxPoolSize: z.number().int().min(1).max(100).optional(),
-  connectionAcquisitionTimeout: z.number().int().min(1000).max(300_000).optional(),
+  connectionAcquisitionTimeout: z
+    .number()
+    .int()
+    .min(1000)
+    .max(300_000)
+    .optional(),
   idleTimeout: z.number().int().min(1000).max(300_000).optional(),
   statementTimeout: z.number().int().min(1000).max(300_000).optional(),
   sslRejectUnauthorized: z.boolean().optional(),
@@ -22,7 +28,7 @@ export const connectionConfigSchema = z.object({
 
 export const createConnectionSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(["neo4j", "postgresql"]),
+  type: z.enum(CONNECTOR_TYPES),
   config: connectionConfigSchema,
 });
 
@@ -32,6 +38,6 @@ export const updateConnectionSchema = z.object({
 });
 
 export const testInlineSchema = z.object({
-  type: z.enum(["neo4j", "postgresql"]),
+  type: z.enum(CONNECTOR_TYPES),
   config: connectionConfigSchema,
 });

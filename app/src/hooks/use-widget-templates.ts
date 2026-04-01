@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api-client";
 import type { WidgetTemplate } from "@/lib/db/schema";
+import type { ConnectorType } from "@/lib/connector-types";
 
 export interface WidgetTemplateFilters {
   chartType?: string;
@@ -17,7 +18,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 export function useWidgetTemplates(filters?: WidgetTemplateFilters) {
   const params = new URLSearchParams();
   if (filters?.chartType) params.set("chartType", filters.chartType);
-  if (filters?.connectorType) params.set("connectorType", filters.connectorType);
+  if (filters?.connectorType)
+    params.set("connectorType", filters.connectorType);
   const qs = params.toString();
 
   return useQuery<WidgetTemplate[]>({
@@ -34,7 +36,7 @@ export interface CreateWidgetTemplateInput {
   description?: string;
   tags?: string[];
   chartType: string;
-  connectorType: "neo4j" | "postgresql";
+  connectorType: ConnectorType;
   connectionId?: string;
   query?: string;
   params?: Record<string, unknown>;
@@ -47,7 +49,7 @@ export interface UpdateWidgetTemplateInput {
   description?: string;
   tags?: string[];
   chartType?: string;
-  connectorType?: "neo4j" | "postgresql";
+  connectorType?: ConnectorType;
   connectionId?: string | null;
   query?: string;
   params?: Record<string, unknown>;
@@ -75,7 +77,10 @@ export function useUpdateWidgetTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, ...input }: UpdateWidgetTemplateInput & { id: string }) =>
+    mutationFn: ({
+      id,
+      ...input
+    }: UpdateWidgetTemplateInput & { id: string }) =>
       fetchJson<WidgetTemplate>(`/api/widget-templates/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -92,7 +97,9 @@ export function useDeleteWidgetTemplate() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      fetchJson<{ success: boolean }>(`/api/widget-templates/${id}`, { method: "DELETE" }),
+      fetchJson<{ success: boolean }>(`/api/widget-templates/${id}`, {
+        method: "DELETE",
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["widget-templates"] });
     },

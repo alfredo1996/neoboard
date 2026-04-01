@@ -1,3 +1,5 @@
+import type { ConnectorType } from "@/lib/connector-types";
+
 /**
  * DatabaseSchema type definition for the app package.
  *
@@ -26,7 +28,7 @@ export interface TableDef {
 }
 
 export interface DatabaseSchema {
-  type: "neo4j" | "postgresql";
+  type: ConnectorType;
   labels?: string[];
   relationshipTypes?: string[];
   nodeProperties?: Record<string, PropertyDef[]>;

@@ -37,6 +37,12 @@ import {
   useToast,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
+import {
+  type ConnectorType,
+  CONNECTOR_TYPES,
+  CONNECTOR_LABELS,
+  CONNECTOR_LANGUAGES,
+} from "@/lib/connector-types";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({
@@ -136,7 +142,10 @@ function TemplateCard({
 
         <CodePreview
           value={template.query}
-          language={template.connectorType === "postgresql" ? "SQL" : "Cypher"}
+          language={
+            CONNECTOR_LANGUAGES[template.connectorType as ConnectorType] ??
+            "Cypher"
+          }
         />
 
         <div className="flex items-center justify-between gap-2">
@@ -254,7 +263,7 @@ export default function WidgetLabPage() {
         description: template.description ?? undefined,
         tags: template.tags ?? undefined,
         chartType: template.chartType,
-        connectorType: template.connectorType as "neo4j" | "postgresql",
+        connectorType: template.connectorType as ConnectorType,
         connectionId: template.connectionId ?? undefined,
         query: template.query,
         settings: (template.settings as Record<string, unknown>) ?? undefined,
@@ -361,8 +370,11 @@ export default function WidgetLabPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All connectors</SelectItem>
-              <SelectItem value="neo4j">Neo4j</SelectItem>
-              <SelectItem value="postgresql">PostgreSQL</SelectItem>
+              {CONNECTOR_TYPES.map((ct) => (
+                <SelectItem key={ct} value={ct}>
+                  {CONNECTOR_LABELS[ct]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
