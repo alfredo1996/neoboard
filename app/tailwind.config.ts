@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const preset = require("../component/tailwind-preset");
+const preset = require("../component/tailwind-preset.cjs");
 
 const config: Config = {
   presets: [preset],
