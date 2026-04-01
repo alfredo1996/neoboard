@@ -225,6 +225,7 @@ function QueryEditor({
 
       // Remove leftover DOM nodes and clear the ready signal + stale E2E handle
       delete containerRef.current.dataset.editorReady;
+      delete containerRef.current.dataset.cmReadonly;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (containerRef.current as any).__cmView;
       while (containerRef.current.firstChild) {
@@ -296,6 +297,11 @@ function QueryEditor({
       }
 
       containerRef.current?.setAttribute("data-editor-ready", "true");
+      // Reflect actual CM6 readOnly state for E2E (React prop may lag behind)
+      containerRef.current?.setAttribute(
+        "data-cm-readonly",
+        String(viewRef.current.state.readOnly),
+      );
       // Expose the EditorView on the DOM element for E2E test access.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (containerRef.current)
@@ -354,6 +360,9 @@ function QueryEditor({
     view.dispatch({
       effects: compartment.reconfigure(EditorState.readOnly.of(readOnly)),
     });
+    // Reflect actual CM6 readOnly state for E2E — set in the same synchronous
+    // turn as the compartment reconfigure so there is no race.
+    containerRef.current?.setAttribute("data-cm-readonly", String(readOnly));
   }, [readOnly]);
 
   // Schema update: reconfigure language compartment with new schema
