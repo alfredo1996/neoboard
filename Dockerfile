@@ -2,19 +2,22 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-# Copy package manifests for root + all workspace packages
+# Copy package manifests for all packages
 COPY package.json package-lock.json ./
-COPY app/package.json ./app/
-COPY component/package.json ./component/
-COPY connection/package.json ./connection/
+COPY app/package.json app/package-lock.json ./app/
+COPY component/package.json component/package-lock.json ./component/
+COPY connection/package.json connection/package-lock.json ./connection/
 
-RUN npm ci
+# Install each package independently (no workspaces)
+RUN npm ci --prefix app & \
+    npm ci --prefix component & \
+    npm ci --prefix connection & \
+    wait
 
 # ---- build: compile Next.js standalone output ----
 FROM node:22-alpine AS build
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/app/node_modules ./app/node_modules
 COPY --from=deps /app/component/node_modules ./component/node_modules
 COPY --from=deps /app/connection/node_modules ./connection/node_modules
@@ -22,7 +25,7 @@ COPY --from=deps /app/connection/node_modules ./connection/node_modules
 # Copy all source
 COPY . .
 
-RUN npm run build
+RUN cd app && npm run build
 
 # ---- runner: minimal production image ----
 FROM node:22-alpine AS runner
