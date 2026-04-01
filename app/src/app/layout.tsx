@@ -6,6 +6,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
   title: "NeoBoard",
   description:
     "Open-source dashboards for Neo4j + PostgreSQL — the modern alternative to NeoDash",
