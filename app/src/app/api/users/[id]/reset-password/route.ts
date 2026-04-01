@@ -4,7 +4,12 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { badRequest, notFound, handleRouteError } from "@/lib/api-utils";
+import {
+  forbidden,
+  badRequest,
+  notFound,
+  handleRouteError,
+} from "@/lib/api-utils";
 import { apiSuccess } from "@/lib/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
@@ -18,7 +23,7 @@ export async function POST(
 ) {
   try {
     const { userId, canWrite } = await requireAdmin();
-    if (!canWrite) throw new Error("Forbidden");
+    if (!canWrite) return forbidden();
     const { id } = await params;
 
     if (id === userId) {
