@@ -31,9 +31,9 @@ export async function fetchConnectionSchema(
   const authConfig = buildAuthConfig(credentials);
 
   if (type === "neo4j") {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Neo4jSchemaManager } =
-      require("connection/src/schema/neo4j-schema") as {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("../../../connection/src/schema/neo4j-schema") as {
         Neo4jSchemaManager: new () => {
           fetchSchema: (a: typeof authConfig) => Promise<unknown>;
         };
@@ -41,9 +41,9 @@ export async function fetchConnectionSchema(
     const manager = new Neo4jSchemaManager();
     return manager.fetchSchema(authConfig);
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PostgresSchemaManager } =
-      require("connection/src/schema/pg-schema") as {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("../../../connection/src/schema/pg-schema") as {
         PostgresSchemaManager: new () => {
           fetchSchema: (a: typeof authConfig) => Promise<unknown>;
         };
