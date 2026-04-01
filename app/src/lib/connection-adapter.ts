@@ -12,9 +12,9 @@
  */
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
-const factory: any = require("connection/src/adapters/factory");
-const interfaces: any = require("connection/src/generalized/interfaces");
-const config: any = require("connection/src/ConnectionModuleConfig");
+const factory: any = require("../../../connection/src/adapters/factory");
+const interfaces: any = require("../../../connection/src/generalized/interfaces");
+const config: any = require("../../../connection/src/ConnectionModuleConfig");
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
 export const createConnectionModule: (
