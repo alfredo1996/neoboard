@@ -25,6 +25,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@neoboard/components": "file:../component",
+    "@neoboard/connection": "file:../connection",
     "@tanstack/react-query": "^5.95.2",
     "bcryptjs": "^3.0.2",
     "drizzle-orm": "^0.45.2",

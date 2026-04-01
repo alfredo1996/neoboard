@@ -1,15 +1,11 @@
 {
-  "name": "connection",
+  "name": "@neoboard/connection",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Database connection adapters for NeoBoard",
+  "main": "src/index.ts",
   "scripts": {
     "test": "jest",
     "test:coverage": "jest --coverage"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/neo-technology/neodash-commercial.git"
   },
   "dependencies": {
     "neo4j-driver": "^6.0.1",

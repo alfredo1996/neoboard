@@ -8,11 +8,12 @@ COPY app/package.json app/package-lock.json ./app/
 COPY component/package.json component/package-lock.json ./component/
 COPY connection/package.json connection/package-lock.json ./connection/
 
-# Install each package independently (no workspaces)
-RUN npm ci --prefix app & \
-    npm ci --prefix component & \
+# Install sub-packages first (app depends on them via file: refs)
+RUN npm ci --prefix component & \
     npm ci --prefix connection & \
     wait
+# Now install app (resolves file:../connection and file:../component)
+RUN npm ci --prefix app
 
 # ---- build: compile Next.js standalone output ----
 FROM node:22-alpine AS build
