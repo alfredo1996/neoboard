@@ -28,6 +28,8 @@ services:
     container_name: neoboard-neo4j
     environment:
       NEO4J_AUTH: neo4j/neoboard123
+      # Advertise Docker hostname so the routing driver connects correctly
+      NEO4J_server_default__advertised__address: neoboard-neo4j
     ports:
       - "7474:7474"
       - "7687:7687"
