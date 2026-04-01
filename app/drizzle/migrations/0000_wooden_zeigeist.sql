@@ -30,6 +30,7 @@ CREATE TABLE "api_key" (
 CREATE TABLE "connection" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
+	"tenant_id" text DEFAULT 'default' NOT NULL,
 	"name" text NOT NULL,
 	"type" "connection_type" NOT NULL,
 	"configEncrypted" text NOT NULL,
