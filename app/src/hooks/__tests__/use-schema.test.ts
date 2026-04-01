@@ -1,15 +1,17 @@
+// @vitest-environment jsdom
 /**
- * useConnectionSchema — pure-logic tests (node environment, no DOM).
+ * useConnectionSchema — pure-logic tests + renderHook tests.
  *
- * The hook's React/TanStack Query lifecycle is tested via Playwright E2E.
- * Here we test the Zustand schema store interactions that the hook drives,
- * and the exported createRefreshSchema utility in isolation.
+ * Tests the Zustand schema store interactions, the exported createRefreshSchema
+ * utility, and the hook itself via renderHook with a real QueryClient.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { QueryClient } from "@tanstack/react-query";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DatabaseSchema } from "@/lib/schema-types";
 import { useSchemaStore } from "@/stores/schema-store";
-import { createRefreshSchema } from "@/hooks/use-schema";
+import { createRefreshSchema, useConnectionSchema } from "@/hooks/use-schema";
 
 const neo4jSchema: DatabaseSchema = {
   type: "neo4j",
@@ -55,8 +57,12 @@ describe("schema store contract used by useConnectionSchema", () => {
   it("multiple schemas can be stored independently", () => {
     useSchemaStore.getState().setSchema("neo4j-conn", neo4jSchema);
     useSchemaStore.getState().setSchema("pg-conn", pgSchema);
-    expect(useSchemaStore.getState().getSchema("neo4j-conn")?.type).toBe("neo4j");
-    expect(useSchemaStore.getState().getSchema("pg-conn")?.type).toBe("postgresql");
+    expect(useSchemaStore.getState().getSchema("neo4j-conn")?.type).toBe(
+      "neo4j",
+    );
+    expect(useSchemaStore.getState().getSchema("pg-conn")?.type).toBe(
+      "postgresql",
+    );
   });
 
   it("clearSchema only removes the targeted connection", () => {
@@ -118,7 +124,9 @@ describe("createRefreshSchema utility", () => {
 
   it("calls cancelQueries then invalidateQueries with the correct queryKey", async () => {
     const fakeQueryClient = makeFakeQueryClient();
-    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<
+      typeof vi.fn
+    >;
 
     const refresh = createRefreshSchema(fakeQueryClient);
     await refresh("conn-42");
@@ -145,7 +153,9 @@ describe("createRefreshSchema utility", () => {
 
   it("performs both operations: clears store AND invalidates query", async () => {
     const fakeQueryClient = makeFakeQueryClient();
-    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<
+      typeof vi.fn
+    >;
 
     const connectionId = "conn-42";
     useSchemaStore.getState().setSchema(connectionId, neo4jSchema);
@@ -161,7 +171,9 @@ describe("createRefreshSchema utility", () => {
 
   it("uses the connectionId from the call, not from the factory", async () => {
     const fakeQueryClient = makeFakeQueryClient();
-    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<
+      typeof vi.fn
+    >;
 
     const refresh = createRefreshSchema(fakeQueryClient);
     await refresh("conn-abc");
@@ -186,7 +198,9 @@ describe("createRefreshSchema utility", () => {
 
   it("is safe to call when no cached schema exists for the connectionId", async () => {
     const fakeQueryClient = makeFakeQueryClient();
-    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<
+      typeof vi.fn
+    >;
 
     // No schema set for conn-99 — should not throw
     const refresh = createRefreshSchema(fakeQueryClient);
@@ -198,7 +212,9 @@ describe("createRefreshSchema utility", () => {
 
   it("uses the nested [connection-schema, id] key pattern", async () => {
     const fakeQueryClient = makeFakeQueryClient();
-    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<typeof vi.fn>;
+    const mockInvalidate = fakeQueryClient.invalidateQueries as ReturnType<
+      typeof vi.fn
+    >;
 
     const refresh = createRefreshSchema(fakeQueryClient);
     await refresh("test-id");
@@ -207,5 +223,148 @@ describe("createRefreshSchema utility", () => {
     expect(callArg.queryKey).toHaveLength(2);
     expect(callArg.queryKey[0]).toBe("connection-schema");
     expect(callArg.queryKey[1]).toBe("test-id");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useConnectionSchema renderHook tests
+// ---------------------------------------------------------------------------
+
+describe("useConnectionSchema hook", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    useSchemaStore.setState({ schemas: {} });
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  function wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children,
+    );
+  }
+
+  it("does not fetch when connectionId is null", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const { result } = renderHook(() => useConnectionSchema(null), { wrapper });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.current.data).toBeUndefined();
+    expect(typeof result.current.refreshSchema).toBe("function");
+  });
+
+  it("does not fetch when connectionId is undefined", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const { result } = renderHook(() => useConnectionSchema(undefined), {
+      wrapper,
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it("fetches schema when connectionId is provided", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(neo4jSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { result } = renderHook(() => useConnectionSchema("conn-1"), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toEqual(neo4jSchema);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/connections/conn-1/schema",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("writes fetched schema to the Zustand store", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(neo4jSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { result } = renderHook(() => useConnectionSchema("conn-store"), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const stored = useSchemaStore.getState().getSchema("conn-store");
+    expect(stored).toEqual(neo4jSchema);
+  });
+
+  it("returns a refreshSchema function that is callable", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(neo4jSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { result } = renderHook(() => useConnectionSchema("conn-refresh"), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(typeof result.current.refreshSchema).toBe("function");
+  });
+
+  it("refreshSchema is a no-op when connectionId is null", () => {
+    const { result } = renderHook(() => useConnectionSchema(null), { wrapper });
+
+    // Should not throw
+    expect(() => result.current.refreshSchema()).not.toThrow();
+  });
+
+  it("fetches the correct URL for the given connectionId", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(pgSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { result } = renderHook(() => useConnectionSchema("pg-42"), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/connections/pg-42/schema",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(result.current.data?.type).toBe("postgresql");
   });
 });
