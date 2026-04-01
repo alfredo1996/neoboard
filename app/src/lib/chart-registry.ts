@@ -34,7 +34,8 @@ export type ChartType =
   | "radar"
   | "treemap";
 
-export type ConnectorType = "neo4j" | "postgresql";
+export type { ConnectorType } from "@/lib/connector-types";
+import { CONNECTOR_TYPES, type ConnectorType } from "@/lib/connector-types";
 
 export interface ChartConfig {
   type: ChartType;
@@ -967,8 +968,7 @@ export function getStylingTargets(
  * always receive a predictable result (no implicit "show everything").
  */
 export function getCompatibleChartTypes(connectorType: string): ChartType[] {
-  const known: ConnectorType[] = ["neo4j", "postgresql"];
-  if (!known.includes(connectorType as ConnectorType)) return [];
+  if (!CONNECTOR_TYPES.includes(connectorType as ConnectorType)) return [];
   const ct = connectorType as ConnectorType;
   return (Object.values(chartRegistry) as ChartConfig[])
     .filter((cfg) => !cfg.compatibleWith || cfg.compatibleWith.includes(ct))

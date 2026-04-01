@@ -11,13 +11,14 @@ import {
   handleRouteError,
 } from "@/lib/api-utils";
 import { previewImageUrlSchema } from "../shared";
+import { CONNECTOR_TYPES } from "@/lib/connector-types";
 
 const updateTemplateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   tags: z.array(z.string().max(100)).max(20).optional(),
   chartType: z.string().min(1).optional(),
-  connectorType: z.enum(["neo4j", "postgresql"]).optional(),
+  connectorType: z.enum(CONNECTOR_TYPES).optional(),
   connectionId: z.string().nullable().optional(),
   query: z.string().optional(),
   params: z.record(z.unknown()).optional(),
