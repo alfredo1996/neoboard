@@ -1653,14 +1653,17 @@ async function main() {
     }
 
     // 2. Create connectors (idempotent by name)
+    // Connection URIs default to localhost (dev). Override via env for Docker.
+    const neo4jHost = process.env.NEO4J_HOST ?? "localhost";
+    const pgHost = process.env.PG_HOST ?? "localhost";
     const neo4jConfig = {
-      uri: "neo4j://localhost:7687",
+      uri: `neo4j://${neo4jHost}:7687`,
       username: "neo4j",
       password: "neoboard123",
       database: "neo4j",
     };
     const pgConfig = {
-      uri: "postgresql://localhost:5432",
+      uri: `postgresql://${pgHost}:5432`,
       username: "neoboard",
       password: "neoboard",
       database: "movies",
