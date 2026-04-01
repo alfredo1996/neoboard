@@ -6,13 +6,14 @@ import { requireSession } from "@/lib/auth/session";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
 import { forbidden, badRequest, handleRouteError } from "@/lib/api-utils";
 import { previewImageUrlSchema } from "./shared";
+import { CONNECTOR_TYPES } from "@/lib/connector-types";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
   tags: z.array(z.string().max(100)).max(20).optional(),
   chartType: z.string().min(1),
-  connectorType: z.enum(["neo4j", "postgresql"]),
+  connectorType: z.enum(CONNECTOR_TYPES),
   connectionId: z.string().optional(),
   query: z.string().default(""),
   params: z.record(z.unknown()).optional(),
