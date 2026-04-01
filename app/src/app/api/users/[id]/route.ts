@@ -5,6 +5,7 @@ import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import {
   validateBody,
+  forbidden,
   badRequest,
   notFound,
   handleRouteError,
