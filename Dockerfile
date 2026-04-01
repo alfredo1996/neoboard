@@ -1,5 +1,5 @@
 # ---- deps: install all production dependencies ----
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Copy package manifests for root + all workspace packages
@@ -11,7 +11,7 @@ COPY connection/package.json ./connection/
 RUN npm ci
 
 # ---- build: compile Next.js standalone output ----
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -25,7 +25,7 @@ COPY . .
 RUN npm run build
 
 # ---- runner: minimal production image ----
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
