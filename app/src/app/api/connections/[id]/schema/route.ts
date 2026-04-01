@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto";
 import { fetchConnectionSchema } from "@/lib/schema-prefetch";
 import type { ConnectionCredentials } from "@/lib/query-executor";
+import type { ConnectorType } from "@/lib/connector-types";
 import { apiSuccess } from "@/lib/api-response";
 import { notFound, handleRouteError } from "@/lib/api-utils";
 
@@ -31,7 +32,7 @@ export async function GET(
     );
 
     const schema = await fetchConnectionSchema(
-      connection.type as "neo4j" | "postgresql",
+      connection.type as ConnectorType,
       credentials,
     );
 

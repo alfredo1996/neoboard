@@ -1,3 +1,5 @@
+import type { ConnectorType } from "@/lib/connector-types";
+
 /**
  * Wraps a query with a row limit for preview-only execution.
  * PostgreSQL uses a subquery wrapper; Cypher appends LIMIT.
@@ -5,8 +7,8 @@
  */
 export function wrapWithPreviewLimit(
   query: string,
-  connectorType: "neo4j" | "postgresql",
-  limit = 25
+  connectorType: ConnectorType,
+  limit = 25,
 ): string {
   const trimmed = query.trim().replace(/;$/, "");
   if (!trimmed) return trimmed;

@@ -1,5 +1,10 @@
-import { createConnectionModule, DEFAULT_CONNECTION_CONFIG, ConnectionTypes } from "./connection-adapter";
+import {
+  createConnectionModule,
+  DEFAULT_CONNECTION_CONFIG,
+  ConnectionTypes,
+} from "./connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
+import type { ConnectorType } from "@/lib/connector-types";
 
 export interface ConnectionCredentials {
   uri: string;
@@ -16,12 +21,10 @@ export interface ConnectionCredentials {
   sslRejectUnauthorized?: boolean;
 }
 
-export type DbType = "neo4j" | "postgresql";
+export type DbType = ConnectorType;
 
 function toConnectionType(type: DbType): number {
-  return type === "neo4j"
-    ? ConnectionTypes.NEO4J
-    : ConnectionTypes.POSTGRESQL;
+  return type === "neo4j" ? ConnectionTypes.NEO4J : ConnectionTypes.POSTGRESQL;
 }
 
 /** Cache of connection modules keyed by type+uri+username+database. */
@@ -49,12 +52,16 @@ function buildAdvancedOptions(credentials: ConnectionCredentials) {
     pgConnectionTimeoutMillis: credentials.connectionTimeout,
     pgIdleTimeoutMillis: credentials.idleTimeout,
     pgMaxPoolSize: credentials.maxPoolSize,
-    pgStatementTimeout: credentials.statementTimeout ?? credentials.queryTimeout,
+    pgStatementTimeout:
+      credentials.statementTimeout ?? credentials.queryTimeout,
     pgSslRejectUnauthorized: credentials.sslRejectUnauthorized,
   };
 }
 
-function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): unknown {
+function getOrCreateModule(
+  type: DbType,
+  credentials: ConnectionCredentials,
+): unknown {
   const key = getCacheKey(type, credentials);
   let connModule = moduleCache.get(key);
   if (!connModule) {
@@ -66,7 +73,11 @@ function getOrCreateModule(type: DbType, credentials: ConnectionCredentials): un
       authType: 1, // NATIVE
     };
     const advancedOptions = buildAdvancedOptions(credentials);
-    connModule = createConnectionModule(connectionType, authConfig, advancedOptions);
+    connModule = createConnectionModule(
+      connectionType,
+      authConfig,
+      advancedOptions,
+    );
     moduleCache.set(key, connModule);
   }
   return connModule;
@@ -95,13 +106,22 @@ export async function executeQuery(
     database: credentials.database,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
     ...(credentials.queryTimeout ? { timeout: credentials.queryTimeout } : {}),
-    ...(credentials.connectionTimeout ? { connectionTimeout: credentials.connectionTimeout } : {}),
+    ...(credentials.connectionTimeout
+      ? { connectionTimeout: credentials.connectionTimeout }
+      : {}),
   };
 
   // PostgreSQL uses positional $1, $2 params — rewrite $param_xxx tokens
   let finalQueryParams = queryParams;
-  if (type === "postgresql" && queryParams.params && Object.keys(queryParams.params).length > 0) {
-    finalQueryParams = rewriteParamsForPostgres(queryParams.query, queryParams.params);
+  if (
+    type === "postgresql" &&
+    queryParams.params &&
+    Object.keys(queryParams.params).length > 0
+  ) {
+    finalQueryParams = rewriteParamsForPostgres(
+      queryParams.query,
+      queryParams.params,
+    );
   }
 
   return new Promise((resolve, reject) => {

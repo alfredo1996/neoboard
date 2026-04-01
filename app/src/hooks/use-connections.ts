@@ -2,18 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api-client";
+import type { ConnectorType } from "@/lib/connector-types";
 
 export interface ConnectionListItem {
   id: string;
   name: string;
-  type: "neo4j" | "postgresql";
+  type: ConnectorType;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateConnectionInput {
   name: string;
-  type: "neo4j" | "postgresql";
+  type: ConnectorType;
   config: {
     uri: string;
     username: string;
@@ -26,7 +27,9 @@ export function useConnections(limit = 100, offset = 0) {
   return useQuery<ConnectionListItem[]>({
     queryKey: ["connections", limit, offset],
     queryFn: async () => {
-      const res = await fetch(`/api/connections?limit=${limit}&offset=${offset}`);
+      const res = await fetch(
+        `/api/connections?limit=${limit}&offset=${offset}`,
+      );
       return unwrapResponse<ConnectionListItem[]>(res);
     },
   });
@@ -112,7 +115,7 @@ export function useTestConnection() {
 }
 
 export interface TestInlineInput {
-  type: "neo4j" | "postgresql";
+  type: ConnectorType;
   config: {
     uri: string;
     username: string;

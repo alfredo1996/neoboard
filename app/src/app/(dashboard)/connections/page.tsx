@@ -34,12 +34,13 @@ import {
   AlertDescription,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
+import { type ConnectorType, CONNECTOR_LABELS } from "@/lib/connector-types";
 
 type DialogStep = "pick-type" | "fill-form";
 
 const DEFAULT_FORM = {
   name: "",
-  type: "neo4j" as "neo4j" | "postgresql",
+  type: "neo4j" as ConnectorType,
   uri: "",
   username: "",
   password: "",
@@ -88,7 +89,7 @@ export default function ConnectionsPage() {
   const [editTarget, setEditTarget] = useState<{
     id: string;
     name: string;
-    type: "neo4j" | "postgresql";
+    type: ConnectorType;
   } | null>(null);
   const [editForm, setEditForm] = useState(DEFAULT_FORM);
   const [editError, setEditError] = useState<string | null>(null);
@@ -195,7 +196,7 @@ export default function ConnectionsPage() {
     );
   }
 
-  function openCreateDialog(type?: "neo4j" | "postgresql") {
+  function openCreateDialog(type?: ConnectorType) {
     setForm({ ...DEFAULT_FORM, ...(type ? { type } : {}) });
     setDialogStep(type ? "fill-form" : "pick-type");
     setCreateError(null);
@@ -211,7 +212,7 @@ export default function ConnectionsPage() {
     setShowAdvanced(false);
   }
 
-  function handlePickType(type: "neo4j" | "postgresql") {
+  function handlePickType(type: ConnectorType) {
     setForm((f) => ({ ...f, type }));
     setDialogStep("fill-form");
   }
@@ -269,10 +270,7 @@ export default function ConnectionsPage() {
     }
   }
 
-  function handleDuplicate(conn: {
-    name: string;
-    type: "neo4j" | "postgresql";
-  }) {
+  function handleDuplicate(conn: { name: string; type: ConnectorType }) {
     setForm({
       ...DEFAULT_FORM,
       type: conn.type,
@@ -287,7 +285,7 @@ export default function ConnectionsPage() {
   function openEditDialog(conn: {
     id: string;
     name: string;
-    type: "neo4j" | "postgresql";
+    type: ConnectorType;
   }) {
     setEditTarget(conn);
     // Reset the edit form — advanced fields start empty (user fills what they want to change)
@@ -402,8 +400,7 @@ export default function ConnectionsPage() {
             <form onSubmit={handleCreate}>
               <DialogHeader>
                 <DialogTitle>
-                  New {form.type === "neo4j" ? "Neo4j" : "PostgreSQL"}{" "}
-                  Connection
+                  New {CONNECTOR_LABELS[form.type]} Connection
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">

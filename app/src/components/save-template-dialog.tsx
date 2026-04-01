@@ -16,12 +16,13 @@ import {
   Textarea,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/chart-registry";
+import type { ConnectorType } from "@/lib/connector-types";
 
 interface SaveTemplateDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly widget: DashboardWidget;
-  readonly connectorType: "neo4j" | "postgresql";
+  readonly connectorType: ConnectorType;
   readonly onSaved?: () => void;
 }
 
@@ -129,9 +130,7 @@ export function SaveTemplateDialog({
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>

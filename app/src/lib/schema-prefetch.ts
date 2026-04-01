@@ -1,4 +1,5 @@
 import type { ConnectionCredentials } from "@/lib/query-executor";
+import type { ConnectorType } from "@/lib/connector-types";
 import { ensureDatabaseInUri } from "@/lib/query-params";
 
 /**
@@ -24,23 +25,29 @@ export function buildAuthConfig(credentials: ConnectionCredentials) {
  * the compiled connection package to be available at module load time.
  */
 export async function fetchConnectionSchema(
-  type: "neo4j" | "postgresql",
+  type: ConnectorType,
   credentials: ConnectionCredentials,
 ): Promise<unknown> {
   const authConfig = buildAuthConfig(credentials);
 
   if (type === "neo4j") {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Neo4jSchemaManager } = require("connection/src/schema/neo4j-schema") as {
-      Neo4jSchemaManager: new () => { fetchSchema: (a: typeof authConfig) => Promise<unknown> };
-    };
+    const { Neo4jSchemaManager } =
+      require("connection/src/schema/neo4j-schema") as {
+        Neo4jSchemaManager: new () => {
+          fetchSchema: (a: typeof authConfig) => Promise<unknown>;
+        };
+      };
     const manager = new Neo4jSchemaManager();
     return manager.fetchSchema(authConfig);
   } else {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PostgresSchemaManager } = require("connection/src/schema/pg-schema") as {
-      PostgresSchemaManager: new () => { fetchSchema: (a: typeof authConfig) => Promise<unknown> };
-    };
+    const { PostgresSchemaManager } =
+      require("connection/src/schema/pg-schema") as {
+        PostgresSchemaManager: new () => {
+          fetchSchema: (a: typeof authConfig) => Promise<unknown>;
+        };
+      };
     const manager = new PostgresSchemaManager();
     return manager.fetchSchema(authConfig);
   }
@@ -51,7 +58,7 @@ export async function fetchConnectionSchema(
  * Errors are swallowed — schema is a cache; failure is non-critical.
  */
 export function prefetchSchema(
-  type: "neo4j" | "postgresql",
+  type: ConnectorType,
   credentials: ConnectionCredentials,
 ): void {
   fetchConnectionSchema(type, credentials).catch(() => {

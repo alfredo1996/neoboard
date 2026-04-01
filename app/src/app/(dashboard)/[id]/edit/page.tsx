@@ -30,6 +30,7 @@ import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
+import type { ConnectorType } from "@/lib/connector-types";
 import { migrateLayout } from "@/lib/migrate-layout";
 import type {
   DashboardWidget,
@@ -509,10 +510,8 @@ export default function DashboardEditorPage({
               );
               // Content-only widgets (markdown, iframe) have no connection;
               // default to "postgresql" so the template dialog still opens.
-              const connectorType: "neo4j" | "postgresql" = conn
-                ? conn.type === "postgresql"
-                  ? "postgresql"
-                  : "neo4j"
+              const connectorType: ConnectorType = conn
+                ? conn.type
                 : "postgresql";
               return (
                 <SaveTemplateDialog

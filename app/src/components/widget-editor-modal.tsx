@@ -68,6 +68,7 @@ import {
   chartSupportsStyling,
 } from "@/lib/chart-registry";
 import type { ChartType } from "@/lib/chart-registry";
+import { type ConnectorType, CONNECTOR_LANGUAGES } from "@/lib/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 import { extractReferencedParams } from "@/hooks/use-widget-query";
 import { wrapWithPreviewLimit } from "@/lib/wrap-with-preview-limit";
@@ -928,7 +929,7 @@ export function WidgetEditorModal({
     setLabError(null);
 
     const selectedConn = connections.find((c) => c.id === connectionId);
-    const connectorType: "neo4j" | "postgresql" = selectedConn?.type ?? "neo4j";
+    const connectorType: ConnectorType = selectedConn?.type ?? "neo4j";
 
     const tags = labTagsInput
       .split(",")
@@ -1049,9 +1050,9 @@ export function WidgetEditorModal({
                           <CodePreview
                             value={t.query}
                             language={
-                              t.connectorType === "postgresql"
-                                ? "SQL"
-                                : "Cypher"
+                              CONNECTOR_LANGUAGES[
+                                t.connectorType as ConnectorType
+                              ] ?? "Cypher"
                             }
                             maxLines={2}
                           />
