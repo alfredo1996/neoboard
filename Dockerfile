@@ -1,4 +1,4 @@
-# ---- deps: install all production dependencies ----
+# ---- deps: install production dependencies ----
 FROM node:22-alpine AS deps
 WORKDIR /app
 
@@ -19,6 +19,8 @@ RUN npm ci --prefix app
 FROM node:22-alpine AS build
 WORKDIR /app
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
 COPY --from=deps /app/app/node_modules ./app/node_modules
 COPY --from=deps /app/component/node_modules ./component/node_modules
 COPY --from=deps /app/connection/node_modules ./connection/node_modules
@@ -33,14 +35,20 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy standalone server and static assets
+# Copy standalone server, static assets, and public files.
+# The standalone output includes node_modules and server.js.
 COPY --from=build --chown=nextjs:nodejs /app/app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/app/.next/static ./app/.next/static
 COPY --from=build --chown=nextjs:nodejs /app/app/public ./app/public
+
+# Remove any .env files that leaked into standalone output — secrets
+# must be passed via environment variables at runtime, never baked in.
+RUN find . -name ".env" -o -name ".env.*" | xargs rm -f 2>/dev/null; true
 
 USER nextjs
 
