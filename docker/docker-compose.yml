@@ -25,6 +25,8 @@ services:
     container_name: neoboard-neo4j
     environment:
       NEO4J_AUTH: neo4j/neoboard123
+      # Advertise Docker hostname so the neo4j:// routing driver works from other containers
+      NEO4J_server_default__advertised__address: neoboard-neo4j
       # Log all queries to query.log for stress-test verification.
       # View with: docker exec neoboard-neo4j tail -f /logs/query.log
       NEO4J_dbms_logs_query_enabled: "INFO"
