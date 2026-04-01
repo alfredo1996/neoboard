@@ -1,6 +1,6 @@
 {
-  "id": "17208288-2aaa-46a7-9c62-39817edc1550",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "0a1a88e9-a9f0-4c9a-933c-11e6e1214328",
+  "prevId": "17208288-2aaa-46a7-9c62-39817edc1550",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -187,6 +187,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'default'"
         },
         "name": {
           "name": "name",
@@ -509,6 +516,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "disabledAt": {
+          "name": "disabledAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastLoginAt": {
+          "name": "lastLoginAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "createdAt": {
           "name": "createdAt",
