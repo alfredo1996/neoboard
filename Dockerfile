@@ -25,6 +25,10 @@ COPY --from=deps /app/connection/node_modules ./connection/node_modules
 # Copy all source
 COPY . .
 
+# The app imports connection/src/* via bare specifier (require("connection/src/...")).
+# Create a symlink in app/node_modules so webpack can resolve it.
+RUN ln -s ../../connection app/node_modules/connection
+
 RUN cd app && npm run build
 
 # ---- runner: minimal production image ----
