@@ -30,7 +30,8 @@ describe("GET /api/auth/bootstrap-status", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toEqual({ bootstrapRequired: true });
+    expect(body.data.bootstrapRequired).toBe(true);
+    expect(body.data.registrationEnabled).toBe(true);
   });
 
   it("returns bootstrapRequired: false when users exist", async () => {
@@ -38,6 +39,16 @@ describe("GET /api/auth/bootstrap-status", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toEqual({ bootstrapRequired: false });
+    expect(body.data.bootstrapRequired).toBe(false);
+    expect(body.data.registrationEnabled).toBe(true);
+  });
+
+  it("returns registrationEnabled: false when REGISTRATION_ENABLED=false", async () => {
+    process.env.REGISTRATION_ENABLED = "false";
+    mockAreUsersEmpty.mockResolvedValue(false);
+    const res = await GET();
+    const body = await res.json();
+    expect(body.data.registrationEnabled).toBe(false);
+    delete process.env.REGISTRATION_ENABLED;
   });
 });
