@@ -7,7 +7,12 @@ import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 vi.mock("next/dynamic", () => ({
   default: () => {
     const Stub = (props: Record<string, unknown>) => (
-      <div data-testid="query-editor" data-language={props.language} />
+      <div
+        data-testid="query-editor"
+        data-language={props.language}
+        data-read-only={String(props.readOnly ?? false)}
+        data-has-on-run={String(typeof props.onRun === "function")}
+      />
     );
     Stub.displayName = "QueryEditorStub";
     return Stub;
@@ -86,6 +91,9 @@ describe("QueryEditorPanel", () => {
   it("renders the query editor regardless of connection state", () => {
     render(<QueryEditorPanel editorLanguage="cypher" />);
     // Editor should be present even without a connection
-    expect(screen.getByTestId("query-editor")).toBeInTheDocument();
+    const editor = screen.getByTestId("query-editor");
+    expect(editor).toBeInTheDocument();
+    // Editor must remain editable even when no connection is selected
+    expect(editor).toHaveAttribute("data-read-only", "false");
   });
 });
