@@ -32,9 +32,14 @@ export const createConnectionSchema = z.object({
   config: connectionConfigSchema,
 });
 
+/** Config schema for updates — password is optional (omit to keep existing). */
+export const updateConnectionConfigSchema = connectionConfigSchema.extend({
+  password: z.string().min(1).optional(),
+});
+
 export const updateConnectionSchema = z.object({
   name: z.string().min(1).optional(),
-  config: connectionConfigSchema.optional(),
+  config: updateConnectionConfigSchema.optional(),
 });
 
 export const testInlineSchema = z.object({

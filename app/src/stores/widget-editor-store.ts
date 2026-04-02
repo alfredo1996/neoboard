@@ -149,6 +149,7 @@ export interface WidgetEditorState {
 
   // ── Bulk operations ─────────────────────────────────────────────
   resetForAdd: () => void;
+  clearQueryState: () => void;
   loadFromWidget: (widget: DashboardWidget) => void;
 
   // ── Build helpers ───────────────────────────────────────────────
@@ -307,6 +308,8 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
 
   // ── Bulk operations ─────────────────────────────────────────────
   resetForAdd: () => set(getInitialState()),
+  clearQueryState: () =>
+    set({ query: "", availableFields: [], transforms: [] }),
 
   loadFromWidget: (widget) => {
     const s = widget.settings ?? {};

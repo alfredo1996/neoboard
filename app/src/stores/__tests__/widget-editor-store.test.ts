@@ -234,4 +234,31 @@ describe("widget-editor-store", () => {
       expect(action?.rules).toHaveLength(1);
     });
   });
+
+  describe("clearQueryState", () => {
+    it("clears query, availableFields, and transforms", () => {
+      getState().setQuery("MATCH (n) RETURN n");
+      getState().setAvailableFields(["name", "age"]);
+      getState().setTransforms([
+        { type: "sort", column: "name", direction: "asc" },
+      ]);
+
+      getState().clearQueryState();
+
+      expect(getState().query).toBe("");
+      expect(getState().availableFields).toEqual([]);
+      expect(getState().transforms).toEqual([]);
+    });
+
+    it("does not reset connectionId or chartType", () => {
+      getState().setConnectionId("conn-1");
+      getState().setChartType("pie");
+      getState().setQuery("SELECT * FROM users");
+
+      getState().clearQueryState();
+
+      expect(getState().connectionId).toBe("conn-1");
+      expect(getState().chartType).toBe("pie");
+    });
+  });
 });
