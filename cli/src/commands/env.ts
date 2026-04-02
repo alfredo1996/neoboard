@@ -4,7 +4,6 @@ import { paths, readProjectConfig, getMode } from "../lib/config.js";
 import {
   info,
   success,
-  warn,
   error as logError,
   banner,
 } from "../lib/output.js";
