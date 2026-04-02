@@ -13,6 +13,7 @@ import {
   Sun,
   Monitor,
   Settings,
+  User,
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import type { ThemePreference } from "@/hooks/use-theme";
@@ -20,6 +21,7 @@ import {
   AppShell,
   Sidebar,
   SidebarItem,
+  Badge,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -50,12 +52,14 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { preference, setTheme } = useTheme();
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
       router.push("/login");
     },
   });
+  const userName = session?.user?.name ?? "";
+  const userRole = (session?.user as { role?: string } | undefined)?.role ?? "";
 
   // Don't render anything until we know the user is authenticated
   if (status === "loading") {
@@ -81,6 +85,26 @@ export default function DashboardLayout({
           }
           footer={
             <>
+              {userName && (
+                <div
+                  className={`flex items-center gap-2 px-3 py-2 text-sm ${collapsed ? "justify-center" : ""}`}
+                >
+                  <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  {!collapsed && (
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span className="truncate">{userName}</span>
+                      {userRole && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1 py-0 capitalize"
+                        >
+                          {userRole}
+                        </Badge>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <div>

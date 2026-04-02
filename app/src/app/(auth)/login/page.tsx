@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -16,10 +16,7 @@ import {
   Alert,
   AlertDescription,
 } from "@neoboard/components";
-import {
-  LoadingButton,
-  PasswordInput,
-} from "@neoboard/components";
+import { LoadingButton, PasswordInput } from "@neoboard/components";
 
 function LoginForm() {
   const router = useRouter();
@@ -69,12 +66,7 @@ function LoginForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <PasswordInput
-          id="password"
-          name="password"
-          required
-          minLength={6}
-        />
+        <PasswordInput id="password" name="password" required minLength={6} />
       </div>
 
       <LoadingButton
@@ -90,6 +82,18 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/bootstrap-status")
+      .then((r) => r.json())
+      .then((body) => {
+        const payload = body?.data ?? body;
+        setRegistrationEnabled(payload?.registrationEnabled !== false);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
@@ -102,14 +106,16 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
         </CardContent>
-        <CardFooter className="justify-center">
-          <p className="text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary underline">
-              Sign up
-            </Link>
-          </p>
-        </CardFooter>
+        {registrationEnabled && (
+          <CardFooter className="justify-center">
+            <p className="text-sm text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="text-primary underline">
+                Sign up
+              </Link>
+            </p>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
