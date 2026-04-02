@@ -26,7 +26,10 @@ out
 *.njsproj
 *.sln
 *.sw?
-.claude/
+# Claude Code local files (keep agents, skills, hooks, settings tracked)
+.claude/worktrees/
+.claude/plans/
+.claude/image-cache/
 *storybook.log
 storybook-static
 
