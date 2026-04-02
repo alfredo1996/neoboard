@@ -17,10 +17,7 @@ import {
   Alert,
   AlertDescription,
 } from "@neoboard/components";
-import {
-  LoadingButton,
-  PasswordInput,
-} from "@neoboard/components";
+import { LoadingButton, PasswordInput } from "@neoboard/components";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -81,6 +78,9 @@ export default function SignupPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">NeoBoard</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Visual dashboards for Neo4j &amp; PostgreSQL
+          </p>
           <CardDescription>
             {bootstrapRequired ? "First Admin Setup" : "Create your account"}
           </CardDescription>
