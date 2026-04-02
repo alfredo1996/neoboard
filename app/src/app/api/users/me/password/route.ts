@@ -56,11 +56,11 @@ export async function PUT(req: Request) {
     );
   }
 
-  // Hash and update
+  // Hash and update — also clear forcePasswordChange so the user is no longer redirected
   const newHash = await bcrypt.hash(newPassword, 12);
   await db
     .update(users)
-    .set({ passwordHash: newHash })
+    .set({ passwordHash: newHash, forcePasswordChange: false })
     .where(eq(users.id, session.userId));
 
   return NextResponse.json({ data: { success: true } });

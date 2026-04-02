@@ -19,6 +19,7 @@ const createUserSchema = z.object({
   password: newPasswordSchema,
   role: z.enum(["admin", "creator", "reader"]).optional().default("creator"),
   canWrite: z.boolean().optional().default(true),
+  forcePasswordChange: z.boolean().optional().default(false),
 });
 
 export async function GET(request: Request) {
@@ -58,7 +59,8 @@ export async function POST(request: Request) {
     const result = validateBody(createUserSchema, body);
     if (!result.success) return result.response;
 
-    const { name, email, password, role, canWrite } = result.data;
+    const { name, email, password, role, canWrite, forcePasswordChange } =
+      result.data;
 
     const existing = await db
       .select({ id: users.id })
@@ -74,7 +76,14 @@ export async function POST(request: Request) {
 
     const [user] = await db
       .insert(users)
-      .values({ name, email, passwordHash, role, canWrite })
+      .values({
+        name,
+        email,
+        passwordHash,
+        role,
+        canWrite,
+        forcePasswordChange,
+      })
       .returning({
         id: users.id,
         name: users.name,

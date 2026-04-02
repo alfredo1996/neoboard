@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Database, Users, LogOut, FlaskConical, Moon, Sun, Monitor, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Database,
+  Users,
+  LogOut,
+  FlaskConical,
+  Moon,
+  Sun,
+  Monitor,
+  Settings,
+} from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import type { ThemePreference } from "@/hooks/use-theme";
 import {
@@ -139,7 +149,7 @@ export default function DashboardLayout({
             label="Settings"
             active={pathname.startsWith("/settings")}
             collapsed={collapsed}
-            onClick={() => router.push("/settings/api-keys")}
+            onClick={() => router.push("/settings/profile")}
           />
         </Sidebar>
       }

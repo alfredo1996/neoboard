@@ -107,6 +107,7 @@ export default function ConnectionsPage() {
 
   const [createError, setCreateError] = useState<string | null>(null);
   const [testErrors, setTestErrors] = useState<Record<string, string>>({});
+  const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
 
   function buildConfig() {
     return {
@@ -878,19 +879,36 @@ export default function ConnectionsPage() {
             />
           ) : (
             <div className="space-y-3">
-              {connections.map((c) => (
-                <ConnectionCard
-                  key={c.id}
-                  name={c.name}
-                  host={c.type}
-                  status={getConnectionStatus(c.id)}
-                  statusText={testErrors[c.id]}
-                  onTest={() => handleTest(c.id)}
-                  onEdit={() => openEditDialog(c)}
-                  onDelete={() => setDeleteTarget(c.id)}
-                  onDuplicate={() => handleDuplicate(c)}
-                />
-              ))}
+              {connections.map((c) => {
+                const status = getConnectionStatus(c.id);
+                return (
+                  <div key={c.id}>
+                    <ConnectionCard
+                      name={c.name}
+                      host={c.type}
+                      status={status}
+                      statusText={testErrors[c.id]}
+                      onClick={
+                        status === "error" && testErrors[c.id]
+                          ? () =>
+                              setExpandedErrorId((prev) =>
+                                prev === c.id ? null : c.id,
+                              )
+                          : undefined
+                      }
+                      onTest={() => handleTest(c.id)}
+                      onEdit={() => openEditDialog(c)}
+                      onDelete={() => setDeleteTarget(c.id)}
+                      onDuplicate={() => handleDuplicate(c)}
+                    />
+                    {expandedErrorId === c.id && testErrors[c.id] && (
+                      <Alert variant="destructive" className="mt-1">
+                        <AlertDescription>{testErrors[c.id]}</AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </LoadingOverlay>

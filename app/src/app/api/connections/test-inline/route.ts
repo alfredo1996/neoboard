@@ -16,21 +16,32 @@ export async function POST(request: Request) {
     }
 
     const { type, config } = validation.data;
-    const success = await testConnection(type as DbType, {
-      uri: config.uri,
-      username: config.username,
-      password: config.password,
-      database: config.database,
-      connectionTimeout: config.connectionTimeout,
-      queryTimeout: config.queryTimeout,
-      maxPoolSize: config.maxPoolSize,
-      connectionAcquisitionTimeout: config.connectionAcquisitionTimeout,
-      idleTimeout: config.idleTimeout,
-      statementTimeout: config.statementTimeout,
-      sslRejectUnauthorized: config.sslRejectUnauthorized,
-    });
 
-    return apiSuccess({ success });
+    try {
+      const success = await testConnection(type as DbType, {
+        uri: config.uri,
+        username: config.username,
+        password: config.password,
+        database: config.database,
+        connectionTimeout: config.connectionTimeout,
+        queryTimeout: config.queryTimeout,
+        maxPoolSize: config.maxPoolSize,
+        connectionAcquisitionTimeout: config.connectionAcquisitionTimeout,
+        idleTimeout: config.idleTimeout,
+        statementTimeout: config.statementTimeout,
+        sslRejectUnauthorized: config.sslRejectUnauthorized,
+      });
+      return apiSuccess({
+        success,
+        ...(!success ? { error: "Connection check returned false" } : {}),
+      });
+    } catch (testError) {
+      const message =
+        testError instanceof Error
+          ? testError.message
+          : "Connection test failed";
+      return apiSuccess({ success: false, error: message });
+    }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");
   }

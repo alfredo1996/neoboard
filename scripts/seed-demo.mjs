@@ -1657,7 +1657,7 @@ async function main() {
     const neo4jHost = process.env.NEO4J_HOST ?? "localhost";
     const pgHost = process.env.PG_HOST ?? "localhost";
     const neo4jConfig = {
-      uri: `neo4j://${neo4jHost}:7687`,
+      uri: `bolt://${neo4jHost}:7687`,
       username: "neo4j",
       password: "neoboard123",
       database: "neo4j",
@@ -3061,6 +3061,12 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
     SELECT id FROM "connection" WHERE name = ${name} AND "userId" = ${userId}
   `;
   if (existing.length > 0) {
+    const encrypted = encryptJson(config, encryptionKey);
+    await sql`
+      UPDATE "connection"
+      SET "configEncrypted" = ${encrypted}, "updatedAt" = NOW()
+      WHERE id = ${existing[0].id}
+    `;
     return existing[0].id;
   }
 

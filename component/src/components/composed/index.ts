@@ -1,6 +1,7 @@
 // Core Inputs
 export { LoadingButton, type LoadingButtonProps } from "./loading-button";
 export { PasswordInput, type PasswordInputProps } from "./password-input";
+export { CopyButton, type CopyButtonProps } from "./copy-button";
 export { Combobox, type ComboboxProps, type ComboboxOption } from "./combobox";
 export {
   CreatableCombobox,
