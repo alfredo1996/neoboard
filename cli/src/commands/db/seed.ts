@@ -1,7 +1,7 @@
 import { run } from "../../lib/exec.js";
 import { dockerExec } from "../../lib/docker.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
-import { info, success, warn, createSpinner } from "../../lib/output.js";
+import { success, createSpinner } from "../../lib/output.js";
 
 function getNeo4jNodeCount(): number {
   const config = readProjectConfig();
