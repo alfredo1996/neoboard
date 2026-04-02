@@ -46,6 +46,11 @@ function root(): string {
   return _root;
 }
 
+/** @internal — test-only helper to override cached root */
+export function _setRootForTesting(dir: string | null): void {
+  _root = dir;
+}
+
 export const paths = {
   get root() {
     return root();
