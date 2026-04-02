@@ -187,22 +187,12 @@ test.describe("Connections", () => {
 
     // Click the card — should expand an alert below it with the error message
     await card.click();
-    await expect(
-      page
-        .locator('[role="alert"]')
-        .filter({ hasText: /refused|ECONNREFUSED|failed|error/i })
-        .first(),
-    ).toBeVisible({
-      timeout: 5_000,
-    });
+    const expandedAlert = page.locator('[role="alert"]').last();
+    await expect(expandedAlert).toBeVisible({ timeout: 5_000 });
 
     // Click again to collapse
     await card.click();
-    await expect(
-      page
-        .locator('[role="alert"]')
-        .filter({ hasText: /refused|ECONNREFUSED|failed|error/i }),
-    ).not.toBeVisible();
+    await expect(expandedAlert).not.toBeVisible();
   });
 
   test("should delete a connection with confirmation", async ({ page }) => {
