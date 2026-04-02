@@ -7,6 +7,7 @@ on:
       - 'app/**'
       - 'component/**'
       - 'connection/**'
+      - 'cli/**'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -16,6 +17,7 @@ on:
       - 'app/**'
       - 'component/**'
       - 'connection/**'
+      - 'cli/**'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -120,6 +122,7 @@ jobs:
             app/package-lock.json
             component/package-lock.json
             connection/package-lock.json
+            cli/package-lock.json
 
       - name: Install dependencies
         run: |
@@ -129,11 +132,14 @@ jobs:
           COMP_CI_PID=$!
           npm ci --prefix connection &
           CONN_CI_PID=$!
+          npm ci --prefix cli &
+          CLI_CI_PID=$!
 
           FAIL=0
           wait $APP_CI_PID  || FAIL=1
           wait $COMP_CI_PID || FAIL=1
           wait $CONN_CI_PID || FAIL=1
+          wait $CLI_CI_PID  || FAIL=1
           exit $FAIL
 
       - name: Run all tests in parallel
@@ -144,11 +150,14 @@ jobs:
           COMP_PID=$!
           cd connection && npm run test:coverage &
           CONN_PID=$!
+          cd cli && npm run test:coverage &
+          CLI_PID=$!
 
           FAIL=0
           wait $APP_PID  || FAIL=1
           wait $COMP_PID || FAIL=1
           wait $CONN_PID || FAIL=1
+          wait $CLI_PID  || FAIL=1
           exit $FAIL
         env:
           POSTGRES_HOST: localhost
@@ -170,6 +179,7 @@ jobs:
             app/coverage/lcov.info
             component/coverage/lcov.info
             connection/coverage/lcov.info
+            cli/coverage/lcov.info
 
   # ── Job 2: E2E tests — 5 shards with isolated containers ──────────────────
   # Each shard gets its own runner + Testcontainers (no shared state).
