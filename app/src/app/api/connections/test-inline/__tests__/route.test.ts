@@ -6,16 +6,27 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession = vi.fn<
-  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
->();
+const mockRequireSession =
+  vi.fn<
+    () => Promise<{
+      userId: string;
+      role: string;
+      canWrite: boolean;
+      tenantId: string;
+    }>
+  >();
 const mockTestConnection = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/query-executor", () => ({ testConnection: mockTestConnection }));
 vi.mock("next/server", () => nextResponseMockFactory());
 
-const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "t1" };
+const SESSION = {
+  userId: "user-1",
+  role: "creator",
+  canWrite: true,
+  tenantId: "t1",
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -42,7 +53,9 @@ describe("POST /api/connections/test-inline", () => {
 
   it("returns 400 for invalid body (missing type)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    const res = await POST(makeRequest({ config: { uri: "x", username: "u", password: "p" } }));
+    const res = await POST(
+      makeRequest({ config: { uri: "x", username: "u", password: "p" } }),
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
@@ -51,7 +64,10 @@ describe("POST /api/connections/test-inline", () => {
   it("returns 400 for invalid type value", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const res = await POST(
-      makeRequest({ type: "mysql", config: { uri: "x", username: "u", password: "p" } }),
+      makeRequest({
+        type: "mysql",
+        config: { uri: "x", username: "u", password: "p" },
+      }),
     );
     expect(res.status).toBe(400);
   });
@@ -59,7 +75,10 @@ describe("POST /api/connections/test-inline", () => {
   it("returns 400 when config.uri is empty", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const res = await POST(
-      makeRequest({ type: "neo4j", config: { uri: "", username: "u", password: "p" } }),
+      makeRequest({
+        type: "neo4j",
+        config: { uri: "", username: "u", password: "p" },
+      }),
     );
     expect(res.status).toBe(400);
   });
@@ -70,7 +89,11 @@ describe("POST /api/connections/test-inline", () => {
     const res = await POST(
       makeRequest({
         type: "neo4j",
-        config: { uri: "bolt://localhost:7687", username: "neo4j", password: "pass" },
+        config: {
+          uri: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "pass",
+        },
       }),
     );
     expect(res.status).toBe(200);
@@ -84,7 +107,12 @@ describe("POST /api/connections/test-inline", () => {
     await POST(
       makeRequest({
         type: "postgresql",
-        config: { uri: "pg://localhost", username: "pg", password: "pass", database: "mydb" },
+        config: {
+          uri: "pg://localhost",
+          username: "pg",
+          password: "pass",
+          database: "mydb",
+        },
       }),
     );
     expect(mockTestConnection).toHaveBeenCalledWith(
@@ -149,31 +177,41 @@ describe("POST /api/connections/test-inline", () => {
     expect(body.data.success).toBe(false);
   });
 
-  it("returns 500 with fallback message for non-Error throws", async () => {
+  it("returns success:false with fallback message for non-Error throws", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockTestConnection.mockRejectedValue("string error");
     const res = await POST(
       makeRequest({
         type: "neo4j",
-        config: { uri: "bolt://localhost", username: "neo4j", password: "pass" },
+        config: {
+          uri: "bolt://localhost",
+          username: "neo4j",
+          password: "pass",
+        },
       }),
     );
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error.message).toBe("Connection test failed");
+    expect(body.data.success).toBe(false);
+    expect(body.data.error).toBe("Connection test failed");
   });
 
-  it("returns 500 when testConnection throws", async () => {
+  it("returns success:false with error message when testConnection throws", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockTestConnection.mockRejectedValue(new Error("Refused"));
     const res = await POST(
       makeRequest({
         type: "neo4j",
-        config: { uri: "bolt://localhost", username: "neo4j", password: "pass" },
+        config: {
+          uri: "bolt://localhost",
+          username: "neo4j",
+          password: "pass",
+        },
       }),
     );
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error.code).toBe("INTERNAL_ERROR");
+    expect(body.data.success).toBe(false);
+    expect(body.data.error).toBe("Refused");
   });
 });

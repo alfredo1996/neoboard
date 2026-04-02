@@ -1,4 +1,10 @@
-import { test, expect, ALICE, TEST_NEO4J_BOLT_URL, TEST_PG_PORT } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  TEST_NEO4J_BOLT_URL,
+  TEST_PG_PORT,
+} from "./fixtures";
 
 test.describe("Connections", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
@@ -37,7 +43,9 @@ test.describe("Connections", () => {
     await dialog.getByTestId("pick-postgresql").click();
     // Step 2: fill the form
     await dialog.locator("#conn-name").fill(name);
-    await dialog.locator("#conn-uri").fill(`postgresql://localhost:${TEST_PG_PORT}`);
+    await dialog
+      .locator("#conn-uri")
+      .fill(`postgresql://localhost:${TEST_PG_PORT}`);
     await dialog.locator("#conn-username").fill("neoboard");
     await dialog.locator("#conn-password").fill("neoboard");
     await dialog.locator("#conn-database").fill("movies");
@@ -48,7 +56,9 @@ test.describe("Connections", () => {
 
   test("should manually test a connection", async ({ page }) => {
     // Open the first connection card's dropdown menu
-    const firstActions = page.getByRole("button", { name: "Connection actions" }).first();
+    const firstActions = page
+      .getByRole("button", { name: "Connection actions" })
+      .first();
     await expect(firstActions).toBeVisible({ timeout: 10000 });
     await firstActions.click();
     await page.getByRole("menuitem", { name: /Test Connection/ }).click();
@@ -58,7 +68,9 @@ test.describe("Connections", () => {
     });
   });
 
-  test("should test inline connection before creating — success", async ({ page }) => {
+  test("should test inline connection before creating — success", async ({
+    page,
+  }) => {
     const name = `Inline OK ${Date.now()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
@@ -76,7 +88,9 @@ test.describe("Connections", () => {
     });
   });
 
-  test("should test inline connection before creating — failure shows error", async ({ page }) => {
+  test("should test inline connection before creating — failure shows error", async ({
+    page,
+  }) => {
     const name = `Inline Fail ${Date.now()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
@@ -90,12 +104,19 @@ test.describe("Connections", () => {
 
     await dialog.getByRole("button", { name: "Test Connection" }).click();
     // Should show a destructive alert — scope to the AlertDescription to avoid multiple matches
-    await expect(dialog.locator('[role="alert"]').getByText(/failed|error|refused|ECONNREFUSED/i).first()).toBeVisible({
+    await expect(
+      dialog
+        .locator('[role="alert"]')
+        .getByText(/failed|error|refused|ECONNREFUSED/i)
+        .first(),
+    ).toBeVisible({
       timeout: 30_000,
     });
   });
 
-  test("should show error status text on failed connection test", async ({ page }) => {
+  test("should show error status text on failed connection test", async ({
+    page,
+  }) => {
     const name = `Bad Creds ${Date.now()}`;
     // Create a connection with bad credentials
     await page.getByRole("button", { name: "Add Connection" }).click();
@@ -113,13 +134,20 @@ test.describe("Connections", () => {
     // Wait for auto-test to complete — should show "Error" badge on the card
     await expect(page.getByText(name).first()).toBeVisible();
     // Use the card heading to locate the specific card, then find "Error" badge within it
-    const card = page.locator("div").filter({ has: page.getByText(name, { exact: true }) }).first();
-    await expect(card.getByText("Error").first()).toBeVisible({ timeout: 30_000 });
+    const card = page
+      .locator("div")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .first();
+    await expect(card.getByText("Error").first()).toBeVisible({
+      timeout: 30_000,
+    });
   });
 
   test("should duplicate a connection via card dropdown", async ({ page }) => {
     // Open the first connection card's dropdown menu
-    const firstActions = page.getByRole("button", { name: "Connection actions" }).first();
+    const firstActions = page
+      .getByRole("button", { name: "Connection actions" })
+      .first();
     await expect(firstActions).toBeVisible({ timeout: 10_000 });
     await firstActions.click();
     await page.getByRole("menuitem", { name: "Duplicate" }).click();
@@ -131,6 +159,50 @@ test.describe("Connections", () => {
     await expect(nameInput).toBeVisible();
     const nameValue = await nameInput.inputValue();
     expect(nameValue).toContain("(copy)");
+  });
+
+  test("clicking an error card shows error details inline", async ({
+    page,
+  }) => {
+    const name = `Click Error ${Date.now()}`;
+    // Create a connection with bad credentials
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("pick-neo4j").click();
+    await dialog.locator("#conn-name").fill(name);
+    await dialog.locator("#conn-uri").fill("bolt://localhost:1");
+    await dialog.locator("#conn-username").fill("wrong");
+    await dialog.locator("#conn-password").fill("wrong");
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // Wait for auto-test to show Error badge
+    const card = page
+      .locator("div")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .first();
+    await expect(card.getByText("Error").first()).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // Click the card — should expand an alert below it with the error message
+    await card.click();
+    await expect(
+      page
+        .locator('[role="alert"]')
+        .filter({ hasText: /refused|ECONNREFUSED|failed|error/i })
+        .first(),
+    ).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // Click again to collapse
+    await card.click();
+    await expect(
+      page
+        .locator('[role="alert"]')
+        .filter({ hasText: /refused|ECONNREFUSED|failed|error/i }),
+    ).not.toBeVisible();
   });
 
   test("should delete a connection with confirmation", async ({ page }) => {
@@ -149,9 +221,12 @@ test.describe("Connections", () => {
     await expect(page.getByText(name)).toBeVisible();
 
     // Open the card's dropdown and click Delete
-    const card = page.locator("div[class*='border']")
+    const card = page
+      .locator("div[class*='border']")
       .filter({ hasText: name })
-      .filter({ has: page.getByRole("button", { name: "Connection actions" }) });
+      .filter({
+        has: page.getByRole("button", { name: "Connection actions" }),
+      });
     await card.getByRole("button", { name: "Connection actions" }).click();
     await page.getByRole("menuitem", { name: /Delete/ }).click();
     // Confirm deletion

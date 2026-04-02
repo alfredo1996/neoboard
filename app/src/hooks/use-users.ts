@@ -19,6 +19,7 @@ export interface CreateUserInput {
   password: string;
   role?: UserRole;
   canWrite?: boolean;
+  forcePasswordChange?: boolean;
 }
 
 export function useUsers() {
@@ -95,6 +96,34 @@ export function useDeleteUser() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
       return unwrapResponse(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useResetPassword() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      generatePassword,
+      forcePasswordChange,
+    }: {
+      id: string;
+      generatePassword?: boolean;
+      forcePasswordChange?: boolean;
+    }) => {
+      const res = await fetch(`/api/users/${id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generatePassword, forcePasswordChange }),
+      });
+      return unwrapResponse<{ reset: boolean; generatedPassword?: string }>(
+        res,
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });

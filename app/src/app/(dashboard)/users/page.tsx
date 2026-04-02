@@ -3,8 +3,15 @@
 import { useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
-import { Users as UsersIcon, Plus } from "lucide-react";
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserCanWrite } from "@/hooks/use-users";
+import { Users as UsersIcon, Plus, MoreVertical, KeyRound } from "lucide-react";
+import {
+  useUsers,
+  useCreateUser,
+  useDeleteUser,
+  useUpdateUserRole,
+  useUpdateUserCanWrite,
+  useResetPassword,
+} from "@/hooks/use-users";
 import type { UserListItem } from "@/hooks/use-users";
 import type { UserRole } from "@/lib/db/schema";
 import {
@@ -23,9 +30,15 @@ import {
   SelectValue,
   Badge,
   Switch,
+  Checkbox,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -35,11 +48,15 @@ import {
   ConfirmDialog,
   DataGrid,
   PasswordInput,
+  CopyButton,
 } from "@neoboard/components";
 import { useToast } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 
-const ROLE_VARIANTS: Record<UserRole, "default" | "secondary" | "destructive" | "outline"> = {
+const ROLE_VARIANTS: Record<
+  UserRole,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   admin: "destructive",
   creator: "default",
   reader: "secondary",
@@ -54,9 +71,17 @@ type CanWriteCellProps = Readonly<{
   onToggle: (id: string, checked: boolean) => void;
 }>;
 
-function CanWriteCell({ id, role, canWrite, isSelf, isAdmin, onToggle }: CanWriteCellProps) {
+function CanWriteCell({
+  id,
+  role,
+  canWrite,
+  isSelf,
+  isAdmin,
+  onToggle,
+}: CanWriteCellProps) {
   // Admins always write; readers never write; others use DB value
-  const effectiveCanWrite = role === "admin" ? true : role === "reader" ? false : canWrite;
+  const effectiveCanWrite =
+    role === "admin" ? true : role === "reader" ? false : canWrite;
   if (!isAdmin) {
     return (
       <Badge variant={effectiveCanWrite ? "default" : "secondary"}>
@@ -79,10 +104,14 @@ function CanWriteCell({ id, role, canWrite, isSelf, isAdmin, onToggle }: CanWrit
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex cursor-not-allowed opacity-60">{toggle}</span>
+          <span className="inline-flex cursor-not-allowed opacity-60">
+            {toggle}
+          </span>
         </TooltipTrigger>
         <TooltipContent>
-          {isSelf ? "You cannot change your own write permission" : "Readers cannot execute write queries"}
+          {isSelf
+            ? "You cannot change your own write permission"
+            : "Readers cannot execute write queries"}
         </TooltipContent>
       </Tooltip>
     );
@@ -93,7 +122,11 @@ function CanWriteCell({ id, role, canWrite, isSelf, isAdmin, onToggle }: CanWrit
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  type SessionUser = NonNullable<Session["user"]> & { id?: string; role?: UserRole; tenantId?: string };
+  type SessionUser = NonNullable<Session["user"]> & {
+    id?: string;
+    role?: UserRole;
+    tenantId?: string;
+  };
   const sessionUser = session?.user as SessionUser | undefined;
   const systemRole = (sessionUser?.role ?? "creator") as UserRole;
   const isAdmin = systemRole === "admin";
@@ -106,15 +139,28 @@ export default function UsersPage() {
   const updateRole = useUpdateUserRole();
   const updateCanWrite = useUpdateUserCanWrite();
 
+  const resetPassword = useResetPassword();
+
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<{
     name: string;
     email: string;
     password: string;
     role: UserRole;
-  }>({ name: "", email: "", password: "", role: "creator" });
+    forcePasswordChange: boolean;
+  }>({
+    name: "",
+    email: "",
+    password: "",
+    role: "creator",
+    forcePasswordChange: false,
+  });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [tempPasswordData, setTempPasswordData] = useState<{
+    userName: string;
+    password: string;
+  } | null>(null);
 
   const handleRoleUpdate = useCallback(
     (id: string, val: string, displayName: string) => {
@@ -129,13 +175,14 @@ export default function UsersPage() {
           onError: (err) =>
             toast({
               title: "Failed to update role",
-              description: err instanceof Error ? err.message : "Something went wrong.",
+              description:
+                err instanceof Error ? err.message : "Something went wrong.",
               variant: "destructive",
             }),
-        }
+        },
       );
     },
-    [updateRole, toast]
+    [updateRole, toast],
   );
 
   const handleCanWriteToggle = useCallback(
@@ -151,13 +198,44 @@ export default function UsersPage() {
           onError: (err) =>
             toast({
               title: "Failed to update write permission",
-              description: err instanceof Error ? err.message : "Something went wrong.",
+              description:
+                err instanceof Error ? err.message : "Something went wrong.",
               variant: "destructive",
             }),
-        }
+        },
       );
     },
-    [updateCanWrite, toast]
+    [updateCanWrite, toast],
+  );
+
+  const handleForcePasswordChange = useCallback(
+    async (user: UserListItem) => {
+      try {
+        const result = await resetPassword.mutateAsync({
+          id: user.id,
+          generatePassword: true,
+          forcePasswordChange: true,
+        });
+        if (result.generatedPassword) {
+          setTempPasswordData({
+            userName: user.name ?? user.email ?? "User",
+            password: result.generatedPassword,
+          });
+        }
+        toast({
+          title: "Password reset",
+          description: `${user.name ?? user.email} must change their password on next login.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Failed to reset password",
+          description:
+            err instanceof Error ? err.message : "Something went wrong.",
+          variant: "destructive",
+        });
+      }
+    },
+    [resetPassword, toast],
   );
 
   const columns = useMemo(
@@ -185,7 +263,10 @@ export default function UsersPage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="inline-flex cursor-not-allowed">
-                    <Badge variant={ROLE_VARIANTS[r]} className="capitalize opacity-60">
+                    <Badge
+                      variant={ROLE_VARIANTS[r]}
+                      className="capitalize opacity-60"
+                    >
                       {r}
                     </Badge>
                   </span>
@@ -198,7 +279,9 @@ export default function UsersPage() {
           return (
             <Select
               value={r}
-              onValueChange={(val) => handleRoleUpdate(row.original.id, val, displayName)}
+              onValueChange={(val) =>
+                handleRoleUpdate(row.original.id, val, displayName)
+              }
             >
               <SelectTrigger className="h-7 w-28 text-xs">
                 <SelectValue />
@@ -223,7 +306,11 @@ export default function UsersPage() {
             isSelf={row.original.id === currentUserId}
             isAdmin={isAdmin}
             onToggle={(id, checked) =>
-              handleCanWriteToggle(id, checked, row.original.name ?? row.original.email ?? "User")
+              handleCanWriteToggle(
+                id,
+                checked,
+                row.original.name ?? row.original.email ?? "User",
+              )
             }
           />
         ),
@@ -241,30 +328,44 @@ export default function UsersPage() {
         header: "",
         cell: ({ row }) => {
           const isSelf = row.original.id === currentUserId;
+          if (!isAdmin) return null;
           return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={isSelf ? "inline-flex cursor-not-allowed" : "inline-flex"}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    disabled={isSelf}
-                    onClick={() => !isSelf && setDeleteTarget(row.original.id)}
-                  >
-                    Delete
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {isSelf && (
-                <TooltipContent>You cannot delete your own account</TooltipContent>
-              )}
-            </Tooltip>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">User actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={isSelf}
+                  onClick={() => handleForcePasswordChange(row.original)}
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Require Password Change
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={isSelf}
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => !isSelf && setDeleteTarget(row.original.id)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           );
         },
       },
     ],
-    [isAdmin, currentUserId, handleRoleUpdate, handleCanWriteToggle]
+    [
+      isAdmin,
+      currentUserId,
+      handleRoleUpdate,
+      handleCanWriteToggle,
+      handleForcePasswordChange,
+    ],
   );
 
   async function handleCreate(e: React.FormEvent) {
@@ -272,14 +373,22 @@ export default function UsersPage() {
     setCreateError(null);
     try {
       const created = await createUser.mutateAsync(form);
-      setForm({ name: "", email: "", password: "", role: "creator" });
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        role: "creator",
+        forcePasswordChange: false,
+      });
       setShowCreate(false);
       toast({
         title: "User created",
         description: `${created.name ?? created.email} has been added as a ${created.role}.`,
       });
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Failed to create user");
+      setCreateError(
+        err instanceof Error ? err.message : "Failed to create user",
+      );
     }
   }
 
@@ -308,7 +417,9 @@ export default function UsersPage() {
                 <Input
                   id="user-name"
                   value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, name: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -318,7 +429,9 @@ export default function UsersPage() {
                   id="user-email"
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, email: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -327,7 +440,9 @@ export default function UsersPage() {
                 <PasswordInput
                   id="user-password"
                   value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, password: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -336,7 +451,9 @@ export default function UsersPage() {
                   <Label htmlFor="user-role">Role</Label>
                   <Select
                     value={form.role}
-                    onValueChange={(v) => setForm((f) => ({ ...f, role: v as UserRole }))}
+                    onValueChange={(v) =>
+                      setForm((f) => ({ ...f, role: v as UserRole }))
+                    }
                   >
                     <SelectTrigger id="user-role">
                       <SelectValue />
@@ -349,6 +466,21 @@ export default function UsersPage() {
                   </Select>
                 </div>
               )}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="user-force-password-change"
+                  checked={form.forcePasswordChange}
+                  onCheckedChange={(checked) =>
+                    setForm((f) => ({
+                      ...f,
+                      forcePasswordChange: checked === true,
+                    }))
+                  }
+                />
+                <Label htmlFor="user-force-password-change">
+                  Require password change on next login
+                </Label>
+              </div>
               {createError && (
                 <p className="text-sm text-destructive">{createError}</p>
               )}
@@ -386,11 +518,17 @@ export default function UsersPage() {
           if (deleteTarget) {
             deleteUser.mutate(deleteTarget, {
               onSuccess: () =>
-                toast({ title: "User deleted", description: "The user has been removed." }),
+                toast({
+                  title: "User deleted",
+                  description: "The user has been removed.",
+                }),
               onError: (err) =>
                 toast({
                   title: "Failed to delete user",
-                  description: err instanceof Error ? err.message : "Something went wrong.",
+                  description:
+                    err instanceof Error
+                      ? err.message
+                      : "Something went wrong.",
                   variant: "destructive",
                 }),
             });
@@ -398,6 +536,40 @@ export default function UsersPage() {
           }
         }}
       />
+
+      <Dialog
+        open={tempPasswordData !== null}
+        onOpenChange={(open) => {
+          if (!open) setTempPasswordData(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Temporary Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              A temporary password has been generated for{" "}
+              <span className="font-medium text-foreground">
+                {tempPasswordData?.userName}
+              </span>
+              . They will be required to change it on their next login.
+            </p>
+            <div className="flex items-center gap-2 rounded-md bg-muted p-3">
+              <code className="flex-1 text-sm font-mono break-all">
+                {tempPasswordData?.password}
+              </code>
+              <CopyButton value={tempPasswordData?.password ?? ""} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Make sure to copy this password now. It cannot be retrieved later.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTempPasswordData(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading users...">

@@ -6,9 +6,15 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession = vi.fn<
-  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
->();
+const mockRequireSession =
+  vi.fn<
+    () => Promise<{
+      userId: string;
+      role: string;
+      canWrite: boolean;
+      tenantId: string;
+    }>
+  >();
 const mockDecryptJson = vi.fn();
 const mockTestConnection = vi.fn();
 
@@ -42,7 +48,12 @@ vi.mock("@/lib/query-executor", () => ({ testConnection: mockTestConnection }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
-const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "t1" };
+const SESSION = {
+  userId: "user-1",
+  role: "creator",
+  canWrite: true,
+  tenantId: "t1",
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -50,7 +61,10 @@ const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "
 
 describe("POST /api/connections/[id]/test", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let POST: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
+  let POST: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<any>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -78,9 +92,18 @@ describe("POST /api/connections/[id]/test", () => {
 
   it("returns success:true when test passes", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    const conn = { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" };
+    const conn = {
+      id: "c1",
+      userId: "user-1",
+      type: "neo4j",
+      configEncrypted: "enc",
+    };
     mockDb.select.mockReturnValue(makeSelectChain([conn]));
-    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
     mockTestConnection.mockResolvedValue(true);
 
     const res = await POST({} as Request, makeParams("c1"));
@@ -90,17 +113,26 @@ describe("POST /api/connections/[id]/test", () => {
     expect(body.error).toBeNull();
   });
 
-  it("returns 500 when testConnection throws", async () => {
+  it("returns success:false with error message when testConnection throws", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    const conn = { id: "c1", userId: "user-1", type: "postgresql", configEncrypted: "enc" };
+    const conn = {
+      id: "c1",
+      userId: "user-1",
+      type: "postgresql",
+      configEncrypted: "enc",
+    };
     mockDb.select.mockReturnValue(makeSelectChain([conn]));
-    mockDecryptJson.mockReturnValue({ uri: "pg://localhost", username: "pg", password: "pass" });
+    mockDecryptJson.mockReturnValue({
+      uri: "pg://localhost",
+      username: "pg",
+      password: "pass",
+    });
     mockTestConnection.mockRejectedValue(new Error("Connection refused"));
 
     const res = await POST({} as Request, makeParams("c1"));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error.code).toBe("INTERNAL_ERROR");
-    expect(body.error.message).toBe("Connection test failed");
+    expect(body.data.success).toBe(false);
+    expect(body.data.error).toBe("Connection refused");
   });
 });

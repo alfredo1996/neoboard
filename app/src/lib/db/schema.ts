@@ -25,6 +25,9 @@ export const users = pgTable("user", {
   passwordHash: text("passwordHash"),
   role: userRoleEnum("role").default("creator").notNull(),
   canWrite: boolean("can_write").notNull().default(true),
+  forcePasswordChange: boolean("force_password_change")
+    .notNull()
+    .default(false),
   disabledAt: timestamp("disabledAt", { mode: "date" }),
   lastLoginAt: timestamp("lastLoginAt", { mode: "date" }),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),

@@ -13,9 +13,22 @@ import {
 import { apiSuccess } from "@/lib/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
-const resetPasswordSchema = z.object({
-  newPassword: newPasswordSchema,
-});
+const resetPasswordSchema = z
+  .object({
+    newPassword: newPasswordSchema.optional(),
+    generatePassword: z.boolean().optional().default(false),
+    forcePasswordChange: z.boolean().optional().default(false),
+  })
+  .refine((d) => d.newPassword || d.generatePassword, {
+    message: "Either newPassword or generatePassword must be provided",
+  });
+
+/** Generate a cryptographically random temporary password. */
+function generateTempPassword(length = 16): string {
+  const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
 
 export async function POST(
   request: Request,
@@ -38,11 +51,17 @@ export async function POST(
       return badRequest(parsed.error.errors[0].message);
     }
 
-    const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
+    const password = parsed.data.newPassword ?? generateTempPassword();
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const updateFields: Record<string, unknown> = { passwordHash };
+    if (parsed.data.forcePasswordChange) {
+      updateFields.forcePasswordChange = true;
+    }
 
     const [updated] = await db
       .update(users)
-      .set({ passwordHash })
+      .set(updateFields)
       .where(eq(users.id, id))
       .returning({ id: users.id });
 
@@ -50,7 +69,10 @@ export async function POST(
       return notFound("User not found");
     }
 
-    return apiSuccess({ reset: true });
+    return apiSuccess({
+      reset: true,
+      ...(parsed.data.generatePassword ? { generatedPassword: password } : {}),
+    });
   } catch (e) {
     return handleRouteError(e);
   }

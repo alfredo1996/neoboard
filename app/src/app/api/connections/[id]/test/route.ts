@@ -30,12 +30,22 @@ export async function POST(
       connection.configEncrypted,
     );
 
-    const success = await testConnection(
-      connection.type as DbType,
-      credentials,
-    );
-
-    return apiSuccess({ success });
+    try {
+      const success = await testConnection(
+        connection.type as DbType,
+        credentials,
+      );
+      return apiSuccess({
+        success,
+        ...(!success ? { error: "Connection check returned false" } : {}),
+      });
+    } catch (testError) {
+      const message =
+        testError instanceof Error
+          ? testError.message
+          : "Connection test failed";
+      return apiSuccess({ success: false, error: message });
+    }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");
   }

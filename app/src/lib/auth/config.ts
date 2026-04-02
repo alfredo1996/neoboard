@@ -76,6 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           image: user.image,
           role: user.role,
           canWrite: user.canWrite,
+          forcePasswordChange: user.forcePasswordChange,
         };
       },
     }),
@@ -86,6 +87,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.role = user.role;
         token.canWrite = (user as { canWrite?: boolean }).canWrite ?? true;
+        token.forcePasswordChange =
+          (user as { forcePasswordChange?: boolean }).forcePasswordChange ??
+          false;
         token.tenantId = process.env.TENANT_ID ?? "default";
       }
       // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
@@ -98,6 +102,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               role: users.role,
               canWrite: users.canWrite,
               disabledAt: users.disabledAt,
+              forcePasswordChange: users.forcePasswordChange,
             })
             .from(users)
             .where(eq(users.id, token.id as string))
@@ -106,6 +111,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (dbUser.disabledAt) return null; // User disabled — invalidate token
           token.role = dbUser.role;
           token.canWrite = dbUser.canWrite;
+          token.forcePasswordChange = dbUser.forcePasswordChange;
         } catch {
           // DB unavailable — keep existing token values (graceful degradation)
         }
@@ -117,6 +123,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role;
         session.user.canWrite = (token.canWrite as boolean) ?? true;
+        session.user.forcePasswordChange =
+          (token.forcePasswordChange as boolean) ?? false;
         session.user.tenantId =
           token.tenantId ?? process.env.TENANT_ID ?? "default";
       }
