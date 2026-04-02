@@ -141,13 +141,6 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 Gated by env vars, not code branches. Must fall back gracefully when not licensed.
 Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, Dashboard Sharing Links, Query Result Caching, Environment Selector, Connector Alias.
 
-## Detailed Docs
-
-Read before working on specific areas:
-
-- `claude_code_docs/TESTING_APPROACH.md` — Testing strategy, test commands, CI workflows
-- `claude_code_docs/sonarqube-and-coverage.md` — SonarCloud integration and coverage setup
-
 ## Migrations
 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
@@ -155,12 +148,30 @@ Test version-skip paths. `--skip-migrations` flag exists for emergency debugging
 
 ## Design Review
 
-Before touching any UI code:
+Before touching any UI code, read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns.
 
-1. Read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns. Source of truth for visual consistency.
-2. Read `.claude/skills/screenshot-review/skill.md` — screenshot workflow.
+## Agent Pipeline (develop → review → assess)
 
-Rules:
+Agents work together in a pipeline. Each stage gates the next:
 
-- Screenshot before AND after any visual change (`.screenshots/before/`, `.screenshots/after/`).
-- Keep the baseline suite (`.screenshots/baseline-*/`) up to date for new pages/flows.
+1. **`project-architect`** — Plans features (impact analysis, risk, task breakdown)
+2. **`/code` skill** — Implements the plan
+3. **`test-runner`** + **`lint-fix`** — Verify code compiles, lints, tests pass
+4. **`code-reviewer`** — Reviews code for security, architecture, quality. Runs tests.
+5. **`feature-reviewer`** — Opens the browser (Playwright CLI), tests the feature UX + functionality
+6. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
+
+### Quick reference
+
+| Agent | Purpose | Model | Trigger |
+|-------|---------|-------|---------|
+| `project-architect` | Feature planning | opus | Complex features |
+| `test-runner` | Run affected tests | haiku | After code changes |
+| `lint-fix` | Lint + auto-fix | haiku | After code changes |
+| `code-reviewer` | Code review + tests | sonnet | Pre-push, PR review |
+| `feature-reviewer` | Browser-based feature testing | sonnet | After implementing UI |
+| `ux-crawler` | Full app UX audit | sonnet | Before releases, major changes |
+
+### Playwright CLI (for browser agents)
+
+`feature-reviewer` and `ux-crawler` use `npx @playwright/cli` to interact with the running app at `http://localhost:3000`. Ensure Docker is running before invoking them.
