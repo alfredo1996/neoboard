@@ -389,12 +389,18 @@ export function WidgetEditorModal({
   // Unified connection-change handler for both add and edit modes.
   const handleConnectionChange = useCallback(
     (newId: string) => {
+      const prevConnection = connections.find((c) => c.id === connectionId);
       setConnectionId(newId);
       if (mode === "edit") {
         setConnectorChanged(newId !== (widget?.connectionId ?? ""));
       }
       const newConnection = connections.find((c) => c.id === newId);
       if (newConnection) {
+        // Clear query state when switching between different connection types
+        // (e.g. neo4j → postgresql) since the query language is incompatible.
+        if (prevConnection && prevConnection.type !== newConnection.type) {
+          useWidgetEditorStore.getState().clearQueryState();
+        }
         const compatible = getCompatibleChartTypes(newConnection.type);
         if (!compatible.includes(chartType as ChartType)) {
           setChartType("table");
@@ -402,7 +408,7 @@ export function WidgetEditorModal({
         }
       }
     },
-    [connections, chartType, mode, widget?.connectionId],
+    [connections, connectionId, chartType, mode, widget?.connectionId],
   );
 
   const handleChartTypeChange = useCallback(
