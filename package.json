@@ -16,6 +16,8 @@
     "db:generate": "npm run db:generate --prefix app",
     "docs:dev": "npm run dev --prefix docs",
     "docs:build": "npm run build --prefix docs",
+    "neoboard": "node cli/dist/index.js",
+    "cli:build": "npm run build --prefix cli",
     "prepare": "husky"
   },
   "lint-staged": {

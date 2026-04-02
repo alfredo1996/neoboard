@@ -65,3 +65,7 @@ scripts/claude-setup.sh
 # Fumadocs generated
 docs/.source
 docs/.next
+
+# CLI build output
+cli/dist/
+.neoboard.local
