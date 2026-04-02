@@ -61,6 +61,10 @@ interface CardContainerProps {
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
   /** When true, graph widgets trigger a fit-to-viewport after mount. */
   autoFit?: boolean;
+  /** Optional suffix appended to the widget ID used for graph store keys.
+   *  Prevents store conflicts when two CardContainers render the same widget
+   *  (e.g. normal view + fullscreen dialog). */
+  widgetIdSuffix?: string;
   /** Maps parameter names to the widgets that set them (for clickable badges). */
   parameterSourceMap?: ParameterSourceMap;
 }
@@ -152,8 +156,12 @@ export function CardContainer({
   refetchInterval,
   onNavigateToPage,
   autoFit,
+  widgetIdSuffix,
   parameterSourceMap,
 }: CardContainerProps) {
+  const effectiveWidgetId = widgetIdSuffix
+    ? `${widget.id}--${widgetIdSuffix}`
+    : widget.id;
   const chartConfig = getChartConfig(widget.chartType);
   const { handleChartClick, hasClickAction, clickableColumns } = useClickAction(
     widget,
@@ -321,7 +329,7 @@ export function CardContainer({
             }
             meta={{
               connectionId: widget.connectionId,
-              widgetId: widget.id,
+              widgetId: effectiveWidgetId,
               resultId: previewResultId,
               autoFit,
             }}
@@ -348,7 +356,10 @@ export function CardContainer({
             type={chartConfig.type}
             data={null}
             settings={chartOptions}
-            meta={{ connectionId: widget.connectionId, widgetId: widget.id }}
+            meta={{
+              connectionId: widget.connectionId,
+              widgetId: effectiveWidgetId,
+            }}
           />
         </div>
       </div>
@@ -366,7 +377,7 @@ export function CardContainer({
             settings={widget.settings as Record<string, unknown>}
             meta={{
               connectionId: widget.connectionId,
-              widgetId: widget.id,
+              widgetId: effectiveWidgetId,
               query: widget.query,
             }}
           />
@@ -399,7 +410,7 @@ export function CardContainer({
             type={chartConfig.type}
             data={null}
             settings={resolvedContentOptions}
-            meta={{ widgetId: widget.id }}
+            meta={{ widgetId: effectiveWidgetId }}
           />
         </div>
       </div>
@@ -549,7 +560,7 @@ export function CardContainer({
           }
           meta={{
             connectionId: widget.connectionId,
-            widgetId: widget.id,
+            widgetId: effectiveWidgetId,
             resultId: widgetQuery.data.resultId,
             autoFit,
           }}
