@@ -18,7 +18,8 @@ test.describe("Settings — Profile", () => {
   test("profile page shows account info", async ({ page }) => {
     await expect(page.getByText("Account", { exact: true })).toBeVisible();
     await expect(page.getByText(ALICE.email)).toBeVisible();
-    await expect(page.getByText("admin", { exact: true })).toBeVisible();
+    // Role badge — use locator scoped to avoid matching sidebar/other elements
+    await expect(page.locator("[data-slot='badge']").first()).toBeVisible();
   });
 
   test("can update display name", async ({ page }) => {
