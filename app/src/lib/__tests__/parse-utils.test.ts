@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseOptionalInt } from "../parse-utils";
+import { parseOptionalInt, mapConfigToEditForm } from "../parse-utils";
 
 describe("parseOptionalInt", () => {
   it("returns undefined for empty string", () => {
@@ -44,5 +44,73 @@ describe("parseOptionalInt", () => {
 
   it("parses large integers", () => {
     expect(parseOptionalInt("300000")).toBe(300000);
+  });
+});
+
+describe("mapConfigToEditForm", () => {
+  it("maps a full config to form strings", () => {
+    const result = mapConfigToEditForm({
+      uri: "bolt://localhost:7687",
+      username: "neo4j",
+      database: "neo4j",
+      connectionTimeout: 5000,
+      queryTimeout: 30000,
+      maxPoolSize: 25,
+      connectionAcquisitionTimeout: 10000,
+      idleTimeout: 15000,
+      statementTimeout: 60000,
+      sslRejectUnauthorized: false,
+    });
+
+    expect(result).toEqual({
+      uri: "bolt://localhost:7687",
+      username: "neo4j",
+      database: "neo4j",
+      connectionTimeout: "5000",
+      queryTimeout: "30000",
+      maxPoolSize: "25",
+      connectionAcquisitionTimeout: "10000",
+      idleTimeout: "15000",
+      statementTimeout: "60000",
+      sslRejectUnauthorized: false,
+    });
+  });
+
+  it("defaults missing fields to empty strings", () => {
+    const result = mapConfigToEditForm({});
+
+    expect(result).toEqual({
+      uri: "",
+      username: "",
+      database: "",
+      connectionTimeout: "",
+      queryTimeout: "",
+      maxPoolSize: "",
+      connectionAcquisitionTimeout: "",
+      idleTimeout: "",
+      statementTimeout: "",
+      sslRejectUnauthorized: undefined,
+    });
+  });
+
+  it("handles partial config (only uri and username)", () => {
+    const result = mapConfigToEditForm({
+      uri: "postgresql://localhost:5432",
+      username: "pg",
+    });
+
+    expect(result.uri).toBe("postgresql://localhost:5432");
+    expect(result.username).toBe("pg");
+    expect(result.database).toBe("");
+    expect(result.connectionTimeout).toBe("");
+    expect(result.sslRejectUnauthorized).toBeUndefined();
+  });
+
+  it("stringifies numeric zero correctly", () => {
+    const result = mapConfigToEditForm({
+      connectionTimeout: 0,
+    });
+
+    expect(result.connectionTimeout).toBe("0");
   });
 });
