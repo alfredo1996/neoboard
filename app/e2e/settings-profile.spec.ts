@@ -106,3 +106,15 @@ test.describe("Settings — Profile", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Settings — Redirect", () => {
+  test("navigating to /settings redirects to /settings/profile", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveURL(/\/settings\/profile/);
+  });
+});
