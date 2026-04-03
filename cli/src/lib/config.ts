@@ -91,8 +91,8 @@ export const paths = {
 // Config defaults
 const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
-  postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
-  neo4j: { user: "neo4j", password: "neoboard123" },
+  postgres: { user: "neoboard", password: "neoboard", database: "neoboard" }, // NOSONAR — local dev defaults matching docker-compose
+  neo4j: { user: "neo4j", password: "neoboard123" }, // NOSONAR — local dev defaults matching docker-compose
   seed: {
     script: "scripts/seed-demo.mjs",
     neo4j_cypher: "docker/neo4j/init.cypher",
