@@ -21,7 +21,6 @@ export interface RunOptions {
 export function run(cmd: string, opts?: RunOptions): string {
   try {
     const result = execSync(cmd, {
-      // NOSONAR — CLI commands are not user-supplied
       cwd: opts?.cwd,
       env: opts?.env ?? process.env,
       timeout: opts?.timeout,
