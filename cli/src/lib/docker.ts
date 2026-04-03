@@ -1,4 +1,4 @@
-import { run, runOrNull } from "./exec.js";
+import { run, runOrNull, dockerExec as execInContainer } from "./exec.js";
 import { paths, readProjectConfig } from "./config.js";
 import { join } from "node:path";
 
@@ -58,23 +58,31 @@ export function composePs(): ContainerInfo[] {
 }
 
 export function dockerExec(container: string, cmd: string): string {
-  return run(`docker exec ${container} ${cmd}`);
+  return execInContainer(container, cmd);
 }
 
 export function isPgReady(): boolean {
   const config = readProjectConfig();
-  return (
-    runOrNull(
-      `docker exec neoboard-postgres pg_isready -U ${config.postgres.user}`,
-    ) !== null
-  );
+  try {
+    execInContainer(
+      "neoboard-postgres",
+      `pg_isready -U ${config.postgres.user}`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function isNeo4jReady(): boolean {
   const config = readProjectConfig();
-  return (
-    runOrNull(
-      `docker exec neoboard-neo4j cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} "RETURN 1"`,
-    ) !== null
-  );
+  try {
+    execInContainer(
+      "neoboard-neo4j",
+      `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} RETURN 1`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
