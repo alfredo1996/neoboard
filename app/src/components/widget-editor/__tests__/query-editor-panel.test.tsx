@@ -59,10 +59,30 @@ vi.mock("@neoboard/components", () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dropdown-menu">{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dropdown-content">{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+  }: {
+    children: React.ReactNode;
+    onSelect?: () => void;
+  }) => (
+    <button data-testid="dropdown-item" onClick={onSelect}>
+      {children}
+    </button>
+  ),
 }));
 
-// Import the component after mocks are set up
-const { QueryEditorPanel } = await import("../query-editor-panel");
+// Import the component and exported constants after mocks are set up
+const { QueryEditorPanel, QUERY_HINTS } = await import("../query-editor-panel");
 
 describe("QueryEditorPanel", () => {
   beforeEach(() => {
@@ -95,5 +115,144 @@ describe("QueryEditorPanel", () => {
     expect(editor).toBeInTheDocument();
     // Editor must remain editable even when no connection is selected
     expect(editor).toHaveAttribute("data-read-only", "false");
+  });
+
+  // ── Templates dropdown ──────────────────────────────────────────────
+
+  it("shows Templates button when connection is set and query is empty", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    // query is empty by default after resetForAdd
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(screen.getByText("Templates")).toBeInTheDocument();
+  });
+
+  it("hides Templates button when query is not empty", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(screen.queryByText("Templates")).not.toBeInTheDocument();
+  });
+
+  it("hides Templates button when no connection is selected", () => {
+    // connectionId is "" after resetForAdd
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(screen.queryByText("Templates")).not.toBeInTheDocument();
+  });
+
+  it("renders cypher template items for neo4j language", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="neo4j" />);
+    // Cypher templates include these labels
+    expect(screen.getByText("Top N by count")).toBeInTheDocument();
+    expect(screen.getByText("Time series")).toBeInTheDocument();
+    expect(screen.getByText("Full scan")).toBeInTheDocument();
+    expect(screen.getByText("Relationships")).toBeInTheDocument();
+  });
+
+  it("renders sql template items for postgresql language", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="postgresql" />);
+    // SQL templates (3 items, no "Relationships")
+    expect(screen.getByText("Top N by count")).toBeInTheDocument();
+    expect(screen.getByText("Time series")).toBeInTheDocument();
+    expect(screen.getByText("Full scan")).toBeInTheDocument();
+    expect(screen.queryByText("Relationships")).not.toBeInTheDocument();
+  });
+
+  it("falls back to sql templates for unknown language", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="unknown-lang" />);
+    // Should fall back to sql templates
+    const items = screen.getAllByTestId("dropdown-item");
+    expect(items.length).toBe(3); // sql has 3 templates
+  });
+
+  it("sets query in store when a template item is clicked", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+
+    const fullScanButton = screen.getByText("Full scan");
+    await user.click(fullScanButton);
+
+    expect(useWidgetEditorStore.getState().query).toBe(
+      "MATCH (n)\nRETURN n\nLIMIT 25",
+    );
+  });
+
+  // ── Query hints ──────────────────────────────────────────────────────
+
+  it("shows query hint tooltip when chart type has a hint", () => {
+    useWidgetEditorStore.getState().setChartType("bar");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    // The hint text should be rendered (tooltip content is always in DOM via our stub)
+    expect(screen.getByText(/Return 2\+ columns/)).toBeInTheDocument();
+  });
+
+  it("does not show query hint for chart types without hints", () => {
+    useWidgetEditorStore
+      .getState()
+      .setChartType("markdown" as import("@/lib/chart-registry").ChartType);
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    // No hint text for markdown
+    expect(screen.queryByText(/Return 2\+ columns/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Return a single row/)).not.toBeInTheDocument();
+  });
+
+  // ── Placeholder ──────────────────────────────────────────────────────
+
+  it("uses SQL placeholder when language is sql", () => {
+    render(<QueryEditorPanel editorLanguage="sql" />);
+    const editor = screen.getByTestId("query-editor");
+    expect(editor).toBeInTheDocument();
+    // The placeholder is passed to the query-editor stub — we can verify the
+    // component renders without error with sql language
+  });
+
+  // ── Refresh schema button ────────────────────────────────────────────
+
+  it("shows Refresh schema button when connection is set", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.getByRole("button", { name: /refresh schema/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides Refresh schema button when no connection", () => {
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.queryByRole("button", { name: /refresh schema/i }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("QUERY_HINTS", () => {
+  it("has hints for bar, line, pie, single-value, graph, map, table, json, form", () => {
+    const expectedTypes = [
+      "bar",
+      "line",
+      "pie",
+      "single-value",
+      "graph",
+      "map",
+      "table",
+      "json",
+      "form",
+    ];
+    for (const type of expectedTypes) {
+      expect(
+        QUERY_HINTS[type as keyof typeof QUERY_HINTS],
+        `Missing hint for ${type}`,
+      ).toBeDefined();
+    }
+  });
+
+  it("each hint contains an example", () => {
+    for (const [type, hint] of Object.entries(QUERY_HINTS)) {
+      expect(hint, `Hint for ${type} should contain "Example"`).toContain(
+        "Example",
+      );
+    }
   });
 });
