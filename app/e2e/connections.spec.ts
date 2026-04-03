@@ -184,6 +184,34 @@ test.describe("Connections", () => {
     await expect(wrapper.locator('[role="alert"]')).not.toBeVisible();
   });
 
+  test("should pre-fill edit dialog with existing connection values", async ({
+    page,
+  }) => {
+    // Wait for seeded connections to load
+    const firstActions = page
+      .getByRole("button", { name: "Connection actions" })
+      .first();
+    await expect(firstActions).toBeVisible({ timeout: 10000 });
+
+    // Open the kebab menu on the first connection and click Edit
+    await firstActions.click();
+    await page.getByRole("menuitem", { name: /Edit/ }).click();
+
+    // Assert the edit dialog opens
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Assert URI and username fields are pre-filled (not empty)
+    const uriInput = dialog.locator("#edit-uri");
+    const usernameInput = dialog.locator("#edit-username");
+    await expect(uriInput).not.toHaveValue("", { timeout: 5000 });
+    await expect(usernameInput).not.toHaveValue("");
+
+    // Close dialog
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).not.toBeVisible();
+  });
+
   test("should delete a connection with confirmation", async ({ page }) => {
     const name = `To Delete ${Date.now()}`;
     // Create one first
