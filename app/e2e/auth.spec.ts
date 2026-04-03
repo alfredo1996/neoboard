@@ -161,10 +161,16 @@ test.describe.serial("Force password change", () => {
 
     await loginWithoutDashboardRedirect(page, email, password);
 
+    // The proxy reads forcePasswordChange from the JWT. After signIn, the
+    // initial page load may land on "/" before the token refresh propagates
+    // the flag. Navigating to any protected page triggers the proxy check.
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
     await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
     await expect(
       page.getByRole("heading", { name: "Change Password" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("user cannot navigate away from /change-password", async ({
