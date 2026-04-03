@@ -101,7 +101,7 @@ test.describe("Signup", () => {
   });
 });
 
-test.describe("Force password change", () => {
+test.describe.serial("Force password change", () => {
   /**
    * Helper: login as ALICE, create a user with forcePasswordChange=true via API,
    * log out, then return the new user's credentials.
