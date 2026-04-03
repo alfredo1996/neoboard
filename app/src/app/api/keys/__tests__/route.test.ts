@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  makeInsertChain,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -45,8 +48,12 @@ describe("GET /api/keys", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
-    vi.doMock("@/lib/auth/api-key", () => ({ generateApiKey: mockGenerateApiKey }));
+    vi.doMock("@/lib/auth/session", () => ({
+      requireSession: mockRequireSession,
+    }));
+    vi.doMock("@/lib/auth/api-key", () => ({
+      generateApiKey: mockGenerateApiKey,
+    }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     const mod = await import("../route");
@@ -145,11 +152,15 @@ describe("POST /api/keys", () => {
       plaintext: "nb_" + "a".repeat(64),
       hash: "hash_" + "a".repeat(59),
     });
-    vi.doMock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
-    vi.doMock("@/lib/auth/api-key", () => ({ generateApiKey: mockGenerateApiKey }));
+    vi.doMock("@/lib/auth/session", () => ({
+      requireSession: mockRequireSession,
+    }));
+    vi.doMock("@/lib/auth/api-key", () => ({
+      generateApiKey: mockGenerateApiKey,
+    }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("next/server", () => nextResponseMockFactory());
-vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+    vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     const mod = await import("../route");
     POST = mod.POST;
   });
@@ -222,7 +233,9 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
       canWrite: true,
     });
     mockDb.insert.mockReturnValue(
-      makeInsertChain([{ id: "k1", name: "Key", expiresAt: null, createdAt: new Date() }])
+      makeInsertChain([
+        { id: "k1", name: "Key", expiresAt: null, createdAt: new Date() },
+      ]),
     );
     const res = await POST(makeRequest({ name: "Key" }));
     const body = await res.json();
@@ -237,7 +250,9 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
       canWrite: true,
     });
     mockDb.insert.mockReturnValue(
-      makeInsertChain([{ id: "k2", name: "Key", expiresAt: null, createdAt: new Date() }])
+      makeInsertChain([
+        { id: "k2", name: "Key", expiresAt: null, createdAt: new Date() },
+      ]),
     );
     const res = await POST(makeRequest({ name: "Key" }));
     const body = await res.json();
@@ -260,7 +275,9 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
         return insertChain;
       },
       returning: () =>
-        Promise.resolve([{ id: "k3", name: "Key", expiresAt: null, createdAt: new Date() }]),
+        Promise.resolve([
+          { id: "k3", name: "Key", expiresAt: null, createdAt: new Date() },
+        ]),
     };
     mockDb.insert.mockReturnValue(insertChain);
 
@@ -271,7 +288,9 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     expect(capturedValues!.keyHash).toBe("hash_" + "a".repeat(59));
     // Plaintext key must NOT be stored in the DB row
     expect(capturedValues!).not.toHaveProperty("key");
-    expect(Object.values(capturedValues!)).not.toContain("nb_" + "a".repeat(64));
+    expect(Object.values(capturedValues!)).not.toContain(
+      "nb_" + "a".repeat(64),
+    );
   });
 
   it("passes expiresAt as Date when provided", async () => {
@@ -289,11 +308,20 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
         return insertChain;
       },
       returning: () =>
-        Promise.resolve([{ id: "k5", name: "Key", expiresAt: "2027-01-01T00:00:00.000Z", createdAt: new Date() }]),
+        Promise.resolve([
+          {
+            id: "k5",
+            name: "Key",
+            expiresAt: "2027-01-01T00:00:00.000Z",
+            createdAt: new Date(),
+          },
+        ]),
     };
     mockDb.insert.mockReturnValue(insertChain);
 
-    const res = await POST(makeRequest({ name: "Key", expiresAt: "2027-01-01T00:00:00.000Z" }));
+    const res = await POST(
+      makeRequest({ name: "Key", expiresAt: "2027-01-01T00:00:00.000Z" }),
+    );
     expect(res.status).toBe(201);
     expect(capturedValues).not.toBeNull();
     expect(capturedValues!.expiresAt).toBeInstanceOf(Date);
@@ -314,7 +342,9 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
         return insertChain;
       },
       returning: () =>
-        Promise.resolve([{ id: "k4", name: "Key", expiresAt: null, createdAt: new Date() }]),
+        Promise.resolve([
+          { id: "k4", name: "Key", expiresAt: null, createdAt: new Date() },
+        ]),
     };
     mockDb.insert.mockReturnValue(insertChain);
 
@@ -323,5 +353,60 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     expect(capturedValues).not.toBeNull();
     expect(capturedValues!.tenantId).toBe("my-tenant");
     expect(capturedValues!.userId).toBe("user-1");
+  });
+
+  it("returns 503 with admin-specific message when generateApiKey throws and user is admin", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "admin",
+      canWrite: true,
+    });
+    mockGenerateApiKey.mockImplementation(() => {
+      throw new Error("API_KEY_HMAC_SECRET is not set");
+    });
+    const res = await POST(makeRequest({ name: "My Key" }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
+    expect(body.error.message).toContain("API_KEY_HMAC_SECRET");
+    expect(body.error.message).toContain("environment variables");
+  });
+
+  it("returns 503 with generic message when generateApiKey throws and user is not admin", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "creator",
+      canWrite: true,
+    });
+    mockGenerateApiKey.mockImplementation(() => {
+      throw new Error("API_KEY_HMAC_SECRET is not set");
+    });
+    const res = await POST(makeRequest({ name: "My Key" }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
+    expect(body.error.message).toContain("Contact your administrator");
+    expect(body.error.message).not.toContain("API_KEY_HMAC_SECRET");
+  });
+
+  it("returns 503 with generic message when generateApiKey throws and user is reader role", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "reader",
+      canWrite: true,
+    });
+    mockGenerateApiKey.mockImplementation(() => {
+      throw new Error("HMAC secret missing");
+    });
+    const res = await POST(makeRequest({ name: "My Key" }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
+    expect(body.error.message).toBe(
+      "API key service is not available. Contact your administrator.",
+    );
   });
 });
