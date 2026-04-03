@@ -83,6 +83,82 @@ describe("TransformEditor", () => {
     expect(screen.getByText(/no transforms configured/i)).toBeInTheDocument();
   });
 
+  it("shows help text descriptions for each transform type when empty and enabled", () => {
+    render(
+      <TransformEditor
+        transforms={[]}
+        onChange={vi.fn()}
+        columns={columns}
+        enabled={true}
+      />,
+    );
+    expect(
+      screen.getByText(/keep rows matching a condition/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/order rows by a column/i)).toBeInTheDocument();
+    expect(screen.getByText(/aggregate rows/i)).toBeInTheDocument();
+    expect(screen.getByText(/add a computed column/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/cap the number of rows shown/i),
+    ).toBeInTheDocument();
+  });
+
+  it("hides help text when transforms are disabled and list is empty", () => {
+    render(
+      <TransformEditor
+        transforms={[]}
+        onChange={vi.fn()}
+        columns={columns}
+        enabled={false}
+      />,
+    );
+    // When disabled with no transforms, no help text should appear
+    expect(
+      screen.queryByText(/keep rows matching a condition/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows disabled message when transforms are disabled but exist", () => {
+    render(
+      <TransformEditor
+        transforms={[{ type: "limit", count: 10 }]}
+        onChange={vi.fn()}
+        columns={columns}
+        enabled={false}
+        onEnabledChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/transforms are disabled/i)).toBeInTheDocument();
+  });
+
+  it("renders enable/disable checkbox when onEnabledChange is provided", () => {
+    const onEnabledChange = vi.fn();
+    render(
+      <TransformEditor
+        transforms={[]}
+        onChange={vi.fn()}
+        columns={columns}
+        enabled={true}
+        onEnabledChange={onEnabledChange}
+      />,
+    );
+    expect(screen.getByLabelText(/enable transforms/i)).toBeInTheDocument();
+  });
+
+  it("does not render enable/disable checkbox when onEnabledChange is omitted", () => {
+    render(
+      <TransformEditor transforms={[]} onChange={vi.fn()} columns={columns} />,
+    );
+    expect(
+      screen.queryByLabelText(/enable transforms/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows run-query message when columns are empty", () => {
+    render(<TransformEditor transforms={[]} onChange={vi.fn()} columns={[]} />);
+    expect(screen.getByText(/run a query first/i)).toBeInTheDocument();
+  });
+
   it("renders a filter transform with column, operator, and value", () => {
     const transforms: Transform[] = [
       { type: "filter", column: "department", operator: "==", value: "Sales" },
