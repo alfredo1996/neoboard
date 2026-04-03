@@ -1,14 +1,19 @@
 import { test, expect, ALICE } from "./fixtures";
 
 test.describe("API Key management", () => {
-  test.beforeEach(async ({ authPage, sidebarPage }) => {
+  test.beforeEach(async ({ authPage, sidebarPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await sidebarPage.navigateTo("Settings");
+    // Settings now defaults to Profile tab — navigate to API Keys tab
+    await page.getByRole("button", { name: "API Keys" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "API Keys" }),
+    ).toBeVisible();
   });
 
   test("should navigate to the API Keys settings page", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { level: 1, name: "API Keys" })
+      page.getByRole("heading", { level: 1, name: "API Keys" }),
     ).toBeVisible();
   });
 
@@ -21,7 +26,7 @@ test.describe("API Key management", () => {
 
     // After generation: dialog title changes to "API Key Created"
     await expect(
-      dialog.getByRole("heading", { name: "API Key Created" })
+      dialog.getByRole("heading", { name: "API Key Created" }),
     ).toBeVisible({ timeout: 10000 });
 
     // Key should start with nb_ — use the data-testid for reliable targeting
@@ -33,7 +38,7 @@ test.describe("API Key management", () => {
 
     // Key should now appear in the table — use exact to avoid matching the revoke button cell
     await expect(
-      page.getByRole("cell", { name: "Test CI Key", exact: true })
+      page.getByRole("cell", { name: "Test CI Key", exact: true }),
     ).toBeVisible();
   });
 
@@ -46,12 +51,12 @@ test.describe("API Key management", () => {
     await dialog.getByRole("button", { name: "Generate Key" }).click();
 
     await expect(
-      dialog.getByRole("heading", { name: "API Key Created" })
+      dialog.getByRole("heading", { name: "API Key Created" }),
     ).toBeVisible({ timeout: 10000 });
     await dialog.getByRole("button", { name: "Done" }).click();
 
     await expect(
-      page.getByRole("cell", { name: keyName, exact: true })
+      page.getByRole("cell", { name: keyName, exact: true }),
     ).toBeVisible();
   });
 
@@ -67,7 +72,7 @@ test.describe("API Key management", () => {
     await dialog.getByRole("button", { name: "Generate Key" }).click();
 
     await expect(
-      dialog.getByRole("heading", { name: "API Key Created" })
+      dialog.getByRole("heading", { name: "API Key Created" }),
     ).toBeVisible({ timeout: 10000 });
 
     // Grab the plaintext key from the data-testid display
@@ -99,13 +104,13 @@ test.describe("API Key management", () => {
     await dialog.getByRole("button", { name: "Generate Key" }).click();
 
     await expect(
-      dialog.getByRole("heading", { name: "API Key Created" })
+      dialog.getByRole("heading", { name: "API Key Created" }),
     ).toBeVisible({ timeout: 10000 });
     await dialog.getByRole("button", { name: "Done" }).click();
 
     // Verify key appears in list (exact match avoids the revoke button cell)
     await expect(
-      page.getByRole("cell", { name: keyName, exact: true })
+      page.getByRole("cell", { name: keyName, exact: true }),
     ).toBeVisible();
 
     // Click the revoke button in the same row
@@ -118,7 +123,7 @@ test.describe("API Key management", () => {
 
     // Key should no longer be in the list
     await expect(
-      page.getByRole("cell", { name: keyName, exact: true })
+      page.getByRole("cell", { name: keyName, exact: true }),
     ).not.toBeVisible({ timeout: 5000 });
   });
 
@@ -128,7 +133,7 @@ test.describe("API Key management", () => {
     const dialog = page.getByRole("dialog");
     // Generate Key should be disabled when name is empty
     await expect(
-      dialog.getByRole("button", { name: "Generate Key" })
+      dialog.getByRole("button", { name: "Generate Key" }),
     ).toBeDisabled();
   });
 });

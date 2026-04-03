@@ -1,0 +1,184 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(echo *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(docker compose *)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Edit(.env*)",
+      "Write(.env*)",
+      "Write(*.pem)",
+      "Edit(*.pem)",
+      "Write(*.key)",
+      "Edit(*.key)",
+      "Write(*credentials*)",
+      "Edit(*credentials*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$(git branch --show-current)\" != \"main\" ] || { echo 'Cannot edit on main. Create a feature branch first.' >&2; exit 2; }",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-boundaries.sh",
+            "timeout": 5,
+            "statusMessage": "Checking package boundaries..."
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-query-safety.sh",
+            "timeout": 5,
+            "statusMessage": "Checking query safety..."
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-credential-logging.sh",
+            "timeout": 5,
+            "statusMessage": "Checking credential logging..."
+          },
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_input.filePath // empty'); NEW_CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.new_string // .tool_input.content // empty'); [ -z \"$NEW_CONTENT\" ] && exit 0; if echo \"$NEW_CONTENT\" | grep -qE \"import \\* as echarts from ['\\\"]echarts['\\\"]|from ['\\\"]echarts['\\\"]\" && ! echo \"$NEW_CONTENT\" | grep -q 'echarts/core'; then echo 'BLOCKED: Never import * from echarts. Use echarts/core + specific modules.' >&2; exit 2; fi",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_input.filePath // empty'); [ -z \"$FILE_PATH\" ] && exit 0; case \"$FILE_PATH\" in */app/src/*__tests__*|*/app/src/*__test__*) ;; *) exit 0 ;; esac; NEW_CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.new_string // .tool_input.content // empty'); [ -z \"$NEW_CONTENT\" ] && exit 0; if echo \"$NEW_CONTENT\" | grep -qE \"@testing-library/react|react-dom/test-utils|from ['\\\"]vitest-dom\"; then echo 'BLOCKED: Do NOT add render tests (@testing-library/react) in app/. Use Playwright E2E or put component tests in component/ package.' >&2; exit 2; fi",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_input.filePath // empty'); [ -z \"$FILE_PATH\" ] && exit 0; case \"$FILE_PATH\" in */app/src/components/*) ;; *) exit 0 ;; esac; NEW_CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.new_string // .tool_input.content // empty'); [ -z \"$NEW_CONTENT\" ] && exit 0; if echo \"$NEW_CONTENT\" | grep -qiE \"from ['\\\"]echarts|from ['\\\"]@neo4j-nvl|from ['\\\"]leaflet|from ['\\\"]react-leaflet\"; then if ! echo \"$NEW_CONTENT\" | grep -q 'ssr: false'; then echo 'BLOCKED: Chart/map components in app/ MUST use next/dynamic with ssr: false. Add dynamic(() => import(...), { ssr: false }).' >&2; exit 2; fi; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE '^npm (install|uninstall|remove|add) [a-zA-Z@]'; then echo \"BLOCKED: npm dependency changes require explicit user approval. Ask first.\" >&2; exit 2; fi",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/enforce-e2e.sh check-commit",
+            "timeout": 5,
+            "statusMessage": "Checking E2E requirement..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-lint.sh",
+            "timeout": 30,
+            "statusMessage": "Formatting & linting..."
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/enforce-e2e.sh mark",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-coverage.sh",
+            "timeout": 10,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/enforce-e2e.sh clear-on-test",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-context.sh",
+            "timeout": 15,
+            "statusMessage": "Loading session context..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You are a completion checklist for the NeoBoard project. FIRST: check if stop_hook_active is true in the input — if so, return {\"decision\": \"allow\"} immediately to prevent infinite loops.\n\nOtherwise, review the conversation transcript and check:\n1. If code files were edited, were relevant tests run (vitest AND playwright)?\n2. If files in app/ were edited, was linting run?\n3. If UI/visual changes were made, were before/after screenshots taken?\n\nIf ALL applicable checks pass (or no code was edited), return {\"decision\": \"allow\"}.\nIf a critical check was missed, return {\"decision\": \"block\", \"reason\": \"<what was missed>\"}.\n\nBe pragmatic — only flag genuinely missed steps, not minor oversights. If the user is just exploring or planning, return {\"decision\": \"allow\"}.",
+            "model": "haiku",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"CRITICAL RULES (re-injected after compaction):\\n- TDD mandatory: write failing test FIRST, then implement\\n- Package boundaries: component/ has NO business logic/API/stores; connection/ has NO React/UI\\n- Query safety: NEVER interpolate user input, ALWAYS parameterized queries\\n- Run cd app && npx next lint --fix after app/ changes\\n- Run npm run build before committing\\n- PRs target dev branch, not main\\n- Coverage target: 80%% per package\\n- WORKTREE AGENTS: tests are safe to run locally (dynamic ports). CI is the source of truth.\\n- ORCHESTRATOR: max 3 concurrent workers. Never auto-merge. Track CONFLICT_FILES across workers.\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v osascript >/dev/null 2>&1; then osascript -e 'display notification \"Claude needs your attention\" with title \"NeoBoard\" sound name \"Ping\"' 2>/dev/null; elif command -v notify-send >/dev/null 2>&1; then notify-send -u normal 'NeoBoard' 'Claude needs your attention' 2>/dev/null; fi; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

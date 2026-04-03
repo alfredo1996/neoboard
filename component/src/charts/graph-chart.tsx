@@ -516,6 +516,20 @@ export function GraphChart({
 
   const hasLabels = labelPropertyMap.size > 0;
 
+  // Safety timeout: if NVL's onLayoutDone never fires (e.g. when the component
+  // mounts inside a CSS-animated dialog where the container starts at ~0 size),
+  // force layoutReady after a short delay so the loading spinner doesn't persist
+  // indefinitely.  When onLayoutDone fires normally this timeout is a no-op
+  // because the state is already true.
+  useEffect(() => {
+    if (layoutReady || nodes.length === 0) return;
+    const timer = setTimeout(() => {
+      setLayoutReady(true);
+      fitGraph();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [layoutReady, nodes.length, fitGraph]);
+
   if (!nodes.length) {
     return (
       <div
