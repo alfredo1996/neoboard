@@ -28,7 +28,7 @@ export interface RunOptions {
 export function run(cmd: string, opts?: RunOptions): string {
   try {
     const result = execSync(cmd, {
-      // NOSONAR — CLI tool: commands are hardcoded, not user-supplied
+      // NOSONAR: CLI tool — all commands are hardcoded constants, no user input interpolation
       cwd: opts?.cwd,
       env: opts?.env ?? process.env,
       timeout: opts?.timeout,
