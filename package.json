@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "npm run dev --prefix app",
     "build": "npm run build --prefix app",
-    "test": "npm run test --prefix app && npm run test --prefix component",
+    "test": "npm run test --prefix app && npm run test --prefix component && npm run test --prefix cli",
     "test:app": "npm run test --prefix app",
     "test:components": "npm run test --prefix component",
+    "test:cli": "npm run test --prefix cli",
     "test:e2e": "npm run test:e2e --prefix app",
     "storybook": "npm run storybook --prefix component",
     "lint": "eslint .",
@@ -16,6 +17,8 @@
     "db:generate": "npm run db:generate --prefix app",
     "docs:dev": "npm run dev --prefix docs",
     "docs:build": "npm run build --prefix docs",
+    "neoboard": "node cli/dist/index.js",
+    "cli:build": "npm run build --prefix cli",
     "prepare": "husky"
   },
   "lint-staged": {
