@@ -25,7 +25,7 @@ export function DashboardMiniPreview({
       <div
         className={cn(
           "aspect-[16/10] rounded-md border-2 border-dashed border-border/50 flex items-center justify-center",
-          className
+          className,
         )}
       >
         <span className="text-xs text-muted-foreground">No widgets</span>
@@ -40,7 +40,7 @@ export function DashboardMiniPreview({
     <div
       className={cn(
         "aspect-[16/10] rounded-md bg-muted/20 overflow-hidden",
-        className
+        className,
       )}
       style={{
         display: "grid",
@@ -55,7 +55,8 @@ export function DashboardMiniPreview({
           key={i}
           className={cn(
             "rounded-sm border border-border/30 overflow-hidden",
-            !w.thumbnailUrl && (chartTypePreviewColors[w.chartType] ?? "bg-muted")
+            !w.thumbnailUrl &&
+              (chartTypePreviewColors[w.chartType] ?? "bg-muted"),
           )}
           style={{
             gridColumn: `${w.x + 1} / span ${w.w}`,
@@ -67,6 +68,8 @@ export function DashboardMiniPreview({
               src={w.thumbnailUrl}
               alt=""
               loading="lazy"
+              width={320}
+              height={200}
               className="h-full w-full object-cover"
             />
           )}

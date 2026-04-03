@@ -356,10 +356,11 @@ export function DashboardContainer({
                     onNavigateToPage={onNavigateToPage}
                     parameterSourceMap={parameterSourceMap}
                     autoFit
+                    widgetIdSuffix="fullscreen"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-muted-foreground">
-                    Loading…
+                  <div className="flex h-full items-center justify-center">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
                   </div>
                 )}
               </div>
