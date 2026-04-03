@@ -11,15 +11,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 const mockEncryptJson = vi.fn((v: unknown) => `enc:${JSON.stringify(v)}`);
 const mockDecryptJson = vi.fn(() => ({
   uri: "bolt://localhost:7687",
@@ -77,10 +76,10 @@ const ADMIN_SESSION = {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/connections/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let GET: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Promise<any>;
 
   beforeEach(async () => {
@@ -188,10 +187,10 @@ describe("GET /api/connections/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("PATCH /api/connections/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let PATCH: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Promise<any>;
 
   beforeEach(async () => {
@@ -307,6 +306,91 @@ describe("PATCH /api/connections/[id]", () => {
       }),
     );
   });
+
+  it("does not call prefetchSchema when password is omitted", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const existing = {
+      configEncrypted: "enc:existing",
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([existing]));
+    const updated = {
+      id: "c1",
+      name: "Neo4j",
+      type: "neo4j",
+      updatedAt: new Date(),
+    };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+
+    await PATCH(
+      makeRequest({
+        config: { uri: "bolt://new-host", username: "neo4j" },
+      }),
+      makeParams("c1"),
+    );
+
+    // prefetchSchema should still be called because the merged config has a password
+    // (merged from existing encrypted config)
+    expect(mockPrefetchSchema).toHaveBeenCalled();
+  });
+
+  it("handles config without password when no existing config exists", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // No existing config found
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const updated = {
+      id: "c1",
+      name: "Neo4j",
+      type: "neo4j",
+      updatedAt: new Date(),
+    };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+
+    const res = await PATCH(
+      makeRequest({
+        config: { uri: "bolt://new-host", username: "neo4j" },
+      }),
+      makeParams("c1"),
+    );
+
+    expect(res.status).toBe(200);
+    // Should encrypt the config without the password since there's no existing to merge
+    expect(mockEncryptJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uri: "bolt://new-host",
+        username: "neo4j",
+      }),
+    );
+    // No password in final config — should not call prefetchSchema
+    expect(mockPrefetchSchema).not.toHaveBeenCalled();
+  });
+
+  it("calls prefetchSchema when password is explicitly provided", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const updated = {
+      id: "c1",
+      name: "PostgreSQL",
+      type: "postgresql",
+      updatedAt: new Date(),
+    };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+
+    await PATCH(
+      makeRequest({
+        config: {
+          uri: "postgresql://localhost:5432",
+          username: "pg",
+          password: "newpass",
+        },
+      }),
+      makeParams("c1"),
+    );
+
+    expect(mockPrefetchSchema).toHaveBeenCalledWith("postgresql", {
+      uri: "postgresql://localhost:5432",
+      username: "pg",
+      password: "newpass",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -314,10 +398,10 @@ describe("PATCH /api/connections/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/connections/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let DELETE: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Promise<any>;
 
   beforeEach(async () => {

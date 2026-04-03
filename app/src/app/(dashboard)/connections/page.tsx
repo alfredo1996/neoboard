@@ -35,6 +35,7 @@ import {
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 import { type ConnectorType, CONNECTOR_LABELS } from "@/lib/connector-types";
+import { parseOptionalInt } from "@/lib/parse-utils";
 
 type DialogStep = "pick-type" | "fill-form";
 
@@ -54,14 +55,6 @@ const DEFAULT_FORM = {
   statementTimeout: "",
   sslRejectUnauthorized: undefined as boolean | undefined,
 };
-
-/** Parse numeric string to integer, or return undefined if empty/invalid. */
-function parseOptionalInt(val: string): number | undefined {
-  if (!val.trim()) return undefined;
-  const n = Number(val);
-  if (!Number.isFinite(n) || !Number.isInteger(n)) return undefined;
-  return n;
-}
 
 export default function ConnectionsPage() {
   const { data: connections, isLoading } = useConnections();
