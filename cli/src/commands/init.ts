@@ -32,7 +32,12 @@ export async function runInit(opts?: {
   if (mode === "local") {
     const spinner = createSpinner("Installing dependencies...");
     spinner.start();
-    const dirs = [paths.root, paths.appDir];
+    const dirs = [
+      paths.root,
+      paths.appDir,
+      paths.componentDir,
+      paths.connectionDir,
+    ];
     for (const dir of dirs) {
       run("npm install", { cwd: dir });
     }
