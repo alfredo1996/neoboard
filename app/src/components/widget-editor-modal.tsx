@@ -233,6 +233,10 @@ export function WidgetEditorModal({
   const createTemplate = useCreateWidgetTemplate();
   const updateTemplate = useUpdateWidgetTemplate();
   const previewRef = useRef<HTMLDivElement>(null);
+  /** Tracks the initial chartType set when the dialog opens in edit mode.
+   *  Used to skip the chart-options reset on first render (preserving saved options)
+   *  while still resetting when the user explicitly changes the chart type. */
+  const editInitialChartTypeRef = useRef<string | null>(null);
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -408,9 +412,8 @@ export function WidgetEditorModal({
   const handleChartTypeChange = useCallback(
     (t: string) => {
       setChartType(t);
-      if (mode === "edit") {
-        setChartOptions(getDefaultChartSettings(t));
-      }
+      // Chart options reset is handled by the chartType useEffect below
+      // for all modes (add, edit, lab-create).
       // Auto-disable click action when switching to an unsupported type
       if (!chartSupportsClickAction(t)) {
         setClickActionEnabled(false);
@@ -420,7 +423,7 @@ export function WidgetEditorModal({
         setStylingEnabled(false);
       }
     },
-    [mode],
+    [setChartType],
   );
 
   // Reset state when opening
@@ -464,6 +467,7 @@ export function WidgetEditorModal({
           | { colorScales?: ColorScaleConfig[] }
           | undefined;
 
+        editInitialChartTypeRef.current = widget.chartType;
         setChartType(widget.chartType);
         setConnectionId(widget.connectionId);
         setQuery(widget.query);
@@ -599,21 +603,28 @@ export function WidgetEditorModal({
     }
     if (!open) {
       initialTemplateAppliedRef.current = undefined;
+      editInitialChartTypeRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, initialTemplate]);
 
-  // Re-initialize chart options when chart type changes (add/lab-create mode only).
+  // Re-initialize chart options when chart type changes.
   // Skip reset when the change comes from applyTemplate to preserve template settings.
+  // In edit mode, skip the first render (initial chart type from saved widget) so we
+  // don't overwrite the user's persisted style options.
   useEffect(() => {
-    if (mode === "add" || mode === "lab-create") {
-      if (applyingTemplateRef.current) {
-        applyingTemplateRef.current = false;
-        return;
-      }
-      setChartOptions(getDefaultChartSettings(chartType));
+    if (applyingTemplateRef.current) {
+      applyingTemplateRef.current = false;
+      return;
     }
-  }, [chartType, mode]);
+    // In edit mode, skip the initial chartType set (dialog just opened with saved type)
+    if (editInitialChartTypeRef.current !== null) {
+      editInitialChartTypeRef.current = null;
+      return;
+    }
+    setChartOptions(getDefaultChartSettings(chartType));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs guard the reset; mode is not needed
+  }, [chartType]);
 
   // Build click action from current editor state
   const buildClickAction = useCallback((): ClickAction | undefined => {
