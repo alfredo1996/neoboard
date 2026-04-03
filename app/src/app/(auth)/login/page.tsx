@@ -16,10 +16,7 @@ import {
   Alert,
   AlertDescription,
 } from "@neoboard/components";
-import {
-  LoadingButton,
-  PasswordInput,
-} from "@neoboard/components";
+import { LoadingButton, PasswordInput } from "@neoboard/components";
 
 function LoginForm() {
   const router = useRouter();
@@ -69,12 +66,7 @@ function LoginForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <PasswordInput
-          id="password"
-          name="password"
-          required
-          minLength={6}
-        />
+        <PasswordInput id="password" name="password" required minLength={6} />
       </div>
 
       <LoadingButton
@@ -95,6 +87,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">NeoBoard</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Visual dashboards for Neo4j &amp; PostgreSQL
+          </p>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
