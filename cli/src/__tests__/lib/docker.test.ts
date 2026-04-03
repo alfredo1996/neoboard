@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../lib/exec.js", () => ({
   run: vi.fn(),
   runOrNull: vi.fn(),
+  dockerExec: vi.fn(),
 }));
 
 vi.mock("../../lib/config.js", () => ({
@@ -21,7 +22,11 @@ vi.mock("../../lib/config.js", () => ({
   })),
 }));
 
-import { run, runOrNull } from "../../lib/exec.js";
+import {
+  run,
+  runOrNull,
+  dockerExec as execInContainer,
+} from "../../lib/exec.js";
 import {
   isDockerRunning,
   isComposeV2,
@@ -36,6 +41,7 @@ import {
 
 const mockRun = vi.mocked(run);
 const mockRunOrNull = vi.mocked(runOrNull);
+const mockDockerExec = vi.mocked(execInContainer);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -141,36 +147,41 @@ describe("composePs", () => {
 });
 
 describe("dockerExec", () => {
-  it("runs command in container", () => {
-    mockRun.mockReturnValue("output");
+  it("runs command in container via execInContainer", () => {
+    mockDockerExec.mockReturnValue("output");
     const result = dockerExec("neoboard-postgres", "pg_isready");
     expect(result).toBe("output");
-    expect(mockRun).toHaveBeenCalledWith(
-      "docker exec neoboard-postgres pg_isready",
+    expect(mockDockerExec).toHaveBeenCalledWith(
+      "neoboard-postgres",
+      "pg_isready",
     );
   });
 });
 
 describe("isPgReady", () => {
   it("returns true when pg_isready succeeds", () => {
-    mockRunOrNull.mockReturnValue("accepting connections");
+    mockDockerExec.mockReturnValue("accepting connections");
     expect(isPgReady()).toBe(true);
   });
 
   it("returns false when pg_isready fails", () => {
-    mockRunOrNull.mockReturnValue(null);
+    mockDockerExec.mockImplementation(() => {
+      throw new Error("not ready");
+    });
     expect(isPgReady()).toBe(false);
   });
 });
 
 describe("isNeo4jReady", () => {
   it("returns true when cypher-shell succeeds", () => {
-    mockRunOrNull.mockReturnValue("1");
+    mockDockerExec.mockReturnValue("1");
     expect(isNeo4jReady()).toBe(true);
   });
 
   it("returns false when cypher-shell fails", () => {
-    mockRunOrNull.mockReturnValue(null);
+    mockDockerExec.mockImplementation(() => {
+      throw new Error("not ready");
+    });
     expect(isNeo4jReady()).toBe(false);
   });
 });
