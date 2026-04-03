@@ -391,11 +391,11 @@ describe("POST /api/keys", () => {
     expect(body.error.message).not.toContain("API_KEY_HMAC_SECRET");
   });
 
-  it("returns 503 with generic message when generateApiKey throws and user is reader role", async () => {
+  it("returns 503 with generic message when generateApiKey throws and user is creator role", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "user-1",
       tenantId: "default",
-      role: "reader",
+      role: "creator",
       canWrite: true,
     });
     mockGenerateApiKey.mockImplementation(() => {

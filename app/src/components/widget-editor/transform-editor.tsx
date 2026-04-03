@@ -484,7 +484,7 @@ export function TransformEditor({
           </p>
           <ul className="list-disc pl-4 space-y-0.5">
             <li>
-              <strong>Filter</strong> — keep rows matching a condition
+              <strong>Filter</strong> — remove rows matching a condition
             </li>
             <li>
               <strong>Sort</strong> — order rows by a column
@@ -494,6 +494,9 @@ export function TransformEditor({
             </li>
             <li>
               <strong>Calculated Column</strong> — add a computed column
+            </li>
+            <li>
+              <strong>Rename Columns</strong> — change column display names
             </li>
             <li>
               <strong>Limit</strong> — cap the number of rows shown
