@@ -771,4 +771,103 @@ describe("GraphChart", () => {
       expect(nvlNodes[0].color).not.toBe("#ff0000");
     });
   });
+
+  // --- Safety timeout for layout ---
+
+  describe("layout safety timeout", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("forces layoutReady after 800ms when onLayoutDone never fires", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      // Loading overlay is shown initially
+      expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
+
+      // Advance time by 800ms — the safety timeout should fire
+      act(() => {
+        vi.advanceTimersByTime(800);
+      });
+
+      // Overlay should be removed
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not force layoutReady before 800ms", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
+
+      // Advance to just before the timeout
+      act(() => {
+        vi.advanceTimersByTime(799);
+      });
+
+      // Overlay should still be visible
+      expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
+    });
+
+    it("safety timeout is a no-op when onLayoutDone fires first", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
+
+      // Simulate NVL calling onLayoutDone before the timeout
+      const callbacks = capturedProps.nvlCallbacks as {
+        onLayoutDone?: () => void;
+      };
+      act(() => {
+        callbacks.onLayoutDone?.();
+      });
+
+      // Overlay is already gone
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+
+      // Advancing past 800ms should not cause errors or re-show overlay
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not start safety timeout when nodes are empty", () => {
+      render(<GraphChart nodes={[]} edges={[]} />);
+
+      // No overlay at all for empty nodes
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+
+      // Advancing time should not cause any issues
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("cleans up timeout on unmount to prevent state update on unmounted component", () => {
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+      const { unmount } = render(
+        <GraphChart nodes={sampleNodes} edges={sampleEdges} />,
+      );
+
+      // Unmount before timeout fires
+      unmount();
+
+      // clearTimeout should have been called (cleanup function ran)
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      clearTimeoutSpy.mockRestore();
+    });
+  });
 });

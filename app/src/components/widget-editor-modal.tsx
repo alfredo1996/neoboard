@@ -697,11 +697,13 @@ export function WidgetEditorModal({
     }
   }, [connectionId, query, previewQuery, allParamValues, selectedConnection]);
 
-  // Auto-run preview when editing an existing widget so column selectors are populated.
+  // Auto-run preview when connection and query are present so column selectors
+  // are populated.  For "add" mode a short debounce avoids firing on every
+  // keystroke while the user is still typing the query.
   // Skip if initialPreviewData was provided (we already have data to show).
   const autoPreviewTriggered = useRef(false);
   useEffect(() => {
-    if (!open || (mode !== "edit" && mode !== "lab-edit")) {
+    if (!open) {
       autoPreviewTriggered.current = false;
       return;
     }
@@ -712,10 +714,11 @@ export function WidgetEditorModal({
       return;
     }
     autoPreviewTriggered.current = true;
-    // setTimeout ensures the reset effect's setState calls have flushed
+    // In "add" mode, debounce to avoid firing while the user is still typing.
+    const delay = mode === "add" ? 300 : 0;
     const timer = setTimeout(() => {
       handlePreview();
-    }, 0);
+    }, delay);
     return () => clearTimeout(timer);
   }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
 
@@ -1688,9 +1691,7 @@ export function WidgetEditorModal({
                             (previewQuery.data ?? initialPreviewData)!.resultId
                           }
                         />
-                      ) : (mode === "edit" || mode === "lab-edit") &&
-                        connectionId &&
-                        query.trim() ? (
+                      ) : connectionId && query.trim() ? (
                         <div className="h-full flex items-center justify-center">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
