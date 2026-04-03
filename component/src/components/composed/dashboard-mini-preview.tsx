@@ -57,6 +57,7 @@ export function DashboardMiniPreview({
             "rounded-sm border border-border/30 overflow-hidden",
             !w.thumbnailUrl &&
               (chartTypePreviewColors[w.chartType] ?? "bg-muted"),
+            !w.thumbnailUrl && "dark:opacity-80",
           )}
           style={{
             gridColumn: `${w.x + 1} / span ${w.w}`,
@@ -70,7 +71,7 @@ export function DashboardMiniPreview({
               loading="lazy"
               width={320}
               height={200}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover dark:brightness-90 dark:contrast-110 dark:saturate-75"
             />
           )}
         </div>
