@@ -268,4 +268,103 @@ describe("CardContainer", () => {
     expect(screen.getByText("No connection configured")).toBeDefined();
     expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
   });
+
+  // ----- Manual run overlay -----
+
+  it("shows manual run overlay when manualRun is enabled and query has not been run", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      data: undefined,
+      missingParams: [],
+    });
+
+    render(
+      <CardContainer
+        widget={makeWidget({
+          settings: { chartOptions: { manualRun: true } },
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("manual-run-overlay")).toBeDefined();
+    expect(screen.getByText("Query execution is paused.")).toBeDefined();
+    expect(screen.getByRole("button", { name: /run query/i })).toBeDefined();
+  });
+
+  // ----- No data state -----
+
+  it('shows "No data" when query returns null data', () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: null,
+      missingParams: [],
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText("No data")).toBeDefined();
+  });
+
+  // ----- Parameter-select widget (no query) -----
+
+  it("renders chart directly for parameter-select widgets without querying", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: null,
+      missingParams: [],
+    });
+
+    render(
+      <CardContainer
+        widget={makeWidget({ chartType: "bar", connectionId: "conn-1" })}
+        previewData={[{ name: "A", value: 1 }]}
+      />,
+    );
+
+    expect(screen.getByTestId("chart-renderer")).toBeDefined();
+  });
+
+  // ----- Truncation warning -----
+
+  it("shows truncation warning when data is truncated", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: {
+        data: [{ name: "Alice", value: 10 }],
+        resultId: "r1",
+        truncated: true,
+      },
+      missingParams: [],
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText(/Showing first 10,000 rows/)).toBeDefined();
+  });
+
+  it("does not show truncation warning when data is not truncated", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: {
+        data: [{ name: "Alice", value: 10 }],
+        resultId: "r1",
+        truncated: false,
+      },
+      missingParams: [],
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.queryByText(/Showing first 10,000 rows/)).toBeNull();
+  });
 });
