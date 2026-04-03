@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { encryptJson } from "@/lib/crypto";
+import { encryptJson, decryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { updateConnectionSchema } from "@/lib/schemas";
 import type { ConnectorType } from "@/lib/connector-types";
@@ -23,6 +23,7 @@ export async function GET(
         id: connections.id,
         name: connections.name,
         type: connections.type,
+        configEncrypted: connections.configEncrypted,
         createdAt: connections.createdAt,
         updatedAt: connections.updatedAt,
       })
@@ -43,6 +44,7 @@ export async function GET(
           id: connections.id,
           name: connections.name,
           type: connections.type,
+          configEncrypted: connections.configEncrypted,
           createdAt: connections.createdAt,
           updatedAt: connections.updatedAt,
         })
@@ -55,7 +57,17 @@ export async function GET(
       return notFound("Connection not found");
     }
 
-    return apiSuccess(connection);
+    // Decrypt config and strip password before returning
+    const { configEncrypted, ...metadata } = connection;
+    let config: Record<string, unknown> | undefined;
+    if (configEncrypted) {
+      const decrypted = decryptJson<Record<string, unknown>>(configEncrypted);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip password from response
+      const { password, ...safeConfig } = decrypted;
+      config = safeConfig;
+    }
+
+    return apiSuccess({ ...metadata, config });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch connection");
   }
@@ -74,8 +86,30 @@ export async function PATCH(
 
     const updates: Record<string, unknown> = {};
     if (result.data.name) updates.name = result.data.name;
-    if (result.data.config)
-      updates.configEncrypted = encryptJson(result.data.config);
+
+    let finalConfig = result.data.config;
+    if (finalConfig && !finalConfig.password) {
+      // Password omitted — merge with existing encrypted config
+      const [existing] = await db
+        .select({ configEncrypted: connections.configEncrypted })
+        .from(connections)
+        .where(
+          and(
+            eq(connections.id, id),
+            eq(connections.userId, userId),
+            eq(connections.tenantId, tenantId),
+          ),
+        )
+        .limit(1);
+      if (existing?.configEncrypted) {
+        const prev = decryptJson<Record<string, unknown>>(
+          existing.configEncrypted,
+        );
+        finalConfig = { ...finalConfig, password: prev.password as string };
+      }
+    }
+
+    if (finalConfig) updates.configEncrypted = encryptJson(finalConfig);
 
     const [connection] = await db
       .update(connections)
@@ -100,8 +134,11 @@ export async function PATCH(
     }
 
     // Fire-and-forget: re-warm the schema cache after credential update
-    if (result.data.config) {
-      prefetchSchema(connection.type as ConnectorType, result.data.config);
+    if (finalConfig?.password) {
+      prefetchSchema(
+        connection.type as ConnectorType,
+        finalConfig as { uri: string; username: string; password: string },
+      );
     }
 
     return apiSuccess(connection);
