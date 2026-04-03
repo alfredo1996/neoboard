@@ -20,14 +20,18 @@ test.describe("Authentication", () => {
 });
 
 test.describe("Signup", () => {
-  test("should render signup form with all required fields", async ({ page }) => {
+  test("should render signup form with all required fields", async ({
+    page,
+  }) => {
     await page.goto("/signup");
     await expect(page.getByText("Create your account")).toBeVisible();
     await expect(page.getByLabel("Name")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Confirm Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create account" }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
   });
 
@@ -37,11 +41,16 @@ test.describe("Signup", () => {
     // Signup should auto-login and redirect to the dashboard
     await expect(page).toHaveURL("/", { timeout: 15_000 });
     // Sidebar should be visible (proves we're authenticated)
-    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   });
 
-  test("should be able to login with newly created account", async ({ authPage, page }) => {
+  test("should be able to login with newly created account", async ({
+    authPage,
+    page,
+  }) => {
     const email = `relogin-${Date.now()}@example.com`;
     const password = "password123";
     // Sign up
@@ -53,7 +62,9 @@ test.describe("Signup", () => {
     // Log back in with the new account
     await authPage.login(email, password);
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("should show error for mismatched passwords", async ({ page }) => {
@@ -76,7 +87,9 @@ test.describe("Signup", () => {
     await page.getByLabel("Password", { exact: true }).fill("password123");
     await page.getByLabel("Confirm Password").fill("password123");
     await page.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByText("An account with this email already exists")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByText("An account with this email already exists"),
+    ).toBeVisible({ timeout: 10_000 });
     // Should stay on signup page
     await expect(page).toHaveURL(/\/signup/);
   });
@@ -85,5 +98,109 @@ test.describe("Signup", () => {
     await page.goto("/signup");
     await page.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login/);
+  });
+});
+
+test.describe("Force password change", () => {
+  /**
+   * Helper: login as ALICE, create a user with forcePasswordChange=true via API,
+   * log out, then return the new user's credentials.
+   */
+  async function createForcePasswordUser(
+    page: import("@playwright/test").Page,
+    authPage: import("./pages/auth").AuthPage,
+  ) {
+    // Login as admin to access the API
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.waitForLoadState("networkidle");
+
+    const timestamp = Date.now();
+    const email = `force-pw-${timestamp}@test.com`;
+    const password = "oldpass123";
+
+    // Create user with forcePasswordChange via API
+    const res = await page.request.post("/api/users", {
+      data: {
+        name: "Force PW",
+        email,
+        password,
+        forcePasswordChange: true,
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+
+    // Logout admin
+    await authPage.logout();
+    await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+
+    return { email, password };
+  }
+
+  /**
+   * Helper: login as a force-password-change user without waiting for "/" redirect.
+   * The AuthPage.login() waits for toHaveURL("/") which won't happen for these users.
+   */
+  async function loginWithoutDashboardRedirect(
+    page: import("@playwright/test").Page,
+    email: string,
+    password: string,
+  ) {
+    await page.goto("/login");
+    await page.getByLabel("Email").waitFor({ state: "visible" });
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForLoadState("networkidle");
+  }
+
+  test("user with forcePasswordChange is redirected to /change-password on login", async ({
+    authPage,
+    page,
+  }) => {
+    const { email, password } = await createForcePasswordUser(page, authPage);
+
+    await loginWithoutDashboardRedirect(page, email, password);
+
+    await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: "Change Password" }),
+    ).toBeVisible();
+  });
+
+  test("user cannot navigate away from /change-password", async ({
+    authPage,
+    page,
+  }) => {
+    const { email, password } = await createForcePasswordUser(page, authPage);
+
+    await loginWithoutDashboardRedirect(page, email, password);
+    await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
+
+    // Try navigating to the dashboard
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // Proxy should redirect back to /change-password
+    await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
+  });
+
+  test("after changing password, user is redirected to dashboard", async ({
+    authPage,
+    page,
+  }) => {
+    const { email, password } = await createForcePasswordUser(page, authPage);
+
+    await loginWithoutDashboardRedirect(page, email, password);
+    await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
+
+    // Fill the change password form
+    const newPassword = "newSecurePass123";
+    await page.getByLabel("Current Password").fill(password);
+    await page.getByLabel("New Password").fill(newPassword);
+    await page.getByLabel("Confirm New Password").fill(newPassword);
+    await page.getByRole("button", { name: "Change Password" }).click();
+
+    // After password change, user should be redirected to dashboard
+    await expect(page).toHaveURL("/", { timeout: 30_000 });
   });
 });
