@@ -6,7 +6,12 @@ import { encryptJson, decryptJson } from "@/lib/crypto";
 import { prefetchSchema } from "@/lib/schema-prefetch";
 import { updateConnectionSchema } from "@/lib/schemas";
 import type { ConnectorType } from "@/lib/connector-types";
-import { validateBody, notFound, handleRouteError } from "@/lib/api-utils";
+import {
+  validateBody,
+  notFound,
+  handleRouteError,
+  badRequest,
+} from "@/lib/api-utils";
 import { apiSuccess } from "@/lib/api-response";
 
 export async function GET(
@@ -61,10 +66,15 @@ export async function GET(
     const { configEncrypted, ...metadata } = connection;
     let config: Record<string, unknown> | undefined;
     if (configEncrypted) {
-      const decrypted = decryptJson<Record<string, unknown>>(configEncrypted);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip password from response
-      const { password, ...safeConfig } = decrypted;
-      config = safeConfig;
+      try {
+        const decrypted = decryptJson<Record<string, unknown>>(configEncrypted);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip password from response
+        const { password, ...safeConfig } = decrypted;
+        config = safeConfig;
+      } catch {
+        // Corrupted or legacy encrypted config — return metadata without config
+        config = undefined;
+      }
     }
 
     return apiSuccess({ ...metadata, config });
@@ -102,10 +112,17 @@ export async function PATCH(
         )
         .limit(1);
       if (existing?.configEncrypted) {
-        const prev = decryptJson<Record<string, unknown>>(
-          existing.configEncrypted,
-        );
-        finalConfig = { ...finalConfig, password: prev.password as string };
+        try {
+          const prev = decryptJson<Record<string, unknown>>(
+            existing.configEncrypted,
+          );
+          finalConfig = { ...finalConfig, password: prev.password as string };
+        } catch {
+          // Stored config is corrupted/unreadable — user must re-enter password
+          return badRequest(
+            "Stored credentials could not be decrypted. Please re-enter the password.",
+          );
+        }
       }
     }
 

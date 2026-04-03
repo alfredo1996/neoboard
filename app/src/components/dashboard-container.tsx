@@ -261,7 +261,10 @@ export function DashboardContainer({
                 data-widget-id={widget.id}
                 onDoubleClick={
                   editable && onEditWidget
-                    ? () => onEditWidget(widget)
+                    ? (e: React.MouseEvent) => {
+                        if ((e.target as HTMLElement).closest("button")) return;
+                        onEditWidget(widget);
+                      }
                     : undefined
                 }
               >
