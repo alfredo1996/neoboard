@@ -137,7 +137,7 @@ describe("DashboardLayout", () => {
     );
 
     // Should show spinner, not content
-    expect(container.querySelector(".animate-spin")).toBeDefined();
+    expect(container.querySelector(".animate-spin")).toBeTruthy();
     expect(screen.queryByText("Child content")).toBeNull();
   });
 
