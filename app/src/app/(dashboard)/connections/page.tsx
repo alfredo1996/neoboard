@@ -35,7 +35,7 @@ import {
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 import { type ConnectorType, CONNECTOR_LABELS } from "@/lib/connector-types";
-import { parseOptionalInt } from "@/lib/parse-utils";
+import { parseOptionalInt, mapConfigToEditForm } from "@/lib/parse-utils";
 
 type DialogStep = "pick-type" | "fill-form";
 
@@ -294,17 +294,7 @@ export default function ConnectionsPage() {
       if (config) {
         setEditForm((prev) => ({
           ...prev,
-          uri: config.uri ?? "",
-          username: config.username ?? "",
-          database: config.database ?? "",
-          connectionTimeout: config.connectionTimeout?.toString() ?? "",
-          queryTimeout: config.queryTimeout?.toString() ?? "",
-          maxPoolSize: config.maxPoolSize?.toString() ?? "",
-          connectionAcquisitionTimeout:
-            config.connectionAcquisitionTimeout?.toString() ?? "",
-          idleTimeout: config.idleTimeout?.toString() ?? "",
-          statementTimeout: config.statementTimeout?.toString() ?? "",
-          sslRejectUnauthorized: config.sslRejectUnauthorized,
+          ...mapConfigToEditForm(config),
         }));
       }
     } catch {

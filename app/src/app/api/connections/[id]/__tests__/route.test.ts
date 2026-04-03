@@ -364,6 +364,17 @@ describe("PATCH /api/connections/[id]", () => {
     expect(mockPrefetchSchema).not.toHaveBeenCalled();
   });
 
+  it("returns 400 when body fails validation", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const res = await PATCH(
+      makeRequest({ config: { uri: "" } }), // uri must be min(1)
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+  });
+
   it("calls prefetchSchema when password is explicitly provided", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const updated = {
