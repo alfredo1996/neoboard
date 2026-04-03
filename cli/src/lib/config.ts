@@ -58,6 +58,12 @@ export const paths = {
   get appDir() {
     return join(root(), "app");
   },
+  get componentDir() {
+    return join(root(), "component");
+  },
+  get connectionDir() {
+    return join(root(), "connection");
+  },
   get dockerDir() {
     return join(root(), "docker");
   },

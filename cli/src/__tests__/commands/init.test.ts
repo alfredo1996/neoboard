@@ -13,6 +13,8 @@ vi.mock("../../lib/config.js", () => ({
   paths: {
     root: "/project",
     appDir: "/project/app",
+    componentDir: "/project/component",
+    connectionDir: "/project/connection",
     projectConfig: "/project/neoboard.config.json",
   },
   readProjectConfig: vi.fn(() => ({
@@ -79,13 +81,20 @@ describe("runInit", () => {
     expect(mockWriteLocalConfig).toHaveBeenCalledWith({ mode: "local" });
   });
 
-  it("installs deps in local mode", async () => {
+  it("installs deps for all packages in local mode", async () => {
     mockExistsSync.mockReturnValue(false);
     await runInit({ mode: "local" });
     expect(mockRun).toHaveBeenCalledWith("npm install", { cwd: "/project" });
     expect(mockRun).toHaveBeenCalledWith("npm install", {
       cwd: "/project/app",
     });
+    expect(mockRun).toHaveBeenCalledWith("npm install", {
+      cwd: "/project/component",
+    });
+    expect(mockRun).toHaveBeenCalledWith("npm install", {
+      cwd: "/project/connection",
+    });
+    expect(mockRun).toHaveBeenCalledTimes(4);
   });
 
   it("generates env file in local mode", async () => {
