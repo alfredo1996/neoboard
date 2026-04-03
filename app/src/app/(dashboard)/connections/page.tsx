@@ -77,6 +77,7 @@ export default function ConnectionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
+  const editTargetIdRef = useRef<string | null>(null);
 
   // Edit dialog state — only advanced settings are editable
   const [editTarget, setEditTarget] = useState<{
@@ -281,14 +282,21 @@ export default function ConnectionsPage() {
     name: string;
     type: ConnectorType;
   }) {
+    editTargetIdRef.current = conn.id;
     setEditTarget(conn);
     setEditForm({ ...DEFAULT_FORM, type: conn.type, name: conn.name });
     setEditError(null);
     setShowEditAdvanced(true);
 
-    // Fetch existing config (sans password) and pre-fill the form
+    // Fetch existing config (sans password) and pre-fill the form.
+    // Guard against races: if the user opens a different connection before this
+    // fetch completes, discard the stale response.
+    const controller = new AbortController();
     try {
-      const res = await fetch(`/api/connections/${conn.id}`);
+      const res = await fetch(`/api/connections/${conn.id}`, {
+        signal: controller.signal,
+      });
+      if (editTargetIdRef.current !== conn.id) return; // stale response
       const body = await res.json();
       const config = body?.data?.config;
       if (config) {
