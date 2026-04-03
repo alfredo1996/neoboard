@@ -713,6 +713,19 @@ export function WidgetEditorModal({
     return () => clearTimeout(timer);
   }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
 
+  // Auto-run preview when the query changes (debounced 800ms).
+  const prevQueryRef = useRef(query);
+  useEffect(() => {
+    if (!open) return;
+    if (prevQueryRef.current === query) return;
+    prevQueryRef.current = query;
+    if (!connectionId || !query.trim()) return;
+    const timer = setTimeout(() => {
+      handlePreview();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [open, query, connectionId, handlePreview]);
+
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
     // Content-only widgets (markdown, iframe) don't have a query — skip the run+save shortcut.
@@ -1180,6 +1193,7 @@ export function WidgetEditorModal({
                 </div>
 
                 <ChartSettingsPanel
+                  resetKey={chartType}
                   dataTab={
                     <div className="space-y-4">
                       <ChartTypeSelector

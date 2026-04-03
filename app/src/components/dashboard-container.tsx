@@ -96,7 +96,6 @@ export function DashboardContainer({
     onEditWidget,
     onDuplicateWidget,
     onLayoutChange,
-    onWidgetSettingsChange,
     onNavigateToPage,
     onSaveAsTemplate,
     onSyncWidget,
@@ -260,6 +259,11 @@ export function DashboardContainer({
                 key={widget.id}
                 data-testid="widget-card"
                 data-widget-id={widget.id}
+                onDoubleClick={
+                  editable && onEditWidget
+                    ? () => onEditWidget(widget)
+                    : undefined
+                }
               >
                 <WidgetCard
                   title={interpolateTitle(
@@ -317,12 +321,6 @@ export function DashboardContainer({
                   <CardContainer
                     widget={widget}
                     isEditMode={editable}
-                    onWidgetSettingsChange={
-                      onWidgetSettingsChange
-                        ? (settings) =>
-                            onWidgetSettingsChange(widget.id, settings)
-                        : undefined
-                    }
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
                     parameterSourceMap={parameterSourceMap}
