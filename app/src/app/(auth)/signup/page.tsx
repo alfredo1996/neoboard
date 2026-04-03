@@ -24,6 +24,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [bootstrapRequired, setBootstrapRequired] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
 
   useEffect(() => {
     fetch("/api/auth/bootstrap-status")
@@ -32,6 +33,7 @@ export default function SignupPage() {
         // Supports envelope format: { data: { bootstrapRequired }, ... }
         const payload = body?.data ?? body;
         setBootstrapRequired(payload?.bootstrapRequired === true);
+        setRegistrationEnabled(payload?.registrationEnabled !== false);
       })
       .catch(() => {});
   }, []);
@@ -71,6 +73,34 @@ export default function SignupPage() {
     } else {
       router.push("/");
     }
+  }
+
+  if (!registrationEnabled && !bootstrapRequired) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">NeoBoard</CardTitle>
+            <CardDescription>Registration Disabled</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Alert>
+              <AlertDescription>
+                Self-registration is disabled. Contact your administrator for an
+                account.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+          <CardFooter className="justify-center">
+            <p className="text-sm text-muted-foreground">
+              <Link href="/login" className="text-primary underline">
+                Back to sign in
+              </Link>
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
+    );
   }
 
   return (
