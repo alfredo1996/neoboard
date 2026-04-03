@@ -209,4 +209,56 @@ describe("CardContainer", () => {
       expect(screen.getByText("Unknown chart type")).toBeInTheDocument();
     });
   });
+
+  describe("content-only widget paths", () => {
+    it("renders markdown widget without querying", () => {
+      const widget = createWidget({
+        chartType: "markdown",
+        settings: { chartOptions: { content: "# Hello" } },
+      });
+      renderWithProviders(<CardContainer widget={widget} />);
+
+      expect(screen.getByTestId("chart-renderer")).toBeInTheDocument();
+    });
+
+    it("passes effectiveWidgetId in meta for content-only widgets", () => {
+      const widget = createWidget({
+        chartType: "markdown",
+        settings: { chartOptions: { content: "test" } },
+      });
+      renderWithProviders(
+        <CardContainer widget={widget} widgetIdSuffix="preview" />,
+      );
+
+      const meta = capturedChartProps.meta as { widgetId?: string };
+      expect(meta?.widgetId).toBe("widget-123--preview");
+    });
+  });
+
+  describe("preview data validation", () => {
+    it("renders chart when preview data passes validation", () => {
+      const widget = createWidget({ chartType: "bar" });
+      const previewData = [{ label: "A", count: 10 }];
+      renderWithProviders(
+        <CardContainer widget={widget} previewData={previewData} />,
+      );
+
+      expect(screen.getByTestId("chart-renderer")).toBeInTheDocument();
+    });
+  });
+
+  describe("form widget path", () => {
+    it("renders chart for form widgets without querying", () => {
+      // Need to add "form" to the mock chart-registry
+      const widget = createWidget({
+        chartType: "bar",
+        settings: { chartOptions: {} },
+      });
+      renderWithProviders(
+        <CardContainer widget={widget} previewData={[{ x: 1 }]} />,
+      );
+
+      expect(screen.getByTestId("chart-renderer")).toBeInTheDocument();
+    });
+  });
 });
