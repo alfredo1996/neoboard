@@ -28,12 +28,32 @@ export interface TransformEditorProps {
 }
 
 const TRANSFORM_TYPES = [
-  { value: "filter", label: "Filter" },
-  { value: "sort", label: "Sort" },
-  { value: "groupBy", label: "Group By" },
-  { value: "calculatedColumn", label: "Calculated Column" },
-  { value: "renameColumns", label: "Rename Columns" },
-  { value: "limit", label: "Limit" },
+  {
+    value: "filter",
+    label: "Filter",
+    description: "Remove rows matching a condition",
+  },
+  { value: "sort", label: "Sort", description: "Order rows by column values" },
+  {
+    value: "groupBy",
+    label: "Group By",
+    description: "Aggregate rows by column (sum, count, avg)",
+  },
+  {
+    value: "calculatedColumn",
+    label: "Calculated Column",
+    description: "Add a computed column from existing data",
+  },
+  {
+    value: "renameColumns",
+    label: "Rename Columns",
+    description: "Change column display names",
+  },
+  {
+    value: "limit",
+    label: "Limit",
+    description: "Restrict the number of rows shown",
+  },
 ] as const;
 
 const FILTER_OPERATORS = [
@@ -480,8 +500,13 @@ export function TransformEditor({
           </SelectTrigger>
           <SelectContent>
             {TRANSFORM_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
+              <SelectItem key={t.value} value={t.value} textValue={t.label}>
+                <div className="flex flex-col">
+                  <span>{t.label}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t.description}
+                  </span>
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
