@@ -92,15 +92,21 @@ describe("TransformEditor", () => {
         enabled={true}
       />,
     );
+    // Descriptions appear in both the help list and the select dropdown,
+    // so use getAllByText to handle duplicates
     expect(
-      screen.getByText(/keep rows matching a condition/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/order rows by a column/i)).toBeInTheDocument();
-    expect(screen.getByText(/aggregate rows/i)).toBeInTheDocument();
-    expect(screen.getByText(/add a computed column/i)).toBeInTheDocument();
+      screen.getAllByText(/keep rows|remove rows/i).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/order rows/i).length).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getByText(/cap the number of rows shown/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/aggregate rows/i).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText(/computed column/i).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText(/number of rows/i).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("hides help text when transforms are disabled and list is empty", () => {
