@@ -260,5 +260,241 @@ describe("widget-editor-store", () => {
       expect(getState().connectionId).toBe("conn-1");
       expect(getState().chartType).toBe("pie");
     });
+
+    it("preserves title and other UI state", () => {
+      getState().setTitle("My Widget");
+      getState().setEnableCache(false);
+      getState().setQuery("MATCH (n) RETURN n");
+
+      getState().clearQueryState();
+
+      expect(getState().title).toBe("My Widget");
+      expect(getState().enableCache).toBe(false);
+    });
+  });
+
+  describe("setConnectorChanged", () => {
+    it("defaults to false", () => {
+      expect(getState().connectorChanged).toBe(false);
+    });
+
+    it("sets connectorChanged flag to true", () => {
+      getState().setConnectorChanged(true);
+      expect(getState().connectorChanged).toBe(true);
+    });
+
+    it("resets connectorChanged back to false", () => {
+      getState().setConnectorChanged(true);
+      getState().setConnectorChanged(false);
+      expect(getState().connectorChanged).toBe(false);
+    });
+
+    it("is reset by resetForAdd", () => {
+      getState().setConnectorChanged(true);
+      getState().resetForAdd();
+      expect(getState().connectorChanged).toBe(false);
+    });
+  });
+
+  describe("loadFromWidget — parameter-select widget", () => {
+    it("loads parameter-select with date-range type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "MATCH (n) RETURN n.year",
+        settings: {
+          chartOptions: {
+            parameterType: "date-range",
+            parameterName: "dateFilter",
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("date");
+      expect(getState().dateSub).toBe("range");
+      expect(getState().paramWidgetName).toBe("dateFilter");
+    });
+
+    it("loads parameter-select with multi-select type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          chartOptions: {
+            parameterType: "multi-select",
+            parameterName: "tags",
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("select");
+      expect(getState().multiSelect).toBe(true);
+      expect(getState().paramWidgetName).toBe("tags");
+    });
+
+    it("loads parameter-select with text type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          chartOptions: {
+            parameterType: "text",
+            parameterName: "search",
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("freetext");
+      expect(getState().paramWidgetName).toBe("search");
+    });
+
+    it("loads parameter-select with date-relative type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          chartOptions: {
+            parameterType: "date-relative",
+            parameterName: "period",
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("date");
+      expect(getState().dateSub).toBe("relative");
+    });
+  });
+
+  describe("loadFromWidget — form widget fields", () => {
+    it("loads form fields and refresh widget ids", () => {
+      const fields = [
+        { name: "name", type: "text", label: "Name", required: true },
+      ];
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "form",
+        connectionId: "c1",
+        query: "CREATE (n:Person {name: $param_name})",
+        settings: {
+          formFields: fields,
+          chartOptions: { refreshWidgetIds: ["w2", "w3"] },
+        },
+      });
+
+      expect(getState().formFields).toEqual(fields);
+      expect(getState().refreshWidgetIds).toEqual(["w2", "w3"]);
+    });
+  });
+
+  describe("loadFromWidget — cache settings", () => {
+    it("defaults enableCache to true when not specified", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "q",
+        settings: {},
+      });
+
+      expect(getState().enableCache).toBe(true);
+      expect(getState().cacheTtlMinutes).toBe(5);
+    });
+
+    it("loads explicit cache settings", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "q",
+        settings: { enableCache: false, cacheTtlMinutes: 10 },
+      });
+
+      expect(getState().enableCache).toBe(false);
+      expect(getState().cacheTtlMinutes).toBe(10);
+    });
+  });
+
+  describe("loadFromWidget — transforms", () => {
+    it("loads transforms and transformsEnabled", () => {
+      const transforms = [
+        { type: "sort" as const, column: "name", direction: "asc" as const },
+      ];
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "table",
+        connectionId: "c1",
+        query: "q",
+        settings: { transforms, transformsEnabled: false },
+      });
+
+      expect(getState().transforms).toEqual(transforms);
+      expect(getState().transformsEnabled).toBe(false);
+    });
+  });
+
+  describe("loadFromWidget — navigate click action", () => {
+    it("loads navigate-to-page click action", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          clickAction: {
+            type: "navigate-to-page",
+            targetPageId: "page-2",
+            clickableColumns: ["name"],
+          },
+        },
+      });
+
+      expect(getState().clickActionEnabled).toBe(true);
+      expect(getState().clickActionType).toBe("navigate-to-page");
+      expect(getState().targetPageId).toBe("page-2");
+      expect(getState().clickableColumns).toEqual(["name"]);
+    });
+  });
+
+  describe("buildClickAction — navigate-to-page", () => {
+    it("builds navigate-to-page action with valid page id", () => {
+      getState().setClickActionEnabled(true);
+      getState().setClickActionType("navigate-to-page");
+      getState().setTargetPageId("page-1");
+      const layout = { pages: [{ id: "page-1", widgets: [] }] };
+      const action = getState().buildClickAction(
+        layout as unknown as import("@/lib/db/schema").DashboardLayoutV2,
+      );
+      expect(action?.type).toBe("navigate-to-page");
+      expect(action?.targetPageId).toBe("page-1");
+    });
+
+    it("returns undefined for navigate-to-page with invalid page id", () => {
+      getState().setClickActionEnabled(true);
+      getState().setClickActionType("navigate-to-page");
+      getState().setTargetPageId("nonexistent");
+      const layout = { pages: [{ id: "page-1", widgets: [] }] };
+      const action = getState().buildClickAction(
+        layout as unknown as import("@/lib/db/schema").DashboardLayoutV2,
+      );
+      expect(action).toBeUndefined();
+    });
+  });
+
+  describe("buildClickAction — with clickableColumns", () => {
+    it("includes clickableColumns in action", () => {
+      getState().setClickActionEnabled(true);
+      getState().setClickActionType("set-parameter");
+      getState().setParameterName("year");
+      getState().setClickableColumns(["name", "year"]);
+      const action = getState().buildClickAction();
+      expect(action?.clickableColumns).toEqual(["name", "year"]);
+    });
   });
 });
