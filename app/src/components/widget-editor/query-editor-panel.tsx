@@ -2,8 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { Info, RefreshCw } from "lucide-react";
+import { AlertCircle, Info, RefreshCw } from "lucide-react";
 import {
+  Alert,
+  AlertDescription,
   Label,
   Tooltip,
   TooltipContent,
@@ -118,13 +120,24 @@ export function QueryEditorPanel({
           </Tooltip>
         )}
       </div>
+      {!connectionId && (
+        <Alert
+          className="border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400"
+          data-testid="no-connector-warning"
+        >
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Select a connection to enable syntax highlighting and query
+            execution.
+          </AlertDescription>
+        </Alert>
+      )}
       <QueryEditor
         value={query}
         onChange={onQueryChange}
         onRun={onRun}
         running={running}
         language={editorLanguage}
-        readOnly={!connectionId}
         schema={schema}
         placeholder={
           editorLanguage === "sql"
