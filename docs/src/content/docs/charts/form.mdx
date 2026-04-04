@@ -1,0 +1,49 @@
+---
+title: Form Widget
+description: Input fields that execute write queries against your database.
+---
+
+## Overview
+
+The Form widget renders a set of input fields that, when submitted, execute a write query (CREATE, MERGE, INSERT, UPDATE) against your database. Use it to build data entry forms, admin tools, or any workflow that requires writing data from the dashboard.
+
+## Query Format
+
+Write a mutation query with `$param_xxx` placeholders for each form field. The form fields editor (in the widget editor) lets you define the fields, their types, and validation rules.
+
+### Cypher
+
+```cypher
+CREATE (n:Person {name: $param_name, email: $param_email, age: toInteger($param_age)})
+```
+
+### SQL
+
+```sql
+INSERT INTO people (name, email, age)
+VALUES ($param_name, $param_email, $param_age)
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Submit Button Text | text | Submit | Label for the form submit button |
+| Success Message | text | Form submitted successfully | Message shown after a successful submission |
+| Reset on Success | boolean | true | Clear all form fields after a successful submission |
+
+## Form Fields
+
+Form fields are configured in the widget editor's **Fields** tab (not in Chart Options). Each field has:
+
+- **Parameter name** -- maps to `$param_xxx` in the query
+- **Label** -- display text shown to the user
+- **Type** -- text, number, email, date, select, textarea, checkbox
+- **Required** -- whether the field must be filled before submission
+- **Default value** -- pre-filled value on form load
+
+## Tips
+
+- The connector must have `can_write` permission enabled for the form to execute. This is enforced server-side.
+- Use descriptive parameter names like `$param_email` rather than `$param_1` to keep your query readable.
+- Enable Reset on Success for data entry workflows where users submit multiple records in a row.

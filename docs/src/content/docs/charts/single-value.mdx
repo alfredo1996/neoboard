@@ -1,0 +1,52 @@
+---
+title: Single Value
+description: Large KPI card for displaying one key metric.
+---
+
+## Overview
+
+The Single Value widget displays a single number prominently, making it ideal for KPIs and key metrics. It supports prefixes, suffixes, number formatting, and an optional trend indicator comparing to a previous period.
+
+## Query Format
+
+Return a single row with 1 numeric column. For trend mode, return 2 rows where the first row is the current period and the second row is the previous period.
+
+### Cypher
+
+```cypher
+MATCH (u:User)
+RETURN count(u) AS total
+```
+
+### SQL
+
+```sql
+SELECT COUNT(*) AS total FROM users
+```
+
+For trend mode (2 rows):
+
+```sql
+SELECT COUNT(*) AS total FROM users WHERE created_at >= NOW() - INTERVAL '7 days'
+UNION ALL
+SELECT COUNT(*) AS total FROM users WHERE created_at >= NOW() - INTERVAL '14 days'
+  AND created_at < NOW() - INTERVAL '7 days'
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Title | text | (empty) | Custom heading shown above the value |
+| Prefix | text | (empty) | Text prepended to the value (e.g., "$", "EUR") |
+| Suffix | text | (empty) | Text appended to the value (e.g., "%", " items") |
+| Decimal Places | number | -1 (auto) | Fixed decimal places (0-6). -1 for automatic |
+| Font Size | select | lg | Size of the displayed value: Small, Medium, Large, Extra Large |
+| Number Format | select | plain | Plain, Comma (1,234), Compact (1.2k), or Percent |
+| Show Trend Indicator | boolean | false | Show a trend arrow comparing current to previous period (requires 2 rows) |
+
+## Tips
+
+- Combine Prefix and Number Format for currency displays: set Prefix to "$" and Number Format to "Comma" for values like "$1,234,567".
+- Enable Show Trend Indicator and return two rows to add an up/down arrow showing period-over-period change.
+- Use Compact number format for large numbers that would otherwise be hard to read at a glance.

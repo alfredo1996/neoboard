@@ -24,6 +24,10 @@ export default defineConfig({
           autogenerate: { directory: "guides" },
         },
         {
+          label: "Chart Types",
+          autogenerate: { directory: "charts" },
+        },
+        {
           label: "Concepts",
           autogenerate: { directory: "concepts" },
         },
