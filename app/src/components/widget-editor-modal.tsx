@@ -1636,7 +1636,13 @@ export function WidgetEditorModal({
                     previewQuery.isError && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <AlertCircle className="h-4 w-4 text-destructive cursor-help shrink-0" />
+                          <button
+                            type="button"
+                            className="inline-flex items-center text-destructive"
+                            aria-label={`Query failed: ${previewQuery.error.message}`}
+                          >
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent
                           side="bottom"
