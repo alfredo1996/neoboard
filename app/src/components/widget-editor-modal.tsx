@@ -330,6 +330,14 @@ export function WidgetEditorModal({
   const previewQuery = useQueryExecution();
   const allParamValues = useParameterValues();
 
+  // Keep refs for values used inside handlePreview so that the callback
+  // identity stays stable and does not trigger the auto-preview effects
+  // on every render (fixes infinite preview loop — see #354).
+  const allParamValuesRef = useRef(allParamValues);
+  allParamValuesRef.current = allParamValues;
+  const previewQueryRef = useRef(previewQuery);
+  previewQueryRef.current = previewQuery;
+
   // Derive the selected connection object so we can read its type
   const selectedConnection = useMemo(
     () => connections.find((c) => c.id === connectionId) ?? null,
@@ -699,14 +707,21 @@ export function WidgetEditorModal({
 
   const handlePreview = useCallback(() => {
     if (connectionId && query.trim()) {
-      const referenced = extractReferencedParams(query, allParamValues);
+      const referenced = extractReferencedParams(
+        query,
+        allParamValuesRef.current,
+      );
       const params =
         Object.keys(referenced).length > 0 ? referenced : undefined;
       const connectorType = selectedConnection?.type ?? "neo4j";
       const previewQuery_ = wrapWithPreviewLimit(query, connectorType);
-      previewQuery.mutate({ connectionId, query: previewQuery_, params });
+      previewQueryRef.current.mutate({
+        connectionId,
+        query: previewQuery_,
+        params,
+      });
     }
-  }, [connectionId, query, previewQuery, allParamValues, selectedConnection]);
+  }, [connectionId, query, selectedConnection]);
 
   // Auto-run preview when connection and query are present so column selectors
   // are populated.  For "add" mode a short debounce avoids firing on every
@@ -752,7 +767,7 @@ export function WidgetEditorModal({
     if (chartType === "markdown" || chartType === "iframe") return;
     if (!query.trim() || saveStatus === "saving") return;
     setSaveStatus("saving");
-    previewQuery.mutate(
+    previewQueryRef.current.mutate(
       { connectionId, query },
       {
         onSuccess: () => {
@@ -811,7 +826,6 @@ export function WidgetEditorModal({
     enableCache,
     cacheTtlMinutes,
     colorScales,
-    previewQuery,
     onSave,
     onOpenChange,
     templateId,
