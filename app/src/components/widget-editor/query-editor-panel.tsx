@@ -192,7 +192,7 @@ export function QueryEditorPanel({
           </>
         )}
       </div>
-      {!connectionId && (
+      {!connectionId && query.trim() && (
         <Alert
           className="border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400"
           data-testid="no-connector-warning"

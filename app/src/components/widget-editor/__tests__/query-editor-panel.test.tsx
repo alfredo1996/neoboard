@@ -89,8 +89,16 @@ describe("QueryEditorPanel", () => {
     useWidgetEditorStore.getState().resetForAdd();
   });
 
-  it("shows warning when no connection is selected", () => {
-    // resetForAdd sets connectionId to ""
+  it("does NOT show warning on fresh modal open (no query, no connection)", () => {
+    // resetForAdd sets connectionId to "" and query to ""
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.queryByTestId("no-connector-warning"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows warning when user has written a query but no connection", () => {
+    useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
     render(<QueryEditorPanel editorLanguage="cypher" />);
     expect(screen.getByTestId("no-connector-warning")).toBeInTheDocument();
     expect(
@@ -102,6 +110,15 @@ describe("QueryEditorPanel", () => {
 
   it("hides warning when a connection is selected", () => {
     useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.queryByTestId("no-connector-warning"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides warning when connection is selected even with query", () => {
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
     render(<QueryEditorPanel editorLanguage="cypher" />);
     expect(
       screen.queryByTestId("no-connector-warning"),
