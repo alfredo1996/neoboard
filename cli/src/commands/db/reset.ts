@@ -12,6 +12,13 @@ import { confirm } from "../../lib/prompt.js";
 import { runDbMigrate } from "./migrate.js";
 import { runDbSeed } from "./seed.js";
 
+/** Validate a PostgreSQL identifier to prevent SQL injection. */
+function assertPgIdentifier(value: string, label: string): void {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
+    throw new Error(`Invalid PostgreSQL identifier for ${label}: "${value}"`);
+  }
+}
+
 function getDatabaseHost(): string {
   try {
     const content = readFileSync(paths.envFile, "utf-8");
@@ -52,6 +59,10 @@ export async function runDbReset(opts?: {
   const config = readProjectConfig();
   const mode = getMode();
   const { user, database } = config.postgres;
+
+  // Validate identifiers to prevent SQL injection via config values
+  assertPgIdentifier(user, "postgres.user");
+  assertPgIdentifier(database, "postgres.database");
 
   const spinner = createSpinner("Resetting database...");
   spinner.start();
