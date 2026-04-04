@@ -20,6 +20,7 @@ vi.mock("../../lib/config.js", () => ({
 vi.mock("../../lib/output.js", () => ({
   info: vi.fn(),
   success: vi.fn(),
+  warn: vi.fn(),
   banner: vi.fn(),
 }));
 
@@ -68,10 +69,10 @@ describe("runStart", () => {
     expect(mockComposeUp).toHaveBeenCalledWith({ full: true });
   });
 
-  it("starts only DB containers in local mode", async () => {
+  it("skips composeUp in local mode", async () => {
     mockGetMode.mockReturnValue("local");
     await runStart();
-    expect(mockComposeUp).toHaveBeenCalledWith({ full: false });
+    expect(mockComposeUp).not.toHaveBeenCalled();
   });
 
   it("waits for health checks", async () => {

@@ -19,6 +19,7 @@ vi.mock("../../lib/config.js", () => ({
       neo4j_cypher: "docker/neo4j/init.cypher",
     },
   })),
+  getMode: vi.fn(() => "docker"),
 }));
 
 vi.mock("../../lib/output.js", () => ({

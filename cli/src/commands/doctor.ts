@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { runOrNull } from "../lib/exec.js";
 import { isPortAvailable } from "../lib/ports.js";
-import { paths, readProjectConfig } from "../lib/config.js";
+import { paths, readProjectConfig, getMode } from "../lib/config.js";
 import { success, warn, error as logError } from "../lib/output.js";
 
 export interface CheckResult {
@@ -79,9 +79,19 @@ export function checkEnvFileExists(): CheckResult {
 
 export async function runDoctor(): Promise<CheckResult[]> {
   const config = readProjectConfig();
+  const mode = getMode();
+
+  // Docker checks are warnings (not failures) in local mode
+  const dockerCheck = checkDockerRunning();
+  const composeCheck = checkDockerComposeV2();
+  if (mode === "local") {
+    if (dockerCheck.status === "fail") dockerCheck.status = "warn";
+    if (composeCheck.status === "fail") composeCheck.status = "warn";
+  }
+
   const results: CheckResult[] = [
-    checkDockerRunning(),
-    checkDockerComposeV2(),
+    dockerCheck,
+    composeCheck,
     checkNodeVersion(),
   ];
 

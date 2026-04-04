@@ -10,10 +10,29 @@ vi.mock("../../lib/exec.js", () => ({
 vi.mock("../../lib/config.js", () => ({
   paths: { appDir: "/project/app" },
   getMode: vi.fn(() => "local"),
+  readProjectConfig: vi.fn(() => ({
+    ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+  })),
 }));
 
 vi.mock("../../lib/output.js", () => ({
   info: vi.fn(),
+  warn: vi.fn(),
+  banner: vi.fn(),
+}));
+
+vi.mock("../../lib/docker.js", () => ({
+  isPgReady: vi.fn(() => true),
+  isNeo4jReady: vi.fn(() => true),
+  composeUp: vi.fn(),
+}));
+
+vi.mock("../../lib/health.js", () => ({
+  waitForHealth: vi.fn(),
+}));
+
+vi.mock("../../commands/env.js", () => ({
+  validateEnv: vi.fn(() => ({ ok: true, missing: [] })),
 }));
 
 import { spawn } from "../../lib/exec.js";

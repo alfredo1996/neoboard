@@ -1,5 +1,6 @@
+import { createConnection } from "node:net";
 import { run, runOrNull, dockerExec as execInContainer } from "./exec.js";
-import { paths, readProjectConfig } from "./config.js";
+import { paths, readProjectConfig, getMode } from "./config.js";
 import { join } from "node:path";
 
 export function isDockerRunning(): boolean {
@@ -61,8 +62,33 @@ export function dockerExec(container: string, cmd: string): string {
   return execInContainer(container, cmd);
 }
 
+/** Check if a TCP port is accepting connections. */
+export function isTcpReady(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host, port, timeout: 2000 });
+    socket.on("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on("error", () => resolve(false));
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
 export function isPgReady(): boolean {
   const config = readProjectConfig();
+  const mode = getMode();
+  if (mode === "local") {
+    // In local mode, use pg_isready directly against localhost
+    return (
+      runOrNull(
+        `pg_isready -h localhost -p ${config.ports.postgres} -U ${config.postgres.user}`,
+      ) !== null
+    );
+  }
   try {
     execInContainer(
       "neoboard-postgres",
@@ -76,6 +102,14 @@ export function isPgReady(): boolean {
 
 export function isNeo4jReady(): boolean {
   const config = readProjectConfig();
+  const mode = getMode();
+  if (mode === "local") {
+    // In local mode, try TCP connect to Neo4j Bolt port
+    const out = runOrNull(
+      `curl -s -o /dev/null -w "%{http_code}" http://localhost:${config.ports.neo4j_http}`,
+    );
+    return out === "200";
+  }
   try {
     execInContainer(
       "neoboard-neo4j",
