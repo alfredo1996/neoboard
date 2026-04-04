@@ -57,7 +57,21 @@ export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
     if (typeof msg === "string" && msg) {
       throw new Error(msg);
     }
-    throw new Error(`Request failed with status ${res.status}`);
+    // Provide a more descriptive fallback based on HTTP status
+    const statusHints: Record<number, string> = {
+      400: "Bad request — check query syntax",
+      401: "Unauthorized — please log in again",
+      403: "Forbidden — insufficient permissions",
+      404: "Not found — the resource may have been deleted",
+      408: "Request timed out — try a simpler query",
+      500: "Internal server error — check server logs",
+      502: "Bad gateway — the database may be unreachable",
+      503: "Service unavailable — try again later",
+      504: "Gateway timeout — the query took too long",
+    };
+    throw new Error(
+      statusHints[res.status] ?? `Request failed (HTTP ${res.status})`,
+    );
   }
 
   return body as T;
@@ -90,7 +104,20 @@ export async function unwrapFullResponse<T = unknown>(
     if (typeof msg === "string" && msg) {
       throw new Error(msg);
     }
-    throw new Error(`Request failed with status ${res.status}`);
+    const statusHints: Record<number, string> = {
+      400: "Bad request — check query syntax",
+      401: "Unauthorized — please log in again",
+      403: "Forbidden — insufficient permissions",
+      404: "Not found — the resource may have been deleted",
+      408: "Request timed out — try a simpler query",
+      500: "Internal server error — check server logs",
+      502: "Bad gateway — the database may be unreachable",
+      503: "Service unavailable — try again later",
+      504: "Gateway timeout — the query took too long",
+    };
+    throw new Error(
+      statusHints[res.status] ?? `Request failed (HTTP ${res.status})`,
+    );
   }
 
   return { data: body as T, meta: null };
