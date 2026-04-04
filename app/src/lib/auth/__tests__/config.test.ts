@@ -100,7 +100,11 @@ function mockDbRows(rows: Record<string, unknown>[]) {
     from: vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({
         limit: vi.fn().mockReturnValue({
-          then: vi.fn().mockImplementation((cb: () => void) => cb(rows)),
+          then: vi
+            .fn()
+            .mockImplementation(
+              (cb: (rows: Record<string, unknown>[]) => void) => cb(rows),
+            ),
         }),
       }),
     }),
