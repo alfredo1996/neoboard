@@ -1627,25 +1627,26 @@ export function WidgetEditorModal({
                       Run
                     </Button>
                   )}
-                </div>
-                {!isParamSelect &&
-                  !isForm &&
-                  !isContentOnly &&
-                  previewQuery.isError && (
-                    <Alert variant="destructive" className="mb-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Query Failed</AlertTitle>
-                      <AlertDescription className="space-y-1">
-                        <p>{previewQuery.error.message}</p>
-                        <p
-                          className="text-xs font-mono opacity-70 truncate"
-                          title={query}
+                  {!isParamSelect &&
+                    !isForm &&
+                    !isContentOnly &&
+                    previewQuery.isError && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="h-4 w-4 text-destructive cursor-help shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          className="max-w-sm text-xs"
                         >
-                          {query}
-                        </p>
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                          <p className="font-medium">Query failed</p>
+                          <p className="opacity-80">
+                            {previewQuery.error.message}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                </div>
 
                 <div
                   ref={previewRef}
@@ -1671,6 +1672,11 @@ export function WidgetEditorModal({
                       chartOptions={chartOptions}
                       seedPreviewOptions={seedPreviewOptions}
                       seedQueryPending={seedQueryExecution.isPending}
+                      seedQueryError={
+                        seedQueryExecution.isError
+                          ? seedQueryExecution.error.message
+                          : null
+                      }
                     />
                   ) : isForm ? (
                     formFields.length > 0 ? (
