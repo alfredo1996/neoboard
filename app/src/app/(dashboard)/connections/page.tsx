@@ -35,6 +35,7 @@ import {
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 import { type ConnectorType, CONNECTOR_LABELS } from "@/lib/connector-types";
+import { parseOptionalInt, mapConfigToEditForm } from "@/lib/parse-utils";
 
 type DialogStep = "pick-type" | "fill-form";
 
@@ -54,14 +55,6 @@ const DEFAULT_FORM = {
   statementTimeout: "",
   sslRejectUnauthorized: undefined as boolean | undefined,
 };
-
-/** Parse numeric string to integer, or return undefined if empty/invalid. */
-function parseOptionalInt(val: string): number | undefined {
-  if (!val.trim()) return undefined;
-  const n = Number(val);
-  if (!Number.isFinite(n) || !Number.isInteger(n)) return undefined;
-  return n;
-}
 
 export default function ConnectionsPage() {
   const { data: connections, isLoading } = useConnections();
@@ -84,6 +77,7 @@ export default function ConnectionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
+  const editTargetIdRef = useRef<string | null>(null);
 
   // Edit dialog state — only advanced settings are editable
   const [editTarget, setEditTarget] = useState<{
@@ -283,16 +277,37 @@ export default function ConnectionsPage() {
     setShowCreate(true);
   }
 
-  function openEditDialog(conn: {
+  async function openEditDialog(conn: {
     id: string;
     name: string;
     type: ConnectorType;
   }) {
+    editTargetIdRef.current = conn.id;
     setEditTarget(conn);
-    // Reset the edit form — advanced fields start empty (user fills what they want to change)
     setEditForm({ ...DEFAULT_FORM, type: conn.type, name: conn.name });
     setEditError(null);
     setShowEditAdvanced(true);
+
+    // Fetch existing config (sans password) and pre-fill the form.
+    // Guard against races: if the user opens a different connection before this
+    // fetch completes, discard the stale response.
+    const controller = new AbortController();
+    try {
+      const res = await fetch(`/api/connections/${conn.id}`, {
+        signal: controller.signal,
+      });
+      if (editTargetIdRef.current !== conn.id) return; // stale response
+      const body = await res.json();
+      const config = body?.data?.config;
+      if (config) {
+        setEditForm((prev) => ({
+          ...prev,
+          ...mapConfigToEditForm(config),
+        }));
+      }
+    } catch {
+      // Non-critical — form still works with empty fields
+    }
   }
 
   function buildEditConfig() {
@@ -655,7 +670,8 @@ export default function ConnectionsPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <p className="text-sm text-muted-foreground">
-                Re-enter your credentials to update advanced settings.
+                Update your connection settings. Leave password blank to keep
+                the existing one.
               </p>
 
               <div className="space-y-2">
@@ -695,7 +711,7 @@ export default function ConnectionsPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setEditForm((f) => ({ ...f, password: e.target.value }))
                     }
-                    required
+                    placeholder="Leave blank to keep existing"
                   />
                 </div>
               </div>

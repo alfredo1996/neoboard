@@ -1224,21 +1224,15 @@ test.describe("Column mapping overlay", () => {
       timeout: 10_000,
     });
 
-    // The column mapping overlay should be visible on the grid in edit mode
+    // Column mapping overlay should NOT appear on dashboard cards (#331)
     await expect(
       page.locator("[data-testid='column-mapping-overlay']").first(),
-    ).toBeVisible({ timeout: 15_000 });
-
-    // X and Y triggers should be present
-    await expect(
-      page.locator("[data-testid='column-mapping-x-trigger']").first(),
-    ).toBeVisible();
-    await expect(
-      page.locator("[data-testid='column-mapping-y-trigger']").first(),
-    ).toBeVisible();
+    ).not.toBeVisible({ timeout: 5_000 });
   });
 
-  test("changing axis mapping updates chart", async ({ page }) => {
+  // Column mapping overlay removed from dashboard cards (#331) — axis mapping
+  // is now only available inside the widget editor modal.
+  test.skip("changing axis mapping updates chart", async ({ page }) => {
     test.setTimeout(60_000);
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });

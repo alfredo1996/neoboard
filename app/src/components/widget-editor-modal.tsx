@@ -393,12 +393,18 @@ export function WidgetEditorModal({
   // Unified connection-change handler for both add and edit modes.
   const handleConnectionChange = useCallback(
     (newId: string) => {
+      const prevConnection = connections.find((c) => c.id === connectionId);
       setConnectionId(newId);
       if (mode === "edit") {
         setConnectorChanged(newId !== (widget?.connectionId ?? ""));
       }
       const newConnection = connections.find((c) => c.id === newId);
       if (newConnection) {
+        // Clear query state when switching between different connection types
+        // (e.g. neo4j → postgresql) since the query language is incompatible.
+        if (prevConnection && prevConnection.type !== newConnection.type) {
+          useWidgetEditorStore.getState().clearQueryState();
+        }
         const compatible = getCompatibleChartTypes(newConnection.type);
         if (!compatible.includes(chartType as ChartType)) {
           setChartType("table");
@@ -406,7 +412,7 @@ export function WidgetEditorModal({
         }
       }
     },
-    [connections, chartType, mode, widget?.connectionId],
+    [connections, connectionId, chartType, mode, widget?.connectionId],
   );
 
   const handleChartTypeChange = useCallback(
@@ -726,6 +732,19 @@ export function WidgetEditorModal({
     }, delay);
     return () => clearTimeout(timer);
   }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
+
+  // Auto-run preview when the query changes (debounced 800ms).
+  const prevQueryRef = useRef(query);
+  useEffect(() => {
+    if (!open) return;
+    if (prevQueryRef.current === query) return;
+    prevQueryRef.current = query;
+    if (!connectionId || !query.trim()) return;
+    const timer = setTimeout(() => {
+      handlePreview();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [open, query, connectionId, handlePreview]);
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
@@ -1194,6 +1213,7 @@ export function WidgetEditorModal({
                 </div>
 
                 <ChartSettingsPanel
+                  resetKey={chartType}
                   dataTab={
                     <div className="space-y-4">
                       <ChartTypeSelector

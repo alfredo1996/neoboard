@@ -477,10 +477,32 @@ export function TransformEditor({
         </p>
       )}
       {enabled && transforms.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No transforms configured. Transforms modify query results client-side
-          without changing the original query.
-        </p>
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <p>
+            No transforms configured. Transforms modify query results
+            client-side without changing the original query.
+          </p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>
+              <strong>Filter</strong> — remove rows matching a condition
+            </li>
+            <li>
+              <strong>Sort</strong> — order rows by a column
+            </li>
+            <li>
+              <strong>Group By</strong> — aggregate rows (sum, count, avg)
+            </li>
+            <li>
+              <strong>Calculated Column</strong> — add a computed column
+            </li>
+            <li>
+              <strong>Rename Columns</strong> — change column display names
+            </li>
+            <li>
+              <strong>Limit</strong> — cap the number of rows shown
+            </li>
+          </ul>
+        </div>
       )}
       {transforms.map((t, i) => (
         <TransformCard

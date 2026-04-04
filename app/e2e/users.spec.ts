@@ -30,6 +30,39 @@ test.describe("User management", () => {
     await expect(page.getByText(`test-${timestamp}@example.com`)).toBeVisible();
   });
 
+  test("should change user role via dropdown", async ({ page }) => {
+    // Wait for user data to load
+    await expect(page.getByText("alice@example.com")).toBeVisible({
+      timeout: 10000,
+    });
+    // Create a fresh user as "creator"
+    await page.getByRole("button", { name: "Create User" }).first().click();
+    const dialog = page.getByRole("dialog");
+    const timestamp = Date.now();
+    const email = `test-role-${timestamp}@example.com`;
+    await dialog.locator("#user-name").fill("Role Test User");
+    await dialog.locator("#user-email").fill(email);
+    await dialog.locator("#user-password").fill("password123");
+    // Creator is the default role — no change needed
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByText(email)).toBeVisible({ timeout: 10000 });
+
+    // Find the user's row and click the role Select dropdown
+    const row = page.getByRole("row").filter({ hasText: email });
+    await row.getByRole("combobox").click();
+    // Select "Reader"
+    await page.getByRole("option", { name: "Reader" }).click();
+
+    // Assert toast "Role updated" appears (use exact match to avoid strict-mode
+    // violation from the aria-live status announcement that also contains "Role updated")
+    await expect(page.getByText("Role updated", { exact: true })).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Verify the role changed — Select now shows "Reader"
+    await expect(row.getByRole("combobox")).toHaveText("Reader");
+  });
+
   test("should delete a user with confirmation", async ({ page }) => {
     // Wait for user data to load
     await expect(page.getByText("alice@example.com")).toBeVisible({

@@ -35,7 +35,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { userId, tenantId, canWrite } = await requireSession();
+    const { userId, tenantId, canWrite, role } = await requireSession();
     if (!canWrite) {
       return forbidden();
     }
@@ -45,7 +45,26 @@ export async function POST(request: Request) {
     if (!validation.success) return validation.response;
 
     const { name, expiresAt } = validation.data;
-    const { plaintext, hash } = generateApiKey();
+
+    let plaintext: string;
+    let hash: string;
+    try {
+      ({ plaintext, hash } = generateApiKey());
+    } catch {
+      // generateApiKey throws when API_KEY_HMAC_SECRET is missing
+      const msg =
+        role === "admin"
+          ? "API_KEY_HMAC_SECRET is not configured. Set it in your environment variables."
+          : "API key service is not available. Contact your administrator.";
+      return Response.json(
+        {
+          data: null,
+          error: { code: "SERVICE_UNAVAILABLE", message: msg },
+          meta: null,
+        },
+        { status: 503 },
+      );
+    }
 
     const [inserted] = await db
       .insert(apiKeys)
