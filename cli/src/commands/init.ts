@@ -1,17 +1,13 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { run } from "../lib/exec.js";
 import {
   paths,
   readProjectConfig,
+  writeProjectConfig,
   writeLocalConfig,
-  type ProjectConfig,
 } from "../lib/config.js";
 import { info, success, createSpinner } from "../lib/output.js";
 import { generateEnvFile } from "./env.js";
-
-function writeProjectConfig(config: ProjectConfig): void {
-  writeFileSync(paths.projectConfig, JSON.stringify(config, null, 2) + "\n");
-}
 
 export async function runInit(opts?: {
   mode?: "docker" | "local";

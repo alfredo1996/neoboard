@@ -26,6 +26,7 @@ vi.mock("../../lib/config.js", () => ({
       neo4j_cypher: "docker/neo4j/init.cypher",
     },
   })),
+  writeProjectConfig: vi.fn(),
   writeLocalConfig: vi.fn(),
 }));
 
@@ -44,13 +45,14 @@ vi.mock("../../commands/env.js", () => ({
 
 import { existsSync, writeFileSync } from "node:fs";
 import { run } from "../../lib/exec.js";
-import { writeLocalConfig } from "../../lib/config.js";
+import { writeProjectConfig, writeLocalConfig } from "../../lib/config.js";
 import { generateEnvFile } from "../../commands/env.js";
 import { runInit } from "../../commands/init.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockRun = vi.mocked(run);
+const mockWriteProjectConfig = vi.mocked(writeProjectConfig);
 const mockWriteLocalConfig = vi.mocked(writeLocalConfig);
 const mockGenerateEnvFile = vi.mocked(generateEnvFile);
 
@@ -62,9 +64,8 @@ describe("runInit", () => {
   it("creates config files with docker mode by default", async () => {
     mockExistsSync.mockReturnValue(false);
     await runInit();
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      "/project/neoboard.config.json",
-      expect.stringContaining('"ports"'),
+    expect(mockWriteProjectConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ ports: expect.any(Object) }),
     );
     expect(mockWriteLocalConfig).toHaveBeenCalledWith({ mode: "docker" });
   });
@@ -72,7 +73,7 @@ describe("runInit", () => {
   it("skips config creation when already exists", async () => {
     mockExistsSync.mockReturnValue(true);
     await runInit();
-    expect(mockWriteFileSync).not.toHaveBeenCalled();
+    expect(mockWriteProjectConfig).not.toHaveBeenCalled();
   });
 
   it("sets local mode when specified", async () => {
