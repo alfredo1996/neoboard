@@ -86,6 +86,7 @@ export default function ConnectionsPage() {
     type: ConnectorType;
   } | null>(null);
   const [editForm, setEditForm] = useState(DEFAULT_FORM);
+  const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [showEditAdvanced, setShowEditAdvanced] = useState(true);
 
@@ -286,6 +287,7 @@ export default function ConnectionsPage() {
     setEditTarget(conn);
     setEditForm({ ...DEFAULT_FORM, type: conn.type, name: conn.name });
     setEditError(null);
+    setEditLoading(true);
     setShowEditAdvanced(true);
 
     // Fetch existing config (sans password) and pre-fill the form.
@@ -307,6 +309,8 @@ export default function ConnectionsPage() {
       }
     } catch {
       // Non-critical — form still works with empty fields
+    } finally {
+      setEditLoading(false);
     }
   }
 
@@ -540,7 +544,7 @@ export default function ConnectionsPage() {
                               "conn-max-pool",
                               "Max Pool Size",
                               "maxPoolSize",
-                              "driver default",
+                              "100",
                               1,
                               100,
                             )}
@@ -548,7 +552,7 @@ export default function ConnectionsPage() {
                               "conn-acquisition-timeout",
                               "Acquisition Timeout (ms)",
                               "connectionAcquisitionTimeout",
-                              "driver default",
+                              "60000",
                               0,
                             )}
                           </div>
@@ -668,175 +672,181 @@ export default function ConnectionsPage() {
             <DialogHeader>
               <DialogTitle>Edit {editTarget?.name}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                Update your connection settings. Leave password blank to keep
-                the existing one.
-              </p>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-uri">URI</Label>
-                <Input
-                  id="edit-uri"
-                  value={editForm.uri}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setEditForm((f) => ({ ...f, uri: e.target.value }))
-                  }
-                  required
-                  placeholder={
-                    editTarget?.type === "neo4j"
-                      ? "bolt://localhost:7687"
-                      : "postgresql://localhost:5432"
-                  }
-                />
+            {editLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
+            ) : (
+              <div className="space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">
+                  Update your connection settings. Leave password blank to keep
+                  the existing one.
+                </p>
 
-              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-username">Username</Label>
+                  <Label htmlFor="edit-uri">URI</Label>
                   <Input
-                    id="edit-username"
-                    value={editForm.username}
+                    id="edit-uri"
+                    value={editForm.uri}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setEditForm((f) => ({ ...f, username: e.target.value }))
+                      setEditForm((f) => ({ ...f, uri: e.target.value }))
                     }
                     required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-password">Password</Label>
-                  <PasswordInput
-                    id="edit-password"
-                    value={editForm.password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setEditForm((f) => ({ ...f, password: e.target.value }))
+                    placeholder={
+                      editTarget?.type === "neo4j"
+                        ? "bolt://localhost:7687"
+                        : "postgresql://localhost:5432"
                     }
-                    placeholder="Leave blank to keep existing"
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-database">
-                  Database{" "}
-                  <span className="text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="edit-database"
-                  value={editForm.database}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setEditForm((f) => ({ ...f, database: e.target.value }))
-                  }
-                />
-              </div>
-
-              {/* Advanced Settings */}
-              <div className="border-t pt-2">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowEditAdvanced(!showEditAdvanced)}
-                >
-                  Advanced Settings
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${showEditAdvanced ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {showEditAdvanced && (
-                  <div className="mt-3 space-y-4">
-                    {editTarget?.type === "neo4j" ? (
-                      <>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {editNumericField(
-                            "edit-connection-timeout",
-                            "Connection Timeout (ms)",
-                            "connectionTimeout",
-                            "30000",
-                            0,
-                          )}
-                          {editNumericField(
-                            "edit-query-timeout",
-                            "Query Timeout (ms)",
-                            "queryTimeout",
-                            "2000",
-                            0,
-                          )}
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {editNumericField(
-                            "edit-max-pool",
-                            "Max Pool Size",
-                            "maxPoolSize",
-                            "driver default",
-                            1,
-                            100,
-                          )}
-                          {editNumericField(
-                            "edit-acquisition-timeout",
-                            "Acquisition Timeout (ms)",
-                            "connectionAcquisitionTimeout",
-                            "driver default",
-                            0,
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {editNumericField(
-                            "edit-connection-timeout",
-                            "Connection Timeout (ms)",
-                            "connectionTimeout",
-                            "10000",
-                            0,
-                          )}
-                          {editNumericField(
-                            "edit-idle-timeout",
-                            "Idle Timeout (ms)",
-                            "idleTimeout",
-                            "10000",
-                            0,
-                          )}
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {editNumericField(
-                            "edit-max-pool",
-                            "Max Pool Size",
-                            "maxPoolSize",
-                            "10",
-                            1,
-                            100,
-                          )}
-                          {editNumericField(
-                            "edit-statement-timeout",
-                            "Statement Timeout (ms)",
-                            "statementTimeout",
-                            "30000",
-                            0,
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="edit-ssl-reject">
-                            Reject Unauthorized SSL
-                          </Label>
-                          <Switch
-                            id="edit-ssl-reject"
-                            checked={editForm.sslRejectUnauthorized ?? false}
-                            onCheckedChange={(checked) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                sslRejectUnauthorized: checked,
-                              }))
-                            }
-                          />
-                        </div>
-                      </>
-                    )}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-username">Username</Label>
+                    <Input
+                      id="edit-username"
+                      value={editForm.username}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setEditForm((f) => ({ ...f, username: e.target.value }))
+                      }
+                      required
+                    />
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-password">Password</Label>
+                    <PasswordInput
+                      id="edit-password"
+                      value={editForm.password}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setEditForm((f) => ({ ...f, password: e.target.value }))
+                      }
+                      placeholder="Leave blank to keep existing"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-database">
+                    Database{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="edit-database"
+                    value={editForm.database}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditForm((f) => ({ ...f, database: e.target.value }))
+                    }
+                  />
+                </div>
+
+                {/* Advanced Settings */}
+                <div className="border-t pt-2">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowEditAdvanced(!showEditAdvanced)}
+                  >
+                    Advanced Settings
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${showEditAdvanced ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {showEditAdvanced && (
+                    <div className="mt-3 space-y-4">
+                      {editTarget?.type === "neo4j" ? (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {editNumericField(
+                              "edit-connection-timeout",
+                              "Connection Timeout (ms)",
+                              "connectionTimeout",
+                              "30000",
+                              0,
+                            )}
+                            {editNumericField(
+                              "edit-query-timeout",
+                              "Query Timeout (ms)",
+                              "queryTimeout",
+                              "2000",
+                              0,
+                            )}
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {editNumericField(
+                              "edit-max-pool",
+                              "Max Pool Size",
+                              "maxPoolSize",
+                              "100",
+                              1,
+                              100,
+                            )}
+                            {editNumericField(
+                              "edit-acquisition-timeout",
+                              "Acquisition Timeout (ms)",
+                              "connectionAcquisitionTimeout",
+                              "60000",
+                              0,
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {editNumericField(
+                              "edit-connection-timeout",
+                              "Connection Timeout (ms)",
+                              "connectionTimeout",
+                              "10000",
+                              0,
+                            )}
+                            {editNumericField(
+                              "edit-idle-timeout",
+                              "Idle Timeout (ms)",
+                              "idleTimeout",
+                              "10000",
+                              0,
+                            )}
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {editNumericField(
+                              "edit-max-pool",
+                              "Max Pool Size",
+                              "maxPoolSize",
+                              "10",
+                              1,
+                              100,
+                            )}
+                            {editNumericField(
+                              "edit-statement-timeout",
+                              "Statement Timeout (ms)",
+                              "statementTimeout",
+                              "30000",
+                              0,
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="edit-ssl-reject">
+                              Reject Unauthorized SSL
+                            </Label>
+                            <Switch
+                              id="edit-ssl-reject"
+                              checked={editForm.sslRejectUnauthorized ?? false}
+                              onCheckedChange={(checked) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  sslRejectUnauthorized: checked,
+                                }))
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
             {editError && (
               <Alert variant="destructive">
                 <AlertDescription>{editError}</AlertDescription>
