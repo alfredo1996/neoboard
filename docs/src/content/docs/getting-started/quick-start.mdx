@@ -1,0 +1,67 @@
+---
+title: Quick Start
+description: Create your first dashboard in 5 minutes.
+---
+
+This guide walks you through creating your first dashboard. You will log in, add a connection, create a dashboard, and add a chart widget.
+
+## 1. Log In
+
+Open `http://localhost:3000` in your browser. Sign in with the admin account you created during installation.
+
+![NeoBoard login page](/screenshots/login.png)
+
+## 2. Add a Connection
+
+1. Click **Connections** in the sidebar
+2. Click **Add Connection**
+3. Fill in your database details (name, type, URI, credentials)
+4. Click **Test Connection** to verify, then **Save**
+
+If you used `neoboard demo`, a sample Neo4j database is already connected.
+
+## 3. Create a Dashboard
+
+![Dashboard list](/screenshots/dashboard-list.png)
+
+1. Click **Dashboards** in the sidebar
+2. Click **New Dashboard**
+3. Enter a name and click **Create**
+
+## 4. Add a Widget
+
+1. Click **Edit** on your new dashboard
+2. Click **Add Widget**
+3. Choose **Bar Chart** as the chart type
+4. Select your connection
+5. Enter a query:
+
+**Neo4j (Cypher):**
+```cypher
+MATCH (m:Movie)
+RETURN m.year AS year, count(*) AS count
+ORDER BY year
+```
+
+**PostgreSQL (SQL):**
+```sql
+SELECT year, count(*)
+FROM movies
+GROUP BY year
+ORDER BY year;
+```
+
+6. Click **Run** to preview the result
+7. Click **Save** to add the widget to your dashboard
+
+## 5. Arrange the Layout
+
+- **Drag** widgets to reposition them
+- **Resize** by dragging widget edges
+- Click **Save** when you are happy with the layout
+
+## Next Steps
+
+- Add [parameters](/concepts/parameters) to make your dashboard interactive
+- Explore different [widget types](/concepts/widgets) (tables, graphs, maps, forms)
+- Learn about [dashboard export/import](/concepts/dashboards)
