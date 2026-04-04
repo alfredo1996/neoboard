@@ -16,7 +16,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@source": ["./.source/index.ts"]
+      "@source": ["./.source/server.ts"],
+      "@source/*": ["./.source/*"]
     }
   },
   "include": [

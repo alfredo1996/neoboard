@@ -5,17 +5,29 @@ description: Dashboard structure, layout system, and multi-page support.
 
 Dashboards are the primary way to organize and display data in NeoBoard.
 
+![Dashboard list](/screenshots/dashboard-list.png)
+
+## Creating a Dashboard
+
+1. Click **Dashboards** in the sidebar
+2. Click **New Dashboard**
+3. Enter a name and optional description
+4. Click **Create**
+
+To edit, click the **Edit** button on any dashboard. To delete, open **Dashboard options** and select **Delete**.
+
 ## Structure
 
 Each dashboard contains:
+
 - **Name** and optional **description**
 - One or more **pages**, each with its own set of widgets
-- A **grid layout** that controls widget positioning and sizing
+- A **grid layout** (12-column responsive grid)
 - **Settings** like auto-refresh interval
 
 ## Multi-Page Support
 
-Dashboards support multiple pages, each with independent widgets and layouts. Use pages to organize related views:
+Dashboards can have multiple pages. Each page has independent widgets and layouts. Use pages to organize related views:
 
 - Page 1: Overview metrics
 - Page 2: Detailed analysis
@@ -23,11 +35,10 @@ Dashboards support multiple pages, each with independent widgets and layouts. Us
 
 ## Grid Layout
 
-Widgets are arranged on a 12-column responsive grid:
-- **Drag** to reposition widgets
-- **Resize** by dragging edges
-- Minimum widget size: 2 columns x 2 rows
-- Layout is saved per-page
+- **Drag** widgets to reposition them
+- **Resize** by dragging widget edges
+- Minimum size: 2 columns by 2 rows
+- Layout is saved per page
 
 ## Permissions
 
@@ -37,9 +48,38 @@ Widgets are arranged on a 12-column responsive grid:
 | Creator | Own + shared | Own + shared (editor) | Own only | Own only |
 | Reader | Shared only | No | No | No |
 
-## Import / Export
+## Export and Import
 
-Dashboards can be exported as JSON files and imported into other NeoBoard instances. The export format:
-- Replaces connection IDs with portable keys
-- Includes connection metadata (name, type) but **not credentials**
-- Preserves layout, widgets, and settings
+Dashboards can be exported as JSON and imported into other NeoBoard instances.
+
+**What the export includes:**
+- All widgets, queries, chart options, and layout
+- Connection metadata (name, type) but **not credentials**
+- Portable connection keys instead of internal IDs
+
+**Example export format:**
+
+```json
+{
+  "name": "Sales Overview",
+  "pages": [
+    {
+      "name": "Page 1",
+      "widgets": [
+        {
+          "type": "bar",
+          "title": "Revenue by Month",
+          "connectionKey": "sales-db",
+          "query": "SELECT month, revenue FROM sales",
+          "layout": { "x": 0, "y": 0, "w": 6, "h": 4 }
+        }
+      ]
+    }
+  ],
+  "connections": {
+    "sales-db": { "name": "Sales DB", "type": "postgresql" }
+  }
+}
+```
+
+To import, click **Import Dashboard** on the dashboard list page and select a JSON file.

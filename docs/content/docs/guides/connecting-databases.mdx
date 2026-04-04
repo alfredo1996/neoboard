@@ -1,0 +1,78 @@
+---
+title: Connecting to Your Database
+description: Add Neo4j and PostgreSQL connections to NeoBoard.
+---
+
+NeoBoard supports two database types: **Neo4j** (graph) and **PostgreSQL** (relational). This guide shows you how to add and test connections for both.
+
+![Connections page](/screenshots/connections.png)
+
+## Adding a Neo4j Connection
+
+1. Navigate to **Connections** in the sidebar.
+2. Click **Add Connection**.
+3. Select **Neo4j** as the connection type.
+4. Fill in the connection details:
+
+| Field | Example | Notes |
+|-------|---------|-------|
+| **Name** | Movie Database | A label to identify this connection |
+| **URI** | `bolt://localhost:7687` | Bolt protocol URI |
+| **Username** | `neo4j` | Your Neo4j username |
+| **Password** | `password` | Your Neo4j password |
+| **Database** | `neo4j` | Optional. Defaults to the default database |
+| **Timeout** | `30` | Query timeout in seconds |
+
+5. Click **Test Connection** to verify NeoBoard can reach your database.
+6. If the test passes, click **Create**.
+
+## Adding a PostgreSQL Connection
+
+1. Navigate to **Connections** in the sidebar.
+2. Click **Add Connection**.
+3. Select **PostgreSQL** as the connection type.
+4. Fill in the connection details:
+
+| Field | Example | Notes |
+|-------|---------|-------|
+| **Name** | Analytics DB | A label to identify this connection |
+| **URI** | `postgresql://user:pass@localhost:5432/mydb` | Full connection string |
+| **SSL** | Enabled/Disabled | Enable for production databases |
+| **Timeout** | `30` | Query timeout in seconds |
+
+5. Click **Test Connection** to verify, then click **Create**.
+
+## Troubleshooting
+
+If you see an **Error** badge next to your connection, try these steps.
+
+### Check Your URI and Credentials
+
+Make sure the URI, username, and password are correct. A typo in any field will cause a connection failure.
+
+### Docker Networking
+
+If NeoBoard and your database both run in Docker, use the **container name** instead of `localhost`:
+
+```
+bolt://neoboard-neo4j:7687
+postgresql://user:pass@neoboard-postgres:5432/mydb
+```
+
+Containers on the same Docker network communicate by service name, not `localhost`.
+
+### Local Databases
+
+If your database runs directly on your machine (not in Docker), use `localhost` with the correct port:
+
+- Neo4j Bolt: `7687` (default)
+- PostgreSQL: `5432` (default)
+
+### Firewall and Network
+
+Ensure no firewall rules block traffic between NeoBoard and your database. Cloud-hosted databases may require you to allowlist the NeoBoard server IP.
+
+## Next Steps
+
+- Use your new connection to [create your first dashboard](/docs/guides/first-dashboard).
+- Learn about chart types in [Building Chart Widgets](/docs/guides/building-widgets).
