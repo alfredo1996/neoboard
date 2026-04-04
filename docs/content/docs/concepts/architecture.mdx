@@ -3,44 +3,32 @@ title: Architecture
 description: Three-package monorepo design and how the pieces fit together.
 ---
 
-NeoBoard is structured as a monorepo with three packages, each with strict boundaries.
+NeoBoard is a monorepo with three packages. Each package has strict boundaries that keep the codebase modular and testable.
 
-## Package Overview
+## How the Pieces Fit Together
 
+```mermaid
+graph TD
+  A[Browser] --> B[app/ — Next.js]
+  B --> C[component/ — UI Library]
+  B --> D[connection/ — DB Drivers]
+  D --> E[(Neo4j)]
+  D --> F[(PostgreSQL)]
 ```
-neoboard/
-├── app/          # Next.js application
-├── component/    # React UI library
-└── connection/   # Database connector library
-```
 
-### `app/` — Next.js Application
+## The Three Packages
 
-The orchestration layer. Contains:
-- **API routes** — REST endpoints for CRUD operations
-- **Pages** — Dashboard viewer, editor, connections, settings
-- **Stores** — Zustand state management (parameters, graph widgets)
-- **Hooks** — TanStack Query data fetching
+| Package | What it does | What it must NOT do |
+|---------|-------------|---------------------|
+| `app/` | API routes, pages, stores, hooks. Orchestrates the other two packages. | — |
+| `component/` | React UI components, charts, forms. Viewable in Storybook. | No business logic. No API calls. No imports from `app/`. |
+| `connection/` | Neo4j and PostgreSQL drivers, schema introspection, query parsing. | No UI. No React. No imports from `app/` or `component/`. |
 
-### `component/` — React UI Library
+## Why Three Packages?
 
-Pure UI components with **no business logic**:
-- Chart components (ECharts-based)
-- Form components (connection form, widget editor)
-- Composed components (data grid, query editor, chart options)
-- All components viewable in Storybook
-
-**Boundary rules**: No API calls, no stores, no imports from `app/`.
-
-### `connection/` — Database Connector Library
-
-Database driver abstraction:
-- Neo4j driver (bolt/neo4j protocols)
-- PostgreSQL driver (pg pool)
-- Schema introspection managers
-- Record parsers for query results
-
-**Boundary rules**: No UI, no React, no imports from `app/` or `component/`.
+- **Testability** — each package can be tested in isolation. `connection/` uses Testcontainers with real databases. `component/` uses Storybook and Vitest. `app/` runs E2E tests with Playwright.
+- **Clear ownership** — UI bugs live in `component/`, driver bugs live in `connection/`, and glue logic lives in `app/`.
+- **Faster builds** — changes to `component/` do not trigger a rebuild of `connection/`, and vice versa.
 
 ## Tech Stack
 
@@ -58,10 +46,12 @@ Database driver abstraction:
 
 ## Data Flow
 
-```
-Browser → Next.js API Route → Query Executor → Connection Module → Database
-                                                      ↓
-Browser ← React Component ← Zustand Store ← API Response ← Query Result
-```
+A query goes through these layers:
 
-All queries flow through the `query-executor` which enforces safety (read-only transactions, timeouts, row limits) and caches connection modules.
+1. **Browser** sends a request to a Next.js API route
+2. **API route** validates auth, checks permissions, and calls the query executor
+3. **Query executor** enforces safety (read-only transactions, timeouts, row limits)
+4. **Connection module** runs the query against Neo4j or PostgreSQL
+5. **Result** flows back through the API to a Zustand store, then renders in a React component
+
+All database credentials are encrypted at rest. Queries use parameterized values — user input is never interpolated into query strings.

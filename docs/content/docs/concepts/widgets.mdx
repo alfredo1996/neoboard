@@ -3,50 +3,55 @@ title: Widgets
 description: Widget types, lifecycle, and configuration.
 ---
 
-Widgets are the building blocks of dashboards. Each widget displays data from a query result in a specific visualization.
+Widgets are the building blocks of dashboards. Each widget runs a query and displays the result as a chart, table, graph, or form.
 
 ## Widget Types
 
-| Type | Description | Data Source |
-|------|-------------|-------------|
-| Bar Chart | Vertical/horizontal bars | Tabular data |
-| Line Chart | Time series and trends | Tabular data |
-| Pie Chart | Proportional breakdown | Tabular data |
-| Single Value | Large KPI number | Single row/column |
-| Table | Sortable data grid | Tabular data |
-| Graph | Neo4j node-relationship visualization | Graph data |
-| Map | Geographic markers | Lat/lng data |
-| JSON Viewer | Raw JSON tree | Any data |
-| Form | Input form for write queries | User input |
+| Type | What it shows | Expected data |
+|------|--------------|---------------|
+| Bar Chart | Vertical or horizontal bars | Rows with a category column and a value column |
+| Line Chart | Time series and trend lines | Rows with an x-axis column and one or more y-axis columns |
+| Pie Chart | Proportional slices | Rows with a label column and a value column |
+| Single Value | One large number (KPI) | A single row with one column |
+| Table | Sortable, paginated data grid | Any tabular result |
+| Graph | Nodes and relationships (Neo4j) | Graph data (nodes and edges) |
+| Map | Geographic markers on a map | Rows with latitude and longitude columns |
+| JSON Viewer | Collapsible JSON tree | Any query result |
+| Form | Input fields that run a write query | User-defined form fields |
 
-## Widget Lifecycle
+## How to Create a Widget
 
-1. **Create** — select chart type, connection, and write a query
-2. **Configure** — set column mappings, chart options, styling
-3. **Preview** — run the query and see a live preview
-4. **Save** — widget is added to the dashboard layout
-5. **Refresh** — data is fetched when the dashboard loads or auto-refreshes
+The widget editor walks you through five steps:
+
+1. **Connection** — pick which database to query
+2. **Query** — write a Cypher or SQL query
+3. **Chart type** — choose how to visualize the result
+4. **Options** — map columns, set colors, configure axes and labels
+5. **Save** — the widget appears on your dashboard
+
+Click **Run** at any point to preview the result before saving.
 
 ## Parameter Widgets
 
-Special widgets that act as interactive filters:
+Parameter widgets collect user input and pass it to other widgets' queries. They do not display data themselves.
 
-- **Select** — dropdown backed by a seed query
-- **Text** — free-text input
-- **Number** — numeric input with optional range
-- **Date** — date picker
-- **Date Range** — start/end date picker
-- **Boolean** — toggle switch
-- **Multiselect** — multi-value dropdown
-- **Slider** — numeric range slider
+| Parameter type | Input control | Value produced |
+|---------------|---------------|----------------|
+| Select | Dropdown (populated by a seed query) | Single string |
+| Text | Free-text input | String |
+| Number | Numeric input | Number |
+| Date | Date picker | ISO date string |
+| Date Range | Start/end date pickers | `{start, end}` object |
+| Boolean | Toggle switch | `true` or `false` |
+| Multiselect | Multi-value dropdown | Array of strings |
+| Slider | Range slider | Number |
 
-Parameter values are substituted into other widgets' queries using `$param_name` syntax.
+Other widgets reference parameter values with `$param_name` in their queries. See [Parameters](/docs/concepts/parameters) for details.
 
-## Widget Templates
+## Widget Templates (Widget Lab)
 
-Save widget configurations as reusable templates in the Widget Lab. Templates include:
-- Chart type and options
-- Query text
-- Column mappings and settings
+You can save any widget configuration as a reusable template in the Widget Lab.
 
-Templates can be browsed, previewed, and instantiated into any dashboard.
+![Widget Lab](/screenshots/widget-lab.png)
+
+Templates include the chart type, query, column mappings, and options. Browse the lab, preview a template, and add it to any dashboard with one click.

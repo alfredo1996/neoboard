@@ -1,0 +1,79 @@
+---
+title: Creating Your First Dashboard
+description: Build a dashboard with your first widget in under 10 minutes.
+---
+
+This guide walks you through logging in, creating a dashboard, and adding your first chart widget.
+
+## 1. Log In
+
+Open NeoBoard in your browser. You will see the login screen.
+
+![NeoBoard login screen](/screenshots/login.png)
+
+Enter your email and password. If you are using the demo environment, the default credentials are:
+
+- **Email**: `admin@neoboard.dev`
+- **Password**: `admin`
+
+Click **Sign In** to continue.
+
+## 2. Create a New Dashboard
+
+After logging in, you land on the dashboard list.
+
+![Dashboard list](/screenshots/dashboard-list.png)
+
+1. Click the **New Dashboard** button in the top-right corner.
+2. Enter a **name** for your dashboard (e.g., "Movie Analytics").
+3. Add an optional **description** to help others understand its purpose.
+4. Click **Create**.
+
+You are now in **edit mode** on your new, empty dashboard.
+
+## 3. Add Your First Widget
+
+1. Click the **Add Widget** button in the toolbar.
+2. In the widget editor dialog, select a **connection** from the dropdown. This tells NeoBoard which database to query. If you have not added a connection yet, see the [Connecting to Your Database](/docs/guides/connecting-databases) guide first.
+3. Choose a **chart type**. For your first widget, **Bar Chart** is a great choice. It works well with most data shapes.
+
+## 4. Write a Query
+
+Type a query into the query editor. Here are two examples depending on your database.
+
+**Neo4j (Cypher):**
+
+```cypher
+MATCH (m:Movie)
+RETURN m.title AS label, m.released AS value
+ORDER BY m.released DESC
+LIMIT 10
+```
+
+**PostgreSQL (SQL):**
+
+```sql
+SELECT name, count
+FROM categories
+ORDER BY count DESC
+LIMIT 10
+```
+
+Your query should return at least two columns. The chart will use the first column as labels and the second as values.
+
+## 5. Preview and Save
+
+1. Click **Run** to preview the results. You will see your data rendered as a bar chart below the query editor.
+2. If the chart looks good, click **Save** to add the widget to your dashboard.
+3. You can **drag** the widget to reposition it or **resize** it by dragging its edges.
+
+## 6. Exit Edit Mode
+
+Click the **Edit** toggle in the toolbar to exit edit mode. Your dashboard is now live. Anyone with access can view it.
+
+## Next Steps
+
+- Add more widgets to build a complete dashboard.
+- Learn about different chart types in [Building Chart Widgets](/docs/guides/building-widgets).
+- Set up database connections in [Connecting to Your Database](/docs/guides/connecting-databases).
+- Control who can see your dashboards in [Managing Users and Permissions](/docs/guides/managing-users).

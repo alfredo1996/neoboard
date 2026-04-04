@@ -1,0 +1,336 @@
+---
+title: Command Reference
+description: Complete reference for all NeoBoard CLI commands.
+---
+
+All commands are run from the repository root as `node cli/dist/index.js <command>`. If you have the CLI installed globally, replace with `neoboard <command>`.
+
+## setup
+
+Full setup in one command: runs `init`, then `start` (which includes migrations).
+
+```bash
+neoboard setup [--mode <docker|local>]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--mode <mode>` | `docker` | `docker` -- everything in containers. `local` -- app locally, databases separate. |
+
+```bash
+# Docker setup (default)
+neoboard setup
+
+# Local setup
+neoboard setup --mode local
+```
+
+## init
+
+Initialize project configuration and install dependencies. Creates `neoboard.config.json` and `.neoboard.local`. In local mode, also installs npm dependencies and generates `app/.env.local`.
+
+```bash
+neoboard init [--mode <docker|local>]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--mode <mode>` | `docker` | `docker` or `local`. |
+
+```bash
+neoboard init --mode local
+```
+
+## start
+
+Start NeoBoard services and run database migrations. In Docker mode, launches containers via `docker compose`. In local mode, connects to your running PostgreSQL and Neo4j instances.
+
+```bash
+neoboard start
+```
+
+No options. The mode is read from `.neoboard.local` (set during `init` or `setup`).
+
+```bash
+neoboard start
+```
+
+## stop
+
+Stop Docker containers. Only applies to Docker mode.
+
+```bash
+neoboard stop [--volumes]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--volumes` | `false` | Also remove data volumes, giving you a clean slate. |
+
+```bash
+# Stop but keep data
+neoboard stop
+
+# Stop and delete all data
+neoboard stop --volumes
+```
+
+## dev
+
+Start the Next.js dev server with hot reload. Only works in local mode. If databases are not running, attempts to start them via Docker Compose automatically.
+
+```bash
+neoboard dev
+```
+
+No options. Validates that `app/.env.local` has all required variables before starting. Press `Ctrl+C` to stop.
+
+```bash
+neoboard dev
+```
+
+## status
+
+Show the health of PostgreSQL, Neo4j, and the NeoBoard app. Displays mode, version, container count, and migration status.
+
+```bash
+neoboard status
+```
+
+```bash
+neoboard status
+# Mode:        docker
+# Version:     1.0.0
+# Docker:      running (3 containers)
+#
+# Service      Status
+# ---
+# PostgreSQL   healthy (localhost:5432)
+# Neo4j        healthy (localhost:7687)
+# App          healthy (http://localhost:3000)
+#
+# Migrations:  12 applied (latest: 0012_add_sharing)
+```
+
+## doctor
+
+Check that all prerequisites are met: Docker daemon, Docker Compose v2, Node.js version, port availability, `node_modules`, and `.env.local`. Exits with code 1 if any check fails in Docker mode. In local mode, Docker checks are downgraded to warnings.
+
+```bash
+neoboard doctor
+```
+
+```bash
+neoboard doctor
+```
+
+## demo
+
+Set up a full demo environment with sample data. Runs `setup`, then seeds Neo4j with graph data and PostgreSQL with a demo user and sample dashboards.
+
+```bash
+neoboard demo [--mode <docker|local>]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--mode <mode>` | `docker` | `docker` or `local`. |
+
+```bash
+neoboard demo
+# ...setup output...
+# Login credentials:
+#   Email:    admin@neoboard.local
+#   Password: admin123
+```
+
+## env
+
+Generate or validate the `app/.env.local` file. In Docker mode, environment is managed by `docker-compose` so this command is not needed.
+
+```bash
+neoboard env [--regenerate] [--validate]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--regenerate` | `false` | Overwrite existing `.env.local` with fresh secrets. |
+| `--validate` | `false` | Check that all required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`) are set. |
+
+```bash
+# Generate .env.local (skips if it already exists)
+neoboard env
+
+# Force regenerate all secrets
+neoboard env --regenerate
+
+# Validate existing file
+neoboard env --validate
+```
+
+## config list
+
+Show all configuration values from `neoboard.config.json`.
+
+```bash
+neoboard config list
+```
+
+```bash
+neoboard config list
+# ports.app = 3000
+# ports.postgres = 5432
+# ports.neo4j_http = 7474
+# ports.neo4j_bolt = 7687
+# postgres.user = neoboard
+# ...
+```
+
+## config get
+
+Get a single configuration value by key.
+
+```bash
+neoboard config get <key>
+```
+
+Valid keys: `ports.app`, `ports.postgres`, `ports.neo4j_http`, `ports.neo4j_bolt`, `postgres.user`, `postgres.password`, `postgres.database`, `neo4j.user`, `neo4j.password`, `seed.script`, `seed.neo4j_cypher`.
+
+```bash
+neoboard config get ports.app
+# 3000
+```
+
+## config set
+
+Set a configuration value. Port values are automatically parsed as numbers.
+
+```bash
+neoboard config set <key> <value>
+```
+
+```bash
+neoboard config set ports.app 4000
+neoboard config set postgres.database mydb
+```
+
+## logs
+
+Tail Docker container logs. Available services: `postgres` (or `pg`), `neo4j`, `app`.
+
+```bash
+neoboard logs [service] [-f] [-n <lines>]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[service]` | all | Service to show logs for: `postgres`, `pg`, `neo4j`, or `app`. Omit for all. |
+| `-f, --follow` | `false` | Follow log output in real time. |
+| `-n, --lines <n>` | `50` | Number of lines to show. |
+
+```bash
+# Last 50 lines from all containers
+neoboard logs
+
+# Follow PostgreSQL logs
+neoboard logs postgres -f
+
+# Last 100 lines from Neo4j
+neoboard logs neo4j -n 100
+```
+
+## db migrate
+
+Run Drizzle database migrations. Can also show migration status or preview what would be applied.
+
+```bash
+neoboard db migrate [--status] [--to <version>] [--dry-run]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--status` | `false` | Show applied migrations and their dates. |
+| `--to <version>` | latest | Target migration version (not yet fully supported). |
+| `--dry-run` | `false` | Preview migrations without applying them. |
+
+```bash
+# Apply all pending migrations
+neoboard db migrate
+
+# Check what's been applied
+neoboard db migrate --status
+
+# Preview without applying
+neoboard db migrate --dry-run
+```
+
+## db seed
+
+Seed databases with sample data. Seeds both Neo4j and PostgreSQL by default.
+
+```bash
+neoboard db seed [--neo4j] [--demo]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--neo4j` | `false` | Seed only Neo4j graph data. |
+| `--demo` | `false` | Seed only PostgreSQL demo user and dashboards. |
+
+If Neo4j already has nodes, the Neo4j seed is skipped automatically.
+
+```bash
+# Seed everything
+neoboard db seed
+
+# Seed only Neo4j
+neoboard db seed --neo4j
+
+# Seed only demo user/dashboards
+neoboard db seed --demo
+```
+
+## db reset
+
+Drop and recreate the PostgreSQL database, replay all migrations, and optionally re-seed. Only works on localhost databases as a safety measure.
+
+```bash
+neoboard db reset [--no-seed] [--force]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--no-seed` | `false` | Skip seeding after reset. |
+| `--force` | `false` | Skip the confirmation prompt. |
+
+```bash
+# Reset with confirmation prompt
+neoboard db reset
+
+# Reset without prompting, skip seed
+neoboard db reset --force --no-seed
+```
+
+## db dump
+
+Export the PostgreSQL database to a SQL file. Useful for backups before migrations or resets.
+
+```bash
+neoboard db dump [--output <path>] [--data-only]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--output <path>` | `neoboard-dump-<timestamp>.sql` | Output file path. |
+| `--data-only` | `false` | Dump data only, no schema definitions. |
+
+```bash
+# Dump to default file
+neoboard db dump
+
+# Dump to specific file
+neoboard db dump --output backup.sql
+
+# Dump data only
+neoboard db dump --data-only
+```

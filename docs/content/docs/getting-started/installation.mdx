@@ -1,27 +1,35 @@
 ---
 title: Installation
-description: Install NeoBoard using Docker Compose or from source.
+description: Install NeoBoard using Docker Compose, the CLI, or from source.
 ---
 
-## Docker Compose (Recommended)
+Pick one of three installation paths. Docker is the fastest.
 
-The fastest way to run NeoBoard with all dependencies:
+## Option 1: Docker (Recommended)
+
+Clone the repo and start everything in one command:
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-cp .env.example .env.local
-docker compose up
+neoboard demo
 ```
 
-This starts:
-- **NeoBoard** on `http://localhost:3000`
-- **PostgreSQL** (metadata database) on port 5432
-- **Neo4j** (sample database) on ports 7474/7687
+This starts NeoBoard on `http://localhost:3000`, PostgreSQL on port 5432, and Neo4j on ports 7474/7687.
 
-## From Source
+## Option 2: Local Mode (CLI)
 
-For development or customization:
+If you have the NeoBoard CLI installed:
+
+```bash
+neoboard setup --mode local
+```
+
+The CLI creates a `.env.local` file, starts database containers, runs migrations, and opens the app.
+
+## Option 3: Manual Setup
+
+For full control or development:
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
@@ -35,10 +43,8 @@ npm ci --prefix connection
 npm ci --prefix component
 npm ci --prefix app
 
-# Run migrations
+# Run migrations and start dev server
 npm run db:migrate
-
-# Start dev server
 npm run dev
 ```
 
@@ -46,10 +52,29 @@ The app will be available at `http://localhost:3000`.
 
 ## First-Time Setup
 
-1. Navigate to `http://localhost:3000/signup`
+1. Go to `http://localhost:3000/signup`
 2. Create the first admin account
 3. The first user automatically gets the **admin** role
 
 ## Verify Installation
 
-After signing in, you should see the dashboard list page. If the page loads without errors, NeoBoard is running correctly.
+Run the doctor command to check that all services are healthy:
+
+```bash
+neoboard doctor
+```
+
+Expected output:
+
+```
+  NeoBoard Doctor
+  ---------------
+  Next.js server   ... running (http://localhost:3000)
+  PostgreSQL       ... connected (localhost:5432)
+  Neo4j            ... connected (localhost:7687)
+  Encryption key   ... set
+  Migrations       ... up to date
+  All checks passed.
+```
+
+If you see the dashboard list page after signing in, NeoBoard is running correctly.

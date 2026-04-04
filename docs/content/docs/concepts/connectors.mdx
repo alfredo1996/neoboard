@@ -5,16 +5,35 @@ description: How NeoBoard connects to Neo4j and PostgreSQL databases.
 
 Connectors are the bridge between NeoBoard and your databases. Each connector stores encrypted credentials and manages a connection pool.
 
+![Connections management page](/screenshots/connections.png)
+
 ## Supported Databases
 
 | Database | Protocol | Query Language |
 |----------|----------|---------------|
-| Neo4j | bolt://, neo4j:// | Cypher |
-| PostgreSQL | postgresql:// | SQL |
+| Neo4j | `bolt://`, `neo4j://` | Cypher |
+| PostgreSQL | `postgresql://` | SQL |
+
+## Setting Up a Connection
+
+1. Go to **Connections** in the sidebar
+2. Click **Add Connection**
+3. Fill in the form fields:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| Name | A label you will see in dropdowns | `Movie Database` |
+| Type | Neo4j or PostgreSQL | `Neo4j` |
+| URI | Database connection string | `bolt://localhost:7687` |
+| Username | Database user | `neo4j` |
+| Password | Database password | `password` |
+
+4. Click **Test Connection** to verify connectivity
+5. Click **Save**
 
 ## Connection Lifecycle
 
-1. **Create** — user provides URI, username, password via the Connections page
+1. **Create** — you provide URI, username, and password
 2. **Encrypt** — credentials are encrypted with AES-256-GCM before storage
 3. **Test** — NeoBoard verifies connectivity before saving
 4. **Pool** — a connection pool is created on first query
@@ -22,14 +41,11 @@ Connectors are the bridge between NeoBoard and your databases. Each connector st
 
 ## Credential Security
 
-- Credentials are encrypted at rest using AES-256-GCM with an envelope encryption scheme
-- The `ENCRYPTION_KEY` environment variable derives per-credential keys via HKDF-SHA256
+- Credentials are encrypted at rest using AES-256-GCM (envelope encryption with HKDF-SHA256)
 - Plaintext credentials are never logged or stored
 - If `ENCRYPTION_KEY` is lost, all stored credentials become unrecoverable
 
 ## Advanced Settings
-
-Each connector supports optional pool and timeout settings:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
@@ -42,7 +58,7 @@ Each connector supports optional pool and timeout settings:
 
 ## Schema Introspection
 
-NeoBoard can introspect your database schema to help with query writing:
+NeoBoard can read your database schema to help with query writing:
 
-- **Neo4j**: node labels, relationship types, property keys
-- **PostgreSQL**: tables, columns, data types
+- **Neo4j** — node labels, relationship types, property keys
+- **PostgreSQL** — tables, columns, data types
