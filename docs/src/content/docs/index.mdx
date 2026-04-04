@@ -1,0 +1,38 @@
+---
+title: Welcome to NeoBoard
+description: Open-source dashboarding for Neo4j & PostgreSQL
+template: splash
+hero:
+  tagline: Build interactive dashboards, charts, and forms for your Neo4j and PostgreSQL databases — all from your browser.
+  image:
+    alt: NeoBoard dashboard list
+    html: <img src="/screenshots/dashboard-list.png" alt="NeoBoard dashboard list" />
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/alfredo1996/neoboard
+      icon: external
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## What can you do?
+
+- **Connect** to Neo4j and PostgreSQL databases
+- **Build** dashboards with 12+ chart types (bar, line, pie, graph, map, table, and more)
+- **Create** interactive parameter widgets that filter data across charts
+- **Write** mutation queries with form widgets
+- **Manage** users with role-based access (Admin, Creator, Reader)
+- **Export** and import dashboards as JSON
+
+## Quick start
+
+<CardGrid>
+  <LinkCard title="Installation" description="Get NeoBoard running in 5 minutes" href="/getting-started/installation/" />
+  <LinkCard title="Quick Start" description="Create your first dashboard" href="/getting-started/quick-start/" />
+  <LinkCard title="CLI Reference" description="All commands at a glance" href="/cli/commands/" />
+  <LinkCard title="User Guides" description="Step-by-step walkthroughs" href="/guides/first-dashboard/" />
+</CardGrid>
