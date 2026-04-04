@@ -371,8 +371,12 @@ test.describe("Widget editor UX", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
-    // Assert the no-connector warning is visible
+    // Warning should NOT show until user types a query
     const warning = dialog.getByTestId("no-connector-warning");
+    await expect(warning).not.toBeVisible({ timeout: 2_000 });
+
+    // Type a query without selecting a connection — warning should appear
+    await typeInEditor(dialog, page, "SELECT 1");
     await expect(warning).toBeVisible({ timeout: 5_000 });
     await expect(warning).toContainText("Select a connection");
 
