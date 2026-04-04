@@ -1,10 +1,34 @@
+import { existsSync } from "node:fs";
+import { resolve, normalize } from "node:path";
 import { run } from "../../lib/exec.js";
 import { dockerExec } from "../../lib/docker.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
 import { success, createSpinner } from "../../lib/output.js";
 
+/** Validate a config value contains no shell-special characters. */
+function assertSafeValue(value: string, label: string): void {
+  if (/[;&|`$"'\\<>(){}!\n\r]/.test(value)) {
+    throw new Error(
+      `Unsafe characters in ${label}: "${value}". Check neoboard.config.json.`,
+    );
+  }
+}
+
+/** Validate a seed script path stays within the project root. */
+function assertSafePath(scriptPath: string, label: string): void {
+  const resolved = resolve(paths.root, scriptPath);
+  if (!resolved.startsWith(normalize(paths.root))) {
+    throw new Error(`${label} escapes project root: "${scriptPath}"`);
+  }
+  if (!existsSync(resolved)) {
+    throw new Error(`${label} not found: "${resolved}"`);
+  }
+}
+
 function getNeo4jNodeCount(): number {
   const config = readProjectConfig();
+  assertSafeValue(config.neo4j.user, "neo4j.user");
+  assertSafeValue(config.neo4j.password, "neo4j.password");
   const out = dockerExec(
     "neoboard-neo4j",
     `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} "MATCH (n) RETURN count(n) AS c"`,
@@ -24,6 +48,8 @@ export async function seedNeo4j(): Promise<void> {
   }
 
   const config = readProjectConfig();
+  assertSafeValue(config.neo4j.user, "neo4j.user");
+  assertSafeValue(config.neo4j.password, "neo4j.password");
   dockerExec(
     "neoboard-neo4j",
     `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} -f /var/lib/neo4j/import/init.cypher`,
@@ -33,6 +59,7 @@ export async function seedNeo4j(): Promise<void> {
 
 export async function seedPostgres(): Promise<void> {
   const config = readProjectConfig();
+  assertSafePath(config.seed.script, "seed.script");
   const spinner = createSpinner("Seeding PostgreSQL demo data...");
   spinner.start();
 
