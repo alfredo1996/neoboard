@@ -16,9 +16,9 @@ test.describe("Settings — Profile", () => {
   });
 
   test("profile page shows account info", async ({ page }) => {
-    await expect(page.getByText("Account", { exact: true })).toBeVisible();
-    await expect(page.getByText(ALICE.email)).toBeVisible();
-    await expect(page.getByText("admin", { exact: true })).toBeVisible();
+    await expect(page.getByText(ALICE.email)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Write Access")).toBeVisible();
+    await expect(page.getByText("Member Since")).toBeVisible();
   });
 
   test("can update display name", async ({ page }) => {
@@ -103,5 +103,17 @@ test.describe("Settings — Profile", () => {
     await expect(
       page.getByRole("heading", { name: "API Keys", exact: true }),
     ).toBeVisible();
+  });
+});
+
+test.describe("Settings — Redirect", () => {
+  test("navigating to /settings redirects to /settings/profile", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveURL(/\/settings\/profile/);
   });
 });

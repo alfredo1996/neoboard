@@ -14,7 +14,7 @@ function AppShell({ sidebar, header, children, className }: AppShellProps) {
       {sidebar}
       <div className="flex flex-1 flex-col overflow-hidden">
         {header}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-y-scroll">{children}</main>
       </div>
     </div>
   );

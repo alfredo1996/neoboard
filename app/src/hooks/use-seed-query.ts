@@ -22,8 +22,8 @@ export function useSeedQuery(
   enabled: boolean,
   extraParams?: Record<string, unknown>,
   tenantId?: string,
-): { options: ParamSelectorOption[]; loading: boolean } {
-  const { data, isLoading } = useQuery<SeedQueryData>({
+): { options: ParamSelectorOption[]; loading: boolean; error: Error | null } {
+  const { data, isLoading, error } = useQuery<SeedQueryData>({
     queryKey: ["param-seed", connectionId, query, extraParams, tenantId],
     queryFn: async ({ signal }) => {
       const res = await fetch("/api/query", {
@@ -66,5 +66,5 @@ export function useSeedQuery(
     });
   }, [data]);
 
-  return { options, loading: isLoading };
+  return { options, loading: isLoading, error: error ?? null };
 }

@@ -25,6 +25,7 @@ export interface ParameterPreviewProps {
   chartOptions: Record<string, unknown>;
   seedPreviewOptions: { value: string; label: string }[] | null;
   seedQueryPending: boolean;
+  seedQueryError?: string | null;
 }
 
 export function ParameterPreview({
@@ -35,13 +36,20 @@ export function ParameterPreview({
   chartOptions,
   seedPreviewOptions,
   seedQueryPending,
+  seedQueryError,
 }: ParameterPreviewProps) {
   return (
-    <div className="h-full flex items-center justify-center p-6" data-testid="param-preview">
+    <div
+      className="h-full flex items-center justify-center p-6"
+      data-testid="param-preview"
+    >
       <div className="w-full max-w-xs space-y-3">
         <Label className="text-xs text-muted-foreground block">
           {paramWidgetName ? `$param_${paramWidgetName}` : "Parameter preview"}
         </Label>
+        {seedQueryError && (
+          <p className="text-xs text-destructive">{seedQueryError}</p>
+        )}
         {paramUIType === "freetext" && (
           <TextInputParameter
             parameterName={paramWidgetName || "preview"}
@@ -81,9 +89,7 @@ export function ParameterPreview({
             onChange={() => {}}
             options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
-            placeholder={
-              (chartOptions.placeholder as string) || "Select..."
-            }
+            placeholder={(chartOptions.placeholder as string) || "Select..."}
           />
         )}
         {paramUIType === "select" && multiSelect && (
@@ -93,9 +99,7 @@ export function ParameterPreview({
             onChange={() => {}}
             options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
-            placeholder={
-              (chartOptions.placeholder as string) || "Select..."
-            }
+            placeholder={(chartOptions.placeholder as string) || "Select..."}
           />
         )}
       </div>

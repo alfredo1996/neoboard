@@ -3,6 +3,7 @@ import {
   connectionConfigSchema,
   createConnectionSchema,
   updateConnectionSchema,
+  updateConnectionConfigSchema,
   testInlineSchema,
 } from "../schemas";
 
@@ -166,7 +167,11 @@ describe("createConnectionSchema", () => {
     const result = createConnectionSchema.safeParse({
       name: "My Neo4j",
       type: "neo4j",
-      config: { uri: "bolt://localhost:7687", username: "neo4j", password: "test" },
+      config: {
+        uri: "bolt://localhost:7687",
+        username: "neo4j",
+        password: "test",
+      },
     });
     expect(result.success).toBe(true);
   });
@@ -175,7 +180,11 @@ describe("createConnectionSchema", () => {
     const result = createConnectionSchema.safeParse({
       name: "My PG",
       type: "postgresql",
-      config: { uri: "postgresql://localhost:5432", username: "pg", password: "test" },
+      config: {
+        uri: "postgresql://localhost:5432",
+        username: "pg",
+        password: "test",
+      },
     });
     expect(result.success).toBe(true);
   });
@@ -235,13 +244,69 @@ describe("updateConnectionSchema", () => {
     const result = updateConnectionSchema.safeParse({ name: "" });
     expect(result.success).toBe(false);
   });
+
+  it("accepts config without password (keep existing)", () => {
+    const result = updateConnectionSchema.safeParse({
+      config: { uri: "bolt://new-host", username: "neo4j" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts config with password (overwrite existing)", () => {
+    const result = updateConnectionSchema.safeParse({
+      config: {
+        uri: "bolt://new-host",
+        username: "neo4j",
+        password: "newpass",
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects config with empty password string", () => {
+    const result = updateConnectionSchema.safeParse({
+      config: { uri: "bolt://localhost", username: "neo4j", password: "" },
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("updateConnectionConfigSchema", () => {
+  it("accepts config with all fields including password", () => {
+    const result = updateConnectionConfigSchema.safeParse({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "secret",
+      database: "mydb",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts config without password", () => {
+    const result = updateConnectionConfigSchema.safeParse({
+      uri: "bolt://localhost",
+      username: "neo4j",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("still requires uri and username", () => {
+    const result = updateConnectionConfigSchema.safeParse({
+      database: "mydb",
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("testInlineSchema", () => {
   it("accepts valid test request", () => {
     const result = testInlineSchema.safeParse({
       type: "neo4j",
-      config: { uri: "bolt://localhost:7687", username: "neo4j", password: "test" },
+      config: {
+        uri: "bolt://localhost:7687",
+        username: "neo4j",
+        password: "test",
+      },
     });
     expect(result.success).toBe(true);
   });

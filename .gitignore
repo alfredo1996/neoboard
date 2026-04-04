@@ -26,7 +26,10 @@ out
 *.njsproj
 *.sln
 *.sw?
-.claude/
+# Claude Code local files (keep agents, skills, hooks, settings tracked)
+.claude/worktrees/
+.claude/plans/
+.claude/image-cache/
 *storybook.log
 storybook-static
 
@@ -62,3 +65,7 @@ scripts/claude-setup.sh
 # Fumadocs generated
 docs/.source
 docs/.next
+
+# CLI build output
+cli/dist/
+.neoboard.local

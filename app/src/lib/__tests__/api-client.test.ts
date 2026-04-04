@@ -16,14 +16,22 @@ describe("unwrapResponse", () => {
   // ---------------------------------------------------------------------------
 
   it("extracts data from a success envelope", async () => {
-    const res = fakeResponse({ data: { id: "1", name: "Test" }, error: null, meta: null });
+    const res = fakeResponse({
+      data: { id: "1", name: "Test" },
+      error: null,
+      meta: null,
+    });
     const result = await unwrapResponse<{ id: string; name: string }>(res);
     expect(result).toEqual({ id: "1", name: "Test" });
   });
 
   it("extracts array data from a list envelope", async () => {
     const items = [{ id: "1" }, { id: "2" }];
-    const res = fakeResponse({ data: items, error: null, meta: { total: 2, limit: 25, offset: 0 } });
+    const res = fakeResponse({
+      data: items,
+      error: null,
+      meta: { total: 2, limit: 25, offset: 0 },
+    });
     const result = await unwrapResponse<{ id: string }[]>(res);
     expect(result).toEqual(items);
   });
@@ -40,7 +48,11 @@ describe("unwrapResponse", () => {
 
   it("throws on error envelope with message", async () => {
     const res = fakeResponse(
-      { data: null, error: { code: "NOT_FOUND", message: "Dashboard not found" }, meta: null },
+      {
+        data: null,
+        error: { code: "NOT_FOUND", message: "Dashboard not found" },
+        meta: null,
+      },
       404,
     );
     await expect(unwrapResponse(res)).rejects.toThrow("Dashboard not found");
@@ -77,9 +89,25 @@ describe("unwrapResponse", () => {
     await expect(unwrapResponse(res)).rejects.toThrow("Something went wrong");
   });
 
-  it("throws generic message on non-ok response with no error field", async () => {
+  it("throws descriptive message on non-ok response with no error field", async () => {
     const res = fakeResponse({}, 500);
-    await expect(unwrapResponse(res)).rejects.toThrow("Request failed with status 500");
+    await expect(unwrapResponse(res)).rejects.toThrow(
+      "Internal server error — check server logs",
+    );
+  });
+
+  it("throws descriptive message for 504 timeout", async () => {
+    const res = fakeResponse({}, 504);
+    await expect(unwrapResponse(res)).rejects.toThrow(
+      "Gateway timeout — the query took too long",
+    );
+  });
+
+  it("throws fallback message for unknown status code", async () => {
+    const res = fakeResponse({}, 418);
+    await expect(unwrapResponse(res)).rejects.toThrow(
+      "Request failed (HTTP 418)",
+    );
   });
 
   // ---------------------------------------------------------------------------
