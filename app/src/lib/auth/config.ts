@@ -103,6 +103,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               canWrite: users.canWrite,
               disabledAt: users.disabledAt,
               forcePasswordChange: users.forcePasswordChange,
+              name: users.name,
             })
             .from(users)
             .where(eq(users.id, token.id as string))
@@ -112,6 +113,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = dbUser.role;
           token.canWrite = dbUser.canWrite;
           token.forcePasswordChange = dbUser.forcePasswordChange;
+          token.name = dbUser.name;
         } catch {
           // DB unavailable — keep existing token values (graceful degradation)
         }
@@ -121,6 +123,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
         session.user.role = token.role;
         session.user.canWrite = (token.canWrite as boolean) ?? true;
         session.user.forcePasswordChange =
