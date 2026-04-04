@@ -1,0 +1,70 @@
+---
+title: Parameter Select
+description: Dropdown, date picker, and other input controls that feed parameters to other widgets.
+---
+
+## Overview
+
+Parameter Select widgets collect user input and pass it to other widgets' queries as `$param_name` variables. They enable interactive filtering across an entire dashboard without modifying queries. Parameter widgets do not display data themselves.
+
+## Parameter Types
+
+| Type | Input Control | Value Produced |
+|------|--------------|----------------|
+| Select | Dropdown (populated by a seed query) | Single string |
+| Text | Free-text input | String |
+| Number | Numeric input | Number |
+| Date | Date picker | ISO date string |
+| Date Range | Start/end date pickers | `{start, end}` object |
+| Boolean | Toggle switch | `true` or `false` |
+| Multiselect | Multi-value dropdown | Array of strings |
+| Slider | Range slider | Number |
+
+## Seed Query (Select / Multiselect)
+
+For Select and Multiselect types, a seed query populates the dropdown options. Return a single column -- each row becomes an option.
+
+### Cypher
+
+```cypher
+MATCH (m:Movie)
+RETURN DISTINCT m.genre AS genre
+ORDER BY genre
+```
+
+### SQL
+
+```sql
+SELECT DISTINCT genre FROM movies ORDER BY genre
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Placeholder | text | (empty) | Hint text shown when no value has been chosen |
+| Search-as-you-type | boolean | true | Allow typing to filter the option list in real time |
+| Default Value | text | (empty) | Value used on dashboard load when no selection has been made |
+| Sync to URL | boolean | false | Persist the selected value as a URL parameter for sharing and page reloads |
+
+## Using Parameters in Queries
+
+Other widgets reference parameter values using `$param_name` syntax in their queries:
+
+```cypher
+MATCH (m:Movie {genre: $param_genre})
+RETURN m.title, m.year
+ORDER BY m.year DESC
+```
+
+```sql
+SELECT title, year FROM movies
+WHERE genre = $param_genre
+ORDER BY year DESC
+```
+
+## Tips
+
+- Enable Sync to URL so users can bookmark or share a dashboard with specific filter values pre-selected.
+- Set a Default Value for parameters that should always have a selection on first load.
+- See [Parameters](/concepts/parameters) for details on parameter substitution, cascading parameters, and advanced usage.

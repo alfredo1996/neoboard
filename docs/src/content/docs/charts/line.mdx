@@ -1,0 +1,56 @@
+---
+title: Line Chart
+description: Trend lines and time series for tracking changes over time.
+---
+
+## Overview
+
+The Line Chart connects data points with lines, making it ideal for showing trends, time series, and continuous data. Multiple series are rendered as separate lines for comparison.
+
+## Query Format
+
+Return 2 or more columns: the first column is used as the x-axis (dates, numbers, or labels), and remaining columns become numeric series.
+
+### Cypher
+
+```cypher
+MATCH (o:Order)
+RETURN o.month AS month, sum(o.revenue) AS revenue, sum(o.expenses) AS expenses
+ORDER BY month
+```
+
+### SQL
+
+```sql
+SELECT date_trunc('month', created_at)::date AS month,
+       SUM(revenue) AS revenue,
+       SUM(expenses) AS expenses
+FROM orders
+GROUP BY month
+ORDER BY month
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Smooth Curve | boolean | false | Render lines as smooth curves instead of straight segments |
+| Fill Area | boolean | false | Fill the area beneath the line to emphasise volume |
+| Line Width (px) | number | 2 | Stroke width of the line in pixels |
+| Stepped Line | boolean | false | Draw the line as a step function for discrete state changes |
+| Show Data Points | boolean | false | Draw a dot at each data point along the line |
+| Show Grid Lines | boolean | true | Show faint horizontal reference lines |
+| X-Axis Label | text | (empty) | Custom label below the horizontal axis |
+| Y-Axis Label | text | (empty) | Custom label beside the vertical axis |
+| Show Legend | boolean | true | Show the legend identifying each data series |
+| Reference Lines | text | (empty) | JSON array of horizontal reference lines |
+| Sampling Threshold | number | 1000 | Enable LTTB downsampling when points exceed this count. 0 disables |
+| Sampling Method | select | lttb | Algorithm for downsampling: LTTB, Average, Max, or Min |
+| Enable Scroll Zoom | boolean | false | Allow scroll-to-zoom on the data axis |
+| Decimal Places | number | -1 (auto) | Fixed decimal places in tooltips (0-6) |
+
+## Tips
+
+- Enable Fill Area and Smooth Curve together for a polished area chart look.
+- For datasets with more than 1,000 points, the LTTB sampling algorithm keeps the chart responsive while preserving visual shape.
+- Use Stepped Line for data that changes in discrete jumps (e.g., pricing tiers, status codes).
