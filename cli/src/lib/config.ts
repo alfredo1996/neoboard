@@ -126,6 +126,10 @@ export function readLocalConfig(): LocalConfig {
   }
 }
 
+export function writeProjectConfig(config: ProjectConfig): void {
+  writeFileSync(paths.projectConfig, JSON.stringify(config, null, 2) + "\n");
+}
+
 export function writeLocalConfig(config: LocalConfig): void {
   writeFileSync(paths.localConfig, JSON.stringify(config, null, 2) + "\n");
 }
