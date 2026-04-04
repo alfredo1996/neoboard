@@ -58,6 +58,9 @@ import {
   CodePreview,
   MarkdownWidget,
   IframeWidget,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@neoboard/components";
 import type { ColorScaleConfig } from "@neoboard/components";
 import {
@@ -233,6 +236,10 @@ export function WidgetEditorModal({
   const createTemplate = useCreateWidgetTemplate();
   const updateTemplate = useUpdateWidgetTemplate();
   const previewRef = useRef<HTMLDivElement>(null);
+  /** Tracks the initial chartType set when the dialog opens in edit mode.
+   *  Used to skip the chart-options reset on first render (preserving saved options)
+   *  while still resetting when the user explicitly changes the chart type. */
+  const editInitialChartTypeRef = useRef<string | null>(null);
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -332,6 +339,20 @@ export function WidgetEditorModal({
     [connections, connectionId],
   );
 
+  // Keep refs for values used inside handlePreview so that the callback
+  // identity stays stable and does not trigger the auto-preview effects
+  // on every render (fixes infinite preview loop — see #354).
+  const connectionIdRef = useRef(connectionId);
+  connectionIdRef.current = connectionId;
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const selectedConnectionRef = useRef(selectedConnection);
+  selectedConnectionRef.current = selectedConnection;
+  const allParamValuesRef = useRef(allParamValues);
+  allParamValuesRef.current = allParamValues;
+  const previewQueryRef = useRef(previewQuery);
+  previewQueryRef.current = previewQuery;
+
   // Template picker — only used in add mode
   const selectedConnectorType = selectedConnection?.type ?? undefined;
   const { data: templates, isLoading: templatesLoading } = useWidgetTemplates(
@@ -389,12 +410,18 @@ export function WidgetEditorModal({
   // Unified connection-change handler for both add and edit modes.
   const handleConnectionChange = useCallback(
     (newId: string) => {
+      const prevConnection = connections.find((c) => c.id === connectionId);
       setConnectionId(newId);
       if (mode === "edit") {
         setConnectorChanged(newId !== (widget?.connectionId ?? ""));
       }
       const newConnection = connections.find((c) => c.id === newId);
       if (newConnection) {
+        // Clear query state when switching between different connection types
+        // (e.g. neo4j → postgresql) since the query language is incompatible.
+        if (prevConnection && prevConnection.type !== newConnection.type) {
+          useWidgetEditorStore.getState().clearQueryState();
+        }
         const compatible = getCompatibleChartTypes(newConnection.type);
         if (!compatible.includes(chartType as ChartType)) {
           setChartType("table");
@@ -402,15 +429,14 @@ export function WidgetEditorModal({
         }
       }
     },
-    [connections, chartType, mode, widget?.connectionId],
+    [connections, connectionId, chartType, mode, widget?.connectionId],
   );
 
   const handleChartTypeChange = useCallback(
     (t: string) => {
       setChartType(t);
-      if (mode === "edit") {
-        setChartOptions(getDefaultChartSettings(t));
-      }
+      // Chart options reset is handled by the chartType useEffect below
+      // for all modes (add, edit, lab-create).
       // Auto-disable click action when switching to an unsupported type
       if (!chartSupportsClickAction(t)) {
         setClickActionEnabled(false);
@@ -420,7 +446,7 @@ export function WidgetEditorModal({
         setStylingEnabled(false);
       }
     },
-    [mode],
+    [setChartType],
   );
 
   // Reset state when opening
@@ -464,6 +490,7 @@ export function WidgetEditorModal({
           | { colorScales?: ColorScaleConfig[] }
           | undefined;
 
+        editInitialChartTypeRef.current = widget.chartType;
         setChartType(widget.chartType);
         setConnectionId(widget.connectionId);
         setQuery(widget.query);
@@ -599,21 +626,28 @@ export function WidgetEditorModal({
     }
     if (!open) {
       initialTemplateAppliedRef.current = undefined;
+      editInitialChartTypeRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, initialTemplate]);
 
-  // Re-initialize chart options when chart type changes (add/lab-create mode only).
+  // Re-initialize chart options when chart type changes.
   // Skip reset when the change comes from applyTemplate to preserve template settings.
+  // In edit mode, skip the first render (initial chart type from saved widget) so we
+  // don't overwrite the user's persisted style options.
   useEffect(() => {
-    if (mode === "add" || mode === "lab-create") {
-      if (applyingTemplateRef.current) {
-        applyingTemplateRef.current = false;
-        return;
-      }
-      setChartOptions(getDefaultChartSettings(chartType));
+    if (applyingTemplateRef.current) {
+      applyingTemplateRef.current = false;
+      return;
     }
-  }, [chartType, mode]);
+    // In edit mode, skip the initial chartType set (dialog just opened with saved type)
+    if (editInitialChartTypeRef.current !== null) {
+      editInitialChartTypeRef.current = null;
+      return;
+    }
+    setChartOptions(getDefaultChartSettings(chartType));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs guard the reset; mode is not needed
+  }, [chartType]);
 
   // Build click action from current editor state
   const buildClickAction = useCallback((): ClickAction | undefined => {
@@ -681,21 +715,29 @@ export function WidgetEditorModal({
   }, [stylingEnabled, chartType, stylingRules]);
 
   const handlePreview = useCallback(() => {
-    if (connectionId && query.trim()) {
-      const referenced = extractReferencedParams(query, allParamValues);
+    const cId = connectionIdRef.current;
+    const q = queryRef.current;
+    if (cId && q.trim()) {
+      const referenced = extractReferencedParams(q, allParamValuesRef.current);
       const params =
         Object.keys(referenced).length > 0 ? referenced : undefined;
-      const connectorType = selectedConnection?.type ?? "neo4j";
-      const previewQuery_ = wrapWithPreviewLimit(query, connectorType);
-      previewQuery.mutate({ connectionId, query: previewQuery_, params });
+      const connectorType = selectedConnectionRef.current?.type ?? "neo4j";
+      const previewQuery_ = wrapWithPreviewLimit(q, connectorType);
+      previewQueryRef.current.mutate({
+        connectionId: cId,
+        query: previewQuery_,
+        params,
+      });
     }
-  }, [connectionId, query, previewQuery, allParamValues, selectedConnection]);
+  }, []);
 
-  // Auto-run preview when editing an existing widget so column selectors are populated.
+  // Auto-run preview when connection and query are present so column selectors
+  // are populated.  For "add" mode a short debounce avoids firing on every
+  // keystroke while the user is still typing the query.
   // Skip if initialPreviewData was provided (we already have data to show).
   const autoPreviewTriggered = useRef(false);
   useEffect(() => {
-    if (!open || (mode !== "edit" && mode !== "lab-edit")) {
+    if (!open) {
       autoPreviewTriggered.current = false;
       return;
     }
@@ -706,12 +748,27 @@ export function WidgetEditorModal({
       return;
     }
     autoPreviewTriggered.current = true;
-    // setTimeout ensures the reset effect's setState calls have flushed
+    // Short delay so state updates (connectionId, query) from modal
+    // initialization commit before handlePreview reads them.
+    const delay = mode === "add" ? 300 : 50;
     const timer = setTimeout(() => {
       handlePreview();
-    }, 0);
+    }, delay);
     return () => clearTimeout(timer);
   }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
+
+  // Auto-run preview when the query changes (debounced 800ms).
+  const prevQueryRef = useRef(query);
+  useEffect(() => {
+    if (!open) return;
+    if (prevQueryRef.current === query) return;
+    prevQueryRef.current = query;
+    if (!connectionId || !query.trim()) return;
+    const timer = setTimeout(() => {
+      handlePreview();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [open, query, connectionId, handlePreview]);
 
   // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
   const handleRunAndSave = useCallback(() => {
@@ -719,7 +776,7 @@ export function WidgetEditorModal({
     if (chartType === "markdown" || chartType === "iframe") return;
     if (!query.trim() || saveStatus === "saving") return;
     setSaveStatus("saving");
-    previewQuery.mutate(
+    previewQueryRef.current.mutate(
       { connectionId, query },
       {
         onSuccess: () => {
@@ -778,7 +835,6 @@ export function WidgetEditorModal({
     enableCache,
     cacheTtlMinutes,
     colorScales,
-    previewQuery,
     onSave,
     onOpenChange,
     templateId,
@@ -1180,6 +1236,7 @@ export function WidgetEditorModal({
                 </div>
 
                 <ChartSettingsPanel
+                  resetKey={chartType}
                   dataTab={
                     <div className="space-y-4">
                       <ChartTypeSelector
@@ -1579,25 +1636,32 @@ export function WidgetEditorModal({
                       Run
                     </Button>
                   )}
-                </div>
-                {!isParamSelect &&
-                  !isForm &&
-                  !isContentOnly &&
-                  previewQuery.isError && (
-                    <Alert variant="destructive" className="mb-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Query Failed</AlertTitle>
-                      <AlertDescription className="space-y-1">
-                        <p>{previewQuery.error.message}</p>
-                        <p
-                          className="text-xs font-mono opacity-70 truncate"
-                          title={query}
+                  {!isParamSelect &&
+                    !isForm &&
+                    !isContentOnly &&
+                    previewQuery.isError && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center text-destructive"
+                            aria-label={`Query failed: ${previewQuery.error.message}`}
+                          >
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          className="max-w-sm text-xs"
                         >
-                          {query}
-                        </p>
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                          <p className="font-medium">Query failed</p>
+                          <p className="opacity-80">
+                            {previewQuery.error.message}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                </div>
 
                 <div
                   ref={previewRef}
@@ -1623,6 +1687,11 @@ export function WidgetEditorModal({
                       chartOptions={chartOptions}
                       seedPreviewOptions={seedPreviewOptions}
                       seedQueryPending={seedQueryExecution.isPending}
+                      seedQueryError={
+                        seedQueryExecution.isError
+                          ? seedQueryExecution.error.message
+                          : null
+                      }
                     />
                   ) : isForm ? (
                     formFields.length > 0 ? (
@@ -1655,7 +1724,19 @@ export function WidgetEditorModal({
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                       )}
-                      {previewQuery.data || initialPreviewData ? (
+                      {previewQuery.isError &&
+                      !previewQuery.data &&
+                      !initialPreviewData ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                          <AlertCircle className="h-8 w-8 text-destructive" />
+                          <p className="text-sm font-medium text-destructive">
+                            Query failed
+                          </p>
+                          <p className="text-xs max-w-xs text-center">
+                            {previewQuery.error.message}
+                          </p>
+                        </div>
+                      ) : previewQuery.data || initialPreviewData ? (
                         <CardContainer
                           widget={{
                             id: "preview",
@@ -1682,9 +1763,9 @@ export function WidgetEditorModal({
                             (previewQuery.data ?? initialPreviewData)!.resultId
                           }
                         />
-                      ) : (mode === "edit" || mode === "lab-edit") &&
-                        connectionId &&
-                        query.trim() ? (
+                      ) : connectionId &&
+                        query.trim() &&
+                        !previewQuery.isError ? (
                         <div className="h-full flex items-center justify-center">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>

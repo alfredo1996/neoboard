@@ -343,6 +343,72 @@ test.describe("Widget duplicate", () => {
   });
 });
 
+test.describe("Widget editor UX", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Widget Editor UX ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(page.getByText("Editing:")).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("should show no-connector warning when connection not selected", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    // Select chart type "Data Table" but do NOT select a connection
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+
+    // Warning should NOT show until user types a query
+    const warning = dialog.getByTestId("no-connector-warning");
+    await expect(warning).not.toBeVisible({ timeout: 2_000 });
+
+    // Type a query without selecting a connection — warning should appear
+    await typeInEditor(dialog, page, "SELECT 1");
+    await expect(warning).toBeVisible({ timeout: 5_000 });
+    await expect(warning).toContainText("Select a connection");
+
+    // Now select a connection (first in dropdown)
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    // Assert warning disappears
+    await expect(warning).not.toBeVisible({ timeout: 5_000 });
+  });
+
+  test("should auto-preview when connection and query are set in add mode", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    // Select Neo4j connection
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    // Enter query via typeInEditor helper — do NOT click Run button
+    await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title LIMIT 5");
+
+    // Wait for auto-preview to fire and render data
+    // The preview pane should show data without explicitly clicking Run
+    await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+  });
+});
+
 test.describe("Widget fullscreen", () => {
   test("should open fullscreen dialog and render chart", async ({
     authPage,

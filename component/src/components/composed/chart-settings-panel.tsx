@@ -8,6 +8,8 @@ export interface ChartSettingsPanelProps {
   transformTab?: React.ReactNode;
   advancedTab?: React.ReactNode;
   defaultTab?: string;
+  /** When this value changes, tabs reset to defaultTab (e.g. pass chartType). */
+  resetKey?: string;
   className?: string;
 }
 
@@ -17,6 +19,7 @@ function ChartSettingsPanel({
   transformTab,
   advancedTab,
   defaultTab = "data",
+  resetKey,
   className,
 }: ChartSettingsPanelProps) {
   const tabs = [
@@ -32,7 +35,7 @@ function ChartSettingsPanel({
 
   return (
     <div className={cn("w-full", className)}>
-      <Tabs defaultValue={defaultTab}>
+      <Tabs key={resetKey} defaultValue={defaultTab}>
         <TabsList className="w-full">
           {tabs.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value} className="flex-1">

@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { DashboardMiniPreview, type MiniPreviewWidget } from "../dashboard-mini-preview";
+import {
+  DashboardMiniPreview,
+  type MiniPreviewWidget,
+} from "../dashboard-mini-preview";
 
 const sampleWidgets: MiniPreviewWidget[] = [
   { x: 0, y: 0, w: 6, h: 2, chartType: "bar" },
@@ -17,7 +20,7 @@ describe("DashboardMiniPreview", () => {
 
   it("renders correct number of blocks", () => {
     const { container } = render(
-      <DashboardMiniPreview widgets={sampleWidgets} />
+      <DashboardMiniPreview widgets={sampleWidgets} />,
     );
     const blocks = container.querySelectorAll(".rounded-sm");
     expect(blocks).toHaveLength(4);
@@ -25,7 +28,9 @@ describe("DashboardMiniPreview", () => {
 
   it("applies correct grid positioning via inline styles", () => {
     const { container } = render(
-      <DashboardMiniPreview widgets={[{ x: 2, y: 1, w: 4, h: 3, chartType: "bar" }]} />
+      <DashboardMiniPreview
+        widgets={[{ x: 2, y: 1, w: 4, h: 3, chartType: "bar" }]}
+      />,
     );
     const block = container.querySelector(".rounded-sm") as HTMLElement;
     expect(block.style.gridColumn).toBe("3 / span 4");
@@ -39,7 +44,7 @@ describe("DashboardMiniPreview", () => {
           { x: 0, y: 0, w: 6, h: 2, chartType: "bar" },
           { x: 6, y: 0, w: 6, h: 2, chartType: "pie" },
         ]}
-      />
+      />,
     );
     const blocks = container.querySelectorAll(".rounded-sm");
     expect(blocks[0]).toHaveClass("bg-blue-400/40");
@@ -50,7 +55,7 @@ describe("DashboardMiniPreview", () => {
     const { container } = render(
       <DashboardMiniPreview
         widgets={[{ x: 0, y: 0, w: 6, h: 2, chartType: "custom-unknown" }]}
-      />
+      />,
     );
     const block = container.querySelector(".rounded-sm");
     expect(block).toHaveClass("bg-muted");
@@ -58,14 +63,14 @@ describe("DashboardMiniPreview", () => {
 
   it("applies className prop", () => {
     const { container } = render(
-      <DashboardMiniPreview widgets={[]} className="my-custom-class" />
+      <DashboardMiniPreview widgets={[]} className="my-custom-class" />,
     );
     expect(container.firstChild).toHaveClass("my-custom-class");
   });
 
   it("renders grid container with 12 columns", () => {
     const { container } = render(
-      <DashboardMiniPreview widgets={sampleWidgets} />
+      <DashboardMiniPreview widgets={sampleWidgets} />,
     );
     const grid = container.firstChild as HTMLElement;
     expect(grid.style.gridTemplateColumns).toBe("repeat(12, 1fr)");
@@ -75,9 +80,16 @@ describe("DashboardMiniPreview", () => {
     const { container } = render(
       <DashboardMiniPreview
         widgets={[
-          { x: 0, y: 0, w: 6, h: 2, chartType: "bar", thumbnailUrl: "data:image/jpeg;base64,abc" },
+          {
+            x: 0,
+            y: 0,
+            w: 6,
+            h: 2,
+            chartType: "bar",
+            thumbnailUrl: "data:image/jpeg;base64,abc",
+          },
         ]}
-      />
+      />,
     );
     const img = container.querySelector("img");
     expect(img).toBeInTheDocument();
@@ -85,13 +97,41 @@ describe("DashboardMiniPreview", () => {
     expect(img?.getAttribute("loading")).toBe("lazy");
   });
 
+  it("sets explicit width and height on <img> for layout stability", () => {
+    const { container } = render(
+      <DashboardMiniPreview
+        widgets={[
+          {
+            x: 0,
+            y: 0,
+            w: 6,
+            h: 2,
+            chartType: "bar",
+            thumbnailUrl: "data:image/jpeg;base64,abc",
+          },
+        ]}
+      />,
+    );
+    const img = container.querySelector("img");
+    expect(img).toBeInTheDocument();
+    expect(img?.getAttribute("width")).toBe("320");
+    expect(img?.getAttribute("height")).toBe("200");
+  });
+
   it("does not apply color class when thumbnailUrl is present", () => {
     const { container } = render(
       <DashboardMiniPreview
         widgets={[
-          { x: 0, y: 0, w: 6, h: 2, chartType: "bar", thumbnailUrl: "data:image/jpeg;base64,abc" },
+          {
+            x: 0,
+            y: 0,
+            w: 6,
+            h: 2,
+            chartType: "bar",
+            thumbnailUrl: "data:image/jpeg;base64,abc",
+          },
         ]}
-      />
+      />,
     );
     const block = container.querySelector(".rounded-sm");
     expect(block).not.toHaveClass("bg-blue-400/40");
@@ -101,10 +141,17 @@ describe("DashboardMiniPreview", () => {
     const { container } = render(
       <DashboardMiniPreview
         widgets={[
-          { x: 0, y: 0, w: 6, h: 2, chartType: "bar", thumbnailUrl: "data:image/jpeg;base64,abc" },
+          {
+            x: 0,
+            y: 0,
+            w: 6,
+            h: 2,
+            chartType: "bar",
+            thumbnailUrl: "data:image/jpeg;base64,abc",
+          },
           { x: 6, y: 0, w: 6, h: 2, chartType: "graph" },
         ]}
-      />
+      />,
     );
     const imgs = container.querySelectorAll("img");
     expect(imgs).toHaveLength(1);

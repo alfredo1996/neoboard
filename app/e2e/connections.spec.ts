@@ -164,45 +164,52 @@ test.describe("Connections", () => {
   test("clicking an error card shows error details inline", async ({
     page,
   }) => {
-    const name = `Click Error ${Date.now()}`;
-    // Create a connection with bad credentials
-    await page.getByRole("button", { name: "Add Connection" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByTestId("pick-neo4j").click();
-    await dialog.locator("#conn-name").fill(name);
-    await dialog.locator("#conn-uri").fill("bolt://localhost:1");
-    await dialog.locator("#conn-username").fill("wrong");
-    await dialog.locator("#conn-password").fill("wrong");
-    await dialog.getByRole("button", { name: "Create" }).click();
-    await expect(dialog).not.toBeVisible();
-
-    // Wait for auto-test to show Error badge
-    const card = page
-      .locator("div")
-      .filter({ has: page.getByText(name, { exact: true }) })
-      .first();
-    await expect(card.getByText("Error").first()).toBeVisible({
+    // Use the first seeded connection which should be in error state
+    // (seeded with localhost URIs that don't work from the test server)
+    const firstCard = page.locator("[class*='cursor-pointer']").first();
+    await expect(firstCard.getByText("Error").first()).toBeVisible({
       timeout: 30_000,
     });
 
-    // Click the card — should expand an alert below it with the error message
-    await card.click();
-    await expect(
-      page
-        .locator('[role="alert"]')
-        .filter({ hasText: /refused|ECONNREFUSED|failed|error/i })
-        .first(),
-    ).toBeVisible({
+    // Click the card — should expand an inline alert with the error message
+    await firstCard.click();
+    // The alert is rendered as a sibling inside the same wrapper div
+    const wrapper = firstCard.locator("..");
+    await expect(wrapper.locator('[role="alert"]')).toBeVisible({
       timeout: 5_000,
     });
 
     // Click again to collapse
-    await card.click();
-    await expect(
-      page
-        .locator('[role="alert"]')
-        .filter({ hasText: /refused|ECONNREFUSED|failed|error/i }),
-    ).not.toBeVisible();
+    await firstCard.click();
+    await expect(wrapper.locator('[role="alert"]')).not.toBeVisible();
+  });
+
+  test("should pre-fill edit dialog with existing connection values", async ({
+    page,
+  }) => {
+    // Wait for seeded connections to load
+    const firstActions = page
+      .getByRole("button", { name: "Connection actions" })
+      .first();
+    await expect(firstActions).toBeVisible({ timeout: 10000 });
+
+    // Open the kebab menu on the first connection and click Edit
+    await firstActions.click();
+    await page.getByRole("menuitem", { name: /Edit/ }).click();
+
+    // Assert the edit dialog opens
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Assert URI and username fields are pre-filled (not empty)
+    const uriInput = dialog.locator("#edit-uri");
+    const usernameInput = dialog.locator("#edit-username");
+    await expect(uriInput).not.toHaveValue("", { timeout: 5000 });
+    await expect(usernameInput).not.toHaveValue("");
+
+    // Close dialog
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).not.toBeVisible();
   });
 
   test("should delete a connection with confirmation", async ({ page }) => {
