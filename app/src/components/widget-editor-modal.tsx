@@ -58,6 +58,9 @@ import {
   CodePreview,
   MarkdownWidget,
   IframeWidget,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@neoboard/components";
 import type { ColorScaleConfig } from "@neoboard/components";
 import {
