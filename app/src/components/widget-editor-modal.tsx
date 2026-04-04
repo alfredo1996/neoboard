@@ -333,19 +333,25 @@ export function WidgetEditorModal({
   const previewQuery = useQueryExecution();
   const allParamValues = useParameterValues();
 
-  // Keep refs for values used inside handlePreview so that the callback
-  // identity stays stable and does not trigger the auto-preview effects
-  // on every render (fixes infinite preview loop — see #354).
-  const allParamValuesRef = useRef(allParamValues);
-  allParamValuesRef.current = allParamValues;
-  const previewQueryRef = useRef(previewQuery);
-  previewQueryRef.current = previewQuery;
-
   // Derive the selected connection object so we can read its type
   const selectedConnection = useMemo(
     () => connections.find((c) => c.id === connectionId) ?? null,
     [connections, connectionId],
   );
+
+  // Keep refs for values used inside handlePreview so that the callback
+  // identity stays stable and does not trigger the auto-preview effects
+  // on every render (fixes infinite preview loop — see #354).
+  const connectionIdRef = useRef(connectionId);
+  connectionIdRef.current = connectionId;
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const selectedConnectionRef = useRef(selectedConnection);
+  selectedConnectionRef.current = selectedConnection;
+  const allParamValuesRef = useRef(allParamValues);
+  allParamValuesRef.current = allParamValues;
+  const previewQueryRef = useRef(previewQuery);
+  previewQueryRef.current = previewQuery;
 
   // Template picker — only used in add mode
   const selectedConnectorType = selectedConnection?.type ?? undefined;
@@ -709,22 +715,21 @@ export function WidgetEditorModal({
   }, [stylingEnabled, chartType, stylingRules]);
 
   const handlePreview = useCallback(() => {
-    if (connectionId && query.trim()) {
-      const referenced = extractReferencedParams(
-        query,
-        allParamValuesRef.current,
-      );
+    const cId = connectionIdRef.current;
+    const q = queryRef.current;
+    if (cId && q.trim()) {
+      const referenced = extractReferencedParams(q, allParamValuesRef.current);
       const params =
         Object.keys(referenced).length > 0 ? referenced : undefined;
-      const connectorType = selectedConnection?.type ?? "neo4j";
-      const previewQuery_ = wrapWithPreviewLimit(query, connectorType);
+      const connectorType = selectedConnectionRef.current?.type ?? "neo4j";
+      const previewQuery_ = wrapWithPreviewLimit(q, connectorType);
       previewQueryRef.current.mutate({
-        connectionId,
+        connectionId: cId,
         query: previewQuery_,
         params,
       });
     }
-  }, [connectionId, query, selectedConnection]);
+  }, []);
 
   // Auto-run preview when connection and query are present so column selectors
   // are populated.  For "add" mode a short debounce avoids firing on every
@@ -743,8 +748,9 @@ export function WidgetEditorModal({
       return;
     }
     autoPreviewTriggered.current = true;
-    // In "add" mode, debounce to avoid firing while the user is still typing.
-    const delay = mode === "add" ? 300 : 0;
+    // Short delay so state updates (connectionId, query) from modal
+    // initialization commit before handlePreview reads them.
+    const delay = mode === "add" ? 300 : 50;
     const timer = setTimeout(() => {
       handlePreview();
     }, delay);
