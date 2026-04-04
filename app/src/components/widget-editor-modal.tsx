@@ -1718,7 +1718,19 @@ export function WidgetEditorModal({
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                       )}
-                      {previewQuery.data || initialPreviewData ? (
+                      {previewQuery.isError &&
+                      !previewQuery.data &&
+                      !initialPreviewData ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                          <AlertCircle className="h-8 w-8 text-destructive" />
+                          <p className="text-sm font-medium text-destructive">
+                            Query failed
+                          </p>
+                          <p className="text-xs max-w-xs text-center">
+                            {previewQuery.error.message}
+                          </p>
+                        </div>
+                      ) : previewQuery.data || initialPreviewData ? (
                         <CardContainer
                           widget={{
                             id: "preview",
@@ -1745,7 +1757,9 @@ export function WidgetEditorModal({
                             (previewQuery.data ?? initialPreviewData)!.resultId
                           }
                         />
-                      ) : connectionId && query.trim() ? (
+                      ) : connectionId &&
+                        query.trim() &&
+                        !previewQuery.isError ? (
                         <div className="h-full flex items-center justify-center">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>

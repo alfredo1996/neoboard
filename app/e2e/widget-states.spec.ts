@@ -36,9 +36,9 @@ test.describe("Widget editor", () => {
       ).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
 
-      // Should show error
+      // Should show error indicator (icon button with aria-label describing the error)
       await expect(
-        dialog.getByText(/failed|error|invalid|syntax/i).first(),
+        dialog.getByRole("button", { name: /query failed/i }),
       ).toBeVisible({ timeout: 15_000 });
     });
 
