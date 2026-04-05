@@ -1,0 +1,77 @@
+---
+title: CLI Overview
+description: Install, run, and manage NeoBoard from the command line.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+The NeoBoard CLI handles project setup, database management, and service lifecycle. One command gets you from clone to running app.
+
+## Installation Modes
+
+| Mode | Command | What it does |
+|------|---------|-------------|
+| **Docker** (default) | `neoboard setup` | Runs everything in containers -- app, PostgreSQL, Neo4j |
+| **Local + Docker DBs** | `neoboard setup --mode local` | App runs locally with Node.js, databases in Docker |
+| **Fully local** | `neoboard init --mode local` | Install deps and generate config -- bring your own PostgreSQL and Neo4j |
+
+## Prerequisites
+
+- **Node.js 20+** -- required for all modes
+- **Docker Desktop** -- required for Docker mode, optional for local mode
+- **Git** -- to clone the repository
+
+## Command Reference
+
+### Top-Level Commands
+
+| Command | Description |
+|---------|-------------|
+| `neoboard setup` | Full setup: init + start + migrate. One command to get running. |
+| `neoboard init` | Initialize config and install dependencies. |
+| `neoboard start` | Start services, run migrations, verify health. |
+| `neoboard stop` | Stop Docker containers. |
+| `neoboard dev` | Start Next.js dev server with hot reload (local mode). |
+| `neoboard status` | Show health of PostgreSQL, Neo4j, and the app. |
+| `neoboard doctor` | Check prerequisites: Docker, Node.js, ports, env file. |
+| `neoboard demo` | Full setup + seed demo data and sample dashboards. |
+| `neoboard env` | Generate or validate `app/.env.local`. |
+| `neoboard logs` | Tail Docker container logs. |
+
+### Config Commands
+
+| Command | Description |
+|---------|-------------|
+| `neoboard config list` | Show all config values. |
+| `neoboard config get <key>` | Get a single config value (e.g. `ports.app`). |
+| `neoboard config set <key> <value>` | Set a config value (e.g. `neoboard config set ports.app 4000`). |
+
+### Database Commands
+
+| Command | Description |
+|---------|-------------|
+| `neoboard db migrate` | Run Drizzle migrations. |
+| `neoboard db seed` | Seed database with sample data. |
+| `neoboard db reset` | Drop and recreate the database, replay migrations. |
+| `neoboard db dump` | Export PostgreSQL database to a SQL file. |
+
+## Quick Start
+
+The fastest path from zero to running:
+
+```bash
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+npm run cli:build
+node cli/dist/index.js demo
+```
+
+Open `http://localhost:3000` and log in with `admin@neoboard.local` / `admin123`.
+
+## Next Steps
+
+<CardGrid>
+  <LinkCard title="Docker Setup" href="/cli/docker-setup" />
+  <LinkCard title="Local Setup" href="/cli/local-setup" />
+  <LinkCard title="Command Reference" href="/cli/commands" />
+</CardGrid>

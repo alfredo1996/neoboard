@@ -1,0 +1,123 @@
+---
+title: Docker Setup
+description: Get NeoBoard running with Docker in under 5 minutes.
+---
+
+This guide sets up NeoBoard with everything running in Docker containers -- the app, PostgreSQL, and Neo4j. This is the recommended approach for trying NeoBoard quickly.
+
+## Prerequisites
+
+- **Docker Desktop** -- running and accessible from the terminal
+- **Node.js 20+** -- to build and run the CLI
+- **Git** -- to clone the repository
+
+## Steps
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+```
+
+### 2. Build the CLI
+
+```bash
+npm run cli:build
+```
+
+### 3. Verify prerequisites
+
+```bash
+node cli/dist/index.js doctor
+```
+
+This checks that Docker is running, Node.js is the right version, required ports are available, and config files exist. Fix any issues before continuing.
+
+### 4. Run the demo setup
+
+```bash
+node cli/dist/index.js demo
+```
+
+This single command does everything:
+
+1. **init** -- creates `neoboard.config.json` and `.neoboard.local`
+2. **start** -- launches Docker containers via `docker compose`, waits for health checks
+3. **migrate** -- runs Drizzle database migrations against PostgreSQL
+4. **seed** -- loads Neo4j graph data and creates a demo user with sample dashboards
+
+### 5. Open NeoBoard
+
+Navigate to [http://localhost:3000](http://localhost:3000) and log in:
+
+| Field | Value |
+|-------|-------|
+| Email | `admin@neoboard.local` |
+| Password | `admin123` |
+
+## Default Ports
+
+| Service | Port | URL |
+|---------|------|-----|
+| NeoBoard app | 3000 | `http://localhost:3000` |
+| Neo4j Browser | 7474 | `http://localhost:7474` |
+| Neo4j Bolt | 7687 | `bolt://localhost:7687` |
+| PostgreSQL | 5432 | `localhost:5432` |
+
+Change ports with `neoboard config set`:
+
+```bash
+node cli/dist/index.js config set ports.app 4000
+```
+
+## Stopping and Restarting
+
+```bash
+# Stop containers (keeps data)
+node cli/dist/index.js stop
+
+# Stop containers and delete all data
+node cli/dist/index.js stop --volumes
+
+# Restart
+node cli/dist/index.js start
+```
+
+## Common Issues
+
+### Ports already in use
+
+If `doctor` reports ports in use, either stop the conflicting process or change the port:
+
+```bash
+node cli/dist/index.js config set ports.postgres 5433
+```
+
+### Docker daemon not running
+
+Start Docker Desktop and wait for it to be ready. Verify with:
+
+```bash
+docker info
+```
+
+### Slow first build
+
+The first `docker compose up` downloads images and builds the app container. This can take several minutes depending on your internet connection. Subsequent starts are fast.
+
+### Container won't start
+
+Check container logs for errors:
+
+```bash
+node cli/dist/index.js logs postgres
+node cli/dist/index.js logs neo4j
+```
+
+To start completely fresh:
+
+```bash
+node cli/dist/index.js stop --volumes
+node cli/dist/index.js demo
+```

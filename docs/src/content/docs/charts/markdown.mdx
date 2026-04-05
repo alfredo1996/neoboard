@@ -1,0 +1,46 @@
+---
+title: Markdown Widget
+description: Static rich text content for dashboard annotations and instructions.
+---
+
+## Overview
+
+The Markdown widget renders static rich text content directly on the dashboard. Use it for headings, instructions, documentation links, or any explanatory text that helps users understand the dashboard. No query or database connection is required.
+
+## Query Format
+
+This widget does not use a query. Content is entered directly in the Chart Options panel.
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Markdown Content | text | (empty) | Markdown text to render. Supports headings, bold, italic, links, lists, code blocks, and blockquotes |
+
+## Supported Markdown Syntax
+
+```markdown
+# Heading 1
+## Heading 2
+### Heading 3
+
+**Bold text** and *italic text*
+
+- Bullet list item
+- Another item
+
+1. Numbered list
+2. Second item
+
+[Link text](https://example.com)
+
+> Blockquote
+
+`inline code` and code blocks with triple backticks
+```
+
+## Tips
+
+- Use Markdown widgets as section headers to organize a dashboard into logical groups.
+- Add a brief description at the top of a dashboard explaining what data sources it covers and how to interpret the charts.
+- Markdown widgets resize with the grid layout, so keep content concise to avoid scrolling in small widgets.

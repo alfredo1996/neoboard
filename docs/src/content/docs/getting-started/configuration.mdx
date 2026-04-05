@@ -1,0 +1,99 @@
+---
+title: Configuration
+description: Environment variables and configuration options for NeoBoard.
+---
+
+NeoBoard is configured through environment variables and an optional config file. Create a `.env.local` file in the `app/` directory (i.e. `app/.env.local`).
+
+## Example `.env.local`
+
+```bash
+# Required
+DATABASE_URL="postgresql://neoboard:neoboard@localhost:5432/neoboard"
+NEXTAUTH_SECRET="your-random-secret-here"
+ENCRYPTION_KEY="your-64-char-hex-key-here"
+
+# Optional
+NEXTAUTH_URL="http://localhost:3000"
+MAX_QUERY_ROWS=1000
+QUERY_TIMEOUT_MS=30000
+```
+
+Generate secrets with:
+
+```bash
+# NEXTAUTH_SECRET
+openssl rand -base64 32
+
+# ENCRYPTION_KEY
+openssl rand -hex 32
+```
+
+## Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string for metadata | `postgresql://user:pass@localhost:5432/neoboard` |
+| `NEXTAUTH_SECRET` | Secret for signing session tokens | Output of `openssl rand -base64 32` |
+| `ENCRYPTION_KEY` | AES-256 key for encrypting stored credentials | Output of `openssl rand -hex 32` |
+
+## Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXTAUTH_URL` | Public URL of the NeoBoard instance | `http://localhost:3000` |
+| `DEFAULT_TENANT_ID` | Default tenant for single-tenant deployments | `default` |
+| `MAX_QUERY_ROWS` | Maximum rows returned per query | `1000` |
+| `QUERY_TIMEOUT_MS` | Default query timeout in milliseconds | `30000` |
+
+## Enterprise Variables
+
+These enable enterprise features when set:
+
+| Variable | Description |
+|----------|-------------|
+| `SSO_ENABLED` | Enable SSO authentication providers |
+| `CUSTOM_ROLES_ENABLED` | Enable custom role definitions |
+| `CONNECTOR_LABELS_ENABLED` | Enable labeling connectors |
+
+## Config File (Optional)
+
+You can also use a `neoboard.config.json` file in the project root for non-secret settings:
+
+```json
+{
+  "maxQueryRows": 1000,
+  "queryTimeoutMs": 30000,
+  "defaultTenantId": "default",
+  "features": {
+    "sso": false,
+    "customRoles": false,
+    "connectorLabels": false
+  }
+}
+```
+
+## View Current Config
+
+Use the CLI to see all active configuration values:
+
+```bash
+neoboard config list
+```
+
+```
+  NeoBoard Config
+  ---------------
+  DATABASE_URL       = postgresql://...@localhost:5432/neoboard
+  NEXTAUTH_URL       = http://localhost:3000
+  ENCRYPTION_KEY     = ******** (set)
+  MAX_QUERY_ROWS     = 1000
+  QUERY_TIMEOUT_MS   = 30000
+  DEFAULT_TENANT_ID  = default
+```
+
+## Security Notes
+
+- **`ENCRYPTION_KEY`** is critical. If lost, all stored database credentials become unrecoverable.
+- Never commit `.env.local` to version control.
+- Rotate `NEXTAUTH_SECRET` periodically in production.

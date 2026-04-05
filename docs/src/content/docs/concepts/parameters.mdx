@@ -1,0 +1,81 @@
+---
+title: Parameters
+description: Interactive filters that drive queries across widgets.
+---
+
+Parameters make dashboards interactive. A user picks a value from a dropdown, types into a text field, or selects a date — and every widget that references that parameter re-runs its query automatically.
+
+## How It Works
+
+1. You add a **parameter widget** to your dashboard (e.g., a dropdown)
+2. The user selects a value
+3. Other widgets reference the parameter with `$param_name` in their queries
+4. When the value changes, dependent widgets refresh automatically
+
+## The `$param_name` Syntax
+
+Use `$param_name` anywhere in your query to reference a parameter value. NeoBoard replaces it safely using parameterized queries — values are never interpolated into the query string.
+
+**Cypher (Neo4j):**
+
+```cypher
+MATCH (m:Movie)
+WHERE m.year >= $param_start_year
+  AND m.year <= $param_end_year
+RETURN m.title, m.year
+ORDER BY m.year
+```
+
+**SQL (PostgreSQL):**
+
+```sql
+SELECT title, year
+FROM movies
+WHERE year >= $param_start_year
+  AND year <= $param_end_year
+ORDER BY year;
+```
+
+The parameter name must match exactly. If your parameter widget is named `start_year`, reference it as `$param_start_year` (NeoBoard adds the `param_` prefix automatically).
+
+## Parameter Types
+
+| Type | Input control | Value produced | Use case |
+|------|--------------|----------------|----------|
+| Select | Dropdown | Single string | Filter by category (e.g., country, status) |
+| Text | Free-text input | String | Search by name or keyword |
+| Number | Numeric input | Number | Filter by threshold or ID |
+| Date | Date picker | ISO date string | Filter by specific date |
+| Date Range | Start/end pickers | `{start, end}` | Filter a time window |
+| Boolean | Toggle switch | `true` / `false` | Enable/disable a filter |
+| Multiselect | Multi-value dropdown | Array of strings | Filter by multiple categories |
+| Slider | Range slider | Number | Adjust a numeric threshold visually |
+
+## Seed Queries
+
+For **Select** and **Multiselect** parameters, you write a seed query that populates the dropdown options. The seed query runs once when the dashboard loads.
+
+**Example seed query (Cypher):**
+
+```cypher
+MATCH (c:Country)
+RETURN DISTINCT c.name AS value
+ORDER BY c.name
+```
+
+**Example seed query (SQL):**
+
+```sql
+SELECT DISTINCT country AS value
+FROM customers
+ORDER BY country;
+```
+
+The query must return a column named `value`. Each row becomes a dropdown option.
+
+## Where Parameter Values Come From
+
+- **User input** — the user selects or types a value (default)
+- **Seed query** — a query populates dropdown options
+- **Default values** — initial values set during widget configuration
+- **Click actions** — clicking a chart element sets a parameter value (configured in the widget's Advanced tab)

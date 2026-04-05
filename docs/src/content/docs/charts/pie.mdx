@@ -1,0 +1,50 @@
+---
+title: Pie / Doughnut Chart
+description: Proportional slices for part-to-whole comparisons.
+---
+
+## Overview
+
+The Pie Chart shows how a total is divided among categories. Each slice represents a category's share of the whole. Enable donut mode to add a center cutout, which is useful for displaying a total or label in the middle.
+
+## Query Format
+
+Return exactly 2 columns: the first column is the slice label (string), and the second column is the numeric value.
+
+### Cypher
+
+```cypher
+MATCH (p:Person)-[r]->(m:Movie)
+RETURN type(r) AS category, count(*) AS total
+ORDER BY total DESC
+```
+
+### SQL
+
+```sql
+SELECT role AS category, COUNT(*) AS total
+FROM "user"
+GROUP BY role
+ORDER BY total DESC
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Donut Style | boolean | false | Cut a hole in the centre to render as a donut |
+| Rose/Nightingale Mode | boolean | false | Vary each slice's radius by its value |
+| Label Position | select | outside | Where to place slice labels: outside, inside, or center |
+| Show Labels | boolean | true | Show the category name on each slice |
+| Show Percentage | boolean | true | Show the percentage value on each slice |
+| Show Legend | boolean | true | Show the legend identifying each slice |
+| Sort Slices by Value | boolean | false | Sort slices largest-first for a cleaner layout |
+| Top N Slices | number | 0 (all) | Show only the top N slices; group the rest into "Other" |
+| Donut Center Text | text | (empty) | Custom text in the donut center. Blank shows the total |
+| Decimal Places | number | -1 (auto) | Fixed decimal places in tooltips (0-6) |
+
+## Tips
+
+- Use Top N Slices to avoid visual clutter when you have many small categories -- the rest are grouped into "Other".
+- Enable Donut Style and set Donut Center Text to display a KPI in the middle of the chart.
+- Rose/Nightingale mode works well when you want to emphasize the magnitude difference between categories.

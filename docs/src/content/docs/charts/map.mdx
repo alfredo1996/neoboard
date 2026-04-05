@@ -1,0 +1,50 @@
+---
+title: Map
+description: Geographic markers on a Leaflet map for location-based data.
+---
+
+## Overview
+
+The Map widget plots geographic data points as markers on an interactive Leaflet map. Use it for location-based data such as store locations, events, or any dataset with latitude and longitude columns.
+
+## Query Format
+
+Return columns containing latitude and longitude values. Column names must contain "lat" and "lng" (or "lon"/"long"). An optional label column (matching "name", "label", or "title") is shown in marker popups.
+
+### Cypher
+
+> The demo Neo4j dataset does not include geographic data. The example below assumes you have loaded nodes with latitude/longitude properties.
+
+```cypher
+MATCH (s:Location)
+RETURN s.latitude AS lat, s.longitude AS lng, s.name AS name
+```
+
+### SQL
+
+> The demo PostgreSQL database does not include geographic data. Replace the table and column names with your own.
+
+```sql
+SELECT latitude AS lat, longitude AS lng, name
+FROM locations
+WHERE latitude IS NOT NULL
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Tile Layer | select | osm | Base-map provider: OpenStreetMap, Carto Light, or Carto Dark |
+| Default Zoom | number | 3 | Initial zoom level (1 = world, 18 = street level) |
+| Min Zoom | number | 2 | Minimum zoom level the user can zoom out to |
+| Max Zoom | number | 18 | Maximum zoom level the user can zoom in to |
+| Auto-fit Bounds | boolean | true | Automatically pan and zoom to fit all markers on load |
+| Marker Size (px) | number | 6 | Radius of each marker circle in pixels |
+| Cluster Markers | boolean | false | Group nearby markers into cluster badges at lower zoom levels |
+| Show Popup on Click | boolean | true | Show a popup with row data when clicking a marker |
+
+## Tips
+
+- Enable Cluster Markers when plotting hundreds of points to keep the map readable at low zoom levels.
+- Use Carto Dark or Carto Light tile layers for a cleaner background when the data overlay is the focus.
+- Set Auto-fit Bounds to true so the map automatically frames all your data points on first load.

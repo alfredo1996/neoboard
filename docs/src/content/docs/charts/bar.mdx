@@ -1,0 +1,53 @@
+---
+title: Bar Chart
+description: Horizontal and vertical bar charts for comparing categories.
+---
+
+## Overview
+
+The Bar Chart displays categorical data as rectangular bars whose lengths are proportional to the values they represent. Use it when comparing discrete categories or showing ranked data.
+
+## Query Format
+
+Return 2 or more columns: the first column is used as the category label (x-axis), and remaining columns become numeric series (y-axis). Multiple value columns produce grouped or stacked bars.
+
+### Cypher
+
+```cypher
+MATCH (m:Movie)
+RETURN m.released AS label, count(*) AS value
+ORDER BY value DESC LIMIT 10
+```
+
+### SQL
+
+```sql
+SELECT role AS label, COUNT(*) AS value
+FROM "user"
+GROUP BY role
+ORDER BY value DESC
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Orientation | select | vertical | Vertical bars (upward) or horizontal bars (left-to-right) |
+| Stacked | boolean | false | Stack series on top of each other instead of side by side |
+| Bar Width (px) | number | 0 (auto) | Width of each bar in pixels. 0 lets the chart auto-size |
+| Bar Gap | text | 30% | Gap between bar groups as a percentage of bar width |
+| Show Values | boolean | false | Display the numeric value as a label on each bar |
+| Show Legend | boolean | true | Show the legend identifying each data series |
+| X-Axis Label | text | (empty) | Custom label below the horizontal axis |
+| Y-Axis Label | text | (empty) | Custom label beside the vertical axis |
+| Show Grid Lines | boolean | true | Show faint horizontal reference lines |
+| Axis Label Rotation | number | -1 (auto) | Override axis label angle (0-90). -1 auto-rotates at 8+ categories |
+| Reference Lines | text | (empty) | JSON array of horizontal reference lines |
+| Enable Scroll Zoom | boolean | false | Allow scroll-to-zoom on the data axis |
+| Decimal Places | number | -1 (auto) | Fixed decimal places in tooltips (0-6) |
+
+## Tips
+
+- Use horizontal orientation when category labels are long -- it avoids overlapping text.
+- Enable stacking when you want to show both the total and the contribution of each series.
+- For large datasets, enable Scroll Zoom to let users explore a subset of categories interactively.

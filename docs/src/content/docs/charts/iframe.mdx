@@ -1,0 +1,38 @@
+---
+title: iFrame Widget
+description: Embed an external web page within a dashboard widget.
+---
+
+## Overview
+
+The iFrame widget embeds an external web page directly into a dashboard. Use it to include third-party tools, documentation pages, or external dashboards alongside your NeoBoard widgets. No query or database connection is required.
+
+## Query Format
+
+This widget does not use a query. Configure the URL and settings in the Chart Options panel.
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| URL | text | (empty) | The URL of the external page to embed. Must be an https:// URL |
+| Title | text | Embedded content | Accessible title for screen readers |
+| Sandbox Policy | text | (empty) | HTML sandbox attributes controlling what the embedded page can do |
+
+## Sandbox Policy
+
+The sandbox field accepts standard HTML `sandbox` attribute values. Common values:
+
+| Value | Effect |
+|-------|--------|
+| (empty) | Maximum restrictions: no scripts, no forms, no popups |
+| `allow-scripts` | Allow JavaScript execution |
+| `allow-forms` | Allow form submission |
+| `allow-same-origin` | Treat embedded content as same-origin |
+| `allow-scripts allow-same-origin` | Allow scripts and same-origin access (use with trusted content only) |
+
+## Tips
+
+- Always use `https://` URLs. Most browsers block mixed content (HTTP inside HTTPS).
+- Leave the Sandbox Policy empty for untrusted content to apply maximum restrictions.
+- Some sites block embedding via `X-Frame-Options` or `Content-Security-Policy` headers -- if the page appears blank, the target site may not allow iframing.

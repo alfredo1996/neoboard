@@ -1,0 +1,47 @@
+---
+title: Graph Visualization
+description: Interactive node-and-relationship visualization for Neo4j graph data.
+---
+
+## Overview
+
+The Graph widget renders Neo4j nodes and relationships as an interactive force-directed graph. Users can drag nodes, zoom, and click to explore properties. This widget is only available for Neo4j connectors.
+
+## Query Format
+
+Return nodes, relationships, or paths -- not tabular data. The transform automatically extracts graph structures from the query result.
+
+### Cypher
+
+```cypher
+MATCH (a:Person)-[r:ACTED_IN]->(m:Movie)
+RETURN a, r, m
+LIMIT 50
+```
+
+Paths also work:
+
+```cypher
+MATCH p = shortestPath((a:Person {name: 'Tom Hanks'})-[*]-(b:Person {name: 'Kevin Bacon'}))
+RETURN p
+```
+
+### SQL
+
+Graph visualization is not available for PostgreSQL connectors. Use a Neo4j connection for graph data.
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Layout | select | force | Node positioning algorithm: Force (physics simulation), Circular (ring), or Hierarchical (tree) |
+| Node Size | select | medium | Visual size of each node: Small, Medium, or Large |
+| Show Labels | boolean | true | Show the node label (first string property) on each node |
+| Show Relationship Labels | boolean | true | Show the relationship type name on each edge |
+| Enable Physics | boolean | true | Enable physics simulation so nodes repel and edges act as springs |
+
+## Tips
+
+- Add a `LIMIT` to your query to keep the graph readable -- more than 200 nodes can get cluttered.
+- Use the Hierarchical layout for tree-like data (org charts, category hierarchies).
+- Disable physics after the layout stabilizes if you want to manually position nodes by dragging them.
