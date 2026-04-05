@@ -201,10 +201,24 @@ function SortableFieldItem({
           </Select>
         </div>
 
+        {/* Static options (for select only) */}
+        {field.parameterType === "select" && (
+          <LabeledInput
+            label="Static Options (comma-separated)"
+            value={field.staticOptions ?? ""}
+            onChange={(v) => onUpdate(field.id, { staticOptions: v })}
+            placeholder="e.g. low,medium,high"
+          />
+        )}
+
         {/* Seed query (for select/multi-select/cascading-select) */}
         {needsSeedQuery(field.parameterType) && (
           <div className="space-y-1.5">
-            <Label className="text-xs">Options Query</Label>
+            <Label className="text-xs">
+              Options Query{" "}
+              {field.parameterType === "select" &&
+                "(ignored if static options set)"}
+            </Label>
             <Textarea
               value={field.seedQuery ?? ""}
               onChange={(e) =>
