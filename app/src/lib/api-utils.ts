@@ -31,13 +31,42 @@ export function serverError(msg = "Internal server error") {
 }
 
 // ---------------------------------------------------------------------------
+// Error message sanitization
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip bundler/runtime internals from user-facing error messages.
+ * Turbopack/webpack can produce errors like:
+ *   `(0 , __TURBOPACK__imported__module__$5b$project$5d...) is not a function`
+ * These are meaningless to users and should be replaced with a clean
+ * fallback. Also collapses stack-trace noise.
+ */
+export function sanitizeErrorMessage(
+  msg: string,
+  fallback = "Internal server error — check server logs",
+): string {
+  // Detect bundler internal paths or mangled module IDs
+  if (
+    msg.includes("__TURBOPACK__") ||
+    msg.includes("__webpack_require__") ||
+    msg.includes("__webpack__") ||
+    /\$[0-9a-f]{2}\$/.test(msg) // e.g. $5b$ encoded chars
+  ) {
+    return fallback;
+  }
+  return msg;
+}
+
+// ---------------------------------------------------------------------------
 // Validation helper
 // ---------------------------------------------------------------------------
 
 export function validateBody<T>(
   schema: ZodSchema<T>,
   data: unknown,
-): { success: true; data: T } | { success: false; response: ReturnType<typeof apiError> } {
+):
+  | { success: true; data: T }
+  | { success: false; response: ReturnType<typeof apiError> } {
   const parsed = schema.safeParse(data);
   if (!parsed.success) {
     return {
