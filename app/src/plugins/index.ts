@@ -8,11 +8,10 @@
  * To add a new chart plugin:
  *   1. Create `app/src/plugins/your-chart.ts` that exports a plugin
  *      via `defineChartPlugin({ ... })`
- *   2. Add `registerPluginFromFile("./your-chart")` here
+ *   2. Add the plugin to the BUILT_IN_PLUGINS array below
  *
- * During the v1.1 plugin migration, charts are moved from the legacy
- * switch statement in chart-renderer.tsx into this registry one by one.
- * Charts not yet migrated continue to work via the switch fallback.
+ * As of PR 4, all chart types are registered here — chart-renderer's
+ * switch statement has been removed and plugin lookup is the only path.
  */
 
 import { pluginRegistry } from "./registry";
@@ -20,8 +19,39 @@ import { markdownPlugin } from "./markdown";
 import { barPlugin } from "./bar";
 import { linePlugin } from "./line";
 import { piePlugin } from "./pie";
+import { singleValuePlugin } from "./single-value";
+import { graphPlugin } from "./graph";
+import { mapPlugin } from "./map";
+import { tablePlugin } from "./table";
+import { parameterSelectPlugin } from "./parameter-select";
+import { jsonPlugin } from "./json";
+import { formPlugin } from "./form";
+import { iframePlugin } from "./iframe";
+import { gaugePlugin } from "./gauge";
+import { sankeyPlugin } from "./sankey";
+import { sunburstPlugin } from "./sunburst";
+import { radarPlugin } from "./radar";
+import { treemapPlugin } from "./treemap";
 
-const BUILT_IN_PLUGINS = [markdownPlugin, barPlugin, linePlugin, piePlugin];
+const BUILT_IN_PLUGINS = [
+  markdownPlugin,
+  barPlugin,
+  linePlugin,
+  piePlugin,
+  singleValuePlugin,
+  graphPlugin,
+  mapPlugin,
+  tablePlugin,
+  parameterSelectPlugin,
+  jsonPlugin,
+  formPlugin,
+  iframePlugin,
+  gaugePlugin,
+  sankeyPlugin,
+  sunburstPlugin,
+  radarPlugin,
+  treemapPlugin,
+];
 
 // Idempotent registration — the first import of this module registers
 // plugins; subsequent imports are no-ops thanks to Node's module cache.
