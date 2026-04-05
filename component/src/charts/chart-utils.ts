@@ -133,6 +133,8 @@ export interface CategoryAxisLabelOptions {
   maxLabelLength?: number;
   /** Whether the chart is in compact mode (hides labels). */
   compact?: boolean;
+  /** Container width in pixels — used for width-based auto-rotation. */
+  containerWidth?: number;
 }
 
 export interface CategoryAxisLabelConfig {
@@ -156,7 +158,7 @@ export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { maxLabelLength = 15, compact = false } = options;
+  const { maxLabelLength = 15, compact = false, containerWidth } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
   const rotateOverride =
@@ -165,6 +167,19 @@ export function buildCategoryAxisLabel(
   let rotate: number;
   if (rotateOverride !== undefined) {
     rotate = rotateOverride;
+  } else if (containerWidth && categoryCount > 0) {
+    // Width-aware rotation: compute available space per label.
+    // Rough budget: label width ≈ maxLabelLength * 7px at 12px font.
+    const pixelsPerLabel = containerWidth / categoryCount;
+    if (pixelsPerLabel < 40) {
+      rotate = 60;
+    } else if (pixelsPerLabel < 70) {
+      rotate = 45;
+    } else if (pixelsPerLabel < 100) {
+      rotate = 30;
+    } else {
+      rotate = 0;
+    }
   } else if (categoryCount >= 15) {
     rotate = 45;
   } else if (categoryCount >= 8) {
@@ -173,11 +188,18 @@ export function buildCategoryAxisLabel(
     rotate = 0;
   }
 
-  const needsTruncation = categoryCount >= 8;
+  // Width-aware truncation: tighter limit in narrow containers
+  const effectiveMaxLength =
+    containerWidth && containerWidth < 400
+      ? Math.min(maxLabelLength, 10)
+      : maxLabelLength;
+  const needsTruncation =
+    categoryCount >= 8 ||
+    (containerWidth !== undefined && containerWidth < 400);
   const formatter = needsTruncation
     ? (value: string) =>
-        value.length > maxLabelLength
-          ? value.slice(0, maxLabelLength - 1) + "\u2026"
+        value.length > effectiveMaxLength
+          ? value.slice(0, effectiveMaxLength - 1) + "\u2026"
           : value
     : undefined;
 

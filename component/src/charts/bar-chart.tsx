@@ -84,11 +84,17 @@ function BarChart({
     if (!data.length) return buildEmptyDataOption();
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "label");
-    const effectiveShowLegend = resolveShowLegend(showLegend, seriesKeys.length, hideLegend);
+    const effectiveShowLegend = resolveShowLegend(
+      showLegend,
+      seriesKeys.length,
+      hideLegend,
+    );
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
-    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
+    const thresholds = stylingRules
+      ? []
+      : parseColorThresholds(colorThresholds ?? "");
     const refLines = parseReferenceLines(referenceLinesJson);
     const markLine = buildMarkLineFromRefs(refLines);
 
@@ -96,6 +102,7 @@ function BarChart({
     const axisLabelConfig = buildCategoryAxisLabel(categoryLabels.length, {
       compact,
       rotateOverride: axisLabelRotation,
+      containerWidth: width,
     });
 
     const categoryAxis = {
@@ -103,7 +110,7 @@ function BarChart({
       data: categoryLabels,
       axisLabel: axisLabelConfig,
       axisPointer: { type: "shadow" as const },
-      name: compact ? undefined : (isHorizontal ? yAxisLabel : xAxisLabel),
+      name: compact ? undefined : isHorizontal ? yAxisLabel : xAxisLabel,
       nameLocation: "middle" as const,
       nameGap: axisLabelConfig.rotate > 0 ? 50 : 30,
     };
@@ -111,13 +118,17 @@ function BarChart({
       type: "value" as const,
       axisLabel: { show: !compact },
       splitLine: { show: showGridLines },
-      name: compact ? undefined : (isHorizontal ? xAxisLabel : yAxisLabel),
+      name: compact ? undefined : isHorizontal ? xAxisLabel : yAxisLabel,
       nameLocation: "middle" as const,
       nameGap: 50,
     };
 
     return {
-      tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const }, formatter: buildTooltipFormatter() },
+      tooltip: {
+        trigger: "axis" as const,
+        axisPointer: { type: "shadow" as const },
+        formatter: buildTooltipFormatter(),
+      },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
       grid: buildCompactGrid(compact, effectiveShowLegend),
       xAxis: isHorizontal ? valueAxis : categoryAxis,
@@ -127,9 +138,15 @@ function BarChart({
         type: "bar" as const,
         data: data.map((d) => {
           const rawValue = d[key];
-          const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+          const numericValue =
+            typeof rawValue === "number" ? rawValue : Number(rawValue);
           const color = Number.isFinite(numericValue)
-            ? resolveItemColor(numericValue, stylingRules, paramValues, thresholds)
+            ? resolveItemColor(
+                numericValue,
+                stylingRules,
+                paramValues,
+                thresholds,
+              )
             : undefined;
           return color ? { value: rawValue, itemStyle: { color } } : rawValue;
         }),
@@ -137,14 +154,35 @@ function BarChart({
         barWidth: effectiveBarWidth,
         barGap,
         label: effectiveShowValues
-          ? { show: true, position: isHorizontal ? ("right" as const) : ("top" as const) }
+          ? {
+              show: true,
+              position: isHorizontal ? ("right" as const) : ("top" as const),
+            }
           : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // Attach reference lines to the first series only
         ...(idx === 0 && markLine ? { markLine } : {}),
       })),
     };
-  }, [data, orientation, stacked, showValues, showLegend, barWidth, barGap, showGridLines, xAxisLabel, yAxisLabel, axisLabelRotation, referenceLinesJson, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
+  }, [
+    data,
+    orientation,
+    stacked,
+    showValues,
+    showLegend,
+    barWidth,
+    barGap,
+    showGridLines,
+    xAxisLabel,
+    yAxisLabel,
+    axisLabelRotation,
+    referenceLinesJson,
+    colorThresholds,
+    stylingRules,
+    paramValues,
+    compact,
+    hideLegend,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
