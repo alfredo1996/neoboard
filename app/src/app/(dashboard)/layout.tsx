@@ -89,7 +89,7 @@ export default function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => router.push("/settings/profile")}
-                  aria-label="Open profile settings"
+                  aria-label="Open your profile"
                   className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors ${collapsed ? "justify-center" : ""}`}
                 >
                   <User className="h-4 w-4 shrink-0 text-muted-foreground" />
