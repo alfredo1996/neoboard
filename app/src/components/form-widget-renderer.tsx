@@ -26,6 +26,7 @@ import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import { buildFormParams } from "@/lib/form-field-def";
 import type { FormFieldDef } from "@/lib/form-field-def";
+import { validateFieldValue } from "@/lib/form-field-validation";
 import { DebouncedTextInput } from "./debounced-text-input";
 
 export interface FormWidgetRendererProps {
@@ -390,26 +391,35 @@ export function FormWidgetRenderer({
     });
   }, []);
 
+  const handleFieldBlur = useCallback(
+    (field: FormFieldDef) => {
+      const error = validateFieldValue(field, localValues[field.parameterName]);
+      setFieldErrors((prev) => {
+        if (error) {
+          if (prev[field.parameterName] === error) return prev;
+          return { ...prev, [field.parameterName]: error };
+        }
+        if (!prev[field.parameterName]) return prev;
+        const next = { ...prev };
+        delete next[field.parameterName];
+        return next;
+      });
+    },
+    [localValues],
+  );
+
   const writeQuery = useWriteQueryExecution();
 
   const handleSubmit = useCallback(() => {
     setSuccessMessage(null);
     setErrorMessage(null);
 
-    // Validate required fields
+    // Validate required + validationType for all fields
     const errors: Record<string, string> = {};
     for (const field of fields) {
-      if (field.required) {
-        const v = localValues[field.parameterName];
-        let isEmpty = v === undefined || v === null || v === "";
-        if (!isEmpty && Array.isArray(v)) isEmpty = v.length === 0;
-        if (!isEmpty && field.parameterType === "date-range") {
-          const r = v as { from?: string; to?: string } | undefined;
-          isEmpty = !r?.from && !r?.to;
-        }
-        if (isEmpty) {
-          errors[field.parameterName] = "This field is required";
-        }
+      const error = validateFieldValue(field, localValues[field.parameterName]);
+      if (error) {
+        errors[field.parameterName] = error;
       }
     }
 
@@ -471,7 +481,11 @@ export function FormWidgetRenderer({
         className="space-y-4 p-4"
       >
         {fields.map((field) => (
-          <div key={field.id} className="space-y-1.5">
+          <div
+            key={field.id}
+            className="space-y-1.5"
+            onBlur={() => handleFieldBlur(field)}
+          >
             <Label htmlFor={`form-field-${field.parameterName}`}>
               {field.label || field.parameterName}
               {field.required && (
@@ -503,7 +517,7 @@ export function FormWidgetRenderer({
 
         <Button
           type="submit"
-          disabled={writeQuery.isPending}
+          disabled={writeQuery.isPending || Object.keys(fieldErrors).length > 0}
           className="w-full"
         >
           {writeQuery.isPending
