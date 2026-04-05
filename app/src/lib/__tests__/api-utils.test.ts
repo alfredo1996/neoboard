@@ -11,6 +11,7 @@ import {
   serverError,
   handleRouteError,
   validateBody,
+  sanitizeErrorMessage,
 } from "../api-utils";
 import { UnauthorizedError, ForbiddenError } from "../auth/errors";
 import { z } from "zod";
@@ -114,5 +115,45 @@ describe("validateBody", () => {
       const body = await result.response.json();
       expect(body.error.code).toBe("VALIDATION_ERROR");
     }
+  });
+});
+
+describe("sanitizeErrorMessage", () => {
+  it("returns user-readable message as-is", () => {
+    expect(sanitizeErrorMessage("Connection refused")).toBe(
+      "Connection refused",
+    );
+  });
+
+  it("strips Turbopack internal paths", () => {
+    const raw =
+      "(0 , __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$src$2f$lib.ts__$5b$app$2d$route$5d$.createConnectionModule) is not a function";
+    expect(sanitizeErrorMessage(raw)).toBe(
+      "Internal server error — check server logs",
+    );
+  });
+
+  it("strips webpack internal paths", () => {
+    const raw = "__webpack_require__ is not defined";
+    expect(sanitizeErrorMessage(raw)).toBe(
+      "Internal server error — check server logs",
+    );
+  });
+
+  it("strips encoded module paths with $XX$ pattern", () => {
+    const raw = "Error at $5b$module$5d$ resolution";
+    expect(sanitizeErrorMessage(raw)).toBe(
+      "Internal server error — check server logs",
+    );
+  });
+
+  it("uses custom fallback", () => {
+    expect(sanitizeErrorMessage("__TURBOPACK__foo", "Connection failed")).toBe(
+      "Connection failed",
+    );
+  });
+
+  it("preserves short error messages", () => {
+    expect(sanitizeErrorMessage("ECONNREFUSED")).toBe("ECONNREFUSED");
   });
 });
