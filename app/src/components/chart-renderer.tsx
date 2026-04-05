@@ -11,23 +11,11 @@ import {
   Skeleton,
   EmptyState,
   JsonViewer,
-  MarkdownWidget,
   IframeWidget,
 } from "@neoboard/components";
 
-// Chart components use ECharts (browser APIs) — must be loaded client-side only
-const BarChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
-);
-const LineChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.LineChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
-);
-const PieChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.PieChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
-);
+// Chart components use ECharts (browser APIs) — must be loaded client-side only.
+// Bar/Line/Pie are now loaded via their plugins in app/src/plugins/.
 const SingleValueChart = dynamic(
   () =>
     import("@neoboard/components").then((m) => ({
@@ -36,9 +24,6 @@ const SingleValueChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 import type {
-  BarChartDataPoint,
-  LineChartDataPoint,
-  PieChartDataPoint,
   GraphNode,
   GraphEdge,
   MapMarker,
@@ -213,93 +198,13 @@ function ChartRendererInner({
 
   switch (type) {
     case "bar":
-      return (
-        <BarChart
-          data={(data as BarChartDataPoint[]) ?? []}
-          orientation={
-            settings.orientation as "vertical" | "horizontal" | undefined
-          }
-          stacked={settings.stacked as boolean | undefined}
-          showValues={settings.showValues as boolean | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          barWidth={settings.barWidth as number | undefined}
-          barGap={settings.barGap as string | undefined}
-          xAxisLabel={settings.xAxisLabel as string | undefined}
-          yAxisLabel={settings.yAxisLabel as string | undefined}
-          showGridLines={settings.showGridLines as boolean | undefined}
-          axisLabelRotation={settings.axisLabelRotation as number | undefined}
-          referenceLines={settings.referenceLines as string | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          enableDataZoom={settings.enableDataZoom as boolean | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-
     case "line":
-      return (
-        <LineChart
-          data={(data as LineChartDataPoint[]) ?? []}
-          smooth={settings.smooth as boolean | undefined}
-          area={settings.area as boolean | undefined}
-          xAxisLabel={settings.xAxisLabel as string | undefined}
-          yAxisLabel={settings.yAxisLabel as string | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          lineWidth={settings.lineWidth as number | undefined}
-          stepped={settings.stepped as boolean | undefined}
-          showPoints={settings.showPoints as boolean | undefined}
-          showGridLines={settings.showGridLines as boolean | undefined}
-          referenceLines={settings.referenceLines as string | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          rightAxisSeries={
-            typeof settings.rightAxisSeries === "string" &&
-            settings.rightAxisSeries.trim() !== ""
-              ? settings.rightAxisSeries
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-              : undefined
-          }
-          rightYAxisLabel={settings.rightYAxisLabel as string | undefined}
-          onClick={handleEChartsClick}
-          enableDataZoom={settings.enableDataZoom as boolean | undefined}
-          colorPalette={settings.colorPalette as string | undefined}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
-
     case "pie":
-      return (
-        <PieChart
-          data={(data as PieChartDataPoint[]) ?? []}
-          donut={settings.donut as boolean | undefined}
-          showLabel={settings.showLabel as boolean | undefined}
-          showLegend={settings.showLegend as boolean | undefined}
-          roseMode={settings.roseMode as boolean | undefined}
-          labelPosition={
-            settings.labelPosition as
-              | "outside"
-              | "inside"
-              | "center"
-              | undefined
-          }
-          showPercentage={settings.showPercentage as boolean | undefined}
-          sortSlices={settings.sortSlices as boolean | undefined}
-          topN={settings.topN as number | undefined}
-          donutCenterText={settings.donutCenterText as string | undefined}
-          colorThresholds={colorThresholds}
-          stylingRules={stylingRules}
-          paramValues={paramValues}
-          onClick={handleEChartsClick}
-          colorPalette={settings.colorPalette as string | undefined}
-          colorblindMode={settings.colorblindMode as boolean | undefined}
-        />
-      );
+    case "markdown":
+      // Handled by plugins (app/src/plugins/). The plugin lookup above
+      // intercepts these types — this branch is defensive and should
+      // never execute in practice.
+      return null;
 
     case "single-value": {
       const raw = data ?? 0;
@@ -474,11 +379,6 @@ function ChartRendererInner({
           query={query ?? ""}
           settings={settings}
         />
-      );
-
-    case "markdown":
-      return (
-        <MarkdownWidget content={settings.content as string | undefined} />
       );
 
     case "iframe":
