@@ -870,4 +870,60 @@ describe("GraphChart", () => {
       clearTimeoutSpy.mockRestore();
     });
   });
+
+  // --- Zoom controls + node count ---
+
+  describe("zoom controls and node count", () => {
+    it("renders zoom-in, zoom-out, and fit buttons in the toolbar", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      expect(screen.getByLabelText("Zoom in")).toBeInTheDocument();
+      expect(screen.getByLabelText("Zoom out")).toBeInTheDocument();
+      expect(screen.getByLabelText("Fit graph")).toBeInTheDocument();
+    });
+
+    it("renders the node count display with pluralized labels", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      // 3 nodes, 2 edges from sample data
+      const count = screen.getByTestId("graph-node-count");
+      expect(count).toHaveTextContent("3 nodes, 2 edges");
+    });
+
+    it("uses singular labels when there is exactly one node and one edge", () => {
+      const oneNode = [{ id: "1", label: "Only" }];
+      const oneEdge = [{ source: "1", target: "1", label: "self" }];
+      render(<GraphChart nodes={oneNode} edges={oneEdge} />);
+      const count = screen.getByTestId("graph-node-count");
+      expect(count).toHaveTextContent("1 node, 1 edge");
+    });
+
+    it("updates the node count when nodes and edges change", () => {
+      const { rerender } = render(
+        <GraphChart nodes={sampleNodes} edges={sampleEdges} />,
+      );
+      expect(screen.getByTestId("graph-node-count")).toHaveTextContent(
+        "3 nodes, 2 edges",
+      );
+      const moreNodes = [
+        ...sampleNodes,
+        { id: "4", label: "Dan" },
+        { id: "5", label: "Eve" },
+      ];
+      rerender(<GraphChart nodes={moreNodes} edges={sampleEdges} />);
+      expect(screen.getByTestId("graph-node-count")).toHaveTextContent(
+        "5 nodes, 2 edges",
+      );
+    });
+
+    it("clicking zoom-in does not throw when NVL ref has not yet been attached", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      // The NVL wrapper is mocked so nvlRef.current is null.
+      // Zoom buttons must safely no-op instead of throwing.
+      expect(() =>
+        fireEvent.click(screen.getByTestId("graph-zoom-in")),
+      ).not.toThrow();
+      expect(() =>
+        fireEvent.click(screen.getByTestId("graph-zoom-out")),
+      ).not.toThrow();
+    });
+  });
 });
