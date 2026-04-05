@@ -6,7 +6,11 @@ import { decryptJson } from "@/lib/crypto";
 import { testConnection } from "@/lib/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
 import { apiSuccess } from "@/lib/api-response";
-import { notFound, handleRouteError } from "@/lib/api-utils";
+import {
+  notFound,
+  handleRouteError,
+  sanitizeErrorMessage,
+} from "@/lib/api-utils";
 
 export async function POST(
   _request: Request,
@@ -40,10 +44,14 @@ export async function POST(
         ...(!success ? { error: "Connection check returned false" } : {}),
       });
     } catch (testError) {
-      const message =
+      const rawMessage =
         testError instanceof Error
           ? testError.message
           : "Connection test failed";
+      const message = sanitizeErrorMessage(
+        rawMessage,
+        "Connection test failed",
+      );
       return apiSuccess({ success: false, error: message });
     }
   } catch (error) {
