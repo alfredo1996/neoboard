@@ -17,11 +17,18 @@
 
 import { pluginRegistry } from "./registry";
 import { markdownPlugin } from "./markdown";
+import { barPlugin } from "./bar";
+import { linePlugin } from "./line";
+import { piePlugin } from "./pie";
+
+const BUILT_IN_PLUGINS = [markdownPlugin, barPlugin, linePlugin, piePlugin];
 
 // Idempotent registration — the first import of this module registers
 // plugins; subsequent imports are no-ops thanks to Node's module cache.
-if (!pluginRegistry.has(markdownPlugin.type)) {
-  pluginRegistry.register(markdownPlugin);
+for (const plugin of BUILT_IN_PLUGINS) {
+  if (!pluginRegistry.has(plugin.type)) {
+    pluginRegistry.register(plugin);
+  }
 }
 
 // Re-export for convenience
