@@ -138,17 +138,31 @@ function recomputeGraph(
   };
 }
 
+/**
+ * Graph state bundled into a single object so that recomputes — which always
+ * touch nodes, edges, and expandedNodeIds together — trigger exactly one
+ * React render instead of three. Selection and loading state stay separate
+ * because they update independently of the graph structure.
+ */
+interface GraphState {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  expandedNodeIds: string[];
+}
+
 export function useGraphExploration({
   initialNodes,
   initialEdges,
   fetchNeighbors,
   maxDepth,
 }: UseGraphExplorationOptions): UseGraphExplorationReturn {
-  const [nodes, setNodes] = useState<GraphNode[]>(initialNodes);
-  const [edges, setEdges] = useState<GraphEdge[]>(initialEdges);
+  const [graphState, setGraphState] = useState<GraphState>(() => ({
+    nodes: initialNodes,
+    edges: initialEdges,
+    expandedNodeIds: [],
+  }));
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
-  const [expandedNodeIds, setExpandedNodeIds] = useState<string[]>([]);
 
   const expansionsRef = useRef(new Map<string, ExpansionEntry>());
   const depthMapRef = useRef(new Map<string, number>());
@@ -173,8 +187,6 @@ export function useGraphExploration({
       expansionsRef.current,
     );
 
-    setNodes(result.nodes);
-    setEdges(result.edges);
     depthMapRef.current = result.depthMap;
 
     // Clean up orphaned expansions (source node no longer visible)
@@ -183,7 +195,16 @@ export function useGraphExploration({
         expansionsRef.current.delete(nodeId);
       }
     }
-    setExpandedNodeIds(Array.from(result.activeExpansionIds));
+
+    // Single setState for nodes + edges + expandedNodeIds avoids extra
+    // render cycles compared to separate setNodes/setEdges/setExpandedNodeIds
+    // calls (React batches updates but bundling them is clearer and removes
+    // any chance of a split render under legacy batching modes).
+    setGraphState({
+      nodes: result.nodes,
+      edges: result.edges,
+      expandedNodeIds: Array.from(result.activeExpansionIds),
+    });
 
     // Prune selection to surviving nodes
     const surviving = new Set(result.nodes.map((n) => n.id));
@@ -233,11 +254,13 @@ export function useGraphExploration({
     for (const n of initialNodesRef.current) {
       depthMapRef.current.set(n.id, 0);
     }
-    setNodes(initialNodesRef.current);
-    setEdges(initialEdgesRef.current);
+    setGraphState({
+      nodes: initialNodesRef.current,
+      edges: initialEdgesRef.current,
+      expandedNodeIds: [],
+    });
     setSelectedNodeIds([]);
     setExpandingNodeId(null);
-    setExpandedNodeIds([]);
   }, []);
 
   const canExpand = useCallback(
@@ -255,11 +278,11 @@ export function useGraphExploration({
   }, []);
 
   return {
-    nodes,
-    edges,
+    nodes: graphState.nodes,
+    edges: graphState.edges,
     selectedNodeIds,
     expandingNodeId,
-    expandedNodeIds,
+    expandedNodeIds: graphState.expandedNodeIds,
     onNodeSelect: setSelectedNodeIds,
     onExpandRequest,
     collapse,
