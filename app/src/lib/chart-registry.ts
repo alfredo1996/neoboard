@@ -860,7 +860,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToGaugeData,
     transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
+    supportsClickAction: true,
     isECharts: true,
     stylingTargets: [{ value: "color", label: "Gauge Color" }],
   },
