@@ -160,6 +160,57 @@ describe("LineChart", () => {
     expect(optionsCall.series[0].step).toBeUndefined();
   });
 
+  // --- Connect nulls ---
+
+  it("defaults connectNulls to false", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].connectNulls).toBe(false);
+  });
+
+  it("enables connectNulls when true", () => {
+    render(<LineChart data={sampleData} connectNulls />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].connectNulls).toBe(true);
+  });
+
+  it("applies connectNulls to every series in multi-series", () => {
+    render(<LineChart data={multiSeriesData} connectNulls />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].connectNulls).toBe(true);
+    expect(optionsCall.series[1].connectNulls).toBe(true);
+  });
+
+  // --- End label ---
+
+  it("does not set endLabel by default", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].endLabel).toBeUndefined();
+  });
+
+  it("enables endLabel when true", () => {
+    render(<LineChart data={sampleData} endLabel />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].endLabel).toEqual({
+      show: true,
+      formatter: "{a}",
+    });
+  });
+
+  it("applies endLabel to every series in multi-series", () => {
+    render(<LineChart data={multiSeriesData} endLabel />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].endLabel).toEqual({
+      show: true,
+      formatter: "{a}",
+    });
+    expect(optionsCall.series[1].endLabel).toEqual({
+      show: true,
+      formatter: "{a}",
+    });
+  });
+
   // --- Reference lines ---
 
   it("attaches markLine to the first series when referenceLines is provided", () => {
