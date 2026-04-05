@@ -31,17 +31,27 @@ function LoginForm() {
     setError("");
 
     const formData = new FormData(e.currentTarget);
-    const result = await signIn("credentials", {
-      email: formData.get("email"),
-      password: formData.get("password"),
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email: formData.get("email"),
+        password: formData.get("password"),
+        redirect: false,
+      });
 
-    if (result?.error) {
-      setError("Invalid email or password");
+      if (result?.error) {
+        setError("Invalid email or password");
+        setLoading(false);
+      } else if (result) {
+        router.push(callbackUrl);
+      } else {
+        // Nothing returned → server unreachable
+        setError("Unable to sign in. Please try again.");
+        setLoading(false);
+      }
+    } catch {
+      // Network error or server unreachable
+      setError("Unable to reach server. Please check your connection.");
       setLoading(false);
-    } else {
-      router.push(callbackUrl);
     }
   }
 
@@ -59,6 +69,7 @@ function LoginForm() {
           id="email"
           name="email"
           type="email"
+          autoComplete="email"
           required
           placeholder="you@example.com"
         />
@@ -66,7 +77,13 @@ function LoginForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <PasswordInput id="password" name="password" required minLength={6} />
+        <PasswordInput
+          id="password"
+          name="password"
+          autoComplete="current-password"
+          required
+          minLength={6}
+        />
       </div>
 
       <LoadingButton

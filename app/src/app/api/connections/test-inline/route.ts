@@ -3,7 +3,11 @@ import { testConnection } from "@/lib/query-executor";
 import type { DbType } from "@/lib/query-executor";
 import { testInlineSchema } from "@/lib/schemas";
 import { apiSuccess } from "@/lib/api-response";
-import { handleRouteError, validateBody } from "@/lib/api-utils";
+import {
+  handleRouteError,
+  validateBody,
+  sanitizeErrorMessage,
+} from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   try {
@@ -36,10 +40,14 @@ export async function POST(request: Request) {
         ...(!success ? { error: "Connection check returned false" } : {}),
       });
     } catch (testError) {
-      const message =
+      const rawMessage =
         testError instanceof Error
           ? testError.message
           : "Connection test failed";
+      const message = sanitizeErrorMessage(
+        rawMessage,
+        "Connection test failed",
+      );
       return apiSuccess({ success: false, error: message });
     }
   } catch (error) {
