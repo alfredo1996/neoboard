@@ -411,7 +411,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               onClick={onCreateDashboard}
               className="inline-flex items-center text-sm font-medium text-primary hover:underline"
             >
-              New dashboard
+              Start now
               <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </button>
           </CardFooter>
