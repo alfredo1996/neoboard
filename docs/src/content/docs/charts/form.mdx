@@ -44,6 +44,6 @@ Form fields are configured in the widget editor's **Fields** tab (not in Chart O
 
 ## Tips
 
-- The connector must have `can_write` permission enabled for the form to execute. This is enforced server-side.
+- The connector must have `can_write` permission enabled by an admin for the form to execute. Additionally, each user who needs to submit forms must have **write permission** enabled on the Users page (toggle in the Write column). Both conditions are enforced server-side.
 - Use descriptive parameter names like `$param_email` rather than `$param_1` to keep your query readable.
 - Enable Reset on Success for data entry workflows where users submit multiple records in a row.

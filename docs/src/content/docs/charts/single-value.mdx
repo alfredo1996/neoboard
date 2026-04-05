@@ -14,23 +14,24 @@ Return a single row with 1 numeric column. For trend mode, return 2 rows where t
 ### Cypher
 
 ```cypher
-MATCH (u:User)
-RETURN count(u) AS total
+MATCH (p:Person)
+RETURN count(p) AS total
 ```
 
 ### SQL
 
 ```sql
-SELECT COUNT(*) AS total FROM users
+SELECT COUNT(*) AS total FROM "user"
 ```
 
 For trend mode (2 rows):
 
 ```sql
-SELECT COUNT(*) AS total FROM users WHERE created_at >= NOW() - INTERVAL '7 days'
+SELECT COUNT(*) AS total FROM "user" WHERE created_at >= NOW() - INTERVAL '7 days'
 UNION ALL
-SELECT COUNT(*) AS total FROM users WHERE created_at >= NOW() - INTERVAL '14 days'
+SELECT COUNT(*) AS total FROM "user" WHERE created_at >= NOW() - INTERVAL '14 days'
   AND created_at < NOW() - INTERVAL '7 days'
+ORDER BY total DESC
 ```
 
 ## Options

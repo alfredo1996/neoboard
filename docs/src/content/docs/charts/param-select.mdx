@@ -28,14 +28,14 @@ For Select and Multiselect types, a seed query populates the dropdown options. R
 
 ```cypher
 MATCH (m:Movie)
-RETURN DISTINCT m.genre AS genre
-ORDER BY genre
+RETURN DISTINCT m.released AS year
+ORDER BY year
 ```
 
 ### SQL
 
 ```sql
-SELECT DISTINCT genre FROM movies ORDER BY genre
+SELECT DISTINCT role FROM "user" ORDER BY role
 ```
 
 ## Options
@@ -52,15 +52,16 @@ SELECT DISTINCT genre FROM movies ORDER BY genre
 Other widgets reference parameter values using `$param_name` syntax in their queries:
 
 ```cypher
-MATCH (m:Movie {genre: $param_genre})
-RETURN m.title, m.year
-ORDER BY m.year DESC
+MATCH (m:Movie)
+WHERE m.released = $param_year
+RETURN m.title, m.released
+ORDER BY m.title
 ```
 
 ```sql
-SELECT title, year FROM movies
-WHERE genre = $param_genre
-ORDER BY year DESC
+SELECT name, email FROM "user"
+WHERE role = $param_role
+ORDER BY name
 ```
 
 ## Tips

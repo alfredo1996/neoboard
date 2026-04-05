@@ -53,11 +53,13 @@ LIMIT 10
 **PostgreSQL (SQL):**
 
 ```sql
-SELECT name, count
-FROM categories
-ORDER BY count DESC
+SELECT name, email
+FROM "user"
+ORDER BY created_at DESC
 LIMIT 10
 ```
+
+> The SQL example above queries the built-in `user` table. Replace it with your own table if you have loaded custom data.
 
 Your query should return at least two columns. The chart will use the first column as labels and the second as values.
 

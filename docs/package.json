@@ -2,10 +2,14 @@
   "name": "@neoboard/docs",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.3.0"
+  },
   "scripts": {
     "dev": "astro dev --port 3001",
     "build": "astro build",
-    "preview": "astro preview --port 3001"
+    "preview": "astro preview --port 3001",
+    "check": "astro check"
   },
   "dependencies": {
     "@astrojs/starlight": "0.31.1",

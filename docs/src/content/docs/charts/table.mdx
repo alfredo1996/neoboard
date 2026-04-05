@@ -15,15 +15,15 @@ Return any columns -- all are displayed as-is in the table. Column names become 
 
 ```cypher
 MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-RETURN p.name AS actor, m.title AS movie, m.year AS year
-ORDER BY m.year DESC LIMIT 100
+RETURN p.name AS actor, m.title AS movie, m.released AS year
+ORDER BY m.released DESC LIMIT 100
 ```
 
 ### SQL
 
 ```sql
-SELECT name, email, created_at, status
-FROM users
+SELECT name, email, created_at, role
+FROM "user"
 ORDER BY created_at DESC
 LIMIT 100
 ```
