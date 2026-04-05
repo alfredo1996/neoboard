@@ -68,6 +68,18 @@ describe("PieChart", () => {
     expect(optionsCall.legend).toBeUndefined();
   });
 
+  it("configures legend with scrollable type and enlarged pagination controls", () => {
+    render(<PieChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.legend).toMatchObject({
+      type: "scroll",
+      bottom: 0,
+      orient: "horizontal",
+      pageIconSize: 12,
+    });
+    expect(optionsCall.legend.pageTextStyle.fontSize).toBe(11);
+  });
+
   it("handles empty data", () => {
     render(<PieChart data={[]} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
@@ -121,14 +133,18 @@ describe("PieChart", () => {
   it("sorts slices by value descending when sortSlices is true", () => {
     render(<PieChart data={sampleData} sortSlices />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    const values = (optionsCall.series[0].data as Array<{ value: number }>).map((d) => d.value);
+    const values = (optionsCall.series[0].data as Array<{ value: number }>).map(
+      (d) => d.value,
+    );
     expect(values).toEqual([60, 30, 10]);
   });
 
   it("preserves original order when sortSlices is false (default)", () => {
     render(<PieChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    const names = (optionsCall.series[0].data as Array<{ name: string }>).map((d) => d.name);
+    const names = (optionsCall.series[0].data as Array<{ name: string }>).map(
+      (d) => d.name,
+    );
     expect(names).toEqual(["Desktop", "Mobile", "Tablet"]);
   });
 
@@ -160,7 +176,10 @@ describe("PieChart", () => {
   it("groups slices beyond topN into Other", () => {
     render(<PieChart data={sampleData} topN={2} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    const seriesData = optionsCall.series[0].data as Array<{ name: string; value: number }>;
+    const seriesData = optionsCall.series[0].data as Array<{
+      name: string;
+      value: number;
+    }>;
     expect(seriesData).toHaveLength(3); // 2 top + "Other"
     expect(seriesData[2].name).toBe("Other");
     expect(seriesData[2].value).toBe(10);
