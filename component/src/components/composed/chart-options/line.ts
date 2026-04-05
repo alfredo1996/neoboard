@@ -54,6 +54,24 @@ export const lineOptions: ChartOptionDef[] = [
   SHARED_SHOW_GRID_LINES,
   SHARED_X_AXIS_LABEL,
   SHARED_Y_AXIS_LABEL,
+  {
+    key: "rightAxisSeries",
+    label: "Right Y-Axis Series",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description:
+      "Comma-separated series names to render on a secondary (right) Y-axis. Leave empty to use a single Y-axis.",
+  },
+  {
+    key: "rightYAxisLabel",
+    label: "Right Y-Axis Label",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description:
+      "Custom label for the secondary Y-axis. Applies only when Right Y-Axis Series is non-empty.",
+  },
   SHARED_SHOW_LEGEND,
   SHARED_REFERENCE_LINES,
   {
