@@ -733,7 +733,7 @@ test.describe("Graph chart exploration", () => {
     await expect(statusBar).toBeVisible({ timeout: 15_000 });
 
     // Status bar should show node and edge counts
-    const nodeCount = page.locator("[data-testid='graph-node-count']");
+    const nodeCount = page.locator("[data-testid='graph-node-count']").first();
     await expect(nodeCount).toBeVisible();
     await expect(nodeCount).toContainText("nodes");
 
@@ -778,7 +778,9 @@ test.describe("Graph chart exploration", () => {
     await expect(exploration).toBeVisible({ timeout: 15_000 });
 
     // Record initial node count text
-    const nodeCountEl = page.locator("[data-testid='graph-node-count']");
+    const nodeCountEl = page
+      .locator("[data-testid='graph-node-count']")
+      .first();
     await expect(nodeCountEl).toBeVisible({ timeout: 10_000 });
 
     // NVL renders overlay divs, so force: true is needed for canvas clicks
@@ -823,7 +825,9 @@ test.describe("Graph chart exploration", () => {
     await expect(exploration).toBeVisible({ timeout: 15_000 });
 
     // Record initial node count
-    const nodeCountEl = page.locator("[data-testid='graph-node-count']");
+    const nodeCountEl = page
+      .locator("[data-testid='graph-node-count']")
+      .first();
     await expect(nodeCountEl).toBeVisible({ timeout: 10_000 });
     const initialText = await nodeCountEl.textContent();
 
@@ -1001,7 +1005,9 @@ test.describe("Graph chart exploration", () => {
     const exploration = page.locator("[data-testid='graph-exploration']");
     await expect(exploration).toBeVisible({ timeout: 15_000 });
 
-    const nodeCountEl = page.locator("[data-testid='graph-node-count']");
+    const nodeCountEl = page
+      .locator("[data-testid='graph-node-count']")
+      .first();
     await expect(nodeCountEl).toBeVisible({ timeout: 10_000 });
     const initialText = await nodeCountEl.textContent();
 
