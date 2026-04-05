@@ -14,18 +14,17 @@ Return 2 or more columns: the first column is used as the x-axis (dates, numbers
 ### Cypher
 
 ```cypher
-MATCH (o:Order)
-RETURN o.month AS month, sum(o.revenue) AS revenue, sum(o.expenses) AS expenses
-ORDER BY month
+MATCH (m:Movie)
+RETURN m.released AS year, count(*) AS movies
+ORDER BY year
 ```
 
 ### SQL
 
 ```sql
 SELECT date_trunc('month', created_at)::date AS month,
-       SUM(revenue) AS revenue,
-       SUM(expenses) AS expenses
-FROM orders
+       COUNT(*) AS signups
+FROM "user"
 GROUP BY month
 ORDER BY month
 ```

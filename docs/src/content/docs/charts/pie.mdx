@@ -14,17 +14,17 @@ Return exactly 2 columns: the first column is the slice label (string), and the 
 ### Cypher
 
 ```cypher
-MATCH (m:Movie)
-RETURN m.genre AS category, count(*) AS total
+MATCH (p:Person)-[r]->(m:Movie)
+RETURN type(r) AS category, count(*) AS total
 ORDER BY total DESC
 ```
 
 ### SQL
 
 ```sql
-SELECT genre AS category, COUNT(*) AS total
-FROM movies
-GROUP BY genre
+SELECT role AS category, COUNT(*) AS total
+FROM "user"
+GROUP BY role
 ORDER BY total DESC
 ```
 

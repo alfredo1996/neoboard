@@ -15,17 +15,17 @@ Return 2 or more columns: the first column is used as the category label (x-axis
 
 ```cypher
 MATCH (m:Movie)
-RETURN m.genre AS label, count(*) AS value
+RETURN m.released AS label, count(*) AS value
 ORDER BY value DESC LIMIT 10
 ```
 
 ### SQL
 
 ```sql
-SELECT genre AS label, COUNT(*) AS value
-FROM movies
-GROUP BY genre
-ORDER BY value DESC LIMIT 10
+SELECT role AS label, COUNT(*) AS value
+FROM "user"
+GROUP BY role
+ORDER BY value DESC
 ```
 
 ## Options

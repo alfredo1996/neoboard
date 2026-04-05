@@ -13,16 +13,20 @@ Return columns containing latitude and longitude values. Column names must conta
 
 ### Cypher
 
+> The demo Neo4j dataset does not include geographic data. The example below assumes you have loaded nodes with latitude/longitude properties.
+
 ```cypher
-MATCH (s:Store)
+MATCH (s:Location)
 RETURN s.latitude AS lat, s.longitude AS lng, s.name AS name
 ```
 
 ### SQL
 
+> The demo PostgreSQL database does not include geographic data. Replace the table and column names with your own.
+
 ```sql
 SELECT latitude AS lat, longitude AS lng, name
-FROM stores
+FROM locations
 WHERE latitude IS NOT NULL
 ```
 
