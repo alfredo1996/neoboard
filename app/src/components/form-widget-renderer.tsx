@@ -86,7 +86,7 @@ function FieldInput({
       .split(",")
       .map((o) => o.trim())
       .filter((o) => o.length > 0)
-      .map((o) => ({ value: o, label: o }));
+      .map((o) => ({ value: o, label: o, rawValue: o }));
   }, [hasStaticOptions, field.staticOptions]);
 
   const needsSeed =
