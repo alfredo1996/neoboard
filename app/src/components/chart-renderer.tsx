@@ -479,6 +479,7 @@ function ChartRendererInner({
           stylingRules={stylingRules}
           paramValues={paramValues}
           colorblindMode={settings.colorblindMode as boolean | undefined}
+          onClick={handleEChartsClick}
         />
       );
 
