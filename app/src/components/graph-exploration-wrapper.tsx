@@ -6,6 +6,7 @@ import {
   GraphChart,
   useGraphExploration,
   PropertyPanel,
+  Badge,
 } from "@neoboard/components";
 import type {
   GraphNode,
@@ -119,6 +120,7 @@ function edgeToSections(edge: GraphEdge): PropertySection[] {
     };
   });
   const metaItems = [
+    ...(edge.id ? [{ key: "id", value: edge.id }] : []),
     { key: "type", value: edge.label ?? "UNKNOWN" },
     { key: "source", value: edge.source },
     { key: "target", value: edge.target },
@@ -332,13 +334,18 @@ export function GraphExplorationWrapper({
       {inspectedElement && (
         <div className="absolute top-0 right-0 bottom-0 w-80 border-l bg-background/95 backdrop-blur-sm overflow-y-auto z-20 shadow-lg">
           <div className="flex items-center justify-between p-3 border-b">
-            <h3 className="text-sm font-semibold">
-              {inspectedElement.type === "node"
-                ? (inspectedElement.node.label ??
-                  inspectedElement.node.id ??
-                  "Node")
-                : (inspectedElement.edge.label ?? "Relationship")}
-            </h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge variant="secondary" className="shrink-0">
+                {inspectedElement.type === "node" ? "Node" : "Relationship"}
+              </Badge>
+              <h3 className="text-sm font-semibold truncate">
+                {inspectedElement.type === "node"
+                  ? (inspectedElement.node.label ??
+                    inspectedElement.node.id ??
+                    "Node")
+                  : (inspectedElement.edge.label ?? "Relationship")}
+              </h3>
+            </div>
             <button
               onClick={() => setInspectedElement(null)}
               className="text-muted-foreground hover:text-foreground text-lg leading-none"
