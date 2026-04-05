@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import {
   Plus,
   LayoutDashboard,
@@ -14,6 +15,10 @@ import {
   Globe,
   Upload,
   Download,
+  Database,
+  BarChart3,
+  BookOpen,
+  ArrowRight,
 } from "lucide-react";
 import {
   useDashboards,
@@ -103,7 +108,10 @@ interface ImportDashboardDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
-function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProps) {
+function ImportDashboardDialog({
+  open,
+  onOpenChange,
+}: ImportDashboardDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
@@ -138,39 +146,47 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
 
       if (isNeoDashFormat(json)) {
         // NeoDash — no connection mapping needed
-        const widgetCount = (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
-          (sum: number, p) => sum + (p.reports?.length ?? 0),
-          0
-        ) ?? 0;
+        const widgetCount =
+          (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
+            (sum: number, p) => sum + (p.reports?.length ?? 0),
+            0,
+          ) ?? 0;
         setParsed({
           payload: json,
-          dashboardName: (json as { title?: string }).title ?? "Imported Dashboard",
+          dashboardName:
+            (json as { title?: string }).title ?? "Imported Dashboard",
           widgetCount: widgetCount,
           isNeoDash: true,
           connections: {},
         });
       } else if (json.formatVersion === 1) {
-          // NeoBoard export
-          const connections = (json.connections ?? {}) as Record<string, ConnectionInfo>;
-          const widgetCount = (json.layout?.pages as Array<{ widgets?: unknown[] }>)?.reduce(
+        // NeoBoard export
+        const connections = (json.connections ?? {}) as Record<
+          string,
+          ConnectionInfo
+        >;
+        const widgetCount =
+          (json.layout?.pages as Array<{ widgets?: unknown[] }>)?.reduce(
             (sum: number, p) => sum + (p.widgets?.length ?? 0),
-            0
+            0,
           ) ?? 0;
-          const initialMapping: Record<string, string> = {};
-          for (const key of Object.keys(connections)) {
-            initialMapping[key] = "";
-          }
-          setMapping(initialMapping);
-          setParsed({
-            payload: json,
-            dashboardName: json.dashboard?.name ?? "Imported Dashboard",
-            widgetCount,
-            isNeoDash: false,
-            connections,
-          });
-        } else {
-          setFileError("Unrecognised file format. Expected a NeoBoard or NeoDash export.");
+        const initialMapping: Record<string, string> = {};
+        for (const key of Object.keys(connections)) {
+          initialMapping[key] = "";
         }
+        setMapping(initialMapping);
+        setParsed({
+          payload: json,
+          dashboardName: json.dashboard?.name ?? "Imported Dashboard",
+          widgetCount,
+          isNeoDash: false,
+          connections,
+        });
+      } else {
+        setFileError(
+          "Unrecognised file format. Expected a NeoBoard or NeoDash export.",
+        );
+      }
     } catch {
       setFileError("Failed to parse file. Make sure it is a valid JSON file.");
     }
@@ -188,14 +204,16 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
       handleOpenChange(false);
       router.push(`/${result.id}`);
     } catch (error) {
-      setFileError(error instanceof Error ? error.message : "Failed to import dashboard.");
+      setFileError(
+        error instanceof Error ? error.message : "Failed to import dashboard.",
+      );
     }
   }
 
-  const hasConnections = parsed && !parsed.isNeoDash && Object.keys(parsed.connections).length > 0;
+  const hasConnections =
+    parsed && !parsed.isNeoDash && Object.keys(parsed.connections).length > 0;
   const allMapped =
-    !hasConnections ||
-    Object.values(mapping).every((v) => v !== "");
+    !hasConnections || Object.values(mapping).every((v) => v !== "");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -223,10 +241,15 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
 
             {parsed && (
               <div className="rounded-md border p-3 bg-muted/40 space-y-1">
-                <p className="text-sm font-medium truncate">{parsed.dashboardName}</p>
+                <p className="text-sm font-medium truncate">
+                  {parsed.dashboardName}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  {parsed.widgetCount} widget{parsed.widgetCount === 1 ? "" : "s"}
-                  {parsed.isNeoDash ? " · NeoDash format" : " · NeoBoard format"}
+                  {parsed.widgetCount} widget
+                  {parsed.widgetCount === 1 ? "" : "s"}
+                  {parsed.isNeoDash
+                    ? " · NeoDash format"
+                    : " · NeoBoard format"}
                 </p>
               </div>
             )}
@@ -237,12 +260,21 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
                   Map each connection placeholder to a local connection:
                 </p>
                 {Object.entries(parsed.connections).map(([key, info]) => {
-                  const compatible = availableConnections.filter((c) => c.type === info.type);
+                  const compatible = availableConnections.filter(
+                    (c) => c.type === info.type,
+                  );
                   return (
-                    <div key={key} className="grid grid-cols-2 gap-2 items-center">
+                    <div
+                      key={key}
+                      className="grid grid-cols-2 gap-2 items-center"
+                    >
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{info.name}</p>
-                        <p className="text-xs text-muted-foreground">{info.type}</p>
+                        <p className="text-sm font-medium truncate">
+                          {info.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {info.type}
+                        </p>
                       </div>
                       <Select
                         value={mapping[key] ?? ""}
@@ -294,6 +326,125 @@ function ImportDashboardDialog({ open, onOpenChange }: ImportDashboardDialogProp
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── GettingStartedGuide ──────────────────────────────────────────────
+
+interface GettingStartedGuideProps {
+  readonly onCreateDashboard: () => void;
+}
+
+function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="rounded-lg border bg-card p-8 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <LayoutDashboard className="h-6 w-6" />
+        </div>
+        <h2 className="text-2xl font-semibold">Welcome to NeoBoard</h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+          Build dashboards that connect to your Neo4j and PostgreSQL databases.
+          Get started in three simple steps.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Button size="lg" onClick={onCreateDashboard}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create your first dashboard
+          </Button>
+          <Button variant="outline" size="lg" asChild>
+            <a
+              href="https://neoboard.app/docs/getting-started/quick-start/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              Read the docs
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Database className="h-4 w-4" />
+            </div>
+            <CardTitle className="text-base">
+              <span className="mr-2 text-muted-foreground">1.</span>
+              Add a connection
+            </CardTitle>
+            <CardDescription>
+              Connect to your Neo4j or PostgreSQL database so NeoBoard can query
+              your data.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Link
+              href="/connections"
+              className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+            >
+              Go to Connections
+              <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <LayoutDashboard className="h-4 w-4" />
+            </div>
+            <CardTitle className="text-base">
+              <span className="mr-2 text-muted-foreground">2.</span>
+              Create a dashboard
+            </CardTitle>
+            <CardDescription>
+              Give your dashboard a name and pick the layout that fits your
+              story.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <button
+              type="button"
+              onClick={onCreateDashboard}
+              className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+            >
+              New dashboard
+              <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </button>
+          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <CardTitle className="text-base">
+              <span className="mr-2 text-muted-foreground">3.</span>
+              Add widgets
+            </CardTitle>
+            <CardDescription>
+              Write a Cypher or SQL query, pick a chart type, and visualize your
+              results.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <a
+              href="https://neoboard.app/docs/guides/widgets/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+            >
+              Widget guide
+              <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </a>
+          </CardFooter>
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -404,23 +555,17 @@ export default function DashboardListPage() {
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading dashboards...">
           {!dashboardList?.length ? (
-            <EmptyState
-              icon={<LayoutDashboard className="h-12 w-12" />}
-              title="No dashboards yet"
-              description={
-                canCreate
-                  ? "Create your first dashboard to start visualizing your data."
-                  : "No dashboards have been assigned to you yet."
-              }
-              action={
-                canCreate ? (
-                  <Button onClick={() => setShowCreate(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create your first dashboard
-                  </Button>
-                ) : undefined
-              }
-            />
+            canCreate ? (
+              <GettingStartedGuide
+                onCreateDashboard={() => setShowCreate(true)}
+              />
+            ) : (
+              <EmptyState
+                icon={<LayoutDashboard className="h-12 w-12" />}
+                title="No dashboards yet"
+                description="No dashboards have been assigned to you yet."
+              />
+            )
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {dashboardList.map((d) => {
@@ -428,8 +573,7 @@ export default function DashboardListPage() {
                   d.role === "owner" ||
                   d.role === "editor" ||
                   d.role === "admin";
-                const canDelete =
-                  d.role === "owner" || d.role === "admin";
+                const canDelete = d.role === "owner" || d.role === "admin";
                 const canDuplicate = systemRole !== "reader";
 
                 return (
@@ -440,7 +584,9 @@ export default function DashboardListPage() {
                   >
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base truncate">{d.name}</CardTitle>
+                        <CardTitle className="text-base truncate">
+                          {d.name}
+                        </CardTitle>
                         <div className="flex items-center gap-1 shrink-0">
                           {(canEdit || canDuplicate || canDelete) && (
                             <DropdownMenu>
@@ -452,19 +598,28 @@ export default function DashboardListPage() {
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">Dashboard options</span>
+                                  <span className="sr-only">
+                                    Dashboard options
+                                  </span>
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuContent
+                                align="end"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 {canEdit && (
-                                  <DropdownMenuItem onClick={() => router.push(`/${d.id}/edit`)}>
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`/${d.id}/edit`)}
+                                  >
                                     <Pencil className="mr-2 h-4 w-4" />
                                     Edit
                                   </DropdownMenuItem>
                                 )}
                                 {canDuplicate && (
                                   <DropdownMenuItem
-                                    onClick={() => duplicateDashboard.mutate(d.id)}
+                                    onClick={() =>
+                                      duplicateDashboard.mutate(d.id)
+                                    }
                                     disabled={duplicateDashboard.isPending}
                                   >
                                     <Copy className="mr-2 h-4 w-4" />
@@ -473,9 +628,11 @@ export default function DashboardListPage() {
                                 )}
                                 <DropdownMenuItem
                                   onClick={() => {
-                                    void triggerExport(d.id, d.name).catch((err) => {
-                                      console.error("Export failed", err);
-                                    });
+                                    void triggerExport(d.id, d.name).catch(
+                                      (err) => {
+                                        console.error("Export failed", err);
+                                      },
+                                    );
                                   }}
                                 >
                                   <Download className="mr-2 h-4 w-4" />
@@ -497,13 +654,18 @@ export default function DashboardListPage() {
                             </DropdownMenu>
                           )}
                           {d.isPublic && (
-                            <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-label="Public" />
+                            <Globe
+                              className="h-3.5 w-3.5 text-muted-foreground"
+                              aria-label="Public"
+                            />
                           )}
                           <Badge variant="secondary">{d.role}</Badge>
                         </div>
                       </div>
                       {d.description && (
-                        <CardDescription className="line-clamp-2">{d.description}</CardDescription>
+                        <CardDescription className="line-clamp-2">
+                          {d.description}
+                        </CardDescription>
                       )}
                     </CardHeader>
                     <CardContent className="flex-1 p-4 pt-0">
@@ -512,11 +674,14 @@ export default function DashboardListPage() {
                     <CardFooter className="pt-0 text-xs text-muted-foreground justify-between">
                       <span className="flex items-center gap-1 truncate">
                         <TimeAgo date={d.updatedAt} />
-                        {d.updatedByName && <span className="truncate">by {d.updatedByName}</span>}
+                        {d.updatedByName && (
+                          <span className="truncate">by {d.updatedByName}</span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1 shrink-0">
                         <Grid2X2 className="h-3 w-3" />
-                        {d.widgetCount ?? 0} widget{(d.widgetCount ?? 0) !== 1 ? "s" : ""}
+                        {d.widgetCount ?? 0} widget
+                        {(d.widgetCount ?? 0) !== 1 ? "s" : ""}
                       </span>
                     </CardFooter>
                   </Card>
