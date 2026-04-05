@@ -243,6 +243,48 @@ export function GraphExplorationWrapper({
     setMenu({ node: e.node, x, y });
   }, []);
 
+  // Keep a ref to the current exploration value so handleNodeSelect stays
+  // stable across renders even as exploration.nodes / selection change.
+  // Without this, the inline callback would be rebuilt every render,
+  // causing GraphChart to see a new prop identity each time.
+  const explorationRef = useRef(exploration);
+  explorationRef.current = exploration;
+
+  const handleNodeSelect = useCallback(
+    (ids: string[]) => {
+      explorationRef.current.onNodeSelect(ids);
+      if (onChartClick && ids.length) {
+        onChartClick({ nodeId: ids[0] });
+      }
+      // Open property panel on single-click
+      if (ids.length === 1) {
+        const node = explorationRef.current.nodes.find((n) => n.id === ids[0]);
+        if (node) setInspectedElement({ type: "node", node });
+      } else {
+        setInspectedElement(null);
+      }
+    },
+    [onChartClick],
+  );
+
+  const handleRelationshipClick = useCallback((event: { edge: GraphEdge }) => {
+    setInspectedElement({ type: "edge", edge: event.edge });
+  }, []);
+
+  const handleLayoutChange = useCallback(
+    (layout: "force" | "circular" | "hierarchical") => {
+      storeSetState(widgetId, { layout });
+    },
+    [storeSetState, widgetId],
+  );
+
+  const handleCaptionMapChange = useCallback(
+    (captionMap: Record<string, string>) => {
+      storeSetState(widgetId, { captionMap });
+    },
+    [storeSetState, widgetId],
+  );
+
   return (
     <div
       ref={containerRef}
@@ -253,31 +295,15 @@ export function GraphExplorationWrapper({
         nodes={exploration.nodes}
         edges={exploration.edges}
         selectedNodeIds={exploration.selectedNodeIds}
-        onNodeSelect={(ids) => {
-          exploration.onNodeSelect(ids);
-          if (onChartClick && ids.length) {
-            onChartClick({ nodeId: ids[0] });
-          }
-          // Open property panel on single-click
-          if (ids.length === 1) {
-            const node = exploration.nodes.find((n) => n.id === ids[0]);
-            if (node) setInspectedElement({ type: "node", node });
-          } else {
-            setInspectedElement(null);
-          }
-        }}
+        onNodeSelect={handleNodeSelect}
         onNodeRightClick={handleNodeRightClick}
-        onRelationshipClick={(event) => {
-          setInspectedElement({ type: "edge", edge: event.edge });
-        }}
+        onRelationshipClick={handleRelationshipClick}
         layout={settings.layout as "force" | "circular" | undefined}
         initialLayout={storedIsValid ? stored.layout : undefined}
         initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
         showLabels={settings.showLabels as boolean | undefined}
-        onLayoutChange={(layout) => storeSetState(widgetId, { layout })}
-        onCaptionMapChange={(captionMap) =>
-          storeSetState(widgetId, { captionMap })
-        }
+        onLayoutChange={handleLayoutChange}
+        onCaptionMapChange={handleCaptionMapChange}
         autoFit={autoFit}
       />
 
