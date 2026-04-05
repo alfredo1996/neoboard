@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from "react";
+import { memo, useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { InteractiveNvlWrapper } from "@neo4j-nvl/react";
 import type { InteractiveNvlWrapperProps } from "@neo4j-nvl/react";
 import type NVL from "@neo4j-nvl/base";
@@ -303,8 +303,12 @@ function toNvlRelationship(
  * - Fit button: re-centers and fits the graph in the viewport
  * - Layout dropdown: switch between Force, Circular, and Hierarchical layouts
  * - Label settings: per-label property selector for node captions
+ *
+ * Wrapped in React.memo — the component is expensive (NVL simulation + heavy
+ * useMemo work) and parents often re-render for unrelated reasons. Memoization
+ * skips re-renders when props are referentially stable.
  */
-export function GraphChart({
+function GraphChartInner({
   nodes,
   edges,
   layout: layoutProp = "force",
@@ -670,3 +674,6 @@ export function GraphChart({
     </div>
   );
 }
+
+export const GraphChart = memo(GraphChartInner);
+GraphChart.displayName = "GraphChart";
