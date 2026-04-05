@@ -1,0 +1,53 @@
+---
+title: NeoBoard
+description: Visual dashboards for Neo4j & PostgreSQL
+template: splash
+hero:
+  tagline: Visual dashboards for Neo4j & PostgreSQL. Connect your databases, write queries, and build interactive charts — all from the browser.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/alfredo1996/neoboard
+      icon: external
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+## What is NeoBoard?
+
+NeoBoard is an open-source dashboarding tool for hybrid database architectures. It connects to **Neo4j** and **PostgreSQL** databases, letting you build rich, interactive dashboards without writing frontend code.
+
+**Key capabilities:**
+
+- **12+ chart types** -- bar, line, pie, single value, table, graph visualization, map, JSON viewer, and more
+- **Interactive parameters** -- dropdowns, date pickers, sliders, and text fields that filter data across all widgets
+- **Form widgets** -- run write queries (INSERT, CREATE, UPDATE) directly from the dashboard
+- **Multi-page dashboards** -- organize related views into pages with drag-and-drop layouts
+- **Export and import** -- share dashboards as JSON files across NeoBoard instances
+- **Role-based access** -- Admin, Creator, and Reader roles with granular write permissions
+- **Encrypted credentials** -- AES-256-GCM encryption for all stored database passwords
+- **Multi-tenancy** -- full tenant isolation for SaaS deployments
+
+## Get Started
+
+Choose the path that fits your setup:
+
+| Method | Command | Time |
+|--------|---------|------|
+| **Docker (recommended)** | `neoboard demo` | ~5 minutes |
+| **Local + Docker DBs** | `neoboard setup --mode local` | ~10 minutes |
+| **Fully local** | `git clone` + `npm ci` + `npm run dev` | ~15 minutes |
+
+See the [Installation guide](/getting-started/installation/) for full instructions.
+
+## Explore the Docs
+
+<CardGrid>
+  <LinkCard title="Quick Start" description="Create your first dashboard in 5 minutes" href="/getting-started/quick-start/" />
+  <LinkCard title="CLI Reference" description="All commands at a glance" href="/cli/commands/" />
+  <LinkCard title="User Guides" description="Step-by-step walkthroughs" href="/guides/first-dashboard/" />
+  <LinkCard title="Concepts" description="Architecture, connectors, widgets, parameters" href="/concepts/architecture/" />
+</CardGrid>

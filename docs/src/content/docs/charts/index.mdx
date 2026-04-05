@@ -1,0 +1,46 @@
+---
+title: Chart Types
+description: Overview of all widget and chart types available in NeoBoard.
+---
+
+NeoBoard includes a variety of chart and widget types to visualize data from Neo4j and PostgreSQL. Each type expects a specific query result shape and offers its own configuration options.
+
+## Available Chart Types
+
+| Type | Description | Data Sources |
+|------|-------------|-------------|
+| [Bar Chart](/charts/bar) | Vertical or horizontal bars for comparing categories | Neo4j, PostgreSQL |
+| [Line Chart](/charts/line) | Trend lines and time series | Neo4j, PostgreSQL |
+| [Pie / Doughnut](/charts/pie) | Proportional slices for part-to-whole comparisons | Neo4j, PostgreSQL |
+| [Single Value](/charts/single-value) | One large number (KPI card) with optional trend | Neo4j, PostgreSQL |
+| [Data Table](/charts/table) | Sortable, filterable, paginated data grid | Neo4j, PostgreSQL |
+| [Graph](/charts/graph) | Interactive node-and-relationship visualization | Neo4j only |
+| [Map](/charts/map) | Geographic markers on a Leaflet map | Neo4j, PostgreSQL |
+| [JSON Viewer](/charts/json) | Collapsible JSON tree for raw data inspection | Neo4j, PostgreSQL |
+| [Form](/charts/form) | Input fields that execute write queries | Neo4j, PostgreSQL |
+| [Markdown](/charts/markdown) | Static rich text content (no query needed) | N/A |
+| [iFrame](/charts/iframe) | Embed an external web page | N/A |
+| [Parameter Select](/charts/param-select) | Dropdown, date picker, or other input that feeds parameters to other widgets | Neo4j, PostgreSQL |
+
+## Choosing a Chart Type
+
+- **Comparing categories?** Use a [Bar Chart](/charts/bar).
+- **Showing trends over time?** Use a [Line Chart](/charts/line).
+- **Part-to-whole breakdown?** Use a [Pie Chart](/charts/pie).
+- **Single KPI metric?** Use a [Single Value](/charts/single-value).
+- **Exploring raw data?** Use a [Data Table](/charts/table) or [JSON Viewer](/charts/json).
+- **Visualizing a graph?** Use the [Graph](/charts/graph) widget (Neo4j only).
+- **Geographic data?** Use the [Map](/charts/map) widget.
+- **Collecting user input?** Use a [Form](/charts/form) or [Parameter Select](/charts/param-select).
+
+## Shared Options
+
+Most chart types share these common options:
+
+| Option | Description |
+|--------|-------------|
+| Show Refresh Button | Adds a manual refresh button to the widget header |
+| Manual Run | Requires the user to click "Run Query" before executing |
+| Cache Mode | TTL (time-based refresh) or Forever (cache until manual refresh) |
+| Color Palette | Color scheme for chart series (ECharts-based charts only) |
+| Colorblind Mode | Overlays patterns so series are distinguishable without color (ECharts-based charts only) |

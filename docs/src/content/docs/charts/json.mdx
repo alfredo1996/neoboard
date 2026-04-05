@@ -1,0 +1,43 @@
+---
+title: JSON Viewer
+description: Collapsible JSON tree for inspecting raw query results.
+---
+
+## Overview
+
+The JSON Viewer renders query results as an interactive, collapsible JSON tree. Use it for debugging queries, inspecting nested data structures, or displaying complex objects that do not fit neatly into charts or tables.
+
+## Query Format
+
+Return any data -- all query results are rendered as a JSON tree. Particularly useful for queries that return nested or complex objects.
+
+### Cypher
+
+```cypher
+MATCH (n:Person)
+RETURN properties(n) AS data
+LIMIT 5
+```
+
+### SQL
+
+```sql
+SELECT row_to_json(u) AS data
+FROM users u
+LIMIT 5
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Initial Expand Depth | number | 2 | How many levels deep the tree is expanded on first render (0 = fully collapsed) |
+| Font Size | select | sm | Font size for the JSON syntax highlighting: Small, Medium, or Large |
+| Show Copy Button | boolean | true | Show a button to copy the full JSON payload to the clipboard |
+| Theme | select | dark | Color theme for syntax highlighting: Dark or Light |
+
+## Tips
+
+- Set Initial Expand Depth to 0 for large payloads so users can selectively expand the sections they need.
+- Use the Copy Button to quickly grab query results for use in other tools or for sharing.
+- The JSON Viewer is a great debugging tool during dashboard development -- switch to a proper chart type once your query is finalized.

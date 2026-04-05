@@ -1,0 +1,51 @@
+---
+title: Data Table
+description: Sortable, filterable, paginated data grid for tabular results.
+---
+
+## Overview
+
+The Data Table displays query results as a fully interactive grid with sorting, filtering, pagination, and optional row grouping. Use it when you need to browse raw data or let users explore results interactively.
+
+## Query Format
+
+Return any columns -- all are displayed as-is in the table. Column names become the header labels.
+
+### Cypher
+
+```cypher
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+RETURN p.name AS actor, m.title AS movie, m.released AS year
+ORDER BY m.released DESC LIMIT 100
+```
+
+### SQL
+
+```sql
+SELECT name, email, created_at, role
+FROM "user"
+ORDER BY created_at DESC
+LIMIT 100
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Enable Sorting | boolean | true | Allow clicking column headers to sort rows |
+| Row Selection | boolean | false | Allow selecting individual rows by clicking |
+| Global Search | boolean | true | Show a search box that filters across all columns |
+| Column Filters | boolean | true | Show per-column filter inputs below each header |
+| Column Resizing | boolean | false | Allow drag-to-resize column borders |
+| Enable Pagination | boolean | true | Show Previous/Next controls for paging |
+| Page Size | number | 10 | Number of rows shown per page |
+| Empty Message | text | No results | Text displayed when the query returns no rows |
+| Enable Row Grouping | boolean | false | Allow grouping rows by column values |
+| Group By Columns | column-multi-select | (none) | Columns to group by. Order determines nesting hierarchy |
+| Aggregation Function | select | sum | Aggregation for numeric columns in groups: Sum, Average, Median, Count, Min, Max |
+
+## Tips
+
+- Combine Global Search with Column Filters for power users who need to drill into specific column values.
+- Enable Row Grouping with an aggregation function to create summary views without changing your query.
+- Set Page Size to match your widget height -- 10-15 rows is typical for a half-height widget.
