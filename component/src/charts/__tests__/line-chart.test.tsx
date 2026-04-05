@@ -314,4 +314,67 @@ describe("LineChart", () => {
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.xAxis.type).toBe("category");
   });
+
+  // --- Dual Y-axis ---
+
+  it("renders a single y-axis object when rightAxisSeries is empty or undefined", () => {
+    render(<LineChart data={multiSeriesData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(Array.isArray(optionsCall.yAxis)).toBe(false);
+    expect(optionsCall.yAxis.type).toBe("value");
+  });
+
+  it("renders two y-axes when rightAxisSeries is non-empty", () => {
+    render(<LineChart data={multiSeriesData} rightAxisSeries={["cost"]} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(Array.isArray(optionsCall.yAxis)).toBe(true);
+    expect(optionsCall.yAxis).toHaveLength(2);
+    expect(optionsCall.yAxis[0].type).toBe("value");
+    expect(optionsCall.yAxis[1].type).toBe("value");
+  });
+
+  it("assigns yAxisIndex 0 to left series and 1 to right series", () => {
+    render(<LineChart data={multiSeriesData} rightAxisSeries={["cost"]} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].name).toBe("revenue");
+    expect(optionsCall.series[0].yAxisIndex).toBe(0);
+    expect(optionsCall.series[1].name).toBe("cost");
+    expect(optionsCall.series[1].yAxisIndex).toBe(1);
+  });
+
+  it("supports multiple series on the right axis", () => {
+    const data = [
+      { x: "Jan", a: 1, b: 2, c: 3 },
+      { x: "Feb", a: 4, b: 5, c: 6 },
+    ];
+    render(<LineChart data={data} rightAxisSeries={["b", "c"]} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].yAxisIndex).toBe(0);
+    expect(optionsCall.series[1].yAxisIndex).toBe(1);
+    expect(optionsCall.series[2].yAxisIndex).toBe(1);
+  });
+
+  it("applies yAxisLabel to left axis and rightYAxisLabel to right axis", () => {
+    render(
+      <LineChart
+        data={multiSeriesData}
+        rightAxisSeries={["cost"]}
+        yAxisLabel="Revenue ($)"
+        rightYAxisLabel="Cost (%)"
+      />,
+    );
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.yAxis[0].name).toBe("Revenue ($)");
+    expect(optionsCall.yAxis[1].name).toBe("Cost (%)");
+  });
+
+  it("ignores unknown series names in rightAxisSeries (treats as left)", () => {
+    render(
+      <LineChart data={multiSeriesData} rightAxisSeries={["nonexistent"]} />,
+    );
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].yAxisIndex).toBe(0);
+    expect(optionsCall.series[1].yAxisIndex).toBe(0);
+    expect(Array.isArray(optionsCall.yAxis)).toBe(true);
+  });
 });
