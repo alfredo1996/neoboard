@@ -66,14 +66,21 @@ function SunburstChart({
       series: [
         {
           type: "sunburst",
+          nodeClick: "rootToNode",
           data: stylingRules?.length
             ? data.map((item) => {
-                const numericValue = typeof item.value === "number" ? item.value : 0;
-                const resolvedColor = resolveItemColor(numericValue, stylingRules, paramValues);
+                const numericValue =
+                  typeof item.value === "number" ? item.value : 0;
+                const resolvedColor = resolveItemColor(
+                  numericValue,
+                  stylingRules,
+                  paramValues,
+                );
                 return {
                   ...item,
                   itemStyle: {
-                    ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
+                    ...((item as { itemStyle?: Record<string, unknown> })
+                      .itemStyle ?? {}),
                     ...(resolvedColor ? { color: resolvedColor } : {}),
                   },
                 };
@@ -118,7 +125,15 @@ function SunburstChart({
         },
       ],
     };
-  }, [data, showLabels, sort, highlightOnHover, compact, stylingRules, paramValues]);
+  }, [
+    data,
+    showLabels,
+    sort,
+    highlightOnHover,
+    compact,
+    stylingRules,
+    paramValues,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
