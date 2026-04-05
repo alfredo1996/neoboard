@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AlertCircle } from "lucide-react";
 import { normalizeValue } from "@/lib/normalize-value";
 import type { ChartType } from "@/lib/chart-registry";
+import { pluginRegistry } from "@/plugins";
 import { ChartErrorBoundary } from "./chart-error-boundary";
 import {
   Skeleton,
@@ -184,6 +185,31 @@ function ChartRendererInner({
       });
     };
   }, [onChartClick, data]);
+
+  // Plugin-driven rendering: check the plugin registry first. Charts
+  // registered as plugins go through this path; the switch below is the
+  // fallback for charts still using the legacy hard-coded dispatch.
+  const plugin = pluginRegistry.get(type);
+  if (plugin) {
+    const PluginComponent = plugin.component;
+    return (
+      <PluginComponent
+        data={data}
+        settings={settings}
+        stylingRules={stylingRules}
+        paramValues={paramValues}
+        colorScales={colorScales}
+        onClick={handleEChartsClick}
+        connectionId={connectionId}
+        widgetId={widgetId}
+        resultId={resultId}
+        query={query}
+        autoFit={autoFit}
+        clickableColumns={clickableColumns}
+        colorThresholds={colorThresholds}
+      />
+    );
+  }
 
   switch (type) {
     case "bar":
