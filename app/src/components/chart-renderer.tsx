@@ -230,6 +230,16 @@ function ChartRendererInner({
           colorThresholds={colorThresholds}
           stylingRules={stylingRules}
           paramValues={paramValues}
+          rightAxisSeries={
+            typeof settings.rightAxisSeries === "string" &&
+            settings.rightAxisSeries.trim() !== ""
+              ? settings.rightAxisSeries
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : undefined
+          }
+          rightYAxisLabel={settings.rightYAxisLabel as string | undefined}
           onClick={handleEChartsClick}
           enableDataZoom={settings.enableDataZoom as boolean | undefined}
           colorPalette={settings.colorPalette as string | undefined}
