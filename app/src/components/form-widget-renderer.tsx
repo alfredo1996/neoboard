@@ -75,8 +75,22 @@ function FieldInput({
     [field.parentParameterName, parentValue],
   );
 
+  const hasStaticOptions =
+    field.parameterType === "select" &&
+    !!field.staticOptions &&
+    field.staticOptions.trim().length > 0;
+
+  const staticOptionsList = useMemo(() => {
+    if (!hasStaticOptions) return [];
+    return (field.staticOptions ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0)
+      .map((o) => ({ value: o, label: o }));
+  }, [hasStaticOptions, field.staticOptions]);
+
   const needsSeed =
-    field.parameterType === "select" ||
+    (field.parameterType === "select" && !hasStaticOptions) ||
     field.parameterType === "multi-select" ||
     field.parameterType === "cascading-select";
 
@@ -92,13 +106,15 @@ function FieldInput({
     return Object.keys(base).length > 0 ? base : undefined;
   }, [field.parameterType, field.searchable, parentParams, debouncedSearch]);
 
-  const { options, loading } = useSeedQuery(
+  const { options: seedOptions, loading } = useSeedQuery(
     connectionId,
     field.seedQuery,
     needsSeed && cascadingEnabled,
     seedExtraParams,
     tenantId,
   );
+
+  const options = hasStaticOptions ? staticOptionsList : seedOptions;
 
   // Clear cascading child when parent changes
   const prevParentValue = useRef(parentValue);

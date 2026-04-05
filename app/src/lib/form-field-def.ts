@@ -7,6 +7,7 @@ export interface FormFieldDef {
   parameterType: ParameterType; // all 8 types
   required?: boolean; // when false, empty value passes null to the query instead of being omitted
   seedQuery?: string; // for select/multi-select/cascading-select
+  staticOptions?: string; // for select: comma-separated static options (e.g. "low,medium,high")
   parentParameterName?: string; // for cascading-select
   rangeMin?: number; // for number-range
   rangeMax?: number;
