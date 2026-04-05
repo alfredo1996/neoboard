@@ -38,6 +38,10 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showGridLines?: boolean;
   /** Use stepped line style */
   stepped?: boolean;
+  /** Draw lines through missing (null) data points */
+  connectNulls?: boolean;
+  /** Show series name label at the end of each line */
+  endLabel?: boolean;
   /** JSON string of reference lines: [{ value, label?, color? }] */
   referenceLines?: string;
   /** @deprecated Use stylingRules instead. JSON string of thresholds */
@@ -68,6 +72,8 @@ function LineChart({
   lineWidth = 2,
   showGridLines = true,
   stepped = false,
+  connectNulls = false,
+  endLabel = false,
   referenceLines: referenceLinesJson,
   colorThresholds,
   stylingRules,
@@ -140,6 +146,8 @@ function LineChart({
             : data.map((d) => d[key] as number),
           smooth,
           step: stepped ? ("start" as const) : undefined,
+          connectNulls,
+          endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
           lineStyle: { width: lineWidth, color: seriesColor },
           itemStyle: seriesColor ? { color: seriesColor } : undefined,
           showSymbol: showPoints,
@@ -165,6 +173,8 @@ function LineChart({
     lineWidth,
     showGridLines,
     stepped,
+    connectNulls,
+    endLabel,
     referenceLinesJson,
     colorThresholds,
     stylingRules,

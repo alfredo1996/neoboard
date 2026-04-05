@@ -51,6 +51,23 @@ export const lineOptions: ChartOptionDef[] = [
     category: "Style",
     description: "Draw a dot at each data point along the line.",
   },
+  {
+    key: "connectNulls",
+    label: "Connect Nulls",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description:
+      "Draw a continuous line through missing (null) data points instead of breaking the line.",
+  },
+  {
+    key: "endLabel",
+    label: "Show End Labels",
+    type: "boolean",
+    default: false,
+    category: "Style",
+    description: "Show the series name as a label at the end of each line.",
+  },
   SHARED_SHOW_GRID_LINES,
   SHARED_X_AXIS_LABEL,
   SHARED_Y_AXIS_LABEL,
