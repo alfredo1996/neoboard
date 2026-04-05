@@ -69,22 +69,36 @@ function TreemapChart({
     return {
       tooltip: {
         formatter: (params: unknown) => {
-          const p = params as { name: string; value: unknown; treePathInfo?: Array<{ name: string }> };
-          const path = p.treePathInfo?.map((t) => echarts.format.encodeHTML(t.name)).join(" / ") ?? echarts.format.encodeHTML(p.name);
+          const p = params as {
+            name: string;
+            value: unknown;
+            treePathInfo?: Array<{ name: string }>;
+          };
+          const path =
+            p.treePathInfo
+              ?.map((t) => echarts.format.encodeHTML(t.name))
+              .join(" / ") ?? echarts.format.encodeHTML(p.name);
           return `${path}: ${echarts.format.encodeHTML(String(p.value ?? ""))}`;
         },
       },
       series: [
         {
           type: "treemap",
+          nodeClick: "zoomToNode",
           data: stylingRules?.length
             ? data.map((item) => {
-                const numericValue = typeof item.value === "number" ? item.value : 0;
-                const resolvedColor = resolveItemColor(numericValue, stylingRules, paramValues);
+                const numericValue =
+                  typeof item.value === "number" ? item.value : 0;
+                const resolvedColor = resolveItemColor(
+                  numericValue,
+                  stylingRules,
+                  paramValues,
+                );
                 return {
                   ...item,
                   itemStyle: {
-                    ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ?? {}),
+                    ...((item as { itemStyle?: Record<string, unknown> })
+                      .itemStyle ?? {}),
                     ...(resolvedColor ? { color: resolvedColor } : {}),
                   },
                 };
@@ -100,9 +114,7 @@ function TreemapChart({
           label: {
             show: showLabels && !compact,
             position: "insideTopLeft",
-            formatter: showValues
-              ? "{b}: {c}"
-              : "{b}",
+            formatter: showValues ? "{b}: {c}" : "{b}",
           },
           upperLabel: {
             show: true,
@@ -120,7 +132,11 @@ function TreemapChart({
             },
             {
               colorSaturation: satRange,
-              itemStyle: { borderColorSaturation: 0.6, gapWidth: 2, borderWidth: 2 },
+              itemStyle: {
+                borderColorSaturation: 0.6,
+                gapWidth: 2,
+                borderWidth: 2,
+              },
             },
             {
               colorSaturation: satRange,
@@ -130,7 +146,16 @@ function TreemapChart({
         },
       ],
     };
-  }, [data, showLabels, showBreadcrumb, showValues, colorSaturation, compact, stylingRules, paramValues]);
+  }, [
+    data,
+    showLabels,
+    showBreadcrumb,
+    showValues,
+    colorSaturation,
+    compact,
+    stylingRules,
+    paramValues,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
