@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
 import type { BarChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToBarData, validateBarData } from "./transforms/bar";
 import { useEChartsClick, type PluginProps } from "./utils";
 
 const BarChart = dynamic(
@@ -58,9 +58,9 @@ export const barPlugin = defineChartPlugin({
   type: "bar",
   label: "Bar Chart",
   component: BarPluginComponent,
-  transform: chartRegistry.bar.transform,
-  transformWithMapping: chartRegistry.bar.transformWithMapping,
-  validate: chartRegistry.bar.validate,
+  transform: transformToBarData,
+  transformWithMapping: transformToBarData,
+  validate: validateBarData,
   compatibleWith: ["neo4j", "postgresql"],
   stylingTargets: [{ value: "color", label: "Bar Color" }],
   capabilities: {

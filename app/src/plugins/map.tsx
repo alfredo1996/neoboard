@@ -8,7 +8,7 @@
 import dynamic from "next/dynamic";
 import type { MapMarker, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToMapData, validateMapData } from "./transforms/map";
 import { type PluginProps } from "./utils";
 
 // Leaflet relies on window/document — must be loaded client-side only.
@@ -61,9 +61,9 @@ export const mapPlugin = defineChartPlugin({
   type: "map",
   label: "Map",
   component: MapPluginComponent,
-  transform: chartRegistry.map.transform,
-  transformWithMapping: chartRegistry.map.transformWithMapping,
-  validate: chartRegistry.map.validate,
+  transform: transformToMapData,
+  transformWithMapping: transformToMapData,
+  validate: validateMapData,
   compatibleWith: ["neo4j", "postgresql"],
   stylingTargets: [{ value: "color", label: "Marker Color" }],
   capabilities: {
