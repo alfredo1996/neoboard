@@ -6,9 +6,19 @@ import { info, success, warn, banner } from "../lib/output.js";
 import { runDoctor, printResults } from "./doctor.js";
 import { runDbMigrate } from "./db/migrate.js";
 
-export async function runStart(): Promise<void> {
+export interface StartOptions {
+  /**
+   * When true, starts the full stack (app + DBs) via docker-compose.full.yml.
+   * When false (default), starts DBs only via docker-compose.yml.
+   * Only applies to Docker mode.
+   */
+  full?: boolean;
+}
+
+export async function runStart(opts?: StartOptions): Promise<void> {
   const mode = getMode();
   const config = readProjectConfig();
+  const full = opts?.full ?? false;
 
   // 1. Prerequisite checks
   const results = await runDoctor();
@@ -18,12 +28,14 @@ export async function runStart(): Promise<void> {
     return;
   }
 
-  // 2. Start DB containers (only in Docker mode).
-  //    full=false → docker-compose.yml (DBs only, fast ~30s)
-  //    full=true → docker-compose.full.yml (includes app container, slow build)
+  // 2. Start containers (only in Docker mode)
   if (mode === "docker") {
-    info("Starting database containers via Docker Compose...");
-    composeUp({ full: false });
+    if (full) {
+      info("Starting full stack (app + databases) via Docker Compose...");
+    } else {
+      info("Starting database containers via Docker Compose...");
+    }
+    composeUp({ full });
   } else {
     info(
       "Local mode — skipping Docker. Ensure PostgreSQL and Neo4j are running.",
@@ -65,7 +77,7 @@ export async function runStart(): Promise<void> {
   banner([
     "NeoBoard is running!",
     "",
-    `Mode:       ${mode}`,
+    `Mode:       ${mode}${full ? " (full stack)" : ""}`,
     `App:        ${url}`,
     `Neo4j:      http://localhost:${config.ports.neo4j_http}`,
     `PostgreSQL: localhost:${config.ports.postgres}`,
