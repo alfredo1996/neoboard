@@ -18,11 +18,12 @@ export async function runStart(): Promise<void> {
     return;
   }
 
-  // 2. Start containers (only in Docker mode)
+  // 2. Start DB containers (only in Docker mode).
+  //    full=false → docker-compose.yml (DBs only, fast ~30s)
+  //    full=true → docker-compose.full.yml (includes app container, slow build)
   if (mode === "docker") {
-    const full = true;
-    info("Starting full stack via Docker Compose...");
-    composeUp({ full });
+    info("Starting database containers via Docker Compose...");
+    composeUp({ full: false });
   } else {
     info(
       "Local mode — skipping Docker. Ensure PostgreSQL and Neo4j are running.",
