@@ -7,7 +7,7 @@ export async function runDemo(opts?: {
 }): Promise<void> {
   // Demo always starts the full stack (app + DBs in Docker)
   await runSetup({ ...opts, full: true });
-  await runDbSeed({ neo4j: true, demo: true });
+  await runDbSeed({ neo4j: true, demo: true, dockerNetwork: true });
 
   banner([
     "Demo environment ready!",

@@ -38,7 +38,11 @@ describe("runDemo", () => {
 
   it("seeds both neo4j and demo data", async () => {
     await runDemo();
-    expect(mockRunDbSeed).toHaveBeenCalledWith({ neo4j: true, demo: true });
+    expect(mockRunDbSeed).toHaveBeenCalledWith({
+      neo4j: true,
+      demo: true,
+      dockerNetwork: true,
+    });
   });
 
   it("shows login credentials", async () => {
