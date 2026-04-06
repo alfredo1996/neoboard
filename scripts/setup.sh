@@ -16,4 +16,4 @@ if [ ! -f "$CLI_BIN" ]; then
 fi
 
 # Delegate to CLI
-node "$CLI_BIN" setup --mode local
+node "$CLI_BIN" setup
