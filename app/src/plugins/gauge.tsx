@@ -7,34 +7,24 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
-import type {
-  GaugeDataPoint,
-  EChartsClickEvent,
-  StylingRule,
-} from "@neoboard/components";
+import type { GaugeDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { useEChartsClick, type PluginProps } from "./utils";
 
 const GaugeChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onClick?: (e: EChartsClickEvent) => void;
-}
-
 function GaugePluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
-  onClick,
-}: PluginComponentProps) {
+  onChartClick,
+}: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
   return (
     <GaugeChart
       data={(data as GaugeDataPoint[]) ?? []}
@@ -46,7 +36,7 @@ function GaugePluginComponent({
       startAngle={settings.startAngle as number | undefined}
       endAngle={settings.endAngle as number | undefined}
       colorPalette={settings.colorPalette as string | undefined}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       colorblindMode={settings.colorblindMode as boolean | undefined}
       onClick={onClick}

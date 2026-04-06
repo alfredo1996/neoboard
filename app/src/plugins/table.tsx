@@ -10,16 +10,7 @@ import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import { TableRenderer } from "@/components/table-renderer";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
-
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  colorScales?: ColorScaleConfig[];
-  clickableColumns?: string[];
-  onChartClick?: (point: Record<string, unknown>) => void;
-}
+import { type PluginProps } from "./utils";
 
 function TablePluginComponent({
   data,
@@ -29,7 +20,7 @@ function TablePluginComponent({
   colorScales,
   clickableColumns,
   onChartClick,
-}: PluginComponentProps) {
+}: PluginProps) {
   return (
     <TableRenderer
       data={data}
@@ -44,9 +35,9 @@ function TablePluginComponent({
           : undefined
       }
       clickableColumns={clickableColumns}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
-      colorScales={colorScales}
+      colorScales={colorScales as ColorScaleConfig[] | undefined}
     />
   );
 }

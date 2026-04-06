@@ -10,25 +10,19 @@ import { Skeleton } from "@neoboard/components";
 import type { RadarChartData, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { type PluginProps } from "./utils";
 
 const RadarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-}
-
 function RadarPluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
-}: PluginComponentProps) {
+}: PluginProps) {
   const radarData = (data as RadarChartData) ?? {
     indicators: [],
     series: [],
@@ -41,7 +35,7 @@ function RadarPluginComponent({
       showLegend={settings.showLegend as boolean | undefined}
       showValues={settings.showValues as boolean | undefined}
       colorPalette={settings.colorPalette as string | undefined}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       colorblindMode={settings.colorblindMode as boolean | undefined}
     />

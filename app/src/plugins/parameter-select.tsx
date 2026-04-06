@@ -12,18 +12,13 @@ import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer"
 import type { ParameterType } from "@/stores/parameter-store";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
-
-interface PluginComponentProps {
-  settings: Record<string, unknown>;
-  connectionId?: string;
-  widgetId?: string;
-}
+import { type PluginProps } from "./utils";
 
 function ParameterSelectPluginComponent({
   settings,
   connectionId,
   widgetId,
-}: PluginComponentProps) {
+}: PluginProps) {
   const pName = settings.parameterName as string | undefined;
   if (!pName) {
     return (

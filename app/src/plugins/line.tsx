@@ -7,36 +7,25 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
-import type {
-  LineChartDataPoint,
-  EChartsClickEvent,
-  StylingRule,
-} from "@neoboard/components";
+import type { LineChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { useEChartsClick, type PluginProps } from "./utils";
 
 const LineChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.LineChart })),
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onClick?: (e: EChartsClickEvent) => void;
-  colorThresholds?: string;
-}
-
 function LinePluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
-  onClick,
+  onChartClick,
   colorThresholds,
-}: PluginComponentProps) {
+}: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
   // Parse comma-separated rightAxisSeries string into string array
   const rightAxisSeriesRaw = settings.rightAxisSeries as string | undefined;
   const rightAxisSeries = rightAxisSeriesRaw
@@ -64,7 +53,7 @@ function LinePluginComponent({
       endLabel={settings.endLabel as boolean | undefined}
       referenceLines={settings.referenceLines as string | undefined}
       colorThresholds={colorThresholds}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
       enableDataZoom={settings.enableDataZoom as boolean | undefined}

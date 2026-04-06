@@ -13,24 +13,13 @@ import type { GraphNode, GraphEdge, StylingRule } from "@neoboard/components";
 import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { type PluginProps } from "./utils";
 
 // NVL (WebGL) is heavy — lazy load so it's only bundled when a graph widget renders.
 const GraphChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.GraphChart })),
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
-
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onChartClick?: (point: Record<string, unknown>) => void;
-  connectionId?: string;
-  widgetId?: string;
-  resultId?: string;
-  autoFit?: boolean;
-}
 
 function GraphPluginComponent({
   data,
@@ -42,7 +31,7 @@ function GraphPluginComponent({
   widgetId,
   resultId,
   autoFit,
-}: PluginComponentProps) {
+}: PluginProps) {
   const graphData = (data ?? { nodes: [], edges: [] }) as {
     nodes: GraphNode[];
     edges: GraphEdge[];
@@ -75,7 +64,7 @@ function GraphPluginComponent({
           : undefined
       }
       autoFit={autoFit}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
     />
   );

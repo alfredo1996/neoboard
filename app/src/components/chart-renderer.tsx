@@ -1,16 +1,12 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { AlertCircle } from "lucide-react";
 import type { ChartType } from "@/lib/chart-registry";
 import { pluginRegistry } from "@/plugins";
 import { ChartErrorBoundary } from "./chart-error-boundary";
 import { EmptyState } from "@neoboard/components";
-import type {
-  EChartsClickEvent,
-  StylingRule,
-  ColorScaleConfig,
-} from "@neoboard/components";
+import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 
 /** Styling-related props grouped together. */
 export interface ChartStylingProps {
@@ -74,31 +70,15 @@ function ChartRendererInner({
       ? settings.colorThresholds
       : undefined;
 
-  const handleEChartsClick = useMemo(() => {
-    if (!onChartClick) return undefined;
-    return (e: EChartsClickEvent) => {
-      // Enrich the click point with the original data row so that
-      // column-name source fields (e.g. "revenue") resolve correctly
-      // in click action rules — not just ECharts built-in fields.
-      const row = Array.isArray(data)
-        ? (data[e.dataIndex] as Record<string, unknown> | undefined)
-        : undefined;
-      onChartClick({
-        ...(row ?? {}),
-        name: e.name,
-        value: e.value,
-        seriesName: e.seriesName,
-        dataIndex: e.dataIndex,
-      });
-    };
-  }, [onChartClick, data]);
-
   // Plugin-driven rendering — every chart type is registered as a plugin
   // in app/src/plugins/. The plugin's component receives the full set of
   // props; it picks the ones it needs.
   const plugin = pluginRegistry.get(type);
   if (plugin) {
     const PluginComponent = plugin.component;
+    // Pass onChartClick (the raw row-level callback) to all plugins.
+    // ECharts-based plugins wrap it in their own ECharts event handler
+    // internally — this keeps the plugin contract to ONE callback.
     return (
       <PluginComponent
         data={data}
@@ -106,7 +86,6 @@ function ChartRendererInner({
         stylingRules={stylingRules}
         paramValues={paramValues}
         colorScales={colorScales}
-        onClick={handleEChartsClick}
         onChartClick={onChartClick}
         connectionId={connectionId}
         widgetId={widgetId}

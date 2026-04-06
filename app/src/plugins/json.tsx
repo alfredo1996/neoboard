@@ -8,13 +8,9 @@
 import { JsonViewer } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { type PluginProps } from "./utils";
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-}
-
-function JsonPluginComponent({ data, settings }: PluginComponentProps) {
+function JsonPluginComponent({ data, settings }: PluginProps) {
   return (
     <div className="h-full overflow-auto">
       <JsonViewer
