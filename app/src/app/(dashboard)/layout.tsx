@@ -110,13 +110,13 @@ export default function DashboardLayout({
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <div>
+                  <button type="button" className="w-full text-left">
                     <SidebarItem
                       icon={getPreferenceIcon(preference)}
                       label="Theme"
                       collapsed={collapsed}
                     />
-                  </div>
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="end">
                   <DropdownMenuLabel>Theme</DropdownMenuLabel>
@@ -157,13 +157,15 @@ export default function DashboardLayout({
             collapsed={collapsed}
             onClick={() => router.push("/connections")}
           />
-          <SidebarItem
-            icon={<Users className="h-4 w-4" />}
-            label="Users"
-            active={pathname === "/users"}
-            collapsed={collapsed}
-            onClick={() => router.push("/users")}
-          />
+          {userRole === "admin" && (
+            <SidebarItem
+              icon={<Users className="h-4 w-4" />}
+              label="Users"
+              active={pathname === "/users"}
+              collapsed={collapsed}
+              onClick={() => router.push("/users")}
+            />
+          )}
           <SidebarItem
             icon={<FlaskConical className="h-4 w-4" />}
             label="Widget Lab"

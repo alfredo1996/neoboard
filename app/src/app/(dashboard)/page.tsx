@@ -461,7 +461,10 @@ export default function DashboardListPage() {
   const duplicateDashboard = useDuplicateDashboard();
   const [newName, setNewName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   const canCreate = systemRole === "admin" || systemRole === "creator";
@@ -511,7 +514,13 @@ export default function DashboardListPage() {
                 placeholder="Dashboard name"
                 className="mt-2"
                 autoFocus
+                required
               />
+              {newName.trim() === "" && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Give your dashboard a name to get started.
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -538,13 +547,13 @@ export default function DashboardListPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title="Delete Dashboard"
+        title={`Delete "${deleteTarget?.name ?? "Dashboard"}"?`}
         description="This action cannot be undone. This will permanently delete this dashboard and all its widgets."
         confirmText="Delete"
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) {
-            deleteDashboard.mutate(deleteTarget);
+            deleteDashboard.mutate(deleteTarget.id);
             setDeleteTarget(null);
           }
         }}
@@ -643,7 +652,12 @@ export default function DashboardListPage() {
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       className="text-destructive focus:text-destructive"
-                                      onClick={() => setDeleteTarget(d.id)}
+                                      onClick={() =>
+                                        setDeleteTarget({
+                                          id: d.id,
+                                          name: d.name,
+                                        })
+                                      }
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Delete
