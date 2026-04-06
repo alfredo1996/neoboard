@@ -14,15 +14,25 @@ function resolveDatabaseUrl(): string {
     const content = readFileSync(paths.envFile, "utf-8");
     for (const line of content.split("\n")) {
       const trimmed = line.trim();
-      if (trimmed.startsWith("DATABASE_URL=")) {
-        const url = trimmed.slice("DATABASE_URL=".length).trim();
+      const m = trimmed.match(/^DATABASE_URL\s*=\s*(.+)$/);
+      if (m) {
+        let url = m[1].trim();
+        if (
+          (url.startsWith('"') && url.endsWith('"')) ||
+          (url.startsWith("'") && url.endsWith("'"))
+        ) {
+          url = url.slice(1, -1);
+        }
         if (url) return url;
       }
     }
   }
   // Fallback: build from config (assumes DB is on localhost via Docker port mapping)
   const config = readProjectConfig();
-  return `postgresql://${config.postgres.user}:${config.postgres.password}@localhost:${config.ports.postgres}/${config.postgres.database}`;
+  const user = encodeURIComponent(config.postgres.user);
+  const pass = encodeURIComponent(config.postgres.password);
+  const db = encodeURIComponent(config.postgres.database);
+  return `postgresql://${user}:${pass}@localhost:${config.ports.postgres}/${db}`;
 }
 
 interface JournalEntry {
