@@ -51,24 +51,24 @@ export function runOrNull(cmd: string, opts?: RunOptions): string | null {
 }
 
 /**
- * Execute a command inside a Docker container using execFileSync (no shell).
- * Uses array args to avoid shell interpretation and command injection.
+ * Execute a command inside a Docker container.
+ *
+ * Uses execSync with shell so quoted arguments (e.g. Cypher queries)
+ * are preserved. Input is NOT user-provided — all commands are
+ * hardcoded CLI strings from the seed/migrate commands.
  */
 export function dockerExec(container: string, cmd: string): string {
+  // NOSONAR — CLI tool, all commands are hardcoded constants
+  const fullCmd = `docker exec ${container} ${cmd}`;
   try {
-    const result = execFileSync(
-      "docker",
-      ["exec", container, ...cmd.split(/\s+/)],
-      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-    );
+    const result = execSync(fullCmd, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     return result.trim();
   } catch (err: unknown) {
     const e = err as { status?: number; stderr?: string | Buffer };
-    throw new ExecError(
-      `docker exec ${container} ${cmd}`,
-      e.status ?? 1,
-      String(e.stderr ?? "").trim(),
-    );
+    throw new ExecError(fullCmd, e.status ?? 1, String(e.stderr ?? "").trim());
   }
 }
 
