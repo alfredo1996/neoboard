@@ -419,7 +419,7 @@ jobs:
         run: find . -name "lcov.info" -type f 2>/dev/null || echo "No lcov.info files found"
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v3
+        uses: SonarSource/sonarcloud-github-action@v5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
