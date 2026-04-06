@@ -316,7 +316,7 @@ jobs:
         run: npm ci --prefix app
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: blob-report-*
           path: all-blob-reports
@@ -334,7 +334,7 @@ jobs:
           path: app/playwright-report/
 
       - name: Download all coverage shards
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: e2e-coverage-*
           path: coverage-shards
@@ -403,13 +403,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download unit coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: unit-coverage
         continue-on-error: true
 
       - name: Download E2E coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: e2e-coverage
           path: app/coverage-e2e
