@@ -174,15 +174,13 @@ describe("isPgReady", () => {
 });
 
 describe("isNeo4jReady", () => {
-  it("returns true when cypher-shell succeeds", () => {
-    mockDockerExec.mockReturnValue("1");
+  it("returns true when docker inspect reports healthy", () => {
+    mockRunOrNull.mockReturnValue("healthy");
     expect(isNeo4jReady()).toBe(true);
   });
 
-  it("returns false when cypher-shell fails", () => {
-    mockDockerExec.mockImplementation(() => {
-      throw new Error("not ready");
-    });
+  it("returns false when docker inspect reports starting", () => {
+    mockRunOrNull.mockReturnValue("starting");
     expect(isNeo4jReady()).toBe(false);
   });
 });
