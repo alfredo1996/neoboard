@@ -69,7 +69,7 @@
     "react-grid-layout": "^2.2.3",
     "react-hook-form": "^7.72.0",
     "simple-icons": "^16.14.0",
-    "tailwind-merge": "^2.6.1",
+    "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
