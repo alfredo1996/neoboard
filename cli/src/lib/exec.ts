@@ -28,7 +28,7 @@ export interface RunOptions {
 export function run(cmd: string, opts?: RunOptions): string {
   try {
     const result = execSync(cmd, {
-      // NOSONAR: CLI tool — all commands are hardcoded constants, no user input interpolation
+      // NOSONAR: CLI tool — all commands are hardcoded, no user input
       cwd: opts?.cwd,
       env: opts?.env ?? process.env,
       timeout: opts?.timeout,
@@ -56,6 +56,9 @@ export function runOrNull(cmd: string, opts?: RunOptions): string | null {
  * Uses execSync with shell so quoted arguments (e.g. Cypher queries)
  * are preserved. Input is NOT user-provided — all commands are
  * hardcoded CLI strings from the seed/migrate commands.
+ *
+ * Security (S4036): "docker" is resolved via PATH intentionally — this is a
+ * local developer CLI tool, not a server process. PATH is trusted.
  */
 export function dockerExec(container: string, cmd: string): string {
   // NOSONAR — CLI tool, all commands are hardcoded constants
