@@ -1,0 +1,198 @@
+---
+title: Creating a Connector Plugin
+description: Add a new database connector to NeoBoard without modifying core code.
+---
+
+NeoBoard's connector system is plugin-based. Each database type (Neo4j, PostgreSQL) is a self-contained plugin. You can add support for new databases by creating a connector plugin.
+
+## Quick Start
+
+Create a plugin file in the connection package:
+
+```ts
+// connection/src/my-database/plugin.ts
+import type { ConnectorPlugin } from "../generalized/connector-plugin";
+import type { AuthConfig } from "../generalized/interfaces";
+import { MyDatabaseConnectionModule } from "./MyDatabaseConnectionModule";
+
+export const myDatabasePlugin: ConnectorPlugin = {
+  type: "my-database",
+  label: "My Database",
+  category: "database",
+  queryLanguage: "sql",
+  supportsWrite: true,
+  supportsGraphData: false,
+  allowedProtocols: ["mydb:", "mydb+ssl:"],
+  uriPlaceholder: "mydb://localhost:5555/mydb",
+  databasePlaceholder: "mydb",
+
+  createModule(authConfig: AuthConfig, advancedOptions?: Record<string, unknown>) {
+    return new MyDatabaseConnectionModule(authConfig, advancedOptions);
+  },
+};
+```
+
+Then register it in `connection/src/connector-registry.ts`:
+
+```ts
+import { myDatabasePlugin } from "./my-database/plugin";
+
+// Add after the existing registrations:
+registry.register(myDatabasePlugin);
+```
+
+## Connector Plugin Reference
+
+```ts
+interface ConnectorPlugin {
+  // Required
+  type: string;           // unique ID: "mysql", "mongodb", "rest-api"
+  label: string;          // display name: "MySQL", "MongoDB"
+  category: "database" | "graph" | "api" | "file";
+  createModule(auth, opts): ConnectionModule;  // factory for the driver
+
+  // Optional
+  supportsGraphData?: boolean;    // can produce nodes/edges? (default: false)
+  supportsWrite?: boolean;        // supports INSERT/CREATE? (default: false)
+  queryLanguage?: string;         // "cypher", "sql", or custom
+  allowedProtocols?: string[];    // URI validation: ["mysql:", "mysql+ssl:"]
+  uriPlaceholder?: string;        // shown in connection form
+  databasePlaceholder?: string;   // shown in database field
+}
+```
+
+## Implementing a ConnectionModule
+
+Your connector must extend the abstract `ConnectionModule` class:
+
+```ts
+import { ConnectionModule } from "../generalized/ConnectionModule";
+import { AuthenticationModule } from "../generalized/AuthenticationModule";
+import type { ConnectionConfig, QueryCallback, QueryParams } from "../generalized/interfaces";
+
+export class MyDatabaseConnectionModule extends ConnectionModule {
+  authModule: AuthenticationModule;
+
+  constructor(authConfig: AuthConfig, advancedOptions?: Record<string, unknown>) {
+    super();
+    // Initialize your driver here
+    this.authModule = new MyDatabaseAuthModule(authConfig);
+  }
+
+  async runQuery<T>(
+    queryParams: QueryParams,
+    callbacks: QueryCallback<T>,
+    config: ConnectionConfig,
+  ): Promise<void> {
+    // Handle empty query
+    if (this.handleEmptyQuery(queryParams.query, callbacks)) return;
+
+    try {
+      // Execute the query using your driver
+      const results = await this.executeQuery(queryParams.query, queryParams.params);
+
+      // Convert results to NeoBoard's record format
+      const records = results.map(row => ({
+        // Map each column to key-value pairs
+        ...row,
+      }));
+
+      // Call the success callback
+      if (callbacks.setRecords) {
+        callbacks.setRecords(records as T);
+      }
+    } catch (error) {
+      if (callbacks.setError) {
+        callbacks.setError(error);
+      }
+    }
+  }
+
+  async checkConnection(config?: ConnectionConfig): Promise<boolean> {
+    try {
+      // Try to connect and run a simple query
+      await this.executeQuery("SELECT 1");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+```
+
+## Built-in Connectors
+
+NeoBoard ships with two built-in connector plugins:
+
+### Neo4j
+- **Type:** `"neo4j"`
+- **Category:** `"graph"`
+- **Language:** Cypher
+- **Graph data:** Yes (nodes, relationships, paths)
+- **Write:** Yes (CREATE, MERGE, DELETE)
+- **Protocols:** `bolt:`, `neo4j:`, `bolt+s:`, `neo4j+s:`
+
+### PostgreSQL
+- **Type:** `"postgresql"`
+- **Category:** `"database"`
+- **Language:** SQL
+- **Graph data:** No
+- **Write:** Yes (INSERT, UPDATE, DELETE)
+- **Protocols:** `postgresql:`, `postgres:`
+
+## Registry API
+
+```ts
+import {
+  registerConnector,
+  getConnector,
+  getAllConnectors,
+  createConnectionModule,
+} from "@neoboard/connection/src/connector-registry";
+
+// Register a new connector
+registerConnector(myPlugin);
+
+// Look up a connector
+const plugin = getConnector("mysql");
+
+// List all registered connectors
+const all = getAllConnectors(); // [neo4jPlugin, postgresPlugin, ...]
+
+// Create a connection module (replaces the old factory)
+const module = createConnectionModule("neo4j", authConfig, advancedOptions);
+```
+
+## Testing Your Connector
+
+Use the existing test patterns:
+
+```ts
+// connection/__tests__/my-database/plugin.test.ts
+import { createConnectorRegistry } from "../src/generalized/connector-plugin";
+import { myDatabasePlugin } from "../src/my-database/plugin";
+
+describe("myDatabasePlugin", () => {
+  it("registers without error", () => {
+    const registry = createConnectorRegistry();
+    expect(() => registry.register(myDatabasePlugin)).not.toThrow();
+  });
+
+  it("has correct type and category", () => {
+    expect(myDatabasePlugin.type).toBe("my-database");
+    expect(myDatabasePlugin.category).toBe("database");
+  });
+
+  it("creates a connection module", () => {
+    const module = myDatabasePlugin.createModule({
+      uri: "mydb://localhost:5555/test",
+      username: "user",
+      password: "pass",
+      authType: 1,
+    });
+    expect(module).toBeDefined();
+    expect(typeof module.runQuery).toBe("function");
+    expect(typeof module.checkConnection).toBe("function");
+  });
+});
+```
