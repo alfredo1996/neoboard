@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
 import type { PieChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToPieData, validatePieData } from "./transforms/pie";
 import { useEChartsClick, type PluginProps } from "./utils";
 
 const PieChart = dynamic(
@@ -54,9 +54,9 @@ export const piePlugin = defineChartPlugin({
   type: "pie",
   label: "Pie / Doughnut",
   component: PiePluginComponent,
-  transform: chartRegistry.pie.transform,
-  transformWithMapping: chartRegistry.pie.transformWithMapping,
-  validate: chartRegistry.pie.validate,
+  transform: transformToPieData,
+  transformWithMapping: transformToPieData,
+  validate: validatePieData,
   compatibleWith: ["neo4j", "postgresql"],
   stylingTargets: [{ value: "color", label: "Slice Color" }],
   capabilities: {

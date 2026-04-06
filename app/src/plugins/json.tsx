@@ -7,7 +7,7 @@
 
 import { JsonViewer } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToJsonData } from "./transforms/json";
 import { type PluginProps } from "./utils";
 
 function JsonPluginComponent({ data, settings }: PluginProps) {
@@ -25,8 +25,8 @@ export const jsonPlugin = defineChartPlugin({
   type: "json",
   label: "JSON Viewer",
   component: JsonPluginComponent,
-  transform: chartRegistry.json.transform,
-  transformWithMapping: chartRegistry.json.transformWithMapping,
+  transform: transformToJsonData,
+  transformWithMapping: transformToJsonData,
   compatibleWith: ["neo4j", "postgresql"],
   capabilities: {
     supportsClickAction: false,

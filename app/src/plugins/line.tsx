@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
 import type { LineChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToLineData, validateLineData } from "./transforms/line";
 import { useEChartsClick, type PluginProps } from "./utils";
 
 const LineChart = dynamic(
@@ -67,9 +67,9 @@ export const linePlugin = defineChartPlugin({
   type: "line",
   label: "Line Chart",
   component: LinePluginComponent,
-  transform: chartRegistry.line.transform,
-  transformWithMapping: chartRegistry.line.transformWithMapping,
-  validate: chartRegistry.line.validate,
+  transform: transformToLineData,
+  transformWithMapping: transformToLineData,
+  validate: validateLineData,
   compatibleWith: ["neo4j", "postgresql"],
   stylingTargets: [{ value: "color", label: "Line Color" }],
   capabilities: {
