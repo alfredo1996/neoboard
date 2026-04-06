@@ -38,6 +38,7 @@ import {
   DashboardGrid,
   Dialog,
   DialogContent,
+  DialogTitle,
   Button,
   ParameterBar,
   CrossFilterTag,
@@ -344,12 +345,12 @@ export function DashboardContainer({
         <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
           {fullscreenWidget && (
             <>
-              <h2 className="text-lg font-semibold mb-2">
+              <DialogTitle className="text-lg font-semibold mb-2">
                 {interpolateTitle(
                   getWidgetDisplayTitle(fullscreenWidget),
                   parameters,
                 )}
-              </h2>
+              </DialogTitle>
               <div className="flex-1 min-h-0">
                 {fullscreenReady ? (
                   <CardContainer
