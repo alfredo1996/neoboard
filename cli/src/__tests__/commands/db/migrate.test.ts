@@ -4,16 +4,16 @@ vi.mock("../../../lib/exec.js", () => ({
   run: vi.fn(),
 }));
 
-vi.mock("../../../lib/docker.js", () => ({
-  dockerExec: vi.fn(),
-}));
-
 vi.mock("../../../lib/config.js", () => ({
   paths: {
     journalPath: "/project/app/drizzle/migrations/meta/_journal.json",
     appDir: "/project/app",
+    envFile: "/project/app/.env.local",
   },
-  getMode: vi.fn(() => "local"),
+  readProjectConfig: vi.fn(() => ({
+    ports: { postgres: 5432 },
+    postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+  })),
 }));
 
 vi.mock("../../../lib/output.js", () => ({
@@ -33,8 +33,6 @@ vi.mock("node:fs", () => ({
 }));
 
 import { run } from "../../../lib/exec.js";
-import { dockerExec } from "../../../lib/docker.js";
-import { getMode } from "../../../lib/config.js";
 import { info, warn } from "../../../lib/output.js";
 import { existsSync, readFileSync } from "node:fs";
 import {
@@ -44,8 +42,6 @@ import {
 } from "../../../commands/db/migrate.js";
 
 const mockRun = vi.mocked(run);
-const mockDockerExec = vi.mocked(dockerExec);
-const mockGetMode = vi.mocked(getMode);
 const mockExistsSync = vi.mocked(existsSync);
 const mockReadFileSync = vi.mocked(readFileSync);
 
@@ -59,12 +55,15 @@ const SAMPLE_JOURNAL = JSON.stringify({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetMode.mockReturnValue("local");
+  // Default: .env.local exists with a DATABASE_URL
+  mockExistsSync.mockReturnValue(true);
+  mockReadFileSync.mockReturnValue(
+    "DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard\n",
+  );
 });
 
 describe("showMigrationStatus", () => {
   it("displays migration entries", () => {
-    mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(SAMPLE_JOURNAL);
     showMigrationStatus();
     expect(info).toHaveBeenCalledWith("Migrations: 2 available");
@@ -79,7 +78,6 @@ describe("showMigrationStatus", () => {
 
 describe("showDryRun", () => {
   it("shows pending migrations without applying", () => {
-    mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(SAMPLE_JOURNAL);
     showDryRun();
     expect(info).toHaveBeenCalledWith("Would apply 2 migration(s):");
@@ -89,7 +87,6 @@ describe("showDryRun", () => {
 
 describe("runDbMigrate", () => {
   it("shows status when --status flag set", async () => {
-    mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(SAMPLE_JOURNAL);
     await runDbMigrate({ status: true });
     expect(info).toHaveBeenCalledWith("Migrations: 2 available");
@@ -97,26 +94,30 @@ describe("runDbMigrate", () => {
   });
 
   it("shows dry run when --dry-run flag set", async () => {
-    mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(SAMPLE_JOURNAL);
     await runDbMigrate({ dryRun: true });
     expect(mockRun).not.toHaveBeenCalled();
   });
 
-  it("runs migrations in local mode", async () => {
+  it("runs migrations locally with DATABASE_URL from .env.local", async () => {
     await runDbMigrate({});
     expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
       cwd: "/project/app",
+      env: expect.objectContaining({
+        DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
+      }),
     });
   });
 
-  it("runs migrations via docker exec in docker mode", async () => {
-    mockGetMode.mockReturnValue("docker");
+  it("falls back to config-derived DATABASE_URL when .env.local missing", async () => {
+    mockExistsSync.mockReturnValue(false);
     await runDbMigrate({});
-    expect(mockDockerExec).toHaveBeenCalledWith(
-      "neoboard-app",
-      "npx drizzle-kit migrate",
-    );
+    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+      cwd: "/project/app",
+      env: expect.objectContaining({
+        DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
+      }),
+    });
   });
 
   it("prints backup warning", async () => {

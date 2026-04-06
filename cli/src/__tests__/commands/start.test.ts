@@ -64,9 +64,9 @@ describe("runStart", () => {
     expect(mockComposeUp).not.toHaveBeenCalled();
   });
 
-  it("starts containers with full stack in docker mode", async () => {
+  it("starts DB containers (not full stack) in docker mode", async () => {
     await runStart();
-    expect(mockComposeUp).toHaveBeenCalledWith({ full: true });
+    expect(mockComposeUp).toHaveBeenCalledWith({ full: false });
   });
 
   it("skips composeUp in local mode", async () => {

@@ -1,8 +1,29 @@
 import { existsSync, readFileSync } from "node:fs";
 import { run } from "../../lib/exec.js";
-import { dockerExec } from "../../lib/docker.js";
-import { paths, getMode } from "../../lib/config.js";
+import { paths, readProjectConfig } from "../../lib/config.js";
 import { info, success, warn, createSpinner } from "../../lib/output.js";
+
+/**
+ * Resolve the DATABASE_URL for migrations.
+ * Priority: 1) .env.local  2) built from neoboard.config.json
+ * This works regardless of where the DB runs (Docker, local, remote).
+ */
+function resolveDatabaseUrl(): string {
+  // Check .env.local first — user may have a custom DB host
+  if (existsSync(paths.envFile)) {
+    const content = readFileSync(paths.envFile, "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("DATABASE_URL=")) {
+        const url = trimmed.slice("DATABASE_URL=".length).trim();
+        if (url) return url;
+      }
+    }
+  }
+  // Fallback: build from config (assumes DB is on localhost via Docker port mapping)
+  const config = readProjectConfig();
+  return `postgresql://${config.postgres.user}:${config.postgres.password}@localhost:${config.ports.postgres}/${config.postgres.database}`;
+}
 
 interface JournalEntry {
   idx: number;
@@ -76,12 +97,13 @@ export async function runDbMigrate(opts: {
   const spinner = createSpinner("Running migrations...");
   spinner.start();
 
-  const mode = getMode();
-  if (mode === "docker") {
-    dockerExec("neoboard-app", "npx drizzle-kit migrate");
-  } else {
-    run("npx drizzle-kit migrate", { cwd: paths.appDir });
-  }
+  // Resolve DATABASE_URL: use .env.local if set, otherwise build from config.
+  // This works regardless of where the DB runs (Docker, local, remote).
+  const dbUrl = resolveDatabaseUrl();
+  run("npx drizzle-kit migrate", {
+    cwd: paths.appDir,
+    env: { ...process.env, DATABASE_URL: dbUrl },
+  });
 
   spinner.succeed("Migrations applied");
   success("Database is up to date");
