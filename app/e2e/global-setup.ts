@@ -249,7 +249,9 @@ export default async function globalSetup() {
     `⏳ Starting Next.js ${serverCmd} server on port ${serverPort}...`,
   );
   const args = ["next", serverCmd, "--port", String(serverPort)];
-  if (serverCmd === "dev") args.push("--turbopack");
+  // Use webpack explicitly — Turbopack (Next.js 16 default) doesn't correctly
+  // resolve CJS/ESM interop for the @neoboard/connection package at runtime.
+  if (serverCmd === "dev") args.push("--webpack");
   const server = spawn("npx", args, {
     cwd: appDir,
     stdio: "pipe",
