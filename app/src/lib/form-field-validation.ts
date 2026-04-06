@@ -4,7 +4,7 @@ import type { FormFieldDef } from "./form-field-def";
  * Regex for validating an email address. Requires a non-empty local part, an
  * "@", a non-empty domain, a dot, and a non-empty TLD with no whitespace.
  */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /** Determine whether a field's current value should be treated as "empty". */
 function isEmptyValue(field: FormFieldDef, value: unknown): boolean {

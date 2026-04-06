@@ -284,7 +284,7 @@ export default function WidgetLabPage() {
   }
 
   function handleDuplicate(template: WidgetTemplate) {
-    const baseName = template.name.replace(/\s*\(copy(?:\s*\d+)?\)$/, "");
+    const baseName = template.name.replace(/\s*\(copy(?:\s\d+)?\)$/, "");
     createTemplate.mutate(
       {
         name: `${baseName} (copy)`,

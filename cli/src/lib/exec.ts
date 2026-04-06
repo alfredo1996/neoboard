@@ -28,7 +28,7 @@ export interface RunOptions {
 export function run(cmd: string, opts?: RunOptions): string {
   try {
     const result = execSync(cmd, {
-      // NOSONAR: CLI tool — all commands are hardcoded constants, no user input interpolation
+      // NOSONAR: CLI tool — all commands are hardcoded, no user input
       cwd: opts?.cwd,
       env: opts?.env ?? process.env,
       timeout: opts?.timeout,
@@ -53,6 +53,9 @@ export function runOrNull(cmd: string, opts?: RunOptions): string | null {
 /**
  * Execute a command inside a Docker container using execFileSync (no shell).
  * Uses array args to avoid shell interpretation and command injection.
+ *
+ * Security (S4036): "docker" is resolved via PATH intentionally — this is a
+ * local developer CLI tool, not a server process. PATH is trusted.
  */
 export function dockerExec(container: string, cmd: string): string {
   try {
