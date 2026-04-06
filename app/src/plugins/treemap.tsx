@@ -7,13 +7,10 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
-import type {
-  TreemapDataItem,
-  EChartsClickEvent,
-  StylingRule,
-} from "@neoboard/components";
+import type { TreemapDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { useEChartsClick, type PluginProps } from "./utils";
 
 const TreemapChart = dynamic(
   () =>
@@ -21,21 +18,14 @@ const TreemapChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onClick?: (e: EChartsClickEvent) => void;
-}
-
 function TreemapPluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
-  onClick,
-}: PluginComponentProps) {
+  onChartClick,
+}: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
   return (
     <TreemapChart
       data={(data as TreemapDataItem[]) ?? []}
@@ -46,7 +36,7 @@ function TreemapPluginComponent({
         settings.colorSaturation as "low" | "medium" | "high" | undefined
       }
       colorPalette={settings.colorPalette as string | undefined}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
       colorblindMode={settings.colorblindMode as boolean | undefined}

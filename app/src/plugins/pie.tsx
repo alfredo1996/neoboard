@@ -7,36 +7,25 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
-import type {
-  PieChartDataPoint,
-  EChartsClickEvent,
-  StylingRule,
-} from "@neoboard/components";
+import type { PieChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { useEChartsClick, type PluginProps } from "./utils";
 
 const PieChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.PieChart })),
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onClick?: (e: EChartsClickEvent) => void;
-  colorThresholds?: string;
-}
-
 function PiePluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
-  onClick,
+  onChartClick,
   colorThresholds,
-}: PluginComponentProps) {
+}: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
   return (
     <PieChart
       data={(data as PieChartDataPoint[]) ?? []}
@@ -52,7 +41,7 @@ function PiePluginComponent({
       topN={settings.topN as number | undefined}
       donutCenterText={settings.donutCenterText as string | undefined}
       colorThresholds={colorThresholds}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
       colorPalette={settings.colorPalette as string | undefined}

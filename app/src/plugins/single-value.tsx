@@ -12,6 +12,7 @@ import type { StylingRule } from "@neoboard/components";
 import { normalizeValue } from "@/lib/normalize-value";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { type PluginProps } from "./utils";
 
 const SingleValueChart = dynamic(
   () =>
@@ -21,21 +22,13 @@ const SingleValueChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  colorThresholds?: string;
-}
-
 function SingleValuePluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
   colorThresholds,
-}: PluginComponentProps) {
+}: PluginProps) {
   const raw = data ?? 0;
   const val =
     typeof raw === "number" || typeof raw === "string"
@@ -60,7 +53,7 @@ function SingleValuePluginComponent({
       }
       decimalPlaces={settings.decimalPlaces as number | undefined}
       colorThresholds={colorThresholds}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
     />
   );

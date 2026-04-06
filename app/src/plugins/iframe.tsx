@@ -6,12 +6,9 @@
 
 import { IframeWidget } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
+import { type PluginProps } from "./utils";
 
-interface PluginComponentProps {
-  settings: Record<string, unknown>;
-}
-
-function IframePluginComponent({ settings }: PluginComponentProps) {
+function IframePluginComponent({ settings }: PluginProps) {
   return (
     <IframeWidget
       url={settings.url as string | undefined}

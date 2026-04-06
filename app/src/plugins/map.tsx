@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import type { MapMarker, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { type PluginProps } from "./utils";
 
 // Leaflet relies on window/document — must be loaded client-side only.
 const MapChart = dynamic(
@@ -23,21 +24,13 @@ const MapChart = dynamic(
   },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onChartClick?: (point: Record<string, unknown>) => void;
-}
-
 function MapPluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginComponentProps) {
+}: PluginProps) {
   const markers = (data ?? []) as MapMarker[];
   return (
     <MapChart
@@ -58,7 +51,7 @@ function MapPluginComponent({
               })
           : undefined
       }
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
     />
   );

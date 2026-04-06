@@ -7,37 +7,26 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
-import type {
-  BarChartDataPoint,
-  EChartsClickEvent,
-  StylingRule,
-} from "@neoboard/components";
+import type { BarChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { useEChartsClick, type PluginProps } from "./utils";
 
-// Charts use ECharts (browser APIs) — must be loaded client-side only
 const BarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onClick?: (e: EChartsClickEvent) => void;
-  colorThresholds?: string;
-}
-
 function BarPluginComponent({
   data,
   settings,
+  onChartClick,
+  colorThresholds,
   stylingRules,
   paramValues,
-  onClick,
-  colorThresholds,
-}: PluginComponentProps) {
+}: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
+
   return (
     <BarChart
       data={(data as BarChartDataPoint[]) ?? []}
@@ -55,7 +44,7 @@ function BarPluginComponent({
       axisLabelRotation={settings.axisLabelRotation as number | undefined}
       referenceLines={settings.referenceLines as string | undefined}
       colorThresholds={colorThresholds}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
       enableDataZoom={settings.enableDataZoom as boolean | undefined}

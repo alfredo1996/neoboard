@@ -7,13 +7,10 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@neoboard/components";
-import type {
-  SunburstDataItem,
-  EChartsClickEvent,
-  StylingRule,
-} from "@neoboard/components";
+import type { SunburstDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { chartRegistry } from "@/lib/chart-registry";
+import { useEChartsClick, type PluginProps } from "./utils";
 
 const SunburstChart = dynamic(
   () =>
@@ -21,21 +18,14 @@ const SunburstChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
-interface PluginComponentProps {
-  data: unknown;
-  settings: Record<string, unknown>;
-  stylingRules?: StylingRule[];
-  paramValues?: Record<string, unknown>;
-  onClick?: (e: EChartsClickEvent) => void;
-}
-
 function SunburstPluginComponent({
   data,
   settings,
   stylingRules,
   paramValues,
-  onClick,
-}: PluginComponentProps) {
+  onChartClick,
+}: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
   return (
     <SunburstChart
       data={(data as SunburstDataItem[]) ?? []}
@@ -43,7 +33,7 @@ function SunburstPluginComponent({
       sort={settings.sort as "desc" | "asc" | "none" | undefined}
       highlightOnHover={settings.highlightOnHover as boolean | undefined}
       colorPalette={settings.colorPalette as string | undefined}
-      stylingRules={stylingRules}
+      stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
       colorblindMode={settings.colorblindMode as boolean | undefined}

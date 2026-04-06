@@ -7,18 +7,9 @@
 
 import { FormWidgetRenderer } from "@/components/form-widget-renderer";
 import { defineChartPlugin } from "./registry";
+import { type PluginProps } from "./utils";
 
-interface PluginComponentProps {
-  settings: Record<string, unknown>;
-  connectionId?: string;
-  query?: string;
-}
-
-function FormPluginComponent({
-  settings,
-  connectionId,
-  query,
-}: PluginComponentProps) {
+function FormPluginComponent({ settings, connectionId, query }: PluginProps) {
   return (
     <FormWidgetRenderer
       connectionId={connectionId ?? ""}
