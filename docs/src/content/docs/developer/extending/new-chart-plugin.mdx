@@ -1,0 +1,197 @@
+---
+title: Creating a Chart Plugin
+description: Add a new chart type to NeoBoard without modifying core code.
+---
+
+NeoBoard's chart system is plugin-based. Each chart type (bar, line, pie, etc.) is a self-contained plugin that registers itself with the chart registry. You can add new chart types by creating a single plugin file.
+
+## Quick Start
+
+Create a file at `app/src/plugins/your-chart.tsx`:
+
+```tsx
+import dynamic from "next/dynamic";
+import { Skeleton } from "@neoboard/components";
+import { defineChartPlugin } from "./registry";
+import { useEChartsClick, type PluginProps } from "./utils";
+
+// Lazy-load your chart component (ECharts needs client-side only)
+const MyChart = dynamic(
+  () => import("@neoboard/components").then((m) => ({ default: m.MyChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
+);
+
+function MyChartPlugin({ data, settings, onChartClick }: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
+  return (
+    <MyChart
+      data={data ?? []}
+      showLegend={settings.showLegend as boolean}
+      onClick={onClick}
+    />
+  );
+}
+
+export const myChartPlugin = defineChartPlugin({
+  type: "my-chart",
+  label: "My Chart",
+  component: MyChartPlugin,
+  transform: (rows) => rows, // transform raw query rows to chart data
+  compatibleWith: ["neo4j", "postgresql"],
+  capabilities: {
+    supportsClickAction: true,
+    supportsStyling: false,
+    isECharts: true,
+    requiresQuery: true,
+  },
+  queryHint: "Return label and value columns.\nExample: RETURN name, count",
+  options: [
+    {
+      key: "showLegend",
+      label: "Show Legend",
+      type: "boolean",
+      default: true,
+      category: "Labels",
+      description: "Show the chart legend.",
+    },
+  ],
+});
+```
+
+Then register it in `app/src/plugins/index.ts`:
+
+```ts
+import { myChartPlugin } from "./my-chart";
+
+// Add to the BUILT_IN_PLUGINS array:
+const BUILT_IN_PLUGINS = [
+  // ... existing plugins
+  myChartPlugin,
+];
+```
+
+That's it. Your chart appears in the widget editor's chart type picker.
+
+## Plugin Config Reference
+
+```ts
+defineChartPlugin({
+  // Required
+  type: string,           // unique ID: "heatmap", "funnel", etc.
+  label: string,          // display name in the UI
+  component: React.FC,    // React component that renders the chart
+  transform: (data) => T, // convert raw query rows to chart's data shape
+
+  // Optional
+  transformWithMapping?: (data, mapping) => T,  // with column mapping
+  validate?: (data) => string | null,           // return error or null
+  options?: ChartOptionDef[],                   // chart options panel entries
+  queryHint?: string,                           // shown in query editor
+  compatibleWith?: ConnectorType[],             // ["neo4j", "postgresql"]
+  stylingTargets?: { value, label }[],          // enables rule-based styling
+  enrichClickEvent?: (event, row) => event,     // customize click payload
+
+  // Capabilities (all have sensible defaults)
+  capabilities?: {
+    supportsClickAction: boolean,  // default: true
+    supportsStyling: boolean,      // default: true if stylingTargets set
+    isECharts: boolean,            // default: false
+    requiresQuery: boolean,        // default: true
+  },
+});
+```
+
+## Plugin Component Props
+
+Every plugin component receives these props via `PluginProps` (import from `./utils`):
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `data` | `unknown` | Transformed query result data |
+| `settings` | `Record<string, unknown>` | User-configured chart options |
+| `onChartClick` | `(row) => void` | Raw click callback (use `useEChartsClick()` for ECharts) |
+| `stylingRules` | `StylingRule[]` | Conditional color rules |
+| `paramValues` | `Record<string, unknown>` | Current parameter values |
+| `colorScales` | `ColorScaleConfig[]` | Gradient color scales |
+| `connectionId` | `string` | Current connector ID |
+| `widgetId` | `string` | Widget identifier |
+| `resultId` | `string` | Query result cache ID |
+| `query` | `string` | Current query text |
+| `autoFit` | `boolean` | Auto-fit on resize |
+| `colorThresholds` | `string` | Legacy threshold JSON |
+
+## Chart Options
+
+Options define what users can configure in the Chart Options panel:
+
+```ts
+interface ChartOptionDef {
+  key: string;          // settings key (e.g. "showLegend")
+  label: string;        // UI label
+  type: "boolean" | "select" | "text" | "number" | "column-multi-select";
+  default: unknown;     // default value
+  category: string;     // group heading (e.g. "Layout", "Labels", "Style")
+  options?: { label: string; value: string }[];  // for "select" type
+  description?: string; // tooltip text
+}
+```
+
+## ECharts vs Custom Charts
+
+**ECharts-based charts** (bar, line, pie, gauge, etc.):
+- Use `dynamic(() => import("@neoboard/components")...)` with `ssr: false`
+- Use `useEChartsClick(onChartClick, data)` to wrap the click handler
+- Set `capabilities.isECharts: true`
+
+**Non-ECharts charts** (graph, map, table, form):
+- Import components directly (no dynamic import needed if not using browser APIs)
+- Use `onChartClick` directly (no wrapping needed)
+- Set `capabilities.isECharts: false`
+
+**Content-only widgets** (markdown, iframe):
+- Set `capabilities.requiresQuery: false`
+- `transform` returns `null`
+- No click action or styling
+
+## Example: Adding a Heatmap
+
+```tsx
+// app/src/plugins/heatmap.tsx
+import dynamic from "next/dynamic";
+import { Skeleton } from "@neoboard/components";
+import { defineChartPlugin } from "./registry";
+import { useEChartsClick, type PluginProps } from "./utils";
+
+const HeatmapChart = dynamic(
+  () => import("../components/charts/heatmap-chart").then((m) => ({ default: m.HeatmapChart })),
+  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
+);
+
+function HeatmapPlugin({ data, settings, onChartClick }: PluginProps) {
+  const onClick = useEChartsClick(onChartClick, data);
+  return (
+    <HeatmapChart
+      data={data ?? []}
+      xField={settings.xField as string}
+      yField={settings.yField as string}
+      valueField={settings.valueField as string}
+      onClick={onClick}
+    />
+  );
+}
+
+export const heatmapPlugin = defineChartPlugin({
+  type: "heatmap",
+  label: "Heatmap",
+  component: HeatmapPlugin,
+  transform: (rows) => rows,
+  compatibleWith: ["neo4j", "postgresql"],
+  capabilities: { supportsClickAction: true, isECharts: true, requiresQuery: true, supportsStyling: false },
+  queryHint: "Return 3 columns: x, y, value.\nExample: RETURN day, hour, count",
+  options: [
+    { key: "xField", label: "X Field", type: "text", default: "", category: "Data" },
+    { key: "yField", label: "Y Field", type: "text", default: "", category: "Data" },
+    { key: "valueField", label: "Value Field", type: "text", default: "", category: "Data" },
+  ],
+});
+```
