@@ -127,6 +127,53 @@ describe("runDbMigrate", () => {
     );
   });
 
+  it("strips double quotes from DATABASE_URL in .env.local", async () => {
+    mockReadFileSync.mockReturnValue(
+      'DATABASE_URL="postgresql://neoboard:neoboard@localhost:5432/neoboard"\n',
+    );
+    await runDbMigrate({});
+    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+      cwd: "/project/app",
+      env: expect.objectContaining({
+        DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
+      }),
+    });
+  });
+
+  it("strips single quotes from DATABASE_URL in .env.local", async () => {
+    mockReadFileSync.mockReturnValue(
+      "DATABASE_URL='postgresql://neoboard:neoboard@localhost:5432/neoboard'\n",
+    );
+    await runDbMigrate({});
+    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+      cwd: "/project/app",
+      env: expect.objectContaining({
+        DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
+      }),
+    });
+  });
+
+  it("URI-encodes special characters in config fallback credentials", async () => {
+    mockExistsSync.mockReturnValue(false);
+    const { readProjectConfig } = await import("../../../lib/config.js");
+    vi.mocked(readProjectConfig).mockReturnValue({
+      ports: { postgres: 5432 },
+      postgres: {
+        user: "neo@board",
+        password: "p@ss:word",
+        database: "neo board",
+      },
+    } as ReturnType<typeof readProjectConfig>);
+    await runDbMigrate({});
+    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+      cwd: "/project/app",
+      env: expect.objectContaining({
+        DATABASE_URL:
+          "postgresql://neo%40board:p%40ss%3Aword@localhost:5432/neo%20board",
+      }),
+    });
+  });
+
   it("warns about --to flag limitation", async () => {
     await runDbMigrate({ to: "1.0.0" });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("--to 1.0.0"));
