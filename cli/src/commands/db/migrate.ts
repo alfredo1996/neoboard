@@ -1,8 +1,39 @@
 import { existsSync, readFileSync } from "node:fs";
 import { run } from "../../lib/exec.js";
-import { dockerExec } from "../../lib/docker.js";
-import { paths, getMode } from "../../lib/config.js";
+import { paths, readProjectConfig } from "../../lib/config.js";
 import { info, success, warn, createSpinner } from "../../lib/output.js";
+
+/**
+ * Resolve the DATABASE_URL for migrations.
+ * Priority: 1) .env.local  2) built from neoboard.config.json
+ * This works regardless of where the DB runs (Docker, local, remote).
+ */
+function resolveDatabaseUrl(): string {
+  // Check .env.local first — user may have a custom DB host
+  if (existsSync(paths.envFile)) {
+    const content = readFileSync(paths.envFile, "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      const m = trimmed.match(/^DATABASE_URL\s*=\s*(.+)$/);
+      if (m) {
+        let url = m[1].trim();
+        if (
+          (url.startsWith('"') && url.endsWith('"')) ||
+          (url.startsWith("'") && url.endsWith("'"))
+        ) {
+          url = url.slice(1, -1);
+        }
+        if (url) return url;
+      }
+    }
+  }
+  // Fallback: build from config (assumes DB is on localhost via Docker port mapping)
+  const config = readProjectConfig();
+  const user = encodeURIComponent(config.postgres.user);
+  const pass = encodeURIComponent(config.postgres.password);
+  const db = encodeURIComponent(config.postgres.database);
+  return `postgresql://${user}:${pass}@localhost:${config.ports.postgres}/${db}`;
+}
 
 interface JournalEntry {
   idx: number;
@@ -76,12 +107,13 @@ export async function runDbMigrate(opts: {
   const spinner = createSpinner("Running migrations...");
   spinner.start();
 
-  const mode = getMode();
-  if (mode === "docker") {
-    dockerExec("neoboard-app", "npx drizzle-kit migrate");
-  } else {
-    run("npx drizzle-kit migrate", { cwd: paths.appDir });
-  }
+  // Resolve DATABASE_URL: use .env.local if set, otherwise build from config.
+  // This works regardless of where the DB runs (Docker, local, remote).
+  const dbUrl = resolveDatabaseUrl();
+  run("npx drizzle-kit migrate", {
+    cwd: paths.appDir,
+    env: { ...process.env, DATABASE_URL: dbUrl },
+  });
 
   spinner.succeed("Migrations applied");
   success("Database is up to date");

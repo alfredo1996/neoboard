@@ -74,11 +74,25 @@ describe("seedNeo4j", () => {
 });
 
 describe("seedPostgres", () => {
-  it("runs seed script", async () => {
+  it("runs seed script with host env", async () => {
     await seedPostgres();
     expect(mockRun).toHaveBeenCalledWith(
       "node /project/scripts/seed-demo.mjs",
-      { cwd: "/project" },
+      { cwd: "/project", env: process.env },
+    );
+  });
+
+  it("passes Docker hostnames when dockerNetwork is true", async () => {
+    await seedPostgres(true);
+    expect(mockRun).toHaveBeenCalledWith(
+      "node /project/scripts/seed-demo.mjs",
+      {
+        cwd: "/project",
+        env: expect.objectContaining({
+          NEO4J_HOST: "neoboard-neo4j",
+          PG_HOST: "neoboard-postgres",
+        }),
+      },
     );
   });
 });
