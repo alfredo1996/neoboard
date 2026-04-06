@@ -141,7 +141,7 @@ function TemplateCard({
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={onEdit}
-                    aria-label="Edit"
+                    aria-label="Edit template"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -157,7 +157,7 @@ function TemplateCard({
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={onDelete}
-                    aria-label="Delete"
+                    aria-label="Delete template"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
