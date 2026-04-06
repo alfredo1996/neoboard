@@ -8,6 +8,7 @@
 
 import { MarkdownWidget } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
+import { type PluginProps } from "./utils";
 
 interface MarkdownWidgetProps {
   content?: string;
@@ -18,11 +19,7 @@ interface MarkdownWidgetProps {
  * renders the MarkdownWidget. The plugin contract passes the full
  * settings object to the component as `settings` prop.
  */
-function MarkdownPluginComponent({
-  settings,
-}: {
-  settings: Record<string, unknown>;
-}) {
+function MarkdownPluginComponent({ settings }: PluginProps) {
   const props: MarkdownWidgetProps = {
     content: settings.content as string | undefined,
   };
