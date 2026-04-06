@@ -205,6 +205,10 @@ function BaseChart({
       },
     };
     instance.setOption(merged, { notMerge: true });
+    // Fix blank render on initial widget placement: if the container was
+    // 0x0 when ECharts initialized, the first setOption draws to a 0x0
+    // canvas. Force a resize after setOption so it picks up the real size.
+    instance.resize();
   }, [
     options,
     enableDataZoom,

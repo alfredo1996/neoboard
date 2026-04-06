@@ -36,7 +36,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { FormFieldDef } from "@/lib/form-field-def";
+import type {
+  FormFieldDef,
+  FormFieldValidationType,
+} from "@/lib/form-field-def";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
 
@@ -201,10 +204,24 @@ function SortableFieldItem({
           </Select>
         </div>
 
+        {/* Static options (for select only) */}
+        {field.parameterType === "select" && (
+          <LabeledInput
+            label="Static Options (comma-separated)"
+            value={field.staticOptions ?? ""}
+            onChange={(v) => onUpdate(field.id, { staticOptions: v })}
+            placeholder="e.g. low,medium,high"
+          />
+        )}
+
         {/* Seed query (for select/multi-select/cascading-select) */}
         {needsSeedQuery(field.parameterType) && (
           <div className="space-y-1.5">
-            <Label className="text-xs">Options Query</Label>
+            <Label className="text-xs">
+              Options Query{" "}
+              {field.parameterType === "select" &&
+                "(ignored if static options set)"}
+            </Label>
             <Textarea
               value={field.seedQuery ?? ""}
               onChange={(e) =>
@@ -261,6 +278,31 @@ function SortableFieldItem({
             onChange={(v) => onUpdate(field.id, { placeholder: v })}
             placeholder="Optional placeholder text"
           />
+        )}
+
+        {/* Validation Type (text inputs only) */}
+        {field.parameterType === "text" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Validation</Label>
+            <Select
+              value={field.validationType ?? "text"}
+              onValueChange={(v) =>
+                onUpdate(field.id, {
+                  validationType: v as FormFieldValidationType,
+                })
+              }
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">None (any text)</SelectItem>
+                <SelectItem value="number">Number</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
         {/* Required toggle */}
