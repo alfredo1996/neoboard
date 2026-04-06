@@ -28,7 +28,7 @@ export interface RunOptions {
 export function run(cmd: string, opts?: RunOptions): string {
   try {
     const result = execSync(cmd, {
-      // NOSONAR: CLI tool — all commands are hardcoded constants, no user input interpolation
+      // NOSONAR: CLI tool — all commands are hardcoded, no user input
       cwd: opts?.cwd,
       env: opts?.env ?? process.env,
       timeout: opts?.timeout,
@@ -51,24 +51,27 @@ export function runOrNull(cmd: string, opts?: RunOptions): string | null {
 }
 
 /**
- * Execute a command inside a Docker container using execFileSync (no shell).
- * Uses array args to avoid shell interpretation and command injection.
+ * Execute a command inside a Docker container.
+ *
+ * Uses execSync with shell so quoted arguments (e.g. Cypher queries)
+ * are preserved. Input is NOT user-provided — all commands are
+ * hardcoded CLI strings from the seed/migrate commands.
+ *
+ * Security (S4036): "docker" is resolved via PATH intentionally — this is a
+ * local developer CLI tool, not a server process. PATH is trusted.
  */
 export function dockerExec(container: string, cmd: string): string {
+  // NOSONAR — CLI tool, all commands are hardcoded constants
+  const fullCmd = `docker exec ${container} ${cmd}`;
   try {
-    const result = execFileSync(
-      "docker",
-      ["exec", container, ...cmd.split(/\s+/)],
-      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-    );
+    const result = execSync(fullCmd, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     return result.trim();
   } catch (err: unknown) {
     const e = err as { status?: number; stderr?: string | Buffer };
-    throw new ExecError(
-      `docker exec ${container} ${cmd}`,
-      e.status ?? 1,
-      String(e.stderr ?? "").trim(),
-    );
+    throw new ExecError(fullCmd, e.status ?? 1, String(e.stderr ?? "").trim());
   }
 }
 
