@@ -38,6 +38,10 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showGridLines?: boolean;
   /** Use stepped line style */
   stepped?: boolean;
+  /** Draw lines through missing (null) data points */
+  connectNulls?: boolean;
+  /** Show series name label at the end of each line */
+  endLabel?: boolean;
   /** JSON string of reference lines: [{ value, label?, color? }] */
   referenceLines?: string;
   /** @deprecated Use stylingRules instead. JSON string of thresholds */
@@ -46,6 +50,14 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /**
+   * Series names to render on a secondary (right) Y-axis. When non-empty,
+   * the chart renders two independent Y-axes so series with different
+   * scales can share the same chart.
+   */
+  rightAxisSeries?: string[];
+  /** Right Y-axis label (used when rightAxisSeries is non-empty) */
+  rightYAxisLabel?: string;
 }
 
 /**
@@ -68,10 +80,14 @@ function LineChart({
   lineWidth = 2,
   showGridLines = true,
   stepped = false,
+  connectNulls = false,
+  endLabel = false,
   referenceLines: referenceLinesJson,
   colorThresholds,
   stylingRules,
   paramValues,
+  rightAxisSeries,
+  rightYAxisLabel,
   samplingThreshold = 1000,
   samplingMethod = "lttb",
   ...rest
@@ -95,6 +111,26 @@ function LineChart({
     const markLine = buildMarkLineFromRefs(refLines);
     const xValues = data.map((d) => d.x);
     const useTimeAxis = isTimeSeriesData(xValues);
+    const rightAxisSet = new Set(rightAxisSeries ?? []);
+    const useDualAxis = rightAxisSet.size > 0;
+
+    const leftYAxis = {
+      type: "value" as const,
+      name: compact ? undefined : yAxisLabel,
+      nameLocation: "middle" as const,
+      nameGap: 50,
+      axisLabel: { show: !compact },
+      splitLine: { show: showGridLines },
+    };
+    const rightYAxis = {
+      type: "value" as const,
+      name: compact ? undefined : rightYAxisLabel,
+      nameLocation: "middle" as const,
+      nameGap: 50,
+      axisLabel: { show: !compact },
+      // Only the left axis draws grid split lines to avoid visual clutter
+      splitLine: { show: false },
+    };
 
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
@@ -102,6 +138,7 @@ function LineChart({
       grid: {
         ...buildCompactGrid(compact, effectiveShowLegend),
         left: compact ? 8 : 48,
+        right: useDualAxis && !compact ? 56 : undefined,
       },
       xAxis: {
         type: useTimeAxis ? "time" : "category",
@@ -111,14 +148,7 @@ function LineChart({
         nameGap: 30,
         axisLabel: { show: !compact },
       },
-      yAxis: {
-        type: "value",
-        name: compact ? undefined : yAxisLabel,
-        nameLocation: "middle",
-        nameGap: 50,
-        axisLabel: { show: !compact },
-        splitLine: { show: showGridLines },
-      },
+      yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
       series: seriesKeys.map((key, idx) => {
         let lastValue: number | undefined;
         for (let i = data.length - 1; i >= 0; i -= 1) {
@@ -135,11 +165,14 @@ function LineChart({
         return {
           name: key,
           type: "line" as const,
+          yAxisIndex: useDualAxis && rightAxisSet.has(key) ? 1 : 0,
           data: useTimeAxis
             ? data.map((d) => [d.x, d[key]])
             : data.map((d) => d[key] as number),
           smooth,
           step: stepped ? ("start" as const) : undefined,
+          connectNulls,
+          endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
           lineStyle: { width: lineWidth, color: seriesColor },
           itemStyle: seriesColor ? { color: seriesColor } : undefined,
           showSymbol: showPoints,
@@ -165,10 +198,14 @@ function LineChart({
     lineWidth,
     showGridLines,
     stepped,
+    connectNulls,
+    endLabel,
     referenceLinesJson,
     colorThresholds,
     stylingRules,
     paramValues,
+    rightAxisSeries,
+    rightYAxisLabel,
     compact,
     hideLegend,
     samplingThreshold,

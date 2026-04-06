@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from "react";
+import { memo, useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { InteractiveNvlWrapper } from "@neo4j-nvl/react";
 import type { InteractiveNvlWrapperProps } from "@neo4j-nvl/react";
 import type NVL from "@neo4j-nvl/base";
@@ -303,8 +303,12 @@ function toNvlRelationship(
  * - Fit button: re-centers and fits the graph in the viewport
  * - Layout dropdown: switch between Force, Circular, and Hierarchical layouts
  * - Label settings: per-label property selector for node captions
+ *
+ * Wrapped in React.memo — the component is expensive (NVL simulation + heavy
+ * useMemo work) and parents often re-render for unrelated reasons. Memoization
+ * skips re-renders when props are referentially stable.
  */
-export function GraphChart({
+function GraphChartInner({
   nodes,
   edges,
   layout: layoutProp = "force",
@@ -430,6 +434,23 @@ export function GraphChart({
     }
   }, []);
 
+  /** Multiplier applied to the current zoom level on each zoom button press. */
+  const ZOOM_STEP = 1.25;
+
+  const zoomIn = useCallback(() => {
+    const nvl = nvlRef.current;
+    if (!nvl) return;
+    const current = nvl.getScale();
+    nvl.setZoom(current * ZOOM_STEP);
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    const nvl = nvlRef.current;
+    if (!nvl) return;
+    const current = nvl.getScale();
+    nvl.setZoom(current / ZOOM_STEP);
+  }, []);
+
   // When autoFit is true, fit the graph after layout has settled.
   // layoutReady flips to true when onLayoutDone fires — deterministic,
   // not based on an arbitrary timer.
@@ -548,8 +569,53 @@ export function GraphChart({
 
   return (
     <div className={`relative h-full w-full ${className ?? ""}`}>
+      {/* Node count display (top-left) */}
+      <div
+        className="absolute top-2 left-2 z-10 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm"
+        data-testid="graph-node-count"
+      >
+        {nodes.length} {nodes.length === 1 ? "node" : "nodes"}, {edges.length}{" "}
+        {edges.length === 1 ? "edge" : "edges"}
+      </div>
+
       {/* Overlay toolbar */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 shadow-sm backdrop-blur-sm">
+        <button
+          onClick={zoomIn}
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          title="Zoom in"
+          aria-label="Zoom in"
+          data-testid="graph-zoom-in"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="7" cy="7" r="5" />
+            <path d="M7 4v6M4 7h6M11 11l3 3" />
+          </svg>
+        </button>
+        <button
+          onClick={zoomOut}
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          title="Zoom out"
+          aria-label="Zoom out"
+          data-testid="graph-zoom-out"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="7" cy="7" r="5" />
+            <path d="M4 7h6M11 11l3 3" />
+          </svg>
+        </button>
         <button
           onClick={fitGraph}
           className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -670,3 +736,6 @@ export function GraphChart({
     </div>
   );
 }
+
+export const GraphChart = memo(GraphChartInner);
+GraphChart.displayName = "GraphChart";

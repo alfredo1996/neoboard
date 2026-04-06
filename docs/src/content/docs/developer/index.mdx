@@ -7,13 +7,22 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 This section covers how to extend NeoBoard and contribute to the project.
 
-## Extending NeoBoard
+## Plugin System
 
-Step-by-step guides for adding new functionality:
+NeoBoard uses a plugin architecture. Add new chart types or database connectors without modifying core code:
 
 <CardGrid>
-  <LinkCard title="New Chart Type" href="/developer/extending/new-chart-type" />
-  <LinkCard title="New Connector" href="/developer/extending/new-connector" />
+  <LinkCard title="Chart Plugin" description="Add a new chart type (heatmap, funnel, etc.)" href="/developer/extending/new-chart-plugin" />
+  <LinkCard title="Connector Plugin" description="Add a new database (MySQL, MongoDB, etc.)" href="/developer/extending/new-connector-plugin" />
+</CardGrid>
+
+## Legacy Extending Guides
+
+Older guides (before the plugin system):
+
+<CardGrid>
+  <LinkCard title="New Chart Type (legacy)" href="/developer/extending/new-chart-type" />
+  <LinkCard title="New Connector (legacy)" href="/developer/extending/new-connector" />
   <LinkCard title="New Parameter Type" href="/developer/extending/new-parameter-type" />
   <LinkCard title="New Widget Type" href="/developer/extending/new-widget-type" />
 </CardGrid>

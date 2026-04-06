@@ -3,7 +3,13 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, getCompactState, isDark, resolveItemColor, groupTopN } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  getCompactState,
+  isDark,
+  resolveItemColor,
+  groupTopN,
+} from "./chart-utils";
 import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 
@@ -77,9 +83,16 @@ function PieChart({
       : data;
     const sortedData = groupTopN(sorted, topN);
 
-    const thresholds = stylingRules ? [] : parseColorThresholds(colorThresholds ?? "");
+    const thresholds = stylingRules
+      ? []
+      : parseColorThresholds(colorThresholds ?? "");
     const coloredData = sortedData.map((d) => {
-      const color = resolveItemColor(d.value, stylingRules, paramValues, thresholds);
+      const color = resolveItemColor(
+        d.value,
+        stylingRules,
+        paramValues,
+        thresholds,
+      );
       return color ? { ...d, itemStyle: { color } } : d;
     });
 
@@ -91,7 +104,19 @@ function PieChart({
         trigger: "item",
         formatter: "{b}: {c} ({d}%)",
       },
-      legend: effectiveShowLegend ? { bottom: 0, type: "scroll" } : undefined,
+      legend: effectiveShowLegend
+        ? {
+            bottom: 0,
+            type: "scroll",
+            orient: "horizontal",
+            width: "90%",
+            pageIconSize: 12,
+            pageTextStyle: { fontSize: 11 },
+            pageButtonItemGap: 6,
+            itemGap: 12,
+            textStyle: { fontSize: 12 },
+          }
+        : undefined,
       series: [
         {
           type: "pie",
@@ -121,22 +146,44 @@ function PieChart({
         },
       ],
       // Donut center text: show total or custom text in the center hole
-      ...(donut && !compact ? {
-        graphic: [{
-          type: "text",
-          left: "center",
-          top: effectiveShowLegend ? "42%" : "47%",
-          style: {
-            text: donutCenterText ?? String(sortedData.reduce((s, d) => s + d.value, 0)),
-            align: "center",
-            fontSize: 20,
-            fontWeight: "bold",
-            fill: isDark() ? "#e5e5e5" : "#262626",
-          },
-        }],
-      } : {}),
+      ...(donut && !compact
+        ? {
+            graphic: [
+              {
+                type: "text",
+                left: "center",
+                top: effectiveShowLegend ? "42%" : "47%",
+                style: {
+                  text:
+                    donutCenterText ??
+                    String(sortedData.reduce((s, d) => s + d.value, 0)),
+                  align: "center",
+                  fontSize: 20,
+                  fontWeight: "bold",
+                  fill: isDark() ? "#e5e5e5" : "#262626",
+                },
+              },
+            ],
+          }
+        : {}),
     };
-  }, [data, donut, showLabel, showLegend, roseMode, labelPosition, showPercentage, sortSlices, topN, donutCenterText, colorThresholds, stylingRules, paramValues, compact, hideLegend]);
+  }, [
+    data,
+    donut,
+    showLabel,
+    showLegend,
+    roseMode,
+    labelPosition,
+    showPercentage,
+    sortSlices,
+    topN,
+    donutCenterText,
+    colorThresholds,
+    stylingRules,
+    paramValues,
+    compact,
+    hideLegend,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

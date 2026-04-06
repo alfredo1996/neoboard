@@ -1,12 +1,21 @@
 import type { ParameterType } from "@/stores/parameter-store";
 
+/**
+ * Optional type-based validation applied to a field's value on blur.
+ * Independent from `parameterType` (the widget shape) so a free-form `text`
+ * input can still validate as a number, email, or date.
+ */
+export type FormFieldValidationType = "text" | "number" | "email" | "date";
+
 export interface FormFieldDef {
   id: string;
   label: string;
   parameterName: string; // without $param_ prefix
   parameterType: ParameterType; // all 8 types
   required?: boolean; // when false, empty value passes null to the query instead of being omitted
+  validationType?: FormFieldValidationType; // blur-time value validation
   seedQuery?: string; // for select/multi-select/cascading-select
+  staticOptions?: string; // for select: comma-separated static options (e.g. "low,medium,high")
   parentParameterName?: string; // for cascading-select
   rangeMin?: number; // for number-range
   rangeMax?: number;

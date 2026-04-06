@@ -1219,8 +1219,8 @@ describe("gauge chart type", () => {
     expect(chartRegistry.gauge.compatibleWith).toContain("postgresql");
   });
 
-  it("supportsClickAction is false", () => {
-    expect(chartSupportsClickAction("gauge")).toBe(false);
+  it("supportsClickAction is true", () => {
+    expect(chartSupportsClickAction("gauge")).toBe(true);
   });
 
   it("supportsStyling is true", () => {

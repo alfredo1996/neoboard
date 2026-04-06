@@ -283,6 +283,7 @@ function transformToGraphData(data: unknown): unknown {
     if (!edgesMap.has(edgeId)) {
       const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
+        id: edgeId,
         source: String(v.startNodeElementId ?? v.start),
         target: String(v.endNodeElementId ?? v.end),
         label: String(v.type),
@@ -859,7 +860,7 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
     transform: transformToGaugeData,
     transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
+    supportsClickAction: true,
     isECharts: true,
     stylingTargets: [{ value: "color", label: "Gauge Color" }],
   },
