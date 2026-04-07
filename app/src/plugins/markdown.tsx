@@ -9,21 +9,16 @@
 import { MarkdownWidget } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { type PluginProps } from "./utils";
-
-interface MarkdownWidgetProps {
-  content?: string;
-}
+import { markdownSettingsSchema } from "./settings/markdown";
 
 /**
  * Component adapter — extracts the `content` field from settings and
  * renders the MarkdownWidget. The plugin contract passes the full
  * settings object to the component as `settings` prop.
  */
-function MarkdownPluginComponent({ settings }: PluginProps) {
-  const props: MarkdownWidgetProps = {
-    content: settings.content as string | undefined,
-  };
-  return <MarkdownWidget {...props} />;
+function MarkdownPluginComponent({ settings: raw }: PluginProps) {
+  const settings = markdownSettingsSchema.parse(raw);
+  return <MarkdownWidget content={settings.content} />;
 }
 
 export const markdownPlugin = defineChartPlugin({
@@ -32,6 +27,7 @@ export const markdownPlugin = defineChartPlugin({
   component: MarkdownPluginComponent,
   // Content-only widget — no data transform needed
   transform: () => null,
+  settingsSchema: markdownSettingsSchema,
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,

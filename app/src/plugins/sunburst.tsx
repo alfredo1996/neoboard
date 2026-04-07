@@ -11,6 +11,7 @@ import type { SunburstDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToHierarchicalData } from "./transforms/sunburst";
 import { useEChartsClick, type PluginProps } from "./utils";
+import { sunburstSettingsSchema } from "./settings/sunburst";
 
 const SunburstChart = dynamic(
   () =>
@@ -20,23 +21,24 @@ const SunburstChart = dynamic(
 
 function SunburstPluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
+  const settings = sunburstSettingsSchema.parse(raw);
   return (
     <SunburstChart
       data={(data as SunburstDataItem[]) ?? []}
-      showLabels={settings.showLabels as boolean | undefined}
-      sort={settings.sort as "desc" | "asc" | "none" | undefined}
-      highlightOnHover={settings.highlightOnHover as boolean | undefined}
-      colorPalette={settings.colorPalette as string | undefined}
+      showLabels={settings.showLabels}
+      sort={settings.sort}
+      highlightOnHover={settings.highlightOnHover}
+      colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      colorblindMode={settings.colorblindMode}
     />
   );
 }
@@ -48,6 +50,7 @@ export const sunburstPlugin = defineChartPlugin({
   transform: transformToHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: sunburstSettingsSchema,
   stylingTargets: [{ value: "color", label: "Segment Color" }],
   capabilities: {
     supportsClickAction: true,

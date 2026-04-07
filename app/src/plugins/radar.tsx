@@ -11,6 +11,7 @@ import type { RadarChartData, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToRadarData } from "./transforms/radar";
 import { type PluginProps } from "./utils";
+import { radarSettingsSchema } from "./settings/radar";
 
 const RadarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
@@ -19,7 +20,7 @@ const RadarChart = dynamic(
 
 function RadarPluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
 }: PluginProps) {
@@ -27,17 +28,18 @@ function RadarPluginComponent({
     indicators: [],
     series: [],
   };
+  const settings = radarSettingsSchema.parse(raw);
   return (
     <RadarChart
       data={radarData}
-      shape={settings.shape as "polygon" | "circle" | undefined}
-      filled={settings.filled as boolean | undefined}
-      showLegend={settings.showLegend as boolean | undefined}
-      showValues={settings.showValues as boolean | undefined}
-      colorPalette={settings.colorPalette as string | undefined}
+      shape={settings.shape}
+      filled={settings.filled}
+      showLegend={settings.showLegend}
+      showValues={settings.showValues}
+      colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      colorblindMode={settings.colorblindMode}
     />
   );
 }
@@ -49,6 +51,7 @@ export const radarPlugin = defineChartPlugin({
   transform: transformToRadarData,
   transformWithMapping: transformToRadarData,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: radarSettingsSchema,
   stylingTargets: [{ value: "color", label: "Area Color" }],
   capabilities: {
     supportsClickAction: false,
