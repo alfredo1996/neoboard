@@ -19,6 +19,36 @@ export const postgresPlugin: ConnectorPlugin = {
   allowedProtocols: ["postgresql:", "postgres:"],
   uriPlaceholder: "postgresql://localhost:5432/mydb",
   databasePlaceholder: "postgres",
+  formFields: [
+    {
+      key: "uri",
+      label: "Connection URI",
+      type: "text",
+      required: true,
+      placeholder: "postgresql://localhost:5432/mydb",
+      description: "PostgreSQL connection string",
+    },
+    {
+      key: "database",
+      label: "Database",
+      type: "text",
+      placeholder: "postgres",
+      description: "Database name",
+    },
+    {
+      key: "username",
+      label: "Username",
+      type: "text",
+      required: true,
+      placeholder: "postgres",
+    },
+    {
+      key: "password",
+      label: "Password",
+      type: "password",
+      required: true,
+    },
+  ],
 
   createModule(
     authConfig: AuthConfig,
