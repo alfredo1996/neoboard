@@ -6,7 +6,7 @@
  * implementation during the plugin migration.
  */
 
-import { MarkdownWidget } from "@neoboard/components";
+import { MarkdownWidget, getChartOptions } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { type PluginProps } from "./utils";
 import { markdownSettingsSchema } from "./settings/markdown";
@@ -37,14 +37,5 @@ export const markdownPlugin = defineChartPlugin({
   queryHint:
     "Markdown widgets render static content — no query required. " +
     "Use the content field to write your text.",
-  options: [
-    {
-      key: "content",
-      label: "Content",
-      type: "text",
-      default: "",
-      category: "Content",
-      description: "Markdown source for the widget body.",
-    },
-  ],
+  options: getChartOptions("markdown"),
 });
