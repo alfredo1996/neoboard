@@ -73,7 +73,7 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   },
   {
     type: "pie",
-    label: "Pie / Doughnut",
+    label: "Pie Chart",
     compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Slice Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
