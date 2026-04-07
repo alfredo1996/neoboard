@@ -22,6 +22,28 @@ vi.mock("@neoboard/components", () => ({
   Skeleton: Stub,
 }));
 
+vi.mock("next/dynamic", () => ({
+  default: (fn: () => Promise<{ default: unknown }>) => {
+    try {
+      const mod = fn();
+      if (
+        mod &&
+        typeof (mod as Promise<{ default: unknown }>).then === "function"
+      )
+        return Stub;
+    } catch {
+      /* noop */
+    }
+    return Stub;
+  },
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  useParams: () => ({}),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
+}));
+
 vi.mock("@/components/table-renderer", () => ({ TableRenderer: Stub }));
 vi.mock("@/components/parameter-widget-renderer", () => ({
   ParameterWidgetRenderer: Stub,

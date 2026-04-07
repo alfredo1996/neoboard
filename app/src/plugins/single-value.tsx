@@ -33,7 +33,10 @@ function SingleValuePluginComponent({
   paramValues,
   colorThresholds,
 }: PluginProps) {
-  const settings = singleValueSettingsSchema.parse(raw);
+  const parsed = singleValueSettingsSchema.safeParse(raw);
+  const settings = parsed.success
+    ? parsed.data
+    : singleValueSettingsSchema.parse({});
   const rawData = data ?? 0;
   const val =
     typeof rawData === "number" || typeof rawData === "string"

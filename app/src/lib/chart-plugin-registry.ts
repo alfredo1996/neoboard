@@ -100,7 +100,7 @@ export interface ChartPluginConfig {
   /** Explicit capability overrides. Merged with defaults. */
   capabilities?: Partial<ChartCapabilities>;
   /** Zod schema for this plugin's settings. Enables typed access in components. */
-  settingsSchema?: z.ZodType;
+  settingsSchema?: z.ZodType<Record<string, unknown>>;
   /**
    * Optional click event enricher — lets the plugin attach chart-specific
    * fields to the click event before handlers see it (e.g. attach the
