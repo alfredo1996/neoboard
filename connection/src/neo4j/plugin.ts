@@ -26,6 +26,36 @@ export const neo4jPlugin: ConnectorPlugin = {
   ],
   uriPlaceholder: "bolt://localhost:7687",
   databasePlaceholder: "neo4j",
+  formFields: [
+    {
+      key: "uri",
+      label: "Connection URI",
+      type: "text",
+      required: true,
+      placeholder: "bolt://localhost:7687",
+      description: "Neo4j connection URI",
+    },
+    {
+      key: "database",
+      label: "Database",
+      type: "text",
+      placeholder: "neo4j",
+      description: "Database name (leave empty for default)",
+    },
+    {
+      key: "username",
+      label: "Username",
+      type: "text",
+      required: true,
+      placeholder: "neo4j",
+    },
+    {
+      key: "password",
+      label: "Password",
+      type: "password",
+      required: true,
+    },
+  ],
 
   createModule(
     authConfig: AuthConfig,

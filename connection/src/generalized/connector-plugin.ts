@@ -66,6 +66,27 @@ export interface ConnectorPlugin {
 
   /** Default database name placeholder. */
   databasePlaceholder?: string;
+
+  /**
+   * Form field definitions for auto-generated connection forms.
+   * When present, the UI can render a connection form without
+   * hard-coding fields for each connector type.
+   */
+  formFields?: ConnectorFormField[];
+}
+
+/**
+ * Describes a single field in a connector's connection form.
+ */
+export interface ConnectorFormField {
+  key: string;
+  label: string;
+  type: "text" | "password" | "number" | "select" | "boolean";
+  required?: boolean;
+  placeholder?: string;
+  default?: unknown;
+  options?: { label: string; value: string }[];
+  description?: string;
 }
 
 /**
@@ -73,6 +94,7 @@ export interface ConnectorPlugin {
  */
 export interface ConnectorRegistry {
   register(plugin: ConnectorPlugin): void;
+  unregister(type: string): void;
   get(type: string): ConnectorPlugin | undefined;
   has(type: string): boolean;
   getAll(): ConnectorPlugin[];
@@ -103,6 +125,9 @@ export function createConnectorRegistry(): ConnectorRegistry {
         );
       }
       plugins.set(plugin.type, plugin);
+    },
+    unregister(type) {
+      plugins.delete(type);
     },
     get(type) {
       return plugins.get(type);
