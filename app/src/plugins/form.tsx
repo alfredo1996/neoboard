@@ -5,6 +5,7 @@
  * No data transform — the form-widget-renderer handles its own state.
  */
 
+import { getChartOptions } from "@neoboard/components";
 import { FormWidgetRenderer } from "@/components/form-widget-renderer";
 import { defineChartPlugin } from "./registry";
 import { type PluginProps } from "./utils";
@@ -30,6 +31,7 @@ export const formPlugin = defineChartPlugin({
   label: "Form",
   component: FormPluginComponent,
   transform: () => [],
+  options: getChartOptions("form"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: formSettingsSchema,
   capabilities: {

@@ -6,6 +6,7 @@
  */
 
 import dynamic from "next/dynamic";
+import { getChartOptions } from "@neoboard/components";
 import type { MapMarker, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToMapData, validateMapData } from "./transforms/map";
@@ -66,6 +67,7 @@ export const mapPlugin = defineChartPlugin({
   transform: transformToMapData,
   transformWithMapping: transformToMapData,
   validate: validateMapData,
+  options: getChartOptions("map"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: mapSettingsSchema,
   stylingTargets: [{ value: "color", label: "Marker Color" }],

@@ -6,7 +6,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { TreemapDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToHierarchicalData } from "./transforms/treemap";
@@ -50,6 +50,7 @@ export const treemapPlugin = defineChartPlugin({
   component: TreemapPluginComponent,
   transform: transformToHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
+  options: getChartOptions("treemap"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: treemapSettingsSchema,
   stylingTargets: [{ value: "color", label: "Block Color" }],

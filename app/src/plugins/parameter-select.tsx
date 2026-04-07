@@ -7,7 +7,7 @@
  * handles its own option fetching.
  */
 
-import { EmptyState } from "@neoboard/components";
+import { EmptyState, getChartOptions } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
 import type { ParameterType } from "@/stores/parameter-store";
 import { defineChartPlugin } from "./registry";
@@ -55,6 +55,7 @@ export const parameterSelectPlugin = defineChartPlugin({
   component: ParameterSelectPluginComponent,
   transform: transformToSelectData,
   transformWithMapping: transformToSelectData,
+  options: getChartOptions("parameter-select"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: parameterSelectSettingsSchema,
   capabilities: {

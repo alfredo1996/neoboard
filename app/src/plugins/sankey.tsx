@@ -6,7 +6,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { SankeyChartData, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToSankeyData } from "./transforms/sankey";
@@ -51,6 +51,7 @@ export const sankeyPlugin = defineChartPlugin({
   component: SankeyPluginComponent,
   transform: transformToSankeyData,
   transformWithMapping: transformToSankeyData,
+  options: getChartOptions("sankey"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: sankeySettingsSchema,
   stylingTargets: [{ value: "color", label: "Link Color" }],

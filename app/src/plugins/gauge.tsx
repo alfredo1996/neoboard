@@ -6,7 +6,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { GaugeDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToGaugeData } from "./transforms/gauge";
@@ -52,6 +52,7 @@ export const gaugePlugin = defineChartPlugin({
   component: GaugePluginComponent,
   transform: transformToGaugeData,
   transformWithMapping: transformToGaugeData,
+  options: getChartOptions("gauge"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: gaugeSettingsSchema,
   stylingTargets: [{ value: "color", label: "Gauge Color" }],

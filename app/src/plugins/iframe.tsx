@@ -4,7 +4,7 @@
  * Embeds an external URL in the dashboard. No query, no data transform.
  */
 
-import { IframeWidget } from "@neoboard/components";
+import { IframeWidget, getChartOptions } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { type PluginProps } from "./utils";
 import { iframeSettingsSchema } from "./settings/iframe";
@@ -25,6 +25,7 @@ export const iframePlugin = defineChartPlugin({
   label: "iFrame",
   component: IframePluginComponent,
   transform: () => null,
+  options: getChartOptions("iframe"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: iframeSettingsSchema,
   capabilities: {

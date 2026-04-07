@@ -6,7 +6,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { RadarChartData, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToRadarData } from "./transforms/radar";
@@ -50,6 +50,7 @@ export const radarPlugin = defineChartPlugin({
   component: RadarPluginComponent,
   transform: transformToRadarData,
   transformWithMapping: transformToRadarData,
+  options: getChartOptions("radar"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: radarSettingsSchema,
   stylingTargets: [{ value: "color", label: "Area Color" }],

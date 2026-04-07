@@ -8,7 +8,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { GraphNode, GraphEdge, StylingRule } from "@neoboard/components";
 import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper";
 import { defineChartPlugin } from "./registry";
@@ -79,6 +79,7 @@ export const graphPlugin = defineChartPlugin({
   transform: transformToGraphData,
   transformWithMapping: transformToGraphData,
   validate: validateGraphData,
+  options: getChartOptions("graph"),
   compatibleWith: ["neo4j"],
   settingsSchema: graphSettingsSchema,
   stylingTargets: [{ value: "color", label: "Node Color" }],

@@ -7,7 +7,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { StylingRule } from "@neoboard/components";
 import { normalizeValue } from "@/lib/normalize-value";
 import { defineChartPlugin } from "./registry";
@@ -64,6 +64,7 @@ export const singleValuePlugin = defineChartPlugin({
   transform: transformToValueData,
   transformWithMapping: transformToValueData,
   validate: validateValueData,
+  options: getChartOptions("single-value"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: singleValueSettingsSchema,
   stylingTargets: [

@@ -6,7 +6,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { SunburstDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToHierarchicalData } from "./transforms/sunburst";
@@ -49,6 +49,7 @@ export const sunburstPlugin = defineChartPlugin({
   component: SunburstPluginComponent,
   transform: transformToHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
+  options: getChartOptions("sunburst"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: sunburstSettingsSchema,
   stylingTargets: [{ value: "color", label: "Segment Color" }],

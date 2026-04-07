@@ -5,7 +5,7 @@
  * no styling — this is a read-only inspector widget.
  */
 
-import { JsonViewer } from "@neoboard/components";
+import { JsonViewer, getChartOptions } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToJsonData } from "./transforms/json";
 import { type PluginProps } from "./utils";
@@ -26,6 +26,7 @@ export const jsonPlugin = defineChartPlugin({
   component: JsonPluginComponent,
   transform: transformToJsonData,
   transformWithMapping: transformToJsonData,
+  options: getChartOptions("json"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: jsonSettingsSchema,
   capabilities: {
