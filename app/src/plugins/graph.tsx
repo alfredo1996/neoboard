@@ -60,7 +60,7 @@ function GraphPluginComponent({
       showLabels={settings.showLabels}
       onNodeSelect={
         onChartClick
-          ? (ids) => {
+          ? (ids: string[]) => {
               if (ids.length) onChartClick({ nodeId: ids[0] });
             }
           : undefined
