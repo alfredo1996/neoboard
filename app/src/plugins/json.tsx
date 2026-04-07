@@ -5,18 +5,17 @@
  * no styling — this is a read-only inspector widget.
  */
 
-import { JsonViewer } from "@neoboard/components";
+import { JsonViewer, getChartOptions } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToJsonData } from "./transforms/json";
 import { type PluginProps } from "./utils";
+import { jsonSettingsSchema } from "./settings/json";
 
-function JsonPluginComponent({ data, settings }: PluginProps) {
+function JsonPluginComponent({ data, settings: raw }: PluginProps) {
+  const settings = jsonSettingsSchema.parse(raw);
   return (
     <div className="h-full overflow-auto">
-      <JsonViewer
-        data={data}
-        initialExpanded={(settings.initialExpanded as number) ?? 2}
-      />
+      <JsonViewer data={data} initialExpanded={settings.initialExpanded} />
     </div>
   );
 }
@@ -27,7 +26,9 @@ export const jsonPlugin = defineChartPlugin({
   component: JsonPluginComponent,
   transform: transformToJsonData,
   transformWithMapping: transformToJsonData,
+  options: getChartOptions("json"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: jsonSettingsSchema,
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,

@@ -28,6 +28,7 @@
  */
 
 import type React from "react";
+import type { z } from "zod";
 import type { ConnectorType } from "./connector-types";
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,8 @@ export interface ChartPluginConfig {
   stylingTargets?: { value: string; label: string }[];
   /** Explicit capability overrides. Merged with defaults. */
   capabilities?: Partial<ChartCapabilities>;
+  /** Zod schema for this plugin's settings. Enables typed access in components. */
+  settingsSchema?: z.ZodType<Record<string, unknown>>;
   /**
    * Optional click event enricher — lets the plugin attach chart-specific
    * fields to the click event before handlers see it (e.g. attach the
@@ -162,6 +165,7 @@ export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
     compatibleWith: config.compatibleWith,
     stylingTargets: config.stylingTargets,
     enrichClickEvent: config.enrichClickEvent,
+    settingsSchema: config.settingsSchema,
     capabilities,
   };
 }

@@ -8,7 +8,7 @@ import type {
 import {
   chartSupportsClickAction,
   chartSupportsStyling,
-} from "@/lib/chart-registry";
+} from "@/lib/chart-helpers";
 
 /**
  * Build a ClickAction config from editor state.

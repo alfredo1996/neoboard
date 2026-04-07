@@ -6,10 +6,12 @@
  */
 
 import dynamic from "next/dynamic";
+import { getChartOptions } from "@neoboard/components";
 import type { MapMarker, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToMapData, validateMapData } from "./transforms/map";
 import { type PluginProps } from "./utils";
+import { mapSettingsSchema } from "./settings/map";
 
 // Leaflet relies on window/document — must be loaded client-side only.
 const MapChart = dynamic(
@@ -26,20 +28,21 @@ const MapChart = dynamic(
 
 function MapPluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
 }: PluginProps) {
   const markers = (data ?? []) as MapMarker[];
+  const settings = mapSettingsSchema.parse(raw);
   return (
     <MapChart
       markers={markers}
-      tileLayer={settings.tileLayer as string | undefined}
-      zoom={settings.zoom as number | undefined}
-      minZoom={settings.minZoom as number | undefined}
-      maxZoom={settings.maxZoom as number | undefined}
-      autoFitBounds={settings.autoFitBounds !== false}
+      tileLayer={settings.tileLayer}
+      zoom={settings.zoom}
+      minZoom={settings.minZoom}
+      maxZoom={settings.maxZoom}
+      autoFitBounds={settings.autoFitBounds}
       onMarkerClick={
         onChartClick
           ? (m) =>
@@ -64,7 +67,9 @@ export const mapPlugin = defineChartPlugin({
   transform: transformToMapData,
   transformWithMapping: transformToMapData,
   validate: validateMapData,
+  options: getChartOptions("map"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: mapSettingsSchema,
   stylingTargets: [{ value: "color", label: "Marker Color" }],
   capabilities: {
     supportsClickAction: true,

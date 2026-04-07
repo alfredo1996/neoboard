@@ -22,6 +22,7 @@ vi.mock("@neoboard/components", () => ({
   JsonViewer: () => <div data-testid="json-viewer" />,
   MarkdownWidget: () => <div data-testid="markdown-widget" />,
   IframeWidget: () => <div data-testid="iframe-widget" />,
+  getChartOptions: () => [],
 }));
 
 // Mock next/dynamic to just render children synchronously

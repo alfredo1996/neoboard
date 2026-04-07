@@ -6,21 +6,24 @@
  * textColor) plus gradient color scales.
  */
 
+import { getChartOptions } from "@neoboard/components";
 import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import { TableRenderer } from "@/components/table-renderer";
 import { defineChartPlugin } from "./registry";
 import { transformToTableData } from "./transforms/table";
 import { type PluginProps } from "./utils";
+import { tableSettingsSchema } from "./settings/table";
 
 function TablePluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   colorScales,
   clickableColumns,
   onChartClick,
 }: PluginProps) {
+  const settings = tableSettingsSchema.parse(raw);
   return (
     <TableRenderer
       data={data}
@@ -48,7 +51,9 @@ export const tablePlugin = defineChartPlugin({
   component: TablePluginComponent,
   transform: transformToTableData,
   transformWithMapping: transformToTableData,
+  options: getChartOptions("table"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: tableSettingsSchema,
   stylingTargets: [
     { value: "backgroundColor", label: "Background Color" },
     { value: "textColor", label: "Text Color" },

@@ -3,8 +3,11 @@
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useClickAction } from "@/hooks/use-click-action";
 import { resolveCacheOptions } from "@/lib/resolve-cache-options";
-import { getChartConfig } from "@/lib/chart-registry";
-import type { ColumnMapping } from "@/lib/chart-registry";
+import {
+  getChartConfig,
+  supportsColumnMapping as chartSupportsColumnMapping,
+} from "@/lib/chart-helpers";
+import type { ColumnMapping } from "@/lib/chart-helpers";
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
@@ -32,10 +35,9 @@ import {
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
 
-/** Chart types that support column mapping. */
-/** Derived from registry — chart types that support column mapping overlays. */
+/** Chart types that support column mapping overlays. */
 function supportsColumnMapping(type: string): boolean {
-  return getChartConfig(type)?.supportsColumnMapping === true;
+  return chartSupportsColumnMapping(type);
 }
 
 interface CardContainerProps {
@@ -296,10 +298,9 @@ export function CardContainer({
         />
       );
     }
-    const mappedData = chartConfig.transformWithMapping(
-      previewData,
-      columnMapping,
-    );
+    const mappedData = (
+      chartConfig.transformWithMapping ?? chartConfig.transform
+    )(previewData, columnMapping);
     // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
     const transformedData =
       dataTransforms.length && widget.chartType !== "graph"
@@ -548,7 +549,9 @@ export function CardContainer({
     );
   }
 
-  const mappedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const mappedData = (
+    chartConfig.transformWithMapping ?? chartConfig.transform
+  )(rawData, columnMapping);
   const transformedData = dataTransforms.length
     ? applyTransforms(
         mappedData as Record<string, unknown>[],

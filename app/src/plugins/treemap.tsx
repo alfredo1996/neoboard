@@ -6,11 +6,12 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { TreemapDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToHierarchicalData } from "./transforms/treemap";
 import { useEChartsClick, type PluginProps } from "./utils";
+import { treemapSettingsSchema } from "./settings/treemap";
 
 const TreemapChart = dynamic(
   () =>
@@ -20,26 +21,25 @@ const TreemapChart = dynamic(
 
 function TreemapPluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
+  const settings = treemapSettingsSchema.parse(raw);
   return (
     <TreemapChart
       data={(data as TreemapDataItem[]) ?? []}
-      showLabels={settings.showLabels as boolean | undefined}
-      showBreadcrumb={settings.showBreadcrumb as boolean | undefined}
-      showValues={settings.showValues as boolean | undefined}
-      colorSaturation={
-        settings.colorSaturation as "low" | "medium" | "high" | undefined
-      }
-      colorPalette={settings.colorPalette as string | undefined}
+      showLabels={settings.showLabels}
+      showBreadcrumb={settings.showBreadcrumb}
+      showValues={settings.showValues}
+      colorSaturation={settings.colorSaturation}
+      colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      colorblindMode={settings.colorblindMode}
     />
   );
 }
@@ -50,7 +50,9 @@ export const treemapPlugin = defineChartPlugin({
   component: TreemapPluginComponent,
   transform: transformToHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
+  options: getChartOptions("treemap"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: treemapSettingsSchema,
   stylingTargets: [{ value: "color", label: "Block Color" }],
   capabilities: {
     supportsClickAction: true,

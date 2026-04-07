@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
 } from "@neoboard/components";
 import { FileCode } from "lucide-react";
-import type { ChartType } from "@/lib/chart-registry";
+import type { ChartType } from "@/lib/chart-helpers";
 import { useConnectionSchema } from "@/hooks/use-schema";
 import { useSchemaStore } from "@/stores/schema-store";
 

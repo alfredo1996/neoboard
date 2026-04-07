@@ -15,7 +15,7 @@ import type {
   FetchNeighborsResult,
   PropertySection,
 } from "@neoboard/components";
-import { getChartConfig } from "@/lib/chart-registry";
+import { getChartConfig } from "@/lib/chart-helpers";
 import { normalizeValue } from "@/lib/normalize-value";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 

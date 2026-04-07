@@ -119,7 +119,7 @@ export function captureTablePreview(
   }
 }
 
-import { getChartConfig } from "./chart-registry";
+import { getChartConfig } from "./chart-helpers";
 
 /**
  * Capture a preview image from the widget preview container.
@@ -129,7 +129,7 @@ export function capturePreview(
   previewElement: HTMLElement,
   chartType: string,
 ): string | undefined {
-  if (getChartConfig(chartType)?.isECharts) {
+  if (getChartConfig(chartType)?.capabilities.isECharts) {
     return captureEChartsPreview(previewElement);
   }
   if (chartType === "table") {

@@ -6,6 +6,19 @@ vi.mock("@neoboard/components", () => ({
   MarkdownWidget: ({ content }: { content?: string }) => (
     <div data-testid="markdown-widget">{content ?? ""}</div>
   ),
+  getChartOptions: (type: string) =>
+    type === "markdown"
+      ? [
+          {
+            key: "content",
+            label: "Content",
+            type: "text",
+            default: "",
+            category: "Content",
+            description: "Markdown source for the widget body.",
+          },
+        ]
+      : [],
 }));
 
 describe("markdownPlugin", () => {
