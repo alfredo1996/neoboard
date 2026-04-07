@@ -209,7 +209,9 @@ describe("QueryEditorPanel", () => {
   it("does not show query hint for chart types without hints", () => {
     useWidgetEditorStore
       .getState()
-      .setChartType("markdown" as import("@/lib/chart-helpers").ChartType);
+      .setChartType(
+        "markdown" as import("@/lib/plugin/chart-helpers").ChartType,
+      );
     render(<QueryEditorPanel editorLanguage="cypher" />);
     // No hint text for markdown
     expect(screen.queryByText(/Return 2\+ columns/)).not.toBeInTheDocument();

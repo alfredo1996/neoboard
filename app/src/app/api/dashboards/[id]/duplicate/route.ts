@@ -2,15 +2,20 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { forbidden, notFound, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+import { forbidden, notFound, handleRouteError } from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 export async function POST(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, role: userRole, canWrite, tenantId } = await requireSession();
+    const {
+      userId,
+      role: userRole,
+      canWrite,
+      tenantId,
+    } = await requireSession();
     const { id } = await params;
 
     if (!canWrite || userRole === "reader") {
@@ -39,8 +44,8 @@ export async function POST(
             and(
               eq(dashboardShares.dashboardId, id),
               eq(dashboardShares.userId, userId),
-              eq(dashboardShares.tenantId, tenantId)
-            )
+              eq(dashboardShares.tenantId, tenantId),
+            ),
           )
           .limit(1);
 

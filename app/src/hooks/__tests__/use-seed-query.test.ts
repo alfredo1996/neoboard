@@ -14,7 +14,7 @@ vi.mock("@tanstack/react-query", () => ({
   })),
 }));
 
-vi.mock("@/lib/api-client", () => ({
+vi.mock("@/lib/api/api-client", () => ({
   unwrapFullResponse: vi.fn(async (res: Response) => {
     const body = await res.json();
     if (!res.ok) throw new Error("Request failed");

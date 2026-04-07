@@ -7,15 +7,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks — must be declared before importing the route so Vitest hoists them.
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      tenantId: string;
-      role: string;
-      canWrite: boolean;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    tenantId: string;
+    role: string;
+    canWrite: boolean;
+  }>
+>();
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
@@ -38,12 +37,14 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("@/lib/crypto", () => ({
+vi.mock("@/lib/crypto/crypto", () => ({
   decryptJson: mockDecryptJson,
   encryptJson: vi.fn(),
 }));
-vi.mock("@/lib/query-executor", () => ({ executeQuery: mockExecuteQuery }));
-vi.mock("@/lib/schema-prefetch", () => ({ prefetchSchema: vi.fn() }));
+vi.mock("@/lib/query/query-executor", () => ({
+  executeQuery: mockExecuteQuery,
+}));
+vi.mock("@/lib/connector/schema-prefetch", () => ({ prefetchSchema: vi.fn() }));
 
 // Minimal Next.js server shim
 vi.mock("next/server", () => nextResponseMockFactory());
@@ -221,7 +222,7 @@ describe("POST /api/query", () => {
     });
     mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
 
-    const { computeResultId } = await import("@/lib/query-hash");
+    const { computeResultId } = await import("@/lib/query/query-hash");
     const expected = computeResultId("c1", "MATCH (n) RETURN n");
 
     const res = await POST(

@@ -3,7 +3,7 @@ import { useParameterStore } from "@/stores/parameter-store";
 import {
   resolveClickActions,
   deriveClickableColumns,
-} from "@/lib/resolve-click-action";
+} from "@/lib/widget/resolve-click-action";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 
 /**

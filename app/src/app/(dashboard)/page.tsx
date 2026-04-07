@@ -64,7 +64,7 @@ import {
   TimeAgo,
   DashboardMiniPreview,
 } from "@neoboard/components";
-import { isNeoDashFormat } from "@/lib/neodash-converter";
+import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
 
 // ── Types for import dialog ──────────────────────────────────────────
 

@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
-import { loginRateLimiter } from "@/lib/rate-limiter";
+import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
 
 const loginSchema = z.object({
   email: z.string().email(),

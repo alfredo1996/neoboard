@@ -6,7 +6,15 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks — must be declared before importing the route so Vitest hoists them.
 // ---------------------------------------------------------------------------
 
-const mockRequireSession = vi.fn<() => Promise<{ userId: string; tenantId: string; role: string; canWrite: boolean }>>();
+const mockRequireSession =
+  vi.fn<
+    () => Promise<{
+      userId: string;
+      tenantId: string;
+      role: string;
+      canWrite: boolean;
+    }>
+  >();
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
@@ -29,8 +37,13 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson, encryptJson: vi.fn() }));
-vi.mock("@/lib/query-executor", () => ({ executeQuery: mockExecuteQuery }));
+vi.mock("@/lib/crypto/crypto", () => ({
+  decryptJson: mockDecryptJson,
+  encryptJson: vi.fn(),
+}));
+vi.mock("@/lib/query/query-executor", () => ({
+  executeQuery: mockExecuteQuery,
+}));
 
 // Minimal Next.js server shim
 vi.mock("next/server", () => nextResponseMockFactory());
@@ -46,8 +59,18 @@ function drizzleSelectChain(rows: unknown[]) {
   return chain;
 }
 
-const writerSession = { userId: "user-1", tenantId: "tenant-a", role: "creator", canWrite: true };
-const readerSession = { userId: "user-2", tenantId: "tenant-a", role: "reader", canWrite: false };
+const writerSession = {
+  userId: "user-1",
+  tenantId: "tenant-a",
+  role: "creator",
+  canWrite: true,
+};
+const readerSession = {
+  userId: "user-2",
+  tenantId: "tenant-a",
+  role: "reader",
+  canWrite: false,
+};
 
 const fakeConnection = {
   id: "c1",
@@ -74,7 +97,9 @@ describe("POST /api/query/write", () => {
 
   it("returns 403 when canWrite is false (reader role)", async () => {
     mockRequireSession.mockResolvedValue(readerSession);
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error.message).toMatch(/write permission/i);
@@ -82,7 +107,9 @@ describe("POST /api/query/write", () => {
 
   it("returns 500 when session retrieval fails", async () => {
     mockRequireSession.mockRejectedValue(new UnauthorizedError());
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.message).toBe("Write query execution failed");
@@ -103,7 +130,9 @@ describe("POST /api/query/write", () => {
   it("returns 404 when connection not found", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error.message).toMatch(/not found/i);
@@ -112,10 +141,16 @@ describe("POST /api/query/write", () => {
   it("returns 200 on success and calls executeQuery with accessMode WRITE", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
-    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
     mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
 
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -134,18 +169,29 @@ describe("POST /api/query/write", () => {
   it("passes params correctly to executeQuery", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
-    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
     mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
 
     const params = { param_name: "Alice", param_age: 30 };
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Person {name: $param_name, age: $param_age})", params })
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Person {name: $param_name, age: $param_age})",
+        params,
+      }),
     );
     expect(res.status).toBe(200);
     expect(mockExecuteQuery).toHaveBeenCalledWith(
       "neo4j",
       expect.any(Object),
-      { query: "CREATE (n:Person {name: $param_name, age: $param_age})", params },
+      {
+        query: "CREATE (n:Person {name: $param_name, age: $param_age})",
+        params,
+      },
       { accessMode: "WRITE" },
     );
   });
@@ -153,10 +199,16 @@ describe("POST /api/query/write", () => {
   it("returns 500 when executeQuery throws", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
-    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
     mockExecuteQuery.mockRejectedValue(new Error("Driver error"));
 
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.message).toBe("Write query execution failed");
@@ -165,26 +217,39 @@ describe("POST /api/query/write", () => {
   it("returns 404 when connection belongs to another user", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(404);
   });
 
   it("returns 404 when connection belongs to a different tenant", async () => {
-    mockRequireSession.mockResolvedValue({ ...writerSession, tenantId: "tenant-other" });
+    mockRequireSession.mockResolvedValue({
+      ...writerSession,
+      tenantId: "tenant-other",
+    });
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(404);
   });
 
   it("does not apply MAX_ROWS truncation on write results", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
-    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost", username: "neo4j", password: "pass" });
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
     // Return a large result (write routes should not truncate)
     const bigData = Array.from({ length: 15000 }, (_, i) => ({ n: i }));
     mockExecuteQuery.mockResolvedValue({ data: bigData });
 
-    const res = await POST(makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }));
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(15000);

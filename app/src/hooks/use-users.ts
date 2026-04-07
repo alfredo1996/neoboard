@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { unwrapResponse } from "@/lib/api-client";
+import { unwrapResponse } from "@/lib/api/api-client";
 import type { UserRole } from "@/lib/db/schema";
 
 export interface UserListItem {

@@ -48,11 +48,11 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("@/lib/crypto", () => ({
+vi.mock("@/lib/crypto/crypto", () => ({
   encryptJson: mockEncryptJson,
   decryptJson: mockDecryptJson,
 }));
-vi.mock("@/lib/schema-prefetch", () => ({
+vi.mock("@/lib/connector/schema-prefetch", () => ({
   prefetchSchema: mockPrefetchSchema,
 }));
 vi.mock("next/server", () => nextResponseMockFactory());

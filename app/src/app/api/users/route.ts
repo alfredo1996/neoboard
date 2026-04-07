@@ -4,13 +4,13 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { validateBody, handleRouteError } from "@/lib/api-utils";
+import { validateBody, handleRouteError } from "@/lib/api/api-utils";
 import {
   apiSuccess,
   apiList,
   apiError,
   parsePagination,
-} from "@/lib/api-response";
+} from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const createUserSchema = z.object({

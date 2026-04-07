@@ -34,7 +34,7 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
-vi.mock("@/lib/normalize-value", () => ({
+vi.mock("@/lib/shared/normalize-value", () => ({
   normalizeValue: (v: unknown) => v,
 }));
 vi.mock("@/components/parameter-widget-renderer", () => ({

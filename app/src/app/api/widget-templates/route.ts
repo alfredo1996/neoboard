@@ -3,10 +3,10 @@ import { and, count, eq, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
-import { forbidden, badRequest, handleRouteError } from "@/lib/api-utils";
+import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
+import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
 import { previewImageUrlSchema } from "./shared";
-import { CONNECTOR_TYPES } from "@/lib/connector-types";
+import { CONNECTOR_TYPES } from "@/lib/connector/connector-types";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),

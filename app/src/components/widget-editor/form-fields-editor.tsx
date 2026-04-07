@@ -39,7 +39,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type {
   FormFieldDef,
   FormFieldValidationType,
-} from "@/lib/form-field-def";
+} from "@/lib/widget/form-field-def";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
 

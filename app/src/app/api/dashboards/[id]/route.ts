@@ -4,8 +4,13 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
-import { validateBody, forbidden, notFound, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+import {
+  validateBody,
+  forbidden,
+  notFound,
+  handleRouteError,
+} from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -15,14 +20,16 @@ const gridLayoutItemSchema = z.object({
   h: z.number(),
 });
 
-const widgetSchema = z.object({
-  id: z.string(),
-  chartType: z.string(),
-  connectionId: z.string(),
-  query: z.string(),
-  params: z.record(z.unknown()).optional(),
-  settings: z.record(z.unknown()).optional(),
-}).passthrough(); // preserves templateId, templateSyncedAt and any future fields
+const widgetSchema = z
+  .object({
+    id: z.string(),
+    chartType: z.string(),
+    connectionId: z.string(),
+    query: z.string(),
+    params: z.record(z.unknown()).optional(),
+    settings: z.record(z.unknown()).optional(),
+  })
+  .passthrough(); // preserves templateId, templateSyncedAt and any future fields
 
 const pageSchema = z.object({
   id: z.string(),
@@ -37,9 +44,7 @@ const dashboardSettingsSchema = z.object({
 });
 
 /** Each thumbnail must be a data-URI under 50 KB. */
-const thumbnailValueSchema = z.string()
-  .startsWith("data:image/")
-  .max(50_000);
+const thumbnailValueSchema = z.string().startsWith("data:image/").max(50_000);
 
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
@@ -62,7 +67,7 @@ async function canAccess(
   userId: string,
   tenantId: string,
   userRole: UserRole,
-  requiredRole: "viewer" | "editor" | "owner"
+  requiredRole: "viewer" | "editor" | "owner",
 ): Promise<{
   dashboard: typeof dashboards.$inferSelect;
   role: DashboardAccessRole;
@@ -70,7 +75,9 @@ async function canAccess(
   const [dashboard] = await db
     .select()
     .from(dashboards)
-    .where(and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)))
+    .where(
+      and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)),
+    )
     .limit(1);
 
   if (!dashboard) return null;
@@ -87,8 +94,8 @@ async function canAccess(
       and(
         eq(dashboardShares.dashboardId, dashboardId),
         eq(dashboardShares.userId, userId),
-        eq(dashboardShares.tenantId, tenantId)
-      )
+        eq(dashboardShares.tenantId, tenantId),
+      ),
     )
     .limit(1);
 
@@ -108,7 +115,7 @@ async function canAccess(
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, tenantId, role: userRole } = await requireSession();
@@ -139,10 +146,15 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
+    const {
+      userId,
+      tenantId,
+      role: userRole,
+      canWrite,
+    } = await requireSession();
     const { id } = await params;
 
     if (!canWrite) {
@@ -172,10 +184,15 @@ export async function PUT(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, tenantId, role: userRole, canWrite } = await requireSession();
+    const {
+      userId,
+      tenantId,
+      role: userRole,
+      canWrite,
+    } = await requireSession();
     const { id } = await params;
 
     if (!canWrite) {

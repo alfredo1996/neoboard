@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { unwrapResponse } from "@/lib/api-client";
-import type { ConnectorType } from "@/lib/connector-types";
+import { unwrapResponse } from "@/lib/api/api-client";
+import type { ConnectorType } from "@/lib/connector/connector-types";
 
 export interface ConnectionListItem {
   id: string;

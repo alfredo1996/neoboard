@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DatabaseSchema } from "@/lib/schema-types";
+import type { DatabaseSchema } from "@/lib/connector/schema-types";
 
 interface SchemaState {
   schemas: Record<string, DatabaseSchema>; // connectionId → schema
