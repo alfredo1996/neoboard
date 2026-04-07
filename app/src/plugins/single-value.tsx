@@ -11,7 +11,10 @@ import { Skeleton } from "@neoboard/components";
 import type { StylingRule } from "@neoboard/components";
 import { normalizeValue } from "@/lib/normalize-value";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import {
+  transformToValueData,
+  validateValueData,
+} from "./transforms/single-value";
 import { type PluginProps } from "./utils";
 
 const SingleValueChart = dynamic(
@@ -63,9 +66,9 @@ export const singleValuePlugin = defineChartPlugin({
   type: "single-value",
   label: "Single Value",
   component: SingleValuePluginComponent,
-  transform: chartRegistry["single-value"].transform,
-  transformWithMapping: chartRegistry["single-value"].transformWithMapping,
-  validate: chartRegistry["single-value"].validate,
+  transform: transformToValueData,
+  transformWithMapping: transformToValueData,
+  validate: validateValueData,
   compatibleWith: ["neo4j", "postgresql"],
   stylingTargets: [
     { value: "color", label: "Text Color" },

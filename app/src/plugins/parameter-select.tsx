@@ -11,7 +11,7 @@ import { EmptyState } from "@neoboard/components";
 import { ParameterWidgetRenderer } from "@/components/parameter-widget-renderer";
 import type { ParameterType } from "@/stores/parameter-store";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToSelectData } from "./transforms/parameter-select";
 import { type PluginProps } from "./utils";
 
 function ParameterSelectPluginComponent({
@@ -54,8 +54,8 @@ export const parameterSelectPlugin = defineChartPlugin({
   type: "parameter-select",
   label: "Parameter Selector",
   component: ParameterSelectPluginComponent,
-  transform: chartRegistry["parameter-select"].transform,
-  transformWithMapping: chartRegistry["parameter-select"].transformWithMapping,
+  transform: transformToSelectData,
+  transformWithMapping: transformToSelectData,
   compatibleWith: ["neo4j", "postgresql"],
   capabilities: {
     supportsClickAction: false,

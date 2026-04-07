@@ -9,7 +9,7 @@
 import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import { TableRenderer } from "@/components/table-renderer";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToTableData } from "./transforms/table";
 import { type PluginProps } from "./utils";
 
 function TablePluginComponent({
@@ -46,9 +46,8 @@ export const tablePlugin = defineChartPlugin({
   type: "table",
   label: "Data Table",
   component: TablePluginComponent,
-  transform: chartRegistry.table.transform,
-  transformWithMapping: chartRegistry.table.transformWithMapping,
-  validate: chartRegistry.table.validate,
+  transform: transformToTableData,
+  transformWithMapping: transformToTableData,
   compatibleWith: ["neo4j", "postgresql"],
   stylingTargets: [
     { value: "backgroundColor", label: "Background Color" },
