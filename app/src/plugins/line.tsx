@@ -11,6 +11,7 @@ import type { LineChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToLineData, validateLineData } from "./transforms/line";
 import { useEChartsClick, type PluginProps } from "./utils";
+import { lineSettingsSchema } from "./settings/line";
 
 const LineChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.LineChart })),
@@ -19,17 +20,17 @@ const LineChart = dynamic(
 
 function LinePluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
   colorThresholds,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
+  const settings = lineSettingsSchema.parse(raw);
   // Parse comma-separated rightAxisSeries string into string array
-  const rightAxisSeriesRaw = settings.rightAxisSeries as string | undefined;
-  const rightAxisSeries = rightAxisSeriesRaw
-    ? rightAxisSeriesRaw
+  const rightAxisSeries = settings.rightAxisSeries
+    ? settings.rightAxisSeries
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
@@ -38,27 +39,27 @@ function LinePluginComponent({
   return (
     <LineChart
       data={(data as LineChartDataPoint[]) ?? []}
-      smooth={settings.smooth as boolean | undefined}
-      area={settings.area as boolean | undefined}
-      xAxisLabel={settings.xAxisLabel as string | undefined}
-      yAxisLabel={settings.yAxisLabel as string | undefined}
-      rightYAxisLabel={settings.rightYAxisLabel as string | undefined}
+      smooth={settings.smooth}
+      area={settings.area}
+      xAxisLabel={settings.xAxisLabel}
+      yAxisLabel={settings.yAxisLabel}
+      rightYAxisLabel={settings.rightYAxisLabel}
       rightAxisSeries={rightAxisSeries}
-      showLegend={settings.showLegend as boolean | undefined}
-      lineWidth={settings.lineWidth as number | undefined}
-      stepped={settings.stepped as boolean | undefined}
-      showPoints={settings.showPoints as boolean | undefined}
-      showGridLines={settings.showGridLines as boolean | undefined}
-      connectNulls={settings.connectNulls as boolean | undefined}
-      endLabel={settings.endLabel as boolean | undefined}
-      referenceLines={settings.referenceLines as string | undefined}
+      showLegend={settings.showLegend}
+      lineWidth={settings.lineWidth}
+      stepped={settings.stepped}
+      showPoints={settings.showPoints}
+      showGridLines={settings.showGridLines}
+      connectNulls={settings.connectNulls}
+      endLabel={settings.endLabel}
+      referenceLines={settings.referenceLines}
       colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
-      enableDataZoom={settings.enableDataZoom as boolean | undefined}
-      colorPalette={settings.colorPalette as string | undefined}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      enableDataZoom={settings.enableDataZoom}
+      colorPalette={settings.colorPalette}
+      colorblindMode={settings.colorblindMode}
     />
   );
 }
@@ -71,6 +72,7 @@ export const linePlugin = defineChartPlugin({
   transformWithMapping: transformToLineData,
   validate: validateLineData,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: lineSettingsSchema,
   stylingTargets: [{ value: "color", label: "Line Color" }],
   capabilities: {
     supportsClickAction: true,

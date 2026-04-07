@@ -9,14 +9,13 @@ import { JsonViewer } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToJsonData } from "./transforms/json";
 import { type PluginProps } from "./utils";
+import { jsonSettingsSchema } from "./settings/json";
 
-function JsonPluginComponent({ data, settings }: PluginProps) {
+function JsonPluginComponent({ data, settings: raw }: PluginProps) {
+  const settings = jsonSettingsSchema.parse(raw);
   return (
     <div className="h-full overflow-auto">
-      <JsonViewer
-        data={data}
-        initialExpanded={(settings.initialExpanded as number) ?? 2}
-      />
+      <JsonViewer data={data} initialExpanded={settings.initialExpanded} />
     </div>
   );
 }
@@ -28,6 +27,7 @@ export const jsonPlugin = defineChartPlugin({
   transform: transformToJsonData,
   transformWithMapping: transformToJsonData,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: jsonSettingsSchema,
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,
