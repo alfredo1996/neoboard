@@ -34,8 +34,14 @@ import {
   AlertDescription,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
-import { type ConnectorType, CONNECTOR_LABELS } from "@/lib/connector-types";
-import { parseOptionalInt, mapConfigToEditForm } from "@/lib/parse-utils";
+import {
+  type ConnectorType,
+  CONNECTOR_LABELS,
+} from "@/lib/connector/connector-types";
+import {
+  parseOptionalInt,
+  mapConfigToEditForm,
+} from "@/lib/shared/parse-utils";
 
 type DialogStep = "pick-type" | "fill-form";
 

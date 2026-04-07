@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Transform } from "@/lib/data-transforms";
+import type { Transform } from "@/lib/query/data-transforms";
 
 // Mock @neoboard/components to avoid cross-package resolution issues
 vi.mock("@neoboard/components", () => ({

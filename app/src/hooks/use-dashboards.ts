@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { unwrapResponse } from "@/lib/api-client";
+import { unwrapResponse } from "@/lib/api/api-client";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
 export interface ImportDashboardInput {
@@ -50,7 +50,9 @@ export function useDashboards(limit = 100, offset = 0) {
   return useQuery<DashboardListItem[]>({
     queryKey: ["dashboards", limit, offset],
     queryFn: async () => {
-      const res = await fetch(`/api/dashboards?limit=${limit}&offset=${offset}`);
+      const res = await fetch(
+        `/api/dashboards?limit=${limit}&offset=${offset}`,
+      );
       return unwrapResponse<DashboardListItem[]>(res);
     },
   });
@@ -230,7 +232,7 @@ export function useRemoveDashboardShare(dashboardId: string) {
     mutationFn: async (shareId: string) => {
       const res = await fetch(
         `/api/dashboards/${dashboardId}/share?shareId=${shareId}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
       return unwrapResponse(res);
     },

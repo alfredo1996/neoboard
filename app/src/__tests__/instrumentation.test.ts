@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockBootstrapAdmin = vi.fn<(opts: { email: string; password: string }) => Promise<void>>();
+const mockBootstrapAdmin =
+  vi.fn<(opts: { email: string; password: string }) => Promise<void>>();
 
-vi.mock("@/lib/bootstrap", () => ({
+vi.mock("@/lib/auth/bootstrap", () => ({
   bootstrapAdmin: mockBootstrapAdmin,
 }));
 
@@ -24,7 +25,9 @@ describe("register (instrumentation hook)", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock("@/lib/bootstrap", () => ({ bootstrapAdmin: mockBootstrapAdmin }));
+    vi.doMock("@/lib/auth/bootstrap", () => ({
+      bootstrapAdmin: mockBootstrapAdmin,
+    }));
     const mod = await import("../instrumentation");
     register = mod.register;
   });
@@ -37,7 +40,8 @@ describe("register (instrumentation hook)", () => {
     if (savedEmail === undefined) delete process.env.BOOTSTRAP_ADMIN_EMAIL;
     else process.env.BOOTSTRAP_ADMIN_EMAIL = savedEmail;
 
-    if (savedPassword === undefined) delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
+    if (savedPassword === undefined)
+      delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
     else process.env.BOOTSTRAP_ADMIN_PASSWORD = savedPassword;
   });
 

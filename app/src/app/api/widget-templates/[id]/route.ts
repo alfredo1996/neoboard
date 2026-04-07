@@ -3,15 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { apiSuccess } from "@/lib/api-response";
+import { apiSuccess } from "@/lib/api/api-response";
 import {
   forbidden,
   notFound,
   badRequest,
   handleRouteError,
-} from "@/lib/api-utils";
+} from "@/lib/api/api-utils";
 import { previewImageUrlSchema } from "../shared";
-import { CONNECTOR_TYPES } from "@/lib/connector-types";
+import { CONNECTOR_TYPES } from "@/lib/connector/connector-types";
 
 const updateTemplateSchema = z.object({
   name: z.string().min(1).max(255).optional(),

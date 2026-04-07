@@ -22,7 +22,7 @@ import {
   collectParameterNames,
   findParameterCollisions,
   aggregateClickActionParamNames,
-} from "@/lib/collect-parameter-names";
+} from "@/lib/parameter/collect-parameter-names";
 import {
   AlertCircle,
   AlertTriangle,
@@ -69,12 +69,15 @@ import {
   chartSupportsClickAction,
   chartSupportsStyling,
   getAllChartTypes,
-} from "@/lib/chart-helpers";
-import type { ChartType } from "@/lib/chart-helpers";
-import { type ConnectorType, CONNECTOR_LANGUAGES } from "@/lib/connector-types";
+} from "@/lib/plugin/chart-helpers";
+import type { ChartType } from "@/lib/plugin/chart-helpers";
+import {
+  type ConnectorType,
+  CONNECTOR_LANGUAGES,
+} from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 import { extractReferencedParams } from "@/hooks/use-widget-query";
-import { wrapWithPreviewLimit } from "@/lib/wrap-with-preview-limit";
+import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
 export { wrapWithPreviewLimit };
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
@@ -87,11 +90,11 @@ import {
 } from "./widget-editor/parameter-config-section";
 // ParamUIType/DateSubType types used by the store, not directly in modal
 import { ParameterPreview } from "./widget-editor/parameter-preview";
-import type { FormFieldDef } from "@/lib/form-field-def";
+import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
+import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
 import { TransformEditor } from "./widget-editor/transform-editor";
 
 export interface WidgetEditorModalProps {

@@ -13,7 +13,7 @@ import type { ClickAction, DashboardWidget } from "@/lib/db/schema";
 import {
   resolveClickActions,
   deriveClickableColumns,
-} from "@/lib/resolve-click-action";
+} from "@/lib/widget/resolve-click-action";
 
 import { useClickAction } from "@/hooks/use-click-action";
 

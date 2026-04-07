@@ -81,20 +81,20 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
-vi.mock("@/lib/resolve-cache-options", () => ({
+vi.mock("@/lib/query/resolve-cache-options", () => ({
   resolveCacheOptions: () => ({ staleTime: 0, gcTime: undefined }),
 }));
 
-vi.mock("@/lib/card-utils", () => ({
+vi.mock("@/lib/widget/card-utils", () => ({
   extractColumnNames: () => [],
   resolveStylingConfig: () => undefined,
 }));
 
-vi.mock("@/lib/scroll-to-widget", () => ({
+vi.mock("@/lib/widget/scroll-to-widget", () => ({
   scrollAndHighlight: () => false,
 }));
 
-vi.mock("@/lib/data-transforms", () => ({
+vi.mock("@/lib/query/data-transforms", () => ({
   applyTransforms: (d: unknown) => d,
 }));
 

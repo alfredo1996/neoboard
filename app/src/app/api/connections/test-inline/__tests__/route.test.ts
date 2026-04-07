@@ -6,19 +6,20 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 const mockTestConnection = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
-vi.mock("@/lib/query-executor", () => ({ testConnection: mockTestConnection }));
+vi.mock("@/lib/query/query-executor", () => ({
+  testConnection: mockTestConnection,
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 
 const SESSION = {

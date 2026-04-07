@@ -9,8 +9,8 @@ import {
   badRequest,
   notFound,
   handleRouteError,
-} from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+} from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const resetPasswordSchema = z

@@ -15,8 +15,8 @@ import {
   Label,
   Textarea,
 } from "@neoboard/components";
-import { getChartConfig } from "@/lib/chart-helpers";
-import type { ConnectorType } from "@/lib/connector-types";
+import { getChartConfig } from "@/lib/plugin/chart-helpers";
+import type { ConnectorType } from "@/lib/connector/connector-types";
 
 interface SaveTemplateDialogProps {
   readonly open: boolean;

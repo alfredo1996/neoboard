@@ -2,15 +2,15 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { decryptJson } from "@/lib/crypto";
-import { testConnection } from "@/lib/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
-import { apiSuccess } from "@/lib/api-response";
+import { decryptJson } from "@/lib/crypto/crypto";
+import { testConnection } from "@/lib/query/query-executor";
+import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import { apiSuccess } from "@/lib/api/api-response";
 import {
   notFound,
   handleRouteError,
   sanitizeErrorMessage,
-} from "@/lib/api-utils";
+} from "@/lib/api/api-utils";
 
 export async function POST(
   _request: Request,

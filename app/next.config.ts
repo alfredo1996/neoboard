@@ -24,8 +24,9 @@ const nextConfig: NextConfig = {
   // Enable source maps in production for E2E coverage collection (nextcov).
   productionBrowserSourceMaps: process.env.E2E_COVERAGE === "1",
   outputFileTracingRoot: resolve(import.meta.dirname, ".."),
-  transpilePackages: ["@neoboard/components", "@neoboard/connection"],
+  transpilePackages: ["@neoboard/components"],
   serverExternalPackages: [
+    "@neoboard/connection",
     "postgres",
     "pg",
     "neo4j-driver",

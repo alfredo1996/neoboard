@@ -2,17 +2,17 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { encryptJson, decryptJson } from "@/lib/crypto";
-import { prefetchSchema } from "@/lib/schema-prefetch";
-import { updateConnectionSchema } from "@/lib/schemas";
-import type { ConnectorType } from "@/lib/connector-types";
+import { encryptJson, decryptJson } from "@/lib/crypto/crypto";
+import { prefetchSchema } from "@/lib/connector/schema-prefetch";
+import { updateConnectionSchema } from "@/lib/shared/schemas";
+import type { ConnectorType } from "@/lib/connector/connector-types";
 import {
   validateBody,
   notFound,
   handleRouteError,
   badRequest,
-} from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+} from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 export async function GET(
   _request: Request,

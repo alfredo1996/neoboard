@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { unwrapFullResponse } from "@/lib/api-client";
+import { unwrapFullResponse } from "@/lib/api/api-client";
 import {
   GraphChart,
   useGraphExploration,
@@ -15,8 +15,8 @@ import type {
   FetchNeighborsResult,
   PropertySection,
 } from "@neoboard/components";
-import { getChartConfig } from "@/lib/chart-helpers";
-import { normalizeValue } from "@/lib/normalize-value";
+import { getChartConfig } from "@/lib/plugin/chart-helpers";
+import { normalizeValue } from "@/lib/shared/normalize-value";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 
 interface GraphExplorationWrapperProps {

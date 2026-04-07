@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { signupRateLimiter } from "@/lib/rate-limiter";
+import { signupRateLimiter } from "@/lib/crypto/rate-limiter";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const signupSchema = z.object({
