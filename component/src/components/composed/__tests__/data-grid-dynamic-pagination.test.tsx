@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import type { ColumnDef, Table } from "@tanstack/react-table";
@@ -9,7 +9,10 @@ import {
   DATA_GRID_ROW_HEIGHT,
   DATA_GRID_PAGINATION_HEIGHT,
 } from "../data-grid";
-import { getChartOptions, getDefaultChartSettings } from "../chart-options-schema";
+import {
+  getChartOptions,
+  getDefaultChartSettings,
+} from "../chart-options-schema";
 
 // ---------------------------------------------------------------------------
 // calcDynamicPageSize unit tests
@@ -36,13 +39,18 @@ describe("calcDynamicPageSize", () => {
   it("returns 1 when container fits chrome plus less than one full row", () => {
     // One pixel short of a complete row after chrome
     const height =
-      DATA_GRID_HEADER_HEIGHT + DATA_GRID_PAGINATION_HEIGHT + DATA_GRID_ROW_HEIGHT - 1;
+      DATA_GRID_HEADER_HEIGHT +
+      DATA_GRID_PAGINATION_HEIGHT +
+      DATA_GRID_ROW_HEIGHT -
+      1;
     expect(calcDynamicPageSize(height)).toBe(1);
   });
 
   it("returns 1 when container fits chrome plus exactly one row", () => {
     const height =
-      DATA_GRID_HEADER_HEIGHT + DATA_GRID_PAGINATION_HEIGHT + DATA_GRID_ROW_HEIGHT;
+      DATA_GRID_HEADER_HEIGHT +
+      DATA_GRID_PAGINATION_HEIGHT +
+      DATA_GRID_ROW_HEIGHT;
     expect(calcDynamicPageSize(height)).toBe(1);
   });
 
@@ -65,7 +73,10 @@ describe("calcDynamicPageSize", () => {
     const expected = Math.max(
       1,
       Math.floor(
-        (height - toolbarHeight - DATA_GRID_HEADER_HEIGHT - DATA_GRID_PAGINATION_HEIGHT) /
+        (height -
+          toolbarHeight -
+          DATA_GRID_HEADER_HEIGHT -
+          DATA_GRID_PAGINATION_HEIGHT) /
           DATA_GRID_ROW_HEIGHT,
       ),
     );
@@ -183,7 +194,12 @@ describe("DataGrid — enablePagination", () => {
 
   it("falls back to pageSize prop when containerHeight is not provided", () => {
     render(
-      <DataGrid columns={columns} data={manyRows} enablePagination pageSize={5} />,
+      <DataGrid
+        columns={columns}
+        data={manyRows}
+        enablePagination
+        pageSize={5}
+      />,
     );
     const rows = screen.getAllByText(/^User \d+$/);
     expect(rows).toHaveLength(5);
@@ -241,14 +257,14 @@ describe("DataGrid — enablePagination", () => {
 
   it("does not show pagination when enablePagination is false even with many rows", () => {
     render(
-      <DataGrid
-        columns={columns}
-        data={manyRows}
-        enablePagination={false}
-      />,
+      <DataGrid columns={columns} data={manyRows} enablePagination={false} />,
     );
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Previous" }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not show built-in pagination when a custom pagination render prop is supplied", () => {
@@ -269,8 +285,12 @@ describe("DataGrid — enablePagination", () => {
     expect(screen.getByTestId("custom-pagination")).toBeInTheDocument();
     // Built-in controls are suppressed
     expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Previous" }),
+    ).not.toBeInTheDocument();
     // The render prop was called with the table instance
     expect(customPagination).toHaveBeenCalled();
   });
@@ -279,10 +299,19 @@ describe("DataGrid — enablePagination", () => {
     // 3 rows, pageSize=10 → only 1 page → no controls
     const fewRows = manyRows.slice(0, 3);
     render(
-      <DataGrid columns={columns} data={fewRows} enablePagination pageSize={10} />,
+      <DataGrid
+        columns={columns}
+        data={fewRows}
+        enablePagination
+        pageSize={10}
+      />,
     );
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Previous" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
   });
 
@@ -301,13 +330,18 @@ describe("DataGrid — enablePagination", () => {
       />,
     );
 
-    // Index 0 is the "select all" header checkbox
-    const checkboxes = screen.getAllByRole("checkbox");
-    await user.click(checkboxes[0]);
+    // Wait for all checkboxes to render, then click the "Select all" header checkbox
+    const selectAll = await screen.findByRole("checkbox", {
+      name: "Select all",
+    });
+    await user.click(selectAll);
 
-    expect(onSelectionChange).toHaveBeenCalled();
-    const selected =
-      onSelectionChange.mock.calls[onSelectionChange.mock.calls.length - 1][0] as TestRow[];
+    await waitFor(() => {
+      expect(onSelectionChange).toHaveBeenCalled();
+    });
+    const selected = onSelectionChange.mock.calls[
+      onSelectionChange.mock.calls.length - 1
+    ][0] as TestRow[];
     // All 10 visible page rows should be selected
     expect(selected).toHaveLength(10);
   });
@@ -342,13 +376,17 @@ describe("chart-options-schema table widget enablePagination option", () => {
   });
 
   it("enablePagination option has boolean type", () => {
-    const opt = getChartOptions("table").find((o) => o.key === "enablePagination");
+    const opt = getChartOptions("table").find(
+      (o) => o.key === "enablePagination",
+    );
     expect(opt).toBeDefined();
     expect(opt?.type).toBe("boolean");
   });
 
   it("enablePagination default is true", () => {
-    const opt = getChartOptions("table").find((o) => o.key === "enablePagination");
+    const opt = getChartOptions("table").find(
+      (o) => o.key === "enablePagination",
+    );
     expect(opt?.default).toBe(true);
   });
 
@@ -358,7 +396,9 @@ describe("chart-options-schema table widget enablePagination option", () => {
   });
 
   it("enablePagination option is in the Pagination category", () => {
-    const opt = getChartOptions("table").find((o) => o.key === "enablePagination");
+    const opt = getChartOptions("table").find(
+      (o) => o.key === "enablePagination",
+    );
     expect(opt?.category).toBe("Pagination");
   });
 });

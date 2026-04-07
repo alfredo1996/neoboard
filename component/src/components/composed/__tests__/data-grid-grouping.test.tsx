@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect } from "vitest";
 import { DataGrid } from "../data-grid";
@@ -21,12 +21,48 @@ const columns: ColumnDef<SalesRow, unknown>[] = [
 ];
 
 const data: SalesRow[] = [
-  { country: "US", city: "New York", department: "Sales", revenue: 100, headcount: 5 },
-  { country: "US", city: "New York", department: "Engineering", revenue: 200, headcount: 10 },
-  { country: "US", city: "Chicago", department: "Sales", revenue: 80, headcount: 3 },
-  { country: "UK", city: "London", department: "Sales", revenue: 150, headcount: 7 },
-  { country: "UK", city: "London", department: "Engineering", revenue: 300, headcount: 15 },
-  { country: "UK", city: "Manchester", department: "HR", revenue: 50, headcount: 2 },
+  {
+    country: "US",
+    city: "New York",
+    department: "Sales",
+    revenue: 100,
+    headcount: 5,
+  },
+  {
+    country: "US",
+    city: "New York",
+    department: "Engineering",
+    revenue: 200,
+    headcount: 10,
+  },
+  {
+    country: "US",
+    city: "Chicago",
+    department: "Sales",
+    revenue: 80,
+    headcount: 3,
+  },
+  {
+    country: "UK",
+    city: "London",
+    department: "Sales",
+    revenue: 150,
+    headcount: 7,
+  },
+  {
+    country: "UK",
+    city: "London",
+    department: "Engineering",
+    revenue: 300,
+    headcount: 15,
+  },
+  {
+    country: "UK",
+    city: "Manchester",
+    department: "HR",
+    revenue: 50,
+    headcount: 2,
+  },
 ];
 
 describe("DataGrid grouping", () => {
@@ -57,17 +93,23 @@ describe("DataGrid grouping", () => {
       />,
     );
     // All rows should be visible initially (groups expanded by default)
-    expect(screen.getAllByRole("row").length).toBeGreaterThan(2);
+    await waitFor(() => {
+      expect(screen.getAllByRole("row").length).toBeGreaterThan(2);
+    });
 
     // Click the first group toggle to collapse
-    const toggles = screen.getAllByRole("button", { name: /toggle group/i });
+    const toggles = await screen.findAllByRole("button", {
+      name: /toggle group/i,
+    });
     expect(toggles.length).toBeGreaterThan(0);
     await user.click(toggles[0]);
 
     // After collapsing, fewer rows should be visible
-    const rowsAfterCollapse = screen.getAllByRole("row");
-    // Header + collapsed group + remaining group rows
-    expect(rowsAfterCollapse.length).toBeLessThan(data.length + 3);
+    await waitFor(() => {
+      const rowsAfterCollapse = screen.getAllByRole("row");
+      // Header + collapsed group + remaining group rows
+      expect(rowsAfterCollapse.length).toBeLessThan(data.length + 3);
+    });
   });
 
   it("shows aggregation values in group header rows", () => {
@@ -126,7 +168,9 @@ describe("DataGrid grouping", () => {
         enablePagination={false}
       />,
     );
-    const collapseAllBtn = screen.getByRole("button", { name: /collapse all/i });
+    const collapseAllBtn = screen.getByRole("button", {
+      name: /collapse all/i,
+    });
     expect(collapseAllBtn).toBeInTheDocument();
     await user.click(collapseAllBtn);
 
@@ -161,7 +205,9 @@ describe("DataGrid grouping", () => {
         aggregationFn: aggFn as "sum" | "mean" | "count",
         aggregatedCell: ({ getValue }) => {
           const v = getValue();
-          return v != null ? `${aggFn}: ${typeof v === "number" ? v : String(v)}` : null;
+          return v != null
+            ? `${aggFn}: ${typeof v === "number" ? v : String(v)}`
+            : null;
         },
       },
     ];
@@ -220,7 +266,11 @@ describe("DataGrid grouping", () => {
         enablePagination={false}
       />,
     );
-    expect(screen.queryByRole("button", { name: /toggle group/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /collapse all/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /toggle group/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /collapse all/i }),
+    ).not.toBeInTheDocument();
   });
 });
