@@ -1,92 +1,42 @@
 /**
- * Chart registry — maps chart type strings to configuration
- * including data transformation functions.
+ * Chart registry — thin shim that delegates to the plugin registry.
  *
- * SHIM LAYER: Transform and validate functions are now defined in
- * `app/src/plugins/transforms/` and imported here. This module keeps
- * the same public API so existing consumers (card-container,
- * dashboard-container, graph-exploration-wrapper, widget-editor-modal)
- * work unchanged.
+ * This module registers lightweight plugin entries (transforms + metadata
+ * only, no React component imports) with the global `pluginRegistry` and
+ * then exposes the legacy `ChartConfig` API via a Proxy. The actual
+ * plugin `.tsx` files (with full React components) are registered
+ * separately by `plugins/index.ts` at app startup via `chart-renderer`.
  *
- * Phase 2 will make this module delegate to the plugin registry entirely.
+ * This two-tier registration ensures:
+ *   1. Tests that import chart-registry don't pull in React component trees
+ *   2. Runtime app code gets the full plugin components
+ *
+ * Public API surface (all preserved for backward compatibility):
+ *   - ChartType (re-exported from plugins/chart-types.ts)
+ *   - ChartConfig interface
+ *   - chartRegistry object (Proxy delegating to pluginRegistry)
+ *   - getChartConfig(type)
+ *   - chartSupportsClickAction(type)
+ *   - chartSupportsStyling(type)
+ *   - getStylingTargets(type)
+ *   - getCompatibleChartTypes(connectorType)
+ *   - getChartDefaults(type)
  */
 
 import type React from "react";
 import type { ColumnMapping } from "@neoboard/components";
+import type { ChartPlugin } from "@/lib/chart-plugin-registry";
+import { defineChartPlugin } from "@/lib/chart-plugin-registry";
+import { pluginRegistry } from "@/plugins/registry";
 
 export type { ColumnMapping };
-
-export type ChartType =
-  | "bar"
-  | "line"
-  | "pie"
-  | "table"
-  | "single-value"
-  | "graph"
-  | "map"
-  | "json"
-  | "parameter-select"
-  | "form"
-  | "markdown"
-  | "iframe"
-  | "gauge"
-  | "sankey"
-  | "sunburst"
-  | "radar"
-  | "treemap";
-
+export type { ChartType } from "@/plugins/chart-types";
 export type { ConnectorType } from "@/lib/connector-types";
+
+import type { ChartType } from "@/plugins/chart-types";
 import { CONNECTOR_TYPES, type ConnectorType } from "@/lib/connector-types";
 
-export interface ChartConfig {
-  type: ChartType;
-  label: string;
-  transform: (data: unknown) => unknown;
-  transformWithMapping: (data: unknown, mapping: ColumnMapping) => unknown;
-  /**
-   * Lazy component loader for this chart type. Used by chart-renderer
-   * to dynamically import the component. Returns a module with a default export.
-   *
-   * For charts that don't need lazy loading (e.g., JSON, Markdown), this
-   * can return the component directly wrapped in `{ default: Component }`.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- props differ per chart type; caller provides correct props
-  component?: () => Promise<{ default: React.ComponentType<any> }>;
-  /**
-   * Validates raw data shape before transform. Returns an error string
-   * when data exists but has the wrong shape for this chart type.
-   * Returns null when data is valid OR empty (empty = separate "No data" state).
-   */
-  validate?: (data: unknown) => string | null;
-  /**
-   * Which connector types can produce data for this chart.
-   * If omitted, the chart is compatible with all connector types.
-   */
-  compatibleWith?: ConnectorType[];
-  /**
-   * Whether this chart type supports click actions. Defaults to true if omitted.
-   * Set to false for chart types where clicking doesn't make sense
-   * (e.g. single-value, json, parameter-select).
-   */
-  supportsClickAction?: boolean;
-  /**
-   * Whether this chart type supports rule-based styling.
-   * Defaults to true if `stylingTargets` is defined, false otherwise.
-   * Set to false explicitly for chart types that can't apply conditional
-   * colors (json, parameter-select, form).
-   */
-  supportsStyling?: boolean;
-  /** Whether this chart renders via ECharts (used by screenshot capture). */
-  isECharts?: boolean;
-  /** Whether this chart supports column mapping overlays. */
-  supportsColumnMapping?: boolean;
-  /** Available styling targets (backgroundColor, textColor, color, etc.). */
-  stylingTargets?: { value: string; label: string }[];
-  /** Whether this widget type needs a query to render. Defaults to true. */
-  requiresQuery?: boolean;
-}
-
-// ─── Imports from standalone transform modules ────────────────────────────
+// ─── Imports from standalone transform modules (pure TS, no React) ───────────
 import { transformToBarData, validateBarData } from "@/plugins/transforms/bar";
 import {
   transformToLineData,
@@ -110,60 +60,98 @@ import { transformToHierarchicalData } from "@/plugins/transforms/hierarchical";
 import { transformToRadarData } from "@/plugins/transforms/radar";
 import { transformToSelectData } from "@/plugins/transforms/parameter-select";
 
-// ─── Registry ─────────────────────────────────────────────────────────────
+// ─── ChartConfig interface (legacy shape consumed by card-container etc.) ─────
+
+export interface ChartConfig {
+  type: ChartType;
+  label: string;
+  transform: (data: unknown) => unknown;
+  transformWithMapping: (data: unknown, mapping: ColumnMapping) => unknown;
+  /**
+   * Lazy component loader for this chart type. Returns a module with
+   * a default export.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- props differ per chart type
+  component?: () => Promise<{ default: React.ComponentType<any> }>;
+  validate?: (data: unknown) => string | null;
+  compatibleWith?: ConnectorType[];
+  supportsClickAction?: boolean;
+  supportsStyling?: boolean;
+  isECharts?: boolean;
+  supportsColumnMapping?: boolean;
+  stylingTargets?: { value: string; label: string }[];
+  requiresQuery?: boolean;
+}
+
+// ─── Lightweight plugin registrations ────────────────────────────────────────
+// These use a stub component so they can be registered synchronously without
+// importing React component trees. At app startup, `plugins/index.ts`
+// replaces these with full plugin registrations that include real components.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub placeholder for lightweight registration
+const StubComponent: React.ComponentType<any> = (() => null) as any;
 
 const COLOR_TARGET = [{ value: "color", label: "Color" }];
 
-// Note: `component` fields below will replace the parallel lazy-loaders in
-// chart-renderer.tsx in a follow-up PR. Until then, chart-renderer.tsx owns
-// the active loaders at runtime; these registry entries are for future use.
-export const chartRegistry: Record<ChartType, ChartConfig> = {
-  bar: {
+interface LightweightPluginDef {
+  type: string;
+  label: string;
+  transform: (data: unknown) => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mapping type varies per chart; ColumnMapping is the runtime shape
+  transformWithMapping?: (data: unknown, mapping?: any) => unknown;
+  validate?: (data: unknown) => string | null;
+  compatibleWith?: ConnectorType[];
+  stylingTargets?: { value: string; label: string }[];
+  capabilities?: {
+    supportsClickAction?: boolean;
+    supportsStyling?: boolean;
+    isECharts?: boolean;
+    requiresQuery?: boolean;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lazy loader shape
+  componentLoader?: () => Promise<{ default: React.ComponentType<any> }>;
+}
+
+const LIGHTWEIGHT_DEFS: LightweightPluginDef[] = [
+  {
     type: "bar",
     label: "Bar Chart",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.BarChart })),
     transform: transformToBarData,
     transformWithMapping: transformToBarData,
     validate: validateBarData,
     compatibleWith: ["neo4j", "postgresql"],
-    isECharts: true,
-    supportsColumnMapping: true,
     stylingTargets: COLOR_TARGET,
+    capabilities: { isECharts: true, supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.BarChart })),
   },
-  line: {
+  {
     type: "line",
     label: "Line Chart",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.LineChart })),
     transform: transformToLineData,
     transformWithMapping: transformToLineData,
     validate: validateLineData,
     compatibleWith: ["neo4j", "postgresql"],
-    isECharts: true,
-    supportsColumnMapping: true,
     stylingTargets: COLOR_TARGET,
+    capabilities: { isECharts: true, supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.LineChart })),
   },
-  pie: {
+  {
     type: "pie",
     label: "Pie Chart",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.PieChart })),
     transform: transformToPieData,
     transformWithMapping: transformToPieData,
     validate: validatePieData,
     compatibleWith: ["neo4j", "postgresql"],
-    isECharts: true,
-    supportsColumnMapping: true,
     stylingTargets: COLOR_TARGET,
+    capabilities: { isECharts: true, supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.PieChart })),
   },
-  table: {
+  {
     type: "table",
     label: "Data Table",
-    component: () =>
-      import("@/components/table-renderer").then((m) => ({
-        default: m.TableRenderer,
-      })),
     transform: transformToTableData,
     transformWithMapping: transformToTableData,
     compatibleWith: ["neo4j", "postgresql"],
@@ -171,233 +159,324 @@ export const chartRegistry: Record<ChartType, ChartConfig> = {
       { value: "backgroundColor", label: "Background Color" },
       { value: "textColor", label: "Text Color" },
     ],
+    capabilities: { supportsStyling: true },
+    componentLoader: () =>
+      import("@/components/table-renderer").then((m) => ({
+        default: m.TableRenderer,
+      })),
   },
-  "single-value": {
+  {
     type: "single-value",
     label: "Single Value",
-    component: () =>
-      import("@neoboard/components").then((m) => ({
-        default: m.SingleValueChart,
-      })),
     transform: transformToValueData,
     transformWithMapping: transformToValueData,
     validate: validateValueData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    isECharts: true,
     stylingTargets: [
       { value: "color", label: "Text Color" },
       { value: "backgroundColor", label: "Background Color" },
     ],
+    capabilities: {
+      supportsClickAction: false,
+      isECharts: true,
+      supportsStyling: true,
+    },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.SingleValueChart,
+      })),
   },
-  graph: {
+  {
     type: "graph",
     label: "Graph",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.GraphChart })),
     transform: transformToGraphData,
     transformWithMapping: transformToGraphData,
     validate: validateGraphData,
     compatibleWith: ["neo4j"],
     stylingTargets: [{ value: "color", label: "Node Color" }],
+    capabilities: { supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.GraphChart })),
   },
-  map: {
+  {
     type: "map",
     label: "Map",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.MapChart })),
     transform: transformToMapData,
     transformWithMapping: transformToMapData,
     validate: validateMapData,
     compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Marker Color" }],
+    capabilities: { supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.MapChart })),
   },
-  json: {
+  {
     type: "json",
     label: "JSON Viewer",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.JsonViewer })),
     transform: transformToJsonData,
     transformWithMapping: transformToJsonData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
+    capabilities: {
+      supportsClickAction: false,
+      supportsStyling: false,
+    },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.JsonViewer })),
   },
-  "parameter-select": {
+  {
     type: "parameter-select",
     label: "Parameter Selector",
-    component: () =>
-      import("@/components/parameter-widget-renderer").then((m) => ({
-        default: m.ParameterWidgetRenderer,
-      })),
     transform: transformToSelectData,
     transformWithMapping: transformToSelectData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
-    requiresQuery: false,
+    capabilities: {
+      supportsClickAction: false,
+      supportsStyling: false,
+      requiresQuery: false,
+    },
+    componentLoader: () =>
+      import("@/components/parameter-widget-renderer").then((m) => ({
+        default: m.ParameterWidgetRenderer,
+      })),
   },
-  form: {
+  {
     type: "form",
     label: "Form",
-    component: () =>
-      import("@/components/form-widget-renderer").then((m) => ({
-        default: m.FormWidgetRenderer,
-      })),
     transform: () => [],
     transformWithMapping: () => [],
     compatibleWith: ["neo4j", "postgresql"],
-    supportsStyling: false,
-    requiresQuery: false,
+    capabilities: {
+      supportsStyling: false,
+      requiresQuery: false,
+    },
+    componentLoader: () =>
+      import("@/components/form-widget-renderer").then((m) => ({
+        default: m.FormWidgetRenderer,
+      })),
   },
-  markdown: {
+  {
     type: "markdown",
     label: "Markdown",
-    component: () =>
+    transform: () => null,
+    transformWithMapping: () => null,
+    compatibleWith: ["neo4j", "postgresql"],
+    capabilities: {
+      supportsClickAction: false,
+      supportsStyling: false,
+      requiresQuery: false,
+    },
+    componentLoader: () =>
       import("@neoboard/components").then((m) => ({
         default: m.MarkdownWidget,
       })),
+  },
+  {
+    type: "iframe",
+    label: "iFrame",
     transform: () => null,
     transformWithMapping: () => null,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
-    requiresQuery: false,
-  },
-  iframe: {
-    type: "iframe",
-    label: "iFrame",
-    component: () =>
+    capabilities: {
+      supportsClickAction: false,
+      supportsStyling: false,
+      requiresQuery: false,
+    },
+    componentLoader: () =>
       import("@neoboard/components").then((m) => ({
         default: m.IframeWidget,
       })),
-    transform: () => null,
-    transformWithMapping: () => null,
-    compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    supportsStyling: false,
-    requiresQuery: false,
   },
-  gauge: {
+  {
     type: "gauge",
     label: "Gauge",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
     transform: transformToGaugeData,
     transformWithMapping: transformToGaugeData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: true,
-    isECharts: true,
     stylingTargets: [{ value: "color", label: "Gauge Color" }],
+    capabilities: {
+      supportsClickAction: true,
+      isECharts: true,
+      supportsStyling: true,
+    },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
   },
-  sankey: {
+  {
     type: "sankey",
     label: "Sankey",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.SankeyChart })),
     transform: transformToSankeyData,
     transformWithMapping: transformToSankeyData,
     compatibleWith: ["neo4j", "postgresql"],
-    isECharts: true,
     stylingTargets: [{ value: "color", label: "Link Color" }],
+    capabilities: { isECharts: true, supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.SankeyChart })),
   },
-  sunburst: {
+  {
     type: "sunburst",
     label: "Sunburst",
-    component: () =>
+    transform: transformToHierarchicalData,
+    transformWithMapping: transformToHierarchicalData,
+    compatibleWith: ["neo4j", "postgresql"],
+    stylingTargets: [{ value: "color", label: "Segment Color" }],
+    capabilities: { isECharts: true, supportsStyling: true },
+    componentLoader: () =>
       import("@neoboard/components").then((m) => ({
         default: m.SunburstChart,
       })),
-    transform: transformToHierarchicalData,
-    transformWithMapping: transformToHierarchicalData,
-    compatibleWith: ["neo4j", "postgresql"],
-    isECharts: true,
-    stylingTargets: [{ value: "color", label: "Segment Color" }],
   },
-  radar: {
+  {
     type: "radar",
     label: "Radar",
-    component: () =>
-      import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
     transform: transformToRadarData,
     transformWithMapping: transformToRadarData,
     compatibleWith: ["neo4j", "postgresql"],
-    supportsClickAction: false,
-    isECharts: true,
     stylingTargets: [{ value: "color", label: "Area Color" }],
+    capabilities: {
+      supportsClickAction: false,
+      isECharts: true,
+      supportsStyling: true,
+    },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
   },
-  treemap: {
+  {
     type: "treemap",
     label: "Treemap",
-    component: () =>
-      import("@neoboard/components").then((m) => ({
-        default: m.TreemapChart,
-      })),
     transform: transformToHierarchicalData,
     transformWithMapping: transformToHierarchicalData,
     compatibleWith: ["neo4j", "postgresql"],
-    isECharts: true,
     stylingTargets: [{ value: "color", label: "Block Color" }],
+    capabilities: { isECharts: true, supportsStyling: true },
+    componentLoader: () =>
+      import("@neoboard/components").then((m) => ({
+        default: m.TreemapChart,
+      })),
   },
-};
+];
+
+// Register lightweight plugins (idempotent — skips if already registered
+// by the full plugin modules in plugins/index.ts).
+for (const def of LIGHTWEIGHT_DEFS) {
+  if (!pluginRegistry.has(def.type)) {
+    pluginRegistry.register(
+      defineChartPlugin({
+        type: def.type,
+        label: def.label,
+        component: StubComponent,
+        transform: def.transform,
+        transformWithMapping: def.transformWithMapping,
+        validate: def.validate,
+        compatibleWith: def.compatibleWith,
+        stylingTargets: def.stylingTargets,
+        capabilities: def.capabilities,
+      }),
+    );
+  }
+}
+
+// Map from type → dynamic component loader for the ChartConfig adapter.
+const componentLoaders = new Map<
+  string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  () => Promise<{ default: React.ComponentType<any> }>
+>();
+for (const def of LIGHTWEIGHT_DEFS) {
+  if (def.componentLoader) {
+    componentLoaders.set(def.type, def.componentLoader);
+  }
+}
+
+// ─── Plugin → ChartConfig adapter ────────────────────────────────────────────
+
+const DEFAULT_COLOR_TARGET = [{ value: "color", label: "Color" }];
+
+const COLUMN_MAPPING_TYPES = new Set<string>(["bar", "line", "pie"]);
+
+function adaptPlugin(plugin: ChartPlugin): ChartConfig {
+  const loader = componentLoaders.get(plugin.type);
+  return {
+    type: plugin.type as ChartType,
+    label: plugin.label,
+    transform: plugin.transform,
+    transformWithMapping: plugin.transformWithMapping ?? plugin.transform,
+    component: loader ?? (() => Promise.resolve({ default: plugin.component })),
+    validate: plugin.validate,
+    compatibleWith: plugin.compatibleWith,
+    supportsClickAction: plugin.capabilities.supportsClickAction,
+    supportsStyling: plugin.capabilities.supportsStyling,
+    isECharts: plugin.capabilities.isECharts,
+    supportsColumnMapping: COLUMN_MAPPING_TYPES.has(plugin.type),
+    stylingTargets: plugin.stylingTargets,
+    requiresQuery: plugin.capabilities.requiresQuery,
+  };
+}
+
+// ─── chartRegistry proxy ─────────────────────────────────────────────────────
+
+export const chartRegistry: Record<ChartType, ChartConfig> = new Proxy(
+  {} as Record<ChartType, ChartConfig>,
+  {
+    get(_target, prop: string) {
+      const plugin = pluginRegistry.get(prop);
+      if (!plugin) return undefined;
+      return adaptPlugin(plugin);
+    },
+    has(_target, prop: string) {
+      return pluginRegistry.has(prop);
+    },
+    ownKeys() {
+      return pluginRegistry.getTypes();
+    },
+    getOwnPropertyDescriptor(_target, prop: string) {
+      if (pluginRegistry.has(prop)) {
+        return {
+          configurable: true,
+          enumerable: true,
+          writable: false,
+          value: adaptPlugin(pluginRegistry.get(prop)!),
+        };
+      }
+      return undefined;
+    },
+  },
+);
+
+// ─── Helper functions ────────────────────────────────────────────────────────
 
 export function getChartConfig(type: string): ChartConfig | undefined {
-  return chartRegistry[type as ChartType];
+  const plugin = pluginRegistry.get(type);
+  if (!plugin) return undefined;
+  return adaptPlugin(plugin);
 }
 
-/**
- * Returns whether a chart type supports click actions.
- * Unknown chart types return false.
- */
 export function chartSupportsClickAction(type: string): boolean {
-  const config = getChartConfig(type);
-  if (!config) return false;
-  return config.supportsClickAction !== false;
+  const plugin = pluginRegistry.get(type);
+  if (!plugin) return false;
+  return plugin.capabilities.supportsClickAction;
 }
 
-/**
- * Returns whether a chart type supports rule-based styling.
- * Unknown chart types return false.
- */
 export function chartSupportsStyling(type: string): boolean {
-  const config = getChartConfig(type);
-  if (!config) return false;
-  return config.supportsStyling !== false;
+  const plugin = pluginRegistry.get(type);
+  if (!plugin) return false;
+  return plugin.capabilities.supportsStyling;
 }
 
-/**
- * Returns empty default chart settings for a type. Used by the widget editor
- * store to initialize chart options without importing the component package.
- * Returns an empty object — the actual defaults are applied at render time
- * by the ChartOptionsPanel component.
- */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getChartDefaults(_type: string): Record<string, unknown> {
   return {};
 }
 
-/**
- * Returns the available styling targets for a chart type.
- * Reads from the registry's `stylingTargets` field — no switch statement.
- */
 export function getStylingTargets(
   type: string,
 ): { value: string; label: string }[] {
-  const config = getChartConfig(type);
-  if (!config || config.supportsStyling === false) return [];
-  return config.stylingTargets ?? COLOR_TARGET;
+  const plugin = pluginRegistry.get(type);
+  if (!plugin || !plugin.capabilities.supportsStyling) return [];
+  return plugin.stylingTargets ?? DEFAULT_COLOR_TARGET;
 }
 
-/**
- * Returns all ChartTypes compatible with the given connector type.
- *
- * An unknown connectorType string returns an empty array so callers
- * always receive a predictable result (no implicit "show everything").
- */
 export function getCompatibleChartTypes(connectorType: string): ChartType[] {
   if (!CONNECTOR_TYPES.includes(connectorType as ConnectorType)) return [];
   const ct = connectorType as ConnectorType;
-  return (Object.values(chartRegistry) as ChartConfig[])
-    .filter((cfg) => !cfg.compatibleWith || cfg.compatibleWith.includes(ct))
-    .map((cfg) => cfg.type);
+  return pluginRegistry.getCompatibleWith(ct).map((p) => p.type as ChartType);
 }
