@@ -7,7 +7,7 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { StylingRule } from "@neoboard/components";
 import { normalizeValue } from "@/lib/normalize-value";
 import { defineChartPlugin } from "./registry";
@@ -16,6 +16,7 @@ import {
   validateValueData,
 } from "./transforms/single-value";
 import { type PluginProps } from "./utils";
+import { singleValueSettingsSchema } from "./settings/single-value";
 
 const SingleValueChart = dynamic(
   () =>
@@ -27,34 +28,31 @@ const SingleValueChart = dynamic(
 
 function SingleValuePluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   colorThresholds,
 }: PluginProps) {
-  const raw = data ?? 0;
+  const parsed = singleValueSettingsSchema.safeParse(raw);
+  const settings = parsed.success
+    ? parsed.data
+    : singleValueSettingsSchema.parse({});
+  const rawData = data ?? 0;
   const val =
-    typeof raw === "number" || typeof raw === "string"
-      ? raw
-      : (normalizeValue(raw) ?? String(raw));
+    typeof rawData === "number" || typeof rawData === "string"
+      ? rawData
+      : (normalizeValue(rawData) ?? String(rawData));
   return (
     <SingleValueChart
       value={
         typeof val === "number" || typeof val === "string" ? val : String(val)
       }
-      title={settings.title as string | undefined}
-      prefix={settings.prefix as string | undefined}
-      suffix={settings.suffix as string | undefined}
-      fontSize={settings.fontSize as "sm" | "md" | "lg" | "xl" | undefined}
-      numberFormat={
-        settings.numberFormat as
-          | "plain"
-          | "comma"
-          | "compact"
-          | "percent"
-          | undefined
-      }
-      decimalPlaces={settings.decimalPlaces as number | undefined}
+      title={settings.title}
+      prefix={settings.prefix}
+      suffix={settings.suffix}
+      fontSize={settings.fontSize}
+      numberFormat={settings.numberFormat}
+      decimalPlaces={settings.decimalPlaces}
       colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
@@ -69,7 +67,9 @@ export const singleValuePlugin = defineChartPlugin({
   transform: transformToValueData,
   transformWithMapping: transformToValueData,
   validate: validateValueData,
+  options: getChartOptions("single-value"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: singleValueSettingsSchema,
   stylingTargets: [
     { value: "color", label: "Text Color" },
     { value: "backgroundColor", label: "Background Color" },

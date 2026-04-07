@@ -6,11 +6,12 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { PieChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToPieData, validatePieData } from "./transforms/pie";
 import { useEChartsClick, type PluginProps } from "./utils";
+import { pieSettingsSchema } from "./settings/pie";
 
 const PieChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.PieChart })),
@@ -19,45 +20,46 @@ const PieChart = dynamic(
 
 function PiePluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
   colorThresholds,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
+  const settings = pieSettingsSchema.parse(raw);
   return (
     <PieChart
       data={(data as PieChartDataPoint[]) ?? []}
-      donut={settings.donut as boolean | undefined}
-      showLabel={settings.showLabel as boolean | undefined}
-      showLegend={settings.showLegend as boolean | undefined}
-      roseMode={settings.roseMode as boolean | undefined}
-      labelPosition={
-        settings.labelPosition as "outside" | "inside" | "center" | undefined
-      }
-      showPercentage={settings.showPercentage as boolean | undefined}
-      sortSlices={settings.sortSlices as boolean | undefined}
-      topN={settings.topN as number | undefined}
-      donutCenterText={settings.donutCenterText as string | undefined}
+      donut={settings.donut}
+      showLabel={settings.showLabel}
+      showLegend={settings.showLegend}
+      roseMode={settings.roseMode}
+      labelPosition={settings.labelPosition}
+      showPercentage={settings.showPercentage}
+      sortSlices={settings.sortSlices}
+      topN={settings.topN}
+      donutCenterText={settings.donutCenterText}
       colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
-      colorPalette={settings.colorPalette as string | undefined}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      colorPalette={settings.colorPalette}
+      colorblindMode={settings.colorblindMode}
     />
   );
 }
 
 export const piePlugin = defineChartPlugin({
   type: "pie",
-  label: "Pie / Doughnut",
+  label: "Pie Chart",
   component: PiePluginComponent,
   transform: transformToPieData,
   transformWithMapping: transformToPieData,
   validate: validatePieData,
+  options: getChartOptions("pie"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: pieSettingsSchema,
   stylingTargets: [{ value: "color", label: "Slice Color" }],
   capabilities: {
     supportsClickAction: true,

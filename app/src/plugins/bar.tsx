@@ -6,11 +6,12 @@
  */
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@neoboard/components";
+import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { BarChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToBarData, validateBarData } from "./transforms/bar";
 import { useEChartsClick, type PluginProps } from "./utils";
+import { barSettingsSchema } from "./settings/bar";
 
 const BarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
@@ -19,37 +20,36 @@ const BarChart = dynamic(
 
 function BarPluginComponent({
   data,
-  settings,
+  settings: raw,
   onChartClick,
   colorThresholds,
   stylingRules,
   paramValues,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
+  const settings = barSettingsSchema.parse(raw);
 
   return (
     <BarChart
       data={(data as BarChartDataPoint[]) ?? []}
-      orientation={
-        settings.orientation as "vertical" | "horizontal" | undefined
-      }
-      stacked={settings.stacked as boolean | undefined}
-      showValues={settings.showValues as boolean | undefined}
-      showLegend={settings.showLegend as boolean | undefined}
-      barWidth={settings.barWidth as number | undefined}
-      barGap={settings.barGap as string | undefined}
-      xAxisLabel={settings.xAxisLabel as string | undefined}
-      yAxisLabel={settings.yAxisLabel as string | undefined}
-      showGridLines={settings.showGridLines as boolean | undefined}
-      axisLabelRotation={settings.axisLabelRotation as number | undefined}
-      referenceLines={settings.referenceLines as string | undefined}
+      orientation={settings.orientation}
+      stacked={settings.stacked}
+      showValues={settings.showValues}
+      showLegend={settings.showLegend}
+      barWidth={settings.barWidth}
+      barGap={settings.barGap}
+      xAxisLabel={settings.xAxisLabel}
+      yAxisLabel={settings.yAxisLabel}
+      showGridLines={settings.showGridLines}
+      axisLabelRotation={settings.axisLabelRotation}
+      referenceLines={settings.referenceLines}
       colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
-      enableDataZoom={settings.enableDataZoom as boolean | undefined}
-      colorPalette={settings.colorPalette as string | undefined}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      enableDataZoom={settings.enableDataZoom}
+      colorPalette={settings.colorPalette}
+      colorblindMode={settings.colorblindMode}
     />
   );
 }
@@ -61,7 +61,9 @@ export const barPlugin = defineChartPlugin({
   transform: transformToBarData,
   transformWithMapping: transformToBarData,
   validate: validateBarData,
+  options: getChartOptions("bar"),
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: barSettingsSchema,
   stylingTargets: [{ value: "color", label: "Bar Color" }],
   capabilities: {
     supportsClickAction: true,

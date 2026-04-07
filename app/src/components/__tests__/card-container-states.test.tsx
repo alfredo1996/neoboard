@@ -46,6 +46,7 @@ vi.mock("@neoboard/components", () => ({
   ),
   ColumnMappingOverlay: () => <div data-testid="column-mapping-overlay" />,
   substituteParams: (s: string) => s,
+  getChartOptions: () => [],
 }));
 
 vi.mock("next/dynamic", () => ({

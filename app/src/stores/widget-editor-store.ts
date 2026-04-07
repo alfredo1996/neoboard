@@ -13,7 +13,7 @@ import {
   chartSupportsClickAction,
   chartSupportsStyling,
   getChartDefaults,
-} from "@/lib/chart-registry";
+} from "@/lib/chart-helpers";
 import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
 import type { Transform } from "@/lib/data-transforms";
 

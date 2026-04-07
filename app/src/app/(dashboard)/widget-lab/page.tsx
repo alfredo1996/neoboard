@@ -18,7 +18,7 @@ import {
   useCreateWidgetTemplate,
 } from "@/hooks/use-widget-templates";
 import { useConnections } from "@/hooks/use-connections";
-import { getChartConfig } from "@/lib/chart-registry";
+import { getChartConfig } from "@/lib/chart-helpers";
 import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
   PageHeader,

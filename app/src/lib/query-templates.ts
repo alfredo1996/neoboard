@@ -4,7 +4,7 @@
  * Extracted from query-editor-panel.tsx for independent testability.
  */
 
-import type { ChartType } from "@/lib/chart-registry";
+import type { ChartType } from "@/lib/chart-helpers";
 
 /** Per-chart-type hints shown next to the Query label to guide column conventions. */
 export const QUERY_HINTS: Partial<Record<ChartType, string>> = {
