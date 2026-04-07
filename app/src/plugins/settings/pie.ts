@@ -12,7 +12,7 @@ export const pieSettingsSchema = z
     labelPosition: z.enum(["outside", "inside", "center"]).default("outside"),
     showPercentage: z.boolean().default(false),
     sortSlices: z.boolean().default(false),
-    topN: z.coerce.number().optional(),
+    topN: z.coerce.number().int().min(0).optional(),
     donutCenterText: z.string().optional(),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),

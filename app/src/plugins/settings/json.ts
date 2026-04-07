@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const jsonSettingsSchema = z
   .object({
-    initialExpanded: z.coerce.number().default(2),
+    initialExpanded: z.coerce.number().int().min(0).default(2),
   })
   .passthrough();
 
