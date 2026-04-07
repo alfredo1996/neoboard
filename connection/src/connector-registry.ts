@@ -37,6 +37,13 @@ export function registerConnector(plugin: ConnectorPlugin): void {
 }
 
 /**
+ * Convenience: unregister a connector plugin by type.
+ */
+export function unregisterConnector(type: string): void {
+  registry.unregister(type);
+}
+
+/**
  * Convenience: get a connector plugin by type.
  */
 export function getConnector(type: string): ConnectorPlugin | undefined {

@@ -32,3 +32,17 @@ export {
   CONNECTOR_LANGUAGES,
 } from "./connector-types";
 export type { ConnectorType } from "./connector-types";
+/// Connector plugin system
+export type {
+  ConnectorPlugin,
+  ConnectorRegistry,
+  ConnectorFormField,
+} from "./generalized/connector-plugin";
+export { createConnectorRegistry } from "./generalized/connector-plugin";
+export {
+  connectorRegistry,
+  registerConnector,
+  unregisterConnector,
+  getConnector,
+  getAllConnectors,
+} from "./connector-registry";
