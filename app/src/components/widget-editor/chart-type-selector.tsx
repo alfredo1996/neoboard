@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Label, Combobox } from "@neoboard/components";
-import type { ChartType } from "@/lib/chart-registry";
-import { getChartConfig } from "@/lib/chart-registry";
+import type { ChartType } from "@/lib/chart-helpers";
+import { getChartConfig } from "@/lib/chart-helpers";
 
 /** Icon map for chart type dropdown (labels come from chartRegistry, icons stay in UI layer) */
 export const chartTypeIcons: Record<ChartType, LucideIcon> = {

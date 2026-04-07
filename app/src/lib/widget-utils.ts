@@ -1,4 +1,4 @@
-import { getChartConfig } from "@/lib/chart-registry";
+import { getChartConfig } from "@/lib/chart-helpers";
 import type { DashboardWidget } from "@/lib/db/schema";
 
 /**

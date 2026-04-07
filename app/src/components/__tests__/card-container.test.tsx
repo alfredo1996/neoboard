@@ -40,7 +40,7 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
-vi.mock("@/lib/chart-registry", () => ({
+vi.mock("@/lib/chart-helpers", () => ({
   getChartConfig: (type: string) => {
     if (type === "bar" || type === "markdown") {
       return {
@@ -48,12 +48,18 @@ vi.mock("@/lib/chart-registry", () => ({
         label: type,
         transform: (d: unknown) => d,
         transformWithMapping: (d: unknown) => d,
-        supportsColumnMapping: false,
         validate: () => null,
+        capabilities: {
+          supportsClickAction: true,
+          supportsStyling: false,
+          isECharts: false,
+          requiresQuery: true,
+        },
       };
     }
     return null;
   },
+  supportsColumnMapping: () => false,
 }));
 
 vi.mock("@/lib/resolve-cache-options", () => ({
@@ -249,7 +255,7 @@ describe("CardContainer", () => {
 
   describe("form widget path", () => {
     it("renders chart for form widgets without querying", () => {
-      // Need to add "form" to the mock chart-registry
+      // Need to add "form" to the mock chart-helpers
       const widget = createWidget({
         chartType: "bar",
         settings: { chartOptions: {} },

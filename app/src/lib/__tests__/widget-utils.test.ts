@@ -29,7 +29,7 @@ describe("getWidgetDisplayTitle", () => {
 
   it("returns chart label when no title setting", () => {
     const widget = makeWidget({ chartType: "pie" });
-    expect(getWidgetDisplayTitle(widget)).toBe("Pie Chart");
+    expect(getWidgetDisplayTitle(widget)).toBe("Pie / Doughnut");
   });
 
   it("returns chart label when title is not a string", () => {
