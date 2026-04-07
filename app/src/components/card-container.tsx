@@ -298,10 +298,9 @@ export function CardContainer({
         />
       );
     }
-    const mappedData = chartConfig.transformWithMapping(
-      previewData,
-      columnMapping,
-    );
+    const mappedData = (
+      chartConfig.transformWithMapping ?? chartConfig.transform
+    )(previewData, columnMapping);
     // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
     const transformedData =
       dataTransforms.length && widget.chartType !== "graph"
@@ -550,7 +549,9 @@ export function CardContainer({
     );
   }
 
-  const mappedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const mappedData = (
+    chartConfig.transformWithMapping ?? chartConfig.transform
+  )(rawData, columnMapping);
   const transformedData = dataTransforms.length
     ? applyTransforms(
         mappedData as Record<string, unknown>[],

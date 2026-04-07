@@ -129,7 +129,7 @@ export function capturePreview(
   previewElement: HTMLElement,
   chartType: string,
 ): string | undefined {
-  if (getChartConfig(chartType)?.isECharts) {
+  if (getChartConfig(chartType)?.capabilities.isECharts) {
     return captureEChartsPreview(previewElement);
   }
   if (chartType === "table") {
