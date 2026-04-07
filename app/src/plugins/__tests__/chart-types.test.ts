@@ -16,6 +16,9 @@ vi.mock("@neoboard/components", () => ({
   SunburstChart: () => null,
   RadarChart: () => null,
   TreemapChart: () => null,
+  EmptyState: () => null,
+  Skeleton: () => null,
+  getChartOptions: () => [],
 }));
 
 import { CHART_TYPES, type ChartType } from "../chart-types";

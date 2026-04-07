@@ -2,7 +2,7 @@
 
 import React from "react";
 import { AlertCircle } from "lucide-react";
-import type { ChartType } from "@/lib/chart-registry";
+import type { ChartType } from "@/lib/chart-helpers";
 import { pluginRegistry } from "@/plugins";
 import { ChartErrorBoundary } from "./chart-error-boundary";
 import { EmptyState } from "@neoboard/components";

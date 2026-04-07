@@ -1,8 +1,8 @@
 /**
  * Shared transform utilities for chart plugins.
  *
- * Extracted from chart-registry.ts so each plugin can import only
- * what it needs, without coupling to the monolithic registry.
+ * Extracted from the legacy chart-registry so each plugin can import
+ * only what it needs, without coupling to a monolithic registry.
  */
 
 import { normalizeValue } from "@/lib/normalize-value";

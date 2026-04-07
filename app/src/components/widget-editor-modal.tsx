@@ -66,11 +66,11 @@ import type { ColorScaleConfig } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   getChartConfig,
-  chartRegistry,
   chartSupportsClickAction,
   chartSupportsStyling,
-} from "@/lib/chart-registry";
-import type { ChartType } from "@/lib/chart-registry";
+  getAllChartTypes,
+} from "@/lib/chart-helpers";
+import type { ChartType } from "@/lib/chart-helpers";
 import { type ConnectorType, CONNECTOR_LANGUAGES } from "@/lib/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 import { extractReferencedParams } from "@/hooks/use-widget-query";
@@ -403,7 +403,7 @@ export function WidgetEditorModal({
     () =>
       selectedConnection
         ? getCompatibleChartTypes(selectedConnection.type)
-        : (Object.keys(chartRegistry) as ChartType[]),
+        : (getAllChartTypes() as ChartType[]),
     [selectedConnection],
   );
 
@@ -1452,8 +1452,8 @@ export function WidgetEditorModal({
                                     variant="outline"
                                     className="text-xs font-normal"
                                   >
-                                    {chartRegistry[w.chartType as ChartType]
-                                      ?.label ?? w.chartType}
+                                    {getChartConfig(w.chartType)?.label ??
+                                      w.chartType}
                                   </Badge>
                                 </Label>
                               </div>

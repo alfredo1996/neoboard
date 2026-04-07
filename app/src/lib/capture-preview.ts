@@ -119,7 +119,7 @@ export function captureTablePreview(
   }
 }
 
-import { getChartConfig } from "./chart-registry";
+import { getChartConfig } from "./chart-helpers";
 
 /**
  * Capture a preview image from the widget preview container.

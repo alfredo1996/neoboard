@@ -18,6 +18,7 @@ vi.mock("next/dynamic", () => ({
 
 vi.mock("@neoboard/components", () => ({
   Skeleton: () => null,
+  getChartOptions: () => [],
 }));
 
 describe("barPlugin", () => {
