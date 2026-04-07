@@ -8,8 +8,14 @@
 import { FormWidgetRenderer } from "@/components/form-widget-renderer";
 import { defineChartPlugin } from "./registry";
 import { type PluginProps } from "./utils";
+import { formSettingsSchema } from "./settings/form";
 
-function FormPluginComponent({ settings, connectionId, query }: PluginProps) {
+function FormPluginComponent({
+  settings: raw,
+  connectionId,
+  query,
+}: PluginProps) {
+  const settings = formSettingsSchema.parse(raw);
   return (
     <FormWidgetRenderer
       connectionId={connectionId ?? ""}
@@ -25,6 +31,7 @@ export const formPlugin = defineChartPlugin({
   component: FormPluginComponent,
   transform: () => [],
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: formSettingsSchema,
   capabilities: {
     supportsClickAction: true,
     supportsStyling: false,
