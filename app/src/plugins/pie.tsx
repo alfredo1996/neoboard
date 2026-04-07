@@ -52,7 +52,7 @@ function PiePluginComponent({
 
 export const piePlugin = defineChartPlugin({
   type: "pie",
-  label: "Pie / Doughnut",
+  label: "Pie Chart",
   component: PiePluginComponent,
   transform: transformToPieData,
   transformWithMapping: transformToPieData,

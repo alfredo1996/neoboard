@@ -57,9 +57,11 @@ const BUILT_IN_PLUGINS = [
 // Idempotent registration — the first import of this module registers
 // plugins; subsequent imports are no-ops thanks to Node's module cache.
 for (const plugin of BUILT_IN_PLUGINS) {
-  if (!pluginRegistry.has(plugin.type)) {
-    pluginRegistry.register(plugin);
+  // Unregister stubs (from chart-helpers.ts) so real plugins always win
+  if (pluginRegistry.has(plugin.type)) {
+    pluginRegistry.unregister(plugin.type);
   }
+  pluginRegistry.register(plugin);
 }
 
 // ── Startup validation ──────────────────────────────────────────────────
