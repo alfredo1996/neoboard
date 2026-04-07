@@ -11,6 +11,8 @@ on:
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
     branches: [main, dev, 'release/*']
     paths:
@@ -21,6 +23,8 @@ on:
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 concurrency:
@@ -44,33 +48,15 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: |
-            app/package-lock.json
-            component/package-lock.json
-            connection/package-lock.json
 
       - name: Install dependencies
-        run: |
-          npm ci --prefix app &
-          APP_CI_PID=$!
-          npm ci --prefix component &
-          COMP_CI_PID=$!
-          npm ci --prefix connection &
-          CONN_CI_PID=$!
-
-          FAIL=0
-          wait $APP_CI_PID  || FAIL=1
-          wait $COMP_CI_PID || FAIL=1
-          wait $CONN_CI_PID || FAIL=1
-          exit $FAIL
+        run: npm ci
 
       - name: Type-check component
-        working-directory: component
-        run: npx tsc --noEmit
+        run: npm -w component exec tsc -- --noEmit
 
       - name: Type-check app
-        working-directory: app
-        run: npx tsc --noEmit
+        run: npm -w app exec tsc -- --noEmit
 
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
   # All three packages run in parallel within a single job.
@@ -118,29 +104,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: |
-            app/package-lock.json
-            component/package-lock.json
-            connection/package-lock.json
-            cli/package-lock.json
 
       - name: Install dependencies
-        run: |
-          npm ci --prefix app &
-          APP_CI_PID=$!
-          npm ci --prefix component &
-          COMP_CI_PID=$!
-          npm ci --prefix connection &
-          CONN_CI_PID=$!
-          npm ci --prefix cli &
-          CLI_CI_PID=$!
-
-          FAIL=0
-          wait $APP_CI_PID  || FAIL=1
-          wait $COMP_CI_PID || FAIL=1
-          wait $CONN_CI_PID || FAIL=1
-          wait $CLI_CI_PID  || FAIL=1
-          exit $FAIL
+        run: npm ci
 
       - name: Run all tests in parallel
         run: |
@@ -202,30 +168,20 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: |
-            app/package-lock.json
-            component/package-lock.json
-            connection/package-lock.json
 
       - name: Install dependencies + pre-pull container images
         run: |
-          npm ci --prefix connection &
-          CONN_CI_PID=$!
-          npm ci --prefix component  &
-          COMP_CI_PID=$!
-          npm ci --prefix app        &
-          APP_CI_PID=$!
+          npm ci &
+          NPM_PID=$!
           docker pull postgres:16-alpine  &
           PG_PID=$!
           docker pull neo4j:5-community   &
           NEO4J_PID=$!
 
           FAIL=0
-          wait $CONN_CI_PID  || FAIL=1
-          wait $COMP_CI_PID  || FAIL=1
-          wait $APP_CI_PID   || FAIL=1
-          wait $PG_PID       || FAIL=1
-          wait $NEO4J_PID    || FAIL=1
+          wait $NPM_PID   || FAIL=1
+          wait $PG_PID    || FAIL=1
+          wait $NEO4J_PID || FAIL=1
           exit $FAIL
 
       - name: Cache Playwright browsers
@@ -233,7 +189,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright browsers
         working-directory: app
@@ -249,7 +205,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: app/.next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'app/package-lock.json') }}
+          key: nextjs-${{ runner.os }}-${{ hashFiles('app/src/**/*.ts', 'app/src/**/*.tsx', 'package-lock.json') }}
           restore-keys: |
             nextjs-${{ runner.os }}-
 
@@ -310,10 +266,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: app/package-lock.json
 
-      - name: Install app dependencies (for Playwright merge)
-        run: npm ci --prefix app
+      - name: Install dependencies
+        run: npm ci
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
