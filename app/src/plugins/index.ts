@@ -15,6 +15,7 @@
  */
 
 import { pluginRegistry } from "./registry";
+import { CHART_TYPES } from "./chart-types";
 import { markdownPlugin } from "./markdown";
 import { barPlugin } from "./bar";
 import { linePlugin } from "./line";
@@ -61,5 +62,18 @@ for (const plugin of BUILT_IN_PLUGINS) {
   }
 }
 
+// ── Startup validation ──────────────────────────────────────────────────
+// Verify that every chart type declared in CHART_TYPES has a registered
+// plugin. A mismatch is a dev-time bug, not a runtime error.
+const registeredTypes = new Set(pluginRegistry.getTypes());
+for (const t of CHART_TYPES) {
+  if (!registeredTypes.has(t)) {
+    console.warn(
+      `Chart type "${t}" declared in CHART_TYPES but no plugin registered`,
+    );
+  }
+}
+
 // Re-export for convenience
 export { pluginRegistry } from "./registry";
+export { CHART_TYPES, type ChartType } from "./chart-types";
