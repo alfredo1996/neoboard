@@ -402,7 +402,7 @@ export function WidgetEditorModal({
   const compatibleChartTypes = useMemo(
     () =>
       selectedConnection
-        ? getCompatibleChartTypes(selectedConnection.type)
+        ? (getCompatibleChartTypes(selectedConnection.type) as ChartType[])
         : (getAllChartTypes() as ChartType[]),
     [selectedConnection],
   );
