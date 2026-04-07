@@ -11,6 +11,7 @@ import type { GaugeDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { transformToGaugeData } from "./transforms/gauge";
 import { useEChartsClick, type PluginProps } from "./utils";
+import { gaugeSettingsSchema } from "./settings/gauge";
 
 const GaugeChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
@@ -19,26 +20,27 @@ const GaugeChart = dynamic(
 
 function GaugePluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
+  const settings = gaugeSettingsSchema.parse(raw);
   return (
     <GaugeChart
       data={(data as GaugeDataPoint[]) ?? []}
-      min={settings.min as number | undefined}
-      max={settings.max as number | undefined}
-      showProgress={settings.showProgress as boolean | undefined}
-      showPointer={settings.showPointer as boolean | undefined}
-      showDetail={settings.showDetail as boolean | undefined}
-      startAngle={settings.startAngle as number | undefined}
-      endAngle={settings.endAngle as number | undefined}
-      colorPalette={settings.colorPalette as string | undefined}
+      min={settings.min}
+      max={settings.max}
+      showProgress={settings.showProgress}
+      showPointer={settings.showPointer}
+      showDetail={settings.showDetail}
+      startAngle={settings.startAngle}
+      endAngle={settings.endAngle}
+      colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
-      colorblindMode={settings.colorblindMode as boolean | undefined}
+      colorblindMode={settings.colorblindMode}
       onClick={onClick}
     />
   );
@@ -51,6 +53,7 @@ export const gaugePlugin = defineChartPlugin({
   transform: transformToGaugeData,
   transformWithMapping: transformToGaugeData,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: gaugeSettingsSchema,
   stylingTargets: [{ value: "color", label: "Gauge Color" }],
   capabilities: {
     supportsClickAction: true,

@@ -13,14 +13,15 @@ import type { ParameterType } from "@/stores/parameter-store";
 import { defineChartPlugin } from "./registry";
 import { transformToSelectData } from "./transforms/parameter-select";
 import { type PluginProps } from "./utils";
+import { parameterSelectSettingsSchema } from "./settings/parameter-select";
 
 function ParameterSelectPluginComponent({
-  settings,
+  settings: raw,
   connectionId,
   widgetId,
 }: PluginProps) {
-  const pName = settings.parameterName as string | undefined;
-  if (!pName) {
+  const settings = parameterSelectSettingsSchema.parse(raw);
+  if (!settings.parameterName) {
     return (
       <EmptyState
         title="No parameter name"
@@ -32,18 +33,16 @@ function ParameterSelectPluginComponent({
   return (
     <div className="p-4">
       <ParameterWidgetRenderer
-        parameterName={pName}
-        parameterType={
-          (settings.parameterType as ParameterType | undefined) ?? "select"
-        }
+        parameterName={settings.parameterName}
+        parameterType={settings.parameterType as ParameterType}
         connectionId={connectionId}
-        seedQuery={settings.seedQuery as string | undefined}
-        parentParameterName={settings.parentParameterName as string | undefined}
-        rangeMin={(settings.rangeMin as number | undefined) ?? 0}
-        rangeMax={(settings.rangeMax as number | undefined) ?? 100}
-        rangeStep={(settings.rangeStep as number | undefined) ?? 1}
-        placeholder={(settings.placeholder as string | undefined) || undefined}
-        searchable={(settings.searchable as boolean | undefined) ?? true}
+        seedQuery={settings.seedQuery}
+        parentParameterName={settings.parentParameterName}
+        rangeMin={settings.rangeMin}
+        rangeMax={settings.rangeMax}
+        rangeStep={settings.rangeStep}
+        placeholder={settings.placeholder || undefined}
+        searchable={settings.searchable}
         widgetId={widgetId}
       />
     </div>
@@ -57,6 +56,7 @@ export const parameterSelectPlugin = defineChartPlugin({
   transform: transformToSelectData,
   transformWithMapping: transformToSelectData,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: parameterSelectSettingsSchema,
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,

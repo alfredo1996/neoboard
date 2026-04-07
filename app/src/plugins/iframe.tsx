@@ -7,13 +7,15 @@
 import { IframeWidget } from "@neoboard/components";
 import { defineChartPlugin } from "./registry";
 import { type PluginProps } from "./utils";
+import { iframeSettingsSchema } from "./settings/iframe";
 
-function IframePluginComponent({ settings }: PluginProps) {
+function IframePluginComponent({ settings: raw }: PluginProps) {
+  const settings = iframeSettingsSchema.parse(raw);
   return (
     <IframeWidget
-      url={settings.url as string | undefined}
-      title={settings.iframeTitle as string | undefined}
-      sandbox={settings.sandbox as string | undefined}
+      url={settings.url}
+      title={settings.iframeTitle}
+      sandbox={settings.sandbox}
     />
   );
 }
@@ -24,6 +26,7 @@ export const iframePlugin = defineChartPlugin({
   component: IframePluginComponent,
   transform: () => null,
   compatibleWith: ["neo4j", "postgresql"],
+  settingsSchema: iframeSettingsSchema,
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,

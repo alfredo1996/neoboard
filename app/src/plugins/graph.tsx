@@ -14,6 +14,7 @@ import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper"
 import { defineChartPlugin } from "./registry";
 import { transformToGraphData, validateGraphData } from "./transforms/graph";
 import { type PluginProps } from "./utils";
+import { graphSettingsSchema } from "./settings/graph";
 
 // NVL (WebGL) is heavy — lazy load so it's only bundled when a graph widget renders.
 const GraphChart = dynamic(
@@ -23,7 +24,7 @@ const GraphChart = dynamic(
 
 function GraphPluginComponent({
   data,
-  settings,
+  settings: raw,
   stylingRules,
   paramValues,
   onChartClick,
@@ -32,6 +33,7 @@ function GraphPluginComponent({
   resultId,
   autoFit,
 }: PluginProps) {
+  const settings = graphSettingsSchema.parse(raw);
   const graphData = (data ?? { nodes: [], edges: [] }) as {
     nodes: GraphNode[];
     edges: GraphEdge[];
@@ -43,7 +45,7 @@ function GraphPluginComponent({
         nodes={graphData.nodes ?? []}
         edges={graphData.edges ?? []}
         connectionId={connectionId}
-        settings={settings}
+        settings={raw}
         onChartClick={onChartClick}
         resultId={resultId}
         autoFit={autoFit}
@@ -54,8 +56,8 @@ function GraphPluginComponent({
     <GraphChart
       nodes={graphData.nodes ?? []}
       edges={graphData.edges ?? []}
-      layout={settings.layout as "force" | "circular" | undefined}
-      showLabels={settings.showLabels as boolean | undefined}
+      layout={settings.layout}
+      showLabels={settings.showLabels}
       onNodeSelect={
         onChartClick
           ? (ids) => {
@@ -78,6 +80,7 @@ export const graphPlugin = defineChartPlugin({
   transformWithMapping: transformToGraphData,
   validate: validateGraphData,
   compatibleWith: ["neo4j"],
+  settingsSchema: graphSettingsSchema,
   stylingTargets: [{ value: "color", label: "Node Color" }],
   capabilities: {
     supportsClickAction: true,
