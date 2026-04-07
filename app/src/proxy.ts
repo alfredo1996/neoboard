@@ -3,14 +3,14 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /** Paths that use prefix matching (sub-routes allowed) */
-const publicPrefixes = ["/api/auth/"];
+const publicPrefixes = ["/api/auth/", "/api/openapi"];
 
 /** Paths that require exact match */
 const publicExact = new Set([
   "/login",
   "/signup",
+  "/change-password",
   "/api/docs",
-  "/api/openapi.json",
 ]);
 
 export async function proxy(req: NextRequest) {
