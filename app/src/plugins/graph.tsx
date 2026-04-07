@@ -12,7 +12,7 @@ import { Skeleton } from "@neoboard/components";
 import type { GraphNode, GraphEdge, StylingRule } from "@neoboard/components";
 import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper";
 import { defineChartPlugin } from "./registry";
-import { chartRegistry } from "@/lib/chart-registry";
+import { transformToGraphData, validateGraphData } from "./transforms/graph";
 import { type PluginProps } from "./utils";
 
 // NVL (WebGL) is heavy — lazy load so it's only bundled when a graph widget renders.
@@ -74,9 +74,9 @@ export const graphPlugin = defineChartPlugin({
   type: "graph",
   label: "Graph",
   component: GraphPluginComponent,
-  transform: chartRegistry.graph.transform,
-  transformWithMapping: chartRegistry.graph.transformWithMapping,
-  validate: chartRegistry.graph.validate,
+  transform: transformToGraphData,
+  transformWithMapping: transformToGraphData,
+  validate: validateGraphData,
   compatibleWith: ["neo4j"],
   stylingTargets: [{ value: "color", label: "Node Color" }],
   capabilities: {
