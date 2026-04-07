@@ -7,7 +7,16 @@ export const parameterSelectSettingsSchema = z
   .object({
     parameterName: z.string().optional(),
     parameterType: z
-      .enum(["select", "text", "date", "number-range", "multi-select"])
+      .enum([
+        "select",
+        "text",
+        "date",
+        "date-range",
+        "date-relative",
+        "number-range",
+        "multi-select",
+        "cascading-select",
+      ])
       .default("select"),
     seedQuery: z.string().optional(),
     parentParameterName: z.string().optional(),
