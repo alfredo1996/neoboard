@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "dev": "npm -w app run dev",
-    "build": "npm -w app run build",
+    "build": "npm -w connection run build && npm -w app run build",
     "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
     "test:app": "npm -w app run test",
     "test:components": "npm -w component run test",

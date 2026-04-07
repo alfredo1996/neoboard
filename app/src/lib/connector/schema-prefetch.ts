@@ -1,6 +1,10 @@
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { ensureDatabaseInUri } from "@/lib/query/query-params";
+import {
+  Neo4jSchemaManager,
+  PostgresSchemaManager,
+} from "@neoboard/connection";
 
 /**
  * Builds the auth configuration object for schema manager calls.
@@ -19,10 +23,6 @@ export function buildAuthConfig(credentials: ConnectionCredentials) {
  * Fetch the database schema for a given connection.
  * Used both by the schema API route and as a fire-and-forget prefetch
  * after connection create/update.
- *
- * The connection package modules are required lazily (inside the function)
- * so that this module can be imported in test environments without needing
- * the compiled connection package to be available at module load time.
  */
 export async function fetchConnectionSchema(
   type: ConnectorType,
@@ -31,23 +31,9 @@ export async function fetchConnectionSchema(
   const authConfig = buildAuthConfig(credentials);
 
   if (type === "neo4j") {
-    const { Neo4jSchemaManager } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("@neoboard/connection/src/schema/neo4j-schema") as {
-        Neo4jSchemaManager: new () => {
-          fetchSchema: (a: typeof authConfig) => Promise<unknown>;
-        };
-      };
     const manager = new Neo4jSchemaManager();
     return manager.fetchSchema(authConfig);
   } else {
-    const { PostgresSchemaManager } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("@neoboard/connection/src/schema/pg-schema") as {
-        PostgresSchemaManager: new () => {
-          fetchSchema: (a: typeof authConfig) => Promise<unknown>;
-        };
-      };
     const manager = new PostgresSchemaManager();
     return manager.fetchSchema(authConfig);
   }

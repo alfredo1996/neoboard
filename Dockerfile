@@ -29,6 +29,8 @@ COPY --from=deps /app/app/node_modules ./app/node_modules
 # Copy all source
 COPY . .
 
+# Build connection package (TypeScript → JS+d.ts) before app
+RUN npm -w connection run build
 RUN cd app && npm run build
 
 # ---- runner: minimal production image ----

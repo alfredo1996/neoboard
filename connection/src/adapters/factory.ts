@@ -1,8 +1,13 @@
-import { Neo4jConnectionModule } from '../neo4j/Neo4jConnectionModule';
-import { PostgresConnectionModule } from '../postgresql/PostgresConnectionModule';
-import { ConnectionTypes } from '../ConnectionModuleConfig';
-import { AuthConfig, AdvancedConnectionOptions } from '../generalized/interfaces';
-import { ConnectionModule } from '../generalized/ConnectionModule';
+import { Neo4jConnectionModule } from "../neo4j/Neo4jConnectionModule";
+import { PostgresConnectionModule } from "../postgresql/PostgresConnectionModule";
+import { ConnectionTypes } from "../ConnectionModuleConfig";
+import type {
+  AuthConfig,
+  AdvancedConnectionOptions,
+  Neo4jAdvancedOptions,
+  PostgresAdvancedOptions,
+} from "../generalized/interfaces";
+import { ConnectionModule } from "../generalized/ConnectionModule";
 
 /**
  * Factory function to create the appropriate connection module based on database type.
@@ -15,14 +20,20 @@ import { ConnectionModule } from '../generalized/ConnectionModule';
 export function createConnectionModule(
   type: ConnectionTypes,
   authConfig: AuthConfig,
-  advancedOptions?: AdvancedConnectionOptions
+  advancedOptions?: AdvancedConnectionOptions,
 ): ConnectionModule {
   switch (type) {
     case ConnectionTypes.NEO4J:
-      return new Neo4jConnectionModule(authConfig, advancedOptions);
+      return new Neo4jConnectionModule(
+        authConfig,
+        advancedOptions as Neo4jAdvancedOptions | undefined,
+      );
 
     case ConnectionTypes.POSTGRESQL:
-      return new PostgresConnectionModule(authConfig, advancedOptions);
+      return new PostgresConnectionModule(
+        authConfig,
+        advancedOptions as PostgresAdvancedOptions | undefined,
+      );
 
     default:
       throw new Error(`Unsupported connection type: ${type}`);
