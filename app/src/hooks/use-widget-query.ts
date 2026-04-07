@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { unwrapFullResponse } from "@/lib/api-client";
+import { unwrapFullResponse } from "@/lib/api/api-client";
 import { useParameterStore } from "@/stores/parameter-store";
-import { resolveRelativePreset } from "@/lib/date-utils";
+import { resolveRelativePreset } from "@/lib/shared/date-utils";
 import type { RelativeDatePreset } from "@neoboard/components";
 
 interface WidgetQueryInput {
@@ -34,7 +34,7 @@ interface QueryResult {
  */
 export function allReferencedParamsReady(
   query: string,
-  allParams: Record<string, unknown>
+  allParams: Record<string, unknown>,
 ): boolean {
   const regex = /\$param_(\w+)/g;
   let match;
@@ -62,7 +62,7 @@ export function allReferencedParamsReady(
  */
 export function getMissingParamNames(
   query: string,
-  allParams: Record<string, unknown>
+  allParams: Record<string, unknown>,
 ): string[] {
   const regex = /\$param_(\w+)/g;
   const missing: string[] = [];
@@ -93,7 +93,7 @@ export function getMissingParamNames(
  */
 export function extractReferencedParams(
   query: string,
-  allParams: Record<string, unknown>
+  allParams: Record<string, unknown>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const regex = /\$param_(\w+)/g;
@@ -133,7 +133,7 @@ export function useWidgetQuery(
      * Defaults to true (query enabled as usual).
      */
     enabled?: boolean;
-  }
+  },
 ) {
   // Get parameters from store - using selector that returns stable value
   const parameters = useParameterStore((s) => s.parameters);
@@ -149,7 +149,9 @@ export function useWidgetQuery(
     // refers to today's date, not the date when the preset was clicked.
     for (const [name, entry] of Object.entries(parameters)) {
       if (entry.type === "date-relative" && entry.value) {
-        const { from, to } = resolveRelativePreset(entry.value as RelativeDatePreset);
+        const { from, to } = resolveRelativePreset(
+          entry.value as RelativeDatePreset,
+        );
         result[`${name}_from`] = from;
         result[`${name}_to`] = to;
       }
@@ -197,7 +199,7 @@ export function useWidgetQuery(
       if (process.env.NODE_ENV === "development") {
         const roundTripMs = Math.round(performance.now() - fetchStart);
         console.debug(
-          `[widget-query] roundTrip=${roundTripMs}ms server=${result.serverDurationMs ?? "?"}ms query=${mergedInput?.query?.slice(0, 80)}`
+          `[widget-query] roundTrip=${roundTripMs}ms server=${result.serverDurationMs ?? "?"}ms query=${mergedInput?.query?.slice(0, 80)}`,
         );
       }
       return result;

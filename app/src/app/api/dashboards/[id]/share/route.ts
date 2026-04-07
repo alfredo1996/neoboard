@@ -3,8 +3,13 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { validateBody, notFound, badRequest, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+import {
+  validateBody,
+  notFound,
+  badRequest,
+  handleRouteError,
+} from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 const shareSchema = z.object({
   email: z.string().email(),
@@ -19,13 +24,15 @@ async function requireShareAccess(
   dashboardId: string,
   userId: string,
   isAdmin: boolean,
-  tenantId: string
+  tenantId: string,
 ) {
   if (isAdmin) {
     const [dashboard] = await db
       .select()
       .from(dashboards)
-      .where(and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)))
+      .where(
+        and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)),
+      )
       .limit(1);
     return dashboard ?? null;
   }
@@ -37,8 +44,8 @@ async function requireShareAccess(
       and(
         eq(dashboards.id, dashboardId),
         eq(dashboards.userId, userId),
-        eq(dashboards.tenantId, tenantId)
-      )
+        eq(dashboards.tenantId, tenantId),
+      ),
     )
     .limit(1);
 
@@ -47,13 +54,18 @@ async function requireShareAccess(
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
 
-    const dashboard = await requireShareAccess(id, userId, role === "admin", tenantId);
+    const dashboard = await requireShareAccess(
+      id,
+      userId,
+      role === "admin",
+      tenantId,
+    );
     if (!dashboard) {
       return notFound();
     }
@@ -72,7 +84,7 @@ export async function GET(
         and(
           eq(dashboardShares.dashboardId, id),
           eq(dashboardShares.tenantId, tenantId),
-        )
+        ),
       );
 
     return apiSuccess(shares);
@@ -83,13 +95,18 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
 
-    const dashboard = await requireShareAccess(id, userId, role === "admin", tenantId);
+    const dashboard = await requireShareAccess(
+      id,
+      userId,
+      role === "admin",
+      tenantId,
+    );
     if (!dashboard) {
       return notFound();
     }
@@ -120,8 +137,8 @@ export async function POST(
       .where(
         and(
           eq(dashboardShares.dashboardId, id),
-          eq(dashboardShares.userId, targetUser.id)
-        )
+          eq(dashboardShares.userId, targetUser.id),
+        ),
       )
       .limit(1);
 
@@ -147,13 +164,18 @@ export async function POST(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
 
-    const dashboard = await requireShareAccess(id, userId, role === "admin", tenantId);
+    const dashboard = await requireShareAccess(
+      id,
+      userId,
+      role === "admin",
+      tenantId,
+    );
     if (!dashboard) {
       return notFound();
     }
@@ -171,8 +193,8 @@ export async function DELETE(
         and(
           eq(dashboardShares.id, shareId),
           eq(dashboardShares.dashboardId, id),
-          eq(dashboardShares.tenantId, tenantId)
-        )
+          eq(dashboardShares.tenantId, tenantId),
+        ),
       );
 
     return apiSuccess({ success: true });

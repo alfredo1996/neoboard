@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { unwrapFullResponse } from "@/lib/api-client";
+import { unwrapFullResponse } from "@/lib/api/api-client";
 
 interface WriteQueryInput {
   connectionId: string;

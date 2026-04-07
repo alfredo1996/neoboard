@@ -14,7 +14,7 @@ import {
 } from "@neoboard/components";
 import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
-import { parseGroupByColumns } from "@/lib/table-utils";
+import { parseGroupByColumns } from "@/lib/widget/table-utils";
 
 const AGG_SYMBOLS: Record<string, string> = {
   sum: "Σ",

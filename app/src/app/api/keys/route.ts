@@ -4,8 +4,8 @@ import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { generateApiKey } from "@/lib/auth/api-key";
-import { validateBody, forbidden, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 const createKeySchema = z.object({
   name: z.string().min(1, "Name is required"),

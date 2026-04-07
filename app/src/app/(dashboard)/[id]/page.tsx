@@ -19,14 +19,14 @@ import {
 } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
-import { filterParentParams } from "@/lib/format-parameter-value";
-import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
-import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
-import { parseUrlParams, buildUrlParams } from "@/lib/url-params";
+import { filterParentParams } from "@/lib/parameter/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { PageTabs } from "@/components/page-tabs";
-import { migrateLayout } from "@/lib/migrate-layout";
-import { getRefetchInterval } from "@/lib/dashboard-settings";
+import { migrateLayout } from "@/lib/dashboard/migrate-layout";
+import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { useCountdown } from "@/hooks/use-countdown";
 import type { DashboardSettings } from "@/lib/db/schema";
 import {

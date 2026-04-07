@@ -90,21 +90,21 @@ vi.mock("@/components/card-container", () => ({
   CardContainer: () => <div data-testid="card-container" />,
 }));
 
-vi.mock("@/lib/interpolate-title", () => ({
+vi.mock("@/lib/widget/interpolate-title", () => ({
   interpolateTitle: (title: string) => title,
 }));
 
-vi.mock("@/lib/card-utils", () => ({
+vi.mock("@/lib/widget/card-utils", () => ({
   buildExportData: () => [],
 }));
 
-vi.mock("@/lib/widget-utils", () => ({
+vi.mock("@/lib/widget/widget-utils", () => ({
   getWidgetDisplayTitle: (w: DashboardWidget) =>
     (w.settings?.title as string) || w.chartType,
   isWidgetTemplateOutdated: () => false,
 }));
 
-vi.mock("@/lib/widget-actions", () => ({
+vi.mock("@/lib/widget/widget-actions", () => ({
   isDataWidget: () => true,
 }));
 
@@ -118,12 +118,12 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
-vi.mock("@/lib/format-parameter-value", () => ({
+vi.mock("@/lib/parameter/format-parameter-value", () => ({
   formatParameterValue: (v: unknown) => String(v),
   filterParentParams: (entries: [string, unknown][]) => entries,
 }));
 
-vi.mock("@/lib/resolve-cache-options", () => ({
+vi.mock("@/lib/query/resolve-cache-options", () => ({
   shouldShowRefreshButton: () => false,
 }));
 

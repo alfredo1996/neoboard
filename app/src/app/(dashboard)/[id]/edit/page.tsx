@@ -20,9 +20,9 @@ import {
 import { useConnections } from "@/hooks/use-connections";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
-import { filterParentParams } from "@/lib/format-parameter-value";
-import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
-import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
+import { filterParentParams } from "@/lib/parameter/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -30,14 +30,14 @@ import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
-import type { ConnectorType } from "@/lib/connector-types";
-import { migrateLayout } from "@/lib/migrate-layout";
+import type { ConnectorType } from "@/lib/connector/connector-types";
+import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import type {
   DashboardWidget,
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import { captureDashboardThumbnails } from "@/lib/capture-dashboard-thumbnails";
+import { captureDashboardThumbnails } from "@/lib/dashboard/capture-dashboard-thumbnails";
 import {
   Button,
   Skeleton,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import SPEC from "@/lib/openapi-spec";
+import SPEC from "@/lib/api/openapi-spec";
 
 export const dynamic = "force-static";
 

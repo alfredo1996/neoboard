@@ -3,12 +3,17 @@ import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { decryptJson } from "@/lib/crypto";
-import { executeQuery } from "@/lib/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
-import { computeResultId } from "@/lib/query-hash";
-import { validateBody, forbidden, notFound, serverError } from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+import { decryptJson } from "@/lib/crypto/crypto";
+import { executeQuery } from "@/lib/query/query-executor";
+import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import { computeResultId } from "@/lib/query/query-hash";
+import {
+  validateBody,
+  forbidden,
+  notFound,
+  serverError,
+} from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 /** Maximum number of rows returned per query execution to prevent OOM. */
 const MAX_ROWS = 10_000;
@@ -28,7 +33,12 @@ export async function POST(request: Request) {
     const validation = validateBody(querySchema, body);
     if (!validation.success) return validation.response;
 
-    const { connectionId, query, params, tenantId: bodyTenantId } = validation.data;
+    const {
+      connectionId,
+      query,
+      params,
+      tenantId: bodyTenantId,
+    } = validation.data;
 
     // Defense-in-depth: if the caller explicitly passes a tenantId,
     // assert it matches the session to catch misconfigured clients early.
@@ -41,7 +51,7 @@ export async function POST(request: Request) {
       .select()
       .from(connections)
       .where(
-        and(eq(connections.id, connectionId), eq(connections.userId, userId))
+        and(eq(connections.id, connectionId), eq(connections.userId, userId)),
       )
       .limit(1);
 
@@ -50,7 +60,12 @@ export async function POST(request: Request) {
       [connection] = await db
         .select()
         .from(connections)
-        .where(and(eq(connections.id, connectionId), eq(connections.tenantId, sessionTenantId)))
+        .where(
+          and(
+            eq(connections.id, connectionId),
+            eq(connections.tenantId, sessionTenantId),
+          ),
+        )
         .limit(1);
     }
 
@@ -60,13 +75,18 @@ export async function POST(request: Request) {
       const hasAccess = await userHasDashboardAccessToConnection(
         userId,
         connectionId,
-        sessionTenantId
+        sessionTenantId,
       );
       if (hasAccess) {
         [connection] = await db
           .select()
           .from(connections)
-          .where(and(eq(connections.id, connectionId), eq(connections.tenantId, sessionTenantId)))
+          .where(
+            and(
+              eq(connections.id, connectionId),
+              eq(connections.tenantId, sessionTenantId),
+            ),
+          )
           .limit(1);
       }
     }
@@ -76,15 +96,14 @@ export async function POST(request: Request) {
     }
 
     const credentials = decryptJson<ConnectionCredentials>(
-      connection.configEncrypted
+      connection.configEncrypted,
     );
 
     const queryStart = performance.now();
-    const result = await executeQuery(
-      connection.type as DbType,
-      credentials,
-      { query, params },
-    );
+    const result = await executeQuery(connection.type as DbType, credentials, {
+      query,
+      params,
+    });
     const serverDurationMs = Math.round(performance.now() - queryStart);
 
     // Deterministic query hash: same connection + normalized query + params
@@ -99,13 +118,15 @@ export async function POST(request: Request) {
     // large result sets. See CodeRabbit review on PR #75.
     const rawData = result.data;
     const truncated = Array.isArray(rawData) && rawData.length > MAX_ROWS;
-    const truncatedData = truncated ? (rawData as unknown[]).slice(0, MAX_ROWS) : rawData;
+    const truncatedData = truncated
+      ? (rawData as unknown[]).slice(0, MAX_ROWS)
+      : rawData;
 
-    return apiSuccess(
-      { ...result, data: truncatedData },
-      200,
-      { resultId, serverDurationMs, ...(truncated ? { truncated: true } : {}) },
-    );
+    return apiSuccess({ ...result, data: truncatedData }, 200, {
+      resultId,
+      serverDurationMs,
+      ...(truncated ? { truncated: true } : {}),
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Query execution failed";
@@ -121,7 +142,7 @@ export async function POST(request: Request) {
 async function userHasDashboardAccessToConnection(
   userId: string,
   connectionId: string,
-  tenantId: string
+  tenantId: string,
 ): Promise<boolean> {
   const [result] = await db
     .select({ id: dashboards.id })
@@ -131,8 +152,8 @@ async function userHasDashboardAccessToConnection(
       and(
         eq(dashboardShares.dashboardId, dashboards.id),
         eq(dashboardShares.userId, userId),
-        eq(dashboardShares.tenantId, tenantId)
-      )
+        eq(dashboardShares.tenantId, tenantId),
+      ),
     )
     .where(
       and(
@@ -140,14 +161,14 @@ async function userHasDashboardAccessToConnection(
         or(
           eq(dashboards.userId, userId),
           sql`${dashboardShares.id} IS NOT NULL`,
-          eq(dashboards.isPublic, true)
+          eq(dashboards.isPublic, true),
         ),
         sql`EXISTS (
           SELECT 1 FROM jsonb_array_elements(${dashboards.layoutJson}->'pages') AS page,
           jsonb_array_elements(page->'widgets') AS widget
           WHERE widget->>'connectionId' = ${connectionId}
-        )`
-      )
+        )`,
+      ),
     )
     .limit(1);
   return !!result;

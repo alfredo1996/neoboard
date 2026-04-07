@@ -24,9 +24,9 @@ import {
 import { useParameterValues } from "@/stores/parameter-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
-import { buildFormParams } from "@/lib/form-field-def";
-import type { FormFieldDef } from "@/lib/form-field-def";
-import { validateFieldValue } from "@/lib/form-field-validation";
+import { buildFormParams } from "@/lib/widget/form-field-def";
+import type { FormFieldDef } from "@/lib/widget/form-field-def";
+import { validateFieldValue } from "@/lib/widget/form-field-validation";
 import { DebouncedTextInput } from "./debounced-text-input";
 
 export interface FormWidgetRendererProps {

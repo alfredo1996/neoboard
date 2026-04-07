@@ -8,14 +8,14 @@ import type {
   StylingConfig,
 } from "@/lib/db/schema";
 import type { ColorScaleConfig } from "@neoboard/components/charts";
-import type { FormFieldDef } from "@/lib/form-field-def";
+import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import {
   chartSupportsClickAction,
   chartSupportsStyling,
   getChartDefaults,
-} from "@/lib/chart-helpers";
-import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
-import type { Transform } from "@/lib/data-transforms";
+} from "@/lib/plugin/chart-helpers";
+import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
+import type { Transform } from "@/lib/query/data-transforms";
 
 // ParamUIType/DateSubType are string unions — define locally to avoid importing
 // the React component file (which pulls in @neoboard/components UI barrel).

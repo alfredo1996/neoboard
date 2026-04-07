@@ -9,7 +9,7 @@
 import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { StylingRule } from "@neoboard/components";
-import { normalizeValue } from "@/lib/normalize-value";
+import { normalizeValue } from "@/lib/shared/normalize-value";
 import { defineChartPlugin } from "./registry";
 import {
   transformToValueData,

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { unwrapFullResponse } from "@/lib/api-client";
+import { unwrapFullResponse } from "@/lib/api/api-client";
 import type { ParamSelectorOption } from "@neoboard/components";
 
 interface SeedQueryData {

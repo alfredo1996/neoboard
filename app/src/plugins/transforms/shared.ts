@@ -5,7 +5,7 @@
  * only what it needs, without coupling to a monolithic registry.
  */
 
-import { normalizeValue } from "@/lib/normalize-value";
+import { normalizeValue } from "@/lib/shared/normalize-value";
 import type { ColumnMapping } from "@neoboard/components";
 
 export type { ColumnMapping };

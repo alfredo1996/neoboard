@@ -40,7 +40,7 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
-vi.mock("@/lib/chart-helpers", () => ({
+vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => {
     if (type === "bar" || type === "markdown") {
       return {
@@ -62,11 +62,11 @@ vi.mock("@/lib/chart-helpers", () => ({
   supportsColumnMapping: () => false,
 }));
 
-vi.mock("@/lib/resolve-cache-options", () => ({
+vi.mock("@/lib/query/resolve-cache-options", () => ({
   resolveCacheOptions: () => ({ staleTime: 0, gcTime: 0 }),
 }));
 
-vi.mock("@/lib/scroll-to-widget", () => ({
+vi.mock("@/lib/widget/scroll-to-widget", () => ({
   scrollAndHighlight: () => false,
 }));
 
@@ -111,11 +111,11 @@ vi.mock("@neoboard/components", () => ({
   ),
 }));
 
-vi.mock("@/lib/data-transforms", () => ({
+vi.mock("@/lib/query/data-transforms", () => ({
   applyTransforms: (data: unknown) => data,
 }));
 
-vi.mock("@/lib/card-utils", () => ({
+vi.mock("@/lib/widget/card-utils", () => ({
   extractColumnNames: () => [],
   resolveStylingConfig: () => undefined,
 }));

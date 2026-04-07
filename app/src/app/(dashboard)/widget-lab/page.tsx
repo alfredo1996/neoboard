@@ -18,7 +18,7 @@ import {
   useCreateWidgetTemplate,
 } from "@/hooks/use-widget-templates";
 import { useConnections } from "@/hooks/use-connections";
-import { getChartConfig } from "@/lib/chart-helpers";
+import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
   PageHeader,
@@ -45,7 +45,7 @@ import {
   CONNECTOR_TYPES,
   CONNECTOR_LABELS,
   CONNECTOR_LANGUAGES,
-} from "@/lib/connector-types";
+} from "@/lib/connector/connector-types";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({

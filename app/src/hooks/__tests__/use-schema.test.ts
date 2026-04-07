@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { DatabaseSchema } from "@/lib/schema-types";
+import type { DatabaseSchema } from "@/lib/connector/schema-types";
 import { useSchemaStore } from "@/stores/schema-store";
 import { createRefreshSchema, useConnectionSchema } from "@/hooks/use-schema";
 

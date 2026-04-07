@@ -2,20 +2,23 @@
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useClickAction } from "@/hooks/use-click-action";
-import { resolveCacheOptions } from "@/lib/resolve-cache-options";
+import { resolveCacheOptions } from "@/lib/query/resolve-cache-options";
 import {
   getChartConfig,
   supportsColumnMapping as chartSupportsColumnMapping,
-} from "@/lib/chart-helpers";
-import type { ColumnMapping } from "@/lib/chart-helpers";
+} from "@/lib/plugin/chart-helpers";
+import type { ColumnMapping } from "@/lib/plugin/chart-helpers";
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
-import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
+import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
-import { scrollAndHighlight } from "@/lib/scroll-to-widget";
-import { applyTransforms } from "@/lib/data-transforms";
-import type { Transform } from "@/lib/data-transforms";
-import { extractColumnNames, resolveStylingConfig } from "@/lib/card-utils";
+import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
+import { applyTransforms } from "@/lib/query/data-transforms";
+import type { Transform } from "@/lib/query/data-transforms";
+import {
+  extractColumnNames,
+  resolveStylingConfig,
+} from "@/lib/widget/card-utils";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -71,7 +74,7 @@ interface CardContainerProps {
   parameterSourceMap?: ParameterSourceMap;
 }
 
-// extractColumnNames imported from @/lib/card-utils
+// extractColumnNames imported from @/lib/widget/card-utils
 
 /**
  * Renders a parameter badge in the "Waiting for parameters" section.
