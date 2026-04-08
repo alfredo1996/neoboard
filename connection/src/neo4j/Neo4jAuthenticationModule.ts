@@ -75,4 +75,13 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
         this._advancedOptions?.neo4jAcquisitionTimeout,
     });
   }
+
+  /**
+   * Close the driver and release all connections.
+   */
+  async close(): Promise<void> {
+    if (this.driver) {
+      await this.driver.close();
+    }
+  }
 }

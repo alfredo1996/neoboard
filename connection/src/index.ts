@@ -1,6 +1,6 @@
 export { DEFAULT_CONNECTION_CONFIG } from "./generalized/interfaces";
 export type { AccessMode } from "./generalized/interfaces";
-export { createConnectionModule } from "./adapters/factory";
+export { createConnectionModule } from "./connector-registry";
 export { ConnectionTypes } from "./ConnectionModuleConfig";
 
 /// Types

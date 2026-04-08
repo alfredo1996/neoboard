@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json || true",
+    "build": "tsc -p tsconfig.build.json || echo 'WARN: type errors exist (neo4j-driver-core upstream); output emitted via noEmitOnError:false'",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },

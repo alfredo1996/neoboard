@@ -1,4 +1,3 @@
-import { ConnectionTypes } from "../src/ConnectionModuleConfig";
 import { AuthType } from "../src/generalized/interfaces";
 import type {
   AdvancedConnectionOptions,
@@ -221,15 +220,11 @@ describe("createConnectionModule with advanced options", () => {
   });
 
   it("forwards advanced options to Neo4j module", () => {
-    const { createConnectionModule } = require("../src/adapters/factory");
+    const { createConnectionModule } = require("../src/connector-registry");
     const advancedOptions: Neo4jAdvancedOptions = {
       neo4jConnectionTimeout: 15000,
     };
-    const module = createConnectionModule(
-      ConnectionTypes.NEO4J,
-      neo4jAuth,
-      advancedOptions,
-    );
+    const module = createConnectionModule("neo4j", neo4jAuth, advancedOptions);
     expect(module).toBeDefined();
 
     expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
@@ -240,12 +235,12 @@ describe("createConnectionModule with advanced options", () => {
   });
 
   it("forwards advanced options to PostgreSQL module", () => {
-    const { createConnectionModule } = require("../src/adapters/factory");
+    const { createConnectionModule } = require("../src/connector-registry");
     const advancedOptions: PostgresAdvancedOptions = {
       pgMaxPoolSize: 30,
     };
     const module = createConnectionModule(
-      ConnectionTypes.POSTGRESQL,
+      "postgresql",
       pgAuth,
       advancedOptions,
     );
@@ -258,8 +253,8 @@ describe("createConnectionModule with advanced options", () => {
   });
 
   it("works without advanced options (backward compatible)", () => {
-    const { createConnectionModule } = require("../src/adapters/factory");
-    const module = createConnectionModule(ConnectionTypes.NEO4J, neo4jAuth);
+    const { createConnectionModule } = require("../src/connector-registry");
+    const module = createConnectionModule("neo4j", neo4jAuth);
     expect(module).toBeDefined();
   });
 });
