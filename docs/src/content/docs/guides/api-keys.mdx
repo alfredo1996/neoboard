@@ -1,0 +1,111 @@
+---
+title: API Key Authentication
+description: Use API keys to access NeoBoard programmatically.
+---
+
+API keys let you access NeoBoard's REST API without a browser session. They are useful for scripts, CI/CD pipelines, and integrations.
+
+## Creating an API Key
+
+1. Navigate to **Settings > API Keys** in the sidebar
+2. Click **Create API Key**
+3. Enter a **name** (e.g., "CI Pipeline") and optional **expiration date**
+4. Click **Create**
+5. **Copy the key immediately** -- it is shown only once and cannot be retrieved later
+
+The key starts with `nb_` followed by a random string.
+
+## Using an API Key
+
+Include the key in the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer nb_your_key_here" \
+  https://your-neoboard.example.com/api/dashboards
+```
+
+**JavaScript / fetch:**
+
+```javascript
+const response = await fetch("https://your-neoboard.example.com/api/dashboards", {
+  headers: {
+    Authorization: "Bearer nb_your_key_here",
+  },
+});
+const data = await response.json();
+```
+
+**Python / requests:**
+
+```python
+import requests
+
+response = requests.get(
+    "https://your-neoboard.example.com/api/dashboards",
+    headers={"Authorization": "Bearer nb_your_key_here"},
+)
+data = response.json()
+```
+
+## Available Endpoints
+
+All data endpoints support API key authentication (38 of 45 total endpoints). The only exceptions are:
+
+| Endpoint | Reason |
+|----------|--------|
+| `/api/auth/*` | Session-only (NextAuth handlers) |
+| `/api/auth/bootstrap-status` | Public (no auth required) |
+| `/api/docs` | Public (documentation page) |
+| `/api/openapi`, `/api/openapi.json` | Public (API specification) |
+
+### Common Operations
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List dashboards | `GET` | `/api/dashboards` |
+| Get dashboard | `GET` | `/api/dashboards/:id` |
+| Create dashboard | `POST` | `/api/dashboards` |
+| Export dashboard | `GET` | `/api/dashboards/:id/export` |
+| Import dashboard | `POST` | `/api/dashboards/import` |
+| Execute query | `POST` | `/api/query` |
+| Execute write query | `POST` | `/api/query/write` |
+| List connections | `GET` | `/api/connections` |
+| Test connection | `POST` | `/api/connections/:id/test` |
+| Fetch schema | `GET` | `/api/connections/:id/schema` |
+| List users (admin) | `GET` | `/api/users` |
+| Create user (admin) | `POST` | `/api/users` |
+
+For the full API specification, visit `/api/docs` or `/api/openapi.json` on your NeoBoard instance.
+
+## Key Management
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List your API keys | `GET` | `/api/keys` |
+| Create a new key | `POST` | `/api/keys` |
+| Revoke a key | `DELETE` | `/api/keys/:id` |
+
+### Expiration
+
+Keys can have an optional expiration date. Expired keys return `401 Unauthorized`. The `lastUsedAt` field is updated on each use for audit purposes.
+
+## Error Responses
+
+Unauthenticated requests return:
+
+```json
+{ "error": "Unauthorized" }
+```
+
+With HTTP status `401`. Ensure your key is:
+- Correctly prefixed with `nb_`
+- Not expired
+- Not revoked
+- Included in the `Authorization` header (not query params)
+
+## Security Notes
+
+- API keys are hashed with HMAC-SHA256 before storage. NeoBoard never stores the plain-text key.
+- Keys inherit the permissions of the user who created them (role, tenantId, canWrite).
+- Revoked keys are immediately invalid.
+- Use short expiration dates for temporary access.
