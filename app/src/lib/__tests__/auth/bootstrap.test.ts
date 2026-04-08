@@ -58,10 +58,19 @@ describe("bootstrapAdmin", () => {
     bootstrapAdmin = mod.bootstrapAdmin;
   });
 
-  it("throws when password is shorter than 6 characters", async () => {
+  it("throws when password does not meet policy", async () => {
+    // Too short
     await expect(
-      bootstrapAdmin({ email: "admin@example.com", password: "12345" }),
-    ).rejects.toThrow("BOOTSTRAP_ADMIN_PASSWORD must be at least 6 characters");
+      bootstrapAdmin({ email: "admin@example.com", password: "abc1" }),
+    ).rejects.toThrow("at least 8 characters");
+    // No number
+    await expect(
+      bootstrapAdmin({ email: "admin@example.com", password: "abcdefgh" }),
+    ).rejects.toThrow("at least one letter and one number");
+    // No letter
+    await expect(
+      bootstrapAdmin({ email: "admin@example.com", password: "12345678" }),
+    ).rejects.toThrow("at least one letter and one number");
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
