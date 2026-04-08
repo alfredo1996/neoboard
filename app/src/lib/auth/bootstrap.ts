@@ -31,11 +31,13 @@ export async function bootstrapAdmin({
 
       const passwordHash = await bcrypt.hash(password, 12);
 
+      const tenantId = process.env.TENANT_ID ?? "default";
       await tx.insert(users).values({
         name: "Admin",
         email,
         passwordHash,
         role: "admin",
+        tenantId,
       });
 
       console.info("[bootstrap] Created initial admin user");

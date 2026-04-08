@@ -7,6 +7,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "@auth/core/adapters";
 
@@ -14,24 +15,31 @@ import type { AdapterAccountType } from "@auth/core/adapters";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "creator", "reader"]);
 
-export const users = pgTable("user", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name"),
-  email: text("email").unique(),
-  emailVerified: timestamp("emailVerified", { mode: "date" }),
-  image: text("image"),
-  passwordHash: text("passwordHash"),
-  role: userRoleEnum("role").default("creator").notNull(),
-  canWrite: boolean("can_write").notNull().default(true),
-  forcePasswordChange: boolean("force_password_change")
-    .notNull()
-    .default(false),
-  disabledAt: timestamp("disabledAt", { mode: "date" }),
-  lastLoginAt: timestamp("lastLoginAt", { mode: "date" }),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-});
+export const users = pgTable(
+  "user",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name"),
+    email: text("email").notNull(),
+    emailVerified: timestamp("emailVerified", { mode: "date" }),
+    image: text("image"),
+    passwordHash: text("passwordHash"),
+    role: userRoleEnum("role").default("creator").notNull(),
+    canWrite: boolean("can_write").notNull().default(true),
+    forcePasswordChange: boolean("force_password_change")
+      .notNull()
+      .default(false),
+    disabledAt: timestamp("disabledAt", { mode: "date" }),
+    lastLoginAt: timestamp("lastLoginAt", { mode: "date" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+    tenantId: text("tenant_id").notNull().default("default"),
+  },
+  (table) => [
+    unique("user_email_tenant_unique").on(table.email, table.tenantId),
+  ],
+);
 
 export const accounts = pgTable(
   "account",

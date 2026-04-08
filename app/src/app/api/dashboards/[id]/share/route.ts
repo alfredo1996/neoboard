@@ -115,11 +115,13 @@ export async function POST(
     const result = validateBody(shareSchema, body);
     if (!result.success) return result.response;
 
-    // Find user by email
+    // Find user by email within same tenant
     const [targetUser] = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.email, result.data.email))
+      .where(
+        and(eq(users.email, result.data.email), eq(users.tenantId, tenantId)),
+      )
       .limit(1);
 
     if (!targetUser) {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
@@ -33,7 +33,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireAdmin();
+    const { tenantId } = await requireAdmin();
     const { id } = await params;
 
     const [user] = await db
@@ -48,7 +48,7 @@ export async function GET(
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .limit(1);
 
     if (!user) {
@@ -66,7 +66,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, canWrite } = await requireAdmin();
+    const { userId, canWrite, tenantId } = await requireAdmin();
     if (!canWrite) return forbidden();
     const { id } = await params;
 
@@ -92,7 +92,7 @@ export async function PATCH(
     const [updated] = await db
       .update(users)
       .set(updateFields)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .returning({
         id: users.id,
         name: users.name,
@@ -119,7 +119,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, canWrite } = await requireAdmin();
+    const { userId, canWrite, tenantId } = await requireAdmin();
     if (!canWrite) return forbidden();
     const { id } = await params;
 
@@ -129,7 +129,7 @@ export async function DELETE(
 
     const deleted = await db
       .delete(users)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .returning({ id: users.id });
 
     if (!deleted.length) {
