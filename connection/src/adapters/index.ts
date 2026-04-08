@@ -1,1 +1,1 @@
-export { createConnectionModule } from './factory';
+export { createConnectionModule } from "../connector-registry";

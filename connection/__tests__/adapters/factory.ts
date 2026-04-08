@@ -1,38 +1,36 @@
-import { createConnectionModule } from '../../src/adapters/factory';
-import { ConnectionTypes } from '../../src/ConnectionModuleConfig';
-import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { PostgresConnectionModule } from '../../src/postgresql/PostgresConnectionModule';
-import { AuthType } from '../../src/generalized/interfaces';
+import { createConnectionModule } from "../../src/connector-registry";
+import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
+import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
+import { AuthType } from "../../src/generalized/interfaces";
 
-describe('Connection Module Factory', () => {
+describe("Connection Module Factory (via registry)", () => {
   const neo4jAuthConfig = {
-    username: 'test',
-    password: 'test',
+    username: "test",
+    password: "test",
     authType: AuthType.NATIVE,
-    uri: 'bolt://localhost:7687',
+    uri: "bolt://localhost:7687",
   };
 
   const pgAuthConfig = {
-    username: 'test',
-    password: 'test',
+    username: "test",
+    password: "test",
     authType: AuthType.NATIVE,
-    uri: 'postgresql://localhost:5432/testdb',
+    uri: "postgresql://localhost:5432/testdb",
   };
 
-  test('should create Neo4j connection module', () => {
-    const module = createConnectionModule(ConnectionTypes.NEO4J, neo4jAuthConfig);
+  test("should create Neo4j connection module", () => {
+    const module = createConnectionModule("neo4j", neo4jAuthConfig);
     expect(module).toBeInstanceOf(Neo4jConnectionModule);
   });
 
-  test('should create PostgreSQL connection module', () => {
-    const module = createConnectionModule(ConnectionTypes.POSTGRESQL, pgAuthConfig);
+  test("should create PostgreSQL connection module", () => {
+    const module = createConnectionModule("postgresql", pgAuthConfig);
     expect(module).toBeInstanceOf(PostgresConnectionModule);
   });
 
-  test('should throw for unsupported connection type', () => {
+  test("should throw for unsupported connection type", () => {
     expect(() => {
-      // Force an unsupported type to test the error path
-      createConnectionModule(999 as unknown as ConnectionTypes, neo4jAuthConfig);
-    }).toThrow('Unsupported connection type');
+      createConnectionModule("unsupported", neo4jAuthConfig);
+    }).toThrow('Unknown connector type: "unsupported"');
   });
 });

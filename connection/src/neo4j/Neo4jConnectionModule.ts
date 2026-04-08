@@ -39,6 +39,13 @@ export class Neo4jConnectionModule extends ConnectionModule {
   }
 
   /**
+   * Close the underlying driver and release all pooled connections.
+   */
+  async close(): Promise<void> {
+    await this.authModule.close();
+  }
+
+  /**
    * Executes a Cypher query in a managed transaction (read or write mode).
    * Supports success and failure callbacks.
    *
