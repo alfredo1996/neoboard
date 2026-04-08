@@ -16,8 +16,14 @@ export async function bootstrapAdmin({
   email: string;
   password: string;
 }) {
-  if (password.length < 6) {
-    throw new Error("BOOTSTRAP_ADMIN_PASSWORD must be at least 6 characters");
+  if (
+    password.length < 8 ||
+    !/[a-zA-Z]/.test(password) ||
+    !/[0-9]/.test(password)
+  ) {
+    throw new Error(
+      "BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters with at least one letter and one number",
+    );
   }
 
   await db.transaction(
