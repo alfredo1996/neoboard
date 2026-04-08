@@ -243,13 +243,47 @@ describe("applyTransforms", () => {
       expect(result[0].monthly).toBe(10000);
     });
 
-    it("returns null for division by zero", () => {
+    it("returns Infinity for division by zero", () => {
       const data = [{ a: 10, b: 0 }];
       const transforms: Transform[] = [
         { type: "calculatedColumn", name: "result", expression: "a / b" },
       ];
       const result = applyTransforms(data, transforms);
-      expect(result[0].result).toBeNull();
+      expect(result[0].result).toBe(Infinity);
+    });
+
+    it("respects operator precedence: * before +", () => {
+      const data = [{ a: 2, b: 3, c: 4 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "result", expression: "a + b * c" },
+      ];
+      const result = applyTransforms(data, transforms);
+      // 2 + (3 * 4) = 14, NOT (2 + 3) * 4 = 20
+      expect(result[0].result).toBe(14);
+    });
+
+    it("respects operator precedence: / before -", () => {
+      const data = [{ a: 10, b: 6, c: 2 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "result", expression: "a - b / c" },
+      ];
+      const result = applyTransforms(data, transforms);
+      // 10 - (6 / 2) = 7, NOT (10 - 6) / 2 = 2
+      expect(result[0].result).toBe(7);
+    });
+
+    it("handles mixed precedence: a + b * c - d / e", () => {
+      const data = [{ a: 1, b: 2, c: 3, d: 8, e: 4 }];
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "result",
+          expression: "a + b * c - d / e",
+        },
+      ];
+      const result = applyTransforms(data, transforms);
+      // 1 + (2*3) - (8/4) = 1 + 6 - 2 = 5
+      expect(result[0].result).toBe(5);
     });
 
     it("returns null for invalid expression", () => {

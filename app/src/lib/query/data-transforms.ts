@@ -261,32 +261,40 @@ function safeEvaluateExpression(
     return Number.isNaN(num) ? null : num;
   }
 
-  // Evaluate left-to-right (no operator precedence for simplicity)
-  let result = resolveToken(tokens[0]);
-  if (result === null) return null;
+  // Two-pass evaluation with standard operator precedence:
+  // Pass 1: resolve * and / into intermediate values
+  // Pass 2: resolve + and -
+  const values: (number | null)[] = [resolveToken(tokens[0])];
+  const ops: string[] = [];
 
   for (let i = 1; i < tokens.length; i += 2) {
     const op = tokens[i];
     const right = resolveToken(tokens[i + 1]);
-    if (right === null) return null;
+    if (right === null || values[values.length - 1] === null) return null;
 
-    switch (op) {
-      case "+":
-        result += right;
-        break;
-      case "-":
-        result -= right;
-        break;
-      case "*":
-        result *= right;
-        break;
-      case "/":
-        result = right !== 0 ? result / right : null;
-        break;
-      default:
-        return null;
+    if (op === "*" || op === "/") {
+      const left = values[values.length - 1]!;
+      if (op === "*") {
+        values[values.length - 1] = left * right;
+      } else {
+        values[values.length - 1] = right !== 0 ? left / right : Infinity;
+      }
+    } else if (op === "+" || op === "-") {
+      values.push(right);
+      ops.push(op);
+    } else {
+      return null;
     }
-    if (result === null) return null;
+  }
+
+  // Pass 2: evaluate + and - left-to-right
+  let result = values[0];
+  if (result === null) return null;
+
+  for (let i = 0; i < ops.length; i++) {
+    const right = values[i + 1];
+    if (right === null) return null;
+    result = ops[i] === "+" ? result! + right : result! - right;
   }
 
   return result;
