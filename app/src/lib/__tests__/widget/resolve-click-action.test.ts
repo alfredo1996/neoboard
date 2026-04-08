@@ -572,7 +572,7 @@ describe("resolveClickActions", () => {
     expect(result).toBeNull();
   });
 
-  it("uses first rule for chart clicks (non-table)", () => {
+  it("executes ALL rules for chart clicks (non-table), merging parameters", () => {
     const widget = makeWidget({
       settings: {
         title: "Sales",
@@ -604,12 +604,20 @@ describe("resolveClickActions", () => {
       value: 100,
     });
     expect(result).toEqual({
-      setParameter: {
-        parameterName: "category",
-        value: "Electronics",
-        label: "Sales",
-        sourceField: "name",
-      },
+      setParameters: [
+        {
+          parameterName: "category",
+          value: "Electronics",
+          label: "Sales",
+          sourceField: "name",
+        },
+        {
+          parameterName: "other",
+          value: 100,
+          label: "Sales",
+          sourceField: "value",
+        },
+      ],
     });
   });
 

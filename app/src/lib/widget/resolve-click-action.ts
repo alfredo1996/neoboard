@@ -20,6 +20,13 @@ export interface ClickActionResult {
     label: string;
     sourceField: string;
   };
+  /** Multiple parameter settings from multi-rule resolution. */
+  setParameters?: Array<{
+    parameterName: string;
+    value: unknown;
+    label: string;
+    sourceField: string;
+  }>;
   navigateToPageId?: string;
 }
 
@@ -157,8 +164,22 @@ export function resolveClickActions(
     return resolveRuleAction(rule, point, widget);
   }
 
-  // For chart clicks (bar/line/pie/graph/map), use the first rule
-  return resolveRuleAction(rules[0], point, widget);
+  // For chart clicks (bar/line/pie/graph/map), execute ALL rules and merge results
+  const merged: ClickActionResult = {};
+  const params: ClickActionResult["setParameters"] = [];
+
+  for (const rule of rules) {
+    const ruleResult = resolveRuleAction(rule, point, widget);
+    if (!ruleResult) continue;
+    if (ruleResult.setParameter) params.push(ruleResult.setParameter);
+    if (ruleResult.navigateToPageId)
+      merged.navigateToPageId = ruleResult.navigateToPageId;
+  }
+
+  if (params.length === 1) merged.setParameter = params[0];
+  if (params.length > 1) merged.setParameters = params;
+
+  return Object.keys(merged).length > 0 ? merged : null;
 }
 
 /**
