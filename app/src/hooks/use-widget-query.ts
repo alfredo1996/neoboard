@@ -180,6 +180,7 @@ export function useWidgetQuery(
       mergedInput?.connectionId,
       mergedInput?.query,
       mergedInput?.params,
+      options?.staleTime ?? 0,
     ],
     queryFn: async () => {
       const fetchStart = performance.now();
