@@ -10,6 +10,7 @@ export const mapSettingsSchema = z
     minZoom: z.coerce.number().optional(),
     maxZoom: z.coerce.number().optional(),
     autoFitBounds: z.boolean().default(true),
+    clusterMarkers: z.boolean().default(false),
   })
   .passthrough();
 

@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { cn } from "@/lib/utils";
 import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
 import type { StylingRule } from "./styling-rule";
@@ -35,6 +38,8 @@ export interface MapChartProps {
   fitBoundsPadding?: [number, number];
   /** Default marker radius in pixels (used when marker has no value) */
   markerSize?: number;
+  /** Group nearby markers into clusters that expand on click/zoom */
+  clusterMarkers?: boolean;
   /** Show popup when marker is clicked */
   showPopup?: boolean;
   loading?: boolean;
@@ -121,6 +126,7 @@ function MapChart({
   autoFitBounds = false,
   fitBoundsPadding = [20, 20],
   markerSize = 6,
+  clusterMarkers = false,
   showPopup = true,
   loading = false,
   error = null,
@@ -154,7 +160,9 @@ function MapChart({
       map,
     );
     tileLayerRef.current = tl;
-    markersLayerRef.current = L.layerGroup().addTo(map);
+    markersLayerRef.current = (
+      clusterMarkers ? L.markerClusterGroup() : L.layerGroup()
+    ).addTo(map);
     mapRef.current = map;
 
     const ro = new ResizeObserver(() => {
@@ -194,11 +202,17 @@ function MapChart({
 
   // Update markers
   useEffect(() => {
-    const layer = markersLayerRef.current;
     const map = mapRef.current;
-    if (!layer) return;
+    if (!map) return;
 
-    layer.clearLayers();
+    // Swap layer type if clusterMarkers changed
+    if (markersLayerRef.current) {
+      map.removeLayer(markersLayerRef.current);
+    }
+    const layer = (
+      clusterMarkers ? L.markerClusterGroup() : L.layerGroup()
+    ).addTo(map);
+    markersLayerRef.current = layer;
 
     markers.forEach((m) => {
       // Rule-based color: evaluate against marker.value
@@ -250,6 +264,7 @@ function MapChart({
     autoFitBounds,
     fitBoundsPadding,
     markerSize,
+    clusterMarkers,
     showPopup,
     stylingRules,
     paramValues,
