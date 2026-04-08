@@ -55,6 +55,18 @@ interface ParameterState {
     sourceType?: ParameterSource,
     sourceWidgetId?: string,
   ) => void;
+  /** Atomically set multiple parameters in a single state update (no intermediate renders). */
+  setParametersBatch: (
+    entries: Array<{
+      name: string;
+      value: unknown;
+      source: string;
+      field: string;
+      type?: ParameterType;
+      sourceType?: ParameterSource;
+      sourceWidgetId?: string;
+    }>,
+  ) => void;
   clearParameter: (name: string) => void;
   clearAll: () => void;
   /** Save current parameters to localStorage for the given dashboard. */
@@ -81,20 +93,61 @@ function coerceValue(
         if (!Number.isNaN(n)) return { ok: true, value: n };
         return { ok: false, reason: `Cannot coerce "${value}" to number` };
       }
-      return { ok: true, value };
+      // Validate array shape: must be [number, number]
+      if (Array.isArray(value)) {
+        if (value.length !== 2)
+          return { ok: false, reason: "number-range must be [min, max]" };
+        const min = Number(value[0]);
+        const max = Number(value[1]);
+        if (Number.isNaN(min) || Number.isNaN(max))
+          return { ok: false, reason: "number-range values must be numeric" };
+        return { ok: true, value: [min, max] };
+      }
+      return {
+        ok: false,
+        reason: `Invalid number-range value: ${typeof value}`,
+      };
     }
     case "date":
-    case "date-range":
     case "date-relative": {
-      // Accept strings (ISO dates) and Date objects
-      if (typeof value === "string" || value instanceof Date)
-        return { ok: true, value };
+      if (typeof value === "string") return { ok: true, value };
+      if (value instanceof Date)
+        return { ok: true, value: value.toISOString() };
       if (typeof value === "number")
         return { ok: true, value: new Date(value).toISOString() };
-      return { ok: true, value };
+      return {
+        ok: false,
+        reason: `Invalid ${type} value: expected string or Date`,
+      };
+    }
+    case "date-range": {
+      if (typeof value === "string") return { ok: true, value };
+      // Validate object shape: must have from and to as strings
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "from" in value &&
+        "to" in value
+      ) {
+        const obj = value as { from: unknown; to: unknown };
+        if (typeof obj.from === "string" && typeof obj.to === "string")
+          return { ok: true, value };
+        return { ok: false, reason: "date-range from/to must be strings" };
+      }
+      return {
+        ok: false,
+        reason: "Invalid date-range value: expected {from, to} or string",
+      };
+    }
+    case "multi-select": {
+      if (Array.isArray(value)) return { ok: true, value };
+      // Accept scalar as single-element array
+      if (typeof value === "string" || typeof value === "number")
+        return { ok: true, value: [value] };
+      return { ok: false, reason: "multi-select value must be an array" };
     }
     default:
-      // text, select, multi-select, cascading-select — accept as-is
+      // text, select, cascading-select — accept as-is
       return { ok: true, value };
   }
 }
@@ -132,6 +185,31 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
         },
       },
     }));
+  },
+
+  setParametersBatch: (entries) => {
+    set((state) => {
+      const next = { ...state.parameters };
+      for (const entry of entries) {
+        const result = coerceValue(entry.value, entry.type ?? "text");
+        if (!result.ok) {
+          console.warn(
+            `[parameter-store] Type mismatch for "${entry.name}" (${entry.type}):`,
+            result.reason,
+          );
+          continue;
+        }
+        next[entry.name] = {
+          value: result.value,
+          source: entry.source,
+          field: entry.field,
+          type: entry.type ?? "text",
+          sourceType: entry.sourceType ?? "click-action",
+          sourceWidgetId: entry.sourceWidgetId,
+        };
+      }
+      return { parameters: next };
+    });
   },
 
   clearParameter: (name) =>
