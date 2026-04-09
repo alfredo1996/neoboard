@@ -327,7 +327,7 @@ describe("widget settings validation — misplaced chartOptions", () => {
               chartType: "pie",
               connectionId: "c1",
               query: "q",
-              settings: { title: "Bad", colorPalette: "neon" },
+              settings: { title: "Bad", colorPalette: "tableau" },
             },
           ],
           gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
@@ -382,7 +382,7 @@ describe("widget settings validation — misplaced chartOptions", () => {
               query: "q",
               settings: {
                 title: "Good",
-                chartOptions: { colorPalette: "neon" },
+                chartOptions: { colorPalette: "tableau" },
               },
             },
           ],
