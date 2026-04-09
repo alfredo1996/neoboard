@@ -1997,30 +1997,28 @@ test.describe("Parameter bar filter toggle", () => {
     await expect(firstCell).toBeVisible({ timeout: 15_000 });
     await firstCell.click();
 
-    // Parameter bar is hidden by default — filter button should show count badge
-    const showBtn = page.getByRole("button", { name: "Show parameters" });
-    await expect(showBtn).toBeVisible({ timeout: 10_000 });
-
-    // Click filter button to show the parameter bar
-    await showBtn.click();
-
-    // Parameter bar should now be visible with "Reset" button
+    // Parameter bar auto-shows when first parameter is set
     await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({
       timeout: 10_000,
     });
 
-    // Filter button should now say "Hide parameters"
+    // Filter button should say "Hide parameters" (bar is visible)
     const hideBtn = page.getByRole("button", { name: "Hide parameters" });
     await expect(hideBtn).toBeVisible();
 
-    // Click to hide the parameter bar again
+    // Click to hide the parameter bar
     await hideBtn.click();
 
     // Parameter bar "Reset" button should be hidden
     await expect(page.getByRole("button", { name: "Reset" })).not.toBeVisible();
 
-    // Show button visible again
+    // Filter button should now say "Show parameters"
+    const showBtn = page.getByRole("button", { name: "Show parameters" });
     await expect(showBtn).toBeVisible();
+
+    // Click to show again
+    await showBtn.click();
+    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   });
 });
 
