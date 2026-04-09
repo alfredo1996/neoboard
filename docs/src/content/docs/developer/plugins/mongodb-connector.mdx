@@ -29,6 +29,7 @@ import type { AuthConfig, QueryParams, QueryCallback } from "../generalized/inte
 import { MongoClient } from "mongodb";
 
 export class MongoConnectionModule extends ConnectionModule {
+  authModule = null as any; // Satisfies abstract property; MongoDB uses client directly
   private client: MongoClient;
 
   constructor(authConfig: AuthConfig) {
@@ -56,9 +57,9 @@ export class MongoConnectionModule extends ConnectionModule {
         return { _id: _id.toString(), ...rest };
       });
 
-      callbacks.onSuccess(rows as T);
+      callbacks.onSuccess?.(rows as T);
     } catch (error) {
-      callbacks.onFail(error);
+      callbacks.onFail?.(error);
     }
   }
 
