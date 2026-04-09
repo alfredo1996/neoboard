@@ -72,13 +72,19 @@ export class RateLimiter {
   }
 }
 
-/** Shared rate limiter instances for auth endpoints. */
+/**
+ * Shared rate limiter instances for auth endpoints.
+ * In test/E2E environments, limits are relaxed to avoid false failures
+ * from rapid sequential logins across test cases.
+ */
+const isTest = process.env.NODE_ENV === "test" || process.env.CI === "true";
+
 export const loginRateLimiter = new RateLimiter({
-  maxAttempts: 20,
+  maxAttempts: isTest ? 1000 : 20,
   windowMs: 60_000,
 });
 
 export const signupRateLimiter = new RateLimiter({
-  maxAttempts: 10,
+  maxAttempts: isTest ? 100 : 10,
   windowMs: 60_000,
 });
