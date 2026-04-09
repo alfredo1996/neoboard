@@ -132,13 +132,9 @@ export default function DashboardViewerPage({
     [parameters],
   );
   const hasParameters = parameterCount > 0;
-  // Start hidden; auto-show once user has set at least one parameter.
-  // Manual toggle overrides via setShowParameterBar.
-  const [showParameterBar, setShowParameterBar] = useState(false);
-  const [userToggledBar, setUserToggledBar] = useState(false);
-
-  // Auto-show when params appear, unless user explicitly toggled
-  const effectiveShowBar = userToggledBar ? showParameterBar : hasParameters;
+  // null = auto mode (show when params exist), boolean = user override
+  const [barOverride, setBarOverride] = useState<boolean | null>(null);
+  const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
   const [templateWidget, setTemplateWidget] = useState<
     DashboardWidget | undefined
   >();
@@ -329,10 +325,9 @@ export default function DashboardViewerPage({
             variant="ghost"
             size="sm"
             disabled={!hasParameters}
-            onClick={() => {
-              setUserToggledBar(true);
-              setShowParameterBar((prev) => !prev);
-            }}
+            onClick={() =>
+              setBarOverride((prev) => !(prev ?? effectiveShowBar))
+            }
             aria-label={
               effectiveShowBar ? "Hide parameters" : "Show parameters"
             }
