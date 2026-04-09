@@ -95,7 +95,6 @@ function SunburstChart({
             fontSize: 11,
           },
           // Hide labels for segments with arc angle below 5 degrees
-          nodeClick: "rootToNode",
           minAngle: 5,
           emphasis: highlightOnHover
             ? {
