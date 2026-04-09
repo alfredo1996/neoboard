@@ -1,0 +1,1 @@
+export { jsonPlugin } from "./component";

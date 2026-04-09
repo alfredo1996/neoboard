@@ -10,23 +10,23 @@
 
 import { describe, it, expect } from "vitest";
 import { ZodError } from "zod";
-import { barSettingsSchema } from "../bar";
-import { lineSettingsSchema } from "../line";
-import { pieSettingsSchema } from "../pie";
-import { gaugeSettingsSchema } from "../gauge";
-import { radarSettingsSchema } from "../radar";
-import { sankeySettingsSchema } from "../sankey";
-import { sunburstSettingsSchema } from "../sunburst";
-import { treemapSettingsSchema } from "../treemap";
-import { singleValueSettingsSchema } from "../single-value";
-import { tableSettingsSchema } from "../table";
-import { jsonSettingsSchema } from "../json";
-import { graphSettingsSchema } from "../graph";
-import { mapSettingsSchema } from "../map";
-import { markdownSettingsSchema } from "../markdown";
-import { iframeSettingsSchema } from "../iframe";
-import { formSettingsSchema } from "../form";
-import { parameterSelectSettingsSchema } from "../parameter-select";
+import { barSettingsSchema } from "../../bar/settings";
+import { lineSettingsSchema } from "../../line/settings";
+import { pieSettingsSchema } from "../../pie/settings";
+import { gaugeSettingsSchema } from "../../gauge/settings";
+import { radarSettingsSchema } from "../../radar/settings";
+import { sankeySettingsSchema } from "../../sankey/settings";
+import { sunburstSettingsSchema } from "../../sunburst/settings";
+import { treemapSettingsSchema } from "../../treemap/settings";
+import { singleValueSettingsSchema } from "../../single-value/settings";
+import { tableSettingsSchema } from "../../table/settings";
+import { jsonSettingsSchema } from "../../json/settings";
+import { graphSettingsSchema } from "../../graph/settings";
+import { mapSettingsSchema } from "../../map/settings";
+import { markdownSettingsSchema } from "../../markdown/settings";
+import { iframeSettingsSchema } from "../../iframe/settings";
+import { formSettingsSchema } from "../../form/settings";
+import { parameterSelectSettingsSchema } from "../../parameter-select/settings";
 
 // ---------------------------------------------------------------------------
 // Helper: all schemas in one place for shared tests

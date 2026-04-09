@@ -1,0 +1,1 @@
+export { tablePlugin } from "./component";

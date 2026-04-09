@@ -1,0 +1,1 @@
+export { radarPlugin } from "./component";

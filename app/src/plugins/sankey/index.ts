@@ -1,0 +1,1 @@
+export { sankeyPlugin } from "./component";

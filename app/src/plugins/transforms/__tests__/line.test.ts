@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transformToLineData, validateLineData } from "../line";
+import { transformToLineData, validateLineData } from "../../line/transform";
 
 describe("transformToLineData", () => {
   it("converts records to line data with x axis", () => {

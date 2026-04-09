@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toRecords, resolveLabelKey, resolveValueKeys } from "../shared";
+import { toRecords, resolveLabelKey, resolveValueKeys } from "../shared-utils";
 
 describe("toRecords", () => {
   it("returns array data unchanged", () => {

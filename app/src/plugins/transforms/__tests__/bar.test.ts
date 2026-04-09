@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transformToBarData, validateBarData } from "../bar";
+import { transformToBarData, validateBarData } from "../../bar/transform";
 
 describe("transformToBarData", () => {
   it("converts array of records to bar data", () => {
