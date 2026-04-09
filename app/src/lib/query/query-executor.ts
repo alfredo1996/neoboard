@@ -23,7 +23,8 @@ export interface ConnectionCredentials {
 
 export type DbType = ConnectorType;
 
-function toConnectionType(type: DbType): number {
+/** Numeric type for connection module config (legacy enum). */
+function toConnectionTypeEnum(type: DbType): number {
   return type === "neo4j" ? ConnectionTypes.NEO4J : ConnectionTypes.POSTGRESQL;
 }
 
@@ -65,7 +66,6 @@ function getOrCreateModule(
   const key = getCacheKey(type, credentials);
   let connModule = moduleCache.get(key);
   if (!connModule) {
-    const connectionType = toConnectionType(type);
     const authConfig = {
       uri: ensureDatabaseInUri(credentials.uri, credentials.database),
       username: credentials.username,
@@ -74,7 +74,7 @@ function getOrCreateModule(
     };
     const advancedOptions = buildAdvancedOptions(credentials);
     connModule = createConnectionModule(
-      connectionType,
+      type, // string type for registry lookup
       authConfig,
       advancedOptions,
     );
@@ -102,7 +102,7 @@ export async function executeQuery(
 
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,
-    connectionType: toConnectionType(type),
+    connectionType: toConnectionTypeEnum(type),
     database: credentials.database,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
     ...(credentials.queryTimeout ? { timeout: credentials.queryTimeout } : {}),
@@ -151,7 +151,7 @@ export async function testConnection(
 
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,
-    connectionType: toConnectionType(type),
+    connectionType: toConnectionTypeEnum(type),
     database: credentials.database,
   };
 

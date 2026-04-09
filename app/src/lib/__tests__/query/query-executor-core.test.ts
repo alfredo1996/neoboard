@@ -66,7 +66,7 @@ describe("query-executor", () => {
       query: "RETURN 1 AS n",
     });
     expect(mockCreateConnectionModule).toHaveBeenCalledWith(
-      1, // NEO4J
+      "neo4j", // string type for registry
       expect.objectContaining({ uri: neo4jCreds.uri, username: "neo4j" }),
       expect.any(Object),
     );
@@ -98,7 +98,7 @@ describe("query-executor", () => {
 
     await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
     expect(mockCreateConnectionModule).toHaveBeenCalledWith(
-      2, // POSTGRESQL
+      "postgresql", // string type for registry
       expect.anything(),
       expect.anything(),
     );
@@ -122,7 +122,7 @@ describe("query-executor", () => {
     );
 
     await executeQuery(
-      "neo4j",
+      "neo4j", // string type for registry
       neo4jCreds,
       { query: "CREATE (n)" },
       { accessMode: "WRITE" },
@@ -242,7 +242,7 @@ describe("query-executor", () => {
 
     await executeQuery("neo4j", creds, { query: "RETURN 1" });
     expect(mockCreateConnectionModule).toHaveBeenCalledWith(
-      1,
+      "neo4j", // string type for registry
       expect.anything(),
       expect.objectContaining({
         neo4jConnectionTimeout: 5000,
@@ -283,7 +283,7 @@ describe("query-executor", () => {
 
     await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
     await executeQuery(
-      "neo4j",
+      "neo4j", // string type for registry
       { ...neo4jCreds, uri: "bolt://other:7687" },
       { query: "RETURN 2" },
     );
