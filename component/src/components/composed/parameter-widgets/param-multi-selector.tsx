@@ -81,7 +81,10 @@ function ParamMultiSelector({
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center justify-between">
-        <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
           {parameterName}
         </Label>
         {values.length > 0 && (
@@ -113,7 +116,11 @@ function ParamMultiSelector({
                 </span>
               )}
               {selectedOptions.slice(0, maxDisplay).map((opt) => (
-                <Badge key={opt.value} variant="secondary" className="text-xs py-0">
+                <Badge
+                  key={opt.value}
+                  variant="secondary"
+                  className="text-xs py-0"
+                >
                   {opt.label}
                   <button
                     type="button"
@@ -135,10 +142,12 @@ function ParamMultiSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-          <Command shouldFilter={searchable ? false : undefined}>
+          <Command>
             <CommandInput
               placeholder="Search…"
-              onValueChange={searchable ? (term) => onSearch?.(term) : undefined}
+              onValueChange={
+                searchable ? (term) => onSearch?.(term) : undefined
+              }
             />
             <CommandList>
               <CommandEmpty>No options found.</CommandEmpty>
@@ -154,10 +163,12 @@ function ParamMultiSelector({
                         "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary shrink-0",
                         values.includes(opt.value)
                           ? "bg-primary text-primary-foreground"
-                          : "opacity-50"
+                          : "opacity-50",
                       )}
                     >
-                      {values.includes(opt.value) && <Check className="h-3 w-3" />}
+                      {values.includes(opt.value) && (
+                        <Check className="h-3 w-3" />
+                      )}
                     </div>
                     {opt.label}
                   </CommandItem>
