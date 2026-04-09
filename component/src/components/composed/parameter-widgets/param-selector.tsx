@@ -79,7 +79,10 @@ function ParamSelector({
   if (searchable) {
     return (
       <div className={cn("space-y-1.5", className)}>
-        <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
           {parameterName}
         </Label>
         <div className="flex items-center gap-1">
@@ -92,12 +95,16 @@ function ParamSelector({
                 aria-labelledby={labelId}
                 className="flex-1 justify-between"
               >
-                {selectedLabel ?? <span className="text-muted-foreground font-normal">{placeholder}</span>}
+                {selectedLabel ?? (
+                  <span className="text-muted-foreground font-normal">
+                    {placeholder}
+                  </span>
+                )}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-              <Command shouldFilter={false}>
+              <Command>
                 <CommandInput
                   placeholder="Search…"
                   onValueChange={(term) => onSearch?.(term)}
@@ -117,7 +124,7 @@ function ParamSelector({
                         <div
                           className={cn(
                             "mr-2 flex h-4 w-4 items-center justify-center shrink-0",
-                            opt.value === value ? "opacity-100" : "opacity-0"
+                            opt.value === value ? "opacity-100" : "opacity-0",
                           )}
                         >
                           <Check className="h-3 w-3" />
@@ -150,7 +157,10 @@ function ParamSelector({
   // Default: standard radix Select
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Label
+        id={labelId}
+        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+      >
         {parameterName}
       </Label>
       <div className="flex items-center gap-1">
@@ -164,7 +174,11 @@ function ParamSelector({
           </SelectTrigger>
           <SelectContent>
             {!loading && options.length === 0 && (
-              <SelectItem value="__empty__" disabled className="text-muted-foreground text-sm">
+              <SelectItem
+                value="__empty__"
+                disabled
+                className="text-muted-foreground text-sm"
+              >
                 No options available
               </SelectItem>
             )}

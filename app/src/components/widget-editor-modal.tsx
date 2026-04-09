@@ -1038,6 +1038,7 @@ export function WidgetEditorModal({
       <DialogContent
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
+        onInteractOutside={() => onOpenChange(false)}
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />
