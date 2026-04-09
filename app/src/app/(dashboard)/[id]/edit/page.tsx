@@ -89,7 +89,7 @@ export default function DashboardEditorPage({
     [parameters],
   );
   const hasParameters = parameterCount > 0;
-  const [showParameterBar, setShowParameterBar] = useState(true);
+  const [showParameterBar, setShowParameterBar] = useState(false);
 
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -412,9 +412,12 @@ export default function DashboardEditorPage({
                 }
               >
                 <Filter className="mr-2 h-4 w-4" />
-                {!hasParameters || showParameterBar
-                  ? "Filters"
-                  : `Filters (${parameterCount})`}
+                Filters
+                {hasParameters && parameterCount > 0 && (
+                  <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                    {parameterCount}
+                  </span>
+                )}
               </Button>
               <ToolbarSeparator />
               <Button variant="outline" size="sm" onClick={openAddWidget}>
