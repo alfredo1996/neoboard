@@ -89,6 +89,6 @@ export const WithPalette: Story = {
   args: {
     data: stackedData,
     showLegend: true,
-    colorPalette: "warm-sunset",
+    colorPalette: "tableau",
   },
 };

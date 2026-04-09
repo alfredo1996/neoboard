@@ -9,86 +9,124 @@ export interface ColorPalette {
  * Predefined 10-color palettes for ECharts chart types.
  *
  * Each palette contains 10 colors ordered so that the first 5 provide
- * maximum visual contrast for the most common 2–5 series use case.
+ * maximum visual contrast for the most common 2-5 series use case.
+ *
+ * Palette sources:
+ * - Tableau 10: industry standard categorical palette (colorblind-safe)
+ * - Observable 10: perceptually uniform categorical palette
+ * - Sequential: single-hue blue gradient (good for heatmaps, gauges)
+ * - Diverging: blue-to-red through neutral (good for pos/neg values)
+ * - Warm / Cool: thematic palettes with good separation
+ * - Monochrome: neutral grey scale for professional contexts
  */
 export const COLOR_PALETTES: Record<string, ColorPalette> = {
   "deep-ocean": {
     label: "Deep Ocean (Default)",
     colors: DEEP_OCEAN_LIGHT,
   },
-  "warm-sunset": {
+  tableau: {
+    label: "Tableau 10",
+    colors: [
+      "#4e79a7", // Steel Blue
+      "#f28e2b", // Orange
+      "#e15759", // Red
+      "#76b7b2", // Teal
+      "#59a14f", // Green
+      "#edc948", // Yellow
+      "#b07aa1", // Purple
+      "#ff9da7", // Pink
+      "#9c755f", // Brown
+      "#bab0ac", // Grey
+    ],
+  },
+  observable: {
+    label: "Observable 10",
+    colors: [
+      "#4269d0", // Blue
+      "#efb118", // Yellow
+      "#ff725c", // Red-Orange
+      "#6cc5b0", // Teal
+      "#3ca951", // Green
+      "#ff8ab7", // Pink
+      "#a463f2", // Purple
+      "#97bbf5", // Light Blue
+      "#9c6b4e", // Brown
+      "#9498a0", // Grey
+    ],
+  },
+  sequential: {
+    label: "Sequential Blue",
+    colors: [
+      "#08306b", // Very Dark Blue
+      "#08519c", // Dark Blue
+      "#2171b5", // Medium-Dark Blue
+      "#4292c6", // Medium Blue
+      "#6baed6", // Medium-Light Blue
+      "#9ecae1", // Light Blue
+      "#c6dbef", // Very Light Blue
+      "#deebf7", // Near White Blue
+      "#f7fbff", // Almost White
+      "#023858", // Deep Navy
+    ],
+  },
+  diverging: {
+    label: "Diverging (Blue-Red)",
+    colors: [
+      "#2166ac", // Dark Blue
+      "#4393c3", // Blue
+      "#92c5de", // Light Blue
+      "#d1e5f0", // Very Light Blue
+      "#f7f7f7", // Neutral
+      "#fddbc7", // Very Light Red
+      "#f4a582", // Light Red
+      "#d6604d", // Red
+      "#b2182b", // Dark Red
+      "#67001f", // Very Dark Red
+    ],
+  },
+  warm: {
     label: "Warm Sunset",
     colors: [
-      "hsl(14, 90%, 55%)",   // 1  Tomato Red
-      "hsl(38, 95%, 52%)",   // 2  Amber
-      "hsl(55, 88%, 50%)",   // 3  Gold
-      "hsl(0, 80%, 60%)",    // 4  Coral
-      "hsl(25, 85%, 45%)",   // 5  Burnt Orange
-      "hsl(48, 90%, 60%)",   // 6  Yellow
-      "hsl(5, 75%, 70%)",    // 7  Salmon
-      "hsl(340, 70%, 55%)",  // 8  Raspberry
-      "hsl(30, 60%, 35%)",   // 9  Mahogany
-      "hsl(60, 70%, 70%)",   // 10 Light Yellow
+      "#d73027", // Red
+      "#f46d43", // Orange-Red
+      "#fdae61", // Orange
+      "#fee08b", // Light Orange
+      "#ffffbf", // Light Yellow
+      "#d9ef8b", // Yellow-Green
+      "#a6d96a", // Light Green
+      "#66bd63", // Green
+      "#1a9850", // Dark Green
+      "#006837", // Very Dark Green
     ],
   },
-  "cool-breeze": {
+  cool: {
     label: "Cool Breeze",
     colors: [
-      "hsl(199, 89%, 48%)",  // 1  Sky Blue
-      "hsl(160, 84%, 39%)",  // 2  Teal
-      "hsl(217, 91%, 60%)",  // 3  Blue
-      "hsl(142, 71%, 45%)",  // 4  Green
-      "hsl(185, 80%, 44%)",  // 5  Cyan
-      "hsl(240, 60%, 65%)",  // 6  Periwinkle
-      "hsl(172, 66%, 50%)",  // 7  Aquamarine
-      "hsl(210, 50%, 75%)",  // 8  Steel Blue
-      "hsl(130, 50%, 60%)",  // 9  Mint
-      "hsl(225, 70%, 45%)",  // 10 Royal Blue
+      "#313695", // Deep Blue
+      "#4575b4", // Blue
+      "#74add1", // Light Blue
+      "#abd9e9", // Pale Blue
+      "#e0f3f8", // Very Pale Blue
+      "#fee090", // Light Yellow
+      "#fdae61", // Orange
+      "#f46d43", // Red-Orange
+      "#d73027", // Red
+      "#a50026", // Dark Red
     ],
   },
-  "earth-tones": {
-    label: "Earth Tones",
-    colors: [
-      "hsl(25, 60%, 45%)",   // 1  Terra Cotta
-      "hsl(85, 40%, 40%)",   // 2  Olive Green
-      "hsl(35, 50%, 55%)",   // 3  Tan
-      "hsl(15, 55%, 35%)",   // 4  Burnt Sienna
-      "hsl(100, 35%, 50%)",  // 5  Sage
-      "hsl(45, 65%, 50%)",   // 6  Sand
-      "hsl(200, 30%, 40%)",  // 7  Slate
-      "hsl(60, 30%, 60%)",   // 8  Khaki
-      "hsl(10, 40%, 60%)",   // 9  Dusty Rose
-      "hsl(130, 25%, 45%)",  // 10 Forest
-    ],
-  },
-  "neon": {
-    label: "Neon",
-    colors: [
-      "hsl(320, 100%, 60%)", // 1  Neon Pink
-      "hsl(170, 100%, 45%)", // 2  Neon Cyan
-      "hsl(55, 100%, 55%)",  // 3  Neon Yellow
-      "hsl(280, 100%, 65%)", // 4  Neon Purple
-      "hsl(140, 100%, 45%)", // 5  Neon Green
-      "hsl(15, 100%, 60%)",  // 6  Neon Orange
-      "hsl(200, 100%, 55%)", // 7  Neon Blue
-      "hsl(350, 100%, 60%)", // 8  Neon Red
-      "hsl(90, 100%, 50%)",  // 9  Neon Lime
-      "hsl(240, 100%, 70%)", // 10 Neon Indigo
-    ],
-  },
-  "monochrome": {
+  monochrome: {
     label: "Monochrome",
     colors: [
-      "hsl(215, 35%, 20%)",  // 1  Very Dark Blue-Grey
-      "hsl(215, 30%, 32%)",  // 2  Dark Blue-Grey
-      "hsl(215, 25%, 44%)",  // 3  Medium-Dark Blue-Grey
-      "hsl(215, 22%, 55%)",  // 4  Medium Blue-Grey
-      "hsl(215, 20%, 65%)",  // 5  Medium-Light Blue-Grey
-      "hsl(215, 18%, 73%)",  // 6  Light Blue-Grey
-      "hsl(215, 15%, 80%)",  // 7  Very Light Blue-Grey
-      "hsl(215, 12%, 87%)",  // 8  Near White Blue-Grey
-      "hsl(215, 40%, 15%)",  // 9  Near Black Blue-Grey
-      "hsl(215, 10%, 93%)",  // 10 Almost White
+      "hsl(215, 35%, 18%)", // Near Black
+      "hsl(215, 30%, 28%)", // Very Dark
+      "hsl(215, 25%, 38%)", // Dark
+      "hsl(215, 22%, 48%)", // Medium-Dark
+      "hsl(215, 20%, 58%)", // Medium
+      "hsl(215, 18%, 67%)", // Medium-Light
+      "hsl(215, 15%, 76%)", // Light
+      "hsl(215, 12%, 84%)", // Very Light
+      "hsl(215, 10%, 91%)", // Near White
+      "hsl(215, 40%, 12%)", // Deepest
     ],
   },
 };
