@@ -1,0 +1,1 @@
+export { markdownPlugin } from "./component";

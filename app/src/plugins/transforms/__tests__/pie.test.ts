@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transformToPieData, validatePieData } from "../pie";
+import { transformToPieData, validatePieData } from "../../pie/transform";
 
 describe("transformToPieData", () => {
   it("converts records to {name, value} pairs", () => {

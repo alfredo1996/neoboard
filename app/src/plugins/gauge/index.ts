@@ -1,0 +1,1 @@
+export { gaugePlugin } from "./component";
