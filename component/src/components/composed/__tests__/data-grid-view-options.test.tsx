@@ -27,12 +27,12 @@ describe("DataGridViewOptions", () => {
             <DataGridViewOptions table={table} />
           </div>
         )}
-      />
+      />,
     );
     // Button accessible via sr-only span
-    const button = screen.getByRole("button", { name: /toggle columns/i });
+    const button = screen.getByRole("button", { name: /hide columns/i });
     expect(button).toBeInTheDocument();
-    expect(button).toHaveAttribute("title", "Toggle columns");
+    expect(button).toHaveAttribute("title", "Hide columns");
   });
 
   it("does not render visible 'View' label text", () => {
@@ -41,7 +41,7 @@ describe("DataGridViewOptions", () => {
         columns={columns}
         data={data}
         pagination={(table) => <DataGridViewOptions table={table} />}
-      />
+      />,
     );
     // The word "View" should not appear as visible text (only sr-only is acceptable)
     const buttons = screen.queryAllByRole("button", { name: /^view$/i });

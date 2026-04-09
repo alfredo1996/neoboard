@@ -180,7 +180,7 @@ export function DashboardContainer({
     if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {
       actions.push({
-        label: "Edit",
+        label: "Edit Widget",
         onClick: () => onEditWidget(widget),
       });
     }

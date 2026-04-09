@@ -137,7 +137,9 @@ test.describe("Widget editor", () => {
       await actionsBtn.click();
 
       // Should show Edit and Remove menu items
-      await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
+      await expect(
+        page.getByRole("menuitem", { name: "Edit Widget" }),
+      ).toBeVisible();
       await expect(
         page.getByRole("menuitem", { name: "Remove" }),
       ).toBeVisible();
