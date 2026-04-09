@@ -81,10 +81,14 @@ export function ChartTypeSelector({
   connections,
   showConnection,
 }: ChartTypeSelectorProps) {
-  const chartTypeOptions = compatibleChartTypes.map((type) => ({
-    value: type,
-    label: getChartTypeMeta(type).label,
-  }));
+  const chartTypeOptions = compatibleChartTypes.map((type) => {
+    const meta = getChartTypeMeta(type);
+    return {
+      value: type,
+      label: meta.label,
+      icon: meta.Icon,
+    };
+  });
 
   const chartTypeSelect = (
     <div className="space-y-1.5">

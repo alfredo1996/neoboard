@@ -11,8 +11,8 @@ describe("widget-editor-store", () => {
   });
 
   describe("initial state", () => {
-    it("defaults to bar chart with empty connection", () => {
-      expect(getState().chartType).toBe("bar");
+    it("defaults to table chart with empty connection", () => {
+      expect(getState().chartType).toBe("table");
       expect(getState().connectionId).toBe("");
       expect(getState().query).toBe("");
       expect(getState().title).toBe("");
@@ -73,7 +73,7 @@ describe("widget-editor-store", () => {
 
       getState().resetForAdd();
 
-      expect(getState().chartType).toBe("bar");
+      expect(getState().chartType).toBe("table");
       expect(getState().connectionId).toBe("");
       expect(getState().query).toBe("");
       expect(getState().title).toBe("");
