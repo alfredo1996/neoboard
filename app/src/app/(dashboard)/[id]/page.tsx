@@ -132,7 +132,13 @@ export default function DashboardViewerPage({
     [parameters],
   );
   const hasParameters = parameterCount > 0;
+  // Start hidden; auto-show once user has set at least one parameter.
+  // Manual toggle overrides via setShowParameterBar.
   const [showParameterBar, setShowParameterBar] = useState(false);
+  const [userToggledBar, setUserToggledBar] = useState(false);
+
+  // Auto-show when params appear, unless user explicitly toggled
+  const effectiveShowBar = userToggledBar ? showParameterBar : hasParameters;
   const [templateWidget, setTemplateWidget] = useState<
     DashboardWidget | undefined
   >();
@@ -323,9 +329,12 @@ export default function DashboardViewerPage({
             variant="ghost"
             size="sm"
             disabled={!hasParameters}
-            onClick={() => setShowParameterBar((prev) => !prev)}
+            onClick={() => {
+              setUserToggledBar(true);
+              setShowParameterBar((prev) => !prev);
+            }}
             aria-label={
-              showParameterBar ? "Hide parameters" : "Show parameters"
+              effectiveShowBar ? "Hide parameters" : "Show parameters"
             }
           >
             <Filter className="mr-2 h-4 w-4" />
@@ -471,7 +480,7 @@ export default function DashboardViewerPage({
                   onNavigateToPage: handleNavigateToPage,
                   onSaveAsTemplate: setTemplateWidget,
                 }}
-                showParameterBar={showParameterBar}
+                showParameterBar={effectiveShowBar}
                 parameterSourceMap={parameterSourceMap}
               />
             </div>
