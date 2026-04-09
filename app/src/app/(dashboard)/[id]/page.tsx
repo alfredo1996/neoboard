@@ -24,6 +24,9 @@ import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
+import { SaveTemplateDialog } from "@/components/save-template-dialog";
+import { useConnections } from "@/hooks/use-connections";
+import type { DashboardWidget } from "@/lib/db/schema";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
@@ -130,6 +133,10 @@ export default function DashboardViewerPage({
   );
   const hasParameters = parameterCount > 0;
   const [showParameterBar, setShowParameterBar] = useState(false);
+  const [templateWidget, setTemplateWidget] = useState<
+    DashboardWidget | undefined
+  >();
+  const { data: connectionsData } = useConnections();
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([0]),
@@ -460,7 +467,10 @@ export default function DashboardViewerPage({
               <DashboardContainer
                 page={page}
                 refetchInterval={refetchInterval}
-                actions={{ onNavigateToPage: handleNavigateToPage }}
+                actions={{
+                  onNavigateToPage: handleNavigateToPage,
+                  onSaveAsTemplate: setTemplateWidget,
+                }}
                 showParameterBar={showParameterBar}
                 parameterSourceMap={parameterSourceMap}
               />
@@ -468,6 +478,25 @@ export default function DashboardViewerPage({
           );
         })}
       </div>
+
+      {templateWidget &&
+        (() => {
+          const conn = (connectionsData ?? []).find(
+            (c: { id: string }) => c.id === templateWidget.connectionId,
+          );
+          const connectorType = (conn?.type ??
+            "neo4j") as import("@/lib/connector/connector-types").ConnectorType;
+          return (
+            <SaveTemplateDialog
+              open
+              onOpenChange={(open) => {
+                if (!open) setTemplateWidget(undefined);
+              }}
+              widget={templateWidget}
+              connectorType={connectorType}
+            />
+          );
+        })()}
     </div>
   );
 }
