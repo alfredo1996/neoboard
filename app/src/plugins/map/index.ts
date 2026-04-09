@@ -1,0 +1,1 @@
+export { mapPlugin } from "./component";
