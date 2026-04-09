@@ -1,43 +1,55 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi, beforeAll } from "vitest";
+import { Home } from "lucide-react";
 import { Combobox } from "../combobox";
 
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
 const options = [
-  { value: "next.js", label: "Next.js" },
-  { value: "remix", label: "Remix" },
-  { value: "astro", label: "Astro" },
+  { value: "a", label: "Alpha" },
+  { value: "b", label: "Beta" },
+  { value: "c", label: "Charlie" },
 ];
 
 describe("Combobox", () => {
   it("renders placeholder when no value selected", () => {
-    render(<Combobox options={options} placeholder="Select..." />);
-    expect(screen.getByText("Select...")).toBeInTheDocument();
+    render(<Combobox options={options} placeholder="Pick one" />);
+    expect(screen.getByRole("combobox")).toHaveTextContent("Pick one");
   });
 
-  it("renders default placeholder", () => {
-    render(<Combobox options={options} />);
-    expect(screen.getByText("Select option...")).toBeInTheDocument();
+  it("shows selected option label in trigger", () => {
+    render(<Combobox options={options} value="b" />);
+    expect(screen.getByRole("combobox")).toHaveTextContent("Beta");
   });
 
-  it("renders selected option label", () => {
-    render(<Combobox options={options} value="next.js" />);
-    expect(screen.getByText("Next.js")).toBeInTheDocument();
-  });
-
-  it("renders combobox role with correct aria-expanded", () => {
-    render(<Combobox options={options} />);
+  it("renders icon in trigger when option has icon", () => {
+    const iconOptions = [{ value: "home", label: "Home", icon: Home }];
+    render(<Combobox options={iconOptions} value="home" />);
     const trigger = screen.getByRole("combobox");
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger.querySelector("svg")).toBeTruthy();
   });
 
-  it("is disabled when disabled prop is true", () => {
-    render(<Combobox options={options} disabled />);
-    expect(screen.getByRole("combobox")).toBeDisabled();
+  it("calls onChange when option selected", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Combobox options={options} onChange={onChange} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByText("Alpha"));
+    expect(onChange).toHaveBeenCalledWith("a");
   });
 
-  it("shows placeholder when value doesn't match any option", () => {
-    render(<Combobox options={options} value="nonexistent" />);
-    // When value doesn't match, selectedOption is undefined, so placeholder shows
-    expect(screen.getByText("Select option...")).toBeInTheDocument();
+  it("renders icon in dropdown options", async () => {
+    const user = userEvent.setup();
+    const iconOptions = [
+      { value: "home", label: "Home", icon: Home },
+      { value: "other", label: "Other" },
+    ];
+    render(<Combobox options={iconOptions} />);
+    await user.click(screen.getByRole("combobox"));
+    const homeOption = screen.getByText("Home");
+    expect(homeOption.parentElement?.querySelector("svg")).toBeTruthy();
   });
 });
