@@ -89,9 +89,9 @@ export default function DashboardEditorPage({
     [parameters],
   );
   const hasParameters = parameterCount > 0;
-  const [showParameterBar, setShowParameterBar] = useState(false);
-  const [userToggledBar, setUserToggledBar] = useState(false);
-  const effectiveShowBar = userToggledBar ? showParameterBar : hasParameters;
+  // null = auto mode (show when params exist), boolean = user override
+  const [barOverride, setBarOverride] = useState<boolean | null>(null);
+  const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
 
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -408,10 +408,9 @@ export default function DashboardEditorPage({
                 variant="ghost"
                 size="sm"
                 disabled={!hasParameters}
-                onClick={() => {
-                  setUserToggledBar(true);
-                  setShowParameterBar((prev) => !prev);
-                }}
+                onClick={() =>
+                  setBarOverride((prev) => !(prev ?? effectiveShowBar))
+                }
                 aria-label={
                   effectiveShowBar ? "Hide parameters" : "Show parameters"
                 }
