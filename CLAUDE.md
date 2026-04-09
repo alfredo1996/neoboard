@@ -4,7 +4,7 @@ Open-source dashboarding tool for hybrid database architectures (Neo4j + Postgre
 
 ## Tech Stack
 
-Next.js 15 (App Router), React 19, TypeScript, shadcn/ui, Tailwind CSS, ECharts, Neo4j NVL, Leaflet, Zustand, TanStack Query, Auth.js v5, Drizzle ORM, Vitest, Playwright, Testcontainers.
+Next.js 16 (App Router), React 19, TypeScript, shadcn/ui, Tailwind CSS, ECharts, Neo4j NVL, Leaflet, Zustand, TanStack Query, Auth.js v5, Drizzle ORM, Vitest, Playwright, Testcontainers. Monorepo managed via npm workspaces.
 
 ## Architecture — Three Packages (STRICT boundaries)
 
@@ -19,13 +19,13 @@ Before editing any file, check which package it belongs to and respect its bound
 All commands run from the repo root unless noted.
 
 ```bash
-npm run dev                          # Dev server (proxies to app/)
-npm run build                        # Production build + type-check
+npm run dev                          # Dev server (Turbopack, proxies to app/)
+npm run build                        # Production build (webpack) + type-check
 npm run lint                         # ESLint all packages (root config)
-cd app && npx next lint --fix        # Auto-fix lint errors in app/
-cd app && npm test                   # App Vitest unit tests (API routes, hooks, stores)
-cd component && npm test             # Component Vitest unit tests
-cd connection && npm test            # Connection integration tests (needs Docker)
+npm -w app exec next lint -- --fix   # Auto-fix lint errors in app/
+npm -w app run test                  # App Vitest unit tests (API routes, hooks, stores)
+npm -w component run test            # Component Vitest unit tests
+npm -w connection run test           # Connection integration tests (needs Docker)
 npm run test:e2e                     # Playwright E2E (requires Docker)
 npm run storybook                    # Component library viewer
 npm run db:migrate                   # Drizzle migrations
