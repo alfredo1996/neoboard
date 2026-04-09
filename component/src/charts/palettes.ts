@@ -132,9 +132,21 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
 };
 
 /**
+ * Backwards-compatible aliases for renamed palettes.
+ * Existing dashboards referencing old IDs will silently map to the new ones.
+ */
+const PALETTE_ALIASES: Record<string, string> = {
+  "warm-sunset": "warm",
+  "cool-breeze": "cool",
+  "earth-tones": "monochrome",
+  neon: "observable",
+};
+
+/**
  * Returns the color array for the given palette ID, or `undefined` if the
- * palette does not exist.
+ * palette does not exist. Supports legacy aliases for renamed palettes.
  */
 export function getPaletteColors(paletteId: string): string[] | undefined {
-  return COLOR_PALETTES[paletteId]?.colors;
+  const resolved = PALETTE_ALIASES[paletteId] ?? paletteId;
+  return COLOR_PALETTES[resolved]?.colors;
 }
