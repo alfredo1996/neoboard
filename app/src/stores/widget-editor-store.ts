@@ -219,7 +219,7 @@ function buildLegacyClickAction(
 
 function getInitialState() {
   return {
-    chartType: "bar",
+    chartType: "table",
     connectionId: "",
     query: "",
     title: "",
