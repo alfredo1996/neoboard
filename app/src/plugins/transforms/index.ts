@@ -3,7 +3,7 @@
  *
  * Re-exports all chart-specific transforms so consumers can import
  * from a single location. Each transform module is also importable
- * directly for tree-shaking.
+ * directly from its plugin directory.
  */
 
 export {
@@ -11,19 +11,22 @@ export {
   resolveLabelKey,
   resolveValueKeys,
   normalizeValue,
-} from "./shared";
-export type { ColumnMapping } from "./shared";
+} from "./shared-utils";
+export type { ColumnMapping } from "./shared-utils";
 
-export { transformToBarData, validateBarData } from "./bar";
-export { transformToLineData, validateLineData } from "./line";
-export { transformToPieData, validatePieData } from "./pie";
-export { transformToTableData } from "./table";
-export { transformToValueData, validateValueData } from "./single-value";
-export { transformToGraphData, validateGraphData } from "./graph";
-export { transformToMapData, validateMapData } from "./map";
-export { transformToJsonData } from "./json";
-export { transformToGaugeData } from "./gauge";
-export { transformToSankeyData } from "./sankey";
-export { transformToHierarchicalData } from "./hierarchical";
-export { transformToRadarData } from "./radar";
-export { transformToSelectData } from "./parameter-select";
+export { transformToBarData, validateBarData } from "../bar/transform";
+export { transformToLineData, validateLineData } from "../line/transform";
+export { transformToPieData, validatePieData } from "../pie/transform";
+export { transformToTableData } from "../table/transform";
+export {
+  transformToValueData,
+  validateValueData,
+} from "../single-value/transform";
+export { transformToGraphData, validateGraphData } from "../graph/transform";
+export { transformToMapData, validateMapData } from "../map/transform";
+export { transformToJsonData } from "../json/transform";
+export { transformToGaugeData } from "../gauge/transform";
+export { transformToSankeyData } from "../sankey/transform";
+export { transformToHierarchicalData } from "./hierarchical-utils";
+export { transformToRadarData } from "../radar/transform";
+export { transformToSelectData } from "../parameter-select/transform";

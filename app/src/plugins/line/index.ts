@@ -1,0 +1,1 @@
+export { linePlugin } from "./component";

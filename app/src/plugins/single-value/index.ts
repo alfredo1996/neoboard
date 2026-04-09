@@ -1,0 +1,1 @@
+export { singleValuePlugin } from "./component";

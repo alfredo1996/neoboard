@@ -3,15 +3,18 @@
  * radar, and parameter-select transforms.
  */
 import { describe, it, expect } from "vitest";
-import { transformToTableData } from "../table";
-import { transformToValueData, validateValueData } from "../single-value";
-import { transformToMapData, validateMapData } from "../map";
-import { transformToJsonData } from "../json";
-import { transformToGaugeData } from "../gauge";
-import { transformToSankeyData } from "../sankey";
-import { transformToHierarchicalData } from "../hierarchical";
-import { transformToRadarData } from "../radar";
-import { transformToSelectData } from "../parameter-select";
+import { transformToTableData } from "../../table/transform";
+import {
+  transformToValueData,
+  validateValueData,
+} from "../../single-value/transform";
+import { transformToMapData, validateMapData } from "../../map/transform";
+import { transformToJsonData } from "../../json/transform";
+import { transformToGaugeData } from "../../gauge/transform";
+import { transformToSankeyData } from "../../sankey/transform";
+import { transformToHierarchicalData } from "../hierarchical-utils";
+import { transformToRadarData } from "../../radar/transform";
+import { transformToSelectData } from "../../parameter-select/transform";
 
 // ── table ──────────────────────────────────────────────────────────────────
 

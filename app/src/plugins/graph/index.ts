@@ -1,0 +1,1 @@
+export { graphPlugin } from "./component";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transformToGraphData, validateGraphData } from "../graph";
+import { transformToGraphData, validateGraphData } from "../../graph/transform";
 
 describe("transformToGraphData", () => {
   it("returns empty nodes and edges for empty input", () => {

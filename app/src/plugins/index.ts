@@ -16,23 +16,23 @@
 
 import { pluginRegistry } from "./registry";
 import { CHART_TYPES } from "./chart-types";
-import { markdownPlugin } from "./markdown";
-import { barPlugin } from "./bar";
-import { linePlugin } from "./line";
-import { piePlugin } from "./pie";
-import { singleValuePlugin } from "./single-value";
-import { graphPlugin } from "./graph";
-import { mapPlugin } from "./map";
-import { tablePlugin } from "./table";
-import { parameterSelectPlugin } from "./parameter-select";
-import { jsonPlugin } from "./json";
-import { formPlugin } from "./form";
-import { iframePlugin } from "./iframe";
-import { gaugePlugin } from "./gauge";
-import { sankeyPlugin } from "./sankey";
-import { sunburstPlugin } from "./sunburst";
-import { radarPlugin } from "./radar";
-import { treemapPlugin } from "./treemap";
+import { markdownPlugin } from "./markdown/component";
+import { barPlugin } from "./bar/component";
+import { linePlugin } from "./line/component";
+import { piePlugin } from "./pie/component";
+import { singleValuePlugin } from "./single-value/component";
+import { graphPlugin } from "./graph/component";
+import { mapPlugin } from "./map/component";
+import { tablePlugin } from "./table/component";
+import { parameterSelectPlugin } from "./parameter-select/component";
+import { jsonPlugin } from "./json/component";
+import { formPlugin } from "./form/component";
+import { iframePlugin } from "./iframe/component";
+import { gaugePlugin } from "./gauge/component";
+import { sankeyPlugin } from "./sankey/component";
+import { sunburstPlugin } from "./sunburst/component";
+import { radarPlugin } from "./radar/component";
+import { treemapPlugin } from "./treemap/component";
 
 const BUILT_IN_PLUGINS = [
   markdownPlugin,
