@@ -23,7 +23,10 @@ describe("COLOR_PALETTES", () => {
 
   it("every palette has exactly 10 colors", () => {
     for (const [id, palette] of Object.entries(COLOR_PALETTES)) {
-      expect(palette.colors, `palette "${id}" should have 10 colors`).toHaveLength(10);
+      expect(
+        palette.colors,
+        `palette "${id}" should have 10 colors`,
+      ).toHaveLength(10);
     }
   });
 
@@ -40,20 +43,20 @@ describe("COLOR_PALETTES", () => {
     expect(COLOR_PALETTES["deep-ocean"].label).toContain("Default");
   });
 
-  it("contains 'warm-sunset' palette", () => {
-    expect(COLOR_PALETTES["warm-sunset"]).toBeDefined();
+  it("contains 'tableau' palette", () => {
+    expect(COLOR_PALETTES["tableau"]).toBeDefined();
   });
 
-  it("contains 'cool-breeze' palette", () => {
-    expect(COLOR_PALETTES["cool-breeze"]).toBeDefined();
+  it("contains 'observable' palette", () => {
+    expect(COLOR_PALETTES["observable"]).toBeDefined();
   });
 
-  it("contains 'earth-tones' palette", () => {
-    expect(COLOR_PALETTES["earth-tones"]).toBeDefined();
+  it("contains 'sequential' palette", () => {
+    expect(COLOR_PALETTES["sequential"]).toBeDefined();
   });
 
-  it("contains 'neon' palette", () => {
-    expect(COLOR_PALETTES["neon"]).toBeDefined();
+  it("contains 'diverging' palette", () => {
+    expect(COLOR_PALETTES["diverging"]).toBeDefined();
   });
 
   it("contains 'monochrome' palette", () => {
@@ -61,10 +64,9 @@ describe("COLOR_PALETTES", () => {
   });
 
   it("deep-ocean colors match DEEP_OCEAN_LIGHT from theme", () => {
-    // The deep-ocean palette should reuse the existing DEEP_OCEAN_LIGHT values
     const deepOcean = COLOR_PALETTES["deep-ocean"];
     expect(deepOcean.colors[0]).toBe("hsl(217, 91%, 60%)"); // Blue
-    expect(deepOcean.colors[1]).toBe("hsl(38, 92%, 50%)");  // Amber
+    expect(deepOcean.colors[1]).toBe("hsl(38, 92%, 50%)"); // Amber
   });
 });
 
@@ -79,7 +81,10 @@ describe("getPaletteColors", () => {
   it("returns colors for all defined palettes", () => {
     for (const id of Object.keys(COLOR_PALETTES)) {
       const colors = getPaletteColors(id);
-      expect(colors, `getPaletteColors("${id}") should return colors`).toBeDefined();
+      expect(
+        colors,
+        `getPaletteColors("${id}") should return colors`,
+      ).toBeDefined();
       expect(colors!.length).toBe(10);
     }
   });
@@ -89,14 +94,13 @@ describe("getPaletteColors", () => {
   });
 
   it("returns the same reference as COLOR_PALETTES[id].colors", () => {
-    const colors = getPaletteColors("warm-sunset");
-    expect(colors).toBe(COLOR_PALETTES["warm-sunset"].colors);
+    const colors = getPaletteColors("tableau");
+    expect(colors).toBe(COLOR_PALETTES["tableau"].colors);
   });
 });
 
 describe("ColorPalette type structure", () => {
   it("satisfies the ColorPalette interface shape", () => {
-    // This is a compile-time check validated at runtime
     const palette: ColorPalette = { label: "Test", colors: ["#fff"] };
     expect(palette.label).toBe("Test");
     expect(palette.colors).toHaveLength(1);
