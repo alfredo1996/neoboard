@@ -29,7 +29,18 @@ describe("Combobox", () => {
     const iconOptions = [{ value: "home", label: "Home", icon: Home }];
     render(<Combobox options={iconOptions} value="home" />);
     const trigger = screen.getByRole("combobox");
-    expect(trigger.querySelector("svg")).toBeTruthy();
+    // The trigger has: icon SVG (opacity-70) + label text + ChevronsUpDown SVG
+    // Icon options render an extra SVG compared to non-icon options
+    const svgs = trigger.querySelectorAll("svg");
+    expect(svgs.length).toBeGreaterThanOrEqual(2); // custom icon + chevron
+  });
+
+  it("does not render icon in trigger when option has no icon", () => {
+    render(<Combobox options={options} value="b" />);
+    const trigger = screen.getByRole("combobox");
+    // Only ChevronsUpDown SVG, no custom icon
+    const svgs = trigger.querySelectorAll("svg");
+    expect(svgs.length).toBe(1); // just chevron
   });
 
   it("calls onChange when option selected", async () => {
@@ -41,7 +52,7 @@ describe("Combobox", () => {
     expect(onChange).toHaveBeenCalledWith("a");
   });
 
-  it("renders icon in dropdown options", async () => {
+  it("renders extra icon SVG for options with icon prop", async () => {
     const user = userEvent.setup();
     const iconOptions = [
       { value: "home", label: "Home", icon: Home },
@@ -49,7 +60,15 @@ describe("Combobox", () => {
     ];
     render(<Combobox options={iconOptions} />);
     await user.click(screen.getByRole("combobox"));
-    const homeOption = screen.getByText("Home");
-    expect(homeOption.parentElement?.querySelector("svg")).toBeTruthy();
+
+    // "Home" option has: Check SVG + custom icon SVG + label
+    const homeItem = screen.getByText("Home").closest("[cmdk-item]");
+    const homeSvgs = homeItem?.querySelectorAll("svg") ?? [];
+
+    // "Other" option has: Check SVG + label (no custom icon)
+    const otherItem = screen.getByText("Other").closest("[cmdk-item]");
+    const otherSvgs = otherItem?.querySelectorAll("svg") ?? [];
+
+    expect(homeSvgs.length).toBeGreaterThan(otherSvgs.length);
   });
 });
