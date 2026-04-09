@@ -39,13 +39,17 @@ vi.mock("leaflet", () => ({
     })),
     tileLayer: vi.fn(() => ({ addTo: mockAddTo })),
     layerGroup: vi.fn(() => mockLayerGroup),
+    markerClusterGroup: vi.fn(() => mockLayerGroup),
     circleMarker: vi.fn(() => mockCircleMarker),
     latLngBounds: vi.fn(() => mockLatLngBounds),
   },
 }));
 
-// Mock leaflet CSS import
+// Mock leaflet CSS imports
 vi.mock("leaflet/dist/leaflet.css", () => ({}));
+vi.mock("leaflet.markercluster", () => ({}));
+vi.mock("leaflet.markercluster/dist/MarkerCluster.css", () => ({}));
+vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
 
 import L from "leaflet";
 import { MapChart } from "../map-chart";
