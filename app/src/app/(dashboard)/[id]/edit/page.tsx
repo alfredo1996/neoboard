@@ -90,6 +90,8 @@ export default function DashboardEditorPage({
   );
   const hasParameters = parameterCount > 0;
   const [showParameterBar, setShowParameterBar] = useState(false);
+  const [userToggledBar, setUserToggledBar] = useState(false);
+  const effectiveShowBar = userToggledBar ? showParameterBar : hasParameters;
 
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -406,9 +408,12 @@ export default function DashboardEditorPage({
                 variant="ghost"
                 size="sm"
                 disabled={!hasParameters}
-                onClick={() => setShowParameterBar((prev) => !prev)}
+                onClick={() => {
+                  setUserToggledBar(true);
+                  setShowParameterBar((prev) => !prev);
+                }}
                 aria-label={
-                  showParameterBar ? "Hide parameters" : "Show parameters"
+                  effectiveShowBar ? "Hide parameters" : "Show parameters"
                 }
               >
                 <Filter className="mr-2 h-4 w-4" />
@@ -579,7 +584,7 @@ export default function DashboardEditorPage({
                       onDetachWidget: handleDetachWidget,
                     }}
                     templateMap={templateMap}
-                    showParameterBar={showParameterBar}
+                    showParameterBar={effectiveShowBar}
                     parameterSourceMap={parameterSourceMap}
                   />
                 </div>
