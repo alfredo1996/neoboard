@@ -43,6 +43,7 @@ function MapPluginComponent({
       minZoom={settings.minZoom}
       maxZoom={settings.maxZoom}
       autoFitBounds={settings.autoFitBounds}
+      clusterMarkers={settings.clusterMarkers}
       onMarkerClick={
         onChartClick
           ? (m) =>
