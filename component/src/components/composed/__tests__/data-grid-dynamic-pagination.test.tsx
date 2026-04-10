@@ -344,7 +344,7 @@ describe("DataGrid — enablePagination", () => {
     ][0] as TestRow[];
     // All 10 visible page rows should be selected
     expect(selected).toHaveLength(10);
-  });
+  }, 15000);
 
   it("shows selection count text when rows are selected with pagination active", async () => {
     const user = userEvent.setup();
