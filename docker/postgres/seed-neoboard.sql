@@ -6,9 +6,13 @@
 -- Seed users (password: password123, bcrypt hash)
 -- Alice is admin so she can manage connections and all dashboards
 -- Bob is creator so he can create his own dashboards
+-- Carol is reader (no write, no create) — sharing permission tests
+-- Dave is a second creator — recipient for sharing permission tests
 INSERT INTO "user" ("id", "name", "email", "passwordHash", "role", "can_write") VALUES
-    ('user-alice-001', 'Alice Demo', 'alice@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'admin', true),
-    ('user-bob-002',   'Bob Demo',   'bob@example.com',   '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'creator', true);
+    ('user-alice-001', 'Alice Demo', 'alice@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'admin',   true),
+    ('user-bob-002',   'Bob Demo',   'bob@example.com',   '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'creator', true),
+    ('user-carol-003', 'Carol Demo', 'carol@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'reader',  false),
+    ('user-dave-004',  'Dave Demo',  'dave@example.com',  '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'creator', true);
 
 -- Seed connections (configEncrypted values are placeholders — global-setup.ts re-encrypts them with real ports)
 INSERT INTO "connection" ("id", "userId", "name", "type", "configEncrypted") VALUES
