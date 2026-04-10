@@ -10,14 +10,16 @@ test.describe("Responsive — mobile viewport", () => {
   test("dashboard list should render in single column on mobile", async ({
     page,
   }) => {
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
     // Verify grid renders single column at mobile width
     const grid = page.locator(".grid").first();
     await expect(grid).toBeVisible();
     const columns = await grid.evaluate(
-      (el) => getComputedStyle(el).gridTemplateColumns
+      (el) => getComputedStyle(el).gridTemplateColumns,
     );
     // Single column = one value (no spaces)
     expect(columns.trim().split(/\s+/).length).toBe(1);
@@ -32,9 +34,7 @@ test.describe("Responsive — mobile login (unauthenticated)", () => {
     await expect(page.getByText("NeoBoard")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Sign in" })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   });
 });
 
@@ -46,13 +46,15 @@ test.describe("Responsive — tablet viewport", () => {
   });
 
   test("dashboard list should render on tablet", async ({ page }) => {
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
     const grid = page.locator(".grid").first();
     await expect(grid).toBeVisible();
     const columns = await grid.evaluate(
-      (el) => getComputedStyle(el).gridTemplateColumns
+      (el) => getComputedStyle(el).gridTemplateColumns,
     );
     // Tablet (768px) hits sm breakpoint (640px) → 2 columns
     expect(columns.trim().split(/\s+/).length).toBe(2);
@@ -64,10 +66,10 @@ test.describe("Responsive — tablet viewport", () => {
   }) => {
     await sidebarPage.navigateTo("Connections");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Connections" })
+      page.getByRole("heading", { level: 1, name: "Connections" }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("button", { name: "Add Connection" })
+      page.getByRole("button", { name: "Add Connection" }),
     ).toBeVisible();
   });
 });
@@ -82,13 +84,15 @@ test.describe("Responsive — wide desktop viewport", () => {
   test("dashboard list should render in three columns on wide desktop", async ({
     page,
   }) => {
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
     const grid = page.locator(".grid").first();
     await expect(grid).toBeVisible();
     const columns = await grid.evaluate(
-      (el) => getComputedStyle(el).gridTemplateColumns
+      (el) => getComputedStyle(el).gridTemplateColumns,
     );
     // Wide desktop (1920px) hits lg breakpoint (1024px) → 3 columns
     expect(columns.trim().split(/\s+/).length).toBe(3);

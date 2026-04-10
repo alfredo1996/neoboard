@@ -5,6 +5,30 @@ import {
   createTestDashboard,
   typeInEditor,
 } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+/**
+ * Click Back to leave edit mode and wait for the URL to drop the /edit
+ * suffix. Handles the unsaved-changes "Leave" dialog that sometimes
+ * appears because a post-Save grid compaction effect marks the page
+ * dirty before React state has fully settled.
+ *
+ * Previous inline pattern used a 1s probe for the Leave button which
+ * missed the dialog under load — this helper gives it 3s and then
+ * waits up to 15s for the URL change, which is enough headroom on
+ * a busy CI machine.
+ */
+async function leaveEditMode(page: Page) {
+  await page.getByRole("button", { name: "Back" }).click();
+  const leaveBtn = page.getByRole("button", { name: "Leave" });
+  try {
+    await leaveBtn.waitFor({ state: "visible", timeout: 3_000 });
+    await leaveBtn.click();
+  } catch {
+    // No dialog — the direct navigation path will resolve the URL wait below.
+  }
+  await expect(page).not.toHaveURL(/\/edit$/, { timeout: 15_000 });
+}
 
 test.describe("Form widget", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -116,14 +140,8 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
 
-    // Navigate to view mode
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    // Navigate to view mode (handles unsaved-changes dialog race)
+    await leaveEditMode(page);
 
     // The form widget should render with the configured fields
     // Fields default to required=true, so the label includes an asterisk "*".
@@ -166,13 +184,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Wait for the form to render — the label "Name" should be visible
     // (fields default to required, so label renders as "Name*")
@@ -249,13 +261,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // The form widget should show the empty-state message
     await expect(page.getByText("No fields configured")).toBeVisible({
@@ -302,13 +308,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Label includes asterisk for required fields
     await expect(page.getByText(/^Full Name/)).toBeVisible({
@@ -411,13 +411,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Wait for form to render (label includes asterisk for required fields)
     await expect(page.getByText(/^Name/)).toBeVisible({
@@ -509,12 +503,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Wait for the parameter-select dropdown to render
     const paramTrigger = page.getByText("Select a value…");

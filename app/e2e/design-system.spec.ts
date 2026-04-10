@@ -1,4 +1,11 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+  getPreview,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Design system — Deep Ocean palette, accessibility, colorblind mode
@@ -265,10 +272,19 @@ test.describe("Theme switching", () => {
     await page.evaluate(() => localStorage.removeItem("neoboard-theme"));
     await page.reload();
     // Open theme dropdown in sidebar
-    await page.getByText("Theme").click();
-    await expect(page.getByRole("menuitemradio", { name: "Light" })).toBeVisible();
-    await expect(page.getByRole("menuitemradio", { name: "Dark" })).toBeVisible();
-    await expect(page.getByRole("menuitemradio", { name: "System" })).toBeVisible();
+    // Target the sidebar Theme trigger specifically. Bare `getByText("Theme")`
+    // also matches a Next.js dev error overlay label that occasionally appears
+    // during hydration warnings, causing strict-mode collisions.
+    await page.getByRole("button", { name: "Theme" }).click();
+    await expect(
+      page.getByRole("menuitemradio", { name: "Light" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitemradio", { name: "Dark" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitemradio", { name: "System" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("menuitemradio", { name: "System" }),
     ).toHaveAttribute("data-state", "checked");
@@ -278,7 +294,10 @@ test.describe("Theme switching", () => {
     await page.emulateMedia({ colorScheme: "light" });
     await page.reload();
     // Open theme dropdown and select Dark
-    await page.getByText("Theme").click();
+    // Target the sidebar Theme trigger specifically. Bare `getByText("Theme")`
+    // also matches a Next.js dev error overlay label that occasionally appears
+    // during hydration warnings, causing strict-mode collisions.
+    await page.getByRole("button", { name: "Theme" }).click();
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
   });
@@ -298,7 +317,10 @@ test.describe("Theme switching", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
 
     // Switch to System — should follow OS dark
-    await page.getByText("Theme").click();
+    // Target the sidebar Theme trigger specifically. Bare `getByText("Theme")`
+    // also matches a Next.js dev error overlay label that occasionally appears
+    // during hydration warnings, causing strict-mode collisions.
+    await page.getByRole("button", { name: "Theme" }).click();
     await page.getByRole("menuitemradio", { name: "System" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
   });
