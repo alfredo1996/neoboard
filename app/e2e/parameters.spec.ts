@@ -117,7 +117,7 @@ test.describe("Parameter bar on view page", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The dashboard should load with widgets

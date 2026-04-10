@@ -3,7 +3,7 @@ import { test, expect, ALICE } from "./fixtures";
 test.describe("Dashboard grid", () => {
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
   });
 
