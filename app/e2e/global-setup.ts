@@ -139,7 +139,11 @@ export default async function globalSetup() {
     new GenericContainer("neo4j:5-community")
       .withEnvironment({
         NEO4J_AUTH: "neo4j/neoboard123",
-        NEO4J_PLUGINS: '[""]',
+        // APOC is required by query-safety.spec.ts for `apoc.util.sleep` in
+        // the Cypher query timeout test. The plugin is downloaded lazily by
+        // the image on first boot and cached on the host's Docker volume.
+        NEO4J_PLUGINS: '["apoc"]',
+        NEO4J_dbms_security_procedures_unrestricted: "apoc.*",
       })
       .withExposedPorts(7474, 7687)
       .withCopyFilesToContainer([
