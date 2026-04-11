@@ -21,6 +21,7 @@ export function mapConfigToEditForm(config: Record<string, unknown>): {
   idleTimeout: string;
   statementTimeout: string;
   sslRejectUnauthorized: boolean | undefined;
+  maxRows: string;
 } {
   return {
     uri: (config.uri as string) ?? "",
@@ -34,5 +35,6 @@ export function mapConfigToEditForm(config: Record<string, unknown>): {
     idleTimeout: config.idleTimeout?.toString() ?? "",
     statementTimeout: config.statementTimeout?.toString() ?? "",
     sslRejectUnauthorized: config.sslRejectUnauthorized as boolean | undefined,
+    maxRows: config.maxRows?.toString() ?? "",
   };
 }
