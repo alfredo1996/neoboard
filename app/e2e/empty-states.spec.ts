@@ -100,8 +100,16 @@ test.describe("Confirm dialog — destructive", () => {
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await createDialog.locator("#dashboard-name").fill(dashName);
-    await createDialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST",
+        { timeout: 10_000 },
+      ),
+      createDialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await page.goto("/");
     await expect(page.getByText(dashName)).toBeVisible({
       timeout: 10_000,
