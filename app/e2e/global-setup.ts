@@ -139,9 +139,13 @@ export default async function globalSetup() {
     new GenericContainer("neo4j:5-community")
       .withEnvironment({
         NEO4J_AUTH: "neo4j/neoboard123",
-        // APOC is required by query-safety.spec.ts for `apoc.util.sleep` in
-        // the Cypher query timeout test. The plugin is downloaded lazily by
-        // the image on first boot and cached on the host's Docker volume.
+        // APOC is loaded for potential future use in E2E tests. It was
+        // originally added for the Cypher timeout test in query-safety.spec.ts,
+        // but that test intentionally avoids `apoc.util.sleep` — sleep runs
+        // as pure Thread.sleep inside the transaction and bypasses Neo4j's
+        // guard points, so the driver-level timeout can't interrupt it. The
+        // test uses a compute-heavy UNWIND instead. Kept enabled so new
+        // Cypher tests can use APOC helpers without an infra change.
         NEO4J_PLUGINS: '["apoc"]',
         NEO4J_dbms_security_procedures_unrestricted: "apoc.*",
       })
