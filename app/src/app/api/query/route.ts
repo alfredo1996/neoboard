@@ -15,9 +15,6 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 
-/** Maximum number of rows returned per query execution to prevent OOM. */
-const MAX_ROWS = 10_000;
-
 const querySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
@@ -112,19 +109,19 @@ export async function POST(request: Request) {
     // cache key. Normalization handled inside computeResultId.
     const resultId = computeResultId(connectionId, query, params);
 
-    // TODO: MAX_ROWS truncation currently happens after full materialisation.
-    // Ideally, pass a maxRows option to executeQuery so the driver can stop
-    // reading at MAX_ROWS+1 (cursor/stream consumption) to avoid OOM on very
-    // large result sets. See CodeRabbit review on PR #75.
-    const rawData = result.data;
-    const truncated = Array.isArray(rawData) && rawData.length > MAX_ROWS;
-    const truncatedData = truncated
-      ? (rawData as unknown[]).slice(0, MAX_ROWS)
-      : rawData;
+    // Truncation is enforced at the driver level (see
+    // lib/query/query-executor.ts — it spreads `rowLimit` onto the connector
+    // config and each connector slices at that value before calling
+    // onSuccess). The executor captures the `COMPLETE_TRUNCATED` signal via
+    // its setStatus handler and returns { truncated, rowLimit } alongside
+    // the data, so the route just forwards those fields to the client for
+    // the widget banner.
+    const { data, fields, truncated, rowLimit } = result;
 
-    return apiSuccess({ ...result, data: truncatedData }, 200, {
+    return apiSuccess({ data, fields }, 200, {
       resultId,
       serverDurationMs,
+      rowLimit,
       ...(truncated ? { truncated: true } : {}),
     });
   } catch (error) {

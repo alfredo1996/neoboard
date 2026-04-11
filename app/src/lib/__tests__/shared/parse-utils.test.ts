@@ -63,6 +63,7 @@ describe("mapConfigToEditForm", () => {
       idleTimeout: 15000,
       statementTimeout: 60000,
       sslRejectUnauthorized: false,
+      maxRows: 20000,
     });
 
     expect(result).toEqual({
@@ -76,6 +77,7 @@ describe("mapConfigToEditForm", () => {
       idleTimeout: "15000",
       statementTimeout: "60000",
       sslRejectUnauthorized: false,
+      maxRows: "20000",
     });
   });
 
@@ -93,6 +95,7 @@ describe("mapConfigToEditForm", () => {
       idleTimeout: "",
       statementTimeout: "",
       sslRejectUnauthorized: undefined,
+      maxRows: "",
     });
   });
 

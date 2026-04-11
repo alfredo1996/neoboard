@@ -82,6 +82,7 @@ export interface UpdateConnectionInput {
     idleTimeout: number;
     statementTimeout: number;
     sslRejectUnauthorized: boolean;
+    maxRows: number;
   }>;
 }
 
