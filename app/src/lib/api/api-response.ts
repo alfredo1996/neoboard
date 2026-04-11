@@ -53,10 +53,26 @@ export function apiList(
   return NextResponse.json({ data, error: null, meta });
 }
 
-/** Error response with machine-readable code. */
-export function apiError(code: ApiErrorCode, message: string) {
+/**
+ * Error response with machine-readable code.
+ *
+ * Optional `details` lets the route attach a structured payload to the
+ * error object — used e.g. by DELETE /api/connections/{id} to return
+ * the connection usage breakdown (widget count + per-dashboard list)
+ * alongside a CONFLICT response so the UI can render a warning banner
+ * without a second round-trip.
+ */
+export function apiError(
+  code: ApiErrorCode,
+  message: string,
+  details?: Record<string, unknown>,
+) {
   return NextResponse.json(
-    { data: null, error: { code, message }, meta: null },
+    {
+      data: null,
+      error: details ? { code, message, details } : { code, message },
+      meta: null,
+    },
     { status: ERROR_STATUS[code] },
   );
 }

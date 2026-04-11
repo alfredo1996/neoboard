@@ -242,25 +242,23 @@ test.describe("Connections", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Delete connection in use — issue #481
+  // Delete connection in use — issues #481 / #508 / #509
   // ─────────────────────────────────────────────────────────────────────────
   //
-  // The delete flow currently has NO server-side guard against deleting a
-  // connection that is referenced by dashboard widgets. These tests pin the
-  // current behavior so the post-guard fix is explicitly visible:
+  // After #509 lands, the delete flow has a real server-side guard:
   //
-  //   1. The confirm dialog warns with generic copy ("widgets will stop
-  //      working") but does not show the usage count. Follow-up issue #TBD.
-  //   2. The DELETE /api/connections/{id} route returns 200 with no conflict
-  //      check — orphaned widgets are left to degrade gracefully. Follow-up
-  //      issue #TBD.
-  //   3. No re-assign flow exists in the UI. Follow-up issue #TBD.
+  //   1. The confirm dialog pre-fetches GET /api/connections/{id}/usage and
+  //      renders a breakdown of N widgets on M dashboards. Button label
+  //      switches to "Delete anyway" when the connection is in use.
+  //   2. DELETE /api/connections/{id} returns 409 Conflict when the
+  //      connection has referencing widgets and `?force=true` is not set,
+  //      with the usage breakdown in error.details.usage.
+  //   3. DELETE /api/connections/{id}?force=true bypasses the guard so the
+  //      "Delete anyway" button (and CLI/automation) can still proceed.
   //
-  // When the guard lands, flip test 2's status assertion from 200 to 409 and
-  // add an assertion that the connection still exists until the user force-
-  // confirms.
+  // The tests below cover the API and UI sides of all three.
 
-  test("deleting a connection in use leaves widget in a graceful degraded state", async ({
+  test("delete confirm dialog renders usage breakdown and proceeds on 'Delete anyway'", async ({
     page,
   }) => {
     // 1. Create a fresh PG connection via API so we don't step on the seeded
@@ -281,9 +279,11 @@ test.describe("Connections", () => {
     expect(createRes.status()).toBe(201);
     const connId = (await createRes.json()).data.id as string;
 
-    // 2. Create a dashboard that uses this connection via a simple table widget.
+    // 2. Create a dashboard that uses this connection via 2 widgets so we
+    //    can assert the usage count isn't 1.
+    const dashName = `inuse-dash ${Date.now()}`;
     const dashRes = await page.request.post("/api/dashboards", {
-      data: { name: `inuse-dash ${Date.now()}` },
+      data: { name: dashName },
     });
     const dashId = (await dashRes.json()).data.id as string;
     const putRes = await page.request.put(`/api/dashboards/${dashId}`, {
@@ -300,10 +300,20 @@ test.describe("Connections", () => {
                   chartType: "table",
                   connectionId: connId,
                   query: "SELECT 1 AS n",
-                  settings: { title: "Orphaned-candidate widget" },
+                  settings: { title: "Widget 1" },
+                },
+                {
+                  id: "w2",
+                  chartType: "single-value",
+                  connectionId: connId,
+                  query: "SELECT 42 AS answer",
+                  settings: { title: "Widget 2" },
                 },
               ],
-              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 6 }],
+              gridLayout: [
+                { i: "w1", x: 0, y: 0, w: 6, h: 4 },
+                { i: "w2", x: 6, y: 0, w: 6, h: 4 },
+              ],
             },
           ],
         },
@@ -312,7 +322,19 @@ test.describe("Connections", () => {
     expect(putRes.ok()).toBeTruthy();
 
     try {
-      // 3. Go to the connections page and locate the new card.
+      // 3. GET /api/connections/{id}/usage — returns the breakdown before
+      //    the user ever opens the dialog.
+      const usageRes = await page.request.get(
+        `/api/connections/${connId}/usage`,
+      );
+      expect(usageRes.status()).toBe(200);
+      const usageBody = await usageRes.json();
+      expect(usageBody.data.widgetCount).toBe(2);
+      expect(usageBody.data.dashboards).toHaveLength(1);
+      expect(usageBody.data.dashboards[0].name).toBe(dashName);
+      expect(usageBody.data.dashboards[0].widgetCount).toBe(2);
+
+      // 4. Navigate to the connections page and locate the card.
       await page.reload();
       const card = page
         .locator("div[class*='border']")
@@ -322,56 +344,49 @@ test.describe("Connections", () => {
         });
       await expect(card).toBeVisible({ timeout: 10_000 });
 
-      // 4. Open the dropdown and click Delete.
+      // 5. Open the dropdown and click Delete.
       await card.getByRole("button", { name: "Connection actions" }).click();
       await page.getByRole("menuitem", { name: /Delete/ }).click();
 
-      // 5. Assert the confirm dialog shows the generic in-use warning.
-      //    Current copy: "Any widgets using it will stop working."
-      //    Loose regex so minor copy tweaks don't break the test.
-      await expect(
-        page.getByText(/widgets.*stop working|break|stop functioning/i),
-      ).toBeVisible({ timeout: 5_000 });
+      // 6. Assert the confirm dialog shows the usage breakdown: widget
+      //    count, dashboard count, and the dashboard name in the bulleted
+      //    list. Use regex so minor copy tweaks don't break the test.
+      await expect(page.getByText(/2 widgets.*1 dashboard/i)).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByText(dashName)).toBeVisible();
 
-      // 6. Confirm delete.
-      await page.getByRole("button", { name: "Delete" }).click();
+      // 7. The button label must be "Delete anyway", not the default "Delete".
+      await expect(
+        page.getByRole("button", { name: "Delete anyway" }),
+      ).toBeVisible();
+
+      // 8. Confirm delete — UI passes ?force=true under the hood.
+      await page.getByRole("button", { name: "Delete anyway" }).click();
       await expect(page.getByText(connName)).not.toBeVisible({
         timeout: 10_000,
       });
 
-      // 7. Navigate to the dashboard and verify the widget still renders
-      //    some graceful state. The exact text is intentionally not pinned —
-      //    we only assert (a) the card container for the widget is visible
-      //    (no React error boundary fallback) and (b) the widget title is
-      //    still there. The specific error copy is a separate concern and
-      //    may evolve; a regex-based "error"/"not found"/"failed" match is
-      //    enough to prove the widget didn't crash.
+      // 9. Navigate to the dashboard and verify the widget still renders
+      //    some graceful state — same assertion as before #509 since the
+      //    orphaned-widget behavior hasn't changed.
       await page.goto(`/${dashId}`);
-      await expect(page.getByText("Orphaned-candidate widget")).toBeVisible({
+      await expect(page.getByText("Widget 1")).toBeVisible({
         timeout: 15_000,
       });
-      // The widget must not render a hard crash — React error boundaries
-      // show "Something went wrong" or similar.
       await expect(
         page.getByText(/something went wrong|uncaught|error boundary/i),
       ).not.toBeVisible();
     } finally {
-      // Best-effort cleanup — dashboard delete cascades nothing (widgets
-      // live in layoutJson), and the connection is already gone.
       await page.request
         .delete(`/api/dashboards/${dashId}`)
         .catch(() => undefined);
     }
   });
 
-  test("DELETE /api/connections/{id} silently removes an in-use connection (pins current no-guard behavior)", async ({
+  test("DELETE /api/connections/{id} returns 409 CONFLICT when in use; ?force=true bypasses the guard", async ({
     page,
   }) => {
-    // This test documents the current API behavior: no conflict check when
-    // the connection is referenced by a widget. When the guard lands
-    // (follow-up issue #TBD), change the expected status from 200 to 409
-    // and add an assertion that the connection still exists after the
-    // attempted delete.
     const connName = `inuse-api-${Date.now()}`;
     const createRes = await page.request.post("/api/connections", {
       data: {
@@ -417,28 +432,47 @@ test.describe("Connections", () => {
     });
 
     try {
-      // Direct DELETE — no guard, returns 200.
+      // Direct DELETE WITHOUT force → 409 Conflict with the usage shape.
       const delRes = await page.request.delete(`/api/connections/${connId}`);
-      expect(delRes.status()).toBe(200);
+      expect(delRes.status()).toBe(409);
+      const delBody = await delRes.json();
+      expect(delBody.error?.code).toBe("CONFLICT");
+      expect(delBody.error?.message).toMatch(/1 widget across 1 dashboard/i);
+      expect(delBody.error?.details?.usage?.widgetCount).toBe(1);
+      expect(delBody.error?.details?.usage?.dashboards).toHaveLength(1);
 
-      // Confirm the connection is really gone.
+      // Connection must still exist after the failed delete.
+      const stillThereRes = await page.request.get(
+        `/api/connections/${connId}`,
+      );
+      expect(stillThereRes.status()).toBe(200);
+
+      // Force delete → 200 and the connection is gone.
+      const forceRes = await page.request.delete(
+        `/api/connections/${connId}?force=true`,
+      );
+      expect(forceRes.status()).toBe(200);
+      const forceBody = await forceRes.json();
+      expect(forceBody.data?.deleted).toBe(true);
+
+      // Confirm the connection is really gone from the list.
       const listRes = await page.request.get("/api/connections?limit=100");
-      expect(listRes.status()).toBe(200);
       const listBody = await listRes.json();
       const ids = ((listBody.data ?? []) as Array<{ id: string }>).map(
         (c) => c.id,
       );
       expect(ids).not.toContain(connId);
 
-      // Dashboard layoutJson still references the orphaned connectionId —
-      // verify the widget's query endpoint now returns 404 "Connection not
-      // found" when fired against the deleted id.
+      // The orphaned widget's subsequent /api/query call must return 404
+      // "Connection not found" — the downstream degradation path from the
+      // original #481 test.
       const queryRes = await page.request.post("/api/query", {
         data: { connectionId: connId, query: "SELECT 1" },
       });
       expect(queryRes.status()).toBe(404);
-      const queryBody = await queryRes.json();
-      expect(queryBody.error?.message).toMatch(/connection not found/i);
+      expect((await queryRes.json()).error?.message).toMatch(
+        /connection not found/i,
+      );
     } finally {
       await page.request
         .delete(`/api/dashboards/${dashId}`)

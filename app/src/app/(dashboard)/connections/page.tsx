@@ -5,6 +5,7 @@ import { Database, Plus, ChevronDown } from "lucide-react";
 import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
   useConnections,
+  useConnectionUsage,
   useCreateConnection,
   useUpdateConnection,
   useDeleteConnection,
@@ -82,6 +83,11 @@ export default function ConnectionsPage() {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // Pre-fetch the usage breakdown whenever a delete is pending so the
+  // confirm dialog can render the list of affected dashboards + widget
+  // count before the user commits. Hook is disabled when deleteTarget is
+  // null, so it only fires on the "open delete dialog" transition.
+  const deleteUsage = useConnectionUsage(deleteTarget);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
   const editTargetIdRef = useRef<string | null>(null);
@@ -921,12 +927,59 @@ export default function ConnectionsPage() {
           if (!open) setDeleteTarget(null);
         }}
         title="Delete Connection"
-        description="This will permanently delete this connection. Any widgets using it will stop working."
-        confirmText="Delete"
+        description={
+          deleteUsage.isLoading ? (
+            "Checking widgets that use this connection…"
+          ) : deleteUsage.isError ? (
+            "Could not verify widget usage. You may proceed, but some widgets may stop working."
+          ) : deleteUsage.data && deleteUsage.data.widgetCount > 0 ? (
+            <div className="space-y-3">
+              <p>
+                This connection is used by{" "}
+                <strong>
+                  {deleteUsage.data.widgetCount} widget
+                  {deleteUsage.data.widgetCount === 1 ? "" : "s"}
+                </strong>{" "}
+                on{" "}
+                <strong>
+                  {deleteUsage.data.dashboards.length} dashboard
+                  {deleteUsage.data.dashboards.length === 1 ? "" : "s"}
+                </strong>
+                . Deleting it will break them:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
+                {deleteUsage.data.dashboards.slice(0, 10).map((d) => (
+                  <li key={d.id}>
+                    <span className="font-medium">{d.name}</span>{" "}
+                    <span className="text-muted-foreground text-xs">
+                      ({d.widgetCount} widget
+                      {d.widgetCount === 1 ? "" : "s"})
+                    </span>
+                  </li>
+                ))}
+                {deleteUsage.data.dashboards.length > 10 && (
+                  <li className="text-muted-foreground italic">
+                    +{deleteUsage.data.dashboards.length - 10} more…
+                  </li>
+                )}
+              </ul>
+            </div>
+          ) : (
+            "This connection is not used by any widget. It will be permanently deleted."
+          )
+        }
+        confirmText={
+          deleteUsage.data && deleteUsage.data.widgetCount > 0
+            ? "Delete anyway"
+            : "Delete"
+        }
+        confirmDisabled={deleteUsage.isLoading}
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) {
-            deleteConnection.mutate(deleteTarget);
+            const force =
+              !!deleteUsage.data && deleteUsage.data.widgetCount > 0;
+            deleteConnection.mutate({ id: deleteTarget, force });
             setDeleteTarget(null);
           }
         }}

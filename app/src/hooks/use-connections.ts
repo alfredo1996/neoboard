@@ -53,16 +53,53 @@ export function useCreateConnection() {
   });
 }
 
+/**
+ * Usage breakdown for a connection — how many widgets on how many
+ * dashboards reference it. Returned by GET /api/connections/{id}/usage
+ * and embedded in the 409 response from DELETE when the connection is
+ * in use and the caller hasn't passed `?force=true`.
+ */
+export interface ConnectionUsage {
+  widgetCount: number;
+  dashboards: Array<{ id: string; name: string; widgetCount: number }>;
+}
+
+/**
+ * Fetch the usage breakdown for a single connection.
+ *
+ * The UI uses this to pre-populate the delete confirm dialog so the
+ * creator sees the blast radius BEFORE clicking Delete. The hook is
+ * disabled when `connectionId` is null/undefined so it only fires
+ * when a delete is actually being considered.
+ */
+export function useConnectionUsage(connectionId: string | null) {
+  return useQuery<ConnectionUsage>({
+    queryKey: ["connection-usage", connectionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/connections/${connectionId}/usage`);
+      return unwrapResponse<ConnectionUsage>(res);
+    },
+    enabled: !!connectionId,
+    // Usage changes when dashboards are edited. Keep it fresh but short
+    // TTL so repeated delete attempts don't show stale counts.
+    staleTime: 5_000,
+  });
+}
+
 export function useDeleteConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/connections/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, force }: { id: string; force?: boolean }) => {
+      const url = force
+        ? `/api/connections/${id}?force=true`
+        : `/api/connections/${id}`;
+      const res = await fetch(url, { method: "DELETE" });
       return unwrapResponse(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["connections"] });
+      queryClient.invalidateQueries({ queryKey: ["connection-usage"] });
     },
   });
 }
