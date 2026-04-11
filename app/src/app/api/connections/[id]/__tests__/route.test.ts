@@ -6,6 +6,7 @@ import {
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import type { ConnectionUsage } from "@/lib/db/connection-usage";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -29,10 +30,16 @@ const mockDecryptJson = vi.fn(() => ({
 }));
 const mockPrefetchSchema = vi.fn();
 // Default: connection is NOT in use. Individual tests override per-scenario.
-const mockGetConnectionUsage = vi.fn(async () => ({
-  widgetCount: 0,
-  dashboards: [],
-}));
+// The explicit generic is load-bearing — without it, vi.fn's return type is
+// inferred from the default literal `dashboards: []`, pinning the array
+// element type to `never` and breaking every `.mockResolvedValue(...)` that
+// passes a real dashboard row.
+const mockGetConnectionUsage = vi.fn<() => Promise<ConnectionUsage>>(
+  async () => ({
+    widgetCount: 0,
+    dashboards: [],
+  }),
+);
 
 const mockDb = {
   select: vi.fn(),
