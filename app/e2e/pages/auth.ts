@@ -32,9 +32,15 @@ export class AuthPage {
         return;
       } catch {
         if (attempt === 3) {
+          // Strip query params from the URL before logging. In the exact
+          // failure mode this retry loop exists for — form falls back to
+          // GET /login?email=...&password=... — the URL contains the
+          // plaintext password. Never let that land in CI logs.
+          const safeUrl = new URL(this.page.url());
+          safeUrl.search = "";
           throw new Error(
             `AuthPage.login: failed to reach / after 3 attempts ` +
-              `(last URL: ${this.page.url()})`,
+              `(last path: ${safeUrl.pathname})`,
           );
         }
       }

@@ -32,7 +32,8 @@ test.describe("Dashboard viewer — uncovered states", () => {
       page.waitForResponse(
         (r) =>
           r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST",
+          r.request().method() === "POST" &&
+          r.status() === 201,
         { timeout: 10_000 },
       ),
       dialog.getByRole("button", { name: "Create" }).click(),
@@ -71,7 +72,8 @@ test.describe("Dashboard editor — uncovered states", () => {
       page.waitForResponse(
         (r) =>
           r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST",
+          r.request().method() === "POST" &&
+          r.status() === 201,
         { timeout: 10_000 },
       ),
       dialog.getByRole("button", { name: "Create" }).click(),
