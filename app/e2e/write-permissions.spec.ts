@@ -1,4 +1,5 @@
 import { test, expect, ALICE, TEST_PG_PORT } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 import type { Browser, Page } from "@playwright/test";
 
 /**
@@ -32,32 +33,6 @@ import type { Browser, Page } from "@playwright/test";
  *     to active sessions immediately. Test 3 verifies that property.
  */
 
-/**
- * Login with automatic retry on the "submit-before-hydration" race.
- * The /login form uses a client onSubmit handler; if clicked before React has
- * hydrated, it falls back to GET /login?email=...&password=... and never
- * reaches /. Same workaround used in sharing-permissions.spec.ts.
- */
-async function robustLogin(page: Page, email: string, password: string) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    await page.goto("/login", { waitUntil: "networkidle" });
-    await page.getByLabel("Email").waitFor({ state: "visible" });
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    try {
-      await page.waitForURL("/", { timeout: 10_000 });
-      return;
-    } catch {
-      if (attempt === 3) {
-        throw new Error(
-          `robustLogin: failed to reach / after 3 attempts (last URL: ${page.url()})`,
-        );
-      }
-    }
-  }
-}
-
 async function newSessionAs(
   browser: Browser,
   email: string,
@@ -65,7 +40,7 @@ async function newSessionAs(
 ): Promise<{ page: Page; close: () => Promise<void> }> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await robustLogin(page, email, password);
+  await new AuthPage(page).login(email, password);
   return { page, close: () => context.close() };
 }
 
@@ -123,11 +98,10 @@ test.describe("Form widget — write permission enforcement", () => {
 
   // Every test logs in as Alice on the built-in `page` fixture, so that
   // context serves as the admin session without allocating a second browser
-  // context just to hold admin cookies. We use `robustLogin` because the
-  // baseline authPage.login() is prone to the pre-hydration submit race —
-  // especially under the extra load that these tests add to the dev server.
-  test.beforeEach(async ({ page }) => {
-    await robustLogin(page, ALICE.email, ALICE.password);
+  // context just to hold admin cookies. AuthPage.login handles the
+  // pre-hydration submit race upstream (see app/e2e/pages/auth.ts).
+  test.beforeEach(async ({ authPage }) => {
+    await authPage.login(ALICE.email, ALICE.password);
   });
 
   test("1. reader role is denied at /api/query/write (403)", async ({

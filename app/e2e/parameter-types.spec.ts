@@ -1,5 +1,5 @@
 import { test, expect, ALICE, createTestDashboard } from "./fixtures";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 
 /**
  * Covers issue #479 — E2E for all parameter widget types.
@@ -69,35 +69,11 @@ async function createParamDashboard(
   return { id, cleanup };
 }
 
-/**
- * Login with automatic retry on the pre-hydration submit race.
- * Same helper as sharing-permissions.spec.ts and write-permissions.spec.ts.
- */
-async function robustLogin(page: Page, email: string, password: string) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    await page.goto("/login", { waitUntil: "networkidle" });
-    await page.getByLabel("Email").waitFor({ state: "visible" });
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    try {
-      await page.waitForURL("/", { timeout: 10_000 });
-      return;
-    } catch {
-      if (attempt === 3) {
-        throw new Error(
-          `robustLogin: failed to reach / after 3 attempts (last URL: ${page.url()})`,
-        );
-      }
-    }
-  }
-}
-
 test.describe("Parameter widget types", () => {
   test.describe.configure({ timeout: 60_000 });
 
-  test.beforeEach(async ({ page }) => {
-    await robustLogin(page, ALICE.email, ALICE.password);
+  test.beforeEach(async ({ authPage }) => {
+    await authPage.login(ALICE.email, ALICE.password);
   });
 
   // ─────────────────────────────────────────────────────────────────────────

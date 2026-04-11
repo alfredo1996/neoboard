@@ -1,5 +1,5 @@
 import { test, expect, ALICE, createTestDashboard } from "./fixtures";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 
 /**
  * Covers issue #480 — query safety nets (timeout + row cap + error UX).
@@ -37,27 +37,6 @@ import type { APIRequestContext, Page } from "@playwright/test";
 
 const PG_CONNECTION_ID = "conn-pg-001";
 const NEO4J_CONNECTION_ID = "conn-neo4j-001";
-
-/** Login with retry on the pre-hydration submit race. */
-async function robustLogin(page: Page, email: string, password: string) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    await page.goto("/login", { waitUntil: "networkidle" });
-    await page.getByLabel("Email").waitFor({ state: "visible" });
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    try {
-      await page.waitForURL("/", { timeout: 10_000 });
-      return;
-    } catch {
-      if (attempt === 3) {
-        throw new Error(
-          `robustLogin: failed to reach / after 3 attempts (last URL: ${page.url()})`,
-        );
-      }
-    }
-  }
-}
 
 /** Helper: create a dashboard with a single table widget that runs `query`. */
 async function createSingleTableDashboard(
@@ -99,8 +78,8 @@ async function createSingleTableDashboard(
 test.describe("Query safety nets — timeout + row cap + error UX", () => {
   test.describe.configure({ timeout: 60_000 });
 
-  test.beforeEach(async ({ page }) => {
-    await robustLogin(page, ALICE.email, ALICE.password);
+  test.beforeEach(async ({ authPage }) => {
+    await authPage.login(ALICE.email, ALICE.password);
   });
 
   // ─────────────────────────────────────────────────────────────────────────

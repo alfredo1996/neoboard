@@ -7,6 +7,7 @@ import {
   DAVE,
   createTestDashboard,
 } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 import type { Browser, Page } from "@playwright/test";
 
 /**
@@ -17,36 +18,12 @@ import type { Browser, Page } from "@playwright/test";
  * tests use Alice (admin) as the sharer. The API layer (requireShareAccess)
  * also allows the owner, but since the UI doesn't expose that path we only
  * exercise the admin flow here.
- */
-
-/**
- * Login with automatic retry on the "submitted before hydration" race.
  *
- * The /login form uses a client `onSubmit` handler. If the Sign-in button is
- * clicked before React 19 has hydrated and attached the handler, the form
- * falls back to its default HTML behavior (GET to /login with query params),
- * which leaves the browser on `/login?email=...` instead of navigating to `/`.
- * AuthPage.login does not guard against this, so we retry up to 3 times.
+ * Login robustness: AuthPage.login handles the pre-hydration submit race
+ * upstream (see app/e2e/pages/auth.ts). For tests that create a fresh
+ * browser context, we instantiate a new AuthPage(page) rather than
+ * duplicating the retry loop locally.
  */
-async function robustLogin(page: Page, email: string, password: string) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    await page.goto("/login", { waitUntil: "networkidle" });
-    await page.getByLabel("Email").waitFor({ state: "visible" });
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    try {
-      await page.waitForURL("/", { timeout: 10_000 });
-      return;
-    } catch {
-      if (attempt === 3) {
-        throw new Error(
-          `robustLogin: failed to reach / after 3 attempts (last URL: ${page.url()})`,
-        );
-      }
-    }
-  }
-}
 
 async function loginAs(
   browser: Browser,
@@ -55,12 +32,12 @@ async function loginAs(
 ): Promise<{ page: Page; close: () => Promise<void> }> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await robustLogin(page, email, password);
+  await new AuthPage(page).login(email, password);
   return { page, close: () => context.close() };
 }
 
 async function setupAliceDashboard(page: Page, name: string) {
-  await robustLogin(page, ALICE.email, ALICE.password);
+  await new AuthPage(page).login(ALICE.email, ALICE.password);
   return createTestDashboard(page.request, name);
 }
 
@@ -72,10 +49,10 @@ async function openSharingPanel(page: Page, dashboardId: string) {
 }
 
 test.describe("Dashboard sharing — CRUD + permission matrix", () => {
-  // robustLogin may retry up to 3 times when the login form submits before
-  // React hydration, so an unlucky run can spend 10–20s on login alone.
-  // Combined with multi-context tests and per-test cleanup, the default 30s
-  // is too tight. 60s gives enough headroom without masking real regressions.
+  // AuthPage.login may retry up to 3 times on the pre-hydration submit race,
+  // so an unlucky run can spend 10–20s on login alone. Combined with
+  // multi-context tests and per-test cleanup, the default 30s is too tight.
+  // 60s gives enough headroom without masking real regressions.
   test.describe.configure({ timeout: 60_000 });
 
   test("1. share dashboard with user as viewer (happy path)", async ({
@@ -307,7 +284,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   }) => {
     // Bob owns the dashboard — Alice (admin) should still be able to read
     // and modify it without any explicit share.
-    await robustLogin(page, BOB.email, BOB.password);
+    await new AuthPage(page).login(BOB.email, BOB.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
       `Share Test 10 ${Date.now()}`,
@@ -335,7 +312,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   test("11. reader cannot create dashboards (UI hidden + API returns 403)", async ({
     page,
   }) => {
-    await robustLogin(page, CAROL.email, CAROL.password);
+    await new AuthPage(page).login(CAROL.email, CAROL.password);
 
     // UI: "New Dashboard" CTA is gated on canCreate (admin|creator),
     // so readers do not see it at all.
