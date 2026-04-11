@@ -1,4 +1,11 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+  getPreview,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Design system — Deep Ocean palette, accessibility, colorblind mode
@@ -259,16 +266,39 @@ test.describe("Theme switching", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
   });
 
+  /**
+   * Open the Theme dropdown in the sidebar.
+   *
+   * The Theme trigger lives inside a DropdownMenu whose `asChild` override
+   * wraps a `SidebarItem` in an outer `<button>`, producing invalid nested
+   * `<button>` HTML in the DOM. `getByRole("button", { name: "Theme" })`
+   * therefore matches BOTH the outer trigger and the inner SidebarItem
+   * button, causing a strict-mode violation. `.first()` picks the outer
+   * trigger which is the correct one to click.
+   *
+   * (The nested-button DOM is a real component bug and the root of the
+   * hydration warnings that also trip up other flaky tests. Tracked
+   * separately — fixing the test first unblocks CI.)
+   */
+  async function openThemeMenu(page: import("@playwright/test").Page) {
+    await page.getByRole("button", { name: "Theme" }).first().click();
+  }
+
   test("theme dropdown has 3 options, System checked by default", async ({
     page,
   }) => {
     await page.evaluate(() => localStorage.removeItem("neoboard-theme"));
     await page.reload();
-    // Open theme dropdown in sidebar
-    await page.getByText("Theme").click();
-    await expect(page.getByRole("menuitemradio", { name: "Light" })).toBeVisible();
-    await expect(page.getByRole("menuitemradio", { name: "Dark" })).toBeVisible();
-    await expect(page.getByRole("menuitemradio", { name: "System" })).toBeVisible();
+    await openThemeMenu(page);
+    await expect(
+      page.getByRole("menuitemradio", { name: "Light" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitemradio", { name: "Dark" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitemradio", { name: "System" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("menuitemradio", { name: "System" }),
     ).toHaveAttribute("data-state", "checked");
@@ -277,8 +307,7 @@ test.describe("Theme switching", () => {
   test("explicit Dark overrides OS light", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
     await page.reload();
-    // Open theme dropdown and select Dark
-    await page.getByText("Theme").click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
   });
@@ -298,7 +327,7 @@ test.describe("Theme switching", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
 
     // Switch to System — should follow OS dark
-    await page.getByText("Theme").click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "System" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
   });

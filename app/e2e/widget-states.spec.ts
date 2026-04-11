@@ -9,12 +9,22 @@ import {
 test.describe("Widget editor", () => {
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Create a fresh dashboard to avoid test pollution from other specs
+    // Create a fresh dashboard to avoid test pollution from other specs.
+    // Await POST before asserting URL to avoid the create-then-wait race.
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill("Widget States Test");
-    await dialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST" &&
+          r.status() === 201,
+        { timeout: 10_000 },
+      ),
+      dialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await expect(page.getByText("Editing:")).toBeVisible();
   });
 

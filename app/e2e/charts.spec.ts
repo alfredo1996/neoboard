@@ -15,7 +15,7 @@ test.describe("Chart rendering", () => {
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     // Navigate to Movie Analytics which should have pre-configured widgets
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
   });
 
@@ -460,7 +460,7 @@ test.describe("Seeded dashboard renders live data", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The seeded dashboard has two widgets:
