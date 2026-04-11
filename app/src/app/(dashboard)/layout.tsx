@@ -110,13 +110,18 @@ export default function DashboardLayout({
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" className="w-full text-left">
-                    <SidebarItem
-                      icon={getPreferenceIcon(preference)}
-                      label="Theme"
-                      collapsed={collapsed}
-                    />
-                  </button>
+                  {/*
+                    No wrapping <button> — SidebarItem's root is already a
+                    button, and it forwards rest props (aria-haspopup, onClick,
+                    etc.) so Radix's asChild trigger plumbing flows through
+                    cleanly. A wrapping <button> would produce invalid nested
+                    button HTML and a React hydration warning.
+                  */}
+                  <SidebarItem
+                    icon={getPreferenceIcon(preference)}
+                    label="Theme"
+                    collapsed={collapsed}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="end">
                   <DropdownMenuLabel>Theme</DropdownMenuLabel>
