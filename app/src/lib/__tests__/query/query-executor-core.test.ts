@@ -17,6 +17,23 @@ vi.mock("@/lib/connector/connection-adapter", () => ({
   ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
 }));
 
+// Mirror the QueryStatus enum from @neoboard/connection (integer values are
+// declaration order in the real enum). Only COMPLETE_TRUNCATED = 7 matters
+// for the executor's setStatus handler — everything else is a no-op.
+vi.mock("@neoboard/connection", () => ({
+  QueryStatus: {
+    NO_QUERY: 0,
+    NO_DATA: 1,
+    NO_DRAWABLE_DATA: 2,
+    WAITING: 3,
+    RUNNING: 4,
+    TIMED_OUT: 5,
+    COMPLETE: 6,
+    COMPLETE_TRUNCATED: 7,
+    ERROR: 8,
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -55,7 +72,7 @@ describe("query-executor", () => {
   // executeQuery — basic
   // -----------------------------------------------------------------------
 
-  it("creates a connection module and resolves on onSuccess", async () => {
+  it("creates a connection module and resolves on onSuccess with truncation metadata", async () => {
     mockRunQuery.mockImplementation(
       (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
         cbs.onSuccess([{ n: 1 }]);
@@ -70,7 +87,14 @@ describe("query-executor", () => {
       expect.objectContaining({ uri: neo4jCreds.uri, username: "neo4j" }),
       expect.any(Object),
     );
-    expect(result).toEqual({ data: [{ n: 1 }] });
+    // New shape: data + rowLimit (effective cap) + truncated flag.
+    // Without a setStatus(COMPLETE_TRUNCATED) call, truncated is false
+    // and rowLimit echoes DEFAULT_MAX_ROWS (5000).
+    expect(result).toEqual({
+      data: [{ n: 1 }],
+      truncated: false,
+      rowLimit: 5000,
+    });
   });
 
   it("rejects when runQuery calls onFail", async () => {
@@ -83,6 +107,126 @@ describe("query-executor", () => {
     await expect(
       executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" }),
     ).rejects.toThrow("Connection refused");
+  });
+
+  // -----------------------------------------------------------------------
+  // executeQuery — truncation signal (issue #499)
+  // -----------------------------------------------------------------------
+
+  it("captures truncated:true when driver calls setStatus(COMPLETE_TRUNCATED)", async () => {
+    // Simulates the connector module reporting that the result was capped
+    // at the configured rowLimit. The executor's setStatus handler should
+    // flip its internal `truncated` flag, which then surfaces in the
+    // resolved value.
+    mockRunQuery.mockImplementation(
+      (
+        _p: unknown,
+        cbs: {
+          onSuccess: (v: unknown) => void;
+          setStatus?: (s: number) => void;
+        },
+      ) => {
+        cbs.setStatus?.(7); // QueryStatus.COMPLETE_TRUNCATED
+        cbs.onSuccess(Array.from({ length: 5000 }, (_, i) => ({ n: i })));
+      },
+    );
+
+    const result = await executeQuery("postgresql", pgCreds, {
+      query: "SELECT * FROM big_table",
+    });
+
+    expect(result.truncated).toBe(true);
+    expect(result.rowLimit).toBe(5000);
+    expect((result.data as unknown[]).length).toBe(5000);
+  });
+
+  it("does NOT mark truncated when driver only reports COMPLETE", async () => {
+    mockRunQuery.mockImplementation(
+      (
+        _p: unknown,
+        cbs: {
+          onSuccess: (v: unknown) => void;
+          setStatus?: (s: number) => void;
+        },
+      ) => {
+        cbs.setStatus?.(6); // QueryStatus.COMPLETE — not truncated
+        cbs.onSuccess([{ n: 1 }]);
+      },
+    );
+
+    const result = await executeQuery("postgresql", pgCreds, {
+      query: "SELECT 1",
+    });
+
+    expect(result.truncated).toBe(false);
+    expect(result.rowLimit).toBe(5000);
+  });
+
+  it("does NOT mark truncated when driver omits setStatus entirely", async () => {
+    // Defensive: make sure missing setStatus calls don't set truncated.
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([{ n: 1 }]);
+      },
+    );
+
+    const result = await executeQuery("neo4j", neo4jCreds, {
+      query: "RETURN 1",
+    });
+
+    expect(result.truncated).toBe(false);
+    expect(result.rowLimit).toBe(5000);
+  });
+
+  // -----------------------------------------------------------------------
+  // executeQuery — per-connection maxRows override
+  // -----------------------------------------------------------------------
+
+  it("uses credentials.maxRows when set instead of DEFAULT_MAX_ROWS", async () => {
+    let capturedConfig: Record<string, unknown> = {};
+    mockRunQuery.mockImplementation(
+      (
+        _p: unknown,
+        cbs: { onSuccess: (v: unknown) => void },
+        config: Record<string, unknown>,
+      ) => {
+        capturedConfig = config;
+        cbs.onSuccess([{ n: 1 }]);
+      },
+    );
+
+    const creds = { ...pgCreds, maxRows: 25_000 };
+    const result = await executeQuery("postgresql", creds, {
+      query: "SELECT 1",
+    });
+
+    // Driver receives the override via config.rowLimit so it can slice
+    // at the right point on its side.
+    expect(capturedConfig.rowLimit).toBe(25_000);
+    // And the executor echoes the effective cap back to the caller so the
+    // API route can forward it to the UI banner.
+    expect(result.rowLimit).toBe(25_000);
+  });
+
+  it("falls back to DEFAULT_MAX_ROWS (5000) when credentials.maxRows is undefined", async () => {
+    let capturedConfig: Record<string, unknown> = {};
+    mockRunQuery.mockImplementation(
+      (
+        _p: unknown,
+        cbs: { onSuccess: (v: unknown) => void },
+        config: Record<string, unknown>,
+      ) => {
+        capturedConfig = config;
+        cbs.onSuccess([{ n: 1 }]);
+      },
+    );
+
+    const result = await executeQuery("postgresql", pgCreds, {
+      query: "SELECT 1",
+    });
+
+    expect(capturedConfig.rowLimit).toBe(5000);
+    expect(result.rowLimit).toBe(5000);
   });
 
   // -----------------------------------------------------------------------
