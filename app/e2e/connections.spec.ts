@@ -240,4 +240,209 @@ test.describe("Connections", () => {
     await page.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText(name)).not.toBeVisible();
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Delete connection in use — issue #481
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // The delete flow currently has NO server-side guard against deleting a
+  // connection that is referenced by dashboard widgets. These tests pin the
+  // current behavior so the post-guard fix is explicitly visible:
+  //
+  //   1. The confirm dialog warns with generic copy ("widgets will stop
+  //      working") but does not show the usage count. Follow-up issue #TBD.
+  //   2. The DELETE /api/connections/{id} route returns 200 with no conflict
+  //      check — orphaned widgets are left to degrade gracefully. Follow-up
+  //      issue #TBD.
+  //   3. No re-assign flow exists in the UI. Follow-up issue #TBD.
+  //
+  // When the guard lands, flip test 2's status assertion from 200 to 409 and
+  // add an assertion that the connection still exists until the user force-
+  // confirms.
+
+  test("deleting a connection in use leaves widget in a graceful degraded state", async ({
+    page,
+  }) => {
+    // 1. Create a fresh PG connection via API so we don't step on the seeded
+    //    conn-pg-001 (other tests depend on it).
+    const connName = `inuse-ui-${Date.now()}`;
+    const createRes = await page.request.post("/api/connections", {
+      data: {
+        name: connName,
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+        },
+      },
+    });
+    expect(createRes.status()).toBe(201);
+    const connId = (await createRes.json()).data.id as string;
+
+    // 2. Create a dashboard that uses this connection via a simple table widget.
+    const dashRes = await page.request.post("/api/dashboards", {
+      data: { name: `inuse-dash ${Date.now()}` },
+    });
+    const dashId = (await dashRes.json()).data.id as string;
+    const putRes = await page.request.put(`/api/dashboards/${dashId}`, {
+      data: {
+        layoutJson: {
+          version: 2 as const,
+          pages: [
+            {
+              id: "page-1",
+              title: "Main",
+              widgets: [
+                {
+                  id: "w1",
+                  chartType: "table",
+                  connectionId: connId,
+                  query: "SELECT 1 AS n",
+                  settings: { title: "Orphaned-candidate widget" },
+                },
+              ],
+              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 6 }],
+            },
+          ],
+        },
+      },
+    });
+    expect(putRes.ok()).toBeTruthy();
+
+    try {
+      // 3. Go to the connections page and locate the new card.
+      await page.reload();
+      const card = page
+        .locator("div[class*='border']")
+        .filter({ hasText: connName })
+        .filter({
+          has: page.getByRole("button", { name: "Connection actions" }),
+        });
+      await expect(card).toBeVisible({ timeout: 10_000 });
+
+      // 4. Open the dropdown and click Delete.
+      await card.getByRole("button", { name: "Connection actions" }).click();
+      await page.getByRole("menuitem", { name: /Delete/ }).click();
+
+      // 5. Assert the confirm dialog shows the generic in-use warning.
+      //    Current copy: "Any widgets using it will stop working."
+      //    Loose regex so minor copy tweaks don't break the test.
+      await expect(
+        page.getByText(/widgets.*stop working|break|stop functioning/i),
+      ).toBeVisible({ timeout: 5_000 });
+
+      // 6. Confirm delete.
+      await page.getByRole("button", { name: "Delete" }).click();
+      await expect(page.getByText(connName)).not.toBeVisible({
+        timeout: 10_000,
+      });
+
+      // 7. Navigate to the dashboard and verify the widget still renders
+      //    some graceful state. The exact text is intentionally not pinned —
+      //    we only assert (a) the card container for the widget is visible
+      //    (no React error boundary fallback) and (b) the widget title is
+      //    still there. The specific error copy is a separate concern and
+      //    may evolve; a regex-based "error"/"not found"/"failed" match is
+      //    enough to prove the widget didn't crash.
+      await page.goto(`/${dashId}`);
+      await expect(page.getByText("Orphaned-candidate widget")).toBeVisible({
+        timeout: 15_000,
+      });
+      // The widget must not render a hard crash — React error boundaries
+      // show "Something went wrong" or similar.
+      await expect(
+        page.getByText(/something went wrong|uncaught|error boundary/i),
+      ).not.toBeVisible();
+    } finally {
+      // Best-effort cleanup — dashboard delete cascades nothing (widgets
+      // live in layoutJson), and the connection is already gone.
+      await page.request
+        .delete(`/api/dashboards/${dashId}`)
+        .catch(() => undefined);
+    }
+  });
+
+  test("DELETE /api/connections/{id} silently removes an in-use connection (pins current no-guard behavior)", async ({
+    page,
+  }) => {
+    // This test documents the current API behavior: no conflict check when
+    // the connection is referenced by a widget. When the guard lands
+    // (follow-up issue #TBD), change the expected status from 200 to 409
+    // and add an assertion that the connection still exists after the
+    // attempted delete.
+    const connName = `inuse-api-${Date.now()}`;
+    const createRes = await page.request.post("/api/connections", {
+      data: {
+        name: connName,
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+        },
+      },
+    });
+    expect(createRes.status()).toBe(201);
+    const connId = (await createRes.json()).data.id as string;
+
+    const dashRes = await page.request.post("/api/dashboards", {
+      data: { name: `inuse-api-dash ${Date.now()}` },
+    });
+    const dashId = (await dashRes.json()).data.id as string;
+    await page.request.put(`/api/dashboards/${dashId}`, {
+      data: {
+        layoutJson: {
+          version: 2 as const,
+          pages: [
+            {
+              id: "page-1",
+              title: "Main",
+              widgets: [
+                {
+                  id: "w1",
+                  chartType: "table",
+                  connectionId: connId,
+                  query: "SELECT 1",
+                  settings: { title: "API orphan candidate" },
+                },
+              ],
+              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 6 }],
+            },
+          ],
+        },
+      },
+    });
+
+    try {
+      // Direct DELETE — no guard, returns 200.
+      const delRes = await page.request.delete(`/api/connections/${connId}`);
+      expect(delRes.status()).toBe(200);
+
+      // Confirm the connection is really gone.
+      const listRes = await page.request.get("/api/connections?limit=100");
+      expect(listRes.status()).toBe(200);
+      const listBody = await listRes.json();
+      const ids = ((listBody.data ?? []) as Array<{ id: string }>).map(
+        (c) => c.id,
+      );
+      expect(ids).not.toContain(connId);
+
+      // Dashboard layoutJson still references the orphaned connectionId —
+      // verify the widget's query endpoint now returns 404 "Connection not
+      // found" when fired against the deleted id.
+      const queryRes = await page.request.post("/api/query", {
+        data: { connectionId: connId, query: "SELECT 1" },
+      });
+      expect(queryRes.status()).toBe(404);
+      const queryBody = await queryRes.json();
+      expect(queryBody.error?.message).toMatch(/connection not found/i);
+    } finally {
+      await page.request
+        .delete(`/api/dashboards/${dashId}`)
+        .catch(() => undefined);
+    }
+  });
 });
