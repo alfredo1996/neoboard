@@ -5,7 +5,9 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
-  test("card footer shows 'by {name}' for seeded dashboard", async ({ page }) => {
+  test("card footer shows 'by {name}' for seeded dashboard", async ({
+    page,
+  }) => {
     // The seeded "Movie Analytics" dashboard has updated_by = user-alice-001
     const card = page
       .locator("div[class*='cursor-pointer']")
@@ -17,15 +19,27 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await expect(card.getByText("by Alice Demo")).toBeVisible();
   });
 
-  test("card footer shows 'by {name}' after creating a dashboard", async ({ page }) => {
+  test("card footer shows 'by {name}' after creating a dashboard", async ({
+    page,
+  }) => {
     const dashboardName = `Metadata E2E Test ${Date.now()}`;
 
-    // Create a new dashboard with a unique name
+    // Create a new dashboard with a unique name.
+    // Wait for the POST to complete before asserting the URL — otherwise
+    // waitForURL races the API response and times out under CI load.
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill(dashboardName);
-    await dialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST",
+        { timeout: 10_000 },
+      ),
+      dialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
 
     // Go back to list
     await page.goto("/");
@@ -42,7 +56,9 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await card.getByRole("button", { name: "Dashboard options" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText(dashboardName)).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(dashboardName)).not.toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("viewer toolbar shows 'updated ... by {name}'", async ({ page }) => {
@@ -51,6 +67,8 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Toolbar should contain "by Alice Demo"
-    await expect(page.getByText("by Alice Demo")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("by Alice Demo")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

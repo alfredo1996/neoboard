@@ -13,22 +13,31 @@ test.describe("Dashboard viewer — uncovered states", () => {
       timeout: 15_000,
     });
     await expect(
-      page.getByText("doesn't exist or you don't have access")
+      page.getByText("doesn't exist or you don't have access"),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Back to Dashboards/ })
+      page.getByRole("button", { name: /Back to Dashboards/ }),
     ).toBeVisible();
   });
 
   test("should show empty state when dashboard has no widgets", async ({
     page,
   }) => {
-    // Create a new empty dashboard
+    // Create a new empty dashboard. Awaits the POST before asserting URL
+    // to avoid the create-then-wait race.
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#dashboard-name").fill("Empty State Test");
-    await dialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST",
+        { timeout: 10_000 },
+      ),
+      dialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     // Save the empty dashboard
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
@@ -43,9 +52,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
     });
   });
 
-  test("should navigate to dashboard and display content", async ({
-    page,
-  }) => {
+  test("should navigate to dashboard and display content", async ({ page }) => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await expect(page.getByText("Movie Analytics")).toBeVisible();
@@ -55,12 +62,21 @@ test.describe("Dashboard viewer — uncovered states", () => {
 test.describe("Dashboard editor — uncovered states", () => {
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Create a fresh dashboard for editing tests
+    // Create a fresh dashboard for editing tests. Awaits the POST before
+    // asserting URL to avoid the create-then-wait race.
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#dashboard-name").fill("Editor Test Dashboard");
-    await dialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST",
+        { timeout: 10_000 },
+      ),
+      dialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
   });
 
   test("should show empty state in editor with Add Widget CTA", async ({
@@ -69,7 +85,9 @@ test.describe("Dashboard editor — uncovered states", () => {
     await expect(page.getByText("No widgets yet")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByText('Click "Add Widget" to get started.')).toBeVisible();
+    await expect(
+      page.getByText('Click "Add Widget" to get started.'),
+    ).toBeVisible();
     const emptyStateBtn = page.getByRole("button", { name: "Add Widget" });
     await expect(emptyStateBtn.first()).toBeVisible();
   });
@@ -83,15 +101,15 @@ test.describe("Dashboard editor — uncovered states", () => {
   test("admin should see Sharing button in editor toolbar", async ({
     page,
   }) => {
-    await expect(
-      page.getByRole("button", { name: "Sharing" })
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Sharing" })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("admin should open sharing panel via sheet", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Sharing" })
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Sharing" })).toBeVisible({
+      timeout: 10_000,
+    });
     await page.getByRole("button", { name: "Sharing" }).click();
     await expect(page.getByText("Sharing").first()).toBeVisible({
       timeout: 10_000,
@@ -166,12 +184,16 @@ test.describe("Dashboard editor — uncovered states", () => {
 
     // Save — wait for the PUT response to confirm save is complete
     const saveResponse = page.waitForResponse(
-      (res) => res.url().includes("/api/dashboards/") && res.request().method() === "PUT",
+      (res) =>
+        res.url().includes("/api/dashboards/") &&
+        res.request().method() === "PUT",
       { timeout: 15_000 },
     );
     await page.getByRole("button", { name: "Save" }).click();
     await saveResponse;
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
+      timeout: 10_000,
+    });
 
     // Go to view mode — extract dashboard ID from URL and navigate directly
     const editUrl = page.url();
@@ -184,6 +206,8 @@ test.describe("Dashboard editor — uncovered states", () => {
     await expect(page.getByText("Page 2")).toBeVisible();
 
     // Widget from Page 1 should be visible initially
-    await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator("[data-testid='widget-card']").first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

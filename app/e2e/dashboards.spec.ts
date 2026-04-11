@@ -64,13 +64,21 @@ test.describe("Dashboard CRUD", () => {
   });
 
   test("should delete a dashboard", async ({ page }) => {
-    // Create one to delete
+    // Create one to delete. Await POST to avoid the create-then-wait race.
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill("To Delete Dashboard");
-    await dialog.getByRole("button", { name: "Create" }).click();
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST",
+        { timeout: 10_000 },
+      ),
+      dialog.getByRole("button", { name: "Create" }).click(),
+    ]);
     // After creation, app navigates to edit page — go back to list
-    await page.waitForURL(/\/edit/, { timeout: 10000 });
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await page.goto("/");
     await expect(page.getByText("To Delete Dashboard")).toBeVisible({
       timeout: 10000,
