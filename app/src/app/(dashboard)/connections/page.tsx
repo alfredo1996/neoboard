@@ -60,6 +60,7 @@ const DEFAULT_FORM = {
   idleTimeout: "",
   statementTimeout: "",
   sslRejectUnauthorized: undefined as boolean | undefined,
+  maxRows: "",
 };
 
 export default function ConnectionsPage() {
@@ -125,6 +126,7 @@ export default function ConnectionsPage() {
       idleTimeout: parseOptionalInt(form.idleTimeout),
       statementTimeout: parseOptionalInt(form.statementTimeout),
       sslRejectUnauthorized: form.sslRejectUnauthorized,
+      maxRows: parseOptionalInt(form.maxRows),
     };
   }
 
@@ -338,6 +340,7 @@ export default function ConnectionsPage() {
       idleTimeout: parseOptionalInt(editForm.idleTimeout),
       statementTimeout: parseOptionalInt(editForm.statementTimeout),
       sslRejectUnauthorized: editForm.sslRejectUnauthorized,
+      maxRows: parseOptionalInt(editForm.maxRows),
     };
   }
 
@@ -615,6 +618,23 @@ export default function ConnectionsPage() {
                           </div>
                         </>
                       )}
+
+                      {/* Result limits — shared across connector types */}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {numericField(
+                          "conn-max-rows",
+                          "Max Rows per Query",
+                          "maxRows",
+                          "5000",
+                          100,
+                          100000,
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground -mt-2">
+                        Results beyond this cap are truncated and a banner is
+                        shown on the widget. Default 5,000. Increase cautiously
+                        — higher limits raise per-query memory usage.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -848,6 +868,23 @@ export default function ConnectionsPage() {
                           </div>
                         </>
                       )}
+
+                      {/* Result limits — shared across connector types */}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {editNumericField(
+                          "edit-max-rows",
+                          "Max Rows per Query",
+                          "maxRows",
+                          "5000",
+                          100,
+                          100000,
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground -mt-2">
+                        Results beyond this cap are truncated and a banner is
+                        shown on the widget. Default 5,000. Increase cautiously
+                        — higher limits raise per-query memory usage.
+                      </p>
                     </div>
                   )}
                 </div>

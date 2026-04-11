@@ -19,8 +19,12 @@ interface QueryResult {
   /** Unique ID for this execution, generated server-side. Can be used as a
    *  stable cache/state key (e.g. to detect when graph data changed). */
   resultId: string;
-  /** True when the server truncated the result set to MAX_ROWS (10 000). */
+  /** True when the driver truncated the result set to `rowLimit`. */
   truncated?: boolean;
+  /** The effective row limit the driver used for this query (per-connection
+   *  override via credentials.maxRows, or DEFAULT_MAX_ROWS otherwise). The
+   *  UI banner uses this to render the actual cap in its message. */
+  rowLimit?: number;
   /** Server-side query execution time in milliseconds. */
   serverDurationMs?: number;
 }

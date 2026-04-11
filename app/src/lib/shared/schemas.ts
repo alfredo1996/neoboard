@@ -24,6 +24,13 @@ export const connectionConfigSchema = z.object({
   idleTimeout: z.number().int().min(1000).max(300_000).optional(),
   statementTimeout: z.number().int().min(1000).max(300_000).optional(),
   sslRejectUnauthorized: z.boolean().optional(),
+  /**
+   * Max rows returned by read queries on this connection. Results beyond
+   * this cap are truncated and the widget shows a "Showing first N rows"
+   * banner. Default `DEFAULT_MAX_ROWS` (5000). Raise cautiously — each
+   * extra row linearly increases per-query memory footprint.
+   */
+  maxRows: z.number().int().min(100).max(100_000).optional(),
 });
 
 export const createConnectionSchema = z.object({

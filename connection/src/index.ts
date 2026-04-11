@@ -1,4 +1,5 @@
 export { DEFAULT_CONNECTION_CONFIG } from "./generalized/interfaces";
+export { QueryStatus } from "./generalized/interfaces";
 export type { AccessMode } from "./generalized/interfaces";
 export { createConnectionModule } from "./connector-registry";
 export { ConnectionTypes } from "./ConnectionModuleConfig";
