@@ -20,13 +20,14 @@ import type { APIRequestContext } from "@playwright/test";
  *    connection/src/generalized/interfaces.ts:84 — the CLAUDE.md claim of
  *    30s is stale. Tests use the real 2s default.
  *
- * 2. Effective row cap is 5000, not 10000. The PG and Neo4j connectors
- *    truncate at `config.rowLimit = 5000` (interfaces.ts:89) BEFORE the API
- *    route's `MAX_ROWS = 10_000` check runs. The route's truncation logic
- *    is dead code and `meta.truncated` is never set — which means the
- *    "Showing first 10,000 rows…" banner in card-container.tsx:569 never
- *    renders in practice. Tests pin the current reality; a follow-up bug
- *    issue is filed to reconnect the driver→route→UI signal.
+ * 2. Row cap is 5000 by default, user-configurable per connection via
+ *    `credentials.maxRows` (#499 fix). The driver signals truncation by
+ *    calling `setStatus(COMPLETE_TRUNCATED)`, which the query-executor
+ *    captures into `truncated: true` on its return value. The API route
+ *    forwards both `truncated` and the effective `rowLimit` into meta,
+ *    and the UI banner renders "Showing first N rows" with the dynamic
+ *    value. Test 3 verifies the default, test 4b verifies a per-connection
+ *    override is honored.
  *
  * 3. The empty-state card header reads "No results", not "No data". The
  *    exploration agent misread card-container.tsx earlier.
@@ -150,23 +151,18 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 3. PostgreSQL row cap — asserts the CURRENT (buggy) behavior
+  // 3. PostgreSQL row cap — driver signal reaches meta.truncated + banner
   // ─────────────────────────────────────────────────────────────────────────
   //
-  // Intended design:  API returns 10_000 rows + meta.truncated=true, UI
-  //                   shows "Showing first 10,000 rows…" banner.
-  //
-  // Actual behavior: The PG connector slices at rowLimit=5000 BEFORE the
-  //                  route sees the data. The route's MAX_ROWS=10_000
-  //                  comparison never triggers, so meta.truncated is never
-  //                  set and the banner never renders. Filed follow-up
-  //                  bug #TBD — the driver needs to signal "truncated"
-  //                  through the onSuccess callback.
-  //
-  // This test pins the current reality so the fix is visible when it lands.
-  test("PG row-cap pins the driver-level 5000 limit (meta.truncated is currently never set)", async ({
+  // After #499, the PG connector's COMPLETE_TRUNCATED status flows through
+  // the query-executor's setStatus handler into the API response, so both
+  // meta.truncated and meta.rowLimit are populated and the widget renders
+  // the "Showing first N rows" banner.
+  test("PG row cap propagates driver truncation signal to API and widget banner", async ({
     page,
   }) => {
+    // API-level assertion first — seeded conn-pg-001 has no maxRows
+    // override, so the effective cap is DEFAULT_MAX_ROWS (5000).
     const apiRes = await page.request.post("/api/query", {
       data: {
         connectionId: PG_CONNECTION_ID,
@@ -176,20 +172,35 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     expect(apiRes.status()).toBe(200);
     const body = await apiRes.json();
 
-    // Current reality: driver rowLimit caps at 5000.
     expect(Array.isArray(body.data?.data)).toBe(true);
     expect((body.data?.data as unknown[]).length).toBe(5_000);
+    expect(body.meta?.truncated).toBe(true);
+    expect(body.meta?.rowLimit).toBe(5000);
 
-    // Current reality: meta.truncated never set.
-    // When the follow-up bug is fixed, this assertion will start failing —
-    // flip to `.toBe(true)` and update the row count expectation.
-    expect(body.meta?.truncated).toBeUndefined();
+    // UI-level assertion: create a dashboard that runs the same query
+    // and verify the banner renders with the correct dynamic text.
+    const { id, cleanup } = await createSingleTableDashboard(
+      page.request,
+      `pg-row-cap ${Date.now()}`,
+      PG_CONNECTION_ID,
+      "SELECT generate_series(1, 15000) AS id",
+    );
+    try {
+      await page.goto(`/${id}`);
+      await expect(
+        page.getByText(
+          /Showing first 5,000 rows\. Refine your query to see all results\./,
+        ),
+      ).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await cleanup();
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 4. Cypher row cap — same caveat as #3
+  // 4. Cypher row cap — same behavior via Neo4j driver signal
   // ─────────────────────────────────────────────────────────────────────────
-  test("Cypher row-cap pins the driver-level 5000 limit (meta.truncated is currently never set)", async ({
+  test("Cypher row cap propagates driver truncation signal to API and widget banner", async ({
     page,
   }) => {
     const apiRes = await page.request.post("/api/query", {
@@ -203,7 +214,87 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
 
     expect(Array.isArray(body.data?.data)).toBe(true);
     expect((body.data?.data as unknown[]).length).toBe(5_000);
-    expect(body.meta?.truncated).toBeUndefined();
+    expect(body.meta?.truncated).toBe(true);
+    expect(body.meta?.rowLimit).toBe(5000);
+
+    const { id, cleanup } = await createSingleTableDashboard(
+      page.request,
+      `cypher-row-cap ${Date.now()}`,
+      NEO4J_CONNECTION_ID,
+      "UNWIND range(1, 15000) AS x RETURN x AS id",
+    );
+    try {
+      await page.goto(`/${id}`);
+      await expect(
+        page.getByText(
+          /Showing first 5,000 rows\. Refine your query to see all results\./,
+        ),
+      ).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4b. Per-connection maxRows override
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Creators can raise (or lower) the cap on a per-connection basis via
+  // Advanced Settings > Max Rows per Query. This test creates a PG
+  // connection with maxRows=1000 and verifies the driver honors it — both
+  // the row count and the banner should reflect the custom value.
+  test("per-connection maxRows override is honored by driver + banner", async ({
+    page,
+  }) => {
+    // Create a fresh PG connection with an explicit maxRows cap.
+    const createRes = await page.request.post("/api/connections", {
+      data: {
+        name: `maxrows-override ${Date.now()}`,
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${process.env.TEST_PG_PORT ?? "5432"}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+          maxRows: 1000,
+        },
+      },
+    });
+    expect(createRes.status()).toBe(201);
+    const connId = (await createRes.json()).data.id as string;
+
+    try {
+      // API-level: effective cap should be 1000, not the 5000 default.
+      const apiRes = await page.request.post("/api/query", {
+        data: {
+          connectionId: connId,
+          query: "SELECT generate_series(1, 5000) AS id",
+        },
+      });
+      expect(apiRes.status()).toBe(200);
+      const body = await apiRes.json();
+      expect((body.data?.data as unknown[]).length).toBe(1_000);
+      expect(body.meta?.truncated).toBe(true);
+      expect(body.meta?.rowLimit).toBe(1000);
+
+      // UI-level: banner should render with the override value.
+      const { id, cleanup } = await createSingleTableDashboard(
+        page.request,
+        `pg-override ${Date.now()}`,
+        connId,
+        "SELECT generate_series(1, 5000) AS id",
+      );
+      try {
+        await page.goto(`/${id}`);
+        await expect(page.getByText(/Showing first 1,000 rows\./)).toBeVisible({
+          timeout: 20_000,
+        });
+      } finally {
+        await cleanup();
+      }
+    } finally {
+      await page.request.delete(`/api/connections/${connId}`);
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────────────

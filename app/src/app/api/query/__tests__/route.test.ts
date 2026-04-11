@@ -390,9 +390,14 @@ describe("POST /api/query", () => {
     expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 
-  // --- MAX_ROWS truncation tests ---
+  // --- Row cap (driver-reported truncation) tests ---
+  //
+  // Truncation is now enforced at the driver layer and signaled via the
+  // executor's setStatus callback. The route just forwards `truncated` and
+  // `rowLimit` from executeQuery's return value into the response meta —
+  // no more post-hoc `rawData.length > MAX_ROWS` slicing.
 
-  it("truncates data to 10,000 rows and sets truncated:true when result exceeds MAX_ROWS", async () => {
+  it("forwards truncated:true and rowLimit when the driver signals truncation", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(
       drizzleSelectChain([
@@ -409,20 +414,26 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    // Return 10001 rows
-    const bigData = Array.from({ length: 10001 }, (_, i) => ({ n: i }));
-    mockExecuteQuery.mockResolvedValue({ data: bigData, fields: ["n"] });
+    // Driver already sliced to exactly rowLimit rows + set truncated flag.
+    const cappedData = Array.from({ length: 5000 }, (_, i) => ({ n: i }));
+    mockExecuteQuery.mockResolvedValue({
+      data: cappedData,
+      fields: ["n"],
+      truncated: true,
+      rowLimit: 5000,
+    });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data.data).toHaveLength(10000);
+    expect(body.data.data).toHaveLength(5000);
     expect(body.meta.truncated).toBe(true);
+    expect(body.meta.rowLimit).toBe(5000);
   });
 
-  it("does not truncate and omits truncated flag when result is exactly 10,000 rows", async () => {
+  it("omits truncated flag when driver reports no truncation", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(
       drizzleSelectChain([
@@ -439,36 +450,12 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    const data = Array.from({ length: 10000 }, (_, i) => ({ n: i }));
-    mockExecuteQuery.mockResolvedValue({ data, fields: ["n"] });
-
-    const res = await POST(
-      makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }),
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.data.data).toHaveLength(10000);
-    expect(body.meta.truncated).toBeUndefined();
-  });
-
-  it("does not truncate when result is well below 10,000 rows", async () => {
-    mockRequireSession.mockResolvedValue(defaultSession);
-    mockDb.select.mockReturnValue(
-      drizzleSelectChain([
-        {
-          id: "c1",
-          type: "postgresql",
-          configEncrypted: "enc",
-          userId: "user-1",
-        },
-      ]),
-    );
-    mockDecryptJson.mockReturnValue({
-      uri: "postgres://localhost",
-      username: "u",
-      password: "p",
+    mockExecuteQuery.mockResolvedValue({
+      data: [{ n: 1 }],
+      fields: ["n"],
+      truncated: false,
+      rowLimit: 5000,
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
@@ -477,9 +464,49 @@ describe("POST /api/query", () => {
     const body = await res.json();
     expect(body.data.data).toHaveLength(1);
     expect(body.meta.truncated).toBeUndefined();
+    expect(body.meta.rowLimit).toBe(5000);
   });
 
-  it("does not apply MAX_ROWS truncation when result data is not an array", async () => {
+  it("echoes the per-connection rowLimit override when the creator raised it", async () => {
+    // When a connection's credentials.maxRows is set to e.g. 20000, the
+    // executor uses that as rowLimit and returns it in the result. This
+    // test pins that the route faithfully forwards the override.
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "postgresql",
+          configEncrypted: "enc",
+          userId: "user-1",
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({
+      uri: "postgres://localhost",
+      username: "u",
+      password: "p",
+      maxRows: 20000,
+    });
+    const cappedData = Array.from({ length: 20000 }, (_, i) => ({ n: i }));
+    mockExecuteQuery.mockResolvedValue({
+      data: cappedData,
+      fields: ["n"],
+      truncated: true,
+      rowLimit: 20000,
+    });
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT * FROM t" }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.data).toHaveLength(20000);
+    expect(body.meta.truncated).toBe(true);
+    expect(body.meta.rowLimit).toBe(20000);
+  });
+
+  it("forwards truncated correctly for non-array (graph) results", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(
       drizzleSelectChain([
@@ -491,10 +518,13 @@ describe("POST /api/query", () => {
       username: "neo4j",
       password: "pass",
     });
-    // Non-array result (e.g. graph data object)
+    // Non-array result (e.g. graph data object) — still carries a
+    // rowLimit in meta, but not truncated since the driver didn't flag it.
     mockExecuteQuery.mockResolvedValue({
       data: { nodes: [], edges: [] },
       fields: [],
+      truncated: false,
+      rowLimit: 5000,
     });
 
     const res = await POST(
@@ -503,6 +533,7 @@ describe("POST /api/query", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.meta.truncated).toBeUndefined();
+    expect(body.meta.rowLimit).toBe(5000);
     expect(body.data.data).toEqual({ nodes: [], edges: [] });
   });
 });

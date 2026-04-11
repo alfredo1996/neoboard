@@ -570,7 +570,8 @@ export function CardContainer({
         <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 border-b flex items-center gap-1.5">
           <span>&#9888;</span>
           <span>
-            Showing first 10,000 rows. Refine your query to see all results.
+            Showing first {(widgetQuery.data.rowLimit ?? 0).toLocaleString()}{" "}
+            rows. Refine your query to see all results.
           </span>
         </div>
       )}
