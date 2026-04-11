@@ -12,9 +12,11 @@ dotenv.config({
   quiet: true,
 });
 
-/** Seed user credentials (from docker/postgres/init.sql). */
+/** Seed user credentials (from docker/postgres/seed-neoboard.sql). */
 export const ALICE = { email: "alice@example.com", password: "password123" };
 export const BOB = { email: "bob@example.com", password: "password123" };
+export const CAROL = { email: "carol@example.com", password: "password123" };
+export const DAVE = { email: "dave@example.com", password: "password123" };
 
 /** Dynamic test container URLs. */
 export const TEST_NEO4J_BOLT_URL =
