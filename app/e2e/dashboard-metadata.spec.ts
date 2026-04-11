@@ -34,7 +34,8 @@ test.describe("Dashboard metadata — updatedBy display", () => {
       page.waitForResponse(
         (r) =>
           r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST",
+          r.request().method() === "POST" &&
+          r.status() === 201,
         { timeout: 10_000 },
       ),
       dialog.getByRole("button", { name: "Create" }).click(),
