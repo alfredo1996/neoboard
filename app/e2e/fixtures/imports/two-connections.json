@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "dashboard": {
+    "name": "Two-Connection Dashboard",
+    "description": "E2E fixture with neo4j + postgresql connections"
+  },
+  "connections": {
+    "conn_0": { "name": "Graph DB", "type": "neo4j" },
+    "conn_1": { "name": "Relational DB", "type": "postgresql" }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-1",
+        "title": "Page 1",
+        "widgets": [
+          {
+            "id": "w1",
+            "chartType": "table",
+            "connectionId": "conn_0",
+            "query": "MATCH (n) RETURN n.name AS name LIMIT 5",
+            "settings": { "title": "Neo4j Widget" }
+          },
+          {
+            "id": "w2",
+            "chartType": "table",
+            "connectionId": "conn_1",
+            "query": "SELECT title FROM movies LIMIT 5",
+            "settings": { "title": "PostgreSQL Widget" }
+          }
+        ],
+        "gridLayout": [
+          { "i": "w1", "x": 0, "y": 0, "w": 6, "h": 4 },
+          { "i": "w2", "x": 6, "y": 0, "w": 6, "h": 4 }
+        ]
+      }
+    ]
+  }
+}
