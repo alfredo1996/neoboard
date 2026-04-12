@@ -134,7 +134,16 @@ export default function DashboardViewerPage({
     () => filterParentParams(Object.entries(parameters)).length,
     [parameters],
   );
-  const hasParameters = parameterCount > 0;
+  // Button should be enabled whenever the dashboard has parameter widgets,
+  // even if the store hasn't populated their values yet (e.g. on initial load).
+  const hasParameterWidgets = useMemo(() => {
+    if (!dashboard) return false;
+    const migrated = migrateLayout(dashboard.layoutJson);
+    return migrated.pages.some((p) =>
+      p.widgets.some((w) => w.chartType === "parameter-select"),
+    );
+  }, [dashboard]);
+  const hasParameters = hasParameterWidgets || parameterCount > 0;
   // null = auto mode (show when params exist), boolean = user override
   const [barOverride, setBarOverride] = useState<boolean | null>(null);
   const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
