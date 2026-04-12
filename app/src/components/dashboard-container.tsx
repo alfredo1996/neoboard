@@ -344,14 +344,16 @@ export function DashboardContainer({
         }}
       >
         <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
-          {fullscreenWidget && (
-            <>
-              <DialogTitle className="text-lg font-semibold mb-2">
-                {interpolateTitle(
+          <DialogTitle className="text-lg font-semibold mb-2">
+            {fullscreenWidget
+              ? interpolateTitle(
                   getWidgetDisplayTitle(fullscreenWidget),
                   parameters,
-                )}
-              </DialogTitle>
+                )
+              : "Widget"}
+          </DialogTitle>
+          {fullscreenWidget && (
+            <>
               <div className="flex-1 min-h-0">
                 {fullscreenReady ? (
                   <CardContainer
