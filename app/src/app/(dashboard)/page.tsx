@@ -460,6 +460,7 @@ export default function DashboardListPage() {
   const deleteDashboard = useDeleteDashboard();
   const duplicateDashboard = useDuplicateDashboard();
   const [newName, setNewName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -471,7 +472,11 @@ export default function DashboardListPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      setNameError("Name is required");
+      return;
+    }
+    setNameError(null);
     const dashboard = await createDashboard.mutateAsync({ name: newName });
     setNewName("");
     setShowCreate(false);
@@ -499,7 +504,16 @@ export default function DashboardListPage() {
         }
       />
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog
+        open={showCreate}
+        onOpenChange={(open) => {
+          setShowCreate(open);
+          if (!open) {
+            setNewName("");
+            setNameError(null);
+          }
+        }}
+      >
         <DialogContent>
           <form onSubmit={handleCreate}>
             <DialogHeader>
@@ -510,13 +524,26 @@ export default function DashboardListPage() {
               <Input
                 id="dashboard-name"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
                 placeholder="Dashboard name"
-                className="mt-2"
+                className={`mt-2 ${nameError ? "border-destructive" : ""}`}
                 autoFocus
-                required
+                aria-invalid={nameError ? "true" : undefined}
+                aria-describedby={
+                  nameError ? "dashboard-name-error" : undefined
+                }
               />
-              {newName.trim() === "" && (
+              {nameError ? (
+                <p
+                  id="dashboard-name-error"
+                  className="text-xs text-destructive mt-1"
+                >
+                  {nameError}
+                </p>
+              ) : (
                 <p className="text-xs text-muted-foreground mt-1">
                   Give your dashboard a name to get started.
                 </p>
