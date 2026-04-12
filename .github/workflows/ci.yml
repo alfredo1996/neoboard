@@ -283,7 +283,7 @@ jobs:
         run: npm ci
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: blob-report-*
           path: all-blob-reports
@@ -301,7 +301,7 @@ jobs:
           path: app/playwright-report/
 
       - name: Download all coverage shards
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: e2e-coverage-*
           path: coverage-shards
@@ -370,13 +370,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download unit coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: unit-coverage
         continue-on-error: true
 
       - name: Download E2E coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: e2e-coverage
           path: app/coverage-e2e
@@ -386,7 +386,7 @@ jobs:
         run: find . -name "lcov.info" -type f 2>/dev/null || echo "No lcov.info files found"
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v3
+        uses: SonarSource/sonarcloud-github-action@v5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
