@@ -12,7 +12,8 @@ import {
   handleRouteError,
   badRequest,
 } from "@/lib/api/api-utils";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { getConnectionUsage } from "@/lib/db/connection-usage";
 
 export async function GET(
   _request: Request,
@@ -165,22 +166,55 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, role, tenantId } = await requireSession();
     const { id } = await params;
+    const isAdmin = role === "admin";
 
-    const deleted = await db
-      .delete(connections)
-      .where(
-        and(
+    // `?force=true` bypasses the in-use guard. Used by the UI's
+    // "Delete anyway" button after the creator has seen the usage
+    // breakdown, and by CLI/automation that accept the data-loss tradeoff.
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
+
+    // Before deleting, check whether any dashboard widget still
+    // references this connection. If so — and the caller hasn't
+    // acknowledged by passing `?force=true` — return 409 Conflict with
+    // the full usage breakdown so the client can render a warning.
+    //
+    // Tenant-scoped: creators see their own dashboards + shared +
+    // public; admins see every dashboard in their tenant.
+    if (!force) {
+      const usage = await getConnectionUsage(id, userId, isAdmin, tenantId);
+      if (usage.widgetCount > 0) {
+        return apiError(
+          "CONFLICT",
+          `Connection is in use by ${usage.widgetCount} widget${
+            usage.widgetCount === 1 ? "" : "s"
+          } across ${usage.dashboards.length} dashboard${
+            usage.dashboards.length === 1 ? "" : "s"
+          }`,
+          { usage },
+        );
+      }
+    }
+
+    // Ownership check is enforced by the WHERE clause below. Admins
+    // bypass the owner constraint but still require tenant match.
+    const whereClause = isAdmin
+      ? and(eq(connections.id, id), eq(connections.tenantId, tenantId))
+      : and(
           eq(connections.id, id),
           eq(connections.userId, userId),
           eq(connections.tenantId, tenantId),
-        ),
-      )
+        );
+
+    const deleted = await db
+      .delete(connections)
+      .where(whereClause)
       .returning({ id: connections.id });
 
     if (deleted.length === 0) {
