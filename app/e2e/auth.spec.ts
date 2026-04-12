@@ -99,6 +99,33 @@ test.describe("Signup", () => {
     await page.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test("should show error for weak password (too short)", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByLabel("Name").fill("Weak Pass User");
+    await page.getByLabel("Email").fill(`weak-${Date.now()}@example.com`);
+    // 7 chars passes HTML minLength=6 but fails server-side min=8
+    await page.getByLabel("Password", { exact: true }).fill("short1a");
+    await page.getByLabel("Confirm Password").fill("short1a");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(
+      page.getByText("Password must be at least 8 characters"),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/signup/);
+  });
+
+  test("should show error for password without number", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByLabel("Name").fill("No Number User");
+    await page.getByLabel("Email").fill(`nonum-${Date.now()}@example.com`);
+    await page.getByLabel("Password", { exact: true }).fill("abcdefgh");
+    await page.getByLabel("Confirm Password").fill("abcdefgh");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(
+      page.getByText("Password must contain at least one number"),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/signup/);
+  });
 });
 
 // Skip on CI: JWT forcePasswordChange propagation has timing sensitivity
