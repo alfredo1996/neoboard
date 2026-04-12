@@ -1,0 +1,59 @@
+{
+  "title": "E2E NeoDash Import Test",
+  "version": "2.4",
+  "pages": [
+    {
+      "title": "Overview",
+      "reports": [
+        {
+          "id": "r1",
+          "title": "Movies Table",
+          "type": "table",
+          "query": "MATCH (m:Movie) RETURN m.title AS title, m.released AS year LIMIT 5",
+          "x": 0,
+          "y": 0,
+          "width": 6,
+          "height": 4,
+          "settings": {},
+          "parameters": {}
+        },
+        {
+          "id": "r2",
+          "title": "Cast Bar Chart",
+          "type": "bar",
+          "query": "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS label, count(p) AS value ORDER BY value DESC LIMIT 5",
+          "x": 6,
+          "y": 0,
+          "width": 6,
+          "height": 4,
+          "settings": {},
+          "parameters": {}
+        },
+        {
+          "id": "r3",
+          "title": "Relationships Pie",
+          "type": "pie",
+          "query": "MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value",
+          "x": 0,
+          "y": 4,
+          "width": 6,
+          "height": 4,
+          "settings": {},
+          "parameters": {}
+        },
+        {
+          "id": "r4",
+          "title": "Movie Count",
+          "type": "value",
+          "query": "MATCH (m:Movie) RETURN count(m) AS value",
+          "x": 6,
+          "y": 4,
+          "width": 6,
+          "height": 4,
+          "settings": {},
+          "parameters": {}
+        }
+      ]
+    }
+  ]
+}
