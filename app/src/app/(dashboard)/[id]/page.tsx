@@ -10,6 +10,7 @@ import React, {
   useTransition,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   Filter,
@@ -73,6 +74,8 @@ export default function DashboardViewerPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const canWrite = session?.user?.canWrite !== false;
   const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
   const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
   const prevDashboardId = useRef<string | null>(null);
@@ -473,7 +476,7 @@ export default function DashboardViewerPage({
                 refetchInterval={refetchInterval}
                 actions={{
                   onNavigateToPage: handleNavigateToPage,
-                  onSaveAsTemplate: setTemplateWidget,
+                  ...(canWrite && { onSaveAsTemplate: setTemplateWidget }),
                 }}
                 showParameterBar={effectiveShowBar}
                 parameterSourceMap={parameterSourceMap}
