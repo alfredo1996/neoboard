@@ -11,6 +11,48 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL("/");
   });
 
+  test("should redirect to /login when session expires mid-session", async ({
+    authPage,
+    page,
+    context,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await expect(page).toHaveURL("/");
+
+    // Simulate session expiry by clearing all cookies
+    await context.clearCookies();
+
+    // Navigate — middleware should bounce to /login with callbackUrl
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+    expect(page.url()).toContain("callbackUrl");
+  });
+
+  test("should restore original page after re-login (callbackUrl round-trip)", async ({
+    authPage,
+    page,
+    context,
+  }) => {
+    test.setTimeout(30_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    await expect(page).toHaveURL("/");
+
+    // Simulate session expiry
+    await context.clearCookies();
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+
+    // Re-login — should land back on / via callbackUrl
+    await page.getByLabel("Email").fill(ALICE.email);
+    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("should log out via sidebar", async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await expect(page).toHaveURL("/");
