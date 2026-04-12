@@ -285,6 +285,173 @@ test.describe("Refresh button", () => {
   });
 });
 
+test.describe("Empty result set — No data UX", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  async function createWidgetDashboard(
+    request: import("@playwright/test").APIRequestContext,
+    chartType: string,
+    query: string,
+  ) {
+    const res = await request.post("/api/dashboards", {
+      data: { name: `Empty ${chartType} ${Date.now()}` },
+    });
+    const { id } = (await res.json()).data;
+    await request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "p1",
+              title: "Page 1",
+              widgets: [
+                {
+                  id: "w1",
+                  chartType,
+                  connectionId: "conn-neo4j-001",
+                  query,
+                  settings: { title: `Empty ${chartType}` },
+                },
+              ],
+              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 4 }],
+            },
+          ],
+        },
+      },
+    });
+    return {
+      id,
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
+    };
+  }
+
+  const EMPTY_QUERY = "MATCH (n:NonExistentLabel__E2E) RETURN n.name LIMIT 1";
+
+  test("bar chart with empty result renders without error", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "bar",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    const widget = page.locator("[data-testid='widget-card']");
+    await expect(widget).toBeVisible({ timeout: 15_000 });
+    // ECharts renders "No data" on canvas — verify canvas present, no error
+    await expect(widget.locator("canvas")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+    await expect(page.getByText("Incompatible data format")).not.toBeVisible();
+  });
+
+  test("table with empty result shows 'No results'", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "table",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    // Table widget renders its own empty state ("No results") via DataGrid
+    await expect(page.getByText("No results")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  test("single-value with empty result shows fallback value", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "single-value",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    const widget = page.locator("[data-testid='widget-card']");
+    await expect(widget).toBeVisible({ timeout: 15_000 });
+    // Single-value renders "0" as fallback when no data returned
+    await expect(widget.getByText("0")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  test("pie chart with empty result renders without error", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "pie",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    const widget = page.locator("[data-testid='widget-card']");
+    await expect(widget).toBeVisible({ timeout: 15_000 });
+    await expect(widget.locator("canvas")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+    await expect(page.getByText("Incompatible data format")).not.toBeVisible();
+  });
+
+  test("graph widget with empty result shows 'No graph data'", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "graph",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    await expect(page.getByText("No graph data")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  test("empty state is distinct from error state", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "table",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    // Table renders DOM-visible "No results" — verifiable text
+    await expect(page.getByText("No results")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+    await expect(page.getByText("Incompatible data format")).not.toBeVisible();
+  });
+});
+
 test.describe("Manual run mode", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
