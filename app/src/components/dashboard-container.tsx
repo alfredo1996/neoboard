@@ -177,6 +177,13 @@ export function DashboardContainer({
       });
     }
 
+    if (onSaveAsTemplate) {
+      actions.push({
+        label: "Save to Widget Lab",
+        onClick: () => onSaveAsTemplate(widget),
+      });
+    }
+
     if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {
       actions.push({
@@ -188,12 +195,6 @@ export function DashboardContainer({
       actions.push({
         label: "Duplicate",
         onClick: () => onDuplicateWidget(widget.id),
-      });
-    }
-    if (onSaveAsTemplate) {
-      actions.push({
-        label: "Save to Widget Lab",
-        onClick: () => onSaveAsTemplate(widget),
       });
     }
     if (widget.templateId) {
