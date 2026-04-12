@@ -729,4 +729,127 @@ test.describe("Widget Lab", () => {
       ).not.toBeVisible();
     });
   });
+
+  // ── Widget Lab consumption: duplicate, filter, search ───────────────
+
+  test.describe("Widget Lab consumption", () => {
+    let templateIds: string[] = [];
+
+    test.beforeEach(async ({ page }) => {
+      // Create two templates via API for filter/search tests
+      const neo4jBar = await page.request.post("/api/widget-templates", {
+        data: {
+          name: "Neo4j Bar Template",
+          chartType: "bar",
+          connectorType: "neo4j",
+          query: "MATCH (m:Movie) RETURN m.title AS label, count(*) AS value",
+        },
+      });
+      const pgTable = await page.request.post("/api/widget-templates", {
+        data: {
+          name: "PostgreSQL Table Template",
+          chartType: "table",
+          connectorType: "postgresql",
+          query: "SELECT title FROM movies LIMIT 5",
+        },
+      });
+      const t1 = (await neo4jBar.json()).data;
+      const t2 = (await pgTable.json()).data;
+      templateIds = [t1.id, t2.id];
+    });
+
+    test.afterEach(async ({ page }) => {
+      for (const id of templateIds) {
+        await page.request.delete(`/api/widget-templates/${id}`);
+      }
+      templateIds = [];
+    });
+
+    test("can duplicate a template", async ({ page }) => {
+      await page.goto("/widget-lab");
+      const card = page
+        .locator("[data-testid='template-card']")
+        .filter({ hasText: "Neo4j Bar Template" })
+        .first();
+      await expect(card).toBeVisible({ timeout: 10_000 });
+
+      await card.getByLabel("Duplicate").click();
+
+      // Duplicate should appear with "(copy)" suffix
+      await expect(
+        page.getByText("Neo4j Bar Template (copy)", { exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // Clean up the duplicate
+      const res = await page.request.get("/api/widget-templates");
+      const templates = (await res.json()).data;
+      const copy = templates.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (t: any) => t.name === "Neo4j Bar Template (copy)",
+      );
+      if (copy) templateIds.push(copy.id);
+    });
+
+    test("can filter templates by chart type", async ({ page }) => {
+      await page.goto("/widget-lab");
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(
+        page.getByText("PostgreSQL Table Template", { exact: true }),
+      ).toBeVisible();
+
+      // Filter to bar charts only — shadcn Select uses combobox role
+      await page.locator("button[role='combobox']").nth(0).click();
+      await page.getByRole("option", { name: "Bar Chart" }).click();
+
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("PostgreSQL Table Template", { exact: true }),
+      ).not.toBeVisible();
+    });
+
+    test("can filter templates by connector type", async ({ page }) => {
+      await page.goto("/widget-lab");
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // Filter to PostgreSQL only — connector select is the second combobox
+      await page.locator("button[role='combobox']").nth(1).click();
+      await page.getByRole("option", { name: /PostgreSQL/i }).click();
+
+      await expect(
+        page.getByText("PostgreSQL Table Template", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).not.toBeVisible();
+    });
+
+    test("can search templates by name", async ({ page }) => {
+      await page.goto("/widget-lab");
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // Search for "PostgreSQL"
+      await page.getByPlaceholder("Search templates...").fill("PostgreSQL");
+
+      await expect(
+        page.getByText("PostgreSQL Table Template", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).not.toBeVisible();
+
+      // Clear search
+      await page.getByPlaceholder("Search templates...").clear();
+      await expect(
+        page.getByText("Neo4j Bar Template", { exact: true }),
+      ).toBeVisible();
+    });
+  });
 });
