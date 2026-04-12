@@ -501,3 +501,97 @@ test.describe("Performance — large dashboard", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Performance — 10k-row dataset
+// ---------------------------------------------------------------------------
+
+const FIRST_ROW_BUDGET_MS = 10_000;
+const SCROLL_READY_BUDGET_MS = 15_000;
+
+test.describe("Performance — 10k-row dataset", () => {
+  test("table renders 10k rows within performance budget", async ({
+    page,
+    authPage,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const createRes = await page.request.post("/api/dashboards", {
+      data: { name: `10k Rows ${Date.now()}` },
+    });
+    const { id: dashboardId } = (await createRes.json()).data;
+
+    await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "p1",
+              title: "Page 1",
+              widgets: [
+                {
+                  id: "w1",
+                  chartType: "table",
+                  connectionId: "conn-neo4j-001",
+                  query:
+                    "UNWIND range(1, 10000) AS i RETURN i AS row_id, 'Item ' + i AS name, i * 1.5 AS value",
+                  settings: {
+                    title: "10k Rows",
+                    chartOptions: {
+                      enableSorting: true,
+                      enablePagination: false,
+                    },
+                  },
+                },
+              ],
+              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 8 }],
+            },
+          ],
+        },
+      },
+    });
+
+    try {
+      const t0 = Date.now();
+      await page.goto(`/${dashboardId}`);
+
+      // Wait for the first table row to render
+      await expect(page.locator("table tbody tr").first()).toBeVisible({
+        timeout: 30_000,
+      });
+      const firstRowMs = Date.now() - t0;
+      console.log(`  10k rows — first row visible: ${firstRowMs} ms`);
+      expect(
+        firstRowMs,
+        `First row exceeded ${FIRST_ROW_BUDGET_MS} ms budget`,
+      ).toBeLessThan(FIRST_ROW_BUDGET_MS);
+
+      // Verify loading skeleton is gone (scroll-ready)
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-loading="true"]').length === 0,
+        { timeout: SCROLL_READY_BUDGET_MS },
+      );
+      const scrollReadyMs = Date.now() - t0;
+      console.log(`  10k rows — scroll-ready: ${scrollReadyMs} ms`);
+
+      // Row cap limits to ~5000 rows — verify the table rendered a large dataset
+      const renderedRows = await page.locator("table tbody tr").count();
+      console.log(`  10k rows — DOM rows rendered: ${renderedRows}`);
+      expect(
+        renderedRows,
+        `Expected substantial rows (>100), got ${renderedRows}`,
+      ).toBeGreaterThan(100);
+
+      // Column sort should complete without hang
+      const sortHeader = page.locator("table thead th").first();
+      await sortHeader.click();
+      await expect(page.locator("table tbody tr").first()).toBeVisible({
+        timeout: 5_000,
+      });
+    } finally {
+      await page.request.delete(`/api/dashboards/${dashboardId}`);
+    }
+  });
+});
