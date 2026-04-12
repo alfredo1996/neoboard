@@ -3,6 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
+const FIXTURES_DIR = path.resolve(__dirname, "fixtures", "imports");
+
 // ---------------------------------------------------------------------------
 // Dashboard export
 // ---------------------------------------------------------------------------
@@ -67,7 +69,10 @@ test.describe("Dashboard import", () => {
     const exportPayload = await exportFileRes.json();
 
     // Write to temp file
-    const tmpFile = path.join(os.tmpdir(), `neoboard-test-import-${Date.now()}.json`);
+    const tmpFile = path.join(
+      os.tmpdir(),
+      `neoboard-test-import-${Date.now()}.json`,
+    );
     fs.writeFileSync(tmpFile, JSON.stringify(exportPayload));
 
     try {
@@ -81,7 +86,9 @@ test.describe("Dashboard import", () => {
       await fileInput.setInputFiles(tmpFile);
 
       // Wait for the file to be parsed and preview to show
-      await expect(dialog.getByText("NeoBoard format")).toBeVisible({ timeout: 5_000 });
+      await expect(dialog.getByText("NeoBoard format")).toBeVisible({
+        timeout: 5_000,
+      });
 
       // Map connections — find Select triggers and map them
       // The import dialog should show connection mapping selectors
@@ -105,7 +112,9 @@ test.describe("Dashboard import", () => {
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
       // The dashboard should render content
-      await expect(page.getByText(/Movie Analytics/)).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(/Movie Analytics/)).toBeVisible({
+        timeout: 15_000,
+      });
 
       // Clean up imported dashboard to avoid polluting other tests
       const url = page.url();
@@ -115,6 +124,132 @@ test.describe("Dashboard import", () => {
       }
     } finally {
       // Clean up temp file
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {
+        // ignore
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// NeoDash legacy import
+// ---------------------------------------------------------------------------
+
+test.describe("NeoDash legacy import", () => {
+  test("should import a NeoDash format file with correct chart type mapping", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    await page.getByRole("button", { name: "Import" }).click();
+    const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+
+    // Upload NeoDash fixture
+    const fileInput = dialog.locator("#import-file");
+    await fileInput.setInputFiles(
+      path.join(FIXTURES_DIR, "neodash-sample.json"),
+    );
+
+    // Should detect NeoDash format and show preview
+    await expect(dialog.getByText("NeoDash format")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(dialog.getByText("E2E NeoDash Import Test")).toBeVisible();
+    await expect(dialog.getByText("4 widgets")).toBeVisible();
+
+    // No connection mapping should appear (NeoDash skips it)
+    await expect(dialog.getByText("Map each connection")).not.toBeVisible();
+
+    // Import button should be enabled immediately
+    const importBtn = dialog.getByRole("button", { name: "Import" }).last();
+    await expect(importBtn).toBeEnabled({ timeout: 5_000 });
+    await importBtn.click();
+
+    // Should redirect to the imported dashboard
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
+
+    // Verify 4 widget cards rendered (NeoDash report titles are not preserved
+    // as widget titles — the converter maps settings but not report.title)
+    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(4, {
+      timeout: 15_000,
+    });
+
+    // Clean up imported dashboard
+    const importedId = page.url().split("/").pop();
+    if (importedId) {
+      await page.request.delete(`/api/dashboards/${importedId}`);
+    }
+  });
+
+  test("NeoDash import with unsupported chart type degrades to JSON viewer", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    // Create a NeoDash JSON with an unknown chart type
+    const neodashWithUnknown = {
+      title: "Unknown Type Test",
+      version: "2.4",
+      pages: [
+        {
+          title: "Page 1",
+          reports: [
+            {
+              id: "r1",
+              title: "Unknown Widget",
+              type: "completely_unknown_type",
+              query: "RETURN 1",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    const tmpFile = path.join(
+      os.tmpdir(),
+      `neodash-unknown-${Date.now()}.json`,
+    );
+    fs.writeFileSync(tmpFile, JSON.stringify(neodashWithUnknown));
+
+    try {
+      await page.getByRole("button", { name: "Import" }).click();
+      const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
+      await expect(dialog).toBeVisible({ timeout: 5_000 });
+
+      await dialog.locator("#import-file").setInputFiles(tmpFile);
+      await expect(dialog.getByText("NeoDash format")).toBeVisible({
+        timeout: 5_000,
+      });
+
+      const importBtn = dialog.getByRole("button", { name: "Import" }).last();
+      await expect(importBtn).toBeEnabled();
+      await importBtn.click();
+
+      // Should import without crashing — unknown type falls back to JSON Viewer
+      await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
+      await expect(page.getByText("JSON Viewer")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Clean up
+      const importedId = page.url().split("/").pop();
+      if (importedId) {
+        await page.request.delete(`/api/dashboards/${importedId}`);
+      }
+    } finally {
       try {
         fs.unlinkSync(tmpFile);
       } catch {
