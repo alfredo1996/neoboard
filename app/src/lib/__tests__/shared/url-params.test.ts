@@ -30,6 +30,31 @@ describe("parseUrlParams", () => {
     const sp = new URLSearchParams("param_name=New%20York");
     expect(parseUrlParams(sp)).toEqual({ name: "New York" });
   });
+
+  it("collects repeated keys into an array (multi-select deep-link)", () => {
+    const sp = new URLSearchParams("param_tags=one&param_tags=two");
+    expect(parseUrlParams(sp)).toEqual({ tags: ["one", "two"] });
+  });
+
+  it("returns a scalar (not a single-element array) for a key that appears once", () => {
+    const sp = new URLSearchParams("param_year=1999");
+    expect(parseUrlParams(sp)).toEqual({ year: "1999" });
+  });
+
+  it("drops empty values from a repeated-key set", () => {
+    const sp = new URLSearchParams("param_tags=one&param_tags=&param_tags=two");
+    expect(parseUrlParams(sp)).toEqual({ tags: ["one", "two"] });
+  });
+
+  it("mixes repeated and scalar keys in one parse", () => {
+    const sp = new URLSearchParams(
+      "param_year=1999&param_tags=one&param_tags=two",
+    );
+    expect(parseUrlParams(sp)).toEqual({
+      year: "1999",
+      tags: ["one", "two"],
+    });
+  });
 });
 
 describe("buildUrlParams", () => {
@@ -74,6 +99,28 @@ describe("buildUrlParams", () => {
     expect(sp.has("param_year")).toBe(true);
     expect(sp.has("param_dept")).toBe(true);
     expect(sp.has("param_secret")).toBe(false);
+  });
+
+  it("appends each element of an array value as a repeated key", () => {
+    const sp = buildUrlParams({ tags: ["drama", "comedy"] });
+    expect(sp.getAll("param_tags")).toEqual(["drama", "comedy"]);
+  });
+
+  it("round-trips a multi-select value through parse → build", () => {
+    const original = new URLSearchParams("param_tags=drama&param_tags=comedy");
+    const parsed = parseUrlParams(original);
+    const rebuilt = buildUrlParams(parsed);
+    expect(rebuilt.getAll("param_tags")).toEqual(["drama", "comedy"]);
+  });
+
+  it("skips empty arrays entirely", () => {
+    const sp = buildUrlParams({ tags: [] });
+    expect(sp.has("param_tags")).toBe(false);
+  });
+
+  it("filters empty/null elements out of an array value", () => {
+    const sp = buildUrlParams({ tags: ["a", "", "b", null, undefined] });
+    expect(sp.getAll("param_tags")).toEqual(["a", "b"]);
   });
 });
 

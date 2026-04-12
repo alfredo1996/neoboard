@@ -99,7 +99,11 @@ export default function DashboardViewerPage({
     const urlParams = parseUrlParams(searchParams);
     const store = useParameterStore.getState();
     for (const [name, value] of Object.entries(urlParams)) {
-      store.setParameter(name, value, value, "", "text", "url", "");
+      // `source` is a human-readable tag; for arrays (multi-select) we
+      // join so it remains a string. `value` keeps its array shape so
+      // the widget receives the real list.
+      const source = Array.isArray(value) ? value.join(", ") : value;
+      store.setParameter(name, value, source, "", "text", "url", "");
     }
   }, [searchParams]);
 
