@@ -19,7 +19,8 @@ export type ApiErrorCode =
   | "VALIDATION_ERROR"
   | "CONFLICT"
   | "INTERNAL_ERROR"
-  | "TENANT_MISMATCH";
+  | "TENANT_MISMATCH"
+  | "ENTERPRISE_REQUIRED";
 
 const ERROR_STATUS: Record<ApiErrorCode, number> = {
   UNAUTHORIZED: 401,
@@ -30,6 +31,7 @@ const ERROR_STATUS: Record<ApiErrorCode, number> = {
   CONFLICT: 409,
   INTERNAL_ERROR: 500,
   TENANT_MISMATCH: 403,
+  ENTERPRISE_REQUIRED: 402,
 };
 
 // ---------------------------------------------------------------------------
