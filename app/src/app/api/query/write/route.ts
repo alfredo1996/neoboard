@@ -6,6 +6,8 @@ import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { executeQuery } from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import { runPipeline } from "@/lib/query/pipeline";
+import type { QueryContext } from "@/lib/query/pipeline-types";
 import {
   validateBody,
   forbidden,
@@ -55,12 +57,25 @@ export async function POST(request: Request) {
       connection.configEncrypted,
     );
 
+    const ctx: QueryContext = {
+      query,
+      params: params ?? {},
+      connectionId,
+      connectionType: connection.type as DbType,
+      userId,
+      tenantId,
+      accessMode: "write",
+      metadata: {},
+    };
+
     const queryStart = performance.now();
-    const result = await executeQuery(
-      connection.type as DbType,
-      credentials,
-      { query, params },
-      { accessMode: "WRITE" },
+    const result = await runPipeline(ctx, async (pipelineCtx) =>
+      executeQuery(
+        pipelineCtx.connectionType as DbType,
+        credentials,
+        { query: pipelineCtx.query, params: pipelineCtx.params },
+        { accessMode: "WRITE" },
+      ),
     );
     const serverDurationMs = Math.round(performance.now() - queryStart);
 

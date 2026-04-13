@@ -6,15 +6,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks — must be declared before importing the route so Vitest hoists them.
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      tenantId: string;
-      role: string;
-      canWrite: boolean;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    tenantId: string;
+    role: string;
+    canWrite: boolean;
+  }>
+>();
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
@@ -157,11 +156,14 @@ describe("POST /api/query/write", () => {
     expect(body.data).toEqual({ nodesCreated: 1 });
     expect(typeof body.meta.serverDurationMs).toBe("number");
 
-    // Verify executeQuery was called with WRITE access mode
+    // Verify executeQuery was called with WRITE access mode.
+    // The route wraps executeQuery in the query middleware pipeline,
+    // which normalizes missing params to {} so middleware sees a
+    // consistent shape.
     expect(mockExecuteQuery).toHaveBeenCalledWith(
       "neo4j",
       { uri: "bolt://localhost", username: "neo4j", password: "pass" },
-      { query: "CREATE (n:Test)", params: undefined },
+      { query: "CREATE (n:Test)", params: {} },
       { accessMode: "WRITE" },
     );
   });

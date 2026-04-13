@@ -18,6 +18,7 @@ import type {
   ResourceFilterExtension,
   RoleProviderExtension,
 } from "./types";
+import type { QueryMiddlewareExtension } from "@/lib/query/pipeline-types";
 
 export const extensions = {
   /** NextAuth providers contributed by enterprise (SSO). */
@@ -28,6 +29,8 @@ export const extensions = {
   resourceFilters: createExtensionPoint<ResourceFilterExtension>(),
   /** Custom role definitions beyond admin/creator/reader. */
   roleProviders: createExtensionPoint<RoleProviderExtension>(),
+  /** Query execution middleware (cache, audit, impersonation, rate limiting). */
+  queryMiddleware: createExtensionPoint<QueryMiddlewareExtension>(),
 } as const;
 
 export type Extensions = typeof extensions;
@@ -43,3 +46,10 @@ export type {
   RoleDefinition,
   RoleProviderExtension,
 } from "./types";
+
+export type {
+  QueryContext,
+  QueryMiddlewareExtension,
+  QueryMiddlewareFn,
+  QueryResult,
+} from "@/lib/query/pipeline-types";
