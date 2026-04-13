@@ -12,19 +12,55 @@ export interface BootstrapResult {
   readonly errors: readonly string[];
 }
 
+/**
+ * Shape that the enterprise package exports. Defined here so core can
+ * type-check the interaction without importing the enterprise package
+ * (which may not exist in community builds).
+ */
+export interface EnterpriseModule {
+  register(extensions: Extensions): void;
+}
+
+/**
+ * Loader function signature — returns the enterprise module or null if
+ * unavailable. Extracted so tests can inject a stub without touching
+ * the real dynamic import path.
+ */
+export type EnterpriseLoader = () => Promise<EnterpriseModule | null>;
+
+/** Default loader — dynamic-imports the real enterprise package. */
+const defaultEnterpriseLoader: EnterpriseLoader = async () => {
+  // Dynamic import isolates the enterprise package so community builds
+  // do not pay any cost for enterprise code.
+  const pkg = "@neoboard/enterprise";
+  try {
+    const mod = (await import(
+      /* @vite-ignore */ pkg
+    )) as Partial<EnterpriseModule>;
+    return mod?.register ? (mod as EnterpriseModule) : null;
+  } catch {
+    return null;
+  }
+};
+
 let bootstrapped = false;
 
 /**
  * Initialize the extension system. Called once at app startup.
  *
- * In community edition this is a no-op. In enterprise edition it attempts
- * to dynamically import `@neoboard/enterprise` and call its register
- * function. If the package is not installed the bootstrap reports
- * `enterpriseLoaded: false` but does NOT throw — the app stays usable.
+ * In community edition this is a no-op. In enterprise edition it invokes
+ * the loader (by default, dynamically imports `@neoboard/enterprise`) and
+ * calls its `register()`. If the package is not installed the bootstrap
+ * reports `enterpriseLoaded: false` but does NOT throw.
  *
  * Idempotent — calling twice has no additional effect.
+ *
+ * The `loader` parameter exists for tests — production code should not
+ * pass it.
  */
-export async function bootstrapExtensions(): Promise<BootstrapResult> {
+export async function bootstrapExtensions(
+  loader: EnterpriseLoader = defaultEnterpriseLoader,
+): Promise<BootstrapResult> {
   if (bootstrapped) {
     return {
       edition: getEdition(),
@@ -40,15 +76,10 @@ export async function bootstrapExtensions(): Promise<BootstrapResult> {
 
   if (isEnterpriseEdition()) {
     try {
-      // Dynamic import isolates the enterprise package so community builds
-      // do not pay any cost for enterprise code. String interpolation keeps
-      // bundlers from resolving the import at build time.
-      const pkg = "@neoboard/enterprise";
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod: any = await import(/* @vite-ignore */ pkg).catch(() => null);
-      if (mod?.register) {
+      const mod = await loader();
+      if (mod) {
         const { extensions } = await import("./index");
-        mod.register(extensions as unknown as Extensions);
+        mod.register(extensions);
         enterpriseLoaded = true;
       }
     } catch (err) {

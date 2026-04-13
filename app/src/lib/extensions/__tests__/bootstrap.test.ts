@@ -43,4 +43,69 @@ describe("bootstrapExtensions", () => {
     await bootstrapExtensions();
     expect(extensions.authProviders.size()).toBe(0);
   });
+
+  it("registers enterprise extensions when loader returns a module", async () => {
+    process.env.NEOBOARD_EDITION = "enterprise";
+    const { bootstrapExtensions } = await import("../bootstrap");
+    const { extensions } = await import("../index");
+
+    const loader = vi.fn(async () => ({
+      register: (exts: typeof extensions) => {
+        exts.authProviders.register({
+          id: "test-oidc",
+          label: "Test OIDC",
+          buildProvider: () => ({ id: "oidc" }),
+        });
+      },
+    }));
+
+    const result = await bootstrapExtensions(loader);
+
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(result.edition).toBe("enterprise");
+    expect(result.enterpriseLoaded).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(extensions.authProviders.size()).toBe(1);
+    expect(extensions.authProviders.getFirst()?.id).toBe("test-oidc");
+  });
+
+  it("records an error when the loader throws", async () => {
+    process.env.NEOBOARD_EDITION = "enterprise";
+    const { bootstrapExtensions } = await import("../bootstrap");
+
+    const loader = vi.fn(async () => {
+      throw new Error("boom");
+    });
+
+    const result = await bootstrapExtensions(loader);
+
+    expect(result.edition).toBe("enterprise");
+    expect(result.enterpriseLoaded).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("boom");
+  });
+
+  it("records an error when the register function throws", async () => {
+    process.env.NEOBOARD_EDITION = "enterprise";
+    const { bootstrapExtensions } = await import("../bootstrap");
+
+    const loader = vi.fn(async () => ({
+      register: () => {
+        throw new Error("register failed");
+      },
+    }));
+
+    const result = await bootstrapExtensions(loader);
+
+    expect(result.enterpriseLoaded).toBe(false);
+    expect(result.errors[0]).toContain("register failed");
+  });
+
+  it("does not call the loader in community edition", async () => {
+    delete process.env.NEOBOARD_EDITION;
+    const { bootstrapExtensions } = await import("../bootstrap");
+    const loader = vi.fn();
+    await bootstrapExtensions(loader);
+    expect(loader).not.toHaveBeenCalled();
+  });
 });
