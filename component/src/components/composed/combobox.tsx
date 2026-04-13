@@ -23,6 +23,8 @@ export interface ComboboxOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Optional icon rendered before the label */
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 export interface ComboboxProps {
@@ -60,7 +62,16 @@ function Combobox({
           disabled={disabled}
           className={cn("w-[200px] justify-between", className)}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption ? (
+            <span className="flex items-center gap-2 truncate">
+              {selectedOption.icon && (
+                <selectedOption.icon className="h-4 w-4 shrink-0 opacity-70" />
+              )}
+              {selectedOption.label}
+            </span>
+          ) : (
+            placeholder
+          )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -87,10 +98,13 @@ function Combobox({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
+                      "mr-2 h-4 w-4 shrink-0",
+                      value === option.value ? "opacity-100" : "opacity-0",
                     )}
                   />
+                  {option.icon && (
+                    <option.icon className="mr-2 h-4 w-4 shrink-0 opacity-70" />
+                  )}
                   {option.label}
                 </CommandItem>
               ))}

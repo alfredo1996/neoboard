@@ -6,15 +6,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 const mockDecryptJson = vi.fn();
 const mockTestConnection = vi.fn();
 
@@ -43,8 +42,10 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("@/lib/crypto", () => ({ decryptJson: mockDecryptJson }));
-vi.mock("@/lib/query-executor", () => ({ testConnection: mockTestConnection }));
+vi.mock("@/lib/crypto/crypto", () => ({ decryptJson: mockDecryptJson }));
+vi.mock("@/lib/query/query-executor", () => ({
+  testConnection: mockTestConnection,
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -60,11 +61,10 @@ const SESSION = {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/connections/[id]/test", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let POST: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();

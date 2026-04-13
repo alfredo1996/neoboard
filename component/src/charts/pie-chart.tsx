@@ -128,7 +128,19 @@ function PieChart({
             show: effectiveShowLabel,
             position: labelPosition,
             formatter: labelFormatter,
+            fontSize: 12,
+            overflow: "truncate",
+            ellipsis: "…",
+            // Hide labels for slices smaller than 3%
+            minMargin: 5,
           },
+          labelLine: {
+            show: effectiveShowLabel && labelPosition === "outside",
+            length: 15,
+            length2: 10,
+            smooth: true,
+          },
+          labelLayout: effectiveShowLabel ? { hideOverlap: true } : undefined,
           emphasis: {
             label: {
               show: true,

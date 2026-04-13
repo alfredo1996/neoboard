@@ -97,7 +97,7 @@ describe("signup", () => {
         .fn()
         .mockResolvedValue(new Map([["x-forwarded-for", "127.0.0.1"]])),
     }));
-    vi.doMock("@/lib/rate-limiter", () => ({
+    vi.doMock("@/lib/crypto/rate-limiter", () => ({
       signupRateLimiter: {
         check: vi.fn().mockReturnValue({ allowed: true, remaining: 2 }),
       },

@@ -104,19 +104,15 @@ export function isNeo4jReady(): boolean {
   const config = readProjectConfig();
   const mode = getMode();
   if (mode === "local") {
-    // In local mode, try TCP connect to Neo4j Bolt port
     const out = runOrNull(
       `curl -s -o /dev/null -w "%{http_code}" http://localhost:${config.ports.neo4j_http}`,
     );
     return out === "200";
   }
-  try {
-    execInContainer(
-      "neoboard-neo4j",
-      `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} RETURN 1`,
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  // Use Docker's built-in health status — much faster than spawning
+  // cypher-shell (JVM startup) on every poll.
+  const status = runOrNull(
+    "docker inspect --format={{.State.Health.Status}} neoboard-neo4j",
+  );
+  return status?.trim() === "healthy";
 }

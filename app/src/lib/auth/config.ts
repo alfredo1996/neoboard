@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
-import { loginRateLimiter } from "@/lib/rate-limiter";
+import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -77,6 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           canWrite: user.canWrite,
           forcePasswordChange: user.forcePasswordChange,
+          tenantId: user.tenantId,
         };
       },
     }),
@@ -90,7 +91,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.forcePasswordChange =
           (user as { forcePasswordChange?: boolean }).forcePasswordChange ??
           false;
-        token.tenantId = process.env.TENANT_ID ?? "default";
+        token.tenantId =
+          (user as { tenantId?: string }).tenantId ??
+          process.env.TENANT_ID ??
+          "default";
       }
       // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
       // Wrapped in try/catch so a transient DB hiccup (e.g. dev-server restart) doesn't
@@ -104,6 +108,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               disabledAt: users.disabledAt,
               forcePasswordChange: users.forcePasswordChange,
               name: users.name,
+              tenantId: users.tenantId,
             })
             .from(users)
             .where(eq(users.id, token.id as string))
@@ -114,6 +119,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.canWrite = dbUser.canWrite;
           token.forcePasswordChange = dbUser.forcePasswordChange;
           token.name = dbUser.name;
+          token.tenantId = dbUser.tenantId;
         } catch {
           // DB unavailable — keep existing token values (graceful degradation)
         }

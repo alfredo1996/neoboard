@@ -20,11 +20,31 @@ import { getDocString } from "./utils";
 
 /** CM6 completion icon type strings. */
 type CompletionIcon =
-  | "Text" | "Method" | "Function" | "Constructor" | "Field"
-  | "Variable" | "Class" | "Interface" | "Module" | "Property"
-  | "Unit" | "Value" | "Enum" | "Keyword" | "Snippet"
-  | "Color" | "File" | "Reference" | "Folder" | "EnumMember"
-  | "Constant" | "Struct" | "Console" | "Operator" | "TypeParameter";
+  | "Text"
+  | "Method"
+  | "Function"
+  | "Constructor"
+  | "Field"
+  | "Variable"
+  | "Class"
+  | "Interface"
+  | "Module"
+  | "Property"
+  | "Unit"
+  | "Value"
+  | "Enum"
+  | "Keyword"
+  | "Snippet"
+  | "Color"
+  | "File"
+  | "Reference"
+  | "Folder"
+  | "EnumMember"
+  | "Constant"
+  | "Struct"
+  | "Console"
+  | "Operator"
+  | "TypeParameter";
 
 const completionKindToIcon: Record<CompletionItemKind, CompletionIcon> = {
   [CompletionItemKind.Text]: "Text",
@@ -91,7 +111,7 @@ export const cypherAutocomplete: (config: CypherConfig) => CompletionSource =
     );
 
     return {
-      from: context.matchBefore(/(\w)*$/)!.from,
+      from: context.matchBefore(/\w*$/)!.from,
       options: options.map((o) => {
         let maybeInfo = {};
         let emptyInfo = true;

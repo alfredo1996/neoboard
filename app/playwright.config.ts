@@ -21,8 +21,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 1,
   // CI: 2 workers for parallel execution against the production server.
-  // Locally: let Playwright auto-detect based on CPU cores.
-  workers: process.env.CI ? 2 : undefined,
+  // Locally: 4 workers — Playwright's auto-detect picks based on CPU cores
+  // but collapses to serial under Docker-testcontainer load, turning a
+  // ~11-minute run into a ~20-minute run. An explicit number keeps local
+  // timing deterministic regardless of host contention.
+  workers: process.env.CI ? 2 : 4,
   // CI: github (PR annotations) + list (real-time stream) + blob (for cross-shard merge).
   // Local: interactive HTML report.
   reporter: process.env.CI ? [["github"], ["list"], ["blob"]] : "html",
@@ -39,12 +42,23 @@ export default defineConfig({
     screenshot: "only-on-failure",
     navigationTimeout: 15_000,
     actionTimeout: 10_000,
+    // Force a fixed, generously-sized viewport for the whole suite. The
+    // default Desktop Chrome viewport is 1280×720; tall modal forms (e.g.
+    // the connection editor with all advanced settings open) push their
+    // submit buttons below the fold and Playwright's "scroll into view"
+    // racing with Radix Dialog's own scroll container leaves clicks
+    // unresolved. 1280×1024 fits every dialog in the suite without
+    // changing per-test code, and never auto-resizes during a run.
+    viewport: { width: 1280, height: 1024 },
   },
 
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 1024 },
+      },
     },
   ],
 });

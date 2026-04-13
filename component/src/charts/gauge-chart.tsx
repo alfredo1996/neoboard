@@ -7,7 +7,11 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor, parseGaugeThresholdZones } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  parseGaugeThresholdZones,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([EGaugeChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -88,63 +92,102 @@ function GaugeChart({
           endAngle,
           progress: {
             show: showProgress,
-            width: compact ? 8 : 12,
+            width: compact ? 10 : 16,
+            roundCap: true,
           },
           pointer: {
             show: showPointer,
-            length: "60%",
+            length: "55%",
             width: compact ? 4 : 6,
+            itemStyle: { color: "auto" },
           },
           axisLine: {
+            roundCap: true,
             lineStyle: {
-              width: compact ? 8 : 12,
-              color: parseGaugeThresholdZones(thresholdZonesJson, min, max) as never,
+              width: compact ? 10 : 16,
+              color: parseGaugeThresholdZones(
+                thresholdZonesJson,
+                min,
+                max,
+              ) as never,
             },
           },
           axisTick: {
             show: !compact,
-            distance: compact ? 0 : -15,
+            distance: compact ? 0 : -20,
             splitNumber: 2,
-            length: 8,
-            lineStyle: { width: 2 },
+            length: 6,
+            lineStyle: { width: 1.5, color: "#999" },
           },
           splitLine: {
             show: !compact,
-            distance: compact ? 0 : -25,
-            length: compact ? 10 : 15,
-            lineStyle: { width: 3 },
+            distance: compact ? 0 : -20,
+            length: compact ? 8 : 12,
+            lineStyle: { width: 2, color: "#999" },
           },
           axisLabel: {
             show: !compact,
-            distance: compact ? 0 : 35,
-            fontSize: 12,
+            distance: compact ? 0 : 30,
+            fontSize: 11,
+            color: "#999",
+          },
+          anchor: {
+            show: showPointer && !compact,
+            size: 12,
+            showAbove: true,
+            itemStyle: { borderWidth: 3, borderColor: "#999" },
           },
           detail: {
-            show: showDetail && !compact,
+            show: showDetail,
             valueAnimation: true,
-            fontSize: 20,
+            fontSize: compact ? 18 : 28,
+            fontWeight: "bold",
             formatter: "{value}",
-            offsetCenter: [0, "70%"],
+            offsetCenter: [0, showPointer ? "70%" : "0%"],
+            color: "auto",
           },
           title: {
             show: showDetail && !compact,
-            offsetCenter: [0, "90%"],
-            fontSize: 14,
+            offsetCenter: [0, showPointer ? "90%" : "25%"],
+            fontSize: 13,
+            color: "#999",
           },
+          animationDuration: 1000,
+          animationEasingUpdate: "cubicOut",
           data: (() => {
-            const resolvedColor = resolveItemColor(point.value, stylingRules, paramValues);
+            const resolvedColor = resolveItemColor(
+              point.value,
+              stylingRules,
+              paramValues,
+            );
             return [
               {
                 value: point.value,
                 name: point.name ?? "",
-                ...(resolvedColor ? { itemStyle: { color: resolvedColor } } : {}),
+                ...(resolvedColor
+                  ? { itemStyle: { color: resolvedColor } }
+                  : {}),
               },
             ];
           })(),
         },
       ],
     };
-  }, [measured, data, min, max, startAngle, endAngle, showProgress, showPointer, showDetail, thresholdZonesJson, compact, stylingRules, paramValues]);
+  }, [
+    measured,
+    data,
+    min,
+    max,
+    startAngle,
+    endAngle,
+    showProgress,
+    showPointer,
+    showDetail,
+    thresholdZonesJson,
+    compact,
+    stylingRules,
+    paramValues,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

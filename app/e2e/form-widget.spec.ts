@@ -5,6 +5,30 @@ import {
   createTestDashboard,
   typeInEditor,
 } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+/**
+ * Click Back to leave edit mode and wait for the URL to drop the /edit
+ * suffix. Handles the unsaved-changes "Leave" dialog that sometimes
+ * appears because a post-Save grid compaction effect marks the page
+ * dirty before React state has fully settled.
+ *
+ * Previous inline pattern used a 1s probe for the Leave button which
+ * missed the dialog under load — this helper gives it 3s and then
+ * waits up to 15s for the URL change, which is enough headroom on
+ * a busy CI machine.
+ */
+async function leaveEditMode(page: Page) {
+  await page.getByRole("button", { name: "Back" }).click();
+  const leaveBtn = page.getByRole("button", { name: "Leave" });
+  try {
+    await leaveBtn.waitFor({ state: "visible", timeout: 3_000 });
+    await leaveBtn.click();
+  } catch {
+    // No dialog — the direct navigation path will resolve the URL wait below.
+  }
+  await expect(page).not.toHaveURL(/\/edit$/, { timeout: 15_000 });
+}
 
 test.describe("Form widget", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -116,14 +140,8 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
 
-    // Navigate to view mode
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    // Navigate to view mode (handles unsaved-changes dialog race)
+    await leaveEditMode(page);
 
     // The form widget should render with the configured fields
     // Fields default to required=true, so the label includes an asterisk "*".
@@ -166,13 +184,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Wait for the form to render — the label "Name" should be visible
     // (fields default to required, so label renders as "Name*")
@@ -249,13 +261,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // The form widget should show the empty-state message
     await expect(page.getByText("No fields configured")).toBeVisible({
@@ -302,13 +308,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Label includes asterisk for required fields
     await expect(page.getByText(/^Full Name/)).toBeVisible({
@@ -411,13 +411,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Wait for form to render (label includes asterisk for required fields)
     await expect(page.getByText(/^Name/)).toBeVisible({
@@ -509,12 +503,7 @@ test.describe("Form widget", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Back" }).click();
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
-    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
+    await leaveEditMode(page);
 
     // Wait for the parameter-select dropdown to render
     const paramTrigger = page.getByText("Select a value…");
@@ -682,47 +671,102 @@ test.describe("Write permission enforcement", () => {
     await context.close();
   });
 
-  test("form widget shows 'Write permission required' when can_write is false", async ({
+  test("form widget renders read-only state when can_write is false (no clickable Submit)", async ({
     authPage,
     page,
   }) => {
-    // Log in as the creator with can_write=false
+    // After #496, users without canWrite see the form in a proactive
+    // read-only state: banner at the top, fields visible but dimmed,
+    // Submit button disabled. They never get the chance to click Submit
+    // and hit the 403 — the UI gates them up front.
+    //
+    // The server-side 403 from /api/query/write is still verified by
+    // write-permissions.spec.ts; this test pins the UI contract.
     await authPage.login(creatorEmail, "password123");
-
-    // Navigate to the public dashboard (admin-owned, public access)
     await page.goto(`/${dashboardId}`);
 
-    // Wait for the form widget to render (label includes asterisk for required fields)
+    // Form widget should still render the fields so the user can see
+    // what the form would collect — just disabled.
     await expect(page.getByText(/^Value/)).toBeVisible({ timeout: 15_000 });
 
-    // Wait for background requests to complete (dev mode StrictMode double-fetch)
-    await page.waitForLoadState("networkidle");
-    // Retry fill until the value survives StrictMode's double-render cycle.
-    // The 1s pause inside lets any pending remount fire before we verify.
-    const vInput = page.getByRole("textbox", { name: "v" });
-    await expect(async () => {
-      await vInput.fill("test-value");
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(1_000);
-      await expect(vInput).toHaveValue("test-value");
-    }).toPass({ timeout: 10_000 });
-
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
-    // Submit — API returns 403 because can_write is false
-    await page.getByRole("button", { name: "Submit" }).click();
-
-    // The form widget renders the API error inline
-    await expect(page.getByText("Write permission required")).toBeVisible({
-      timeout: 10_000,
+    // Read-only banner is visible at the top of the form.
+    await expect(page.getByTestId("form-readonly-banner")).toBeVisible({
+      timeout: 5_000,
     });
+    await expect(
+      page.getByText(/don.?t have permission to submit this form/i),
+    ).toBeVisible();
 
-    // Screenshot: 403 error displayed inside the form widget
-    await page.screenshot({
-      path: ".screenshots/form-widget-403-write-permission.png",
-      fullPage: false,
+    // Submit button exists but is disabled.
+    const submitBtn = page.getByRole("button", { name: "Submit" });
+    await expect(submitBtn).toBeVisible();
+    await expect(submitBtn).toBeDisabled();
+
+    // The old pre-#496 error text ("Write permission required") should
+    // NOT be visible in the read-only state — the user never clicked.
+    await expect(page.getByText("Write permission required")).not.toBeVisible();
+  });
+
+  test("reader role also sees the form widget read-only with no clickable Submit", async ({
+    authPage,
+    page,
+    browser,
+  }) => {
+    // Readers have canWrite hard-coded to false in lib/auth/session.ts,
+    // so this case was never directly exercised before #496. It's the
+    // exact blast radius the issue worried about: the form widget
+    // shouldn't appear submittable to users who can never submit.
+
+    // Use an isolated context so we don't step on the shared describe-level
+    // session that the other tests in this block assume.
+    const readerContext = await browser.newContext();
+    const readerPage = await readerContext.newPage();
+    const readerAuth = new (await import("./pages/auth")).AuthPage(readerPage);
+
+    // Create a fresh reader via the admin user API.
+    const adminContext = await browser.newContext();
+    const adminPage = await adminContext.newPage();
+    const adminAuth = new (await import("./pages/auth")).AuthPage(adminPage);
+    await adminAuth.login(ALICE.email, ALICE.password);
+
+    const readerEmail = `form-reader-${Date.now()}@example.com`;
+    const createRes = await adminPage.request.post("/api/users", {
+      data: {
+        name: "Form Reader",
+        email: readerEmail,
+        password: "password123",
+        role: "reader",
+      },
     });
+    if (!createRes.ok()) {
+      throw new Error(`Failed to create reader: ${createRes.status()}`);
+    }
+    const readerId = (await createRes.json()).data.id as string;
+
+    try {
+      await readerAuth.login(readerEmail, "password123");
+      await readerPage.goto(`/${dashboardId}`);
+
+      // Field label renders.
+      await expect(readerPage.getByText(/^Value/)).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Read-only banner.
+      await expect(readerPage.getByTestId("form-readonly-banner")).toBeVisible({
+        timeout: 5_000,
+      });
+
+      // Disabled submit.
+      await expect(
+        readerPage.getByRole("button", { name: "Submit" }),
+      ).toBeDisabled();
+    } finally {
+      await adminPage.request
+        .delete(`/api/users/${readerId}`)
+        .catch(() => undefined);
+      await readerContext.close();
+      await adminContext.close();
+    }
   });
 });

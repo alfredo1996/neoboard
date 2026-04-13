@@ -3,7 +3,7 @@ import { useParameterStore } from "@/stores/parameter-store";
 import {
   resolveClickActions,
   deriveClickableColumns,
-} from "@/lib/resolve-click-action";
+} from "@/lib/widget/resolve-click-action";
 import type { DashboardWidget, ClickAction } from "@/lib/db/schema";
 
 /**
@@ -25,6 +25,7 @@ export function useClickAction(
       const result = resolveClickActions(widget, point);
       if (!result) return;
 
+      // Handle single parameter (legacy + single-rule)
       if (result.setParameter) {
         const { parameterName, value, label, sourceField } =
           result.setParameter;
@@ -37,6 +38,21 @@ export function useClickAction(
           "click-action",
           widget.id,
         );
+      }
+
+      // Handle multiple parameters (multi-rule for non-table charts)
+      if (result.setParameters) {
+        for (const p of result.setParameters) {
+          setParameter(
+            p.parameterName,
+            p.value,
+            p.label,
+            p.sourceField,
+            "text",
+            "click-action",
+            widget.id,
+          );
+        }
       }
 
       if (result.navigateToPageId) {

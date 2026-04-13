@@ -3,11 +3,16 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { decryptJson } from "@/lib/crypto";
-import { executeQuery } from "@/lib/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query-executor";
-import { validateBody, forbidden, notFound, serverError } from "@/lib/api-utils";
-import { apiSuccess } from "@/lib/api-response";
+import { decryptJson } from "@/lib/crypto/crypto";
+import { executeQuery } from "@/lib/query/query-executor";
+import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import {
+  validateBody,
+  forbidden,
+  notFound,
+  serverError,
+} from "@/lib/api/api-utils";
+import { apiSuccess } from "@/lib/api/api-response";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
@@ -33,7 +38,13 @@ export async function POST(request: Request) {
     const [connection] = await db
       .select()
       .from(connections)
-      .where(and(eq(connections.id, connectionId), eq(connections.userId, userId), eq(connections.tenantId, tenantId)))
+      .where(
+        and(
+          eq(connections.id, connectionId),
+          eq(connections.userId, userId),
+          eq(connections.tenantId, tenantId),
+        ),
+      )
       .limit(1);
 
     if (!connection) {
@@ -55,7 +66,10 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.data, 200, { serverDurationMs });
   } catch (error) {
-    console.error("[write-query]", error instanceof Error ? error.message : error);
+    console.error(
+      "[write-query]",
+      error instanceof Error ? error.message : error,
+    );
     return serverError("Write query execution failed");
   }
 }

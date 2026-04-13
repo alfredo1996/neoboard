@@ -3,18 +3,17 @@ FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package manifests for all packages
+# Copy root package manifest and lockfile (workspaces config lives here)
 COPY package.json package-lock.json ./
-COPY app/package.json app/package-lock.json ./app/
-COPY component/package.json component/package-lock.json ./component/
-COPY connection/package.json connection/package-lock.json ./connection/
 
-# Install sub-packages first (app depends on them via file: refs)
-RUN npm ci --prefix component & \
-    npm ci --prefix connection & \
-    wait
-# Now install app (resolves file:../connection and file:../component)
-RUN npm ci --prefix app
+# Copy child package manifests (npm needs these to resolve workspaces)
+COPY app/package.json ./app/
+COPY component/package.json ./component/
+COPY connection/package.json ./connection/
+COPY cli/package.json ./cli/
+
+# Single install resolves all workspaces — hoists shared deps to root
+RUN npm ci
 
 # ---- build: compile Next.js standalone output ----
 FROM node:22-alpine AS build
@@ -23,13 +22,15 @@ WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Copy all node_modules (root hoisted deps + any workspace-specific deps)
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/app/node_modules ./app/node_modules
-COPY --from=deps /app/component/node_modules ./component/node_modules
-COPY --from=deps /app/connection/node_modules ./connection/node_modules
 
 # Copy all source
 COPY . .
 
+# Build connection package (TypeScript → JS+d.ts) before app
+RUN npm -w connection run build
 RUN cd app && npm run build
 
 # ---- runner: minimal production image ----

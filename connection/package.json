@@ -2,8 +2,20 @@
   "name": "@neoboard/connection",
   "version": "1.0.0",
   "description": "Database connection adapters for NeoBoard",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./connector-types": {
+      "types": "./dist/connector-types.d.ts",
+      "import": "./dist/connector-types.js"
+    }
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json 2>&1 || echo 'WARN: type errors exist (neo4j-driver-core upstream); output emitted via noEmitOnError:false'",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },

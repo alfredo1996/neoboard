@@ -1,0 +1,1 @@
+export { piePlugin } from "./component";

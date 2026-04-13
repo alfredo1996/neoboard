@@ -2,17 +2,23 @@
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useClickAction } from "@/hooks/use-click-action";
-import { resolveCacheOptions } from "@/lib/resolve-cache-options";
-import { getChartConfig } from "@/lib/chart-registry";
-import type { ColumnMapping } from "@/lib/chart-registry";
+import { resolveCacheOptions } from "@/lib/query/resolve-cache-options";
+import {
+  getChartConfig,
+  supportsColumnMapping as chartSupportsColumnMapping,
+} from "@/lib/plugin/chart-helpers";
+import type { ColumnMapping } from "@/lib/plugin/chart-helpers";
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
-import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
+import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
-import { scrollAndHighlight } from "@/lib/scroll-to-widget";
-import { applyTransforms } from "@/lib/data-transforms";
-import type { Transform } from "@/lib/data-transforms";
-import { extractColumnNames, resolveStylingConfig } from "@/lib/card-utils";
+import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
+import { applyTransforms } from "@/lib/query/data-transforms";
+import type { Transform } from "@/lib/query/data-transforms";
+import {
+  extractColumnNames,
+  resolveStylingConfig,
+} from "@/lib/widget/card-utils";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import {
@@ -32,10 +38,9 @@ import {
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
 
-/** Chart types that support column mapping. */
-/** Derived from registry — chart types that support column mapping overlays. */
+/** Chart types that support column mapping overlays. */
 function supportsColumnMapping(type: string): boolean {
-  return getChartConfig(type)?.supportsColumnMapping === true;
+  return chartSupportsColumnMapping(type);
 }
 
 interface CardContainerProps {
@@ -69,7 +74,7 @@ interface CardContainerProps {
   parameterSourceMap?: ParameterSourceMap;
 }
 
-// extractColumnNames imported from @/lib/card-utils
+// extractColumnNames imported from @/lib/widget/card-utils
 
 /**
  * Renders a parameter badge in the "Waiting for parameters" section.
@@ -296,10 +301,9 @@ export function CardContainer({
         />
       );
     }
-    const mappedData = chartConfig.transformWithMapping(
-      previewData,
-      columnMapping,
-    );
+    const mappedData = (
+      chartConfig.transformWithMapping ?? chartConfig.transform
+    )(previewData, columnMapping);
     // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
     const transformedData =
       dataTransforms.length && widget.chartType !== "graph"
@@ -548,7 +552,9 @@ export function CardContainer({
     );
   }
 
-  const mappedData = chartConfig.transformWithMapping(rawData, columnMapping);
+  const mappedData = (
+    chartConfig.transformWithMapping ?? chartConfig.transform
+  )(rawData, columnMapping);
   const transformedData = dataTransforms.length
     ? applyTransforms(
         mappedData as Record<string, unknown>[],
@@ -564,7 +570,8 @@ export function CardContainer({
         <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 border-b flex items-center gap-1.5">
           <span>&#9888;</span>
           <span>
-            Showing first 10,000 rows. Refine your query to see all results.
+            Showing first {(widgetQuery.data.rowLimit ?? 0).toLocaleString()}{" "}
+            rows. Refine your query to see all results.
           </span>
         </div>
       )}

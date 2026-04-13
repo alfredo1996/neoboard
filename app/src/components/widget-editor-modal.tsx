@@ -22,7 +22,7 @@ import {
   collectParameterNames,
   findParameterCollisions,
   aggregateClickActionParamNames,
-} from "@/lib/collect-parameter-names";
+} from "@/lib/parameter/collect-parameter-names";
 import {
   AlertCircle,
   AlertTriangle,
@@ -66,15 +66,18 @@ import type { ColorScaleConfig } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   getChartConfig,
-  chartRegistry,
   chartSupportsClickAction,
   chartSupportsStyling,
-} from "@/lib/chart-registry";
-import type { ChartType } from "@/lib/chart-registry";
-import { type ConnectorType, CONNECTOR_LANGUAGES } from "@/lib/connector-types";
+  getAllChartTypes,
+} from "@/lib/plugin/chart-helpers";
+import type { ChartType } from "@/lib/plugin/chart-helpers";
+import {
+  type ConnectorType,
+  CONNECTOR_LANGUAGES,
+} from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 import { extractReferencedParams } from "@/hooks/use-widget-query";
-import { wrapWithPreviewLimit } from "@/lib/wrap-with-preview-limit";
+import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
 export { wrapWithPreviewLimit };
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
@@ -87,11 +90,11 @@ import {
 } from "./widget-editor/parameter-config-section";
 // ParamUIType/DateSubType types used by the store, not directly in modal
 import { ParameterPreview } from "./widget-editor/parameter-preview";
-import type { FormFieldDef } from "@/lib/form-field-def";
+import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { migrateColorThresholds } from "@/lib/migrate-color-thresholds";
+import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
 import { TransformEditor } from "./widget-editor/transform-editor";
 
 export interface WidgetEditorModalProps {
@@ -402,8 +405,8 @@ export function WidgetEditorModal({
   const compatibleChartTypes = useMemo(
     () =>
       selectedConnection
-        ? getCompatibleChartTypes(selectedConnection.type)
-        : (Object.keys(chartRegistry) as ChartType[]),
+        ? (getCompatibleChartTypes(selectedConnection.type) as ChartType[])
+        : (getAllChartTypes() as ChartType[]),
     [selectedConnection],
   );
 
@@ -1035,6 +1038,7 @@ export function WidgetEditorModal({
       <DialogContent
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
+        onInteractOutside={() => onOpenChange(false)}
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />
@@ -1452,8 +1456,8 @@ export function WidgetEditorModal({
                                     variant="outline"
                                     className="text-xs font-normal"
                                   >
-                                    {chartRegistry[w.chartType as ChartType]
-                                      ?.label ?? w.chartType}
+                                    {getChartConfig(w.chartType)?.label ??
+                                      w.chartType}
                                   </Badge>
                                 </Label>
                               </div>

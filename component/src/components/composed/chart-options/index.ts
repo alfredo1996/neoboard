@@ -1,3 +1,10 @@
+/**
+ * @deprecated Chart options are being consolidated into plugin definitions
+ * in `app/src/plugins/`. Prefer accessing options via
+ * `pluginRegistry.get(type)?.options` in the app package.
+ * This module is retained for backward compatibility with external consumers
+ * of the component package.
+ */
 import type { ChartOptionDef } from "./shared";
 export type { ChartOptionDef } from "./shared";
 import {

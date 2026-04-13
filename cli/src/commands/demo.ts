@@ -5,8 +5,9 @@ import { success, banner } from "../lib/output.js";
 export async function runDemo(opts?: {
   mode?: "docker" | "local";
 }): Promise<void> {
-  await runSetup(opts);
-  await runDbSeed({ neo4j: true, demo: true });
+  // Demo always starts the full stack (app + DBs in Docker)
+  await runSetup({ ...opts, full: true });
+  await runDbSeed({ neo4j: true, demo: true, dockerNetwork: true });
 
   banner([
     "Demo environment ready!",

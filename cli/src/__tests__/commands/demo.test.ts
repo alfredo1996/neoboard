@@ -31,14 +31,18 @@ describe("runDemo", () => {
     expect(mockRunSetup).toHaveBeenCalledBefore(mockRunDbSeed);
   });
 
-  it("passes mode to setup", async () => {
+  it("passes mode and full=true to setup", async () => {
     await runDemo({ mode: "local" });
-    expect(mockRunSetup).toHaveBeenCalledWith({ mode: "local" });
+    expect(mockRunSetup).toHaveBeenCalledWith({ mode: "local", full: true });
   });
 
   it("seeds both neo4j and demo data", async () => {
     await runDemo();
-    expect(mockRunDbSeed).toHaveBeenCalledWith({ neo4j: true, demo: true });
+    expect(mockRunDbSeed).toHaveBeenCalledWith({
+      neo4j: true,
+      demo: true,
+      dockerNetwork: true,
+    });
   });
 
   it("shows login credentials", async () => {

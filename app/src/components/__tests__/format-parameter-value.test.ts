@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { formatParameterValue, filterParentParams } from "@/lib/format-parameter-value";
+import {
+  formatParameterValue,
+  filterParentParams,
+} from "@/lib/parameter/format-parameter-value";
 import type { ParameterEntry } from "@/stores/parameter-store";
 
 describe("formatParameterValue", () => {
@@ -22,8 +25,9 @@ describe("formatParameterValue", () => {
   });
 
   it("formats date range object with arrow", () => {
-    expect(formatParameterValue({ from: "2024-01-01", to: "2024-12-31" }))
-      .toBe("2024-01-01 → 2024-12-31");
+    expect(formatParameterValue({ from: "2024-01-01", to: "2024-12-31" })).toBe(
+      "2024-01-01 → 2024-12-31",
+    );
   });
 
   it("returns empty string for null/undefined", () => {

@@ -46,6 +46,7 @@ vi.mock("@neoboard/components", () => ({
   ),
   ColumnMappingOverlay: () => <div data-testid="column-mapping-overlay" />,
   substituteParams: (s: string) => s,
+  getChartOptions: () => [],
 }));
 
 vi.mock("next/dynamic", () => ({
@@ -80,20 +81,20 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
-vi.mock("@/lib/resolve-cache-options", () => ({
+vi.mock("@/lib/query/resolve-cache-options", () => ({
   resolveCacheOptions: () => ({ staleTime: 0, gcTime: undefined }),
 }));
 
-vi.mock("@/lib/card-utils", () => ({
+vi.mock("@/lib/widget/card-utils", () => ({
   extractColumnNames: () => [],
   resolveStylingConfig: () => undefined,
 }));
 
-vi.mock("@/lib/scroll-to-widget", () => ({
+vi.mock("@/lib/widget/scroll-to-widget", () => ({
   scrollAndHighlight: () => false,
 }));
 
-vi.mock("@/lib/data-transforms", () => ({
+vi.mock("@/lib/query/data-transforms", () => ({
   applyTransforms: (d: unknown) => d,
 }));
 
@@ -332,7 +333,7 @@ describe("CardContainer", () => {
 
   // ----- Truncation warning -----
 
-  it("shows truncation warning when data is truncated", () => {
+  it("shows truncation warning with the dynamic rowLimit when data is truncated", () => {
     mockUseWidgetQuery.mockReturnValue({
       isPending: false,
       fetchStatus: "idle",
@@ -341,13 +342,33 @@ describe("CardContainer", () => {
         data: [{ name: "Alice", value: 10 }],
         resultId: "r1",
         truncated: true,
+        rowLimit: 5000,
       },
       missingParams: [],
     });
 
     render(<CardContainer widget={makeWidget()} />);
 
-    expect(screen.getByText(/Showing first 10,000 rows/)).toBeDefined();
+    expect(screen.getByText(/Showing first 5,000 rows/)).toBeDefined();
+  });
+
+  it("reflects a custom per-connection rowLimit in the truncation warning", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: {
+        data: [{ name: "Alice", value: 10 }],
+        resultId: "r1",
+        truncated: true,
+        rowLimit: 25000,
+      },
+      missingParams: [],
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText(/Showing first 25,000 rows/)).toBeDefined();
   });
 
   it("does not show truncation warning when data is not truncated", () => {
@@ -359,12 +380,13 @@ describe("CardContainer", () => {
         data: [{ name: "Alice", value: 10 }],
         resultId: "r1",
         truncated: false,
+        rowLimit: 5000,
       },
       missingParams: [],
     });
 
     render(<CardContainer widget={makeWidget()} />);
 
-    expect(screen.queryByText(/Showing first 10,000 rows/)).toBeNull();
+    expect(screen.queryByText(/Showing first .* rows/)).toBeNull();
   });
 });

@@ -48,11 +48,21 @@ export class NeodashRecord {
 
     // Extract properties from a Neo4j node and group them by label.
     const handleNode = (node: unknown) => {
-      if (typeof node === 'object' && node !== null && 'labels' in node && 'properties' in node) {
-        const typed = node as { labels: string[]; properties: Record<string, unknown> };
+      if (
+        typeof node === "object" &&
+        node !== null &&
+        "labels" in node &&
+        "properties" in node
+      ) {
+        const typed = node as {
+          labels: string[];
+          properties: Record<string, unknown>;
+        };
         typed.labels.forEach((label: string) => {
           if (!fieldsDict[label]) fieldsDict[label] = new Set();
-          Object.keys(typed.properties).forEach((prop) => fieldsDict[label].add(prop));
+          Object.keys(typed.properties).forEach((prop) =>
+            fieldsDict[label].add(prop),
+          );
         });
       }
     };
@@ -63,8 +73,15 @@ export class NeodashRecord {
 
       if (Array.isArray(val)) {
         val.forEach(traverse);
-      } else if (typeof val === 'object' && val !== null && 'segments' in val && Array.isArray((val as { segments: unknown[] }).segments)) {
-        (val as { segments: Array<{ start: unknown; end: unknown }> }).segments.forEach((segment) => {
+      } else if (
+        typeof val === "object" &&
+        val !== null &&
+        "segments" in val &&
+        Array.isArray((val as { segments: unknown[] }).segments)
+      ) {
+        (
+          val as { segments: Array<{ start: unknown; end: unknown }> }
+        ).segments.forEach((segment) => {
           traverse(segment.start);
           traverse(segment.end);
         });
@@ -77,7 +94,10 @@ export class NeodashRecord {
     Object.values(this.record).forEach(traverse);
 
     // Return a list of fields per label: [label, prop1, prop2, ...]
-    return Object.entries(fieldsDict).map(([label, props]) => [label, ...Array.from(props)]);
+    return Object.entries(fieldsDict).map(([label, props]) => [
+      label,
+      ...Array.from(props),
+    ]);
   }
 
   /**
@@ -87,9 +107,11 @@ export class NeodashRecord {
   __createProxy__() {
     return new Proxy(this, {
       get(target, prop) {
+        if (typeof prop === "symbol") return undefined;
         // Intercept method access
-        if (prop === 'toObject' || prop === 'toJSON') return target.toObject.bind(target);
-        if (prop === 'getFields') return target.getFields.bind(target);
+        if (prop === "toObject" || prop === "toJSON")
+          return target.toObject.bind(target);
+        if (prop === "getFields") return target.getFields.bind(target);
         // Intercept property access
         if (prop in target.record) {
           return target.record[prop];
@@ -97,6 +119,7 @@ export class NeodashRecord {
         return undefined; // or handle "property not found" logic
       },
       set(target, prop, value) {
+        if (typeof prop === "symbol") return false;
         // Intercept property assignment
         target.record[prop] = value;
         return true;

@@ -1,4 +1,11 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+  getPreview,
+} from "./fixtures";
 
 test.describe("Parameter selectors", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -31,9 +38,11 @@ test.describe("Parameter selectors", () => {
 
     // Configure the query for distinct values via the seed-query textarea
     // (CodeMirror is hidden for parameter-select widgets; SeedQueryInput uses a textarea)
-    await dialog.locator("#seed-query").fill(
-      "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
-    );
+    await dialog
+      .locator("#seed-query")
+      .fill(
+        "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
+      );
 
     // Set the parameter name
     const paramInput = dialog.getByLabel("Parameter Name");
@@ -55,10 +64,14 @@ test.describe("Parameter selectors", () => {
     await page.getByRole("option").first().click();
 
     // Write query and run it
-    await typeInEditor(dialog, page,
-      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 5"
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 5",
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
+    await expect(
+      dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
+    ).toBeEnabled({ timeout: 10_000 });
     await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
     // Wait for preview
     await expect(getPreview(dialog)).toBeVisible({
@@ -71,7 +84,9 @@ test.describe("Parameter selectors", () => {
     await dialog.getByLabel("Enable click action").click();
 
     // "Manage Action Rules" button should appear
-    await expect(dialog.getByRole("button", { name: "Manage Action Rules" })).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Manage Action Rules" }),
+    ).toBeVisible();
 
     // Open rules editor and add a rule
     await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
@@ -81,7 +96,9 @@ test.describe("Parameter selectors", () => {
     // Action type selector should appear (defaults to "Set Parameter")
     // Wait for accordion to expand after adding the rule.
     // Verify form labels are visible — proves the accordion expanded and rule form rendered.
-    await expect(rulesDialog.getByText("Action Type")).toBeVisible({ timeout: 5_000 });
+    await expect(rulesDialog.getByText("Action Type")).toBeVisible({
+      timeout: 5_000,
+    });
     // Parameter name input should appear
     await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
     // Source field — visible for bar charts
@@ -100,7 +117,7 @@ test.describe("Parameter bar on view page", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The dashboard should load with widgets
@@ -158,9 +175,11 @@ test.describe("Parameter-to-refresh cycle", () => {
 
     // Configure query for distinct years via the seed-query textarea
     // (CodeMirror is hidden for parameter-select widgets; SeedQueryInput uses a textarea)
-    await dialog.locator("#seed-query").fill(
-      "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
-    );
+    await dialog
+      .locator("#seed-query")
+      .fill(
+        "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
+      );
 
     // Set parameter name
     const paramNameInput = dialog.getByLabel("Parameter Name");
@@ -180,8 +199,10 @@ test.describe("Parameter-to-refresh cycle", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    await typeInEditor(dialog, page,
-      "MATCH (m:Movie) WHERE m.released = toInteger($param_year) RETURN m.title AS title LIMIT 5"
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (m:Movie) WHERE m.released = toInteger($param_year) RETURN m.title AS title LIMIT 5",
     );
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
@@ -189,7 +210,9 @@ test.describe("Parameter-to-refresh cycle", () => {
     // Save the dashboard
     await page.getByRole("button", { name: "Save" }).click();
     // Wait for save to complete (button text changes while saving)
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
+      timeout: 10_000,
+    });
 
     // Navigate to view mode via the "Back" button
     await page.getByRole("button", { name: "Back" }).click();
@@ -201,7 +224,9 @@ test.describe("Parameter-to-refresh cycle", () => {
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
-    await expect(page.getByText("year", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("year", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Select a value from the parameter dropdown.
     // The ParamSelector placeholder uses Unicode ellipsis "…" (U+2026), not three periods
@@ -218,7 +243,9 @@ test.describe("Parameter-to-refresh cycle", () => {
     // and should NOT show a "Query Failed" error (it had one before selection
     // because $param_year was not yet set).
     // Wait for query re-execution by checking that no error appears.
-    await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("text=Query Failed")).not.toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
@@ -247,12 +274,16 @@ test.describe("Click actions", () => {
               id: "ca-w1",
               chartType: "table",
               connectionId: "conn-neo4j-001",
-              query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
               settings: {
                 title: "Movies",
                 clickAction: {
                   type: "set-parameter",
-                  parameterMapping: { parameterName: "param_clicked_movie", sourceField: "" },
+                  parameterMapping: {
+                    parameterName: "param_clicked_movie",
+                    sourceField: "",
+                  },
                 },
               },
             },
@@ -260,7 +291,8 @@ test.describe("Click actions", () => {
               id: "ca-w2",
               chartType: "bar",
               connectionId: "conn-neo4j-001",
-              query: "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WHERE m.title = $param_clicked_movie RETURN p.name AS name, 1 AS count",
+              query:
+                "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WHERE m.title = $param_clicked_movie RETURN p.name AS name, 1 AS count",
               settings: { title: "Cast" },
             },
           ],
@@ -277,12 +309,16 @@ test.describe("Click actions", () => {
               id: "ca-w3",
               chartType: "table",
               connectionId: "conn-neo4j-001",
-              query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
               settings: {
                 title: "Click to navigate",
                 clickAction: {
                   type: "set-parameter-and-navigate",
-                  parameterMapping: { parameterName: "param_clicked_movie", sourceField: "" },
+                  parameterMapping: {
+                    parameterName: "param_clicked_movie",
+                    sourceField: "",
+                  },
                   targetPageId: "page-cell-click",
                 },
               },
@@ -296,11 +332,14 @@ test.describe("Click actions", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -327,7 +366,9 @@ test.describe("Click actions", () => {
       await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
 
       // The dependent widgets should re-run without errors
-      await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
+      await expect(page.locator("text=Query Failed")).not.toBeVisible({
+        timeout: 10_000,
+      });
     } finally {
       await cleanup();
     }
@@ -345,7 +386,7 @@ test.describe("Click actions", () => {
 
       // Wait for the dashboard to load and render page tabs
       await expect(
-        page.getByRole("tab", { name: "Navigate to Page" })
+        page.getByRole("tab", { name: "Navigate to Page" }),
       ).toBeVisible({ timeout: 15_000 });
 
       // Navigate to the "Navigate to Page" tab
@@ -356,7 +397,9 @@ test.describe("Click actions", () => {
       // (className="hidden", aria-hidden="true"). Scope to the visible container
       // so we don't accidentally pick page 1's hidden <td>.
       const activePage = page.locator('div[aria-hidden="false"]');
-      const movieCell = activePage.locator("td").filter({ hasText: "Apollo 13" });
+      const movieCell = activePage
+        .locator("td")
+        .filter({ hasText: "Apollo 13" });
       await expect(movieCell.first()).toBeVisible({ timeout: 15_000 });
 
       // Click a movie title cell — should navigate to page 1 and set the parameter
@@ -364,13 +407,15 @@ test.describe("Click actions", () => {
 
       // After navigation, "Cell Click" tab should be active
       await expect(
-        page.getByRole("tab", { name: "Cell Click" })
+        page.getByRole("tab", { name: "Cell Click" }),
       ).toHaveAttribute("data-state", "active", { timeout: 5_000 });
 
       // The parameter bar should show the clicked value.
       // Both pages may render parameter bars, so use .first() to avoid
       // strict mode violation from matching 2 "Reset" buttons.
-      await expect(page.getByText("Reset").first()).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText("Reset").first()).toBeVisible({
+        timeout: 5_000,
+      });
     } finally {
       await cleanup();
     }
@@ -405,9 +450,13 @@ test.describe("Click actions", () => {
       await dialog.getByLabel("Enable click action").click();
 
       // Should show "Manage Action Rules" button
-      await expect(dialog.getByRole("button", { name: "Manage Action Rules" })).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: "Manage Action Rules" }),
+      ).toBeVisible();
       // Should show "No action rules configured." text
-      await expect(dialog.getByText("No action rules configured.")).toBeVisible();
+      await expect(
+        dialog.getByText("No action rules configured."),
+      ).toBeVisible();
 
       await dialog.getByRole("button", { name: "Cancel" }).click();
     } finally {
@@ -437,10 +486,14 @@ test.describe("Click actions", () => {
       await page.getByRole("option").first().click();
 
       // Run a query to get available fields
-      await typeInEditor(dialog, page,
-        "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size LIMIT 5"
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size LIMIT 5",
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await expect(
+        dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
+      ).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({
         timeout: 15_000,
@@ -455,7 +508,9 @@ test.describe("Click actions", () => {
       const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
 
       // Should show the Action Rules heading
-      await expect(rulesDialog.getByRole("heading", { name: "Action Rules" })).toBeVisible();
+      await expect(
+        rulesDialog.getByRole("heading", { name: "Action Rules" }),
+      ).toBeVisible();
       // Should show "No action rules yet" message
       await expect(rulesDialog.getByText("No action rules yet")).toBeVisible();
 
@@ -464,7 +519,9 @@ test.describe("Click actions", () => {
       // Should show "Rule 1"
       await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
       // Should show Action Type selector
-      await expect(rulesDialog.getByText("Action Type")).toBeVisible({ timeout: 5_000 });
+      await expect(rulesDialog.getByText("Action Type")).toBeVisible({
+        timeout: 5_000,
+      });
       // Should show Parameter Name
       await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
       // Should show Source Field (for bar chart, not table)
@@ -475,7 +532,9 @@ test.describe("Click actions", () => {
       // Navigate back to Advanced tab (Done returns to Data tab)
       await dialog.getByRole("tab", { name: "Advanced" }).click();
       // Should show "1 action rule(s) configured."
-      await expect(dialog.getByText("1 action rule(s) configured.")).toBeVisible();
+      await expect(
+        dialog.getByText("1 action rule(s) configured."),
+      ).toBeVisible();
 
       await dialog.getByRole("button", { name: "Cancel" }).click();
     } finally {
@@ -557,10 +616,14 @@ test.describe("Click actions", () => {
       await page.getByRole("option").first().click();
 
       // Write query and run it to populate available fields
-      await typeInEditor(dialog, page,
-        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5",
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await expect(
+        dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
+      ).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       // Wait for preview to render
       await expect(getPreview(dialog)).toBeVisible({
@@ -574,14 +637,18 @@ test.describe("Click actions", () => {
       // Open the action rules editor
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
       const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
-      await expect(rulesDialog.getByRole("heading", { name: "Action Rules" })).toBeVisible();
+      await expect(
+        rulesDialog.getByRole("heading", { name: "Action Rules" }),
+      ).toBeVisible();
 
       // Add a rule
       await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
       await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
 
       // Should show "Trigger Column" selector for tables
-      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({ timeout: 5_000 });
+      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({
+        timeout: 5_000,
+      });
       // Should show "Parameter Name" input
       await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
       // Source Field should NOT appear for table chart types
@@ -627,7 +694,8 @@ test.describe("Parameter interpolation in titles", () => {
                 chartOptions: {
                   parameterType: "select",
                   parameterName: "year",
-                  seedQuery: "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
+                  seedQuery:
+                    "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
                 },
               },
             },
@@ -635,7 +703,8 @@ test.describe("Parameter interpolation in titles", () => {
               id: "interp-table",
               chartType: "table",
               connectionId: "conn-neo4j-001",
-              query: "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5",
+              query:
+                "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5",
               settings: {
                 title: "Movies from $param_year",
               },
@@ -652,11 +721,14 @@ test.describe("Parameter interpolation in titles", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -665,7 +737,9 @@ test.describe("Parameter interpolation in titles", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const { id, cleanup } = await createInterpolatedTitleDashboard(page.request);
+    const { id, cleanup } = await createInterpolatedTitleDashboard(
+      page.request,
+    );
 
     try {
       await page.goto(`/${id}`);
@@ -723,12 +797,16 @@ test.describe("Clickable columns restriction", () => {
               id: "rc-w1",
               chartType: "table",
               connectionId: "conn-neo4j-001",
-              query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
               settings: {
                 title: "Movies (click title only)",
                 clickAction: {
                   type: "set-parameter",
-                  parameterMapping: { parameterName: "param_movie", sourceField: "" },
+                  parameterMapping: {
+                    parameterName: "param_movie",
+                    sourceField: "",
+                  },
                   clickableColumns: ["title"],
                 },
               },
@@ -742,11 +820,14 @@ test.describe("Clickable columns restriction", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -755,7 +836,9 @@ test.describe("Clickable columns restriction", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const { id, cleanup } = await createRestrictedColumnsDashboard(page.request);
+    const { id, cleanup } = await createRestrictedColumnsDashboard(
+      page.request,
+    );
 
     try {
       await page.goto(`/${id}`);
@@ -814,7 +897,8 @@ test.describe("Multi-rule click actions", () => {
               id: "mr-w1",
               chartType: "table",
               connectionId: "conn-neo4j-001",
-              query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 20",
               settings: {
                 title: "Movies (multi-rule)",
                 clickAction: {
@@ -824,13 +908,19 @@ test.describe("Multi-rule click actions", () => {
                       id: "rule-title",
                       triggerColumn: "title",
                       type: "set-parameter",
-                      parameterMapping: { parameterName: "param_movie", sourceField: "title" },
+                      parameterMapping: {
+                        parameterName: "param_movie",
+                        sourceField: "title",
+                      },
                     },
                     {
                       id: "rule-year",
                       triggerColumn: "released",
                       type: "set-parameter",
-                      parameterMapping: { parameterName: "param_year", sourceField: "released" },
+                      parameterMapping: {
+                        parameterName: "param_year",
+                        sourceField: "released",
+                      },
                     },
                   ],
                 },
@@ -845,11 +935,14 @@ test.describe("Multi-rule click actions", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -949,11 +1042,14 @@ test.describe("Date parameter widget", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -968,7 +1064,9 @@ test.describe("Date parameter widget", () => {
       await page.goto(`/${id}`);
 
       // Wait for the date picker widget to render
-      await expect(page.getByText("Pick a date…")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText("Pick a date…")).toBeVisible({
+        timeout: 15_000,
+      });
 
       // Open the calendar popover
       await page.getByText("Pick a date…").click();
@@ -979,15 +1077,23 @@ test.describe("Date parameter widget", () => {
       });
 
       // Click a day in the calendar
-      await page.locator("[role='gridcell']").filter({ hasNotText: "" }).nth(10).click();
+      await page
+        .locator("[role='gridcell']")
+        .filter({ hasNotText: "" })
+        .nth(10)
+        .click();
 
       // After selecting, the "Pick a date…" placeholder should be replaced with a formatted date
-      await expect(page.getByText("Pick a date…")).not.toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText("Pick a date…")).not.toBeVisible({
+        timeout: 5_000,
+      });
       // Verify the selected date displays in "MMM d, yyyy" format
       await expect(page.getByText(/\w{3} \d{1,2}, \d{4}/)).toBeVisible();
 
       // The title should interpolate the parameter value
-      await expect(page.getByText("Movies (date: $param_test_date)")).not.toBeVisible({
+      await expect(
+        page.getByText("Movies (date: $param_test_date)"),
+      ).not.toBeVisible({
         timeout: 5_000,
       });
     } finally {
@@ -1027,9 +1133,7 @@ test.describe("Date-range parameter widget", () => {
               },
             },
           ],
-          gridLayout: [
-            { i: "drange-param", x: 0, y: 0, w: 6, h: 3 },
-          ],
+          gridLayout: [{ i: "drange-param", x: 0, y: 0, w: 6, h: 3 }],
         },
       ],
     };
@@ -1037,11 +1141,14 @@ test.describe("Date-range parameter widget", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -1056,7 +1163,9 @@ test.describe("Date-range parameter widget", () => {
       await page.goto(`/${id}`);
 
       // Wait for the date-range picker widget to render
-      await expect(page.getByText("Pick a date range…")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText("Pick a date range…")).toBeVisible({
+        timeout: 15_000,
+      });
 
       // Open the calendar popover
       await page.getByText("Pick a date range…").click();
@@ -1070,16 +1179,24 @@ test.describe("Date-range parameter widget", () => {
 
       // After selection, the placeholder should be replaced with a date range
       // Format: "MMM d, yyyy – MMM d, yyyy"
-      await expect(page.getByText("Pick a date range…")).not.toBeVisible({ timeout: 5_000 });
-      await expect(page.getByText(/\w{3} \d{1,2}, \d{4}\s*–\s*\w{3} \d{1,2}, \d{4}/)).toBeVisible();
+      await expect(page.getByText("Pick a date range…")).not.toBeVisible({
+        timeout: 5_000,
+      });
+      await expect(
+        page.getByText(/\w{3} \d{1,2}, \d{4}\s*–\s*\w{3} \d{1,2}, \d{4}/),
+      ).toBeVisible();
 
       // Clear button should appear
-      const clearBtn = page.getByRole("button", { name: "Clear test_daterange" });
+      const clearBtn = page.getByRole("button", {
+        name: "Clear test_daterange",
+      });
       await expect(clearBtn).toBeVisible();
 
       // Click clear to reset
       await clearBtn.click();
-      await expect(page.getByText("Pick a date range…")).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText("Pick a date range…")).toBeVisible({
+        timeout: 5_000,
+      });
     } finally {
       await cleanup();
     }
@@ -1117,9 +1234,7 @@ test.describe("Date-relative parameter widget", () => {
               },
             },
           ],
-          gridLayout: [
-            { i: "drel-param", x: 0, y: 0, w: 12, h: 3 },
-          ],
+          gridLayout: [{ i: "drel-param", x: 0, y: 0, w: 12, h: 3 }],
         },
       ],
     };
@@ -1127,11 +1242,14 @@ test.describe("Date-relative parameter widget", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -1140,7 +1258,9 @@ test.describe("Date-relative parameter widget", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const { id, cleanup } = await createDateRelativeParamDashboard(page.request);
+    const { id, cleanup } = await createDateRelativeParamDashboard(
+      page.request,
+    );
 
     try {
       await page.goto(`/${id}`);
@@ -1153,11 +1273,21 @@ test.describe("Date-relative parameter widget", () => {
       await expect(todayBtn).toBeVisible({ timeout: 15_000 });
 
       // All presets should be visible
-      await expect(card.getByRole("button", { name: "Yesterday" })).toBeVisible();
-      await expect(card.getByRole("button", { name: "Last 7 days" })).toBeVisible();
-      await expect(card.getByRole("button", { name: "Last 30 days" })).toBeVisible();
-      await expect(card.getByRole("button", { name: "This month" })).toBeVisible();
-      await expect(card.getByRole("button", { name: "This year" })).toBeVisible();
+      await expect(
+        card.getByRole("button", { name: "Yesterday" }),
+      ).toBeVisible();
+      await expect(
+        card.getByRole("button", { name: "Last 7 days" }),
+      ).toBeVisible();
+      await expect(
+        card.getByRole("button", { name: "Last 30 days" }),
+      ).toBeVisible();
+      await expect(
+        card.getByRole("button", { name: "This month" }),
+      ).toBeVisible();
+      await expect(
+        card.getByRole("button", { name: "This year" }),
+      ).toBeVisible();
 
       // Initially none should be active
       await expect(todayBtn).toHaveAttribute("aria-pressed", "false");
@@ -1216,9 +1346,7 @@ test.describe("Number-range parameter widget", () => {
               },
             },
           ],
-          gridLayout: [
-            { i: "numrange-param", x: 0, y: 0, w: 6, h: 3 },
-          ],
+          gridLayout: [{ i: "numrange-param", x: 0, y: 0, w: 6, h: 3 }],
         },
       ],
     };
@@ -1226,11 +1354,14 @@ test.describe("Number-range parameter widget", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -1257,7 +1388,9 @@ test.describe("Number-range parameter widget", () => {
       // Change the min input — should trigger parameter set and show Reset button.
       // Two "Reset" buttons may appear (slider + parameter bar), so use .first().
       await minInput.fill("1950");
-      await expect(page.getByRole("button", { name: "Reset" }).first()).toBeVisible({ timeout: 5_000 });
+      await expect(
+        page.getByRole("button", { name: "Reset" }).first(),
+      ).toBeVisible({ timeout: 5_000 });
 
       // Change the max input
       await maxInput.fill("2000");
@@ -1265,7 +1398,9 @@ test.describe("Number-range parameter widget", () => {
 
       // Click Reset — should clear the range (both slider and parameter bar Reset disappear)
       await page.getByRole("button", { name: "Reset" }).first().click();
-      await expect(page.getByRole("button", { name: "Reset" }).first()).not.toBeVisible({ timeout: 5_000 });
+      await expect(
+        page.getByRole("button", { name: "Reset" }).first(),
+      ).not.toBeVisible({ timeout: 5_000 });
     } finally {
       await cleanup();
     }
@@ -1327,11 +1462,14 @@ test.describe("Multi-select parameter widget", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -1346,13 +1484,17 @@ test.describe("Multi-select parameter widget", () => {
       await page.goto(`/${id}`);
 
       // Wait for the multi-select widget to load its options
-      await expect(page.getByText("Select values…")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText("Select values…")).toBeVisible({
+        timeout: 15_000,
+      });
 
       // Open the multi-select dropdown
       await page.getByText("Select values…").click();
 
       // Options should load from the seed query
-      await expect(page.getByRole("option").first()).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("option").first()).toBeVisible({
+        timeout: 10_000,
+      });
 
       // Select the first option
       await page.getByRole("option").first().click();
@@ -1364,13 +1506,17 @@ test.describe("Multi-select parameter widget", () => {
       await page.keyboard.press("Escape");
 
       // "Select values…" placeholder should be gone — values are now selected
-      await expect(page.getByText("Select values…")).not.toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText("Select values…")).not.toBeVisible({
+        timeout: 5_000,
+      });
 
       // "Clear" button should appear (confirms values are selected)
       await expect(page.getByText("Clear")).toBeVisible();
 
       // The dependent table should re-execute without errors
-      await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
+      await expect(page.locator("text=Query Failed")).not.toBeVisible({
+        timeout: 10_000,
+      });
     } finally {
       await cleanup();
     }
@@ -1449,11 +1595,14 @@ test.describe("Cascading-select parameter widget", () => {
     const putRes = await request.put(`/api/dashboards/${id}`, {
       data: { layoutJson: layout },
     });
-    if (!putRes.ok()) throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
 
     return {
       id,
-      cleanup: async () => { await request.delete(`/api/dashboards/${id}`); },
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
     };
   }
 
@@ -1487,12 +1636,16 @@ test.describe("Cascading-select parameter widget", () => {
       // After selecting the parent, the child should no longer show the
       // "Select test_director first…" placeholder — it should either show
       // "Select a value…" (options loaded) or be loading
-      await expect(page.getByText("Select test_director first…")).not.toBeVisible({
+      await expect(
+        page.getByText("Select test_director first…"),
+      ).not.toBeVisible({
         timeout: 10_000,
       });
 
       // The cascading child should now show "Select a value…"
-      await expect(page.getByText("Select a value…")).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText("Select a value…")).toBeVisible({
+        timeout: 10_000,
+      });
 
       // Select a movie from the cascading child
       await page.getByText("Select a value…").click();
@@ -1501,7 +1654,9 @@ test.describe("Cascading-select parameter widget", () => {
       }).toPass({ timeout: 15_000 });
 
       // The dependent table should execute without errors
-      await expect(page.locator("text=Query Failed")).not.toBeVisible({ timeout: 10_000 });
+      await expect(page.locator("text=Query Failed")).not.toBeVisible({
+        timeout: 10_000,
+      });
     } finally {
       await cleanup();
     }
@@ -1542,15 +1697,21 @@ test.describe("Action rules — multi-rule editor", () => {
       await page.getByRole("option").first().click();
 
       // Wait for editor to be ready after connection selection
-      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+      await expect(
+        dialog.locator("[data-testid='codemirror-container']"),
+      ).toBeVisible({
         timeout: 5_000,
       });
 
       // Write query and run
-      await typeInEditor(dialog, page,
-        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 10"
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 10",
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await expect(
+        dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+      ).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
@@ -1571,7 +1732,9 @@ test.describe("Action rules — multi-rule editor", () => {
       await page.getByRole("option", { name: "Navigate to Page" }).click();
 
       // Should show Target Page selector with Page 2
-      await expect(rulesDialog.getByText("Target Page")).toBeVisible({ timeout: 5_000 });
+      await expect(rulesDialog.getByText("Target Page")).toBeVisible({
+        timeout: 5_000,
+      });
 
       // Add second rule — Set Parameter & Navigate
       await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
@@ -1582,7 +1745,9 @@ test.describe("Action rules — multi-rule editor", () => {
 
       // Verify rule count
       await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await expect(dialog.getByText("2 action rule(s) configured.")).toBeVisible();
+      await expect(
+        dialog.getByText("2 action rule(s) configured."),
+      ).toBeVisible();
 
       await dialog.getByRole("button", { name: "Cancel" }).click();
     } finally {
@@ -1590,10 +1755,7 @@ test.describe("Action rules — multi-rule editor", () => {
     }
   });
 
-  test("should delete an action rule", async ({
-    authPage,
-    page,
-  }) => {
+  test("should delete an action rule", async ({ authPage, page }) => {
     test.setTimeout(60_000);
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
@@ -1612,14 +1774,20 @@ test.describe("Action rules — multi-rule editor", () => {
       await page.getByRole("option").first().click();
 
       // Wait for editor to be ready after connection selection
-      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+      await expect(
+        dialog.locator("[data-testid='codemirror-container']"),
+      ).toBeVisible({
         timeout: 5_000,
       });
 
-      await typeInEditor(dialog, page,
-        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5",
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await expect(
+        dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+      ).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
@@ -1645,7 +1813,9 @@ test.describe("Action rules — multi-rule editor", () => {
       // Done
       await rulesDialog.getByRole("button", { name: "Done" }).click();
       await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await expect(dialog.getByText("1 action rule(s) configured.")).toBeVisible();
+      await expect(
+        dialog.getByText("1 action rule(s) configured."),
+      ).toBeVisible();
 
       await dialog.getByRole("button", { name: "Cancel" }).click();
     } finally {
@@ -1678,14 +1848,20 @@ test.describe("Action rules — multi-rule editor", () => {
       await page.getByRole("option").first().click();
 
       // Wait for editor to be ready after connection selection
-      await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+      await expect(
+        dialog.locator("[data-testid='codemirror-container']"),
+      ).toBeVisible({
         timeout: 5_000,
       });
 
-      await typeInEditor(dialog, page,
-        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5"
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 5",
       );
-      await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({ timeout: 10_000 });
+      await expect(
+        dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+      ).toBeEnabled({ timeout: 10_000 });
       await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
@@ -1697,7 +1873,9 @@ test.describe("Action rules — multi-rule editor", () => {
 
       // Add a rule — table type should show "Trigger Column"
       await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({ timeout: 5_000 });
+      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({
+        timeout: 5_000,
+      });
       // Source Field should NOT appear for table type
       await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
 
@@ -1773,30 +1951,42 @@ test.describe("Parameter bar filter toggle", () => {
       data: { name: `FilterToggle ${Date.now()}` },
     });
     const { id } = (await res.json()).data;
-    dashboardCleanup = async () => { await page.request.delete(`/api/dashboards/${id}`); };
+    dashboardCleanup = async () => {
+      await page.request.delete(`/api/dashboards/${id}`);
+    };
 
     const layout = {
       version: 2 as const,
-      pages: [{
-        id: "p1",
-        title: "Main",
-        widgets: [{
-          id: "w1",
-          chartType: "table",
-          connectionId: "conn-neo4j-001",
-          query: "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 10",
-          settings: {
-            title: "Movies",
-            clickAction: {
-              type: "set-parameter" as const,
-              parameterMapping: { parameterName: "selected_movie", sourceField: "" },
+      pages: [
+        {
+          id: "p1",
+          title: "Main",
+          widgets: [
+            {
+              id: "w1",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.title LIMIT 10",
+              settings: {
+                title: "Movies",
+                clickAction: {
+                  type: "set-parameter" as const,
+                  parameterMapping: {
+                    parameterName: "selected_movie",
+                    sourceField: "",
+                  },
+                },
+              },
             },
-          },
-        }],
-        gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 6 }],
-      }],
+          ],
+          gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 6 }],
+        },
+      ],
     };
-    await page.request.put(`/api/dashboards/${id}`, { data: { layoutJson: layout } });
+    await page.request.put(`/api/dashboards/${id}`, {
+      data: { layoutJson: layout },
+    });
 
     // Navigate to view mode
     await page.goto(`/${id}`);
@@ -1807,24 +1997,26 @@ test.describe("Parameter bar filter toggle", () => {
     await expect(firstCell).toBeVisible({ timeout: 15_000 });
     await firstCell.click();
 
-    // Parameter bar should appear with "Reset" button
-    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({ timeout: 10_000 });
+    // Parameter bar auto-shows when first parameter is set
+    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Filter button should be visible in the toolbar showing "Filters"
-    const filterBtn = page.getByRole("button", { name: "Hide parameters" });
-    await expect(filterBtn).toBeVisible();
+    // Filter button should say "Hide parameters" (bar is visible)
+    const hideBtn = page.getByRole("button", { name: "Hide parameters" });
+    await expect(hideBtn).toBeVisible();
 
-    // Click the filter button to hide the parameter bar
-    await filterBtn.click();
+    // Click to hide the parameter bar
+    await hideBtn.click();
 
     // Parameter bar "Reset" button should be hidden
     await expect(page.getByRole("button", { name: "Reset" })).not.toBeVisible();
 
-    // Filter button text should now show count (e.g. "Filters (1)")
+    // Filter button should now say "Show parameters"
     const showBtn = page.getByRole("button", { name: "Show parameters" });
     await expect(showBtn).toBeVisible();
 
-    // Click filter button again to show the parameter bar
+    // Click to show again
     await showBtn.click();
     await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   });
@@ -1863,9 +2055,11 @@ test.describe("Param-select searchable default", () => {
     await page.getByRole("option").first().click();
 
     // Fill seed query
-    await dialog.locator("#seed-query").fill(
-      "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10"
-    );
+    await dialog
+      .locator("#seed-query")
+      .fill(
+        "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
+      );
 
     // Set parameter name
     const paramInput = dialog.getByLabel("Parameter Name");
@@ -1884,7 +2078,9 @@ test.describe("Param-select searchable default", () => {
     await combobox.click();
 
     // The Command popover should show a search input with placeholder "Search…"
-    await expect(page.getByPlaceholder("Search\u2026")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByPlaceholder("Search\u2026")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 });
 
@@ -1936,8 +2132,8 @@ test.describe("Parameter collision warning", () => {
     await paramInput2.fill("season");
 
     // The collision banner should appear
-    await expect(
-      dialog2.getByTestId("param-collision-banner")
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(dialog2.getByTestId("param-collision-banner")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 });

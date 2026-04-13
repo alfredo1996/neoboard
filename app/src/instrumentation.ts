@@ -19,11 +19,12 @@ export async function register() {
   if (!email || !password) return;
 
   try {
-    const { bootstrapAdmin } = await import("@/lib/bootstrap");
+    const { bootstrapAdmin } = await import("@/lib/auth/bootstrap");
     await bootstrapAdmin({ email, password });
   } catch (err) {
     // Log but never crash the server — a missing DB at startup is recoverable
-    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    const msg =
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error("[bootstrap] Failed to bootstrap admin user:", msg);
   }
 }

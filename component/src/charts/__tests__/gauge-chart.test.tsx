@@ -67,40 +67,34 @@ describe("GaugeChart", () => {
   });
 
   // --- axisTick distance bug fix ---
-  it("sets axisTick.distance to -15 in non-compact mode (bug fix: was -compact ? 0 : 15)", () => {
-    // In non-compact mode (container >= 200px), axisTick.distance must be -15 (inward).
-    // The old code used `-compact ? 0 : 15` which always evaluated to 15 due to unary minus on boolean.
+  it("sets axisTick.distance to -20 in non-compact mode", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const series = optionsCall.series[0];
-    // Non-compact: axisTick is shown and distance should be -15 (negative = inward from arc)
     expect(series.axisTick.show).toBe(true);
-    expect(series.axisTick.distance).toBe(-15);
+    expect(series.axisTick.distance).toBe(-20);
   });
 
-  // --- splitLine distance fix ---
-  it("sets splitLine.distance to -25 in non-compact mode to push lines further inward", () => {
+  it("sets splitLine.distance to -20 in non-compact mode", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const series = optionsCall.series[0];
     expect(series.splitLine.show).toBe(true);
-    expect(series.splitLine.distance).toBe(-25);
+    expect(series.splitLine.distance).toBe(-20);
   });
 
-  // --- axisLabel distance fix ---
-  it("sets axisLabel.distance to 35 in non-compact mode for more space between labels and arc", () => {
+  it("sets axisLabel.distance to 30 in non-compact mode", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const series = optionsCall.series[0];
     expect(series.axisLabel.show).toBe(true);
-    expect(series.axisLabel.distance).toBe(35);
+    expect(series.axisLabel.distance).toBe(30);
   });
 
-  // --- axisLabel fontSize ---
-  it("sets axisLabel.fontSize to 12 to reduce label size", () => {
+  it("sets axisLabel.fontSize to 11", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].axisLabel.fontSize).toBe(12);
+    expect(optionsCall.series[0].axisLabel.fontSize).toBe(11);
   });
 
   // --- axisTick splitNumber ---
@@ -123,25 +117,47 @@ describe("GaugeChart", () => {
   // --- styling rules ---
 
   it("applies styling rule color to gauge item when value matches rule", () => {
-    const stylingRules = [{ id: "r1", operator: ">" as const, value: 50, color: "#ff0000" }];
-    render(<GaugeChart data={[{ value: 75, name: "Score" }]} stylingRules={stylingRules} />);
+    const stylingRules = [
+      { id: "r1", operator: ">" as const, value: 50, color: "#ff0000" },
+    ];
+    render(
+      <GaugeChart
+        data={[{ value: 75, name: "Score" }]}
+        stylingRules={stylingRules}
+      />,
+    );
     const optionsCall = mockSetOption.mock.calls[0][0];
     const gaugeData = optionsCall.series[0].data[0];
     expect(gaugeData.itemStyle?.color).toBe("#ff0000");
   });
 
   it("does not apply color when value does not match any styling rule", () => {
-    const stylingRules = [{ id: "r1", operator: ">" as const, value: 90, color: "#ff0000" }];
-    render(<GaugeChart data={[{ value: 75, name: "Score" }]} stylingRules={stylingRules} />);
+    const stylingRules = [
+      { id: "r1", operator: ">" as const, value: 90, color: "#ff0000" },
+    ];
+    render(
+      <GaugeChart
+        data={[{ value: 75, name: "Score" }]}
+        stylingRules={stylingRules}
+      />,
+    );
     const optionsCall = mockSetOption.mock.calls[0][0];
     const gaugeData = optionsCall.series[0].data[0];
     expect(gaugeData.itemStyle).toBeUndefined();
   });
 
   it("accepts paramValues prop without error", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 50, color: "#00ff00" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 50, color: "#00ff00" },
+    ];
     const paramValues = { threshold: 50 };
-    render(<GaugeChart data={sampleData} stylingRules={stylingRules} paramValues={paramValues} />);
+    render(
+      <GaugeChart
+        data={sampleData}
+        stylingRules={stylingRules}
+        paramValues={paramValues}
+      />,
+    );
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
   });
 
@@ -170,7 +186,8 @@ describe("GaugeChart", () => {
     expect(series.axisTick.show).toBe(false);
     expect(series.splitLine.show).toBe(false);
     expect(series.axisLabel.show).toBe(false);
-    expect(series.detail.show).toBe(false);
+    // Detail stays visible in compact mode (smaller font), title hides
+    expect(series.detail.show).toBe(true);
     expect(series.title.show).toBe(false);
   });
 });

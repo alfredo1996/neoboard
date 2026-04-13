@@ -18,7 +18,7 @@ import {
   useCreateWidgetTemplate,
 } from "@/hooks/use-widget-templates";
 import { useConnections } from "@/hooks/use-connections";
-import { getChartConfig } from "@/lib/chart-registry";
+import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
   PageHeader,
@@ -45,7 +45,7 @@ import {
   CONNECTOR_TYPES,
   CONNECTOR_LABELS,
   CONNECTOR_LANGUAGES,
-} from "@/lib/connector-types";
+} from "@/lib/connector/connector-types";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({
@@ -141,7 +141,7 @@ function TemplateCard({
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={onEdit}
-                    aria-label="Edit"
+                    aria-label="Edit template"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -157,7 +157,7 @@ function TemplateCard({
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={onDelete}
-                    aria-label="Delete"
+                    aria-label="Delete template"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -284,7 +284,7 @@ export default function WidgetLabPage() {
   }
 
   function handleDuplicate(template: WidgetTemplate) {
-    const baseName = template.name.replace(/\s*\(copy(?:\s*\d+)?\)$/, "");
+    const baseName = template.name.replace(/\s*\(copy(?:\s\d+)?\)$/, "");
     createTemplate.mutate(
       {
         name: `${baseName} (copy)`,

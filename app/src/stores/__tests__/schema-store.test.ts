@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { DatabaseSchema } from "@/lib/schema-types";
+import type { DatabaseSchema } from "@/lib/connector/schema-types";
 import { useSchemaStore } from "../schema-store";
 
 const neo4jSchema: DatabaseSchema = {
