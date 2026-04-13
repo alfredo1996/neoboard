@@ -1,5 +1,6 @@
 import type { ZodSchema } from "zod";
 import { apiError } from "./api-response";
+import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 
 /**
  * Shared API route utilities to reduce duplication across route handlers.
@@ -85,6 +86,9 @@ export function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
 ): ReturnType<typeof apiError> {
+  if (error instanceof EnterpriseRequiredError) {
+    return apiError("ENTERPRISE_REQUIRED", error.message);
+  }
   const message = error instanceof Error ? error.message : fallbackMsg;
   if (message.includes("Unauthorized") || message.includes("session")) {
     return unauthorized();
