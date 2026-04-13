@@ -23,7 +23,7 @@ describe("ParamDate — store interactions", () => {
     );
   });
 
-  it("preserves Date object when stored via setParameter", () => {
+  it("converts Date object to ISO string when stored via setParameter", () => {
     const { setParameter } = useParameterStore.getState();
     const d = new Date("2024-06-15T00:00:00Z");
     setParameter(
@@ -35,9 +35,6 @@ describe("ParamDate — store interactions", () => {
       "selector-widget",
     );
     const entry = useParameterStore.getState().parameters["created"];
-    expect(entry.value).toBeInstanceOf(Date);
-    expect((entry.value as Date).toISOString()).toBe(
-      "2024-06-15T00:00:00.000Z",
-    );
+    expect(entry.value).toBe("2024-06-15T00:00:00.000Z");
   });
 });

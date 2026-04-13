@@ -8,20 +8,20 @@ import {
   triggerDownload,
   buildExportFilename,
 } from "@neoboard/components";
-import { interpolateTitle } from "@/lib/interpolate-title";
-import { buildExportData } from "@/lib/card-utils";
+import { interpolateTitle } from "@/lib/widget/interpolate-title";
+import { buildExportData } from "@/lib/widget/card-utils";
 import {
   getWidgetDisplayTitle,
   isWidgetTemplateOutdated,
-} from "@/lib/widget-utils";
-import { isDataWidget } from "@/lib/widget-actions";
+} from "@/lib/widget/widget-utils";
+import { isDataWidget } from "@/lib/widget/widget-actions";
 import type {
   DashboardPage,
   DashboardWidget,
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import type { ParameterSourceMap } from "@/lib/collect-parameter-names";
+import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import {
   useParameterStore,
   useParameterValues,
@@ -29,8 +29,8 @@ import {
 import {
   formatParameterValue,
   filterParentParams,
-} from "@/lib/format-parameter-value";
-import { shouldShowRefreshButton } from "@/lib/resolve-cache-options";
+} from "@/lib/parameter/format-parameter-value";
+import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
 import { LayoutDashboard, Maximize2, RefreshCw } from "lucide-react";
 import {
   WidgetCard,
@@ -38,6 +38,7 @@ import {
   DashboardGrid,
   Dialog,
   DialogContent,
+  DialogTitle,
   Button,
   ParameterBar,
   CrossFilterTag,
@@ -80,7 +81,7 @@ interface DashboardContainerProps {
   parameterSourceMap?: ParameterSourceMap;
 }
 
-// getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget-utils
+// getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
 
 export function DashboardContainer({
   page,
@@ -153,7 +154,7 @@ export function DashboardContainer({
     });
     const cached = entries.length > 0 ? entries[0][1] : undefined;
     const transforms = (widget.settings?.transforms ??
-      []) as import("@/lib/data-transforms").Transform[];
+      []) as import("@/lib/query/data-transforms").Transform[];
     const exportData = buildExportData(
       cached?.data,
       transforms,
@@ -176,10 +177,17 @@ export function DashboardContainer({
       });
     }
 
+    if (onSaveAsTemplate) {
+      actions.push({
+        label: "Save to Widget Lab",
+        onClick: () => onSaveAsTemplate(widget),
+      });
+    }
+
     if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {
       actions.push({
-        label: "Edit",
+        label: "Edit Widget",
         onClick: () => onEditWidget(widget),
       });
     }
@@ -187,12 +195,6 @@ export function DashboardContainer({
       actions.push({
         label: "Duplicate",
         onClick: () => onDuplicateWidget(widget.id),
-      });
-    }
-    if (onSaveAsTemplate) {
-      actions.push({
-        label: "Save to Widget Lab",
-        onClick: () => onSaveAsTemplate(widget),
       });
     }
     if (widget.templateId) {
@@ -342,14 +344,16 @@ export function DashboardContainer({
         }}
       >
         <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
-          {fullscreenWidget && (
-            <>
-              <h2 className="text-lg font-semibold mb-2">
-                {interpolateTitle(
+          <DialogTitle className="text-lg font-semibold mb-2">
+            {fullscreenWidget
+              ? interpolateTitle(
                   getWidgetDisplayTitle(fullscreenWidget),
                   parameters,
-                )}
-              </h2>
+                )
+              : "Widget"}
+          </DialogTitle>
+          {fullscreenWidget && (
+            <>
               <div className="flex-1 min-h-0">
                 {fullscreenReady ? (
                   <CardContainer

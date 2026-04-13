@@ -15,6 +15,13 @@
       "when": 1775088043513,
       "tag": "0001_rapid_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775596690039,
+      "tag": "0002_redundant_night_nurse",
+      "breakpoints": true
     }
   ]
 }

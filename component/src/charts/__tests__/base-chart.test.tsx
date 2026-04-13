@@ -183,27 +183,26 @@ describe("BaseChart", () => {
     );
   });
 
-  it("overrides colors with warm-sunset palette when colorPalette is set", () => {
+  it("overrides colors with tableau palette when colorPalette is set", () => {
     render(
       <BaseChart
         options={{ title: { text: "Test" } }}
-        colorPalette="warm-sunset"
+        colorPalette="tableau"
       />,
     );
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        // warm-sunset first color is tomato red
-        color: expect.arrayContaining(["hsl(14, 90%, 55%)"]),
+        color: expect.arrayContaining(["#4e79a7"]),
       }),
       { notMerge: true },
     );
   });
 
-  it("overrides colors with neon palette when colorPalette is set", () => {
-    render(<BaseChart options={{}} colorPalette="neon" />);
+  it("overrides colors with observable palette when colorPalette is set", () => {
+    render(<BaseChart options={{}} colorPalette="observable" />);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(320, 100%, 60%)"]),
+        color: expect.arrayContaining(["#4269d0"]),
       }),
       { notMerge: true },
     );

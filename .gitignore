@@ -8,6 +8,12 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+
+# Child package lockfiles (managed by root workspace lockfile)
+app/package-lock.json
+component/package-lock.json
+connection/package-lock.json
+cli/package-lock.json
 dist
 dist-ssr
 *.local

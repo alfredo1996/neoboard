@@ -416,7 +416,7 @@ describe("colorPalette option", () => {
     expect(opt?.category).toBe("Appearance");
   });
 
-  it("colorPalette select options include 'deep-ocean' and 'warm-sunset'", () => {
+  it("colorPalette select options include 'deep-ocean' and 'tableau'", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorPalette");
     expect(opt?.options).toBeDefined();
@@ -424,7 +424,7 @@ describe("colorPalette option", () => {
       "deep-ocean",
     );
     expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
-      "warm-sunset",
+      "tableau",
     );
   });
 

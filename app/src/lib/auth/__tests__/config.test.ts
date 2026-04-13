@@ -58,7 +58,7 @@ vi.mock("@/lib/db/schema", () => ({
   verificationTokens: {},
 }));
 
-vi.mock("@/lib/rate-limiter", () => ({
+vi.mock("@/lib/crypto/rate-limiter", () => ({
   loginRateLimiter: { check: vi.fn(() => ({ allowed: true })) },
 }));
 

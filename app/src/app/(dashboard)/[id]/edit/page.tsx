@@ -20,9 +20,9 @@ import {
 import { useConnections } from "@/hooks/use-connections";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
-import { filterParentParams } from "@/lib/format-parameter-value";
-import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
-import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
+import { filterParentParams } from "@/lib/parameter/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -30,14 +30,14 @@ import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
-import type { ConnectorType } from "@/lib/connector-types";
-import { migrateLayout } from "@/lib/migrate-layout";
+import type { ConnectorType } from "@/lib/connector/connector-types";
+import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import type {
   DashboardWidget,
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import { captureDashboardThumbnails } from "@/lib/capture-dashboard-thumbnails";
+import { captureDashboardThumbnails } from "@/lib/dashboard/capture-dashboard-thumbnails";
 import {
   Button,
   Skeleton,
@@ -89,7 +89,9 @@ export default function DashboardEditorPage({
     [parameters],
   );
   const hasParameters = parameterCount > 0;
-  const [showParameterBar, setShowParameterBar] = useState(true);
+  // null = auto mode (show when params exist), boolean = user override
+  const [barOverride, setBarOverride] = useState<boolean | null>(null);
+  const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
 
   const initialPage = pageParam !== undefined ? parseInt(pageParam, 10) : 0;
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -406,15 +408,20 @@ export default function DashboardEditorPage({
                 variant="ghost"
                 size="sm"
                 disabled={!hasParameters}
-                onClick={() => setShowParameterBar((prev) => !prev)}
+                onClick={() =>
+                  setBarOverride((prev) => !(prev ?? effectiveShowBar))
+                }
                 aria-label={
-                  showParameterBar ? "Hide parameters" : "Show parameters"
+                  effectiveShowBar ? "Hide parameters" : "Show parameters"
                 }
               >
                 <Filter className="mr-2 h-4 w-4" />
-                {!hasParameters || showParameterBar
-                  ? "Filters"
-                  : `Filters (${parameterCount})`}
+                Filters
+                {hasParameters && parameterCount > 0 && (
+                  <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                    {parameterCount}
+                  </span>
+                )}
               </Button>
               <ToolbarSeparator />
               <Button variant="outline" size="sm" onClick={openAddWidget}>
@@ -576,7 +583,7 @@ export default function DashboardEditorPage({
                       onDetachWidget: handleDetachWidget,
                     }}
                     templateMap={templateMap}
-                    showParameterBar={showParameterBar}
+                    showParameterBar={effectiveShowBar}
                     parameterSourceMap={parameterSourceMap}
                   />
                 </div>

@@ -8,7 +8,7 @@ export interface HealthCheckOptions {
 }
 
 export async function waitForHealth(opts: HealthCheckOptions): Promise<void> {
-  const { check, label, interval = 1000, timeout = 60_000 } = opts;
+  const { check, label, interval = 2000, timeout = 120_000 } = opts;
   const spinner = createSpinner(`Waiting for ${label}...`);
   spinner.start();
 

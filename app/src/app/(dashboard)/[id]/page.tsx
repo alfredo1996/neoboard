@@ -10,6 +10,7 @@ import React, {
   useTransition,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   Filter,
@@ -19,14 +20,17 @@ import {
 } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
-import { filterParentParams } from "@/lib/format-parameter-value";
-import { buildParameterSourceMap } from "@/lib/collect-parameter-names";
-import { scrollToWidgetWhenReady } from "@/lib/scroll-to-widget";
-import { parseUrlParams, buildUrlParams } from "@/lib/url-params";
+import { filterParentParams } from "@/lib/parameter/format-parameter-value";
+import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
+import { SaveTemplateDialog } from "@/components/save-template-dialog";
+import { useConnections } from "@/hooks/use-connections";
+import type { DashboardWidget } from "@/lib/db/schema";
 import { PageTabs } from "@/components/page-tabs";
-import { migrateLayout } from "@/lib/migrate-layout";
-import { getRefetchInterval } from "@/lib/dashboard-settings";
+import { migrateLayout } from "@/lib/dashboard/migrate-layout";
+import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { useCountdown } from "@/hooks/use-countdown";
 import type { DashboardSettings } from "@/lib/db/schema";
 import {
@@ -70,6 +74,8 @@ export default function DashboardViewerPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const canWrite = session?.user?.canWrite !== false;
   const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
   const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
   const prevDashboardId = useRef<string | null>(null);
@@ -128,8 +134,23 @@ export default function DashboardViewerPage({
     () => filterParentParams(Object.entries(parameters)).length,
     [parameters],
   );
-  const hasParameters = parameterCount > 0;
-  const [showParameterBar, setShowParameterBar] = useState(true);
+  // Button should be enabled whenever the dashboard has parameter widgets,
+  // even if the store hasn't populated their values yet (e.g. on initial load).
+  const hasParameterWidgets = useMemo(() => {
+    if (!dashboard) return false;
+    const migrated = migrateLayout(dashboard.layoutJson);
+    return migrated.pages.some((p) =>
+      p.widgets.some((w) => w.chartType === "parameter-select"),
+    );
+  }, [dashboard]);
+  const hasParameters = hasParameterWidgets || parameterCount > 0;
+  // null = auto mode (show when params exist), boolean = user override
+  const [barOverride, setBarOverride] = useState<boolean | null>(null);
+  const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
+  const [templateWidget, setTemplateWidget] = useState<
+    DashboardWidget | undefined
+  >();
+  const { data: connectionsData } = useConnections();
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([0]),
@@ -316,15 +337,20 @@ export default function DashboardViewerPage({
             variant="ghost"
             size="sm"
             disabled={!hasParameters}
-            onClick={() => setShowParameterBar((prev) => !prev)}
+            onClick={() =>
+              setBarOverride((prev) => !(prev ?? effectiveShowBar))
+            }
             aria-label={
-              showParameterBar ? "Hide parameters" : "Show parameters"
+              effectiveShowBar ? "Hide parameters" : "Show parameters"
             }
           >
             <Filter className="mr-2 h-4 w-4" />
-            {!hasParameters || showParameterBar
-              ? "Filters"
-              : `Filters (${parameterCount})`}
+            Filters
+            {hasParameters && parameterCount > 0 && (
+              <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                {parameterCount}
+              </span>
+            )}
           </Button>
           {canEdit && (
             <>
@@ -457,14 +483,36 @@ export default function DashboardViewerPage({
               <DashboardContainer
                 page={page}
                 refetchInterval={refetchInterval}
-                actions={{ onNavigateToPage: handleNavigateToPage }}
-                showParameterBar={showParameterBar}
+                actions={{
+                  onNavigateToPage: handleNavigateToPage,
+                  ...(canWrite && { onSaveAsTemplate: setTemplateWidget }),
+                }}
+                showParameterBar={effectiveShowBar}
                 parameterSourceMap={parameterSourceMap}
               />
             </div>
           );
         })}
       </div>
+
+      {templateWidget &&
+        (() => {
+          const conn = (connectionsData ?? []).find(
+            (c: { id: string }) => c.id === templateWidget.connectionId,
+          );
+          const connectorType = (conn?.type ??
+            "neo4j") as import("@/lib/connector/connector-types").ConnectorType;
+          return (
+            <SaveTemplateDialog
+              open
+              onOpenChange={(open) => {
+                if (!open) setTemplateWidget(undefined);
+              }}
+              widget={templateWidget}
+              connectorType={connectorType}
+            />
+          );
+        })()}
     </div>
   );
 }

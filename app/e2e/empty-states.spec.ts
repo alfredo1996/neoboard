@@ -10,7 +10,7 @@ test.describe("Dashboard list & role badges", () => {
   }) => {
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /New Dashboard/i })
+      page.getByRole("button", { name: /New Dashboard/i }),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -24,7 +24,9 @@ test.describe("Dashboard list & role badges", () => {
     });
 
     // Alice is admin — her role badge should be visible
-    const aliceRow = page.getByRole("row").filter({ hasText: "alice@example.com" });
+    const aliceRow = page
+      .getByRole("row")
+      .filter({ hasText: "alice@example.com" });
     await expect(aliceRow).toBeVisible();
 
     // Create users with different roles and verify badges
@@ -34,40 +36,54 @@ test.describe("Dashboard list & role badges", () => {
     await page.getByRole("button", { name: "Create User" }).first().click();
     let dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Badge Creator");
-    await dialog.locator("#user-email").fill(`badge-creator-${timestamp}@example.com`);
+    await dialog
+      .locator("#user-email")
+      .fill(`badge-creator-${timestamp}@example.com`);
     await dialog.locator("#user-password").fill("password123");
     // Default role is creator
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(`badge-creator-${timestamp}@example.com`)).toBeVisible();
+    await expect(
+      page.getByText(`badge-creator-${timestamp}@example.com`),
+    ).toBeVisible();
 
     // Create a reader
     await page.getByRole("button", { name: "Create User" }).first().click();
     dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     await dialog.locator("#user-name").fill("Badge Reader");
-    await dialog.locator("#user-email").fill(`badge-reader-${timestamp}@example.com`);
+    await dialog
+      .locator("#user-email")
+      .fill(`badge-reader-${timestamp}@example.com`);
     await dialog.locator("#user-password").fill("password123");
     await dialog.locator("#user-role").click();
     await page.getByRole("option", { name: "Reader" }).click();
     await dialog.getByRole("button", { name: "Create" }).click();
-    await expect(page.getByText(`badge-reader-${timestamp}@example.com`)).toBeVisible();
+    await expect(
+      page.getByText(`badge-reader-${timestamp}@example.com`),
+    ).toBeVisible();
 
     // Verify both rows exist with the correct role display
-    const creatorRow = page.getByRole("row").filter({ hasText: `badge-creator-${timestamp}@example.com` });
+    const creatorRow = page
+      .getByRole("row")
+      .filter({ hasText: `badge-creator-${timestamp}@example.com` });
     await expect(creatorRow).toBeVisible();
 
-    const readerRow = page.getByRole("row").filter({ hasText: `badge-reader-${timestamp}@example.com` });
+    const readerRow = page
+      .getByRole("row")
+      .filter({ hasText: `badge-reader-${timestamp}@example.com` });
     await expect(readerRow).toBeVisible();
   });
 
-  test("connections page header and Add Connection button are visible", async ({ page }) => {
+  test("connections page header and Add Connection button are visible", async ({
+    page,
+  }) => {
     await page.goto("/connections");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Connections" })
+      page.getByRole("heading", { level: 1, name: "Connections" }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("button", { name: "Add Connection" })
+      page.getByRole("button", { name: "Add Connection" }),
     ).toBeVisible();
   });
 });
@@ -84,27 +100,41 @@ test.describe("Confirm dialog — destructive", () => {
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await createDialog.locator("#dashboard-name").fill(dashName);
-    await createDialog.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(/\/edit/, { timeout: 10_000 });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST" &&
+          r.status() === 201,
+        { timeout: 10_000 },
+      ),
+      createDialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
     await page.goto("/");
     await expect(page.getByText(dashName)).toBeVisible({
       timeout: 10_000,
     });
 
     // Open the dashboard options dropdown (Delete is inside a DropdownMenu)
-    const card = page.locator("[class*='cursor-pointer']").filter({ hasText: dashName }).first();
+    const card = page
+      .locator("[class*='cursor-pointer']")
+      .filter({ hasText: dashName })
+      .first();
     await card.getByRole("button", { name: "Dashboard options" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
     // Confirm dialog should be visible with destructive warning
     const confirmDialog = page.getByRole("alertdialog");
-    await expect(confirmDialog.getByText("Delete Dashboard")).toBeVisible();
-    await expect(confirmDialog.getByText("This action cannot be undone")).toBeVisible();
+    await expect(confirmDialog.getByText(/Delete ".*"\?/)).toBeVisible();
     await expect(
-      confirmDialog.getByRole("button", { name: "Delete" })
+      confirmDialog.getByText("This action cannot be undone"),
     ).toBeVisible();
     await expect(
-      confirmDialog.getByRole("button", { name: /Cancel/i })
+      confirmDialog.getByRole("button", { name: "Delete" }),
+    ).toBeVisible();
+    await expect(
+      confirmDialog.getByRole("button", { name: /Cancel/i }),
     ).toBeVisible();
 
     // Actually delete to clean up (avoid test pollution)

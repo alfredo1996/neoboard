@@ -1,5 +1,11 @@
 import type { Page, APIRequestContext } from "@playwright/test";
-import { test, expect, ALICE, TEST_NEO4J_BOLT_URL, TEST_PG_PORT } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  TEST_NEO4J_BOLT_URL,
+  TEST_PG_PORT,
+} from "./fixtures";
 
 /**
  * Creates temporary Neo4j and PostgreSQL connections for a performance test,
@@ -37,8 +43,14 @@ async function createTestConnections(request: APIRequestContext): Promise<{
     }),
   ]);
 
-  if (!neo4jRes.ok()) throw new Error(`Failed to create Neo4j connection: ${await neo4jRes.text()}`);
-  if (!pgRes.ok()) throw new Error(`Failed to create PostgreSQL connection: ${await pgRes.text()}`);
+  if (!neo4jRes.ok())
+    throw new Error(
+      `Failed to create Neo4j connection: ${await neo4jRes.text()}`,
+    );
+  if (!pgRes.ok())
+    throw new Error(
+      `Failed to create PostgreSQL connection: ${await pgRes.text()}`,
+    );
 
   const { id: neo4jConnId } = (await neo4jRes.json()).data as { id: string };
   const { id: pgConnId } = (await pgRes.json()).data as { id: string };
@@ -64,7 +76,7 @@ async function waitForNextPaint(page: Page): Promise<void> {
     () =>
       new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      })
+      }),
   );
 }
 
@@ -76,7 +88,7 @@ test.describe("Performance — tab switching", () => {
     await authPage.login(ALICE.email, ALICE.password);
 
     // Navigate to a seeded dashboard that has multiple pages ("Movie Analytics")
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Wait for the initial page load to fully settle.
@@ -87,7 +99,7 @@ test.describe("Performance — tab switching", () => {
     // Ensure all loading indicators from the first page are gone before timing starts
     await page.waitForFunction(
       () => document.querySelectorAll('[data-loading="true"]').length === 0,
-      { timeout: 15_000 }
+      { timeout: 15_000 },
     );
 
     const tabs = page.locator('[data-testid="page-tab"]');
@@ -96,7 +108,7 @@ test.describe("Performance — tab switching", () => {
     if (tabCount < 2) {
       test.skip(
         true,
-        "Dashboard has fewer than 2 pages — skipping tab-switch timing"
+        "Dashboard has fewer than 2 pages — skipping tab-switch timing",
       );
       return;
     }
@@ -115,7 +127,7 @@ test.describe("Performance — tab switching", () => {
       // Wait until no widget loading skeleton is visible in the current page
       await page.waitForFunction(
         () => document.querySelectorAll('[data-loading="true"]').length === 0,
-        { timeout: 10_000 }
+        { timeout: 10_000 },
       );
 
       const t1 = await page.evaluate(() => performance.now());
@@ -126,13 +138,13 @@ test.describe("Performance — tab switching", () => {
 
       // A tab switch that takes more than 3 s indicates a serious performance problem
       expect(ms, `Tab ${i} switch exceeded 3 000 ms threshold`).toBeLessThan(
-        3_000
+        3_000,
       );
     }
 
     const avg = timings.reduce((a, b) => a + b, 0) / timings.length;
     console.log(
-      `Average tab switch: ${avg.toFixed(1)} ms over ${timings.length} tab(s)`
+      `Average tab switch: ${avg.toFixed(1)} ms over ${timings.length} tab(s)`,
     );
   });
 });
@@ -213,7 +225,7 @@ test.describe("Performance — concurrent multi-connector queries", () => {
           document.querySelectorAll('[data-testid="widget-card"]').length >=
           count,
         TOTAL,
-        { timeout: 30_000 }
+        { timeout: 30_000 },
       );
 
       // Pre-resolution snapshot: all cards mounted, queries still in flight
@@ -225,7 +237,7 @@ test.describe("Performance — concurrent multi-connector queries", () => {
       // Wait for every widget (both connectors) to resolve
       await page.waitForFunction(
         () => document.querySelectorAll('[data-loading="true"]').length === 0,
-        { timeout: 60_000 }
+        { timeout: 60_000 },
       );
 
       await waitForNextPaint(page);
@@ -244,27 +256,27 @@ test.describe("Performance — concurrent multi-connector queries", () => {
       console.log(`  PostgreSQL widgets  : ${PG_COUNT}`);
       console.log(`  Full load time      : ${ms.toFixed(1)} ms`);
       console.log(
-        `  Loading widgets (pre): ${preResolution.totalLoading} → (post) ${postResolution.totalLoading}`
+        `  Loading widgets (pre): ${preResolution.totalLoading} → (post) ${postResolution.totalLoading}`,
       );
       console.log(
-        `  Grid items rendered  : ${postResolution.gridItemsRendered}`
+        `  Grid items rendered  : ${postResolution.gridItemsRendered}`,
       );
       console.log("");
 
       // ── Thresholds ────────────────────────────────────────────────────
       expect(
         ms,
-        `${TOTAL}-widget mixed-connector dashboard exceeded 30 000 ms`
+        `${TOTAL}-widget mixed-connector dashboard exceeded 30 000 ms`,
       ).toBeLessThan(30_000);
 
       expect(
         postResolution.gridItemsRendered,
-        `Expected ${TOTAL} grid items, got ${postResolution.gridItemsRendered}`
+        `Expected ${TOTAL} grid items, got ${postResolution.gridItemsRendered}`,
       ).toBe(TOTAL);
 
       expect(
         postResolution.totalLoading,
-        "Some widgets still in loading state after timeout"
+        "Some widgets still in loading state after timeout",
       ).toBe(0);
     } finally {
       // ── 4. Cleanup ───────────────────────────────────────────────────────
@@ -315,24 +327,21 @@ test.describe("Performance — large dashboard", () => {
       h: 2,
     }));
 
-    const updateRes = await page.request.put(
-      `/api/dashboards/${dashboardId}`,
-      {
-        data: {
-          layoutJson: {
-            version: 2,
-            pages: [
-              {
-                id: "page-1",
-                title: "Page 1",
-                widgets,
-                gridLayout,
-              },
-            ],
-          },
+    const updateRes = await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "page-1",
+              title: "Page 1",
+              widgets,
+              gridLayout,
+            },
+          ],
         },
-      }
-    );
+      },
+    });
     expect(updateRes.status()).toBe(200);
 
     // ── 3. Navigate and measure ──────────────────────────────────────────────
@@ -344,8 +353,8 @@ test.describe("Performance — large dashboard", () => {
         try {
           new PerformanceObserver((list) => {
             (window as Window & { __longTaskCount?: number }).__longTaskCount =
-              ((window as Window & { __longTaskCount?: number }).__longTaskCount ?? 0) +
-              list.getEntries().length;
+              ((window as Window & { __longTaskCount?: number })
+                .__longTaskCount ?? 0) + list.getEntries().length;
           }).observe({ type: "longtask", buffered: true });
         } catch {
           // longtask observer not supported in this browser
@@ -370,7 +379,7 @@ test.describe("Performance — large dashboard", () => {
           document.querySelectorAll('[data-testid="widget-card"]').length >=
           count,
         WIDGET_COUNT,
-        { timeout: 30_000 }
+        { timeout: 30_000 },
       );
 
       // ── Pre-resolution snapshot: all cards mounted, queries still in flight
@@ -386,15 +395,18 @@ test.describe("Performance — large dashboard", () => {
           // change for single-value widgets (DOM node count stays constant
           // because a skeleton and a rendered value have the same complexity).
           loadingEls: document.querySelectorAll('[data-loading="true"]').length,
-          gridItemsRendered: document.querySelectorAll(".react-grid-item").length,
-          jsHeapUsedMb: mem ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1) : null,
+          gridItemsRendered:
+            document.querySelectorAll(".react-grid-item").length,
+          jsHeapUsedMb: mem
+            ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1)
+            : null,
         };
       });
 
       // Wait until every widget loading skeleton has resolved (success or error).
       await page.waitForFunction(
         () => document.querySelectorAll('[data-loading="true"]').length === 0,
-        { timeout: 60_000 }
+        { timeout: 60_000 },
       );
 
       // Wait for remaining paint microtasks (e.g. ECharts canvas) to settle.
@@ -411,21 +423,23 @@ test.describe("Performance — large dashboard", () => {
             memory?: { usedJSHeapSize: number; totalJSHeapSize: number };
           }
         ).memory;
-        const nav = performance.getEntriesByType(
-          "navigation"
-        )[0] as PerformanceNavigationTiming | undefined;
+        const nav = performance.getEntriesByType("navigation")[0] as
+          | PerformanceNavigationTiming
+          | undefined;
         const fcp =
-          performance
-            .getEntriesByName("first-contentful-paint")
-            .at(0)?.startTime ?? null;
+          performance.getEntriesByName("first-contentful-paint").at(0)
+            ?.startTime ?? null;
         const longTaskCount =
           (window as Window & { __longTaskCount?: number }).__longTaskCount ??
           null;
         return {
           domNodeCount: document.querySelectorAll("*").length,
           loadingEls: document.querySelectorAll('[data-loading="true"]').length,
-          gridItemsRendered: document.querySelectorAll(".react-grid-item").length,
-          jsHeapUsedMb: mem ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1) : null,
+          gridItemsRendered:
+            document.querySelectorAll(".react-grid-item").length,
+          jsHeapUsedMb: mem
+            ? +(mem.usedJSHeapSize / 1_048_576).toFixed(1)
+            : null,
           ttfbMs: nav ? +(nav.responseStart - nav.startTime).toFixed(1) : null,
           fcpMs: fcp !== null ? +fcp.toFixed(1) : null,
           longTaskCount,
@@ -435,42 +449,148 @@ test.describe("Performance — large dashboard", () => {
       // ── Report ────────────────────────────────────────────────────────
       console.log(`\n=== Large Dashboard (${WIDGET_COUNT} widgets) ===`);
       console.log(`  Full load time         : ${ms.toFixed(1)} ms`);
-      console.log(`  TTFB                   : ${postResolutionMetrics.ttfbMs ?? "n/a"} ms`);
-      console.log(`  First Contentful Paint : ${postResolutionMetrics.fcpMs ?? "n/a"} ms`);
-      console.log(`  DOM nodes              : ${postResolutionMetrics.domNodeCount}`);
-      console.log(`  Grid items rendered    : ${postResolutionMetrics.gridItemsRendered}`);
+      console.log(
+        `  TTFB                   : ${postResolutionMetrics.ttfbMs ?? "n/a"} ms`,
+      );
+      console.log(
+        `  First Contentful Paint : ${postResolutionMetrics.fcpMs ?? "n/a"} ms`,
+      );
+      console.log(
+        `  DOM nodes              : ${postResolutionMetrics.domNodeCount}`,
+      );
+      console.log(
+        `  Grid items rendered    : ${postResolutionMetrics.gridItemsRendered}`,
+      );
       // loadingEls: the key pre→post delta for single-value widgets.
       // DOM node count stays flat because a skeleton and a rendered value have
       // identical complexity. loadingEls going 100→0 confirms all resolved.
       console.log(
-        `  Loading widgets (pre)  : ${preResolutionMetrics.loadingEls} → (post) ${postResolutionMetrics.loadingEls}`
+        `  Loading widgets (pre)  : ${preResolutionMetrics.loadingEls} → (post) ${postResolutionMetrics.loadingEls}`,
       );
       if (preResolutionMetrics.jsHeapUsedMb !== null) {
-        console.log(`  JS heap used           : ${preResolutionMetrics.jsHeapUsedMb} MB → ${postResolutionMetrics.jsHeapUsedMb} MB`);
+        console.log(
+          `  JS heap used           : ${preResolutionMetrics.jsHeapUsedMb} MB → ${postResolutionMetrics.jsHeapUsedMb} MB`,
+        );
       }
       if (postResolutionMetrics.longTaskCount !== null) {
-        console.log(`  Long tasks (>50 ms)    : ${postResolutionMetrics.longTaskCount}`);
+        console.log(
+          `  Long tasks (>50 ms)    : ${postResolutionMetrics.longTaskCount}`,
+        );
       }
       console.log("");
 
       // ── Thresholds ────────────────────────────────────────────────────
       expect(
         ms,
-        `${WIDGET_COUNT}-widget dashboard exceeded 30 000 ms threshold`
+        `${WIDGET_COUNT}-widget dashboard exceeded 30 000 ms threshold`,
       ).toBeLessThan(30_000);
 
       // All widget cards must have rendered and resolved
       expect(
         postResolutionMetrics.gridItemsRendered,
-        `Expected ${WIDGET_COUNT} grid items, got ${postResolutionMetrics.gridItemsRendered}`
+        `Expected ${WIDGET_COUNT} grid items, got ${postResolutionMetrics.gridItemsRendered}`,
       ).toBe(WIDGET_COUNT);
 
       expect(
         postResolutionMetrics.loadingEls,
-        "Some widgets still in loading state after timeout"
+        "Some widgets still in loading state after timeout",
       ).toBe(0);
     } finally {
       // ── 4. Cleanup — runs even when the test fails ───────────────────────
+      await page.request.delete(`/api/dashboards/${dashboardId}`);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Performance — 10k-row dataset
+// ---------------------------------------------------------------------------
+
+const FIRST_ROW_BUDGET_MS = 10_000;
+const SCROLL_READY_BUDGET_MS = 15_000;
+
+test.describe("Performance — 10k-row dataset", () => {
+  test("table renders 10k rows within performance budget", async ({
+    page,
+    authPage,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const createRes = await page.request.post("/api/dashboards", {
+      data: { name: `10k Rows ${Date.now()}` },
+    });
+    const { id: dashboardId } = (await createRes.json()).data;
+
+    await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "p1",
+              title: "Page 1",
+              widgets: [
+                {
+                  id: "w1",
+                  chartType: "table",
+                  connectionId: "conn-neo4j-001",
+                  query:
+                    "UNWIND range(1, 10000) AS i RETURN i AS row_id, 'Item ' + i AS name, i * 1.5 AS value",
+                  settings: {
+                    title: "10k Rows",
+                    chartOptions: {
+                      enableSorting: true,
+                      enablePagination: false,
+                    },
+                  },
+                },
+              ],
+              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 8 }],
+            },
+          ],
+        },
+      },
+    });
+
+    try {
+      const t0 = Date.now();
+      await page.goto(`/${dashboardId}`);
+
+      // Wait for the first table row to render
+      await expect(page.locator("table tbody tr").first()).toBeVisible({
+        timeout: 30_000,
+      });
+      const firstRowMs = Date.now() - t0;
+      console.log(`  10k rows — first row visible: ${firstRowMs} ms`);
+      expect(
+        firstRowMs,
+        `First row exceeded ${FIRST_ROW_BUDGET_MS} ms budget`,
+      ).toBeLessThan(FIRST_ROW_BUDGET_MS);
+
+      // Verify loading skeleton is gone (scroll-ready)
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-loading="true"]').length === 0,
+        { timeout: SCROLL_READY_BUDGET_MS },
+      );
+      const scrollReadyMs = Date.now() - t0;
+      console.log(`  10k rows — scroll-ready: ${scrollReadyMs} ms`);
+
+      // Row cap limits to ~5000 rows — verify the table rendered a large dataset
+      const renderedRows = await page.locator("table tbody tr").count();
+      console.log(`  10k rows — DOM rows rendered: ${renderedRows}`);
+      expect(
+        renderedRows,
+        `Expected substantial rows (>100), got ${renderedRows}`,
+      ).toBeGreaterThan(100);
+
+      // Column sort should complete without hang
+      const sortHeader = page.locator("table thead th").first();
+      await sortHeader.click();
+      await expect(page.locator("table tbody tr").first()).toBeVisible({
+        timeout: 5_000,
+      });
+    } finally {
       await page.request.delete(`/api/dashboards/${dashboardId}`);
     }
   });

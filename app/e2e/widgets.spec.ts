@@ -268,7 +268,7 @@ test.describe("Widget edit – query cache invalidation", () => {
     );
 
     await actionsBtn.click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
+    await page.getByRole("menuitem", { name: "Edit Widget" }).click();
 
     const editDialog = page.getByRole("dialog", { name: "Edit Widget" });
     await expect(editDialog).toBeVisible({ timeout: 10_000 });

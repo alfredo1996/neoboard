@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@neoboard/components", () => ({
   MarkdownWidget: () => null,
+  getChartOptions: () => [],
 }));
 
 // Import the global registry via the plugin index (this also triggers

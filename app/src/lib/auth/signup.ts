@@ -3,11 +3,11 @@
 import crypto from "crypto";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { signupRateLimiter } from "@/lib/rate-limiter";
+import { signupRateLimiter } from "@/lib/crypto/rate-limiter";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const signupSchema = z.object({
@@ -76,10 +76,11 @@ export async function signup(formData: FormData): Promise<SignupResult> {
   const passwordHash = await bcrypt.hash(password, 12);
 
   return db.transaction(async (tx) => {
+    const tenantId = process.env.TENANT_ID ?? "default";
     const existing = await tx
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.email, email))
+      .where(and(eq(users.email, email), eq(users.tenantId, tenantId)))
       .limit(1);
 
     if (existing.length > 0) {
@@ -97,7 +98,9 @@ export async function signup(formData: FormData): Promise<SignupResult> {
       }
     }
 
-    await tx.insert(users).values({ name, email, passwordHash, role });
+    await tx
+      .insert(users)
+      .values({ name, email, passwordHash, role, tenantId });
     return { success: true as const };
   });
 }

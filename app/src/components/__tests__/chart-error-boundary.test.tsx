@@ -22,6 +22,7 @@ vi.mock("@neoboard/components", () => ({
   JsonViewer: () => <div data-testid="json-viewer" />,
   MarkdownWidget: () => <div data-testid="markdown-widget" />,
   IframeWidget: () => <div data-testid="iframe-widget" />,
+  getChartOptions: () => [],
 }));
 
 // Mock next/dynamic to just render children synchronously
@@ -33,7 +34,7 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
-vi.mock("@/lib/normalize-value", () => ({
+vi.mock("@/lib/shared/normalize-value", () => ({
   normalizeValue: (v: unknown) => v,
 }));
 vi.mock("@/components/parameter-widget-renderer", () => ({

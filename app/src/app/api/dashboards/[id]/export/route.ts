@@ -2,13 +2,13 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { buildExportPayload } from "@/lib/dashboard-export";
-import { notFound, handleRouteError } from "@/lib/api-utils";
+import { buildExportPayload } from "@/lib/dashboard/dashboard-export";
+import { notFound, handleRouteError } from "@/lib/api/api-utils";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, tenantId, role } = await requireSession();
@@ -37,7 +37,7 @@ export async function GET(
             eq(dashboardShares.dashboardId, id),
             eq(dashboardShares.userId, userId),
             eq(dashboardShares.tenantId, tenantId),
-          )
+          ),
         )
         .limit(1);
 
@@ -66,14 +66,18 @@ export async function GET(
     let connectionRows: { id: string; name: string; type: string }[] = [];
     if (connectionIds.size > 0) {
       connectionRows = await db
-        .select({ id: connections.id, name: connections.name, type: connections.type })
+        .select({
+          id: connections.id,
+          name: connections.name,
+          type: connections.type,
+        })
         .from(connections)
         .where(
           and(
             inArray(connections.id, [...connectionIds]),
             eq(connections.tenantId, tenantId),
             role === "admin" ? undefined : eq(connections.userId, userId),
-          )
+          ),
         );
     }
 

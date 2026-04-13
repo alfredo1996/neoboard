@@ -4,8 +4,8 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { validateBody, forbidden, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
+import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
+import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 
 interface WidgetPreviewItem {
   x: number;
@@ -91,16 +91,17 @@ export async function GET(request: Request) {
 
     // Creator & Reader: single query with LEFT JOIN + OR for owned/shared/public.
     // DB-level deduplication via DISTINCT ON, pagination via LIMIT/OFFSET.
-    const accessFilter = role === "reader"
-      ? or(
-          sql`${dashboardShares.id} IS NOT NULL`,
-          eq(dashboards.isPublic, true),
-        )
-      : or(
-          eq(dashboards.userId, userId),
-          sql`${dashboardShares.id} IS NOT NULL`,
-          eq(dashboards.isPublic, true),
-        );
+    const accessFilter =
+      role === "reader"
+        ? or(
+            sql`${dashboardShares.id} IS NOT NULL`,
+            eq(dashboards.isPublic, true),
+          )
+        : or(
+            eq(dashboards.userId, userId),
+            sql`${dashboardShares.id} IS NOT NULL`,
+            eq(dashboards.isPublic, true),
+          );
 
     const [{ count: total }] = await db
       .select({ count: countDistinct(dashboards.id) })
@@ -146,9 +147,10 @@ export async function GET(request: Request) {
 
     const mapped = rows.map((d) => {
       const { layoutJson, thumbnailJson, ownerId, shareRole, ...rest } = d;
-      const dashRole = ownerId === userId
-        ? ("owner" as const)
-        : shareRole ?? ("viewer" as const);
+      const dashRole =
+        ownerId === userId
+          ? ("owner" as const)
+          : (shareRole ?? ("viewer" as const));
       return {
         ...rest,
         role: dashRole,

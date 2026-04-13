@@ -1,13 +1,13 @@
 import { requireSession } from "@/lib/auth/session";
-import { testConnection } from "@/lib/query-executor";
-import type { DbType } from "@/lib/query-executor";
-import { testInlineSchema } from "@/lib/schemas";
-import { apiSuccess } from "@/lib/api-response";
+import { testConnection } from "@/lib/query/query-executor";
+import type { DbType } from "@/lib/query/query-executor";
+import { testInlineSchema } from "@/lib/shared/schemas";
+import { apiSuccess } from "@/lib/api/api-response";
 import {
   handleRouteError,
   validateBody,
   sanitizeErrorMessage,
-} from "@/lib/api-utils";
+} from "@/lib/api/api-utils";
 
 export async function POST(request: Request) {
   try {

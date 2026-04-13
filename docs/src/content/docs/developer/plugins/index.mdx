@@ -1,0 +1,48 @@
+---
+title: External Plugins
+description: Build and publish NeoBoard plugins as independent packages.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+External plugins let you add chart types and database connectors to NeoBoard **without modifying the core codebase**. They can be published as npm packages and installed by any NeoBoard instance.
+
+This is different from the [extending guides](/developer/extending/new-chart-plugin) which cover adding built-in types that require a PR to the NeoBoard repository.
+
+<CardGrid>
+  <LinkCard title="MongoDB Connector Plugin" description="Full end-to-end example: build, test, and publish a MongoDB connector" href="/developer/plugins/mongodb-connector" />
+</CardGrid>
+
+## When to Create an External Plugin
+
+- You want to support a database that NeoBoard doesn't ship with
+- You want to add a custom chart type for your organization
+- You want to distribute a plugin via npm without forking NeoBoard
+
+## Plugin Architecture
+
+A connector plugin implements the `ConnectorPlugin` interface:
+
+```ts
+interface ConnectorPlugin {
+  type: string;           // Unique identifier (e.g., "mongodb")
+  label: string;          // Display name
+  category: string;       // "database", "graph", "api", "file"
+  queryLanguage?: string; // CodeMirror syntax (e.g., "json", "sql")
+  createModule(auth, opts): ConnectionModule;
+  formFields?: ConnectorFormField[];  // Auto-generated connection form
+}
+```
+
+A chart plugin is created with `defineChartPlugin()`:
+
+```ts
+defineChartPlugin({
+  type: "heatmap",
+  label: "Heatmap",
+  component: HeatmapComponent,
+  transform: transformToHeatmapData,
+  settingsSchema: heatmapSettingsSchema,
+  capabilities: { ... },
+});
+```

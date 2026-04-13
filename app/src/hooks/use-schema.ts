@@ -5,9 +5,9 @@ import {
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
-import { unwrapResponse } from "@/lib/api-client";
+import { unwrapResponse } from "@/lib/api/api-client";
 import { useSchemaStore } from "@/stores/schema-store";
-import type { DatabaseSchema } from "@/lib/schema-types";
+import type { DatabaseSchema } from "@/lib/connector/schema-types";
 
 /**
  * Returns a refresh function for a given connectionId.

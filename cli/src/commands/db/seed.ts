@@ -57,19 +57,34 @@ export async function seedNeo4j(): Promise<void> {
   spinner.succeed("Neo4j seeded with demo data");
 }
 
-export async function seedPostgres(): Promise<void> {
+export async function seedPostgres(dockerNetwork = false): Promise<void> {
   const config = readProjectConfig();
   assertSafePath(config.seed.script, "seed.script");
   const spinner = createSpinner("Seeding PostgreSQL demo data...");
   spinner.start();
 
-  run(`node ${paths.root}/${config.seed.script}`, { cwd: paths.root });
+  // When the app runs inside Docker, seed with Docker-internal hostnames
+  // so the stored connection URIs resolve inside the container network.
+  const env = dockerNetwork
+    ? {
+        ...process.env,
+        NEO4J_HOST: "neoboard-neo4j",
+        PG_HOST: "neoboard-postgres",
+      }
+    : process.env;
+
+  run(`node ${paths.root}/${config.seed.script}`, {
+    cwd: paths.root,
+    env,
+  });
   spinner.succeed("PostgreSQL seeded with demo data");
 }
 
 export async function runDbSeed(opts?: {
   neo4j?: boolean;
   demo?: boolean;
+  /** When true, seed connection URIs use Docker-internal hostnames. */
+  dockerNetwork?: boolean;
 }): Promise<void> {
   const seedNeo4jOnly = opts?.neo4j && !opts?.demo;
   const seedDemoOnly = opts?.demo && !opts?.neo4j;
@@ -80,7 +95,7 @@ export async function runDbSeed(opts?: {
   }
 
   if (seedBoth || seedDemoOnly) {
-    await seedPostgres();
+    await seedPostgres(opts?.dockerNetwork ?? false);
   }
 
   success("Seeding complete");

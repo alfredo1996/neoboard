@@ -2,11 +2,11 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { encryptJson } from "@/lib/crypto";
-import { prefetchSchema } from "@/lib/schema-prefetch";
-import { createConnectionSchema } from "@/lib/schemas";
-import { validateBody, handleRouteError } from "@/lib/api-utils";
-import { apiSuccess, apiList, parsePagination } from "@/lib/api-response";
+import { encryptJson } from "@/lib/crypto/crypto";
+import { prefetchSchema } from "@/lib/connector/schema-prefetch";
+import { createConnectionSchema } from "@/lib/shared/schemas";
+import { validateBody, handleRouteError } from "@/lib/api/api-utils";
+import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 
 export async function GET(request: Request) {
   try {

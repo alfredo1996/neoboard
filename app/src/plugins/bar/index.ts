@@ -1,0 +1,1 @@
+export { barPlugin } from "./component";

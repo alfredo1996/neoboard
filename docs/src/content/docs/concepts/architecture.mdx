@@ -1,57 +1,116 @@
 ---
 title: Architecture
-description: Three-package monorepo design and how the pieces fit together.
+description: Three-package monorepo design, data flow, and how the pieces fit together.
 ---
 
-NeoBoard is a monorepo with three packages. Each package has strict boundaries that keep the codebase modular and testable.
+NeoBoard is a monorepo with three packages plus a CLI. Each package has strict boundaries that keep the codebase modular and testable.
 
-## How the Pieces Fit Together
+## Package Boundaries
 
-```mermaid
-graph TD
-  A[Browser] --> B[app/ — Next.js]
-  B --> C[component/ — UI Library]
-  B --> D[connection/ — DB Drivers]
-  D --> E[(Neo4j)]
-  D --> F[(PostgreSQL)]
 ```
-
-## The Three Packages
+                    +-----------------------+
+                    |       app/            |
+                    |  Next.js Application  |
+                    |  API routes, stores,  |
+                    |  hooks, pages, plugins|
+                    +------+--------+-------+
+                           |        |
+              imports UI   |        |  imports connectors
+                           v        v
+            +----------------+   +------------------+
+            |  component/    |   |  connection/      |
+            |  React UI lib  |   |  DB connector lib |
+            |  Charts, forms |   |  Neo4j, Postgres  |
+            |  shadcn/ui     |   |  Query execution  |
+            +----------------+   +------------------+
+```
 
 | Package | What it does | What it must NOT do |
 |---------|-------------|---------------------|
-| `app/` | API routes, pages, stores, hooks. Orchestrates the other two packages. | — |
+| `app/` | API routes, pages, stores, hooks, plugins. Orchestrates the other two. | -- |
 | `component/` | React UI components, charts, forms. Viewable in Storybook. | No business logic. No API calls. No imports from `app/`. |
 | `connection/` | Neo4j and PostgreSQL drivers, schema introspection, query parsing. | No UI. No React. No imports from `app/` or `component/`. |
-
-## Why Three Packages?
-
-- **Testability** — each package can be tested in isolation. `connection/` uses Testcontainers with real databases. `component/` uses Storybook and Vitest. `app/` runs E2E tests with Playwright.
-- **Clear ownership** — UI bugs live in `component/`, driver bugs live in `connection/`, and glue logic lives in `app/`.
-- **Faster builds** — changes to `component/` do not trigger a rebuild of `connection/`, and vice versa.
+| `cli/` | Setup, migrations, dev server management. | Standalone Node.js tool. |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | UI | React 19, shadcn/ui, Tailwind CSS |
 | Charts | ECharts (modular imports) |
 | Graph | Neo4j NVL |
 | Maps | Leaflet |
-| State | Zustand, TanStack Query |
-| Auth | Auth.js v5 |
-| ORM | Drizzle |
+| State | Zustand (6 stores), TanStack Query |
+| Auth | Auth.js v5 (JWT sessions) |
+| ORM | Drizzle (PostgreSQL) |
 | Testing | Vitest, Playwright, Testcontainers |
+| Build | npm workspaces, Turbopack (dev), webpack (build) |
 
-## Data Flow
+## Data Flow: Query Execution
 
-A query goes through these layers:
+When a widget renders its data, here is the full path:
 
-1. **Browser** sends a request to a Next.js API route
-2. **API route** validates auth, checks permissions, and calls the query executor
-3. **Query executor** enforces safety (read-only transactions, timeouts, row limits)
-4. **Connection module** runs the query against Neo4j or PostgreSQL
-5. **Result** flows back through the API to a Zustand store, then renders in a React component
+1. **Widget component** reads parameters from the Parameter Store (Zustand)
+2. **`useWidgetQuery` hook** merges parameters into the query and calls TanStack Query
+3. **TanStack Query** checks its cache. On miss, sends `POST /api/query`
+4. **API route** validates auth via `requireSession()`, decrypts connection credentials
+5. **Query Executor** gets or creates a cached connection module
+6. **Connection Module** runs the query (Cypher for Neo4j, SQL for PostgreSQL)
+7. **Database** returns results
+8. **Response** flows back through the API to TanStack Query cache
+9. **Plugin transform** converts raw rows into chart-specific data format
+10. **Chart component** renders (ECharts, NVL, Leaflet, or custom)
 
-All database credentials are encrypted at rest. Queries use parameterized values — user input is never interpolated into query strings.
+## State Management
+
+NeoBoard uses **Zustand** for client-only state and **TanStack Query** for server state:
+
+| Store | Purpose | Persistence |
+|-------|---------|-------------|
+| Dashboard Store | Layout, pages, widgets, grid positions | API (saved on user action) |
+| Widget Editor Store | Current widget being edited (chart type, query, options) | Ephemeral (modal lifetime) |
+| Parameter Store | Dashboard parameter values | localStorage per dashboard |
+| Connection Store | Active connection ID, widget-to-connection mapping | Ephemeral |
+| Schema Store | Cached database schemas by connection ID | Ephemeral |
+| Graph Widget Store | Graph exploration state (nodes, edges, layout) | Ephemeral |
+
+**TanStack Query** manages all API data: dashboards list, connections, users, API keys, widget templates. Mutations use optimistic updates with automatic cache invalidation.
+
+## Plugin System
+
+Chart types are implemented as **plugins**. Each plugin defines:
+
+- **Component** -- the React component that renders the chart
+- **Transform** -- function that converts raw query rows into chart-specific data
+- **Settings Schema** -- Zod schema for type-safe chart options
+- **Options** -- UI definition for the chart options panel
+- **Capabilities** -- flags like `supportsClickAction`, `supportsStyling`, `isECharts`
+
+17 chart plugins are registered at startup: bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, treemap, parameter-select.
+
+See the [Chart Plugin Guide](/developer/extending/new-chart-plugin) to add your own.
+
+## Authentication Flow
+
+All routes are protected by `proxy.ts` (Next.js middleware):
+
+1. **Public routes** pass through: `/login`, `/signup`, `/api/auth/*`, `/api/docs`, `/api/openapi*`
+2. **API key requests** (`Authorization: Bearer nb_*`) pass through to server-side validation
+3. **Unauthenticated page requests** redirect to `/login`
+4. **Unauthenticated API requests** return `401 JSON`
+5. **Authenticated requests** continue to the route handler
+
+Inside route handlers, `requireSession()` extracts the user's `userId`, `role`, `tenantId`, and `canWrite` from the JWT or API key. Admin-only routes use `requireAdmin()`.
+
+## Multi-Tenancy
+
+Every data table includes a `tenant_id` column. All queries filter by the authenticated user's tenant. See [Multi-Tenancy](/concepts/multi-tenancy) for details.
+
+## Security
+
+- **Credentials**: AES-256-GCM envelope encryption. Lost `ENCRYPTION_KEY` = unrecoverable.
+- **Queries**: Always parameterized. User input never interpolated into query strings.
+- **Read-only**: PostgreSQL uses `BEGIN TRANSACTION READ ONLY`. Neo4j uses `session.executeRead()`.
+- **Timeouts**: Enforced at driver level (statement timeout for PostgreSQL, transaction timeout for Neo4j).
+- **Rate limiting**: Login attempts limited to 20 per minute per IP.

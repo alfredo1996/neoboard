@@ -4,7 +4,7 @@ import React from "react";
 import type { StylingRule, StylingOperator } from "@/lib/db/schema";
 import { getOperatorGroups } from "@neoboard/components/charts";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { getStylingTargets } from "@/lib/chart-registry";
+import { getStylingTargets } from "@/lib/plugin/chart-helpers";
 import { ArrowLeft, GripVertical, Plus, Trash2, Bold } from "lucide-react";
 import {
   Accordion,

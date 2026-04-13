@@ -14,7 +14,7 @@ import {
 } from "@neoboard/components";
 import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
-import { parseGroupByColumns } from "@/lib/table-utils";
+import { parseGroupByColumns } from "@/lib/widget/table-utils";
 
 const AGG_SYMBOLS: Record<string, string> = {
   sum: "Σ",
@@ -183,36 +183,35 @@ export function TableRenderer({
       ): React.CSSProperties | undefined => {
         const style: React.CSSProperties = {};
         let hasStyle = false;
-        let bgSet = false;
-        let textSet = false;
-        let boldSet = false;
 
+        // Process all rules in order — later rules override earlier ones
+        // (last matching rule wins, giving higher-priority rules precedence
+        // when placed later in the list)
         for (const rule of stylingRules) {
-          if (bgSet && textSet && boldSet) break;
           const ruleCol = rule.column || defaultCol;
           if (!ruleCol || !(ruleCol in row)) continue;
           const val = row[ruleCol];
           const color = resolveStylingRuleColor(val, [rule], paramValues);
           if (!color) continue;
           const target = rule.target || "backgroundColor";
-          if (target === "backgroundColor" && !bgSet) {
+          if (target === "backgroundColor") {
             style.backgroundColor = color;
-            bgSet = true;
             hasStyle = true;
           }
-          if (target === "textColor" && !textSet) {
+          if (target === "textColor") {
             style.color = color;
-            textSet = true;
             hasStyle = true;
           }
-          if (rule.bold && !boldSet) {
+          if (rule.bold) {
             style.fontWeight = "bold";
-            boldSet = true;
             hasStyle = true;
           }
         }
-        // Auto-set text color for contrast when background is set but text color isn't
-        if (bgSet && !textSet) {
+        // Auto-set text color for contrast when background is set but no explicit text color rule matched
+        if (
+          style.backgroundColor &&
+          !stylingRules.some((r) => r.target === "textColor")
+        ) {
           style.color = contrastTextColor(style.backgroundColor as string);
         }
         return hasStyle ? style : undefined;

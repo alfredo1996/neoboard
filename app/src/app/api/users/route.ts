@@ -1,16 +1,16 @@
 import { z } from "zod";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { validateBody, handleRouteError } from "@/lib/api-utils";
+import { validateBody, handleRouteError } from "@/lib/api/api-utils";
 import {
   apiSuccess,
   apiList,
   apiError,
   parsePagination,
-} from "@/lib/api-response";
+} from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const createUserSchema = z.object({
@@ -24,10 +24,13 @@ const createUserSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    await requireAdmin();
+    const { tenantId } = await requireAdmin();
     const { limit, offset } = parsePagination(request);
 
-    const [{ count: total }] = await db.select({ count: count() }).from(users);
+    const [{ count: total }] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.tenantId, tenantId));
 
     const rows = await db
       .select({
@@ -41,6 +44,7 @@ export async function GET(request: Request) {
         createdAt: users.createdAt,
       })
       .from(users)
+      .where(eq(users.tenantId, tenantId))
       .limit(limit)
       .orderBy(users.createdAt)
       .offset(offset);
@@ -53,7 +57,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    const { tenantId } = await requireAdmin();
 
     const body = await request.json();
     const result = validateBody(createUserSchema, body);
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
     const existing = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.email, email))
+      .where(and(eq(users.email, email), eq(users.tenantId, tenantId)))
       .limit(1);
 
     if (existing.length > 0) {
@@ -83,6 +87,7 @@ export async function POST(request: Request) {
         role,
         canWrite,
         forcePasswordChange,
+        tenantId,
       })
       .returning({
         id: users.id,

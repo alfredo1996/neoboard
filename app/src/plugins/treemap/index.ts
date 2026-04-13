@@ -1,0 +1,1 @@
+export { treemapPlugin } from "./component";

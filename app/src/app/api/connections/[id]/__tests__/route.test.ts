@@ -6,6 +6,7 @@ import {
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import type { ConnectionUsage } from "@/lib/db/connection-usage";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -28,6 +29,17 @@ const mockDecryptJson = vi.fn(() => ({
   connectionTimeout: 5000,
 }));
 const mockPrefetchSchema = vi.fn();
+// Default: connection is NOT in use. Individual tests override per-scenario.
+// The explicit generic is load-bearing — without it, vi.fn's return type is
+// inferred from the default literal `dashboards: []`, pinning the array
+// element type to `never` and breaking every `.mockResolvedValue(...)` that
+// passes a real dashboard row.
+const mockGetConnectionUsage = vi.fn<() => Promise<ConnectionUsage>>(
+  async () => ({
+    widgetCount: 0,
+    dashboards: [],
+  }),
+);
 
 const mockDb = {
   select: vi.fn(),
@@ -48,12 +60,15 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("@/lib/crypto", () => ({
+vi.mock("@/lib/crypto/crypto", () => ({
   encryptJson: mockEncryptJson,
   decryptJson: mockDecryptJson,
 }));
-vi.mock("@/lib/schema-prefetch", () => ({
+vi.mock("@/lib/connector/schema-prefetch", () => ({
   prefetchSchema: mockPrefetchSchema,
+}));
+vi.mock("@/lib/db/connection-usage", () => ({
+  getConnectionUsage: mockGetConnectionUsage,
 }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
@@ -415,33 +430,117 @@ describe("DELETE /api/connections/[id]", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Promise<any>;
 
+  // Helper: Request stub with a URL so `new URL(request.url)` resolves.
+  // The route parses `?force=true` from this URL.
+  const req = (url = "http://localhost/api/connections/c1") =>
+    ({ url }) as unknown as Request;
+
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 0,
+      dashboards: [],
+    });
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireSession.mockRejectedValue(new UnauthorizedError());
-    const res = await DELETE({} as Request, makeParams("c1"));
+    const res = await DELETE(req(), makeParams("c1"));
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when connection not found", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.delete.mockReturnValue(makeDeleteChain([]));
-    const res = await DELETE({} as Request, makeParams("c1"));
+    const res = await DELETE(req(), makeParams("c1"));
     expect(res.status).toBe(404);
   });
 
-  it("deletes and returns envelope", async () => {
+  it("deletes and returns envelope when no widgets reference the connection", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
-    const res = await DELETE({} as Request, makeParams("c1"));
+    const res = await DELETE(req(), makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.deleted).toBe(true);
     expect(body.error).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // #509 — in-use guard
+  // -------------------------------------------------------------------------
+
+  it("returns 409 CONFLICT when widgets reference the connection and !force", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 3,
+      dashboards: [
+        { id: "d1", name: "Sales Overview", widgetCount: 2 },
+        { id: "d2", name: "Inventory", widgetCount: 1 },
+      ],
+    });
+
+    const res = await DELETE(req(), makeParams("c1"));
+    expect(res.status).toBe(409);
+
+    const body = await res.json();
+    expect(body.error.code).toBe("CONFLICT");
+    expect(body.error.message).toMatch(/3 widgets.*2 dashboards/);
+    expect(body.error.details.usage.widgetCount).toBe(3);
+    expect(body.error.details.usage.dashboards).toHaveLength(2);
+
+    // Critically: the delete MUST NOT have been called.
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("pluralizes correctly when exactly 1 widget blocks the delete", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 1,
+      dashboards: [{ id: "d1", name: "Dashboard A", widgetCount: 1 }],
+    });
+    const res = await DELETE(req(), makeParams("c1"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.message).toBe(
+      "Connection is in use by 1 widget across 1 dashboard",
+    );
+  });
+
+  it("?force=true bypasses the guard and deletes the in-use connection", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 3,
+      dashboards: [{ id: "d1", name: "In-use", widgetCount: 3 }],
+    });
+    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+
+    const res = await DELETE(
+      req("http://localhost/api/connections/c1?force=true"),
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.deleted).toBe(true);
+    // Usage helper is skipped entirely on the force path — no need to
+    // compute a breakdown we're about to ignore.
+    expect(mockGetConnectionUsage).not.toHaveBeenCalled();
+    expect(mockDb.delete).toHaveBeenCalled();
+  });
+
+  it("admin delete goes through the in-use guard too", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 2,
+      dashboards: [{ id: "d1", name: "Tenant dash", widgetCount: 2 }],
+    });
+
+    const res = await DELETE(req(), makeParams("c1"));
+    expect(res.status).toBe(409);
+    // Admins still need to pass ?force=true to actually delete.
+    expect(mockDb.delete).not.toHaveBeenCalled();
   });
 });

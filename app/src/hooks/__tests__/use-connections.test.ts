@@ -134,17 +134,31 @@ describe("use-connections", () => {
 
   // ── useDeleteConnection ─────────────────────────────────────────────
   describe("useDeleteConnection mutationFn", () => {
-    it("DELETEs the connection by id", async () => {
+    it("DELETEs the connection by id without force by default", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse({ success: true }),
       );
       const config = useDeleteConnection() as unknown as {
-        mutationFn: (id: string) => Promise<unknown>;
+        mutationFn: (args: { id: string; force?: boolean }) => Promise<unknown>;
       };
-      const result = await config.mutationFn("conn-42");
+      const result = await config.mutationFn({ id: "conn-42" });
       expect(result).toEqual({ success: true });
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "/api/connections/conn-42",
+        { method: "DELETE" },
+      );
+    });
+
+    it("appends ?force=true when force is set (after in-use warning)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ success: true }),
+      );
+      const config = useDeleteConnection() as unknown as {
+        mutationFn: (args: { id: string; force?: boolean }) => Promise<unknown>;
+      };
+      await config.mutationFn({ id: "conn-99", force: true });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/connections/conn-99?force=true",
         { method: "DELETE" },
       );
     });
@@ -154,9 +168,42 @@ describe("use-connections", () => {
         mockResponse({ error: "Not found" }, 404),
       );
       const config = useDeleteConnection() as unknown as {
-        mutationFn: (id: string) => Promise<unknown>;
+        mutationFn: (args: { id: string; force?: boolean }) => Promise<unknown>;
       };
-      await expect(config.mutationFn("bad-id")).rejects.toThrow("Not found");
+      await expect(config.mutationFn({ id: "bad-id" })).rejects.toThrow(
+        "Not found",
+      );
+    });
+  });
+
+  // ── useConnectionUsage ──────────────────────────────────────────────
+  describe("useConnectionUsage queryFn", () => {
+    it("GETs /api/connections/{id}/usage and returns the envelope data", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({
+          widgetCount: 3,
+          dashboards: [
+            { id: "d1", name: "Sales", widgetCount: 2 },
+            { id: "d2", name: "Inventory", widgetCount: 1 },
+          ],
+        }),
+      );
+      // Dynamic import so the module pick-up matches the other tests.
+      const { useConnectionUsage } = await import("../use-connections");
+      const config = useConnectionUsage("conn-1") as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+      const result = await config.queryFn();
+      expect(result).toEqual({
+        widgetCount: 3,
+        dashboards: [
+          { id: "d1", name: "Sales", widgetCount: 2 },
+          { id: "d2", name: "Inventory", widgetCount: 1 },
+        ],
+      });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/connections/conn-1/usage",
+      );
     });
   });
 

@@ -11,7 +11,9 @@ test.describe("Dashboard visibility — public/private", () => {
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
     // Should see "Movie Analytics" (public, owned by Alice)
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible({
       timeout: 10_000,
     });
 
@@ -19,10 +21,7 @@ test.describe("Dashboard visibility — public/private", () => {
     await expect(page.getByText("Actor Network")).not.toBeVisible();
   });
 
-  test("public dashboard card shows globe icon", async ({
-    authPage,
-    page,
-  }) => {
+  test("public dashboard card shows globe icon", async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
 
     // "Movie Analytics" is public — its card should have a globe icon
@@ -47,7 +46,7 @@ test.describe("Dashboard visibility — public/private", () => {
       .first();
     await expect(privateCard).toBeVisible({ timeout: 10_000 });
     await expect(
-      privateCard.locator("[aria-label='Public']")
+      privateCard.locator("[aria-label='Public']"),
     ).not.toBeVisible();
   });
 
@@ -61,15 +60,17 @@ test.describe("Dashboard visibility — public/private", () => {
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
     // Click on the public dashboard
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Should see the dashboard name
-    await expect(page.getByText("Movie Analytics")).toBeVisible();
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }).first(),
+    ).toBeVisible();
 
     // As a viewer (not owner/editor), the Edit button should not be visible
     await expect(
-      page.getByRole("button", { name: "Edit", exact: true })
+      page.getByRole("button", { name: "Edit", exact: true }),
     ).not.toBeVisible();
   });
 
@@ -80,7 +81,7 @@ test.describe("Dashboard visibility — public/private", () => {
     await authPage.login(ALICE.email, ALICE.password);
 
     // Navigate to Movie Analytics edit page
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.waitForURL(/\/edit/, { timeout: 15_000 });
@@ -93,7 +94,7 @@ test.describe("Dashboard visibility — public/private", () => {
       timeout: 10_000,
     });
     await expect(
-      page.getByText("Anyone in the organization can view this dashboard")
+      page.getByText("Anyone in the organization can view this dashboard"),
     ).toBeVisible();
 
     // The toggle should exist (Movie Analytics is public, so it should be checked)

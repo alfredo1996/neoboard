@@ -10,12 +10,12 @@
  * singleton and re-exports the types for convenience.
  */
 
-import { createPluginRegistry } from "@/lib/chart-plugin-registry";
+import { createPluginRegistry } from "@/lib/plugin/chart-plugin-registry";
 
 export const pluginRegistry = createPluginRegistry();
 
 export type {
   ChartPlugin,
   ChartPluginConfig,
-} from "@/lib/chart-plugin-registry";
-export { defineChartPlugin } from "@/lib/chart-plugin-registry";
+} from "@/lib/plugin/chart-plugin-registry";
+export { defineChartPlugin } from "@/lib/plugin/chart-plugin-registry";

@@ -40,7 +40,7 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
-vi.mock("@/lib/chart-registry", () => ({
+vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => {
     if (type === "bar" || type === "markdown") {
       return {
@@ -48,19 +48,25 @@ vi.mock("@/lib/chart-registry", () => ({
         label: type,
         transform: (d: unknown) => d,
         transformWithMapping: (d: unknown) => d,
-        supportsColumnMapping: false,
         validate: () => null,
+        capabilities: {
+          supportsClickAction: true,
+          supportsStyling: false,
+          isECharts: false,
+          requiresQuery: true,
+        },
       };
     }
     return null;
   },
+  supportsColumnMapping: () => false,
 }));
 
-vi.mock("@/lib/resolve-cache-options", () => ({
+vi.mock("@/lib/query/resolve-cache-options", () => ({
   resolveCacheOptions: () => ({ staleTime: 0, gcTime: 0 }),
 }));
 
-vi.mock("@/lib/scroll-to-widget", () => ({
+vi.mock("@/lib/widget/scroll-to-widget", () => ({
   scrollAndHighlight: () => false,
 }));
 
@@ -105,11 +111,11 @@ vi.mock("@neoboard/components", () => ({
   ),
 }));
 
-vi.mock("@/lib/data-transforms", () => ({
+vi.mock("@/lib/query/data-transforms", () => ({
   applyTransforms: (data: unknown) => data,
 }));
 
-vi.mock("@/lib/card-utils", () => ({
+vi.mock("@/lib/widget/card-utils", () => ({
   extractColumnNames: () => [],
   resolveStylingConfig: () => undefined,
 }));
@@ -249,7 +255,7 @@ describe("CardContainer", () => {
 
   describe("form widget path", () => {
     it("renders chart for form widgets without querying", () => {
-      // Need to add "form" to the mock chart-registry
+      // Need to add "form" to the mock chart-helpers
       const widget = createWidget({
         chartType: "bar",
         settings: { chartOptions: {} },

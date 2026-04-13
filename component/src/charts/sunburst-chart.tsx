@@ -92,7 +92,10 @@ function SunburstChart({
           sort: sortFn as any,
           label: {
             show: false,
+            fontSize: 11,
           },
+          // Hide labels for segments with arc angle below 5 degrees
+          minAngle: 5,
           emphasis: highlightOnHover
             ? {
                 focus: "ancestor",
@@ -112,11 +115,20 @@ function SunburstChart({
                 show: showLabels && !compact,
                 rotate: "tangential",
                 overflow: "truncate",
-                width: 60,
+                ellipsis: "…",
+                width: 100,
+                fontSize: 12,
               },
             },
             {
-              label: { show: false },
+              label: {
+                show: showLabels && !compact,
+                rotate: "radial",
+                overflow: "truncate",
+                ellipsis: "…",
+                width: 80,
+                fontSize: 11,
+              },
             },
             {
               label: { show: false },

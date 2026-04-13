@@ -11,6 +11,48 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL("/");
   });
 
+  test("should redirect to /login when session expires mid-session", async ({
+    authPage,
+    page,
+    context,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await expect(page).toHaveURL("/");
+
+    // Simulate session expiry by clearing all cookies
+    await context.clearCookies();
+
+    // Navigate — middleware should bounce to /login with callbackUrl
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+    expect(page.url()).toContain("callbackUrl");
+  });
+
+  test("should restore original page after re-login (callbackUrl round-trip)", async ({
+    authPage,
+    page,
+    context,
+  }) => {
+    test.setTimeout(30_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    await expect(page).toHaveURL("/");
+
+    // Simulate session expiry
+    await context.clearCookies();
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+
+    // Re-login — should land back on / via callbackUrl
+    await page.getByLabel("Email").fill(ALICE.email);
+    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("should log out via sidebar", async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await expect(page).toHaveURL("/");
@@ -98,6 +140,33 @@ test.describe("Signup", () => {
     await page.goto("/signup");
     await page.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("should show error for weak password (too short)", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByLabel("Name").fill("Weak Pass User");
+    await page.getByLabel("Email").fill(`weak-${Date.now()}@example.com`);
+    // 7 chars passes HTML minLength=6 but fails server-side min=8
+    await page.getByLabel("Password", { exact: true }).fill("short1a");
+    await page.getByLabel("Confirm Password").fill("short1a");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(
+      page.getByText("Password must be at least 8 characters"),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/signup/);
+  });
+
+  test("should show error for password without number", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByLabel("Name").fill("No Number User");
+    await page.getByLabel("Email").fill(`nonum-${Date.now()}@example.com`);
+    await page.getByLabel("Password", { exact: true }).fill("abcdefgh");
+    await page.getByLabel("Confirm Password").fill("abcdefgh");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(
+      page.getByText("Password must contain at least one number"),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/signup/);
   });
 });
 

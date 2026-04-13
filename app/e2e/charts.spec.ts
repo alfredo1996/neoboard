@@ -15,7 +15,7 @@ test.describe("Chart rendering", () => {
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     // Navigate to Movie Analytics which should have pre-configured widgets
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
   });
 
@@ -460,7 +460,7 @@ test.describe("Seeded dashboard renders live data", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    await page.getByText("Movie Analytics").click();
+    await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The seeded dashboard has two widgets:
@@ -575,7 +575,7 @@ test.describe("Graph chart visualization", () => {
     const preview = getPreview(dialog);
     await expect(preview).toBeVisible({ timeout: 15_000 });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
     // The graph widget should now be on the dashboard grid
     // It should have the toolbar controls visible (not "No graph data")

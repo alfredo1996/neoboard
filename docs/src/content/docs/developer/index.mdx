@@ -7,22 +7,31 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 This section covers how to extend NeoBoard and contribute to the project.
 
-## Plugin System
+Before diving in, read the [Architecture](/concepts/architecture) page to understand how the three packages fit together, the data flow, and the plugin system.
 
-NeoBoard uses a plugin architecture. Add new chart types or database connectors without modifying core code:
+For a detailed technical diagram with file paths and Mermaid diagrams, see [`ARCHITECTURE.md`](https://github.com/alfredo1996/neoboard/blob/release/1.1/ARCHITECTURE.md) in the repository root.
+
+## Built-in Plugins
+
+Add new chart types or database connectors directly to the NeoBoard codebase (requires a PR):
 
 <CardGrid>
   <LinkCard title="Chart Plugin" description="Add a new chart type (heatmap, funnel, etc.)" href="/developer/extending/new-chart-plugin" />
-  <LinkCard title="Connector Plugin" description="Add a new database (MySQL, MongoDB, etc.)" href="/developer/extending/new-connector-plugin" />
+  <LinkCard title="Connector Plugin" description="Add a new database (MySQL, etc.)" href="/developer/extending/new-connector-plugin" />
 </CardGrid>
 
-## Legacy Extending Guides
+## External Plugins
 
-Older guides (before the plugin system):
+Build and publish NeoBoard plugins as independent npm packages:
 
 <CardGrid>
-  <LinkCard title="New Chart Type (legacy)" href="/developer/extending/new-chart-type" />
-  <LinkCard title="New Connector (legacy)" href="/developer/extending/new-connector" />
+  <LinkCard title="External Plugin Guide" description="Architecture, when to use, and how plugins work" href="/developer/plugins" />
+  <LinkCard title="MongoDB Example" description="Full end-to-end: build, test, publish a MongoDB connector" href="/developer/plugins/mongodb-connector" />
+</CardGrid>
+
+## Other Extending Guides
+
+<CardGrid>
   <LinkCard title="New Parameter Type" href="/developer/extending/new-parameter-type" />
   <LinkCard title="New Widget Type" href="/developer/extending/new-widget-type" />
 </CardGrid>

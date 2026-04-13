@@ -10,8 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@neoboard/components";
-import type { Transform } from "@/lib/data-transforms";
-import { computeColumnsPerStep } from "@/lib/data-transforms";
+import type { Transform } from "@/lib/query/data-transforms";
+import { computeColumnsPerStep } from "@/lib/query/data-transforms";
 import { ValueOrParamInput } from "./value-or-param-input";
 
 export interface TransformEditorProps {

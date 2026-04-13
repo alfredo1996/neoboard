@@ -2,7 +2,6 @@
 
 import React from "react";
 import { AlertCircle } from "lucide-react";
-import type { ChartType } from "@/lib/chart-registry";
 import { pluginRegistry } from "@/plugins";
 import { ChartErrorBoundary } from "./chart-error-boundary";
 import { EmptyState } from "@neoboard/components";
@@ -31,7 +30,7 @@ export interface ChartMetaProps {
 }
 
 export interface ChartRendererProps {
-  type: ChartType;
+  type: string;
   data: unknown;
   settings?: Record<string, unknown>;
   styling?: ChartStylingProps;
