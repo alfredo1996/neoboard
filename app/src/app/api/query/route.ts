@@ -7,6 +7,8 @@ import { decryptJson } from "@/lib/crypto/crypto";
 import { executeQuery } from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
 import { computeResultId } from "@/lib/query/query-hash";
+import { runPipeline } from "@/lib/query/pipeline";
+import type { QueryContext } from "@/lib/query/pipeline-types";
 import {
   validateBody,
   forbidden,
@@ -96,11 +98,24 @@ export async function POST(request: Request) {
       connection.configEncrypted,
     );
 
-    const queryStart = performance.now();
-    const result = await executeQuery(connection.type as DbType, credentials, {
+    const ctx: QueryContext = {
       query,
-      params,
-    });
+      params: params ?? {},
+      connectionId,
+      connectionType: connection.type as DbType,
+      userId,
+      tenantId: sessionTenantId,
+      accessMode: "read",
+      metadata: {},
+    };
+
+    const queryStart = performance.now();
+    const result = await runPipeline(ctx, async (pipelineCtx) =>
+      executeQuery(pipelineCtx.connectionType as DbType, credentials, {
+        query: pipelineCtx.query,
+        params: pipelineCtx.params,
+      }),
+    );
     const serverDurationMs = Math.round(performance.now() - queryStart);
 
     // Deterministic query hash: same connection + normalized query + params
