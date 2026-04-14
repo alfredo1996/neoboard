@@ -7,6 +7,32 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
 import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
+import { authLogger } from "@/lib/logger";
+
+/** Reasons an authorize() call can fail. */
+type SignInFailureReason =
+  | "invalid_input"
+  | "rate_limited"
+  | "user_not_found"
+  | "user_disabled"
+  | "bad_password";
+
+/**
+ * Log a failed sign-in attempt. Never includes the password. Email is
+ * included so operators can correlate multiple failures against the
+ * same account, but will be anonymized when LOG_ANONYMIZE=true lands
+ * (see #128 slice 4).
+ */
+function logSignInFailed(
+  email: string | undefined,
+  reason: SignInFailureReason,
+  requestId?: string,
+): void {
+  authLogger.warn(
+    { event: "sign_in_failed", email, reason, requestId },
+    "sign_in_failed",
+  );
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -33,8 +59,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, request) {
+        const requestId = request?.headers?.get?.("x-request-id") ?? undefined;
+        const rawEmail =
+          typeof credentials?.email === "string"
+            ? credentials.email
+            : undefined;
+
         const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        if (!parsed.success) {
+          logSignInFailed(rawEmail, "invalid_input", requestId);
+          return null;
+        }
 
         // Rate limit by IP — 20 attempts per minute.
         // In deployments behind a reverse proxy (Vercel, nginx), the first
@@ -42,7 +77,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const forwarded = request?.headers?.get?.("x-forwarded-for");
         const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
         const rateResult = loginRateLimiter.check(ip);
-        if (!rateResult.allowed) return null;
+        if (!rateResult.allowed) {
+          logSignInFailed(parsed.data.email, "rate_limited", requestId);
+          return null;
+        }
 
         const user = await db
           .select()
@@ -51,14 +89,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .limit(1)
           .then((rows) => rows[0]);
 
-        if (!user?.passwordHash) return null;
-        if (user.disabledAt) return null;
+        if (!user?.passwordHash) {
+          logSignInFailed(parsed.data.email, "user_not_found", requestId);
+          return null;
+        }
+        if (user.disabledAt) {
+          logSignInFailed(parsed.data.email, "user_disabled", requestId);
+          return null;
+        }
 
         const isValid = await bcrypt.compare(
           parsed.data.password,
           user.passwordHash,
         );
-        if (!isValid) return null;
+        if (!isValid) {
+          logSignInFailed(parsed.data.email, "bad_password", requestId);
+          return null;
+        }
 
         // Update lastLoginAt (fire-and-forget — don't block login on this)
         db.update(users)
@@ -66,8 +113,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.id, user.id))
           .then(
             () => {},
-            (err) => console.error("[auth] lastLoginAt update failed", err),
+            (err) =>
+              authLogger.warn(
+                { event: "last_login_update_failed", userId: user.id, err },
+                "last_login_update_failed",
+              ),
           );
+
+        authLogger.info(
+          {
+            event: "sign_in",
+            userId: user.id,
+            tenantId: user.tenantId,
+            requestId,
+          },
+          "sign_in",
+        );
 
         return {
           id: user.id,
@@ -138,6 +199,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.tenantId ?? process.env.TENANT_ID ?? "default";
       }
       return session;
+    },
+  },
+  events: {
+    async signOut(message) {
+      // NextAuth v5 signOut payload carries the token or session depending
+      // on the strategy. JWT strategy (what we use) includes a `token` key.
+      const token = message && "token" in message ? message.token : undefined;
+      const userId =
+        token && typeof token.id === "string" ? token.id : undefined;
+      authLogger.info({ event: "sign_out", userId }, "sign_out");
     },
   },
 });
