@@ -13,6 +13,19 @@ export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Register built-in query middleware (audit logging, etc.) before any
+  // query route has a chance to run. Runs once per cold start.
+  try {
+    const { bootstrapQueryMiddleware } =
+      await import("@/lib/query/middleware/bootstrap");
+    bootstrapQueryMiddleware();
+  } catch (err) {
+    const msg =
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[bootstrap] Failed to register query middleware:", msg);
+  }
+
+  // Bootstrap the first admin user when the database is empty.
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 
