@@ -13,6 +13,8 @@ export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  const { logger, authLogger } = await import("@/lib/logger");
+
   // Register built-in query middleware (audit logging, etc.) before any
   // query route has a chance to run. Runs once per cold start.
   try {
@@ -20,9 +22,10 @@ export async function register() {
       await import("@/lib/query/middleware/bootstrap");
     bootstrapQueryMiddleware();
   } catch (err) {
-    const msg =
-      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    console.error("[bootstrap] Failed to register query middleware:", msg);
+    logger.error(
+      { event: "query_middleware_bootstrap_failed", err },
+      "query_middleware_bootstrap_failed",
+    );
   }
 
   // Bootstrap the first admin user when the database is empty.
@@ -36,8 +39,9 @@ export async function register() {
     await bootstrapAdmin({ email, password });
   } catch (err) {
     // Log but never crash the server — a missing DB at startup is recoverable
-    const msg =
-      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    console.error("[bootstrap] Failed to bootstrap admin user:", msg);
+    authLogger.error(
+      { event: "admin_bootstrap_failed", err },
+      "admin_bootstrap_failed",
+    );
   }
 }
