@@ -88,4 +88,21 @@ describe("register (instrumentation hook)", () => {
     mockBootstrapAdmin.mockRejectedValue(new Error("DB connection failed"));
     await expect(register()).resolves.toBeUndefined();
   });
+
+  it("swallows errors from query middleware bootstrap without crashing", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/auth/bootstrap", () => ({
+      bootstrapAdmin: mockBootstrapAdmin,
+    }));
+    vi.doMock("@/lib/query/middleware/bootstrap", () => ({
+      bootstrapQueryMiddleware: () => {
+        throw new Error("middleware registration failed");
+      },
+    }));
+    const mod = await import("../instrumentation");
+    process.env.NEXT_RUNTIME = "nodejs";
+    delete process.env.BOOTSTRAP_ADMIN_EMAIL;
+    delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
+    await expect(mod.register()).resolves.toBeUndefined();
+  });
 });
