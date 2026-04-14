@@ -12,7 +12,7 @@ import {
   validateBody,
   forbidden,
   notFound,
-  serverError,
+  handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 
@@ -58,6 +58,12 @@ export async function POST(request: Request) {
       connection.configEncrypted,
     );
 
+    // Write queries always run at P1 — they represent explicit user
+    // intent (form submit, manual write) and must not be shed under
+    // load like auto-refresh reads can be.
+    const metadata: Record<string, unknown> = { priority: 1 };
+    if (requestId) metadata.requestId = requestId;
+
     const ctx: QueryContext = {
       query,
       params: params ?? {},
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
       userId,
       tenantId,
       accessMode: "write",
-      metadata: requestId ? { requestId } : {},
+      metadata,
     };
 
     const queryStart = performance.now();
@@ -82,10 +88,6 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.data, 200, { serverDurationMs });
   } catch (error) {
-    console.error(
-      "[write-query]",
-      error instanceof Error ? error.message : error,
-    );
-    return serverError("Write query execution failed");
+    return handleRouteError(error, "Write query execution failed");
   }
 }

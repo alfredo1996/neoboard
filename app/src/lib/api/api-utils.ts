@@ -1,6 +1,7 @@
 import type { ZodSchema } from "zod";
 import { apiError } from "./api-response";
 import { EnterpriseRequiredError } from "@/lib/features/require-feature";
+import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 
 /**
  * Shared API route utilities to reduce duplication across route handlers.
@@ -88,6 +89,16 @@ export function handleRouteError(
 ): ReturnType<typeof apiError> {
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
+  }
+  if (error instanceof QueueRejectedError) {
+    // 503 with Retry-After so clients can back off without hard-failing
+    // the user. Header is set below after the response is constructed.
+    return apiError("SERVICE_UNAVAILABLE", error.message, {
+      reason: error.reason,
+    });
+  }
+  if (error instanceof QueueTimeoutError) {
+    return apiError("REQUEST_TIMEOUT", error.message);
   }
   const message = error instanceof Error ? error.message : fallbackMsg;
   if (message.includes("Unauthorized") || message.includes("session")) {

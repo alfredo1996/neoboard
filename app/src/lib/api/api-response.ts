@@ -20,7 +20,9 @@ export type ApiErrorCode =
   | "CONFLICT"
   | "INTERNAL_ERROR"
   | "TENANT_MISMATCH"
-  | "ENTERPRISE_REQUIRED";
+  | "ENTERPRISE_REQUIRED"
+  | "REQUEST_TIMEOUT"
+  | "SERVICE_UNAVAILABLE";
 
 const ERROR_STATUS: Record<ApiErrorCode, number> = {
   UNAUTHORIZED: 401,
@@ -32,6 +34,8 @@ const ERROR_STATUS: Record<ApiErrorCode, number> = {
   INTERNAL_ERROR: 500,
   TENANT_MISMATCH: 403,
   ENTERPRISE_REQUIRED: 402,
+  REQUEST_TIMEOUT: 408,
+  SERVICE_UNAVAILABLE: 503,
 };
 
 // ---------------------------------------------------------------------------

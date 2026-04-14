@@ -96,6 +96,32 @@ describe("handleRouteError", () => {
     const body = await res.json();
     expect(body.error.message).toBe("Oops");
   });
+
+  it("returns 503 for QueueRejectedError with reason in details", async () => {
+    const { QueueRejectedError } = await import("@/lib/query/scheduler");
+    const res = handleRouteError(
+      new QueueRejectedError("queue_full", "queue full"),
+    );
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
+    expect(body.error.details).toEqual({ reason: "queue_full" });
+  });
+
+  it("returns 503 with reason=shed for shedding rejections", async () => {
+    const { QueueRejectedError } = await import("@/lib/query/scheduler");
+    const res = handleRouteError(new QueueRejectedError("shed", "shed"));
+    const body = await res.json();
+    expect(body.error.details).toEqual({ reason: "shed" });
+  });
+
+  it("returns 408 for QueueTimeoutError", async () => {
+    const { QueueTimeoutError } = await import("@/lib/query/scheduler");
+    const res = handleRouteError(new QueueTimeoutError());
+    expect(res.status).toBe(408);
+    const body = await res.json();
+    expect(body.error.code).toBe("REQUEST_TIMEOUT");
+  });
 });
 
 describe("validateBody", () => {

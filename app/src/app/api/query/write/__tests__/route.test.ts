@@ -104,14 +104,15 @@ describe("POST /api/query/write", () => {
     expect(body.error.message).toMatch(/write permission/i);
   });
 
-  it("returns 500 when session retrieval fails", async () => {
+  it("returns 401 when session retrieval fails with UnauthorizedError", async () => {
     mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
     );
-    expect(res.status).toBe(500);
+    // handleRouteError maps UnauthorizedError → 401
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error.message).toBe("Write query execution failed");
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns 400 for missing connectionId", async () => {

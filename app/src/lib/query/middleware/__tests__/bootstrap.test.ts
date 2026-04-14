@@ -11,22 +11,35 @@ describe("bootstrapQueryMiddleware", () => {
     _resetQueryMiddlewareBootstrap();
   });
 
-  it("registers the core audit middleware", () => {
+  it("registers both core:scheduler and core:audit", () => {
     bootstrapQueryMiddleware();
-    expect(extensions.queryMiddleware.size()).toBe(1);
-    const first = extensions.queryMiddleware.getFirst();
-    expect(first?.id).toBe("core:audit");
+    const all = extensions.queryMiddleware.getAll();
+    expect(all).toHaveLength(2);
+    const ids = all.map((m) => m.id);
+    expect(ids).toContain("core:scheduler");
+    expect(ids).toContain("core:audit");
   });
 
-  it("assigns the audit middleware a priority of 50", () => {
+  it("assigns core:scheduler priority 30 (runs before audit)", () => {
     bootstrapQueryMiddleware();
-    expect(extensions.queryMiddleware.getFirst()?.priority).toBe(50);
+    const scheduler = extensions.queryMiddleware
+      .getAll()
+      .find((m) => m.id === "core:scheduler");
+    expect(scheduler?.priority).toBe(30);
   });
 
-  it("is idempotent — calling twice registers audit only once", () => {
+  it("assigns core:audit priority 50 (wraps scheduler)", () => {
+    bootstrapQueryMiddleware();
+    const audit = extensions.queryMiddleware
+      .getAll()
+      .find((m) => m.id === "core:audit");
+    expect(audit?.priority).toBe(50);
+  });
+
+  it("is idempotent — calling twice registers each middleware once", () => {
     bootstrapQueryMiddleware();
     bootstrapQueryMiddleware();
-    expect(extensions.queryMiddleware.size()).toBe(1);
+    expect(extensions.queryMiddleware.size()).toBe(2);
   });
 
   it("test reset helper lets the bootstrap run again", () => {
@@ -34,6 +47,6 @@ describe("bootstrapQueryMiddleware", () => {
     extensions.queryMiddleware.clear();
     _resetQueryMiddlewareBootstrap();
     bootstrapQueryMiddleware();
-    expect(extensions.queryMiddleware.size()).toBe(1);
+    expect(extensions.queryMiddleware.size()).toBe(2);
   });
 });
