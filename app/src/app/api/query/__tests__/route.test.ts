@@ -104,9 +104,10 @@ describe("POST /api/query", () => {
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "MATCH (n) RETURN n" }),
     );
-    expect(res.status).toBe(500); // route catches and returns 500 with message
+    // handleRouteError maps UnauthorizedError → 401
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error.message).toMatch(/Unauthorized/);
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns 400 for invalid body (missing query)", async () => {
@@ -251,7 +252,11 @@ describe("POST /api/query", () => {
     );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error.message).toBe("Driver error");
+    // handleRouteError returns a generic message in production; the raw
+    // error is logged but never surfaced to the client to avoid leaking
+    // driver-level details. Test the generic fallback instead.
+    expect(body.error.code).toBe("INTERNAL_ERROR");
+    expect(body.error.message).toBe("Query execution failed");
   });
 
   // --- Access fallback tests ---

@@ -13,9 +13,22 @@ import {
   validateBody,
   forbidden,
   notFound,
-  serverError,
+  handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import type { QueryPriority } from "@/lib/query/scheduler";
+
+/**
+ * Parse the `x-query-priority` header into a valid priority tier.
+ * Invalid or missing values default to P2 (load) so the request
+ * behaves like a dashboard page load under the scheduler.
+ */
+function readPriorityHeader(raw: string | null): QueryPriority {
+  if (raw === "1" || raw === "2" || raw === "3") {
+    return Number.parseInt(raw, 10) as QueryPriority;
+  }
+  return 2;
+}
 
 const querySchema = z.object({
   connectionId: z.string().min(1),
@@ -29,6 +42,9 @@ export async function POST(request: Request) {
   try {
     const { userId, tenantId: sessionTenantId, role } = await requireSession();
     const requestId = request.headers.get("x-request-id") ?? undefined;
+    const priority = readPriorityHeader(
+      request.headers.get("x-query-priority"),
+    );
     const body = await request.json();
     const validation = validateBody(querySchema, body);
     if (!validation.success) return validation.response;
@@ -99,6 +115,9 @@ export async function POST(request: Request) {
       connection.configEncrypted,
     );
 
+    const metadata: Record<string, unknown> = { priority };
+    if (requestId) metadata.requestId = requestId;
+
     const ctx: QueryContext = {
       query,
       params: params ?? {},
@@ -107,7 +126,7 @@ export async function POST(request: Request) {
       userId,
       tenantId: sessionTenantId,
       accessMode: "read",
-      metadata: requestId ? { requestId } : {},
+      metadata,
     };
 
     const queryStart = performance.now();
@@ -141,9 +160,7 @@ export async function POST(request: Request) {
       ...(truncated ? { truncated: true } : {}),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Query execution failed";
-    return serverError(message);
+    return handleRouteError(error, "Query execution failed");
   }
 }
 
