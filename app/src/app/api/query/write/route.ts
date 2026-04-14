@@ -15,6 +15,8 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { logRoute } from "@/lib/api/log-route";
+import { apiLogger } from "@/lib/logger";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
@@ -23,6 +25,10 @@ const writeQuerySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  return logRoute(request, "query-write", () => handleWriteQuery(request));
+}
+
+async function handleWriteQuery(request: Request): Promise<Response> {
   try {
     const { userId, canWrite, tenantId } = await requireSession();
 
@@ -88,6 +94,13 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.data, 200, { serverDurationMs });
   } catch (error) {
+    apiLogger.error(
+      {
+        event: "write_query_failed",
+        err: error instanceof Error ? error.message : String(error),
+      },
+      "write_query_failed",
+    );
     return handleRouteError(error, "Write query execution failed");
   }
 }

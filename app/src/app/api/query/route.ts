@@ -16,6 +16,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { logRoute } from "@/lib/api/log-route";
 import type { QueryPriority } from "@/lib/query/scheduler";
 
 /**
@@ -39,6 +40,10 @@ const querySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  return logRoute(request, "query", () => handleReadQuery(request));
+}
+
+async function handleReadQuery(request: Request): Promise<Response> {
   try {
     const { userId, tenantId: sessionTenantId, role } = await requireSession();
     const requestId = request.headers.get("x-request-id") ?? undefined;
