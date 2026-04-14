@@ -13,13 +13,39 @@ const publicExact = new Set([
   "/api/docs",
 ]);
 
+/**
+ * Ensure every request carries an `x-request-id` header so downstream
+ * code (audit logs, route handlers) can correlate log entries back to
+ * a single request. If the caller already supplied one we trust it —
+ * upstream proxies or load balancers typically set this.
+ */
+function ensureRequestId(req: NextRequest): string {
+  const existing = req.headers.get("x-request-id");
+  if (existing && existing.length > 0) return existing;
+  return crypto.randomUUID();
+}
+
+function withRequestId<T extends NextResponse>(res: T, requestId: string): T {
+  res.headers.set("x-request-id", requestId);
+  return res;
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const requestId = ensureRequestId(req);
+  // Propagate the request id downstream by mutating the forwarded
+  // headers — route handlers read it via `headers().get("x-request-id")`.
+  req.headers.set("x-request-id", requestId);
 
   const isPublic =
     publicExact.has(pathname) ||
     publicPrefixes.some((p) => pathname.startsWith(p));
-  if (isPublic) return NextResponse.next();
+  if (isPublic) {
+    return withRequestId(
+      NextResponse.next({ request: { headers: req.headers } }),
+      requestId,
+    );
+  }
 
   // Allow API key authenticated requests through for API routes only.
   // The nb_ prefix check is lightweight — actual validation (hash lookup, expiry)
@@ -28,7 +54,10 @@ export async function proxy(req: NextRequest) {
   // Scoped to /api/ routes to prevent bypassing proxy auth checks for page routes.
   const authHeader = req.headers.get("authorization");
   if (pathname.startsWith("/api/") && authHeader?.startsWith("Bearer nb_")) {
-    return NextResponse.next();
+    return withRequestId(
+      NextResponse.next({ request: { headers: req.headers } }),
+      requestId,
+    );
   }
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -36,11 +65,14 @@ export async function proxy(req: NextRequest) {
   if (!token) {
     // For API routes, return 401 JSON instead of redirect
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return withRequestId(
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+        requestId,
+      );
     }
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    return withRequestId(NextResponse.redirect(loginUrl), requestId);
   }
 
   // Redirect users who must change their password before accessing anything else.
@@ -49,12 +81,16 @@ export async function proxy(req: NextRequest) {
     pathname !== "/change-password" &&
     !pathname.startsWith("/api/")
   ) {
-    return NextResponse.redirect(
-      new URL("/change-password", req.nextUrl.origin),
+    return withRequestId(
+      NextResponse.redirect(new URL("/change-password", req.nextUrl.origin)),
+      requestId,
     );
   }
 
-  return NextResponse.next();
+  return withRequestId(
+    NextResponse.next({ request: { headers: req.headers } }),
+    requestId,
+  );
 }
 
 export const config = {

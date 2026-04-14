@@ -28,6 +28,7 @@ const querySchema = z.object({
 export async function POST(request: Request) {
   try {
     const { userId, tenantId: sessionTenantId, role } = await requireSession();
+    const requestId = request.headers.get("x-request-id") ?? undefined;
     const body = await request.json();
     const validation = validateBody(querySchema, body);
     if (!validation.success) return validation.response;
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
       userId,
       tenantId: sessionTenantId,
       accessMode: "read",
-      metadata: {},
+      metadata: requestId ? { requestId } : {},
     };
 
     const queryStart = performance.now();

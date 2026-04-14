@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       return forbidden("Write permission required");
     }
 
+    const requestId = request.headers.get("x-request-id") ?? undefined;
     const body = await request.json();
     const validation = validateBody(writeQuerySchema, body);
     if (!validation.success) return validation.response;
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       userId,
       tenantId,
       accessMode: "write",
-      metadata: {},
+      metadata: requestId ? { requestId } : {},
     };
 
     const queryStart = performance.now();
