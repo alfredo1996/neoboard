@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Rule-Based Styling",
+    "description": "One page per stylable chart, each with 2–3 rules on realistic thresholds."
+  },
+  "connections": {
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "placeholder",
+        "title": "Placeholder",
+        "widgets": [],
+        "gridLayout": []
+      }
+    ]
+  }
+}

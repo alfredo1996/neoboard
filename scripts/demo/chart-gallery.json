@@ -1,0 +1,33 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Chart Gallery",
+    "description": "One page per registered chart type — showcases every widget NeoBoard supports."
+  },
+  "connections": {
+    "conn_neo4j": {
+      "name": "Neo4j Movies (demo)",
+      "type": "neo4j"
+    },
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    },
+    "conn_postgres_write": {
+      "name": "PostgreSQL Ecommerce (demo, write)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "placeholder",
+        "title": "Placeholder",
+        "widgets": [],
+        "gridLayout": []
+      }
+    ]
+  }
+}

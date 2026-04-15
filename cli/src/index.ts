@@ -109,16 +109,49 @@ program
     if (hasFailure) process.exitCode = 1;
   });
 
-program
+const demo = program
   .command("demo")
   .description(
     "Set up a demo environment with sample data and dashboards\n" +
-      "  Runs setup + seeds Neo4j graph data + creates demo user",
+      "  Runs setup + seeds Neo4j graph data + creates demo user\n" +
+      "  Subcommands: seed, list, reset",
   )
   .option("--mode <mode>", "Set mode: docker or local", "docker")
   .action(async (opts) => {
     const { runDemo } = await import("./commands/demo.js");
     await runDemo({ mode: opts.mode });
+  });
+
+demo
+  .command("seed")
+  .description(
+    "Reseed the 4 demo showcases without restarting Docker or reseeding Neo4j\n" +
+      "  --only <keys>  Comma-separated showcase keys (e.g. chart-gallery,click-actions)",
+  )
+  .option("--only <keys>", "Comma-separated showcase keys to seed")
+  .action(async (opts) => {
+    const { runDemoSeed } = await import("./commands/demo.js");
+    await runDemoSeed({ only: opts.only });
+  });
+
+demo
+  .command("list")
+  .description("Print the available demo showcases and their JSON paths")
+  .action(async () => {
+    const { runDemoList } = await import("./commands/demo.js");
+    await runDemoList();
+  });
+
+demo
+  .command("reset")
+  .description(
+    "Remove showcase dashboards and drop the neoboard_demo_* Postgres schema\n" +
+      "  --force  Skip confirmation prompt",
+  )
+  .option("--force", "Skip confirmation prompt")
+  .action(async (opts) => {
+    const { runDemoReset } = await import("./commands/demo.js");
+    await runDemoReset({ force: opts.force });
   });
 
 program

@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Transformations",
+    "description": "Before/after side-by-side for each supported transform: filter, sort, groupBy, calculatedColumn, renameColumns, limit."
+  },
+  "connections": {
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "placeholder",
+        "title": "Placeholder",
+        "widgets": [],
+        "gridLayout": []
+      }
+    ]
+  }
+}

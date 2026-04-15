@@ -11,18 +11,82 @@ vi.mock("../../commands/db/seed.js", () => ({
 vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
   banner: vi.fn(),
+  info: vi.fn(),
+  error: vi.fn(),
+  createSpinner: vi.fn(() => ({
+    start: vi.fn(),
+    succeed: vi.fn(),
+    fail: vi.fn(),
+  })),
+}));
+
+vi.mock("../../lib/exec.js", () => ({
+  run: vi.fn(),
+}));
+
+vi.mock("../../lib/prompt.js", () => ({
+  confirm: vi.fn(),
+}));
+
+vi.mock("../../lib/config.js", () => ({
+  paths: { root: "/repo" },
+}));
+
+vi.mock("../../lib/showcases.js", () => ({
+  loadShowcases: vi.fn(async () => ({
+    SHOWCASES: [
+      {
+        key: "chart-gallery",
+        label: "Chart Gallery",
+        description: "17 pages",
+        jsonPath: "/repo/scripts/demo/chart-gallery.json",
+      },
+      {
+        key: "click-actions",
+        label: "Click Actions",
+        description: "3 pages",
+        jsonPath: "/repo/scripts/demo/click-actions.json",
+      },
+    ],
+    SHOWCASE_KEYS: new Set(["chart-gallery", "click-actions"]),
+    parseOnlyFlag: (raw: string | undefined): string[] | undefined => {
+      if (!raw) return undefined;
+      const keys = raw
+        .split(",")
+        .map((k: string) => k.trim())
+        .filter(Boolean);
+      const valid = new Set(["chart-gallery", "click-actions"]);
+      const invalid = keys.filter((k: string) => !valid.has(k));
+      if (invalid.length > 0) {
+        throw new Error(`Unknown showcase key(s): ${invalid.join(", ")}`);
+      }
+      return keys;
+    },
+  })),
 }));
 
 import { runSetup } from "../../commands/setup.js";
 import { runDbSeed } from "../../commands/db/seed.js";
-import { banner } from "../../lib/output.js";
-import { runDemo } from "../../commands/demo.js";
+import { banner, error as logError, info } from "../../lib/output.js";
+import { run as execRun } from "../../lib/exec.js";
+import { confirm } from "../../lib/prompt.js";
+import {
+  runDemo,
+  runDemoSeed,
+  runDemoList,
+  runDemoReset,
+} from "../../commands/demo.js";
 
 const mockRunSetup = vi.mocked(runSetup);
 const mockRunDbSeed = vi.mocked(runDbSeed);
+const mockExecRun = vi.mocked(execRun);
+const mockConfirm = vi.mocked(confirm);
+const mockLogError = vi.mocked(logError);
+const mockInfo = vi.mocked(info);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.exitCode = 0;
 });
 
 describe("runDemo", () => {
@@ -49,6 +113,91 @@ describe("runDemo", () => {
     await runDemo();
     expect(banner).toHaveBeenCalledWith(
       expect.arrayContaining([expect.stringContaining("admin@neoboard.local")]),
+    );
+  });
+});
+
+describe("runDemoSeed", () => {
+  it("invokes seed-demo.mjs with no --only when no filter given", async () => {
+    await runDemoSeed();
+    expect(mockExecRun).toHaveBeenCalledWith(
+      expect.stringMatching(/node .*seed-demo\.mjs$/),
+      expect.any(Object),
+    );
+  });
+
+  it("passes --only flag through to the seed script", async () => {
+    await runDemoSeed({ only: "chart-gallery" });
+    expect(mockExecRun).toHaveBeenCalledWith(
+      expect.stringContaining("--only=chart-gallery"),
+      expect.any(Object),
+    );
+  });
+
+  it("supports multiple keys in --only", async () => {
+    await runDemoSeed({ only: "chart-gallery,click-actions" });
+    expect(mockExecRun).toHaveBeenCalledWith(
+      expect.stringContaining("--only=chart-gallery,click-actions"),
+      expect.any(Object),
+    );
+  });
+
+  it("rejects unknown showcase keys with a helpful message", async () => {
+    await runDemoSeed({ only: "bogus" });
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.stringContaining("Unknown showcase key"),
+    );
+    expect(process.exitCode).toBe(1);
+    expect(mockExecRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDemoList", () => {
+  it("prints every showcase key", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runDemoList();
+    const output = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(output).toContain("chart-gallery");
+    expect(output).toContain("click-actions");
+    logSpy.mockRestore();
+  });
+
+  it("prints usage hints", async () => {
+    await runDemoList();
+    const infoCalls = mockInfo.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(infoCalls).toContain("neoboard demo seed");
+  });
+});
+
+describe("runDemoReset", () => {
+  it("prompts for confirmation when --force is not set", async () => {
+    mockConfirm.mockResolvedValueOnce(false);
+    await runDemoReset();
+    expect(mockConfirm).toHaveBeenCalled();
+    expect(mockExecRun).not.toHaveBeenCalled();
+  });
+
+  it("aborts when the user declines", async () => {
+    mockConfirm.mockResolvedValueOnce(false);
+    await runDemoReset();
+    expect(mockExecRun).not.toHaveBeenCalled();
+  });
+
+  it("runs seed script with --reset when --force is set", async () => {
+    await runDemoReset({ force: true });
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockExecRun).toHaveBeenCalledWith(
+      expect.stringContaining("--reset"),
+      expect.any(Object),
+    );
+  });
+
+  it("runs seed script with --reset after user confirms", async () => {
+    mockConfirm.mockResolvedValueOnce(true);
+    await runDemoReset();
+    expect(mockExecRun).toHaveBeenCalledWith(
+      expect.stringContaining("--reset"),
+      expect.any(Object),
     );
   });
 });

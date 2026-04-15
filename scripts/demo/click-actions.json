@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Click Actions",
+    "description": "Interactive examples — one page per supported click-action type."
+  },
+  "connections": {
+    "conn_neo4j": {
+      "name": "Neo4j Movies (demo)",
+      "type": "neo4j"
+    },
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "placeholder",
+        "title": "Placeholder",
+        "widgets": [],
+        "gridLayout": []
+      }
+    ]
+  }
+}
