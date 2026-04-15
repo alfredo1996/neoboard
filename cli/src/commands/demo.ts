@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { run } from "../lib/exec.js";
-import { paths } from "../lib/config.js";
+import { paths, getMode } from "../lib/config.js";
 import {
   success,
   banner,
@@ -64,12 +64,30 @@ export async function runDemoSeed(opts?: { only?: string }): Promise<void> {
   const spinner = createSpinner("Running seed-demo.mjs...");
   spinner.start();
   try {
-    run(`node ${scriptPath}${onlyArg}`, { cwd: paths.root });
+    run(`node ${scriptPath}${onlyArg}`, {
+      cwd: paths.root,
+      env: dockerEnv(),
+    });
     spinner.succeed("Showcases seeded");
   } catch (err) {
     spinner.fail("Seed failed");
     throw err;
   }
+}
+
+/**
+ * In Docker mode, the app container can't reach "localhost" — the
+ * Postgres and Neo4j services are at "neoboard-postgres" and
+ * "neoboard-neo4j" respectively. seed-demo.mjs honors these env vars
+ * when building the stored connection URIs.
+ */
+function dockerEnv(): NodeJS.ProcessEnv {
+  if (getMode() !== "docker") return process.env;
+  return {
+    ...process.env,
+    NEO4J_HOST: "neoboard-neo4j",
+    PG_HOST: "neoboard-postgres",
+  };
 }
 
 /**
@@ -110,7 +128,10 @@ export async function runDemoReset(opts?: { force?: boolean }): Promise<void> {
   const spinner = createSpinner("Resetting demo state...");
   spinner.start();
   try {
-    run(`node ${scriptPath} --reset`, { cwd: paths.root });
+    run(`node ${scriptPath} --reset`, {
+      cwd: paths.root,
+      env: dockerEnv(),
+    });
     spinner.succeed("Demo state reset");
   } catch (err) {
     spinner.fail("Reset failed");

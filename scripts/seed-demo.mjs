@@ -1794,13 +1794,15 @@ async function main() {
     );
 
     // Demo e-commerce connections — point at the isolated
-    // `neoboard_demo_public` schema on the same Postgres instance.
+    // `neoboard_demo_public` schema on the `neoboard` config DB.
+    // IMPORTANT: the Postgres connector reads the database name from the
+    // URI path (PostgresAuthenticationModule.ts:38), not the `database`
+    // field, so `/neoboard` must be in the URI.
     const ecommerceConfig = {
-      uri: `postgresql://${pgHost}:5432`,
+      uri: `postgresql://${pgHost}:5432/neoboard`,
       username: "neoboard",
       password: "neoboard",
       database: "neoboard",
-      schema: "neoboard_demo_public",
     };
     const ecommerceReadConnId = await upsertConnector(
       sql,
