@@ -23,6 +23,7 @@ import {
   insertAll as insertEcommerceData,
 } from "./demo/ecommerce-data.mjs";
 import { SHOWCASES, parseOnlyFlag } from "./demo/showcases.mjs";
+import { importShowcase } from "./demo/import-dashboard.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(resolve(__dirname, "../app/") + "/");
@@ -1930,15 +1931,32 @@ async function main() {
 
     console.log("    Demo dashboards seeded.");
 
-    // 4. Showcase JSON import (wired in Phase 3 via import-dashboard.mjs).
-    // Filtering by --only happens here so iteration order matches the manifest.
+    // 4. Showcase JSON import
+    const connectionMap = {
+      conn_neo4j: neo4jConnId,
+      conn_postgres_read: ecommerceReadConnId,
+      conn_postgres_write: ecommerceWriteConnId,
+    };
     const targets = onlyKeys
       ? SHOWCASES.filter((s) => onlyKeys.includes(s.key))
       : SHOWCASES;
-    if (targets.length > 0) {
-      console.log(
-        `    Showcase import: ${targets.length} file(s) queued (wired in phase 3).`,
-      );
+    for (const showcase of targets) {
+      try {
+        await importShowcase({
+          jsonPath: showcase.jsonPath,
+          adminId,
+          connectionMap,
+          upsertDashboard,
+          patchGridIds,
+          sql,
+        });
+        console.log(`    Showcase "${showcase.label}" imported.`);
+      } catch (err) {
+        console.error(
+          `    Failed to import ${showcase.key}: ${err.message}`,
+        );
+        throw err;
+      }
     }
   } finally {
     await sql.end();
