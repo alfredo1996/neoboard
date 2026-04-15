@@ -1,13 +1,13 @@
 ---
 name: prioritize
 description: Read all open issues, assess priority, produce ranked backlog.
-model: opus
+model: sonnet
 context: fork
 disable-model-invocation: true
 allowed-tools: Read, Bash(gh issue *), Bash(gh api *), Bash(cat *), Bash(grep *)
 ---
 
-# Prioritize — Opus
+# Prioritize
 
 Use ultrathink. Fetch all open issues with `gh issue list --state open --limit 100 --json number,title,labels,assignees,createdAt,body`.
 
