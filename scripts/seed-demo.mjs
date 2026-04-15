@@ -5,8 +5,12 @@
  *
  * Idempotent — checks by name before inserting. Safe to run multiple times.
  *
- * Usage:  node scripts/seed-demo.mjs
- * Called automatically by scripts/setup.sh after migrations.
+ * Usage:
+ *   node scripts/seed-demo.mjs
+ *   node scripts/seed-demo.mjs --only=chart-gallery,click-actions
+ *   node scripts/seed-demo.mjs --reset
+ *
+ * Called by `neoboard demo seed` / `neoboard demo reset` (cli/).
  */
 
 import { createRequire } from "module";
@@ -14,6 +18,11 @@ import { randomBytes, createCipheriv, randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import {
+  generateAll as generateEcommerceData,
+  insertAll as insertEcommerceData,
+} from "./demo/ecommerce-data.mjs";
+import { SHOWCASES, parseOnlyFlag } from "./demo/showcases.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(resolve(__dirname, "../app/") + "/");
@@ -64,6 +73,80 @@ function encryptJson(data, keyHex) {
 
 function uuid() {
   return randomUUID();
+}
+
+// ─── Argv parsing (for --only and --reset) ───────────────────────────
+
+/**
+ * Parses top-level script args. Accepts:
+ *   --only=<keys>   Comma-separated showcase keys
+ *   --reset         Delete showcase state instead of seeding
+ */
+function parseArgs(argv) {
+  let only;
+  let reset = false;
+  for (const arg of argv.slice(2)) {
+    if (arg === "--reset") {
+      reset = true;
+    } else if (arg.startsWith("--only=")) {
+      only = arg.slice("--only=".length);
+    }
+  }
+  return { only, reset };
+}
+
+// ─── Ecommerce schema management ─────────────────────────────────────
+
+const DEMO_SCHEMA = "neoboard_demo_public";
+
+/** Guard against dropping anything that isn't an isolated demo schema. */
+function assertDemoSchema(name) {
+  if (!/^neoboard_demo_[a-z_]+$/.test(name)) {
+    throw new Error(
+      `Refusing to drop schema "${name}" — only neoboard_demo_* schemas may be reset.`,
+    );
+  }
+}
+
+/** Drops the demo schema and recreates it from ecommerce-schema.sql. */
+async function recreateEcommerceSchema(sql) {
+  assertDemoSchema(DEMO_SCHEMA);
+  const ddl = readFileSync(
+    resolve(__dirname, "demo/ecommerce-schema.sql"),
+    "utf8",
+  );
+  console.log(`    Dropping + recreating schema ${DEMO_SCHEMA}...`);
+  await sql.unsafe(`DROP SCHEMA IF EXISTS ${DEMO_SCHEMA} CASCADE`);
+  await sql.unsafe(ddl);
+}
+
+/** Inserts deterministic synthetic rows into the demo schema. */
+async function seedEcommerceData(sql) {
+  const data = generateEcommerceData();
+  console.log(
+    `    Inserting ${data.customers.length} customers, ${data.products.length} products, ${data.orders.length} orders...`,
+  );
+  await insertEcommerceData(sql, data);
+}
+
+/**
+ * Deletes showcase dashboards by name and drops the demo Postgres schema.
+ * Called by `neoboard demo reset` — intentionally destructive but scoped.
+ */
+async function resetDemo(sql, adminId) {
+  const names = SHOWCASES.map((s) => s.label);
+  if (names.length > 0) {
+    const deleted = await sql`
+      DELETE FROM "dashboard"
+      WHERE "userId" = ${adminId}
+        AND name IN ${sql(names)}
+      RETURNING id
+    `;
+    console.log(`    Deleted ${deleted.length} showcase dashboard(s).`);
+  }
+  assertDemoSchema(DEMO_SCHEMA);
+  await sql.unsafe(`DROP SCHEMA IF EXISTS ${DEMO_SCHEMA} CASCADE`);
+  console.log(`    Dropped schema ${DEMO_SCHEMA}.`);
 }
 
 // ─── Dashboard layouts ───────────────────────────────────────────────
@@ -1611,6 +1694,17 @@ export function buildClickActionDemo(neo4jConnId, pgConnId) {
 // ─── Main ────────────────────────────────────────────────────────────
 
 async function main() {
+  const args = parseArgs(process.argv);
+
+  // Validate --only against the manifest early so we fail fast on typos
+  let onlyKeys;
+  try {
+    onlyKeys = parseOnlyFlag(args.only);
+  } catch (err) {
+    console.error(`    ${err.message}`);
+    process.exit(1);
+  }
+
   const envPath = resolve(__dirname, "../app/.env.local");
   let env;
   try {
@@ -1630,7 +1724,12 @@ async function main() {
     process.exit(0);
   }
 
-  const sql = postgres(databaseUrl, { max: 1 });
+  const sql = postgres(databaseUrl, {
+    max: 1,
+    // Suppress verbose NOTICE logs (schema-does-not-exist, drop cascades, etc.)
+    // that clutter the seed output without indicating real problems.
+    onnotice: () => {},
+  });
 
   try {
     // 1. Ensure admin user exists
@@ -1650,6 +1749,13 @@ async function main() {
     } else {
       adminId = users[0].id;
       console.log(`    Using existing user ${adminId}`);
+    }
+
+    // `--reset` short-circuits: delete showcase dashboards + drop demo schema.
+    if (args.reset) {
+      await resetDemo(sql, adminId);
+      console.log("    Demo reset complete.");
+      return;
     }
 
     // 2. Create connectors (idempotent by name)
@@ -1686,8 +1792,40 @@ async function main() {
       encryptionKey
     );
 
+    // Demo e-commerce connections — point at the isolated
+    // `neoboard_demo_public` schema on the same Postgres instance.
+    const ecommerceConfig = {
+      uri: `postgresql://${pgHost}:5432`,
+      username: "neoboard",
+      password: "neoboard",
+      database: "neoboard",
+      schema: "neoboard_demo_public",
+    };
+    const ecommerceReadConnId = await upsertConnector(
+      sql,
+      adminId,
+      "PostgreSQL Ecommerce (demo, read)",
+      "postgresql",
+      ecommerceConfig,
+      encryptionKey,
+    );
+    const ecommerceWriteConnId = await upsertConnector(
+      sql,
+      adminId,
+      "PostgreSQL Ecommerce (demo, write)",
+      "postgresql",
+      ecommerceConfig,
+      encryptionKey,
+    );
+
     console.log(`    Neo4j connector:      ${neo4jConnId}`);
     console.log(`    PostgreSQL connector:  ${pgConnId}`);
+    console.log(`    Ecommerce (read):      ${ecommerceReadConnId}`);
+    console.log(`    Ecommerce (write):     ${ecommerceWriteConnId}`);
+
+    // 2a. Recreate the demo e-commerce schema + deterministic data
+    await recreateEcommerceSchema(sql);
+    await seedEcommerceData(sql);
 
     // 3. Create dashboards (idempotent by name)
     // Patch grid layout IDs to match widget IDs
@@ -1791,6 +1929,17 @@ async function main() {
     );
 
     console.log("    Demo dashboards seeded.");
+
+    // 4. Showcase JSON import (wired in Phase 3 via import-dashboard.mjs).
+    // Filtering by --only happens here so iteration order matches the manifest.
+    const targets = onlyKeys
+      ? SHOWCASES.filter((s) => onlyKeys.includes(s.key))
+      : SHOWCASES;
+    if (targets.length > 0) {
+      console.log(
+        `    Showcase import: ${targets.length} file(s) queued (wired in phase 3).`,
+      );
+    }
   } finally {
     await sql.end();
   }
