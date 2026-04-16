@@ -3,7 +3,7 @@
   "exportedAt": "2026-04-15T00:00:00.000Z",
   "dashboard": {
     "name": "Rule-Based Styling",
-    "description": "One page per stylable chart, each with 2–3 rules on realistic thresholds."
+    "description": "One page per stylable chart, each with 2–3 rules across numeric, text, and parameter-reference operators and varied targets (color / backgroundColor / textColor)."
   },
   "connections": {
     "conn_postgres_read": {
@@ -15,10 +15,586 @@
     "version": 2,
     "pages": [
       {
-        "id": "placeholder",
-        "title": "Placeholder",
-        "widgets": [],
-        "gridLayout": []
+        "id": "page-bar",
+        "title": "1. Bar",
+        "widgets": [
+          {
+            "id": "bar-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Bar\n\nNumeric threshold rules color each bar based on its value. First matching rule wins.\n\n**Rules shown:**\n- `revenue >= 100000` → green\n- `revenue >= 50000` → amber\n- `revenue <  50000` → red (implicit — falls through to the last rule)"
+              }
+            }
+          },
+          {
+            "id": "bar-chart",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC",
+            "settings": {
+              "title": "Revenue by category — colored by threshold",
+              "chartOptions": {
+                "colorPalette": "deep-ocean",
+                "showValues": true,
+                "showLegend": false
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "bar-r1",
+                    "operator": ">=",
+                    "value": 100000,
+                    "color": "#22c55e",
+                    "target": "color"
+                  },
+                  {
+                    "id": "bar-r2",
+                    "operator": ">=",
+                    "value": 50000,
+                    "color": "#f59e0b",
+                    "target": "color"
+                  },
+                  {
+                    "id": "bar-r3",
+                    "operator": "<",
+                    "value": 50000,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "bar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "bar-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-line",
+        "title": "2. Line",
+        "widgets": [
+          {
+            "id": "line-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Line\n\nRules color each series based on an aggregate over its values. Useful when a chart has multiple series and you want to highlight the underperforming / leading one.\n\n**Rules shown:**\n- `revenue >= 10000` → blue\n- `revenue < 10000` → red"
+              }
+            }
+          },
+          {
+            "id": "line-chart",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1",
+            "settings": {
+              "title": "Weekly revenue — colored by magnitude",
+              "chartOptions": {
+                "smooth": true,
+                "area": true,
+                "showLegend": true
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "line-r1",
+                    "operator": ">=",
+                    "value": 10000,
+                    "color": "#2563eb",
+                    "target": "color"
+                  },
+                  {
+                    "id": "line-r2",
+                    "operator": "<",
+                    "value": 10000,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "line-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "line-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-pie",
+        "title": "3. Pie",
+        "widgets": [
+          {
+            "id": "pie-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Pie\n\nRules color each slice based on its value. Good for calling out the dominant slice or flagging unhealthy ones.\n\n**Rules shown:**\n- `value >= 400` → accent blue\n- `value <  400` → grey"
+              }
+            }
+          },
+          {
+            "id": "pie-chart",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::float AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "Orders by status — highlight dominant slice",
+              "chartOptions": {
+                "donut": true,
+                "showLegend": true
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "pie-r1",
+                    "operator": ">=",
+                    "value": 400,
+                    "color": "#2563eb",
+                    "target": "color"
+                  },
+                  {
+                    "id": "pie-r2",
+                    "operator": "<",
+                    "value": 400,
+                    "color": "#94a3b8",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "pie-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "pie-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-single-value",
+        "title": "4. Single Value",
+        "widgets": [
+          {
+            "id": "sv-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Single Value (KPI)\n\nKPI colour encodes whether the metric is healthy. Parameter-ref comparison lets you gate styling on a dashboard-level target.\n\n**Rules shown (Delivery rate):** `>= 25%` green, `>= 15%` amber, `< 15%` red.\n\n**Rules shown (Revenue):** dynamic — `>= $param_revenue_target` blue, else grey. Change the parameter to see the color flip."
+              }
+            }
+          },
+          {
+            "id": "sv-param",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Revenue target",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "revenue_target",
+                "rangeMin": 0,
+                "rangeMax": 2000000,
+                "rangeStep": 50000
+              }
+            }
+          },
+          {
+            "id": "sv-delivery",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Delivery rate",
+              "chartOptions": {
+                "suffix": "%",
+                "decimalPlaces": 1,
+                "fontSize": "xl"
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "sv-d1",
+                    "operator": ">=",
+                    "value": 25,
+                    "color": "#22c55e",
+                    "target": "color"
+                  },
+                  {
+                    "id": "sv-d2",
+                    "operator": ">=",
+                    "value": 15,
+                    "color": "#f59e0b",
+                    "target": "color"
+                  },
+                  {
+                    "id": "sv-d3",
+                    "operator": "<",
+                    "value": 15,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "sv-revenue",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Revenue vs $param_revenue_target",
+              "chartOptions": {
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1,
+                "fontSize": "xl"
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "sv-r1",
+                    "operator": ">=",
+                    "value": 0,
+                    "parameterRef": "revenue_target",
+                    "color": "#2563eb",
+                    "target": "color"
+                  },
+                  {
+                    "id": "sv-r2",
+                    "operator": "<",
+                    "value": 0,
+                    "parameterRef": "revenue_target",
+                    "color": "#94a3b8",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "sv-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "sv-param", "x": 0, "y": 4, "w": 4, "h": 2 },
+          { "i": "sv-delivery", "x": 4, "y": 4, "w": 4, "h": 3 },
+          { "i": "sv-revenue", "x": 8, "y": 4, "w": 4, "h": 3 }
+        ]
+      },
+      {
+        "id": "page-gauge",
+        "title": "5. Gauge",
+        "widgets": [
+          {
+            "id": "gauge-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Gauge\n\nGauges already support threshold zones via `chartOptions.thresholdZones`, but styling rules let you drive the needle color from the same rule engine used elsewhere.\n\n**Rules shown:**\n- `value >= 25` → green\n- `value >= 15` → amber\n- `value < 15` → red"
+              }
+            }
+          },
+          {
+            "id": "gauge-chart",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Delivery rate — colored by threshold",
+              "chartOptions": {
+                "min": 0,
+                "max": 100
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "g-r1",
+                    "operator": ">=",
+                    "value": 25,
+                    "color": "#22c55e",
+                    "target": "color"
+                  },
+                  {
+                    "id": "g-r2",
+                    "operator": ">=",
+                    "value": 15,
+                    "color": "#f59e0b",
+                    "target": "color"
+                  },
+                  {
+                    "id": "g-r3",
+                    "operator": "<",
+                    "value": 15,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "gauge-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "gauge-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-sunburst",
+        "title": "6. Sunburst",
+        "widgets": [
+          {
+            "id": "sb-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Sunburst\n\nRules color each slice based on its value. Use `between` for band-style ranges.\n\n**Rules shown:**\n- `value >= 10000` → blue\n- `value between 2000–10000` → amber\n- `value < 2000` → red"
+              }
+            }
+          },
+          {
+            "id": "sb-chart",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
+            "settings": {
+              "title": "Top 30 products — colored by revenue band",
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "sb-r1",
+                    "operator": ">=",
+                    "value": 10000,
+                    "color": "#2563eb",
+                    "target": "color"
+                  },
+                  {
+                    "id": "sb-r2",
+                    "operator": "between",
+                    "value": 2000,
+                    "valueTo": 10000,
+                    "color": "#f59e0b",
+                    "target": "color"
+                  },
+                  {
+                    "id": "sb-r3",
+                    "operator": "<",
+                    "value": 2000,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "sb-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "sb-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-treemap",
+        "title": "7. Treemap",
+        "widgets": [
+          {
+            "id": "tm-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Treemap\n\nRectangles colored by value. Good for spotting outliers in a long-tail dataset.\n\n**Rules shown:**\n- `value >= 10000` → green\n- `value <  10000` → grey"
+              }
+            }
+          },
+          {
+            "id": "tm-chart",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
+            "settings": {
+              "title": "Top 30 products — outliers in green",
+              "chartOptions": {
+                "showLabels": true,
+                "showValues": true
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "tm-r1",
+                    "operator": ">=",
+                    "value": 10000,
+                    "color": "#22c55e",
+                    "target": "color"
+                  },
+                  {
+                    "id": "tm-r2",
+                    "operator": "<",
+                    "value": 10000,
+                    "color": "#94a3b8",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "tm-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "tm-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-radar",
+        "title": "8. Radar",
+        "widgets": [
+          {
+            "id": "rd-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Radar\n\nRules color the radar polygon based on the average value across its indicators.\n\n**Rules shown:**\n- `avg >= 500` → blue\n- `avg <  500` → grey"
+              }
+            }
+          },
+          {
+            "id": "rd-chart",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'regions', COUNT(*)::float FROM neoboard_demo_public.regions",
+            "settings": {
+              "title": "Dataset magnitudes — styled by average",
+              "chartOptions": {
+                "shape": "polygon",
+                "filled": true,
+                "showLegend": true
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "rd-r1",
+                    "operator": ">=",
+                    "value": 500,
+                    "color": "#2563eb",
+                    "target": "color"
+                  },
+                  {
+                    "id": "rd-r2",
+                    "operator": "<",
+                    "value": 500,
+                    "color": "#94a3b8",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "rd-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "rd-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-table",
+        "title": "9. Table",
+        "widgets": [
+          {
+            "id": "tbl-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Styling rules — Table\n\nTables are the richest styling target. Each rule can scope to a specific column (`column: 'margin'`) and use any of the three targets: `color`, `backgroundColor`, `textColor`. Multiple rules can stack on the same row.\n\n**Rules shown:**\n- `margin > 100` on column `margin` → green text + bold\n- `margin <= 0`  on column `margin` → red backgroundColor\n- `product contains 'Ultra'` on column `product` → indigo textColor"
+              }
+            }
+          },
+          {
+            "id": "tbl-widget",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS product, p.price::float AS price, p.cost::float AS cost, (p.price - p.cost)::float AS margin FROM neoboard_demo_public.products p ORDER BY margin DESC",
+            "settings": {
+              "title": "Product margins — multi-rule, multi-target",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 15,
+                "enableColumnResizing": true
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "tbl-r1",
+                    "column": "margin",
+                    "operator": ">",
+                    "value": 100,
+                    "color": "#16a34a",
+                    "target": "color",
+                    "bold": true
+                  },
+                  {
+                    "id": "tbl-r2",
+                    "column": "margin",
+                    "operator": "<=",
+                    "value": 0,
+                    "color": "#fee2e2",
+                    "target": "backgroundColor"
+                  },
+                  {
+                    "id": "tbl-r3",
+                    "column": "product",
+                    "operator": "contains",
+                    "value": "Ultra",
+                    "color": "#4f46e5",
+                    "target": "textColor"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "tbl-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "tbl-widget", "x": 0, "y": 4, "w": 12, "h": 8 }
+        ]
       }
     ]
   }
