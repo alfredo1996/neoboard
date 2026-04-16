@@ -38,11 +38,30 @@ npm run dev         # http://localhost:3000
 
 Create your first admin at `/signup` using the bootstrap token printed during setup.
 
-Want pre-loaded demo dashboards instead?
+### Demo showcases
+
+Want pre-loaded dashboards that demo every chart type, every click-action, every transform, and rule-based styling? Use the `neoboard demo` CLI:
 
 ```bash
-scripts/setup-local-demo.sh   # Everything above + demo user, connectors, dashboards
+neoboard demo                                 # full setup + seed everything
+neoboard demo seed                            # reseed showcases only
+neoboard demo seed --only=chart-gallery       # reseed a subset
+neoboard demo list                            # print available showcases
+neoboard demo reset --force                   # purge showcase dashboards + demo schema
 ```
+
+Four showcase dashboards get seeded:
+
+| Showcase           | Pages | What it demonstrates                                                                       |
+| ------------------ | ----- | ------------------------------------------------------------------------------------------ |
+| Chart Gallery      | 17    | One page per registered chart type on the demo e-commerce data                             |
+| Click Actions      | 5     | Drilldown, page navigation, and combined set-parameter-and-navigate                        |
+| Transformations    | 6     | Before/after for `filter`, `sort`, `groupBy`, `calculatedColumn`, `renameColumns`, `limit` |
+| Rule-Based Styling | 9     | Numeric, text, between-operator, and parameter-reference rules across chart types          |
+
+The showcases live as portable JSON files under `scripts/demo/*.json` validated against `neoboardExportSchema` — you can import them on any NeoBoard instance.
+
+The demo e-commerce data (customers, products, categories, orders, order_items, regions) is isolated in the `neoboard_demo_public` Postgres schema so `neoboard demo reset` can drop it without touching your own tables.
 
 Demo login: `admin@neoboard.local` / `admin123`
 
