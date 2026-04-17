@@ -20,7 +20,8 @@ import { createHmac } from "node:crypto";
  * un-anonymize, and they would need access to it to do so).
  */
 
-const HMAC_SECRET = "neoboard-log-anonymizer-v1";
+const HMAC_SECRET =
+  process.env.LOG_ANONYMIZE_SECRET ?? "neoboard-log-anonymizer-v1";
 const HASH_PREFIX = "sha256:";
 const REDACTED = "[REDACTED]";
 
