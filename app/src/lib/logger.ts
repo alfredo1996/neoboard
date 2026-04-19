@@ -1,19 +1,25 @@
 import pino from "pino";
 import { anonymizeLogRecord } from "./log-anonymizer";
+import { buildTransport } from "./logger-transports";
 
 /**
  * NeoBoard structured logger.
  *
- * Env-var driven, stdout-only. File transport ships in a follow-up PR
- * (#555); anonymization ships here (#554).
+ * Env-var driven. Default: synchronous JSON to stdout — hot path, zero
+ * overhead, 12-factor friendly. Everything else (file output, rotation,
+ * pretty formatting, anonymization) is opt-in via env vars.
  *
  * Usage:
  *   import { logger, queryLogger, authLogger } from "@/lib/logger";
  *   queryLogger.info({ event: "query_executed", durationMs, ... }, "query_executed");
  *
  * Env vars:
- *   LOG_LEVEL      — error | warn | info | debug (default: info)
- *   LOG_FORMAT     — json | pretty (default: json)
+ *   LOG_LEVEL      — error | warn | info | debug   (default: info)
+ *   LOG_FORMAT     — json | pretty                 (default: json)
+ *   LOG_OUTPUT     — stdout | file | both          (default: stdout)
+ *   LOG_FILE_PATH  — file destination              (default: ./logs/neoboard.log)
+ *   LOG_MAX_SIZE   — rotation threshold            (default: 50M)
+ *   LOG_MAX_FILES  — retained rotated files        (default: 7)
  *   LOG_ANONYMIZE  — true | false  (default: false) — when true, every
  *                    log call is routed through the anonymizer which
  *                    hashes userId/email, redacts params/tokens, and
@@ -24,7 +30,6 @@ import { anonymizeLogRecord } from "./log-anonymizer";
  */
 
 const LOG_LEVEL = process.env.LOG_LEVEL?.toLowerCase() || "info";
-const LOG_FORMAT = process.env.LOG_FORMAT?.toLowerCase() || "json";
 const LOG_ANONYMIZE = process.env.LOG_ANONYMIZE?.toLowerCase() === "true";
 
 function normaliseLevel(level: string): pino.Level {
@@ -46,9 +51,6 @@ function buildOptions(): pino.LoggerOptions {
       service: "neoboard",
       env: process.env.NODE_ENV ?? "development",
     },
-    // Redact paths that accidentally hold credentials or tokens. Defense
-    // in depth — core code should never log these, but if it does, pino
-    // will mask the value before hitting stdout.
     redact: {
       paths: [
         "password",
@@ -64,10 +66,6 @@ function buildOptions(): pino.LoggerOptions {
       ],
       censor: "[REDACTED]",
     },
-    // When LOG_ANONYMIZE=true, intercept every log call and run the
-    // anonymizer over the structured object before pino processes it.
-    // Disabled (hook omitted entirely) by default so there is zero
-    // overhead on the hot path when anonymization is off.
     ...(LOG_ANONYMIZE && {
       hooks: {
         logMethod(args: Parameters<pino.LogFn>, method: pino.LogFn): void {
@@ -81,21 +79,9 @@ function buildOptions(): pino.LoggerOptions {
     }),
   };
 
-  if (LOG_FORMAT === "pretty") {
-    // pino-pretty is a devDependency — only required when LOG_FORMAT=pretty
-    // is set, which is a dev-only setting. Production (LOG_FORMAT=json)
-    // never imports it.
-    return {
-      ...base,
-      transport: {
-        target: "pino-pretty",
-        options: {
-          colorize: true,
-          ignore: "pid,hostname,service,env",
-          translateTime: "HH:MM:ss.l",
-        },
-      },
-    };
+  const transport = buildTransport();
+  if (transport) {
+    base.transport = transport;
   }
 
   return base;
