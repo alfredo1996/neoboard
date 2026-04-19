@@ -384,6 +384,72 @@ describe("importShowcase", () => {
     await assert.rejects(run(doc), /unknown transform type "pivot"/);
   });
 
+  it("passes null description when dashboard.description is undefined", async () => {
+    const doc = minimalValidExport();
+    delete doc.dashboard.description;
+    const { calls } = await run(doc);
+    assert.equal(calls[0].description, null);
+  });
+
+  it("passes explicit description when present", async () => {
+    const doc = minimalValidExport({
+      dashboard: { name: "Test", description: "My dash" },
+    });
+    const { calls } = await run(doc);
+    assert.equal(calls[0].description, "My dash");
+  });
+
+  it("validates clickAction on widget root (not just settings)", async () => {
+    const doc = minimalValidExport({
+      layout: {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Page 1",
+            widgets: [
+              {
+                id: "w1",
+                chartType: "bar",
+                connectionId: "conn_a",
+                query: "SELECT 1",
+                clickAction: { type: "bad-action" },
+              },
+            ],
+            gridLayout: [],
+          },
+        ],
+      },
+    });
+    await assert.rejects(run(doc), /unknown clickAction\.type "bad-action"/);
+  });
+
+  it("handles widgets with no transforms gracefully", async () => {
+    const doc = minimalValidExport({
+      layout: {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Page 1",
+            widgets: [
+              {
+                id: "w1",
+                chartType: "bar",
+                connectionId: "conn_a",
+                query: "SELECT 1",
+                settings: {},
+              },
+            ],
+            gridLayout: [],
+          },
+        ],
+      },
+    });
+    const { id } = await run(doc);
+    assert.equal(id, "dash-id");
+  });
+
   it("wraps JSON parse errors with the file path", async () => {
     const tmpPath = resolve(
       __dirname,

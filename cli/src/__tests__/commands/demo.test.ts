@@ -71,6 +71,7 @@ import { runDbSeed } from "../../commands/db/seed.js";
 import { banner, error as logError, info } from "../../lib/output.js";
 import { run as execRun } from "../../lib/exec.js";
 import { confirm } from "../../lib/prompt.js";
+import { getMode } from "../../lib/config.js";
 import {
   runDemo,
   runDemoSeed,
@@ -84,6 +85,7 @@ const mockExecRun = vi.mocked(execRun);
 const mockConfirm = vi.mocked(confirm);
 const mockLogError = vi.mocked(logError);
 const mockInfo = vi.mocked(info);
+const mockGetMode = vi.mocked(getMode);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -200,5 +202,42 @@ describe("runDemoReset", () => {
       expect.stringContaining("--reset"),
       expect.any(Object),
     );
+  });
+
+  it("propagates errors from the seed script", async () => {
+    mockExecRun.mockImplementationOnce(() => {
+      throw new Error("script crashed");
+    });
+    await expect(runDemoReset({ force: true })).rejects.toThrow(
+      "script crashed",
+    );
+  });
+});
+
+describe("dockerEnv (via runDemoSeed)", () => {
+  it("passes docker host env vars when mode is docker", async () => {
+    mockGetMode.mockReturnValue("docker");
+    await runDemoSeed();
+    const callEnv = mockExecRun.mock.calls[0]?.[1]?.env;
+    expect(callEnv).toMatchObject({
+      NEO4J_HOST: "neoboard-neo4j",
+      PG_HOST: "neoboard-postgres",
+    });
+  });
+
+  it("uses process.env when mode is local", async () => {
+    mockGetMode.mockReturnValue("local");
+    await runDemoSeed();
+    const callEnv = mockExecRun.mock.calls[0]?.[1]?.env;
+    expect(callEnv).toBe(process.env);
+  });
+});
+
+describe("runDemoSeed error paths", () => {
+  it("propagates errors from the seed script", async () => {
+    mockExecRun.mockImplementationOnce(() => {
+      throw new Error("seed crashed");
+    });
+    await expect(runDemoSeed()).rejects.toThrow("seed crashed");
   });
 });

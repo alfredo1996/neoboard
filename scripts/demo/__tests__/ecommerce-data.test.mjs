@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   generateAll,
+  insertAll,
   COUNTS,
 } from "../ecommerce-data.mjs";
 
@@ -134,6 +135,102 @@ describe("ecommerce-data.mjs — seeded faker", () => {
       const key = `${oi.order_id}:${oi.product_id}`;
       assert.ok(!seen.has(key), `duplicate order_item ${key}`);
       seen.add(key);
+    }
+  });
+
+  it("customers have valid email format", () => {
+    const { customers } = generateAll();
+    for (const c of customers) {
+      assert.match(c.email, /@example\.com$/);
+      assert.ok(c.email.includes("."), `email ${c.email} missing dot`);
+    }
+  });
+
+  it("product price >= cost (positive margin)", () => {
+    const { products } = generateAll();
+    for (const p of products) {
+      assert.ok(
+        p.price >= p.cost,
+        `product ${p.id} price ${p.price} < cost ${p.cost}`,
+      );
+    }
+  });
+
+  it("customers have lat/lng near their city", () => {
+    const { customers } = generateAll();
+    for (const c of customers) {
+      assert.ok(typeof c.lat === "number" && !isNaN(c.lat));
+      assert.ok(typeof c.lng === "number" && !isNaN(c.lng));
+      assert.ok(c.lat >= -90 && c.lat <= 90);
+      assert.ok(c.lng >= -180 && c.lng <= 180);
+    }
+  });
+});
+
+describe("insertAll — mock SQL client", () => {
+  function makeMockSql() {
+    const queries = [];
+    const sql = (strings, ...values) => {
+      queries.push({ sql: strings.join("?"), values });
+      return Promise.resolve();
+    };
+    return { sql, queries };
+  }
+
+  it("inserts all tables in FK-safe order", async () => {
+    const data = generateAll();
+    const { sql, queries } = makeMockSql();
+    await insertAll(sql, data);
+
+    const sqlTexts = queries.map((q) => q.sql);
+    const setSearchPath = sqlTexts.findIndex((s) => s.includes("SET search_path TO neoboard_demo_public"));
+    const regionsStart = sqlTexts.findIndex((s) => s.includes("INSERT INTO regions"));
+    const categoriesStart = sqlTexts.findIndex((s) => s.includes("INSERT INTO categories"));
+    const customersStart = sqlTexts.findIndex((s) => s.includes("INSERT INTO customers"));
+    const productsStart = sqlTexts.findIndex((s) => s.includes("INSERT INTO products"));
+    const ordersStart = sqlTexts.findIndex((s) => s.includes("INSERT INTO orders") && !s.includes("order_items"));
+    const orderItemsStart = sqlTexts.findIndex((s) => s.includes("INSERT INTO order_items"));
+    const resetPath = sqlTexts.findIndex((s) => s.includes("SET search_path TO public"));
+
+    assert.ok(setSearchPath === 0, "search_path set first");
+    assert.ok(regionsStart < categoriesStart, "regions before categories");
+    assert.ok(categoriesStart < customersStart, "categories before customers");
+    assert.ok(customersStart < productsStart, "customers before products");
+    assert.ok(productsStart < ordersStart, "products before orders");
+    assert.ok(ordersStart < orderItemsStart, "orders before order_items");
+    assert.ok(resetPath === queries.length - 1, "search_path reset last");
+  });
+
+  it("inserts correct number of rows per table", async () => {
+    const data = generateAll();
+    const { sql, queries } = makeMockSql();
+    await insertAll(sql, data);
+
+    const count = (table) =>
+      queries.filter((q) => {
+        const pattern = `INSERT INTO ${table} `;
+        return q.sql.includes(pattern);
+      }).length;
+
+    assert.equal(count("regions"), COUNTS.regions);
+    assert.equal(count("categories"), COUNTS.categories);
+    assert.equal(count("customers"), COUNTS.customers);
+    assert.equal(count("products"), COUNTS.products);
+    assert.equal(count("orders"), COUNTS.orders);
+    assert.ok(count("order_items") > 0);
+  });
+
+  it("inserts parent categories before children", async () => {
+    const data = generateAll();
+    const { sql, queries } = makeMockSql();
+    await insertAll(sql, data);
+
+    const catInserts = queries.filter((q) =>
+      q.sql.includes("INSERT INTO categories"),
+    );
+    const parentCount = data.categories.filter((c) => c.parent_id === null).length;
+    for (let i = 0; i < parentCount; i++) {
+      assert.equal(catInserts[i].values[2], null, `category ${i} should be a parent`);
     }
   });
 });
