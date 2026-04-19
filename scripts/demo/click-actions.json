@@ -1,0 +1,290 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Click Actions",
+    "description": "Three click-action types demonstrated end-to-end on the e-commerce dataset."
+  },
+  "connections": {
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-1-set-param",
+        "title": "1. Drilldown (set-parameter)",
+        "widgets": [
+          {
+            "id": "w1-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Click action: `set-parameter`\n\nClicking a bar below sets the `$category` parameter. The table on the right re-runs its query against the new value. Use the dropdown to pick a starting value before you click.\n\n**Try it:** click **Electronics** in the bar chart — the table refreshes to show only electronics products."
+              }
+            }
+          },
+          {
+            "id": "w1-param",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Category",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "category",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.categories WHERE parent_id IS NULL ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "w1-bar",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC",
+            "settings": {
+              "title": "Revenue by top-level category — click a bar",
+              "chartOptions": {
+                "colorPalette": "deep-ocean",
+                "showValues": true
+              },
+              "clickAction": {
+                "type": "set-parameter",
+                "rules": [
+                  {
+                    "id": "rule-1a",
+                    "type": "set-parameter",
+                    "parameterMapping": {
+                      "parameterName": "category",
+                      "sourceField": "name"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "w1-table",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS product, p.price, p.cost, (p.price - p.cost)::float AS margin FROM neoboard_demo_public.products p JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id WHERE parent.name = $param_category ORDER BY p.price DESC",
+            "settings": {
+              "title": "Products in $param_category",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "w1-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "w1-param", "x": 0, "y": 3, "w": 4, "h": 2 },
+          { "i": "w1-bar", "x": 0, "y": 5, "w": 6, "h": 5 },
+          { "i": "w1-table", "x": 6, "y": 5, "w": 6, "h": 5 }
+        ]
+      },
+      {
+        "id": "page-2-nav",
+        "title": "2. Jump to page (navigate-to-page)",
+        "widgets": [
+          {
+            "id": "w2-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Click action: `navigate-to-page`\n\nClicking a slice on the pie chart navigates to the **Order Status Detail** page in this same dashboard. Pure routing — no data is carried over, so the destination page does its own query.\n\n**Try it:** click any slice."
+              }
+            }
+          },
+          {
+            "id": "w2-pie",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*) AS count FROM neoboard_demo_public.orders GROUP BY status ORDER BY count DESC",
+            "settings": {
+              "title": "Orders by status — click a slice to open detail page",
+              "chartOptions": {
+                "colorPalette": "tableau",
+                "donut": true,
+                "showLegend": true
+              },
+              "clickAction": {
+                "type": "navigate-to-page",
+                "rules": [
+                  {
+                    "id": "rule-2a",
+                    "type": "navigate-to-page",
+                    "targetPageId": "page-2b-detail"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "w2-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "w2-pie", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-2b-detail",
+        "title": "2b. Order Status Detail",
+        "widgets": [
+          {
+            "id": "w2b-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Order Status Detail\n\nYou arrived here via the pie-chart click on the previous page. This destination runs its own query — `navigate-to-page` does not carry parameter values from the source.\n\nThe table below shows a sample of recent orders across all statuses."
+              }
+            }
+          },
+          {
+            "id": "w2b-table",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 50",
+            "settings": {
+              "title": "50 most recent orders",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "w2b-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "w2b-table", "x": 0, "y": 3, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-3-set-and-nav",
+        "title": "3. Filter + Jump (set-parameter-and-navigate)",
+        "widgets": [
+          {
+            "id": "w3-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Click action: `set-parameter-and-navigate`\n\nClicking a region bar **both** sets the `$region` parameter **and** navigates to the **Region Drilldown** page in one step. The destination picks up the new parameter value and shows filtered data.\n\n**Try it:** click any region bar."
+              }
+            }
+          },
+          {
+            "id": "w3-bar",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS region, SUM(o.total)::float AS revenue FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name ORDER BY revenue DESC",
+            "settings": {
+              "title": "Revenue by region — click to filter + jump",
+              "chartOptions": {
+                "colorPalette": "observable",
+                "orientation": "horizontal",
+                "showValues": true
+              },
+              "clickAction": {
+                "type": "set-parameter-and-navigate",
+                "rules": [
+                  {
+                    "id": "rule-3a",
+                    "type": "set-parameter-and-navigate",
+                    "parameterMapping": {
+                      "parameterName": "region",
+                      "sourceField": "name"
+                    },
+                    "targetPageId": "page-3b-drilldown"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "w3-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "w3-bar", "x": 0, "y": 3, "w": 12, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-3b-drilldown",
+        "title": "3b. Region Drilldown",
+        "widgets": [
+          {
+            "id": "w3b-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Region Drilldown — $param_region\n\nYou arrived here via a `set-parameter-and-navigate` click. The `$region` parameter was set from the clicked bar's label, and this page's widgets now filter on it."
+              }
+            }
+          },
+          {
+            "id": "w3b-param",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Region",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "region",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "w3b-kpi",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(o.total)::float AS revenue FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_region",
+            "settings": {
+              "title": "Revenue in $param_region"
+            }
+          },
+          {
+            "id": "w3b-table",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, c.email, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_region GROUP BY c.id, c.name, c.city, c.email ORDER BY total_spend DESC",
+            "settings": {
+              "title": "Customers in $param_region",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "w3b-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "w3b-param", "x": 0, "y": 3, "w": 4, "h": 2 },
+          { "i": "w3b-kpi", "x": 4, "y": 3, "w": 4, "h": 2 },
+          { "i": "w3b-table", "x": 0, "y": 5, "w": 12, "h": 6 }
+        ]
+      }
+    ]
+  }
+}

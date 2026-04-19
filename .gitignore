@@ -60,6 +60,7 @@ app/coverage-e2e/
 .screenshots/after/
 .screenshots/diff/
 .playwright-mcp
+.playwright-cli/
 
 # Claude Code (all local-only)
 claude_code_docs/

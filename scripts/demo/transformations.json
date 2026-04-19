@@ -1,0 +1,373 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Transformations",
+    "description": "Before/after side-by-side for each supported transform: filter, sort, groupBy, calculatedColumn, renameColumns, limit."
+  },
+  "connections": {
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-filter",
+        "title": "1. filter",
+        "widgets": [
+          {
+            "id": "f-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Transform: `filter`\n\nDrops rows that don't match an operator/value (or parameter-driven value). The raw query returns everything; the transformed widget applies the predicate client-side.\n\n**Config shown:** `{ type: 'filter', column: 'total', operator: '>=', value: 300 }`\n\n**Operators supported:** `=`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `not_contains`, `starts_with`, `ends_with`, `is_null`, `is_not_null`, `between`."
+              }
+            }
+          },
+          {
+            "id": "f-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, c.name AS customer FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.id LIMIT 100",
+            "settings": {
+              "title": "Raw — no transform (100 rows)",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              }
+            }
+          },
+          {
+            "id": "f-transformed",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, c.name AS customer FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.id LIMIT 100",
+            "settings": {
+              "title": "After filter: total ≥ 300",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              },
+              "transforms": [
+                {
+                  "type": "filter",
+                  "column": "total",
+                  "operator": ">=",
+                  "value": 300
+                }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "f-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "f-raw", "x": 0, "y": 4, "w": 6, "h": 6 },
+          { "i": "f-transformed", "x": 6, "y": 4, "w": 6, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-sort",
+        "title": "2. sort",
+        "widgets": [
+          {
+            "id": "s-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Transform: `sort`\n\nReorders rows by a column, `asc` or `desc`. Useful when the widget's chart type cares about row order (line charts, stacked bars) and you don't want to rely on the query's `ORDER BY`.\n\n**Config shown:** `{ type: 'sort', column: 'total_spend', direction: 'desc' }`"
+              }
+            }
+          },
+          {
+            "id": "s-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name, c.city",
+            "settings": {
+              "title": "Raw — no transform",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              }
+            }
+          },
+          {
+            "id": "s-transformed",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name, c.city",
+            "settings": {
+              "title": "After sort: total_spend desc",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              },
+              "transforms": [
+                { "type": "sort", "column": "total_spend", "direction": "desc" }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "s-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "s-raw", "x": 0, "y": 3, "w": 6, "h": 6 },
+          { "i": "s-transformed", "x": 6, "y": 3, "w": 6, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-groupby",
+        "title": "3. groupBy",
+        "widgets": [
+          {
+            "id": "g-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Transform: `groupBy`\n\nGroups rows by a column and applies aggregations. Lets you aggregate client-side without rewriting the query — useful when the raw data feeds multiple widgets that want different aggregations.\n\n**Config shown:**\n\n```json\n{\n  \"type\": \"groupBy\",\n  \"column\": \"status\",\n  \"aggregations\": [\n    { \"column\": \"id\", \"fn\": \"count\" },\n    { \"column\": \"total\", \"fn\": \"sum\" },\n    { \"column\": \"total\", \"fn\": \"avg\" },\n    { \"column\": \"total\", \"fn\": \"min\" },\n    { \"column\": \"total\", \"fn\": \"max\" }\n  ]\n}\n```\n\n**Aggregation functions:** `count`, `sum`, `avg`, `min`, `max`."
+              }
+            }
+          },
+          {
+            "id": "g-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT id, status, total::float AS total FROM neoboard_demo_public.orders ORDER BY id LIMIT 200",
+            "settings": {
+              "title": "Raw — 200 order rows",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              }
+            }
+          },
+          {
+            "id": "g-transformed",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT id, status, total::float AS total FROM neoboard_demo_public.orders ORDER BY id LIMIT 200",
+            "settings": {
+              "title": "After groupBy status — count + sum/avg/min/max of total",
+              "chartOptions": {
+                "enableSorting": true
+              },
+              "transforms": [
+                {
+                  "type": "groupBy",
+                  "column": "status",
+                  "aggregations": [
+                    { "column": "id", "fn": "count" },
+                    { "column": "total", "fn": "sum" },
+                    { "column": "total", "fn": "avg" },
+                    { "column": "total", "fn": "min" },
+                    { "column": "total", "fn": "max" }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "g-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "g-raw", "x": 0, "y": 4, "w": 6, "h": 6 },
+          { "i": "g-transformed", "x": 6, "y": 4, "w": 6, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-calculatedColumn",
+        "title": "4. calculatedColumn",
+        "widgets": [
+          {
+            "id": "c-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Transform: `calculatedColumn`\n\nAdds a new column computed from an expression over existing columns. Avoids re-running the query when a derived metric is needed.\n\n**Config shown:** `{ type: 'calculatedColumn', name: 'margin', expression: 'price - cost' }`\n\nExpressions support numeric operators (`+`, `-`, `*`, `/`) and reference column names directly."
+              }
+            }
+          },
+          {
+            "id": "c-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.id, p.name AS product, p.price::float AS price, p.cost::float AS cost FROM neoboard_demo_public.products p ORDER BY p.price DESC",
+            "settings": {
+              "title": "Raw — name, price, cost",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              }
+            }
+          },
+          {
+            "id": "c-transformed",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.id, p.name AS product, p.price::float AS price, p.cost::float AS cost FROM neoboard_demo_public.products p ORDER BY p.price DESC",
+            "settings": {
+              "title": "After calculatedColumn: margin = price − cost",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              },
+              "transforms": [
+                {
+                  "type": "calculatedColumn",
+                  "name": "margin",
+                  "expression": "price - cost"
+                }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "c-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "c-raw", "x": 0, "y": 3, "w": 6, "h": 6 },
+          { "i": "c-transformed", "x": 6, "y": 3, "w": 6, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-renameColumns",
+        "title": "5. renameColumns",
+        "widgets": [
+          {
+            "id": "r-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Transform: `renameColumns`\n\nRenames columns without rewriting the query. Useful for humanizing technical column names in tables, or aligning column names to what a chart type expects (`name` / `value` for pie, `source` / `target` / `value` for sankey).\n\n**Config shown:** `{ type: 'renameColumns', mapping: { name: 'Product', price: 'Price ($)', cost: 'Cost ($)' } }`"
+              }
+            }
+          },
+          {
+            "id": "r-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name, p.price::float AS price, p.cost::float AS cost FROM neoboard_demo_public.products p ORDER BY p.price DESC LIMIT 30",
+            "settings": {
+              "title": "Raw — name, price, cost",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              }
+            }
+          },
+          {
+            "id": "r-transformed",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name, p.price::float AS price, p.cost::float AS cost FROM neoboard_demo_public.products p ORDER BY p.price DESC LIMIT 30",
+            "settings": {
+              "title": "After renameColumns",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              },
+              "transforms": [
+                {
+                  "type": "renameColumns",
+                  "mapping": {
+                    "name": "Product",
+                    "price": "Price ($)",
+                    "cost": "Cost ($)"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "r-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "r-raw", "x": 0, "y": 3, "w": 6, "h": 6 },
+          { "i": "r-transformed", "x": 6, "y": 3, "w": 6, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-limit",
+        "title": "6. limit",
+        "widgets": [
+          {
+            "id": "l-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Transform: `limit`\n\nCaps the row count post-query. Most commonly chained **after** `sort` so you get \"top N by …\".\n\n**Config shown:**\n\n```json\n{ \"transforms\": [\n  { \"type\": \"sort\",  \"column\": \"total_spend\", \"direction\": \"desc\" },\n  { \"type\": \"limit\", \"count\": 5 }\n]}\n```"
+              }
+            }
+          },
+          {
+            "id": "l-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name",
+            "settings": {
+              "title": "Raw — all customers with orders",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 8
+              }
+            }
+          },
+          {
+            "id": "l-transformed",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name",
+            "settings": {
+              "title": "After sort desc + limit 5 — top 5 spenders",
+              "chartOptions": {
+                "colorPalette": "deep-ocean",
+                "orientation": "horizontal",
+                "showValues": true,
+                "showLegend": false
+              },
+              "transforms": [
+                {
+                  "type": "sort",
+                  "column": "total_spend",
+                  "direction": "desc"
+                },
+                { "type": "limit", "count": 5 }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "l-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "l-raw", "x": 0, "y": 3, "w": 6, "h": 6 },
+          { "i": "l-transformed", "x": 6, "y": 3, "w": 6, "h": 6 }
+        ]
+      }
+    ]
+  }
+}

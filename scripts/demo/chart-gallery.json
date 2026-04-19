@@ -1,0 +1,714 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "dashboard": {
+    "name": "Chart Gallery",
+    "description": "One page per registered chart type — showcases every widget NeoBoard supports on the demo e-commerce and movies datasets."
+  },
+  "connections": {
+    "conn_neo4j": {
+      "name": "Neo4j Movies (demo)",
+      "type": "neo4j"
+    },
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    },
+    "conn_postgres_write": {
+      "name": "PostgreSQL Ecommerce (demo, write)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-bar",
+        "title": "1. Bar",
+        "widgets": [
+          {
+            "id": "bar-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Bar chart\n\nCategorical comparison. Use for **revenue by category**, **orders by region**, or any dimension-vs-metric breakdown.\n\n**Options shown:** `colorPalette: deep-ocean`, `showValues: true`, `showLegend: false`, `orientation: vertical`."
+              }
+            }
+          },
+          {
+            "id": "bar-chart",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC",
+            "settings": {
+              "title": "Revenue by top-level category",
+              "chartOptions": {
+                "colorPalette": "deep-ocean",
+                "showValues": true,
+                "showLegend": false,
+                "orientation": "vertical"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "bar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "bar-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-line",
+        "title": "2. Line",
+        "widgets": [
+          {
+            "id": "line-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Line chart\n\nTime-series trends. Use for **revenue over time**, **MAU curves**, any continuous sequence.\n\n**Options shown:** `smooth: true`, `area: true`, `showLegend: true`."
+              }
+            }
+          },
+          {
+            "id": "line-chart",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1",
+            "settings": {
+              "title": "Weekly revenue trend",
+              "chartOptions": {
+                "smooth": true,
+                "area": true,
+                "showLegend": true,
+                "colorPalette": "observable"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "line-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "line-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-pie",
+        "title": "3. Pie / Donut",
+        "widgets": [
+          {
+            "id": "pie-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Pie / donut chart\n\nPart-of-whole composition. Best when you have **5 or fewer slices** with meaningful proportions.\n\n**Options shown:** `donut: true`, `showLegend: true`, `labelPosition: outside`."
+              }
+            }
+          },
+          {
+            "id": "pie-chart",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "Orders by status",
+              "chartOptions": {
+                "donut": true,
+                "showLegend": true,
+                "labelPosition": "outside",
+                "colorPalette": "tableau"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "pie-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "pie-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-table",
+        "title": "4. Table",
+        "widgets": [
+          {
+            "id": "table-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Table\n\nRow-level detail with sorting, pagination, and column controls. The workhorse for drilldown data.\n\n**Options shown:** `enableSorting: true`, `enablePagination: true`, `pageSize: 10`, `enableColumnResizing: true`."
+              }
+            }
+          },
+          {
+            "id": "table-widget",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 50",
+            "settings": {
+              "title": "Top 50 customers by total spend",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10,
+                "enableColumnResizing": true
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "table-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "table-widget", "x": 0, "y": 3, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-single-value",
+        "title": "5. Single Value (KPI)",
+        "widgets": [
+          {
+            "id": "sv-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Single-value KPI\n\nHero number for a dashboard header — total revenue, active users, SLA percentage. Supports prefix/suffix and number formatting.\n\n**Options shown:** `prefix: $`, `numberFormat: compact`, `decimalPlaces: 1`, `fontSize: xl`."
+              }
+            }
+          },
+          {
+            "id": "sv-revenue",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Total revenue",
+              "chartOptions": {
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "sv-orders",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT COUNT(*)::int AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Total orders",
+              "chartOptions": {
+                "numberFormat": "comma",
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "sv-customers",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT COUNT(*)::int AS value FROM neoboard_demo_public.customers",
+            "settings": {
+              "title": "Active customers",
+              "chartOptions": {
+                "numberFormat": "comma",
+                "fontSize": "xl"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "sv-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "sv-revenue", "x": 0, "y": 3, "w": 4, "h": 3 },
+          { "i": "sv-orders", "x": 4, "y": 3, "w": 4, "h": 3 },
+          { "i": "sv-customers", "x": 8, "y": 3, "w": 4, "h": 3 }
+        ]
+      },
+      {
+        "id": "page-gauge",
+        "title": "6. Gauge",
+        "widgets": [
+          {
+            "id": "gauge-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Gauge\n\nSingle-value visualized against a scale with optional threshold zones. Use for **% SLA**, **% conversion**, any bounded 0–100 metric.\n\n**Options shown:** `min: 0`, `max: 100`, `showProgress: true`, `showPointer: true`."
+              }
+            }
+          },
+          {
+            "id": "gauge-chart",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Delivery rate",
+              "chartOptions": {
+                "min": 0,
+                "max": 100,
+                "showProgress": true,
+                "showPointer": true,
+                "showDetail": true
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "gauge-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "gauge-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-markdown",
+        "title": "7. Markdown",
+        "widgets": [
+          {
+            "id": "md-explainer",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Markdown widget\n\nStatic content for annotations, explainers, section headers, and inline documentation inside a dashboard. No query required.\n\n### What it supports\n\n- **Headings** H1–H6\n- **Bold**, *italic*, `inline code`\n- Lists, links, and fenced code blocks\n\n```sql\n-- Even code blocks with syntax highlighting\nSELECT COUNT(*) FROM orders WHERE status = 'delivered';\n```\n\n| Feature | Supported |\n|---|---|\n| Tables | Yes |\n| Images | No |\n| HTML | No |"
+              }
+            }
+          }
+        ],
+        "gridLayout": [{ "i": "md-explainer", "x": 0, "y": 0, "w": 12, "h": 9 }]
+      },
+      {
+        "id": "page-iframe",
+        "title": "8. iframe",
+        "widgets": [
+          {
+            "id": "iframe-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## iframe widget\n\nEmbed any external web content inside a dashboard — external docs, BI tools, map services, status pages. Sandboxed by default."
+              }
+            }
+          },
+          {
+            "id": "iframe-widget",
+            "chartType": "iframe",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Data visualization on Wikipedia",
+              "chartOptions": {
+                "url": "https://en.wikipedia.org/wiki/Data_visualization",
+                "iframeTitle": "Wikipedia — Data visualization"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "iframe-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "iframe-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+        ]
+      },
+      {
+        "id": "page-json",
+        "title": "9. JSON",
+        "widgets": [
+          {
+            "id": "json-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## JSON viewer\n\nCollapsible tree view over raw query results. Best for **debugging query shape** or inspecting deeply-nested JSON columns.\n\n**Options shown:** `initialExpanded: 2`."
+              }
+            }
+          },
+          {
+            "id": "json-widget",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 5",
+            "settings": {
+              "title": "Last 5 orders (raw)",
+              "chartOptions": {
+                "initialExpanded": 2
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "json-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "json-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+        ]
+      },
+      {
+        "id": "page-param-select",
+        "title": "10. Parameter Select",
+        "widgets": [
+          {
+            "id": "ps-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Parameter select\n\nDashboard-level filter widget. Sets a `$param_<name>` value that other widgets can reference in their queries. Supports `select`, `text`, `date`, `date-range`, `number-range`, `multi-select`, and `cascading-select`.\n\n**Options shown:** `parameterType: select`, seed query, searchable dropdown."
+              }
+            }
+          },
+          {
+            "id": "ps-widget",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Region",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "gallery_region",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name",
+                "searchable": true,
+                "placeholder": "Pick a region…"
+              }
+            }
+          },
+          {
+            "id": "ps-bound",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(o.total)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_gallery_region",
+            "settings": {
+              "title": "Revenue in $param_gallery_region",
+              "chartOptions": {
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1,
+                "fontSize": "xl"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "ps-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "ps-widget", "x": 0, "y": 3, "w": 6, "h": 3 },
+          { "i": "ps-bound", "x": 6, "y": 3, "w": 6, "h": 3 }
+        ]
+      },
+      {
+        "id": "page-form",
+        "title": "11. Form (write)",
+        "widgets": [
+          {
+            "id": "form-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Form widget\n\nWrite-back form bound to a parameterized INSERT. Requires a **write-enabled connection**. This form writes to `neoboard_demo_public.feedback` on the demo PG connection.\n\n**Fields shown:** `rating` (1–5), `category` (text), `comment` (text)."
+              }
+            }
+          },
+          {
+            "id": "form-widget",
+            "chartType": "form",
+            "connectionId": "conn_postgres_write",
+            "query": "INSERT INTO neoboard_demo_public.feedback (rating, category, comment) VALUES ($param_rating_min::int, $param_category, $param_comment) RETURNING id",
+            "settings": {
+              "title": "Submit feedback",
+              "formFields": [
+                {
+                  "id": "ff-rating",
+                  "label": "Rating (1–5)",
+                  "parameterName": "rating",
+                  "parameterType": "number-range",
+                  "rangeMin": 1,
+                  "rangeMax": 5,
+                  "rangeStep": 1
+                },
+                {
+                  "id": "ff-category",
+                  "label": "Category",
+                  "parameterName": "category",
+                  "parameterType": "text",
+                  "placeholder": "e.g. shipping, ui, support"
+                },
+                {
+                  "id": "ff-comment",
+                  "label": "Comment",
+                  "parameterName": "comment",
+                  "parameterType": "text",
+                  "placeholder": "What went well / what could improve?"
+                }
+              ],
+              "chartOptions": {
+                "submitButtonText": "Submit feedback",
+                "successMessage": "Thanks! Feedback saved.",
+                "resetOnSuccess": true
+              }
+            }
+          },
+          {
+            "id": "form-results",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT id, rating, category, comment, to_char(submitted_at, 'YYYY-MM-DD HH24:MI') AS submitted FROM neoboard_demo_public.feedback ORDER BY submitted_at DESC LIMIT 20",
+            "settings": {
+              "title": "Recent feedback",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "form-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "form-widget", "x": 0, "y": 3, "w": 5, "h": 7 },
+          { "i": "form-results", "x": 5, "y": 3, "w": 7, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-graph",
+        "title": "12. Graph (Neo4j)",
+        "widgets": [
+          {
+            "id": "graph-md",
+            "chartType": "markdown",
+            "connectionId": "conn_neo4j",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Graph widget (NVL)\n\nNative graph visualization over a Neo4j result. Returns nodes and relationships as-is — NVL handles force layout, labels, and interaction.\n\n**Options shown:** `layout: force`, `showLabels: true`. Uses the Neo4j *movies* dataset."
+              }
+            }
+          },
+          {
+            "id": "graph-widget",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 40",
+            "settings": {
+              "title": "Actors and movies (40 relationships)",
+              "chartOptions": {
+                "layout": "force",
+                "showLabels": true
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "graph-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "graph-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+        ]
+      },
+      {
+        "id": "page-map",
+        "title": "13. Map",
+        "widgets": [
+          {
+            "id": "map-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Map (Leaflet)\n\nGeographic visualization with marker clustering and auto-fit bounds. Query must return `lat` and `lng` columns.\n\n**Options shown:** `autoFitBounds: true`, `clusterMarkers: true`."
+              }
+            }
+          },
+          {
+            "id": "map-widget",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers",
+            "settings": {
+              "title": "Customer locations",
+              "chartOptions": {
+                "autoFitBounds": true,
+                "clusterMarkers": true,
+                "zoom": 2
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "map-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "map-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+        ]
+      },
+      {
+        "id": "page-sankey",
+        "title": "14. Sankey",
+        "widgets": [
+          {
+            "id": "sankey-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Sankey diagram\n\nFlow visualization between two (or more) categorical dimensions. Query must return `source`, `target`, `value` columns.\n\n**Options shown:** `orient: horizontal`, `showLabels: true`."
+              }
+            }
+          },
+          {
+            "id": "sankey-chart",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "Region → order status flow",
+              "chartOptions": {
+                "orient": "horizontal",
+                "showLabels": true,
+                "colorPalette": "observable"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "sankey-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "sankey-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-treemap",
+        "title": "15. Treemap",
+        "widgets": [
+          {
+            "id": "treemap-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Treemap\n\nProportional rectangles — each box's area is its value relative to the total. Good for **top-N breakdowns** or hierarchical data.\n\n**Options shown:** `showLabels: true`, `showValues: true`, `colorSaturation: medium`."
+              }
+            }
+          },
+          {
+            "id": "treemap-chart",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
+            "settings": {
+              "title": "Top 30 products by revenue",
+              "chartOptions": {
+                "showLabels": true,
+                "showValues": true,
+                "colorSaturation": "medium",
+                "colorPalette": "deep-ocean"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "treemap-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "treemap-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-sunburst",
+        "title": "16. Sunburst",
+        "widgets": [
+          {
+            "id": "sunburst-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Sunburst\n\nRadial hierarchy. Center ring is the root; outer rings expand detail. Alternative to treemap when you want to emphasize hierarchy over proportions.\n\n**Options shown:** `showLabels: true`, `sort: desc`, `highlightOnHover: true`."
+              }
+            }
+          },
+          {
+            "id": "sunburst-chart",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
+            "settings": {
+              "title": "Top 30 products by revenue",
+              "chartOptions": {
+                "showLabels": true,
+                "sort": "desc",
+                "highlightOnHover": true,
+                "colorPalette": "tableau"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "sunburst-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "sunburst-chart", "x": 2, "y": 3, "w": 8, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-radar",
+        "title": "17. Radar",
+        "widgets": [
+          {
+            "id": "radar-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Radar chart\n\nCompare a small set of entities across 3+ metrics on a radial axis. Best with fewer than 4 series so the polygons remain readable.\n\n**Data shape:** query returns `indicator` + `value` columns. Add a `series` column for multi-entity comparisons.\n\n**Options shown:** `shape: polygon`, `filled: true`, `showLegend: true`."
+              }
+            }
+          },
+          {
+            "id": "radar-chart",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "Dataset magnitudes",
+              "chartOptions": {
+                "shape": "polygon",
+                "filled": true,
+                "showLegend": true,
+                "colorPalette": "deep-ocean"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "radar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "radar-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+        ]
+      }
+    ]
+  }
+}
