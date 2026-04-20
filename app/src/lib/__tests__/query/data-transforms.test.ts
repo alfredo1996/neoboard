@@ -315,6 +315,54 @@ describe("applyTransforms", () => {
       const result = applyTransforms(data, transforms);
       expect(result[0].sum).toBe(13);
     });
+
+    it("handles negative numeric literals", () => {
+      const data = [{ price: 100 }];
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "discounted",
+          expression: "price + -10",
+        },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].discounted).toBe(90);
+    });
+
+    it("handles leading negative literal", () => {
+      const data = [{ x: 5 }];
+      const transforms: Transform[] = [
+        { type: "calculatedColumn", name: "neg", expression: "-1 * x" },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].neg).toBe(-5);
+    });
+
+    it("handles hyphenated column names", () => {
+      const data = [{ "revenue-total": 200, "cost-total": 80 }];
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "profit",
+          expression: "revenue-total - cost-total",
+        },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].profit).toBe(120);
+    });
+
+    it("handles underscored column names with hyphens", () => {
+      const data = [{ "net-revenue": 500 }];
+      const transforms: Transform[] = [
+        {
+          type: "calculatedColumn",
+          name: "half",
+          expression: "net-revenue * 0.5",
+        },
+      ];
+      const result = applyTransforms(data, transforms);
+      expect(result[0].half).toBe(250);
+    });
   });
 
   describe("renameColumns", () => {

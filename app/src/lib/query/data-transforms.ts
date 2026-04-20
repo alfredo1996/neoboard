@@ -228,19 +228,30 @@ function safeEvaluateExpression(
   row: Row,
   paramValues?: Record<string, unknown>,
 ): unknown {
-  // Tokenize: split on operators while keeping them
+  // Tokenize: match column names (may contain hyphens/underscores), numeric
+  // literals (including negatives like -5 or -3.14), parameter refs ($param_*),
+  // and arithmetic operators. Quoted identifiers are not supported.
+  const tokenPattern =
+    /(\$param_\w+|[a-zA-Z_]\w*(?:[-.]\w+)*|-?(?:\d+\.?\d*|\.\d+)|[+\-*/])/g;
+  const rawTokens = expression.match(tokenPattern);
+  if (!rawTokens) return null;
+
+  // Disambiguate: a minus is unary (part of a negative literal) when it
+  // appears at the start or right after another operator.
   const tokens: string[] = [];
-  let current = "";
-  for (const ch of expression) {
-    if ("+-*/".includes(ch) && current.trim()) {
-      tokens.push(current.trim());
-      tokens.push(ch);
-      current = "";
+  for (let i = 0; i < rawTokens.length; i++) {
+    const t = rawTokens[i];
+    if (
+      t === "-" &&
+      (tokens.length === 0 || "+-*/".includes(tokens[tokens.length - 1])) &&
+      i + 1 < rawTokens.length &&
+      /^[\d.]/.test(rawTokens[i + 1])
+    ) {
+      tokens.push("-" + rawTokens[++i]);
     } else {
-      current += ch;
+      tokens.push(t);
     }
   }
-  if (current.trim()) tokens.push(current.trim());
 
   if (tokens.length === 0) return null;
 
