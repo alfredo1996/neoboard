@@ -115,5 +115,5 @@ export function handleRouteError(
     },
     "api_error",
   );
-  return serverError(fallbackMsg);
+  return serverError(sanitizeErrorMessage(message, fallbackMsg));
 }

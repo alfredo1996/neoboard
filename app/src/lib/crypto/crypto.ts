@@ -41,7 +41,13 @@ export function encrypt(plaintext: string): string {
  */
 export function decrypt(encrypted: string): string {
   const key = getKey();
-  const [ivB64, authTagB64, ciphertextB64] = encrypted.split(":");
+  const parts = encrypted.split(":");
+  if (parts.length !== 3) {
+    throw new Error(
+      "Invalid encrypted data format — expected iv:authTag:ciphertext",
+    );
+  }
+  const [ivB64, authTagB64, ciphertextB64] = parts;
 
   const iv = Buffer.from(ivB64, "base64");
   const authTag = Buffer.from(authTagB64, "base64");
