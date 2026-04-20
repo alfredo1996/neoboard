@@ -8,7 +8,6 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type {
   DashboardWidget,
@@ -23,13 +22,7 @@ import {
   findParameterCollisions,
   aggregateClickActionParamNames,
 } from "@/lib/parameter/collect-parameter-names";
-import {
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Play,
-  FlaskConical,
-} from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import {
   useWidgetTemplates,
   useCreateWidgetTemplate,
@@ -55,12 +48,6 @@ import {
   DialogTitle,
   DialogFooter,
   Checkbox,
-  CodePreview,
-  MarkdownWidget,
-  IframeWidget,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -70,10 +57,7 @@ import {
   getAllChartTypes,
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
-import {
-  type ConnectorType,
-  CONNECTOR_LANGUAGES,
-} from "@/lib/connector/connector-types";
+import type { ConnectorType } from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 import { extractReferencedParams } from "@/hooks/use-widget-query";
 import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
@@ -86,11 +70,12 @@ import {
   ParameterConfigSection,
   resolveInternalParamType,
 } from "./widget-editor/parameter-config-section";
-import { ParameterPreview } from "./widget-editor/parameter-preview";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { TransformEditor } from "./widget-editor/transform-editor";
+import { TemplateBrowser } from "./widget-editor/template-browser";
+import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -217,7 +202,6 @@ export function WidgetEditorModal({
   }, [open, mode, widget, templateProp]);
 
   // ── Local-only state (not in store) ────────────────────────────────
-  const [templateSearch, setTemplateSearch] = useState("");
 
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
@@ -826,106 +810,13 @@ export function WidgetEditorModal({
           />
         ) : null}
         {dialogStep === "templates" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Browse Templates</DialogTitle>
-            </DialogHeader>
-            <div className="py-4 flex-1 overflow-y-auto min-h-[400px]">
-              {!templatesLoading && templates && templates.length > 0 && (
-                <Input
-                  placeholder="Search by name..."
-                  value={templateSearch}
-                  onChange={(e) => setTemplateSearch(e.target.value)}
-                  className="mb-3 max-w-xs"
-                />
-              )}
-              {templatesLoading && (
-                <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                  <p className="text-sm">Loading templates...</p>
-                </div>
-              )}
-              {!templatesLoading && (!templates || templates.length === 0) && (
-                <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                  <FlaskConical className="h-8 w-8 opacity-40" />
-                  <p className="text-sm">
-                    No templates available
-                    {selectedConnectorType
-                      ? ` for ${selectedConnectorType}`
-                      : ""}
-                    .
-                  </p>
-                </div>
-              )}
-              {!templatesLoading &&
-                templates &&
-                templates.length > 0 &&
-                (() => {
-                  const filtered = templateSearch
-                    ? templates.filter((t) =>
-                        t.name
-                          .toLowerCase()
-                          .includes(templateSearch.toLowerCase()),
-                      )
-                    : templates;
-                  return filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                      <p className="text-sm">
-                        No templates match &ldquo;{templateSearch}&rdquo;
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {filtered.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => applyTemplate(t)}
-                          className="text-left rounded-lg border p-2 hover:bg-accent transition-colors flex flex-col gap-1.5"
-                        >
-                          <CodePreview
-                            value={t.query}
-                            language={
-                              CONNECTOR_LANGUAGES[
-                                t.connectorType as ConnectorType
-                              ] ?? "Cypher"
-                            }
-                            maxLines={2}
-                          />
-                          <span className="font-medium text-xs truncate w-full">
-                            {t.name}
-                          </span>
-                          <div className="flex gap-1 flex-wrap">
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0"
-                            >
-                              {getChartConfig(t.chartType)?.label ??
-                                t.chartType}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0"
-                            >
-                              {t.connectorType}
-                            </Badge>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setTemplateSearch("");
-                  setDialogStep("main");
-                }}
-              >
-                Back
-              </Button>
-            </DialogFooter>
-          </>
+          <TemplateBrowser
+            templates={templates}
+            loading={templatesLoading}
+            connectorType={selectedConnectorType ?? null}
+            onApply={applyTemplate}
+            onBack={() => setDialogStep("main")}
+          />
         )}
         {dialogStep === "main" && (
           <>
@@ -1394,168 +1285,43 @@ export function WidgetEditorModal({
               </div>
 
               {/* Right column: preview */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Label className="mb-0">Preview</Label>
-                  {!isParamSelect && !isForm && !isContentOnly && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePreview}
-                      disabled={
-                        !connectionId || !query.trim() || previewQuery.isPending
-                      }
-                    >
-                      {previewQuery.isPending ? (
-                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
-                      ) : (
-                        <Play className="h-3 w-3 mr-1.5" />
-                      )}
-                      Run
-                    </Button>
-                  )}
-                  {!isParamSelect &&
-                    !isForm &&
-                    !isContentOnly &&
-                    previewQuery.isError && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center text-destructive"
-                            aria-label={`Query failed: ${previewQuery.error.message}`}
-                          >
-                            <AlertCircle className="h-4 w-4 shrink-0" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="bottom"
-                          className="max-w-sm text-xs"
-                        >
-                          <p className="font-medium">Query failed</p>
-                          <p className="opacity-80">
-                            {previewQuery.error.message}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                </div>
-
-                <div
-                  ref={previewRef}
-                  data-testid="widget-preview"
-                  className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative"
-                >
-                  {isMarkdown ? (
-                    <MarkdownWidget
-                      content={chartOptions.content as string | undefined}
-                    />
-                  ) : isIframe ? (
-                    <IframeWidget
-                      url={chartOptions.url as string | undefined}
-                      title={chartOptions.iframeTitle as string | undefined}
-                      sandbox={chartOptions.sandbox as string | undefined}
-                    />
-                  ) : isParamSelect ? (
-                    <ParameterPreview
-                      paramUIType={paramUIType}
-                      dateSub={dateSub}
-                      multiSelect={multiSelect}
-                      paramWidgetName={paramWidgetName}
-                      chartOptions={chartOptions}
-                      seedPreviewOptions={seedPreviewOptions}
-                      seedQueryPending={seedQueryExecution.isPending}
-                      seedQueryError={
-                        seedQueryExecution.isError
-                          ? seedQueryExecution.error.message
-                          : null
-                      }
-                    />
-                  ) : isForm ? (
-                    formFields.length > 0 ? (
-                      <div className="p-4 space-y-3 overflow-auto h-full">
-                        {formFields.map((f) => (
-                          <div key={f.id} className="space-y-1.5">
-                            <Label className="text-sm">
-                              {f.label || f.parameterName}
-                            </Label>
-                            <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
-                              {f.parameterType}
-                            </div>
-                          </div>
-                        ))}
-                        <Button disabled className="w-full mt-2">
-                          {(chartOptions.submitButtonText as string) ||
-                            "Submit"}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
-                        Add fields in the Fields section below to see the form
-                        preview
-                      </div>
-                    )
-                  ) : (
-                    <>
-                      {previewQuery.isPending && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        </div>
-                      )}
-                      {previewQuery.isError &&
-                      !previewQuery.data &&
-                      !initialPreviewData ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                          <AlertCircle className="h-8 w-8 text-destructive" />
-                          <p className="text-sm font-medium text-destructive">
-                            Query failed
-                          </p>
-                          <p className="text-xs max-w-xs text-center">
-                            {previewQuery.error.message}
-                          </p>
-                        </div>
-                      ) : previewQuery.data || initialPreviewData ? (
-                        <CardContainer
-                          widget={{
-                            id: "preview",
-                            chartType,
-                            connectionId,
-                            query,
-                            settings: {
-                              title: title || undefined,
-                              chartOptions,
-                              stylingConfig: buildStylingConfig(),
-                              conditionalFormatting: colorScales.length
-                                ? { colorScales }
-                                : undefined,
-                              transforms: transforms.length
-                                ? transforms
-                                : undefined,
-                              transformsEnabled,
-                            },
-                          }}
-                          previewData={
-                            (previewQuery.data ?? initialPreviewData)!.data
-                          }
-                          previewResultId={
-                            (previewQuery.data ?? initialPreviewData)!.resultId
-                          }
-                        />
-                      ) : connectionId &&
-                        query.trim() &&
-                        !previewQuery.isError ? (
-                        <div className="h-full flex items-center justify-center">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                          Run a query to see the preview
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
+              <WidgetPreviewPanel
+                chartType={chartType}
+                connectionId={connectionId}
+                query={query}
+                title={title}
+                chartOptions={chartOptions}
+                colorScales={colorScales}
+                transforms={transforms}
+                transformsEnabled={transformsEnabled}
+                buildStylingConfig={buildStylingConfig}
+                isParamSelect={isParamSelect}
+                isForm={isForm}
+                isContentOnly={isContentOnly}
+                isMarkdown={isMarkdown}
+                isIframe={isIframe}
+                paramUIType={paramUIType}
+                dateSub={dateSub}
+                multiSelect={multiSelect}
+                paramWidgetName={paramWidgetName}
+                seedPreviewOptions={seedPreviewOptions}
+                seedQueryPending={seedQueryExecution.isPending}
+                seedQueryError={
+                  seedQueryExecution.isError
+                    ? seedQueryExecution.error.message
+                    : null
+                }
+                formFields={formFields}
+                previewRef={previewRef}
+                previewQuery={{
+                  isPending: previewQuery.isPending,
+                  isError: previewQuery.isError,
+                  error: previewQuery.error,
+                  data: previewQuery.data,
+                }}
+                initialPreviewData={initialPreviewData}
+                onRunPreview={handlePreview}
+              />
             </div>
 
             <DialogFooter>
