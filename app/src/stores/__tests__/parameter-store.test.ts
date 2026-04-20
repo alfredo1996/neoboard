@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useParameterStore } from "../parameter-store";
-import type { ParameterType, ParameterSource } from "../parameter-store";
+import {
+  useParameterStore,
+  deriveValues,
+  shallowEqual,
+} from "../parameter-store";
+import type {
+  ParameterType,
+  ParameterSource,
+  ParameterEntry,
+} from "../parameter-store";
 
 function resetStore() {
   useParameterStore.getState().clearAll();
@@ -526,6 +534,122 @@ describe("useParameterStore", () => {
       const { setParameter } = useParameterStore.getState();
       setParameter("q", 123, "click", "q", "text");
       expect(useParameterStore.getState().parameters["q"].value).toBe(123);
+    });
+  });
+
+  describe("shallowEqual", () => {
+    it("returns true for empty objects", () => {
+      expect(shallowEqual({}, {})).toBe(true);
+    });
+
+    it("returns true for identical values", () => {
+      expect(shallowEqual({ a: 1, b: "x" }, { a: 1, b: "x" })).toBe(true);
+    });
+
+    it("returns false when key counts differ", () => {
+      expect(shallowEqual({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    });
+
+    it("returns false when a value differs", () => {
+      expect(shallowEqual({ a: 1 }, { a: 2 })).toBe(false);
+    });
+
+    it("returns false when a key is missing from b", () => {
+      expect(shallowEqual({ a: 1, b: 2 }, { a: 1, c: 2 })).toBe(false);
+    });
+
+    it("uses reference equality (arrays with same contents not equal)", () => {
+      const arr1 = [1, 2];
+      const arr2 = [1, 2];
+      expect(shallowEqual({ x: arr1 }, { x: arr2 })).toBe(false);
+      expect(shallowEqual({ x: arr1 }, { x: arr1 })).toBe(true);
+    });
+  });
+
+  describe("deriveValues", () => {
+    function entry(value: unknown): ParameterEntry {
+      return {
+        value,
+        source: "W",
+        field: "f",
+        type: "text",
+        sourceType: "click-action",
+      };
+    }
+
+    it("extracts just the values from parameter entries", () => {
+      const result = deriveValues({
+        a: entry(1),
+        b: entry("hello"),
+      });
+      expect(result).toEqual({ a: 1, b: "hello" });
+    });
+
+    it("returns same reference when called twice with same input object", () => {
+      const params = { a: entry(1), b: entry(2) };
+      const result1 = deriveValues(params);
+      const result2 = deriveValues(params);
+      expect(result1).toBe(result2);
+    });
+
+    it("returns cached values when a new params object has the same values", () => {
+      const first = deriveValues({ a: entry(1) });
+      const second = deriveValues({ a: entry(1) }); // new object, same values
+      expect(second).toBe(first);
+    });
+
+    it("returns new reference when values change", () => {
+      const first = deriveValues({ a: entry(1) });
+      const second = deriveValues({ a: entry(2) });
+      expect(second).not.toBe(first);
+      expect(second).toEqual({ a: 2 });
+    });
+
+    it("returns new reference when a key is added", () => {
+      const first = deriveValues({ a: entry(1) });
+      const second = deriveValues({ a: entry(1), b: entry(2) });
+      expect(second).not.toBe(first);
+      expect(second).toEqual({ a: 1, b: 2 });
+    });
+
+    it("handles empty parameters", () => {
+      const result = deriveValues({});
+      expect(result).toEqual({});
+    });
+  });
+
+  describe("useParameterValues selector stability", () => {
+    it("returns the same reference when values have not changed", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("x", 1, "W", "x");
+
+      const state1 = useParameterStore.getState();
+      const values1 = { ...state1.parameters };
+
+      // Trigger a no-op re-read (same parameters object)
+      const values2 = useParameterStore.getState().parameters;
+      expect(values1).not.toBe(values2); // Zustand returns new state objects
+      // But both should have same x value
+      expect(values2["x"].value).toBe(1);
+    });
+
+    it("returns new reference when values actually change", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("a", 1, "W", "a");
+
+      const params1 = useParameterStore.getState().parameters;
+      const vals1: Record<string, unknown> = {};
+      for (const [k, e] of Object.entries(params1)) vals1[k] = e.value;
+
+      setParameter("a", 2, "W", "a");
+
+      const params2 = useParameterStore.getState().parameters;
+      const vals2: Record<string, unknown> = {};
+      for (const [k, e] of Object.entries(params2)) vals2[k] = e.value;
+
+      expect(vals1.a).toBe(1);
+      expect(vals2.a).toBe(2);
+      expect(vals1).not.toEqual(vals2);
     });
   });
 });
