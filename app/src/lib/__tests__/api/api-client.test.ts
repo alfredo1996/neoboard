@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   unwrapResponse,
+  unwrapFullResponse,
   QueueFullError,
   ClientQueueTimeoutError,
   parseRetryAfter,
@@ -193,6 +194,75 @@ describe("unwrapResponse", () => {
       json: () => Promise.reject(new Error("not json")),
     } as unknown as Response;
     await expect(unwrapResponse(res)).rejects.toBeInstanceOf(QueueFullError);
+  });
+});
+
+describe("unwrapFullResponse", () => {
+  it("returns data and meta on envelope success", async () => {
+    const res = fakeResponse({
+      data: { id: "1" },
+      error: null,
+      meta: { total: 10 },
+    });
+    const result = await unwrapFullResponse<{ id: string }>(res);
+    expect(result.data).toEqual({ id: "1" });
+    expect(result.meta).toEqual({ total: 10 });
+  });
+
+  it("throws on envelope error", async () => {
+    const res = fakeResponse(
+      {
+        data: null,
+        error: { code: "BAD_REQUEST", message: "nope" },
+        meta: null,
+      },
+      400,
+    );
+    await expect(unwrapFullResponse(res)).rejects.toThrow("nope");
+  });
+
+  it("throws QueueFullError on 503 with Retry-After", async () => {
+    const res = fakeResponse(
+      {
+        data: null,
+        error: { code: "SERVICE_UNAVAILABLE", message: "Queue full" },
+        meta: null,
+      },
+      503,
+      { "Retry-After": "4" },
+    );
+    await expect(unwrapFullResponse(res)).rejects.toMatchObject({
+      name: "QueueFullError",
+      retryAfterMs: 4000,
+    });
+  });
+
+  it("throws ClientQueueTimeoutError on 408", async () => {
+    const res = fakeResponse(
+      {
+        data: null,
+        error: { code: "REQUEST_TIMEOUT", message: "Timeout" },
+        meta: null,
+      },
+      408,
+    );
+    await expect(unwrapFullResponse(res)).rejects.toBeInstanceOf(
+      ClientQueueTimeoutError,
+    );
+  });
+
+  it("falls back to raw format when body is not an envelope", async () => {
+    const res = fakeResponse([1, 2, 3]);
+    const result = await unwrapFullResponse(res);
+    expect(result.data).toEqual([1, 2, 3]);
+    expect(result.meta).toBeNull();
+  });
+
+  it("throws descriptive message on non-ok raw response", async () => {
+    const res = fakeResponse({ something: "bad" }, 500);
+    await expect(unwrapFullResponse(res)).rejects.toThrow(
+      /Internal server error/,
+    );
   });
 });
 
