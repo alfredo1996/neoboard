@@ -45,8 +45,96 @@ function toConnectionTypeEnum(type: DbType): number {
   return type === "neo4j" ? ConnectionTypes.NEO4J : ConnectionTypes.POSTGRESQL;
 }
 
-/** Cache of connection modules keyed by type+uri+username+database. */
-const moduleCache = new Map<string, unknown>();
+/**
+ * TTL-based connection module cache. Each entry tracks last-access time
+ * and is evicted after `CACHE_TTL_MS` of inactivity. This prevents
+ * leaking driver instances on long-running servers when credentials
+ * rotate or connections are deleted.
+ */
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const EVICTION_INTERVAL_MS = 5 * 60 * 1000; // sweep every 5 minutes
+
+interface CacheEntry {
+  module: unknown;
+  lastAccessedAt: number;
+}
+
+const moduleCache = new Map<string, CacheEntry>();
+
+let evictionTimer: ReturnType<typeof setInterval> | null = null;
+
+function startEvictionTimer() {
+  if (evictionTimer) return;
+  evictionTimer = setInterval(() => evictStaleEntries(), EVICTION_INTERVAL_MS);
+  if (typeof evictionTimer === "object" && "unref" in evictionTimer) {
+    evictionTimer.unref();
+  }
+}
+
+function evictStaleEntries() {
+  const now = Date.now();
+  for (const [key, entry] of moduleCache) {
+    if (now - entry.lastAccessedAt > CACHE_TTL_MS) {
+      closeModuleSilently(entry.module);
+      moduleCache.delete(key);
+    }
+  }
+  if (moduleCache.size === 0 && evictionTimer) {
+    clearInterval(evictionTimer);
+    evictionTimer = null;
+  }
+}
+
+function closeModuleSilently(mod: unknown) {
+  try {
+    const m = mod as { close?: () => Promise<void> };
+    if (typeof m.close === "function") {
+      m.close().catch(() => {});
+    }
+  } catch {
+    // best-effort cleanup
+  }
+}
+
+/**
+ * Close and remove a cached connection module by its cache key.
+ * Called when a connection's credentials change or the connection is deleted.
+ */
+export function closeConnection(
+  type: DbType,
+  credentials: ConnectionCredentials,
+): void {
+  const key = getCacheKey(type, credentials);
+  const entry = moduleCache.get(key);
+  if (entry) {
+    closeModuleSilently(entry.module);
+    moduleCache.delete(key);
+  }
+}
+
+/**
+ * Close all cached connection modules. Used in tests and graceful shutdown.
+ */
+export async function closeAllConnections(): Promise<void> {
+  const closePromises: Promise<void>[] = [];
+  for (const [, entry] of moduleCache) {
+    const m = entry.module as { close?: () => Promise<void> };
+    if (typeof m.close === "function") {
+      closePromises.push(m.close().catch(() => {}));
+    }
+  }
+  moduleCache.clear();
+  if (evictionTimer) {
+    clearInterval(evictionTimer);
+    evictionTimer = null;
+  }
+  await Promise.all(closePromises);
+}
+
+/** Visible for testing — returns current cache size. */
+export function _getCacheSize(): number {
+  return moduleCache.size;
+}
 
 function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
   const advancedKey = [
@@ -82,22 +170,22 @@ function getOrCreateModule(
   credentials: ConnectionCredentials,
 ): unknown {
   const key = getCacheKey(type, credentials);
-  let connModule = moduleCache.get(key);
-  if (!connModule) {
-    const authConfig = {
-      uri: ensureDatabaseInUri(credentials.uri, credentials.database),
-      username: credentials.username,
-      password: credentials.password,
-      authType: 1, // NATIVE
-    };
-    const advancedOptions = buildAdvancedOptions(credentials);
-    connModule = createConnectionModule(
-      type, // string type for registry lookup
-      authConfig,
-      advancedOptions,
-    );
-    moduleCache.set(key, connModule);
+  const entry = moduleCache.get(key);
+  if (entry) {
+    entry.lastAccessedAt = Date.now();
+    return entry.module;
   }
+
+  const authConfig = {
+    uri: ensureDatabaseInUri(credentials.uri, credentials.database),
+    username: credentials.username,
+    password: credentials.password,
+    authType: 1, // NATIVE
+  };
+  const advancedOptions = buildAdvancedOptions(credentials);
+  const connModule = createConnectionModule(type, authConfig, advancedOptions);
+  moduleCache.set(key, { module: connModule, lastAccessedAt: Date.now() });
+  startEvictionTimer();
   return connModule;
 }
 

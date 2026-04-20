@@ -41,6 +41,9 @@ vi.mock("@neoboard/connection", () => ({
 describe("query-executor", () => {
   let executeQuery: typeof import("@/lib/query/query-executor").executeQuery;
   let testConnection: typeof import("@/lib/query/query-executor").testConnection;
+  let closeConnection: typeof import("@/lib/query/query-executor").closeConnection;
+  let closeAllConnections: typeof import("@/lib/query/query-executor").closeAllConnections;
+  let _getCacheSize: typeof import("@/lib/query/query-executor")._getCacheSize;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -53,6 +56,9 @@ describe("query-executor", () => {
     const mod = await import("@/lib/query/query-executor");
     executeQuery = mod.executeQuery;
     testConnection = mod.testConnection;
+    closeConnection = mod.closeConnection;
+    closeAllConnections = mod.closeAllConnections;
+    _getCacheSize = mod._getCacheSize;
   });
 
   const neo4jCreds = {
@@ -459,5 +465,58 @@ describe("query-executor", () => {
     expect(mockCheckConnection).toHaveBeenCalledWith(
       expect.objectContaining({ database: "testdb" }),
     );
+  });
+
+  // -----------------------------------------------------------------------
+  // Cache eviction
+  // -----------------------------------------------------------------------
+
+  it("closeConnection removes a cached module and calls close()", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    expect(_getCacheSize()).toBe(1);
+
+    closeConnection("neo4j", neo4jCreds);
+    expect(_getCacheSize()).toBe(0);
+  });
+
+  it("closeConnection is a no-op for unknown keys", () => {
+    closeConnection("neo4j", neo4jCreds);
+    expect(_getCacheSize()).toBe(0);
+  });
+
+  it("closeAllConnections clears the entire cache", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
+    expect(_getCacheSize()).toBe(2);
+
+    await closeAllConnections();
+    expect(_getCacheSize()).toBe(0);
+  });
+
+  it("cache refreshes lastAccessedAt on reuse", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    expect(mockCreateConnectionModule).toHaveBeenCalledTimes(1);
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 2" });
+    expect(mockCreateConnectionModule).toHaveBeenCalledTimes(1);
+    expect(_getCacheSize()).toBe(1);
   });
 });
