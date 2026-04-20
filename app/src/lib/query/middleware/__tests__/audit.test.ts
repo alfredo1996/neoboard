@@ -154,4 +154,17 @@ describe("auditMiddleware", () => {
     };
     await expect(auditMiddleware(makeContext(), core)).rejects.toBe(original);
   });
+
+  it("includes schedulerWaitMs from ctx.metadata when present", async () => {
+    const core = async (): Promise<QueryResult> => ({ data: [] });
+    const ctx = makeContext({ metadata: { schedulerWaitMs: 142 } });
+    await auditMiddleware(ctx, core);
+    expect(logged[0].obj.schedulerWaitMs).toBe(142);
+  });
+
+  it("omits schedulerWaitMs when not set (scheduler middleware didn't run)", async () => {
+    const core = async (): Promise<QueryResult> => ({ data: [] });
+    await auditMiddleware(makeContext(), core);
+    expect(logged[0].obj.schedulerWaitMs).toBeUndefined();
+  });
 });
