@@ -67,12 +67,16 @@ async function handleReadQuery(request: Request): Promise<Response> {
       return forbidden("Tenant mismatch");
     }
 
-    // 1. Fast path: direct ownership
+    // 1. Fast path: direct ownership (tenant-scoped)
     let [connection] = await db
       .select()
       .from(connections)
       .where(
-        and(eq(connections.id, connectionId), eq(connections.userId, userId)),
+        and(
+          eq(connections.id, connectionId),
+          eq(connections.userId, userId),
+          eq(connections.tenantId, sessionTenantId),
+        ),
       )
       .limit(1);
 
