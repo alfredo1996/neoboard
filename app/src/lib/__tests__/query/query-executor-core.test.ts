@@ -46,6 +46,7 @@ describe("query-executor", () => {
   let closeConnection: typeof import("@/lib/query/query-executor").closeConnection;
   let closeAllConnections: typeof import("@/lib/query/query-executor").closeAllConnections;
   let _getCacheSize: typeof import("@/lib/query/query-executor")._getCacheSize;
+  let _evictStaleEntries: typeof import("@/lib/query/query-executor")._evictStaleEntries;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -61,6 +62,7 @@ describe("query-executor", () => {
     closeConnection = mod.closeConnection;
     closeAllConnections = mod.closeAllConnections;
     _getCacheSize = mod._getCacheSize;
+    _evictStaleEntries = mod._evictStaleEntries;
   });
 
   const neo4jCreds = {
@@ -549,5 +551,69 @@ describe("query-executor", () => {
     await executeQuery("neo4j", neo4jCreds, { query: "RETURN 2" });
     expect(mockCreateConnectionModule).toHaveBeenCalledTimes(1);
     expect(_getCacheSize()).toBe(1);
+  });
+
+  it("_evictStaleEntries is a no-op when cache is empty", () => {
+    expect(() => _evictStaleEntries()).not.toThrow();
+    expect(_getCacheSize()).toBe(0);
+  });
+
+  it("_evictStaleEntries keeps entries that are within TTL", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    expect(_getCacheSize()).toBe(1);
+
+    // Immediately after creation — well within TTL
+    _evictStaleEntries();
+    expect(_getCacheSize()).toBe(1);
+    expect(mockClose).not.toHaveBeenCalled();
+  });
+
+  it("_evictStaleEntries removes entries past TTL", async () => {
+    vi.useFakeTimers();
+    const baseTime = Date.now();
+    vi.setSystemTime(baseTime);
+
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    expect(_getCacheSize()).toBe(1);
+
+    // Advance past 30min TTL
+    vi.setSystemTime(baseTime + 31 * 60 * 1000);
+    _evictStaleEntries();
+
+    expect(_getCacheSize()).toBe(0);
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("_evictStaleEntries handles close() rejection", async () => {
+    vi.useFakeTimers();
+    const baseTime = Date.now();
+    vi.setSystemTime(baseTime);
+
+    mockClose.mockRejectedValueOnce(new Error("close failed"));
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    vi.setSystemTime(baseTime + 31 * 60 * 1000);
+
+    expect(() => _evictStaleEntries()).not.toThrow();
+    expect(_getCacheSize()).toBe(0);
+    vi.useRealTimers();
   });
 });

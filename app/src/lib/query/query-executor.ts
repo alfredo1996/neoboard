@@ -65,13 +65,15 @@ let evictionTimer: ReturnType<typeof setInterval> | null = null;
 
 function startEvictionTimer() {
   if (evictionTimer) return;
-  evictionTimer = setInterval(() => evictStaleEntries(), EVICTION_INTERVAL_MS);
-  if (typeof evictionTimer === "object" && "unref" in evictionTimer) {
-    evictionTimer.unref();
-  }
+  const timer = setInterval(() => _evictStaleEntries(), EVICTION_INTERVAL_MS);
+  // unref() exists on Node's Timeout but not in all runtimes. When
+  // available, prevents the timer from keeping the process alive.
+  (timer as { unref?: () => void }).unref?.();
+  evictionTimer = timer;
 }
 
-function evictStaleEntries() {
+/** Visible for testing. Sweeps the cache and evicts stale entries. */
+export function _evictStaleEntries() {
   const now = Date.now();
   for (const [key, entry] of moduleCache) {
     if (now - entry.lastAccessedAt > CACHE_TTL_MS) {
