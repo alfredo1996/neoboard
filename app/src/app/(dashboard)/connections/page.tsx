@@ -9,6 +9,7 @@ import {
   useCreateConnection,
   useUpdateConnection,
   useDeleteConnection,
+  useReassignConnection,
   useTestConnection,
   useTestInlineConnection,
 } from "@/hooks/use-connections";
@@ -88,6 +89,12 @@ export default function ConnectionsPage() {
   // count before the user commits. Hook is disabled when deleteTarget is
   // null, so it only fires on the "open delete dialog" transition.
   const deleteUsage = useConnectionUsage(deleteTarget);
+  // Reassign dialog state — opened from the delete dialog when the user
+  // chooses to migrate widgets instead of deleting them.
+  const [reassignTarget, setReassignTarget] = useState<string | null>(null);
+  const [reassignChoice, setReassignChoice] = useState<string>("");
+  const [reassignError, setReassignError] = useState<string | null>(null);
+  const reassignConnection = useReassignConnection();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
   const editTargetIdRef = useRef<string | null>(null);
@@ -963,6 +970,19 @@ export default function ConnectionsPage() {
                   </li>
                 )}
               </ul>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!deleteTarget) return;
+                  setReassignTarget(deleteTarget);
+                  setReassignChoice("");
+                  setReassignError(null);
+                  setDeleteTarget(null);
+                }}
+              >
+                Re-assign widgets to another connection…
+              </Button>
             </div>
           ) : (
             "This connection is not used by any widget. It will be permanently deleted."
@@ -984,6 +1004,102 @@ export default function ConnectionsPage() {
           }
         }}
       />
+
+      <Dialog
+        open={reassignTarget !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) {
+            setReassignTarget(null);
+            setReassignChoice("");
+            setReassignError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Re-assign widgets</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const sourceConn =
+              reassignTarget != null
+                ? connections?.find((c) => c.id === reassignTarget)
+                : null;
+            const compatible = (connections ?? []).filter(
+              (c) =>
+                c.id !== reassignTarget &&
+                sourceConn &&
+                c.type === sourceConn.type,
+            );
+            return (
+              <div className="space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">
+                  Pick a {sourceConn?.type ?? ""} connection to migrate widgets
+                  to. Queries on widgets are not validated against the target
+                  schema — broken queries will show their usual error state.
+                </p>
+                {compatible.length === 0 ? (
+                  <Alert>
+                    <AlertDescription>
+                      No compatible {sourceConn?.type ?? ""} connections
+                      available. Create one first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="reassign-target">Target connection</Label>
+                    <select
+                      id="reassign-target"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      value={reassignChoice}
+                      onChange={(e) => setReassignChoice(e.target.value)}
+                    >
+                      <option value="">Select a connection…</option>
+                      {compatible.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {reassignError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{reassignError}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReassignTarget(null)}>
+              Cancel
+            </Button>
+            <LoadingButton
+              loading={reassignConnection.isPending}
+              loadingText="Re-assigning…"
+              disabled={!reassignChoice || reassignConnection.isPending}
+              onClick={async () => {
+                if (!reassignTarget || !reassignChoice) return;
+                setReassignError(null);
+                try {
+                  await reassignConnection.mutateAsync({
+                    fromId: reassignTarget,
+                    targetConnectionId: reassignChoice,
+                  });
+                  setReassignTarget(null);
+                  setReassignChoice("");
+                } catch (err) {
+                  setReassignError(
+                    err instanceof Error ? err.message : "Re-assign failed",
+                  );
+                }
+              }}
+            >
+              Re-assign
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading connections...">
