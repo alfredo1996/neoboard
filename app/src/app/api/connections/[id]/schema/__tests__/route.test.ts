@@ -6,15 +6,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 const mockDecryptJson = vi.fn();
 const mockFetchConnectionSchema = vi.fn();
 
@@ -62,10 +61,10 @@ const SESSION = {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/connections/[id]/schema", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let GET: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Promise<any>;
 
   beforeEach(async () => {

@@ -96,6 +96,15 @@ describe("crypto", () => {
       expect(() => decrypt(parts.join(":"))).toThrow();
     });
 
+    it("throws on malformed input with wrong segment count", async () => {
+      const { decrypt } = await loadCrypto();
+      expect(() => decrypt("onlyone")).toThrow("Invalid encrypted data format");
+      expect(() => decrypt("two:parts")).toThrow(
+        "Invalid encrypted data format",
+      );
+      expect(() => decrypt("a:b:c:d")).toThrow("Invalid encrypted data format");
+    });
+
     it("throws on tampered auth tag", async () => {
       const { encrypt, decrypt } = await loadCrypto();
       const encrypted = encrypt("secret");

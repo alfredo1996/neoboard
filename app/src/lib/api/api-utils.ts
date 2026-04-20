@@ -115,5 +115,7 @@ export function handleRouteError(
     },
     "api_error",
   );
+  // Return fallback message to client — raw driver/DB errors can leak
+  // query structure and schema details. The real error is logged above.
   return serverError(fallbackMsg);
 }
