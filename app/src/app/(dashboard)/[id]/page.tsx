@@ -25,6 +25,7 @@ import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
+import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import { useConnections } from "@/hooks/use-connections";
 import type { DashboardWidget } from "@/lib/db/schema";
@@ -451,49 +452,51 @@ export default function DashboardViewerPage({
         />
       )}
 
-      <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
-        {resolvedLayout.pages.map((page, index) => {
-          const isActive = index === safeIndex;
-          if (page.widgets.length === 0 && isActive) {
+      <DashboardErrorBoundary>
+        <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
+          {resolvedLayout.pages.map((page, index) => {
+            const isActive = index === safeIndex;
+            if (page.widgets.length === 0 && isActive) {
+              return (
+                <EmptyState
+                  key={page.id}
+                  icon={<LayoutDashboard className="h-12 w-12" />}
+                  title="No widgets yet"
+                  description="This page has no widgets."
+                  action={
+                    canEdit ? (
+                      <Button onClick={() => router.push(`/${id}/edit`)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Add widgets in the editor
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              );
+            }
+            if (page.widgets.length === 0) return null;
+            if (!visitedPages.has(index)) return null;
             return (
-              <EmptyState
+              <div
                 key={page.id}
-                icon={<LayoutDashboard className="h-12 w-12" />}
-                title="No widgets yet"
-                description="This page has no widgets."
-                action={
-                  canEdit ? (
-                    <Button onClick={() => router.push(`/${id}/edit`)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Add widgets in the editor
-                    </Button>
-                  ) : undefined
-                }
-              />
+                className={isActive ? undefined : "hidden"}
+                aria-hidden={!isActive}
+              >
+                <DashboardContainer
+                  page={page}
+                  refetchInterval={refetchInterval}
+                  actions={{
+                    onNavigateToPage: handleNavigateToPage,
+                    ...(canWrite && { onSaveAsTemplate: setTemplateWidget }),
+                  }}
+                  showParameterBar={effectiveShowBar}
+                  parameterSourceMap={parameterSourceMap}
+                />
+              </div>
             );
-          }
-          if (page.widgets.length === 0) return null;
-          if (!visitedPages.has(index)) return null;
-          return (
-            <div
-              key={page.id}
-              className={isActive ? undefined : "hidden"}
-              aria-hidden={!isActive}
-            >
-              <DashboardContainer
-                page={page}
-                refetchInterval={refetchInterval}
-                actions={{
-                  onNavigateToPage: handleNavigateToPage,
-                  ...(canWrite && { onSaveAsTemplate: setTemplateWidget }),
-                }}
-                showParameterBar={effectiveShowBar}
-                parameterSourceMap={parameterSourceMap}
-              />
-            </div>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      </DashboardErrorBoundary>
 
       {templateWidget &&
         (() => {
