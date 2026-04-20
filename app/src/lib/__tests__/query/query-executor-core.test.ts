@@ -6,9 +6,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockRunQuery = vi.fn();
 const mockCheckConnection = vi.fn();
+const mockClose = vi.fn().mockResolvedValue(undefined);
 const mockCreateConnectionModule = vi.fn(() => ({
   runQuery: mockRunQuery,
   checkConnection: mockCheckConnection,
+  close: mockClose,
 }));
 
 vi.mock("@/lib/connector/connection-adapter", () => ({
@@ -483,6 +485,7 @@ describe("query-executor", () => {
 
     closeConnection("neo4j", neo4jCreds);
     expect(_getCacheSize()).toBe(0);
+    expect(mockClose).toHaveBeenCalledTimes(1);
   });
 
   it("closeConnection is a no-op for unknown keys", () => {
@@ -502,6 +505,50 @@ describe("query-executor", () => {
     expect(_getCacheSize()).toBe(2);
 
     await closeAllConnections();
+    expect(_getCacheSize()).toBe(0);
+  });
+
+  it("closeAllConnections calls close() on each module", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
+    mockClose.mockClear();
+
+    await closeAllConnections();
+    expect(mockClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("closeConnection handles modules without close() gracefully", async () => {
+    mockCreateConnectionModule.mockReturnValueOnce({
+      runQuery: mockRunQuery,
+      checkConnection: mockCheckConnection,
+    });
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    expect(() => closeConnection("neo4j", neo4jCreds)).not.toThrow();
+    expect(_getCacheSize()).toBe(0);
+  });
+
+  it("closeConnection handles close() rejection gracefully", async () => {
+    mockClose.mockRejectedValueOnce(new Error("close failed"));
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    expect(() => closeConnection("neo4j", neo4jCreds)).not.toThrow();
     expect(_getCacheSize()).toBe(0);
   });
 
