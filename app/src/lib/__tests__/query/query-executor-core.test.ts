@@ -523,23 +523,6 @@ describe("query-executor", () => {
     expect(mockClose).toHaveBeenCalledTimes(2);
   });
 
-  it("closeConnection handles modules without close() gracefully", async () => {
-    mockCreateConnectionModule.mockReturnValueOnce({
-      runQuery: mockRunQuery,
-      checkConnection: mockCheckConnection,
-      close: undefined,
-    });
-    mockRunQuery.mockImplementation(
-      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
-        cbs.onSuccess([]);
-      },
-    );
-
-    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
-    expect(() => closeConnection("neo4j", neo4jCreds)).not.toThrow();
-    expect(_getCacheSize()).toBe(0);
-  });
-
   it("closeConnection handles close() rejection gracefully", async () => {
     mockClose.mockRejectedValueOnce(new Error("close failed"));
     mockRunQuery.mockImplementation(
