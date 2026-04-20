@@ -82,20 +82,12 @@ describe("handleRouteError", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns 500 with sanitized message for generic errors", async () => {
+  it("returns 500 with fallback message for generic errors (not leaking)", async () => {
     const res = handleRouteError(new Error("DB connection failed"));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
-    expect(body.error.message).toBe("DB connection failed");
-  });
-
-  it("strips bundler internals from error messages", async () => {
-    const res = handleRouteError(
-      new Error("(0 , __TURBOPACK__imported__module__) is not a function"),
-    );
-    expect(res.status).toBe(500);
-    const body = await res.json();
+    // Raw driver errors must not leak — fallback is returned instead.
     expect(body.error.message).toBe("Internal server error");
   });
 

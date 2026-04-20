@@ -252,10 +252,10 @@ describe("POST /api/query", () => {
     );
     expect(res.status).toBe(500);
     const body = await res.json();
-    // handleRouteError surfaces the actual error message (sanitized of
-    // bundler internals). See #575.
+    // handleRouteError returns a generic fallback message to the client;
+    // the raw error is logged but never surfaced (avoids leaking schema).
     expect(body.error.code).toBe("INTERNAL_ERROR");
-    expect(body.error.message).toBe("Driver error");
+    expect(body.error.message).toBe("Query execution failed");
   });
 
   // --- Access fallback tests ---

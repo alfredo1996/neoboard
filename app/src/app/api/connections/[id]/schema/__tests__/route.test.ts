@@ -140,7 +140,6 @@ describe("GET /api/connections/[id]/schema", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
-    // handleRouteError surfaces the actual error message (sanitized). See #575.
-    expect(body.error.message).toBe("Schema fetch failed");
+    expect(body.error.message).toBe("Failed to fetch schema");
   });
 });
