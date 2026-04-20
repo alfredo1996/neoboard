@@ -214,7 +214,8 @@ describe("POST /api/query/write", () => {
     );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error.message).toBe("Write query execution failed");
+    // handleRouteError surfaces the actual error message (sanitized). See #575.
+    expect(body.error.message).toBe("Driver error");
   });
 
   it("returns 404 when connection belongs to another user", async () => {
