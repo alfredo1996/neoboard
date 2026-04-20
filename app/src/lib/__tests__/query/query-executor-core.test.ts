@@ -527,6 +527,7 @@ describe("query-executor", () => {
     mockCreateConnectionModule.mockReturnValueOnce({
       runQuery: mockRunQuery,
       checkConnection: mockCheckConnection,
+      close: undefined,
     });
     mockRunQuery.mockImplementation(
       (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
