@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useShallow } from "zustand/react/shallow";
 
 /**
  * The 8 parameter widget types supported by the parameter selector system.
@@ -249,13 +248,44 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
   },
 }));
 
-/** Returns just name→value for query substitution. */
+/**
+ * Returns just name→value for query substitution.
+ * Uses a cached reference that only changes when parameter values
+ * actually change, avoiding unnecessary downstream re-renders.
+ */
+let cachedValues: Record<string, unknown> = {};
+let cachedParametersRef: Record<string, ParameterEntry> | null = null;
+
+function deriveValues(
+  parameters: Record<string, ParameterEntry>,
+): Record<string, unknown> {
+  if (parameters === cachedParametersRef) return cachedValues;
+  const next: Record<string, unknown> = {};
+  for (const [k, e] of Object.entries(parameters)) {
+    next[k] = e.value;
+  }
+  if (cachedParametersRef !== null && shallowEqual(cachedValues, next)) {
+    cachedParametersRef = parameters;
+    return cachedValues;
+  }
+  cachedParametersRef = parameters;
+  cachedValues = next;
+  return next;
+}
+
+function shallowEqual(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
 export function useParameterValues(): Record<string, unknown> {
-  return useParameterStore(
-    useShallow((s) =>
-      Object.fromEntries(
-        Object.entries(s.parameters).map(([k, e]) => [k, e.value]),
-      ),
-    ),
-  );
+  return useParameterStore((s) => deriveValues(s.parameters));
 }

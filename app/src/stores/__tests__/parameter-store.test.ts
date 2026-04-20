@@ -528,4 +528,39 @@ describe("useParameterStore", () => {
       expect(useParameterStore.getState().parameters["q"].value).toBe(123);
     });
   });
+
+  describe("useParameterValues selector stability", () => {
+    it("returns the same reference when values have not changed", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("x", 1, "W", "x");
+
+      const state1 = useParameterStore.getState();
+      const values1 = { ...state1.parameters };
+
+      // Trigger a no-op re-read (same parameters object)
+      const values2 = useParameterStore.getState().parameters;
+      expect(values1).not.toBe(values2); // Zustand returns new state objects
+      // But both should have same x value
+      expect(values2["x"].value).toBe(1);
+    });
+
+    it("returns new reference when values actually change", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter("a", 1, "W", "a");
+
+      const params1 = useParameterStore.getState().parameters;
+      const vals1: Record<string, unknown> = {};
+      for (const [k, e] of Object.entries(params1)) vals1[k] = e.value;
+
+      setParameter("a", 2, "W", "a");
+
+      const params2 = useParameterStore.getState().parameters;
+      const vals2: Record<string, unknown> = {};
+      for (const [k, e] of Object.entries(params2)) vals2[k] = e.value;
+
+      expect(vals1.a).toBe(1);
+      expect(vals2.a).toBe(2);
+      expect(vals1).not.toEqual(vals2);
+    });
+  });
 });
