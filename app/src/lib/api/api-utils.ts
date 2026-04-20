@@ -93,13 +93,20 @@ export function handleRouteError(
   }
   if (error instanceof QueueRejectedError) {
     // 503 with Retry-After so clients can back off without hard-failing
-    // the user. Header is set below after the response is constructed.
-    return apiError("SERVICE_UNAVAILABLE", error.message, {
-      reason: error.reason,
-    });
+    // the user. The header value (in seconds) is a hint — clients should
+    // use this as a minimum, then apply jitter/backoff.
+    return apiError(
+      "SERVICE_UNAVAILABLE",
+      error.message,
+      { reason: error.reason },
+      { "Retry-After": "2" },
+    );
   }
   if (error instanceof QueueTimeoutError) {
-    return apiError("REQUEST_TIMEOUT", error.message);
+    // 408 with Retry-After so auto-refreshers know when to try again.
+    return apiError("REQUEST_TIMEOUT", error.message, undefined, {
+      "Retry-After": "5",
+    });
   }
   const message = error instanceof Error ? error.message : fallbackMsg;
   if (message.includes("Unauthorized") || message.includes("session")) {

@@ -67,11 +67,16 @@ export function apiList(
  * the connection usage breakdown (widget count + per-dashboard list)
  * alongside a CONFLICT response so the UI can render a warning banner
  * without a second round-trip.
+ *
+ * Optional `headers` lets callers attach response headers such as
+ * `Retry-After` for 503/408 backpressure responses so clients can
+ * schedule retries without hard-failing the user.
  */
 export function apiError(
   code: ApiErrorCode,
   message: string,
   details?: Record<string, unknown>,
+  headers?: Record<string, string>,
 ) {
   return NextResponse.json(
     {
@@ -79,7 +84,7 @@ export function apiError(
       error: details ? { code, message, details } : { code, message },
       meta: null,
     },
-    { status: ERROR_STATUS[code] },
+    { status: ERROR_STATUS[code], headers },
   );
 }
 

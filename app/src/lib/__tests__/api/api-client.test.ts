@@ -1,13 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { unwrapResponse } from "@/lib/api/api-client";
+import {
+  unwrapResponse,
+  QueueFullError,
+  ClientQueueTimeoutError,
+  parseRetryAfter,
+} from "@/lib/api/api-client";
 
 /** Helper to build a fake Response with a JSON body. */
-function fakeResponse(body: unknown, status = 200): Response {
+function fakeResponse(
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {},
+): Response {
+  const headerMap = new Map(Object.entries(headers));
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: {
+      get: (k: string) => headerMap.get(k) ?? null,
+    },
     json: () => Promise.resolve(body),
-  } as Response;
+  } as unknown as Response;
 }
 
 describe("unwrapResponse", () => {
@@ -117,5 +130,115 @@ describe("unwrapResponse", () => {
   it("handles raw response with error string on 4xx", async () => {
     const res = fakeResponse({ error: "Unauthorized" }, 401);
     await expect(unwrapResponse(res)).rejects.toThrow("Unauthorized");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Backpressure responses (503 / 408) — typed errors with Retry-After
+  // ---------------------------------------------------------------------------
+
+  it("throws QueueFullError on 503 with parsed Retry-After", async () => {
+    const res = fakeResponse(
+      {
+        data: null,
+        error: { code: "SERVICE_UNAVAILABLE", message: "Queue full" },
+        meta: null,
+      },
+      503,
+      { "Retry-After": "3" },
+    );
+    await expect(unwrapResponse(res)).rejects.toMatchObject({
+      name: "QueueFullError",
+      retryAfterMs: 3000,
+      message: "Queue full",
+    });
+  });
+
+  it("throws QueueFullError with default delay when Retry-After missing", async () => {
+    const res = fakeResponse(
+      {
+        data: null,
+        error: { code: "SERVICE_UNAVAILABLE", message: "Busy" },
+        meta: null,
+      },
+      503,
+    );
+    await expect(unwrapResponse(res)).rejects.toMatchObject({
+      name: "QueueFullError",
+      retryAfterMs: 2000,
+    });
+  });
+
+  it("throws ClientQueueTimeoutError on 408 with parsed Retry-After", async () => {
+    const res = fakeResponse(
+      {
+        data: null,
+        error: { code: "REQUEST_TIMEOUT", message: "Queue timeout" },
+        meta: null,
+      },
+      408,
+      { "Retry-After": "7" },
+    );
+    await expect(unwrapResponse(res)).rejects.toMatchObject({
+      name: "ClientQueueTimeoutError",
+      retryAfterMs: 7000,
+      message: "Queue timeout",
+    });
+  });
+
+  it("falls back to generic message when 503 body is unparseable", async () => {
+    const res = {
+      ok: false,
+      status: 503,
+      headers: { get: () => null },
+      json: () => Promise.reject(new Error("not json")),
+    } as unknown as Response;
+    await expect(unwrapResponse(res)).rejects.toBeInstanceOf(QueueFullError);
+  });
+});
+
+describe("parseRetryAfter", () => {
+  it("parses delta-seconds integer", () => {
+    expect(parseRetryAfter("5", 1000)).toBe(5000);
+  });
+
+  it("returns default when header is null", () => {
+    expect(parseRetryAfter(null, 1500)).toBe(1500);
+  });
+
+  it("returns default when header is unparseable", () => {
+    expect(parseRetryAfter("not-a-number", 2000)).toBe(2000);
+  });
+
+  it("parses HTTP-date and returns positive delta", () => {
+    const future = new Date(Date.now() + 10_000).toUTCString();
+    const result = parseRetryAfter(future, 0);
+    expect(result).toBeGreaterThan(8000);
+    expect(result).toBeLessThan(12_000);
+  });
+
+  it("returns default for past HTTP-date", () => {
+    const past = new Date(Date.now() - 10_000).toUTCString();
+    expect(parseRetryAfter(past, 3000)).toBe(3000);
+  });
+
+  it("returns 0ms for '0' seconds", () => {
+    expect(parseRetryAfter("0", 1000)).toBe(0);
+  });
+});
+
+describe("error classes", () => {
+  it("QueueFullError exposes retryAfterMs and correct name", () => {
+    const err = new QueueFullError("busy", 1500);
+    expect(err.name).toBe("QueueFullError");
+    expect(err.message).toBe("busy");
+    expect(err.retryAfterMs).toBe(1500);
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("ClientQueueTimeoutError exposes retryAfterMs and correct name", () => {
+    const err = new ClientQueueTimeoutError("timeout", 4000);
+    expect(err.name).toBe("ClientQueueTimeoutError");
+    expect(err.retryAfterMs).toBe(4000);
+    expect(err).toBeInstanceOf(Error);
   });
 });
