@@ -8,7 +8,6 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { CardContainer } from "./card-container";
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import type {
   DashboardWidget,
@@ -23,13 +22,7 @@ import {
   findParameterCollisions,
   aggregateClickActionParamNames,
 } from "@/lib/parameter/collect-parameter-names";
-import {
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Play,
-  FlaskConical,
-} from "lucide-react";
+import { AlertTriangle, Info, FlaskConical } from "lucide-react";
 import {
   useWidgetTemplates,
   useCreateWidgetTemplate,
@@ -55,14 +48,7 @@ import {
   DialogTitle,
   DialogFooter,
   Checkbox,
-  CodePreview,
-  MarkdownWidget,
-  IframeWidget,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
 } from "@neoboard/components";
-import type { ColorScaleConfig } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
   getChartConfig,
@@ -71,10 +57,7 @@ import {
   getAllChartTypes,
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
-import {
-  type ConnectorType,
-  CONNECTOR_LANGUAGES,
-} from "@/lib/connector/connector-types";
+import type { ConnectorType } from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 import { extractReferencedParams } from "@/hooks/use-widget-query";
 import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
@@ -86,16 +69,13 @@ import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
 import {
   ParameterConfigSection,
   resolveInternalParamType,
-  reverseParamTypeMapping,
 } from "./widget-editor/parameter-config-section";
-// ParamUIType/DateSubType types used by the store, not directly in modal
-import { ParameterPreview } from "./widget-editor/parameter-preview";
-import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
 import { TransformEditor } from "./widget-editor/transform-editor";
+import { TemplateBrowser } from "./widget-editor/template-browser";
+import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -141,23 +121,15 @@ export function WidgetEditorModal({
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const setConnectionId = useWidgetEditorStore((s) => s.setConnectionId);
   const query = useWidgetEditorStore((s) => s.query);
-  const setQuery = useWidgetEditorStore((s) => s.setQuery);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const setChartOptions = useWidgetEditorStore((s) => s.setChartOptions);
   const stylingRules = useWidgetEditorStore((s) => s.stylingRules);
-  const setStylingRules = useWidgetEditorStore((s) => s.setStylingRules);
   const actionRules = useWidgetEditorStore((s) => s.actionRules);
-  const setActionRules = useWidgetEditorStore((s) => s.setActionRules);
   const formFields = useWidgetEditorStore((s) => s.formFields);
-  const setFormFields = useWidgetEditorStore((s) => s.setFormFields);
   const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
-  const setParamUIType = useWidgetEditorStore((s) => s.setParamUIType);
   const dateSub = useWidgetEditorStore((s) => s.dateSub);
-  const setDateSub = useWidgetEditorStore((s) => s.setDateSub);
   const multiSelect = useWidgetEditorStore((s) => s.multiSelect);
-  const setMultiSelect = useWidgetEditorStore((s) => s.setMultiSelect);
   const paramWidgetName = useWidgetEditorStore((s) => s.paramWidgetName);
-  const setParamWidgetName = useWidgetEditorStore((s) => s.setParamWidgetName);
   const transforms = useWidgetEditorStore((s) => s.transforms);
   const setTransforms = useWidgetEditorStore((s) => s.setTransforms);
   const transformsEnabled = useWidgetEditorStore((s) => s.transformsEnabled);
@@ -165,75 +137,76 @@ export function WidgetEditorModal({
     (s) => s.setTransformsEnabled,
   );
 
+  // ── Store-backed state (formerly local useState) ──────────────────
+  const title = useWidgetEditorStore((s) => s.title);
+  const setTitle = useWidgetEditorStore((s) => s.setTitle);
+  const templateId = useWidgetEditorStore((s) => s.templateId);
+  const templateSyncedAt = useWidgetEditorStore((s) => s.templateSyncedAt);
+  const clickActionEnabled = useWidgetEditorStore((s) => s.clickActionEnabled);
+  const setClickActionEnabled = useWidgetEditorStore(
+    (s) => s.setClickActionEnabled,
+  );
+  const parameterName = useWidgetEditorStore((s) => s.parameterName);
+  const stylingEnabled = useWidgetEditorStore((s) => s.stylingEnabled);
+  const setStylingEnabled = useWidgetEditorStore((s) => s.setStylingEnabled);
+  const colorScales = useWidgetEditorStore((s) => s.colorScales);
+  const setColorScales = useWidgetEditorStore((s) => s.setColorScales);
+  const dialogStep = useWidgetEditorStore((s) => s.dialogStep);
+  const setDialogStep = useWidgetEditorStore((s) => s.setDialogStep);
+  const labName = useWidgetEditorStore((s) => s.labName);
+  const setLabName = useWidgetEditorStore((s) => s.setLabName);
+  const labDescription = useWidgetEditorStore((s) => s.labDescription);
+  const setLabDescription = useWidgetEditorStore((s) => s.setLabDescription);
+  const labTagsInput = useWidgetEditorStore((s) => s.labTagsInput);
+  const setLabTagsInput = useWidgetEditorStore((s) => s.setLabTagsInput);
+  const enableCache = useWidgetEditorStore((s) => s.enableCache);
+  const setEnableCache = useWidgetEditorStore((s) => s.setEnableCache);
+  const cacheTtlMinutes = useWidgetEditorStore((s) => s.cacheTtlMinutes);
+  const setCacheTtlMinutes = useWidgetEditorStore((s) => s.setCacheTtlMinutes);
+  const connectorChanged = useWidgetEditorStore((s) => s.connectorChanged);
+  const setConnectorChanged = useWidgetEditorStore(
+    (s) => s.setConnectorChanged,
+  );
+
   // ── Initialize store when modal opens ────────────────────────────
   // loadFromWidget / resetForAdd sets all store fields from the widget prop.
   // This replaces the old bidirectional sync approach.
   useEffect(() => {
     if (!open) return;
-    if (widget) {
-      useWidgetEditorStore.getState().loadFromWidget(widget);
+    const store = useWidgetEditorStore.getState();
+    if (mode === "edit" && widget) {
+      store.loadFromWidget(widget);
+    } else if (mode === "lab-edit" && templateProp) {
+      // Initialize from template — reset first, then override with template data
+      store.resetForAdd();
+      store.setChartType(templateProp.chartType);
+      store.setConnectionId(templateProp.connectionId ?? "");
+      store.setQuery(templateProp.query ?? "");
+      store.setTitle((templateProp.settings?.title as string) ?? "");
+      store.setChartOptions(
+        (templateProp.settings?.chartOptions as Record<string, unknown>) ??
+          getDefaultChartSettings(templateProp.chartType),
+      );
+      store.setLabName(templateProp.name);
+      store.setLabDescription(templateProp.description ?? "");
+      store.setLabTagsInput((templateProp.tags ?? []).join(", "));
     } else {
-      useWidgetEditorStore.getState().resetForAdd();
+      // add or lab-create
+      store.resetForAdd();
+      // "add" mode defaults to bar chart (more useful default than table)
+      if (mode === "add") {
+        store.setChartType("bar");
+        store.setChartOptions(getDefaultChartSettings("bar"));
+      }
+      if (mode === "lab-create") {
+        store.setLabName("");
+        store.setLabDescription("");
+        store.setLabTagsInput("");
+      }
     }
-  }, [open, widget]);
+  }, [open, mode, widget, templateProp]);
 
-  // ── Local-only state ───────────────────────────────────────────────
-  const [title, setTitle] = useState((widget?.settings?.title as string) ?? "");
-  const [templateId, setTemplateId] = useState<string | undefined>(
-    widget?.templateId,
-  );
-  const [templateSyncedAt, setTemplateSyncedAt] = useState<string | undefined>(
-    widget?.templateSyncedAt,
-  );
-  // Click action state — these remain local because no sub-editor writes to them
-  const existingClickAction = widget?.settings?.clickAction as
-    | ClickAction
-    | undefined;
-  const existingParamMapping = existingClickAction?.parameterMapping;
-  const [clickActionEnabled, setClickActionEnabled] =
-    useState(!!existingClickAction);
-  const [clickActionType, setClickActionType] = useState<ClickAction["type"]>(
-    existingClickAction?.type ?? "set-parameter",
-  );
-  const [parameterName, setParameterName] = useState(
-    existingParamMapping?.parameterName ?? "",
-  );
-  const [sourceField, setSourceField] = useState(
-    existingParamMapping?.sourceField ?? "",
-  );
-  const [targetPageId, setTargetPageId] = useState(
-    existingClickAction?.targetPageId ?? "",
-  );
-  const [clickableColumns, setClickableColumns] = useState<string[]>(
-    existingClickAction?.clickableColumns ?? [],
-  );
-
-  // Styling toggle + color scales — local (not written by sub-editors)
-  const existingStylingConfig = widget?.settings?.stylingConfig as
-    | StylingConfig
-    | undefined;
-  const [stylingEnabled, setStylingEnabled] = useState(
-    !!existingStylingConfig?.enabled,
-  );
-  const existingConditionalFormatting = widget?.settings
-    ?.conditionalFormatting as { colorScales?: ColorScaleConfig[] } | undefined;
-  const [colorScales, setColorScales] = useState<ColorScaleConfig[]>(
-    existingConditionalFormatting?.colorScales ?? [],
-  );
-
-  const [dialogStep, setDialogStep] = useState<
-    "main" | "rules" | "styling-rules" | "templates"
-  >("main");
-  const [templateSearch, setTemplateSearch] = useState("");
-
-  // Lab-mode metadata state
-  const [labName, setLabName] = useState(templateProp?.name ?? "");
-  const [labDescription, setLabDescription] = useState(
-    templateProp?.description ?? "",
-  );
-  const [labTagsInput, setLabTagsInput] = useState(
-    (templateProp?.tags ?? []).join(", "),
-  );
+  // ── Local-only state (not in store) ────────────────────────────────
 
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
@@ -269,14 +242,6 @@ export function WidgetEditorModal({
     "idle",
   );
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cache settings
-  const [enableCache, setEnableCache] = useState(
-    widget?.settings?.enableCache !== false,
-  );
-  const [cacheTtlMinutes, setCacheTtlMinutes] = useState(
-    (widget?.settings?.cacheTtlMinutes as number | undefined) ?? 5,
-  );
 
   // Widgets that already set the same parameter name (collision warning).
   // Use widget?.id ?? "" so new widgets (no id yet) still get collision checks.
@@ -329,10 +294,6 @@ export function WidgetEditorModal({
     });
   }, [seedQueryExecution.data]);
 
-  // Track whether the connector was changed in edit mode so we can warn
-  // the user that their query may no longer be valid.
-  const [connectorChanged, setConnectorChanged] = useState(false);
-
   const previewQuery = useQueryExecution();
   const allParamValues = useParameterValues();
 
@@ -369,15 +330,18 @@ export function WidgetEditorModal({
 
   function applyTemplate(t: WidgetTemplate) {
     applyingTemplateRef.current = true;
-    setTemplateId(t.id);
+    const store = useWidgetEditorStore.getState();
     // API returns dates as ISO strings (JSON serialization), not Date objects
-    setTemplateSyncedAt(
-      t.updatedAt ? String(t.updatedAt) : new Date().toISOString(),
-    );
-    setChartType(t.chartType);
-    setQuery(t.query ?? "");
-    setTitle((t.settings?.title as string) ?? "");
-    setChartOptions(
+    useWidgetEditorStore.setState({
+      templateId: t.id,
+      templateSyncedAt: t.updatedAt
+        ? String(t.updatedAt)
+        : new Date().toISOString(),
+    });
+    store.setChartType(t.chartType);
+    store.setQuery(t.query ?? "");
+    store.setTitle((t.settings?.title as string) ?? "");
+    store.setChartOptions(
       (t.settings?.chartOptions as Record<string, unknown>) ??
         getDefaultChartSettings(t.chartType),
     );
@@ -386,16 +350,15 @@ export function WidgetEditorModal({
     if (!connectionId) {
       if (t.connectionId && connections.some((c) => c.id === t.connectionId)) {
         // Prefer the template's bound connection if it exists
-        setConnectionId(t.connectionId);
+        store.setConnectionId(t.connectionId);
       } else if (t.connectorType) {
         // Fall back to first connection of matching type
         const match = connections.find((c) => c.type === t.connectorType);
-        if (match) setConnectionId(match.id);
+        if (match) store.setConnectionId(match.id);
       }
     }
 
-    setTemplateSearch("");
-    setDialogStep("main");
+    store.setDialogStep("main");
   }
   // Pass connector type directly — the language resolver registry maps it
   // to the right editor extension (e.g., "neo4j" → cypher, "postgresql" → sql).
@@ -452,164 +415,15 @@ export function WidgetEditorModal({
     [setChartType],
   );
 
-  // Reset state when opening
+  // Reset local query execution state and track initial chart type for edit mode.
+  // All field initialization is handled by the store initialization effect above.
   useEffect(() => {
     if (open) {
-      if (mode === "add") {
-        setChartType("bar");
-        setConnectionId("");
-        setQuery("");
-        setTitle("");
-        setChartOptions(getDefaultChartSettings("bar"));
-        setClickActionEnabled(false);
-        setClickActionType("set-parameter");
-        setParameterName("");
-        setSourceField("");
-        setTargetPageId("");
-        setClickableColumns([]);
-        setEnableCache(true);
-        setCacheTtlMinutes(5);
-        setConnectorChanged(false);
-        setParamUIType("select");
-        setDateSub("single");
-        setMultiSelect(false);
-        setParamWidgetName("");
-        setFormFields([]);
-        setRefreshWidgetIds([]);
-        setActionRules([]);
-        setStylingEnabled(false);
-        setStylingRules([]);
-        setColorScales([]);
-        setDialogStep("main");
-        seedQueryExecution.reset();
-        previewQuery.reset();
-      } else if (widget) {
-        const s = widget.settings ?? {};
-        const opts = (s.chartOptions as Record<string, unknown>) ?? {};
-        const ca = s.clickAction as ClickAction | undefined;
-        const caMapping = ca?.parameterMapping;
-        const sc = s.stylingConfig as StylingConfig | undefined;
-        const cf = s.conditionalFormatting as
-          | { colorScales?: ColorScaleConfig[] }
-          | undefined;
-
+      if (mode === "edit" && widget) {
         editInitialChartTypeRef.current = widget.chartType;
-        setChartType(widget.chartType);
-        setConnectionId(widget.connectionId);
-        setQuery(widget.query);
-        setTitle((s.title as string) ?? "");
-        setChartOptions(
-          Object.keys(opts).length > 0
-            ? opts
-            : getDefaultChartSettings(widget.chartType),
-        );
-
-        // Click action
-        setClickActionEnabled(!!ca);
-        setClickActionType(ca?.type ?? "set-parameter");
-        setParameterName(caMapping?.parameterName ?? "");
-        setSourceField(caMapping?.sourceField ?? "");
-        setTargetPageId(ca?.targetPageId ?? "");
-        setClickableColumns(ca?.clickableColumns ?? []);
-        setActionRules(ca?.rules ?? []);
-
-        // Styling rules (new format or migrated from legacy)
-        if (sc) {
-          setStylingEnabled(sc.enabled);
-          setStylingRules(sc.rules ?? []);
-        } else {
-          const legacyThresholds = opts.colorThresholds;
-          if (typeof legacyThresholds === "string" && legacyThresholds.trim()) {
-            const migrated = migrateColorThresholds(legacyThresholds);
-            setStylingEnabled(!!migrated?.enabled);
-            setStylingRules(migrated?.rules ?? []);
-          } else {
-            setStylingEnabled(false);
-            setStylingRules([]);
-          }
-        }
-
-        // Color scales
-        setColorScales(cf?.colorScales ?? []);
-
-        setDialogStep("main");
-        setEnableCache(s.enableCache !== false);
-        setCacheTtlMinutes((s.cacheTtlMinutes as number | undefined) ?? 5);
-        setConnectorChanged(false);
-        setFormFields((s.formFields as FormFieldDef[] | undefined) ?? []);
-        setRefreshWidgetIds(
-          (opts.refreshWidgetIds as string[] | undefined) ?? [],
-        );
-
-        // Initialize parameter editor state from existing widget
-        if (widget.chartType === "parameter-select") {
-          const opts = widget.settings?.chartOptions as
-            | Record<string, unknown>
-            | undefined;
-          const internalType = (opts?.parameterType as string) ?? "select";
-          const mapped = reverseParamTypeMapping(internalType);
-          setParamUIType(mapped.uiType);
-          setDateSub(mapped.dateSub);
-          setMultiSelect(mapped.multi);
-          setParamWidgetName((opts?.parameterName as string) ?? "");
-        } else {
-          setParamUIType("select");
-          setDateSub("single");
-          setMultiSelect(false);
-          setParamWidgetName("");
-        }
-
-        seedQueryExecution.reset();
-        previewQuery.reset();
-      } else if (mode === "lab-create") {
-        // Fresh lab-create: same as add but with metadata fields
-        setChartType("bar");
-        setConnectionId("");
-        setQuery("");
-        setTitle("");
-        setChartOptions(getDefaultChartSettings("bar"));
-        setClickActionEnabled(false);
-        setClickActionType("set-parameter");
-        setParameterName("");
-        setSourceField("");
-        setTargetPageId("");
-        setClickableColumns([]);
-        setEnableCache(true);
-        setCacheTtlMinutes(5);
-        setConnectorChanged(false);
-        setFormFields([]);
-        setActionRules([]);
-        setStylingEnabled(false);
-        setStylingRules([]);
-        setColorScales([]);
-        setLabName("");
-        setLabDescription("");
-        setLabTagsInput("");
-        setDialogStep("main");
-        seedQueryExecution.reset();
-        previewQuery.reset();
-      } else if (mode === "lab-edit" && templateProp) {
-        // Initialize from template
-        setChartType(templateProp.chartType);
-        setConnectionId(templateProp.connectionId ?? "");
-        setQuery(templateProp.query ?? "");
-        setTitle((templateProp.settings?.title as string) ?? "");
-        setChartOptions(
-          (templateProp.settings?.chartOptions as Record<string, unknown>) ??
-            getDefaultChartSettings(templateProp.chartType),
-        );
-        setLabName(templateProp.name);
-        setLabDescription(templateProp.description ?? "");
-        setLabTagsInput((templateProp.tags ?? []).join(", "));
-        setClickActionEnabled(false);
-        setStylingEnabled(false);
-        setStylingRules([]);
-        setColorScales([]);
-        setActionRules([]);
-        setDialogStep("main");
-        seedQueryExecution.reset();
-        previewQuery.reset();
       }
+      seedQueryExecution.reset();
+      previewQuery.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, widget, templateProp]);
@@ -652,70 +466,18 @@ export function WidgetEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refs guard the reset; mode is not needed
   }, [chartType]);
 
-  // Build click action from current editor state
-  const buildClickAction = useCallback((): ClickAction | undefined => {
-    if (!clickActionEnabled || !chartSupportsClickAction(chartType))
-      return undefined;
-    const needsParam =
-      clickActionType === "set-parameter" ||
-      clickActionType === "set-parameter-and-navigate";
-    const needsPage =
-      clickActionType === "navigate-to-page" ||
-      clickActionType === "set-parameter-and-navigate";
-    const trimmedParamName = parameterName.trim();
-    const trimmedSourceField = sourceField.trim();
-    const trimmedTargetPageId = targetPageId.trim();
-    if (needsParam && !trimmedParamName) return undefined;
-    // For tables, sourceField is empty (cell-click provides the value directly)
-    const resolvedSourceField = chartType === "table" ? "" : trimmedSourceField;
-    if (needsParam && chartType !== "table" && !resolvedSourceField)
-      return undefined;
-    if (needsPage && !trimmedTargetPageId) return undefined;
-    // Validate targetPageId against current layout pages to prevent stale references
-    if (needsPage && layout) {
-      const validPageIds = new Set((layout.pages ?? []).map((p) => p.id));
-      if (!validPageIds.has(trimmedTargetPageId)) return undefined;
-    }
-    return {
-      type: actionRules.length > 0 ? actionRules[0].type : clickActionType,
-      ...(needsParam && actionRules.length === 0
-        ? {
-            parameterMapping: {
-              parameterName: trimmedParamName,
-              sourceField: resolvedSourceField,
-            },
-          }
-        : {}),
-      ...(needsPage && actionRules.length === 0
-        ? { targetPageId: trimmedTargetPageId }
-        : {}),
-      ...(chartType === "table" &&
-      clickableColumns.length > 0 &&
-      actionRules.length === 0
-        ? { clickableColumns }
-        : {}),
-      ...(actionRules.length > 0 ? { rules: actionRules } : {}),
-    };
-  }, [
-    clickActionEnabled,
-    clickActionType,
-    parameterName,
-    sourceField,
-    chartType,
-    targetPageId,
-    layout,
-    clickableColumns,
-    actionRules,
-  ]);
+  // Build click action / styling config from the store
+  const buildClickAction = useCallback(
+    (): ClickAction | undefined =>
+      useWidgetEditorStore.getState().buildClickAction(layout),
+    [layout],
+  );
 
-  const buildStylingConfig = useCallback((): StylingConfig | undefined => {
-    if (!stylingEnabled || !chartSupportsStyling(chartType)) return undefined;
-    if (stylingRules.length === 0) return undefined;
-    return {
-      enabled: true,
-      rules: stylingRules,
-    };
-  }, [stylingEnabled, chartType, stylingRules]);
+  const buildStylingConfig = useCallback(
+    (): StylingConfig | undefined =>
+      useWidgetEditorStore.getState().buildStylingConfig(),
+    [],
+  );
 
   const handlePreview = useCallback(() => {
     const cId = connectionIdRef.current;
@@ -1052,106 +814,13 @@ export function WidgetEditorModal({
           />
         ) : null}
         {dialogStep === "templates" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Browse Templates</DialogTitle>
-            </DialogHeader>
-            <div className="py-4 flex-1 overflow-y-auto min-h-[400px]">
-              {!templatesLoading && templates && templates.length > 0 && (
-                <Input
-                  placeholder="Search by name..."
-                  value={templateSearch}
-                  onChange={(e) => setTemplateSearch(e.target.value)}
-                  className="mb-3 max-w-xs"
-                />
-              )}
-              {templatesLoading && (
-                <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                  <p className="text-sm">Loading templates...</p>
-                </div>
-              )}
-              {!templatesLoading && (!templates || templates.length === 0) && (
-                <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                  <FlaskConical className="h-8 w-8 opacity-40" />
-                  <p className="text-sm">
-                    No templates available
-                    {selectedConnectorType
-                      ? ` for ${selectedConnectorType}`
-                      : ""}
-                    .
-                  </p>
-                </div>
-              )}
-              {!templatesLoading &&
-                templates &&
-                templates.length > 0 &&
-                (() => {
-                  const filtered = templateSearch
-                    ? templates.filter((t) =>
-                        t.name
-                          .toLowerCase()
-                          .includes(templateSearch.toLowerCase()),
-                      )
-                    : templates;
-                  return filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-                      <p className="text-sm">
-                        No templates match &ldquo;{templateSearch}&rdquo;
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {filtered.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => applyTemplate(t)}
-                          className="text-left rounded-lg border p-2 hover:bg-accent transition-colors flex flex-col gap-1.5"
-                        >
-                          <CodePreview
-                            value={t.query}
-                            language={
-                              CONNECTOR_LANGUAGES[
-                                t.connectorType as ConnectorType
-                              ] ?? "Cypher"
-                            }
-                            maxLines={2}
-                          />
-                          <span className="font-medium text-xs truncate w-full">
-                            {t.name}
-                          </span>
-                          <div className="flex gap-1 flex-wrap">
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0"
-                            >
-                              {getChartConfig(t.chartType)?.label ??
-                                t.chartType}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0"
-                            >
-                              {t.connectorType}
-                            </Badge>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setTemplateSearch("");
-                  setDialogStep("main");
-                }}
-              >
-                Back
-              </Button>
-            </DialogFooter>
-          </>
+          <TemplateBrowser
+            templates={templates}
+            loading={templatesLoading}
+            connectorType={selectedConnectorType ?? null}
+            onApply={applyTemplate}
+            onBack={() => setDialogStep("main")}
+          />
         )}
         {dialogStep === "main" && (
           <>
@@ -1620,168 +1289,43 @@ export function WidgetEditorModal({
               </div>
 
               {/* Right column: preview */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Label className="mb-0">Preview</Label>
-                  {!isParamSelect && !isForm && !isContentOnly && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePreview}
-                      disabled={
-                        !connectionId || !query.trim() || previewQuery.isPending
-                      }
-                    >
-                      {previewQuery.isPending ? (
-                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
-                      ) : (
-                        <Play className="h-3 w-3 mr-1.5" />
-                      )}
-                      Run
-                    </Button>
-                  )}
-                  {!isParamSelect &&
-                    !isForm &&
-                    !isContentOnly &&
-                    previewQuery.isError && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center text-destructive"
-                            aria-label={`Query failed: ${previewQuery.error.message}`}
-                          >
-                            <AlertCircle className="h-4 w-4 shrink-0" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="bottom"
-                          className="max-w-sm text-xs"
-                        >
-                          <p className="font-medium">Query failed</p>
-                          <p className="opacity-80">
-                            {previewQuery.error.message}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                </div>
-
-                <div
-                  ref={previewRef}
-                  data-testid="widget-preview"
-                  className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative"
-                >
-                  {isMarkdown ? (
-                    <MarkdownWidget
-                      content={chartOptions.content as string | undefined}
-                    />
-                  ) : isIframe ? (
-                    <IframeWidget
-                      url={chartOptions.url as string | undefined}
-                      title={chartOptions.iframeTitle as string | undefined}
-                      sandbox={chartOptions.sandbox as string | undefined}
-                    />
-                  ) : isParamSelect ? (
-                    <ParameterPreview
-                      paramUIType={paramUIType}
-                      dateSub={dateSub}
-                      multiSelect={multiSelect}
-                      paramWidgetName={paramWidgetName}
-                      chartOptions={chartOptions}
-                      seedPreviewOptions={seedPreviewOptions}
-                      seedQueryPending={seedQueryExecution.isPending}
-                      seedQueryError={
-                        seedQueryExecution.isError
-                          ? seedQueryExecution.error.message
-                          : null
-                      }
-                    />
-                  ) : isForm ? (
-                    formFields.length > 0 ? (
-                      <div className="p-4 space-y-3 overflow-auto h-full">
-                        {formFields.map((f) => (
-                          <div key={f.id} className="space-y-1.5">
-                            <Label className="text-sm">
-                              {f.label || f.parameterName}
-                            </Label>
-                            <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
-                              {f.parameterType}
-                            </div>
-                          </div>
-                        ))}
-                        <Button disabled className="w-full mt-2">
-                          {(chartOptions.submitButtonText as string) ||
-                            "Submit"}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
-                        Add fields in the Fields section below to see the form
-                        preview
-                      </div>
-                    )
-                  ) : (
-                    <>
-                      {previewQuery.isPending && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        </div>
-                      )}
-                      {previewQuery.isError &&
-                      !previewQuery.data &&
-                      !initialPreviewData ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                          <AlertCircle className="h-8 w-8 text-destructive" />
-                          <p className="text-sm font-medium text-destructive">
-                            Query failed
-                          </p>
-                          <p className="text-xs max-w-xs text-center">
-                            {previewQuery.error.message}
-                          </p>
-                        </div>
-                      ) : previewQuery.data || initialPreviewData ? (
-                        <CardContainer
-                          widget={{
-                            id: "preview",
-                            chartType,
-                            connectionId,
-                            query,
-                            settings: {
-                              title: title || undefined,
-                              chartOptions,
-                              stylingConfig: buildStylingConfig(),
-                              conditionalFormatting: colorScales.length
-                                ? { colorScales }
-                                : undefined,
-                              transforms: transforms.length
-                                ? transforms
-                                : undefined,
-                              transformsEnabled,
-                            },
-                          }}
-                          previewData={
-                            (previewQuery.data ?? initialPreviewData)!.data
-                          }
-                          previewResultId={
-                            (previewQuery.data ?? initialPreviewData)!.resultId
-                          }
-                        />
-                      ) : connectionId &&
-                        query.trim() &&
-                        !previewQuery.isError ? (
-                        <div className="h-full flex items-center justify-center">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                          Run a query to see the preview
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
+              <WidgetPreviewPanel
+                chartType={chartType}
+                connectionId={connectionId}
+                query={query}
+                title={title}
+                chartOptions={chartOptions}
+                colorScales={colorScales}
+                transforms={transforms}
+                transformsEnabled={transformsEnabled}
+                buildStylingConfig={buildStylingConfig}
+                isParamSelect={isParamSelect}
+                isForm={isForm}
+                isContentOnly={isContentOnly}
+                isMarkdown={isMarkdown}
+                isIframe={isIframe}
+                paramUIType={paramUIType}
+                dateSub={dateSub}
+                multiSelect={multiSelect}
+                paramWidgetName={paramWidgetName}
+                seedPreviewOptions={seedPreviewOptions}
+                seedQueryPending={seedQueryExecution.isPending}
+                seedQueryError={
+                  seedQueryExecution.isError
+                    ? seedQueryExecution.error.message
+                    : null
+                }
+                formFields={formFields}
+                previewRef={previewRef}
+                previewQuery={{
+                  isPending: previewQuery.isPending,
+                  isError: previewQuery.isError,
+                  error: previewQuery.error,
+                  data: previewQuery.data,
+                }}
+                initialPreviewData={initialPreviewData}
+                onRunPreview={handlePreview}
+              />
             </div>
 
             <DialogFooter>
