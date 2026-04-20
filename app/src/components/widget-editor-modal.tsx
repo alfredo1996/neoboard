@@ -353,7 +353,6 @@ export function WidgetEditorModal({
       }
     }
 
-    setTemplateSearch("");
     store.setDialogStep("main");
   }
   // Pass connector type directly — the language resolver registry maps it
