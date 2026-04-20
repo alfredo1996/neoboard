@@ -256,7 +256,8 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
 let cachedValues: Record<string, unknown> = {};
 let cachedParametersRef: Record<string, ParameterEntry> | null = null;
 
-function deriveValues(
+/** Visible for testing. */
+export function deriveValues(
   parameters: Record<string, ParameterEntry>,
 ): Record<string, unknown> {
   if (parameters === cachedParametersRef) return cachedValues;
@@ -273,7 +274,8 @@ function deriveValues(
   return next;
 }
 
-function shallowEqual(
+/** Visible for testing. */
+export function shallowEqual(
   a: Record<string, unknown>,
   b: Record<string, unknown>,
 ): boolean {
