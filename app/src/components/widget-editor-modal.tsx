@@ -193,6 +193,11 @@ export function WidgetEditorModal({
     } else {
       // add or lab-create
       store.resetForAdd();
+      // "add" mode defaults to bar chart (more useful default than table)
+      if (mode === "add") {
+        store.setChartType("bar");
+        store.setChartOptions(getDefaultChartSettings("bar"));
+      }
       if (mode === "lab-create") {
         store.setLabName("");
         store.setLabDescription("");
