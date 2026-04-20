@@ -87,25 +87,61 @@ function isEnvelope(body: unknown): body is ApiEnvelope {
  * - Raw success → returns parsed JSON as-is
  * - Raw error (non-ok) → throws with `error` field or generic message
  */
-export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
-  // Map backpressure responses to typed errors BEFORE reading the body —
-  // callers that care (retry policies, UI) use instanceof checks.
-  if (res.status === 503 || res.status === 408) {
-    const retryAfterMs = parseRetryAfter(
-      res.headers.get("Retry-After"),
-      res.status === 503 ? 2000 : 5000,
-    );
-    const body = await res.json().catch(() => null);
-    const msg =
-      (isEnvelope(body) && body.error?.message) ||
-      (res.status === 503
-        ? "Server busy, try again in a moment"
-        : "Server timed out, retrying…");
-    throw res.status === 503
-      ? new QueueFullError(msg, retryAfterMs)
-      : new ClientQueueTimeoutError(msg, retryAfterMs);
-  }
+/**
+ * If the response is a 503/408 backpressure signal, throw a typed error
+ * with the parsed Retry-After hint. Otherwise return undefined to let
+ * the caller continue with normal body parsing.
+ *
+ * Shared by `unwrapResponse` and `unwrapFullResponse` to keep their
+ * backpressure handling in one place.
+ */
+async function throwIfBackpressure(res: Response): Promise<void> {
+  if (res.status !== 503 && res.status !== 408) return;
+  const retryAfterMs = parseRetryAfter(
+    res.headers.get("Retry-After"),
+    res.status === 503 ? 2000 : 5000,
+  );
+  const body = await res.json().catch(() => null);
+  const msg =
+    (isEnvelope(body) && body.error?.message) ||
+    (res.status === 503
+      ? "Server busy, try again in a moment"
+      : "Server timed out, retrying…");
+  throw res.status === 503
+    ? new QueueFullError(msg, retryAfterMs)
+    : new ClientQueueTimeoutError(msg, retryAfterMs);
+}
 
+const RAW_STATUS_HINTS: Record<number, string> = {
+  400: "Bad request — check query syntax",
+  401: "Unauthorized — please log in again",
+  403: "Forbidden — insufficient permissions",
+  404: "Not found — the resource may have been deleted",
+  408: "Request timed out — try a simpler query",
+  500: "Internal server error — check server logs",
+  502: "Bad gateway — the database may be unreachable",
+  503: "Service unavailable — try again later",
+  504: "Gateway timeout — the query took too long",
+};
+
+/**
+ * Map a non-ok raw (non-envelope) response to a user-facing Error.
+ * Prefers the body's `error` string when present, falls back to a
+ * status-specific hint, then to a generic "Request failed" message.
+ */
+function throwRawError(res: Response, body: unknown): never {
+  const rawBody = body as Record<string, unknown>;
+  const msg = rawBody?.error;
+  if (typeof msg === "string" && msg) {
+    throw new Error(msg);
+  }
+  throw new Error(
+    RAW_STATUS_HINTS[res.status] ?? `Request failed (HTTP ${res.status})`,
+  );
+}
+
+export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
+  await throwIfBackpressure(res);
   const body = await res.json();
 
   // Envelope format: { data, error, meta }
@@ -117,28 +153,7 @@ export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
   }
 
   // Raw format (legacy): check HTTP status
-  if (!res.ok) {
-    const rawBody = body as Record<string, unknown>;
-    const msg = rawBody?.error;
-    if (typeof msg === "string" && msg) {
-      throw new Error(msg);
-    }
-    // Provide a more descriptive fallback based on HTTP status
-    const statusHints: Record<number, string> = {
-      400: "Bad request — check query syntax",
-      401: "Unauthorized — please log in again",
-      403: "Forbidden — insufficient permissions",
-      404: "Not found — the resource may have been deleted",
-      408: "Request timed out — try a simpler query",
-      500: "Internal server error — check server logs",
-      502: "Bad gateway — the database may be unreachable",
-      503: "Service unavailable — try again later",
-      504: "Gateway timeout — the query took too long",
-    };
-    throw new Error(
-      statusHints[res.status] ?? `Request failed (HTTP ${res.status})`,
-    );
-  }
+  if (!res.ok) throwRawError(res, body);
 
   return body as T;
 }
@@ -151,22 +166,7 @@ export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
 export async function unwrapFullResponse<T = unknown>(
   res: Response,
 ): Promise<{ data: T; meta: Record<string, unknown> | null }> {
-  if (res.status === 503 || res.status === 408) {
-    const retryAfterMs = parseRetryAfter(
-      res.headers.get("Retry-After"),
-      res.status === 503 ? 2000 : 5000,
-    );
-    const body = await res.json().catch(() => null);
-    const msg =
-      (isEnvelope(body) && body.error?.message) ||
-      (res.status === 503
-        ? "Server busy, try again in a moment"
-        : "Server timed out, retrying…");
-    throw res.status === 503
-      ? new QueueFullError(msg, retryAfterMs)
-      : new ClientQueueTimeoutError(msg, retryAfterMs);
-  }
-
+  await throwIfBackpressure(res);
   const body = await res.json();
 
   if (isEnvelope(body)) {
@@ -180,27 +180,7 @@ export async function unwrapFullResponse<T = unknown>(
   }
 
   // Raw format: return body as data, no meta
-  if (!res.ok) {
-    const rawBody = body as Record<string, unknown>;
-    const msg = rawBody?.error;
-    if (typeof msg === "string" && msg) {
-      throw new Error(msg);
-    }
-    const statusHints: Record<number, string> = {
-      400: "Bad request — check query syntax",
-      401: "Unauthorized — please log in again",
-      403: "Forbidden — insufficient permissions",
-      404: "Not found — the resource may have been deleted",
-      408: "Request timed out — try a simpler query",
-      500: "Internal server error — check server logs",
-      502: "Bad gateway — the database may be unreachable",
-      503: "Service unavailable — try again later",
-      504: "Gateway timeout — the query took too long",
-    };
-    throw new Error(
-      statusHints[res.status] ?? `Request failed (HTTP ${res.status})`,
-    );
-  }
+  if (!res.ok) throwRawError(res, body);
 
   return { data: body as T, meta: null };
 }
