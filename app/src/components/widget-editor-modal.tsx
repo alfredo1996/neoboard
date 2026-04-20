@@ -22,7 +22,7 @@ import {
   findParameterCollisions,
   aggregateClickActionParamNames,
 } from "@/lib/parameter/collect-parameter-names";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Info, FlaskConical } from "lucide-react";
 import {
   useWidgetTemplates,
   useCreateWidgetTemplate,
