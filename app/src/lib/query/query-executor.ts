@@ -88,13 +88,9 @@ export function _evictStaleEntries() {
 }
 
 function closeModuleSilently(mod: unknown) {
-  try {
-    const m = mod as { close?: () => Promise<void> };
-    if (typeof m.close === "function") {
-      m.close().catch(() => {});
-    }
-  } catch {
-    // best-effort cleanup
+  const m = mod as { close?: () => Promise<void> };
+  if (typeof m.close === "function") {
+    m.close().catch(() => {});
   }
 }
 
