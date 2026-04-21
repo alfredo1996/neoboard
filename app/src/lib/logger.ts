@@ -47,6 +47,10 @@ function normaliseLevel(level: string): pino.Level {
 function buildOptions(): pino.LoggerOptions {
   const base: pino.LoggerOptions = {
     level: normaliseLevel(LOG_LEVEL),
+    // stdSerializers ensures Error objects on the `err` key serialize
+    // correctly (message, stack, code) instead of becoming `{}`. This
+    // is critical for Fluentd/ELK pipelines that parse the `err` field.
+    serializers: pino.stdSerializers,
     base: {
       service: "neoboard",
       env: process.env.NODE_ENV ?? "development",

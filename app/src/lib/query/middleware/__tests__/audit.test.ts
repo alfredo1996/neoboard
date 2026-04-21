@@ -143,7 +143,11 @@ describe("auditMiddleware", () => {
     expect(logged[0].msg).toBe("query_failed");
     expect(logged[0].obj.event).toBe("query_failed");
     expect(logged[0].obj.status).toBe("error");
-    expect(logged[0].obj.error).toBe("connection refused");
+    // err key carries the full Error for pino.stdSerializers
+    expect(logged[0].obj.err).toBeInstanceOf(Error);
+    expect((logged[0].obj.err as Error).message).toBe("connection refused");
+    // errorCode for machine-readable filtering
+    expect(logged[0].obj.errorCode).toBe("Error");
     expect(typeof logged[0].obj.durationMs).toBe("number");
   });
 

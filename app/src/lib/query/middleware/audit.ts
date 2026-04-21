@@ -74,8 +74,15 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
         accessMode: ctx.accessMode,
         query: ctx.query,
         durationMs,
-        error: err instanceof Error ? err.message : String(err),
         requestId,
+        // Use pino's `err` key so stdSerializers picks it up and
+        // serializes message + stack + code properly for Fluentd/ELK.
+        err: err instanceof Error ? err : String(err),
+        // Machine-readable error type for filtering/alerting
+        errorCode:
+          err instanceof Error
+            ? ((err as Error & { code?: string }).code ?? err.name)
+            : "UNKNOWN",
       },
       "query_failed",
     );
