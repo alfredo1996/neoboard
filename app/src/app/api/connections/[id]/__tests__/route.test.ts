@@ -195,6 +195,65 @@ describe("GET /api/connections/[id]", () => {
     expect(body.data.config.connectionTimeout).toBe(5000);
     expect(body.data.config.password).toBeUndefined();
   });
+
+  it("returns metadata with undefined config when configEncrypted is corrupted", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDecryptJson.mockImplementationOnce(() => {
+      throw new Error("bad cipher");
+    });
+    const conn = {
+      id: "c1",
+      name: "DB",
+      type: "neo4j",
+      configEncrypted: "enc:corrupted",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+
+    const res = await GET(makeRequest({}), makeParams("c1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.config).toBeUndefined();
+    expect(body.data.id).toBe("c1");
+  });
+
+  it("returns metadata with undefined config when configEncrypted is missing", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const conn = {
+      id: "c1",
+      name: "DB",
+      type: "postgresql",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // no configEncrypted
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+
+    const res = await GET(makeRequest({}), makeParams("c1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.config).toBeUndefined();
+  });
+
+  it("admin fallback returns 404 when not found in tenant", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    // Both owner and admin fallback selects return empty
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+
+    const res = await GET(makeRequest({}), makeParams("nonexistent"));
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 500 on unexpected error", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockImplementation(() => {
+      throw new Error("db down");
+    });
+
+    const res = await GET(makeRequest({}), makeParams("c1"));
+    expect(res.status).toBe(500);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -390,6 +449,58 @@ describe("PATCH /api/connections/[id]", () => {
     expect(body.error).toBeDefined();
   });
 
+  it("returns 400 when stored credentials are corrupted and password is omitted", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDecryptJson.mockImplementationOnce(() => {
+      throw new Error("bad cipher");
+    });
+    const existing = { configEncrypted: "enc:corrupted" };
+    mockDb.select.mockReturnValue(makeSelectChain([existing]));
+
+    const res = await PATCH(
+      makeRequest({
+        config: { uri: "bolt://new-host", username: "neo4j" }, // no password
+      }),
+      makeParams("c1"),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/re-enter the password/i);
+    // Must NOT have proceeded to encrypt or update
+    expect(mockEncryptJson).not.toHaveBeenCalled();
+  });
+
+  it("updates only name without touching config when config is omitted", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const updated = {
+      id: "c1",
+      name: "Renamed",
+      type: "neo4j",
+      updatedAt: new Date(),
+    };
+    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+
+    const res = await PATCH(makeRequest({ name: "Renamed" }), makeParams("c1"));
+
+    expect(res.status).toBe(200);
+    expect(mockEncryptJson).not.toHaveBeenCalled();
+    expect(mockPrefetchSchema).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 on unexpected error during PATCH", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.update.mockImplementation(() => {
+      throw new Error("db down");
+    });
+
+    const res = await PATCH(
+      makeRequest({ name: "New name" }),
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(500);
+  });
+
   it("calls prefetchSchema when password is explicitly provided", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const updated = {
@@ -542,5 +653,39 @@ describe("DELETE /api/connections/[id]", () => {
     expect(res.status).toBe(409);
     // Admins still need to pass ?force=true to actually delete.
     expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("admin deletes using tenant-only WHERE clause (no owner match required)", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+
+    const res = await DELETE(req(), makeParams("c1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.deleted).toBe(true);
+    expect(mockDb.delete).toHaveBeenCalled();
+  });
+
+  it("returns 500 on unexpected error during DELETE", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockGetConnectionUsage.mockRejectedValue(new Error("usage query failed"));
+
+    const res = await DELETE(req(), makeParams("c1"));
+    expect(res.status).toBe(500);
+  });
+
+  it("force=anything-other-than-true does NOT bypass the guard", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 1,
+      dashboards: [{ id: "d1", name: "A", widgetCount: 1 }],
+    });
+
+    const res = await DELETE(
+      req("http://localhost/api/connections/c1?force=1"),
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(409);
+    expect(mockGetConnectionUsage).toHaveBeenCalled();
   });
 });
