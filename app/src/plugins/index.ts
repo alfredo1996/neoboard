@@ -16,6 +16,7 @@
 
 import { pluginRegistry } from "./registry";
 import { CHART_TYPES } from "./chart-types";
+import { EXTERNAL_PLUGINS } from "./external-plugins.generated";
 import { markdownPlugin } from "./markdown";
 import { barPlugin } from "./bar";
 import { linePlugin } from "./line";
@@ -59,6 +60,24 @@ const BUILT_IN_PLUGINS = [
 for (const plugin of BUILT_IN_PLUGINS) {
   // Unregister stubs (from chart-helpers.ts) so real plugins always win
   if (pluginRegistry.has(plugin.type)) {
+    pluginRegistry.unregister(plugin.type);
+  }
+  pluginRegistry.register(plugin);
+}
+
+// ── External plugins (from neoboard-plugins.json) ───────────────────────
+// Registered AFTER built-ins so external plugins can replace a built-in
+// chart type — but only when their manifest entry has `overrides: true`.
+// Same-type duplicates without overrides throw loudly so operators spot
+// the conflict at startup instead of debugging a silent replacement.
+for (const { plugin, overrides } of EXTERNAL_PLUGINS) {
+  if (pluginRegistry.has(plugin.type)) {
+    if (!overrides) {
+      throw new Error(
+        `External plugin "${plugin.type}" conflicts with an existing plugin. ` +
+          `Set "overrides": true in neoboard-plugins.json to replace the built-in.`,
+      );
+    }
     pluginRegistry.unregister(plugin.type);
   }
   pluginRegistry.register(plugin);

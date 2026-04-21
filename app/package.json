@@ -3,6 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "predev": "node ../scripts/generate-plugin-imports.mjs",
+    "prebuild": "node ../scripts/generate-plugin-imports.mjs",
     "dev": "next dev --turbopack",
     "build": "next build --webpack",
     "start": "next start",

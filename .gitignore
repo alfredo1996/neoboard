@@ -76,3 +76,4 @@ docs/.next
 # CLI build output
 cli/dist/
 .neoboard.local
+
