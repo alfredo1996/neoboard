@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/alfredo1996/neoboard/blob/main/neoboard-plugins.schema.json",
+  "title": "NeoBoard external plugin manifest",
+  "description": "Declares external chart plugins to import at build time. Each entry must resolve to an npm package that is installed (declared in app/package.json or a workspace) and exports a ChartPlugin.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package"],
+        "properties": {
+          "package": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The npm package name to import (e.g. '@myorg/neoboard-heatmap' or './plugins/my-local')."
+          },
+          "export": {
+            "type": "string",
+            "minLength": 1,
+            "default": "default",
+            "description": "Named export to import. Defaults to 'default' (the package's default export)."
+          },
+          "overrides": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, this plugin is allowed to replace a built-in plugin with the same chart type. Defaults to false — duplicates are rejected at registration."
+          }
+        }
+      }
+    }
+  },
+  "required": ["plugins"]
+}
