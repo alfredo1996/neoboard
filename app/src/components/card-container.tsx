@@ -20,7 +20,8 @@ import {
   resolveStylingConfig,
 } from "@/lib/widget/card-utils";
 import React, { useMemo, useCallback, useState } from "react";
-import { AlertCircle, Play } from "lucide-react";
+import { AlertCircle, Clock, Play } from "lucide-react";
+import { QueueFullError, ClientQueueTimeoutError } from "@/lib/api/api-client";
 import {
   Skeleton,
   Alert,
@@ -510,6 +511,39 @@ export function CardContainer({
   }
 
   if (widgetQuery.isError) {
+    // Backpressure states — retries already exhausted at this point, but
+    // render a softer message (not "Query Failed") with a manual retry
+    // button so the user understands it's a transient server-load issue.
+    if (
+      widgetQuery.error instanceof QueueFullError ||
+      widgetQuery.error instanceof ClientQueueTimeoutError
+    ) {
+      const isBusy = widgetQuery.error instanceof QueueFullError;
+      return (
+        <div className="p-4">
+          <Alert>
+            <Clock className="h-4 w-4" />
+            <AlertTitle>
+              {isBusy ? "Server busy" : "Server timed out"}
+            </AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>
+                {isBusy
+                  ? "The server is handling too many queries right now."
+                  : "This query waited too long in the queue."}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => widgetQuery.refetch()}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      );
+    }
     return (
       <div className="p-4">
         <Alert variant="destructive">

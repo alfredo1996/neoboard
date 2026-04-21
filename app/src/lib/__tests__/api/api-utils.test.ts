@@ -107,6 +107,7 @@ describe("handleRouteError", () => {
     const body = await res.json();
     expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
     expect(body.error.details).toEqual({ reason: "queue_full" });
+    expect(res.headers.get("Retry-After")).toBe("2");
   });
 
   it("returns 503 with reason=shed for shedding rejections", async () => {
@@ -122,6 +123,7 @@ describe("handleRouteError", () => {
     expect(res.status).toBe(408);
     const body = await res.json();
     expect(body.error.code).toBe("REQUEST_TIMEOUT");
+    expect(res.headers.get("Retry-After")).toBe("5");
   });
 });
 

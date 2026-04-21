@@ -2,7 +2,11 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { unwrapFullResponse } from "@/lib/api/api-client";
+import {
+  unwrapFullResponse,
+  QueueFullError,
+  ClientQueueTimeoutError,
+} from "@/lib/api/api-client";
 import { useParameterStore } from "@/stores/parameter-store";
 import { resolveRelativePreset } from "@/lib/shared/date-utils";
 import type { RelativeDatePreset } from "@neoboard/components";
@@ -220,7 +224,27 @@ export function useWidgetQuery(
     staleTime: options?.staleTime ?? 0,
     gcTime: options?.gcTime,
     refetchInterval: options?.refetchInterval,
-    retry: false,
+    // Retry only on backpressure (503/408) — all other errors fail fast
+    // so the user sees them immediately. Cap at 3 attempts to avoid
+    // hammering a server that's already overloaded.
+    retry: (failureCount, error) => {
+      if (failureCount >= 3) return false;
+      return (
+        error instanceof QueueFullError ||
+        error instanceof ClientQueueTimeoutError
+      );
+    },
+    // Honour the server's Retry-After hint when available; otherwise fall
+    // back to exponential backoff (500ms, 1s, 2s) with a 5s cap.
+    retryDelay: (attemptIndex, error) => {
+      if (
+        error instanceof QueueFullError ||
+        error instanceof ClientQueueTimeoutError
+      ) {
+        return Math.min(error.retryAfterMs, 5000);
+      }
+      return Math.min(500 * 2 ** attemptIndex, 5000);
+    },
   });
 
   const missingParams = useMemo(

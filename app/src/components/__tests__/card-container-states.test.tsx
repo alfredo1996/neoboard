@@ -226,6 +226,49 @@ describe("CardContainer", () => {
     expect(screen.getByText("Connection refused")).toBeDefined();
   });
 
+  it("shows soft 'Server busy' state with Retry button on QueueFullError", async () => {
+    const { QueueFullError } = await import("@/lib/api/api-client");
+    const refetch = vi.fn();
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: true,
+      error: new QueueFullError("busy", 2000),
+      data: undefined,
+      missingParams: [],
+      refetch,
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText("Server busy")).toBeDefined();
+    expect(
+      screen.getByText(/server is handling too many queries/i),
+    ).toBeDefined();
+    expect(screen.queryByText("Query Failed")).toBeNull();
+    screen.getByRole("button", { name: /retry/i }).click();
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("shows 'Server timed out' state with Retry button on ClientQueueTimeoutError", async () => {
+    const { ClientQueueTimeoutError } = await import("@/lib/api/api-client");
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: true,
+      error: new ClientQueueTimeoutError("timeout", 5000),
+      data: undefined,
+      missingParams: [],
+      refetch: vi.fn(),
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText("Server timed out")).toBeDefined();
+    expect(screen.getByText(/waited too long in the queue/i)).toBeDefined();
+    expect(screen.queryByText("Query Failed")).toBeNull();
+  });
+
   // ----- Successful render -----
 
   it("renders chart when query returns data", () => {

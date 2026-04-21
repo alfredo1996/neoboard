@@ -10,11 +10,21 @@
 export function nextResponseMockFactory() {
   return {
     NextResponse: {
-      json: (body: unknown, init?: ResponseInit) => ({
-        status: init?.status ?? 200,
-        json: async () => body,
-        _body: body,
-      }),
+      json: (body: unknown, init?: ResponseInit) => {
+        const headerEntries =
+          init?.headers && typeof init.headers === "object"
+            ? Object.entries(init.headers as Record<string, string>)
+            : [];
+        const headerMap = new Map(headerEntries);
+        return {
+          status: init?.status ?? 200,
+          headers: {
+            get: (k: string) => headerMap.get(k) ?? null,
+          },
+          json: async () => body,
+          _body: body,
+        };
+      },
     },
   };
 }
