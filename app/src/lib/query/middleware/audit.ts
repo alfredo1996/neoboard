@@ -38,6 +38,7 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
   try {
     const result = await next();
     const durationMs = Math.round(performance.now() - startedAt);
+    const schedulerWaitMs = ctx.metadata.schedulerWaitMs;
     queryLogger.info(
       {
         event: "query_executed",
@@ -53,6 +54,9 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
         truncated: result.truncated === true || undefined,
         rowLimit: result.rowLimit,
         requestId,
+        // Only included when the scheduler middleware ran (slice 2 of #129).
+        schedulerWaitMs:
+          typeof schedulerWaitMs === "number" ? schedulerWaitMs : undefined,
       },
       "query_executed",
     );

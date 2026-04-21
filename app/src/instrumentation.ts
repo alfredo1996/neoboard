@@ -28,6 +28,19 @@ export async function register() {
     );
   }
 
+  // Start the periodic scheduler metrics emitter. Idle schedulers are
+  // skipped so there's no log spam when the server is quiet.
+  try {
+    const { startSchedulerMetricsEmitter } =
+      await import("@/lib/query/scheduler-metrics");
+    startSchedulerMetricsEmitter();
+  } catch (err) {
+    logger.error(
+      { event: "scheduler_metrics_start_failed", err },
+      "scheduler_metrics_start_failed",
+    );
+  }
+
   // Bootstrap the first admin user when the database is empty.
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
