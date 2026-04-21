@@ -77,5 +77,3 @@ docs/.next
 cli/dist/
 .neoboard.local
 
-# External plugin codegen (regenerated from neoboard-plugins.json on predev/prebuild)
-app/src/plugins/external-plugins.generated.ts
