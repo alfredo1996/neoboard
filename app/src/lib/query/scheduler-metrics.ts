@@ -96,15 +96,17 @@ const DEFAULT_INTERVAL_MS = 30_000;
  * Visible for testing — runs one metrics tick synchronously.
  * Takes the "previous totals" map in/out so callers can chain ticks.
  */
+export interface SchedulerMetricsLogger {
+  info: (obj: object, msg: string) => void;
+  warn: (obj: object, msg: string) => void;
+  error: (obj: object, msg: string) => void;
+}
+
 export function _runTick(
   prevTotals: Map<string, { rejections: number; sheds: number }>,
   maxQueueDepth: number,
   shedThreshold: number,
-  logger: {
-    info: (obj: object, msg: string) => void;
-    warn: (obj: object, msg: string) => void;
-    error: (obj: object, msg: string) => void;
-  },
+  logger: SchedulerMetricsLogger,
 ): void {
   for (const { connectionId, scheduler } of listSchedulers()) {
     const stats = scheduler.getStats();

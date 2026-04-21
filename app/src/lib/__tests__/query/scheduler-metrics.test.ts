@@ -6,6 +6,7 @@ import {
   startSchedulerMetricsEmitter,
   stopSchedulerMetricsEmitter,
   type SchedulerMetricsEntry,
+  type SchedulerMetricsLogger,
 } from "@/lib/query/scheduler-metrics";
 import type { SchedulerStats } from "@/lib/query/scheduler";
 
@@ -159,7 +160,12 @@ describe("_runTick", () => {
     mockScheduler.getStats.mockReturnValue(baseStats());
     const mod = await reimport();
     const prev = new Map();
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(mockLogger.info).not.toHaveBeenCalled();
     expect(mockLogger.warn).not.toHaveBeenCalled();
     expect(mockLogger.error).not.toHaveBeenCalled();
@@ -171,7 +177,12 @@ describe("_runTick", () => {
     );
     const mod = await reimport();
     const prev = new Map();
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(mockLogger.info).toHaveBeenCalledTimes(1);
     const [payload, msg] = mockLogger.info.mock.calls[0];
     expect(msg).toBe("scheduler_stats");
@@ -184,7 +195,12 @@ describe("_runTick", () => {
     mockScheduler.getStats.mockReturnValue(baseStats({ rejectionsTotal: 5 }));
     const mod = await reimport();
     const prev = new Map([["c1", { rejections: 0, sheds: 0 }]]);
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(mockLogger.error).toHaveBeenCalledTimes(1);
     const [payload] = mockLogger.error.mock.calls[0];
     expect(payload.rejectionsDelta).toBe(5);
@@ -194,7 +210,12 @@ describe("_runTick", () => {
     mockScheduler.getStats.mockReturnValue(baseStats({ queueDepth: 180 }));
     const mod = await reimport();
     const prev = new Map();
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(mockLogger.warn).toHaveBeenCalledTimes(1);
   });
 
@@ -204,7 +225,12 @@ describe("_runTick", () => {
     );
     const mod = await reimport();
     const prev = new Map();
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(prev.get("c1")).toEqual({ rejections: 5, sheds: 2 });
   });
 
@@ -214,7 +240,12 @@ describe("_runTick", () => {
     );
     const mod = await reimport();
     const prev = new Map([["c1", { rejections: 10, sheds: 4 }]]);
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(prev.get("c1")).toEqual({ rejections: 10, sheds: 4 });
     expect(mockLogger.info).not.toHaveBeenCalled();
   });
@@ -223,12 +254,22 @@ describe("_runTick", () => {
     mockScheduler.getStats.mockReturnValue(baseStats({ rejectionsTotal: 5 }));
     const mod = await reimport();
     const prev = new Map();
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(mockLogger.error).toHaveBeenCalledTimes(1);
     mockLogger.error.mockClear();
 
     // Second tick — totals unchanged, queue empty → idle → no log
-    mod._runTick(prev, 200, 0.8, mockLogger);
+    mod._runTick(
+      prev,
+      200,
+      0.8,
+      mockLogger as unknown as SchedulerMetricsLogger,
+    );
     expect(mockLogger.error).not.toHaveBeenCalled();
     expect(mockLogger.info).not.toHaveBeenCalled();
   });
