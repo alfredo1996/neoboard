@@ -104,6 +104,44 @@ export function useDeleteConnection() {
   });
 }
 
+export interface ReassignResult {
+  dashboardsUpdated: number;
+  widgetsReassigned: number;
+}
+
+/**
+ * Re-assign every widget on the given `fromId` connection to
+ * `targetConnectionId`. Target must be the same connector type —
+ * the server rejects cross-type reassigns with a 400.
+ *
+ * Used by the delete-connection dialog as a less-destructive
+ * alternative to "Delete anyway" (issue #510).
+ */
+export function useReassignConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      fromId,
+      targetConnectionId,
+    }: {
+      fromId: string;
+      targetConnectionId: string;
+    }) => {
+      const res = await fetch(`/api/connections/${fromId}/reassign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetConnectionId }),
+      });
+      return unwrapResponse<ReassignResult>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["connection-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+  });
+}
+
 export interface UpdateConnectionInput {
   id: string;
   name?: string;
