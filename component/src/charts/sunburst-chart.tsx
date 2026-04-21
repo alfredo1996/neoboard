@@ -87,11 +87,11 @@ function SunburstChart({
               })
             : data,
           center: ["50%", "50%"],
-          radius: ["15%", "95%"],
+          radius: ["10%", "92%"],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sort: sortFn as any,
           label: {
-            show: false,
+            show: showLabels && !compact,
             fontSize: 11,
           },
           // Hide labels for segments with arc angle below 5 degrees
@@ -101,9 +101,9 @@ function SunburstChart({
                 focus: "ancestor",
                 label: { show: showLabels && !compact },
                 itemStyle: {
-                  shadowBlur: 10,
+                  shadowBlur: 4,
                   shadowOffsetX: 0,
-                  shadowColor: "rgba(0, 0, 0, 0.5)",
+                  shadowColor: "rgba(0, 0, 0, 0.15)",
                 },
               }
             : {},
