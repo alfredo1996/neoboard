@@ -84,7 +84,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     const queryStart = performance.now();
     const result = await runPipeline(ctx, async (pipelineCtx) =>
       executeQuery(
-        pipelineCtx.connectionType as DbType,
+        pipelineCtx.connectionType,
         credentials,
         { query: pipelineCtx.query, params: pipelineCtx.params },
         { accessMode: "WRITE" },

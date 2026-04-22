@@ -12,8 +12,8 @@ export interface ReassignResult {
 
 /**
  * Common WHERE clause that scopes dashboards to ones the caller can
- * actually edit. Non-admins need ownership OR a shared editor/owner
- * role; public read access does NOT grant edit rights.
+ * actually edit. Non-admins need ownership OR a shared editor role;
+ * public read access does NOT grant edit rights.
  */
 function editableDashboardsScope(
   userId: string,
@@ -32,7 +32,7 @@ function editableDashboardsScope(
         WHERE s."dashboardId" = d.id
           AND s."userId" = ${userId}
           AND s.tenant_id = ${tenantId}
-          AND s.role IN ('editor', 'owner')
+          AND s.role = 'editor'
       )
     )
   `;
@@ -84,7 +84,7 @@ async function countReassignable(
  * Scoping for editing is narrower than for viewing:
  *   - Admin → every dashboard in the tenant
  *   - Non-admin → dashboards the user owns OR has been shared with an
- *     'editor' or 'owner' role. Public read access does NOT grant edit.
+ *     'editor' role. Public read access does NOT grant edit.
  *
  * Query compatibility is NOT validated here — that's documented in
  * the issue spec (#510). The caller is responsible for enforcing type
@@ -127,19 +127,23 @@ export async function reassignConnectionWidgets(
           jsonb_set(
             page,
             '{widgets}',
-            (
-              SELECT jsonb_agg(
-                CASE
-                  WHEN widget->>'connectionId' = ${fromConnectionId}
-                  THEN jsonb_set(widget, '{connectionId}', to_jsonb(${toConnectionId}::text))
-                  ELSE widget
-                END
-              )
-              FROM jsonb_array_elements(page->'widgets') AS widget
+            COALESCE(
+              (
+                SELECT jsonb_agg(
+                  CASE
+                    WHEN widget->>'connectionId' = ${fromConnectionId}
+                    THEN jsonb_set(widget, '{connectionId}', to_jsonb(${toConnectionId}::text))
+                    ELSE widget
+                  END
+                )
+                FROM jsonb_array_elements(page->'widgets') AS widget
+              ),
+              '[]'::jsonb
             )
           )
+          ORDER BY page_ord
         )
-        FROM jsonb_array_elements(d."layoutJson"->'pages') AS page
+        FROM jsonb_array_elements(d."layoutJson"->'pages') WITH ORDINALITY AS t(page, page_ord)
       )
     )
     WHERE ${editableDashboardsScope(userId, isAdmin, tenantId)}

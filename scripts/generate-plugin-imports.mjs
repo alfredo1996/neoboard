@@ -48,11 +48,21 @@ export function validateEntry(entry, index) {
   if (typeof e.package !== "string" || e.package.trim() === "") {
     return `plugins[${index}].package must be a non-empty string`;
   }
+  if (/[\s"'\\]/.test(e.package)) {
+    return `plugins[${index}].package must not contain whitespace, quotes, or backslashes`;
+  }
   if (
     e.export !== undefined &&
     (typeof e.export !== "string" || e.export.trim() === "")
   ) {
     return `plugins[${index}].export must be a non-empty string when provided`;
+  }
+  if (
+    e.export !== undefined &&
+    e.export !== "default" &&
+    !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(e.export)
+  ) {
+    return `plugins[${index}].export must be a valid JavaScript identifier`;
   }
   if (e.overrides !== undefined && typeof e.overrides !== "boolean") {
     return `plugins[${index}].overrides must be a boolean when provided`;
@@ -139,10 +149,11 @@ export const EXTERNAL_PLUGINS: ExternalPluginEntry[] = [];
   const imports = entries
     .map((e, i) => {
       const alias = `externalPlugin${i}`;
+      const specifier = JSON.stringify(e.package);
       if (e.export === "default") {
-        return `import ${alias} from "${e.package}";`;
+        return `import ${alias} from ${specifier};`;
       }
-      return `import { ${e.export} as ${alias} } from "${e.package}";`;
+      return `import { ${e.export} as ${alias} } from ${specifier};`;
     })
     .join("\n");
 

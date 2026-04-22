@@ -23,7 +23,7 @@ interface PreviewData {
   resultId: string;
 }
 
-interface WidgetPreviewPanelProps {
+type WidgetPreviewPanelProps = Readonly<{
   chartType: string;
   connectionId: string;
   query: string;
@@ -59,6 +59,150 @@ interface WidgetPreviewPanelProps {
   };
   initialPreviewData: PreviewData | undefined;
   onRunPreview: () => void;
+}>;
+
+function renderMarkdown(chartOptions: Record<string, unknown>) {
+  return (
+    <MarkdownWidget content={chartOptions.content as string | undefined} />
+  );
+}
+
+function renderIframe(chartOptions: Record<string, unknown>) {
+  return (
+    <IframeWidget
+      url={chartOptions.url as string | undefined}
+      title={chartOptions.iframeTitle as string | undefined}
+      sandbox={chartOptions.sandbox as string | undefined}
+    />
+  );
+}
+
+function renderParamSelect(props: {
+  paramUIType: ParamUIType;
+  dateSub: DateSubType;
+  multiSelect: boolean;
+  paramWidgetName: string;
+  chartOptions: Record<string, unknown>;
+  seedPreviewOptions: { value: string; label: string }[] | null;
+  seedQueryPending: boolean;
+  seedQueryError: string | null;
+}) {
+  return (
+    <ParameterPreview
+      paramUIType={props.paramUIType}
+      dateSub={props.dateSub}
+      multiSelect={props.multiSelect}
+      paramWidgetName={props.paramWidgetName}
+      chartOptions={props.chartOptions}
+      seedPreviewOptions={props.seedPreviewOptions}
+      seedQueryPending={props.seedQueryPending}
+      seedQueryError={props.seedQueryError}
+    />
+  );
+}
+
+function renderForm(
+  formFields: FormFieldDef[],
+  chartOptions: Record<string, unknown>,
+) {
+  if (formFields.length > 0) {
+    return (
+      <div className="p-4 space-y-3 overflow-auto h-full">
+        {formFields.map((f) => (
+          <div key={f.id} className="space-y-1.5">
+            <Label className="text-sm">{f.label || f.parameterName}</Label>
+            <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
+              {f.parameterType}
+            </div>
+          </div>
+        ))}
+        <Button disabled className="w-full mt-2">
+          {(chartOptions.submitButtonText as string) || "Submit"}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
+      Add fields in the Fields section below to see the form preview
+    </div>
+  );
+}
+
+function renderChart(props: {
+  chartType: string;
+  connectionId: string;
+  query: string;
+  title: string;
+  chartOptions: Record<string, unknown>;
+  colorScales: Array<{ column: string; minColor: string; maxColor: string }>;
+  transforms: Transform[];
+  transformsEnabled: boolean;
+  buildStylingConfig: () => StylingConfig | undefined;
+  previewQuery: WidgetPreviewPanelProps["previewQuery"];
+  initialPreviewData: PreviewData | undefined;
+}) {
+  const {
+    chartType,
+    connectionId,
+    query,
+    title,
+    chartOptions,
+    colorScales,
+    transforms,
+    transformsEnabled,
+    buildStylingConfig,
+    previewQuery,
+    initialPreviewData,
+  } = props;
+
+  return (
+    <>
+      {previewQuery.isPending && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
+      {previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
+        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+          <p className="text-sm font-medium text-destructive">Query failed</p>
+          <p className="text-xs max-w-xs text-center">
+            {previewQuery.error?.message}
+          </p>
+        </div>
+      ) : previewQuery.data || initialPreviewData ? (
+        <CardContainer
+          widget={{
+            id: "preview",
+            chartType,
+            connectionId,
+            query,
+            settings: {
+              title: title || undefined,
+              chartOptions,
+              stylingConfig: buildStylingConfig(),
+              conditionalFormatting: colorScales.length
+                ? { colorScales }
+                : undefined,
+              transforms: transforms.length ? transforms : undefined,
+              transformsEnabled,
+            },
+          }}
+          previewData={(previewQuery.data ?? initialPreviewData)!.data}
+          previewResultId={(previewQuery.data ?? initialPreviewData)!.resultId}
+        />
+      ) : connectionId && query.trim() && !previewQuery.isError ? (
+        <div className="h-full flex items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : (
+        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+          Run a query to see the preview
+        </div>
+      )}
+    </>
+  );
 }
 
 export function WidgetPreviewPanel({
@@ -89,6 +233,37 @@ export function WidgetPreviewPanel({
   initialPreviewData,
   onRunPreview,
 }: WidgetPreviewPanelProps) {
+  function renderPreviewContent() {
+    if (isMarkdown) return renderMarkdown(chartOptions);
+    if (isIframe) return renderIframe(chartOptions);
+    if (isParamSelect) {
+      return renderParamSelect({
+        paramUIType,
+        dateSub,
+        multiSelect,
+        paramWidgetName,
+        chartOptions,
+        seedPreviewOptions,
+        seedQueryPending,
+        seedQueryError,
+      });
+    }
+    if (isForm) return renderForm(formFields, chartOptions);
+    return renderChart({
+      chartType,
+      connectionId,
+      query,
+      title,
+      chartOptions,
+      colorScales,
+      transforms,
+      transformsEnabled,
+      buildStylingConfig,
+      previewQuery,
+      initialPreviewData,
+    });
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -135,102 +310,7 @@ export function WidgetPreviewPanel({
         data-testid="widget-preview"
         className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative"
       >
-        {isMarkdown ? (
-          <MarkdownWidget
-            content={chartOptions.content as string | undefined}
-          />
-        ) : isIframe ? (
-          <IframeWidget
-            url={chartOptions.url as string | undefined}
-            title={chartOptions.iframeTitle as string | undefined}
-            sandbox={chartOptions.sandbox as string | undefined}
-          />
-        ) : isParamSelect ? (
-          <ParameterPreview
-            paramUIType={paramUIType}
-            dateSub={dateSub}
-            multiSelect={multiSelect}
-            paramWidgetName={paramWidgetName}
-            chartOptions={chartOptions}
-            seedPreviewOptions={seedPreviewOptions}
-            seedQueryPending={seedQueryPending}
-            seedQueryError={seedQueryError}
-          />
-        ) : isForm ? (
-          formFields.length > 0 ? (
-            <div className="p-4 space-y-3 overflow-auto h-full">
-              {formFields.map((f) => (
-                <div key={f.id} className="space-y-1.5">
-                  <Label className="text-sm">
-                    {f.label || f.parameterName}
-                  </Label>
-                  <div className="h-8 rounded-md border bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
-                    {f.parameterType}
-                  </div>
-                </div>
-              ))}
-              <Button disabled className="w-full mt-2">
-                {(chartOptions.submitButtonText as string) || "Submit"}
-              </Button>
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-4 text-center">
-              Add fields in the Fields section below to see the form preview
-            </div>
-          )
-        ) : (
-          <>
-            {previewQuery.isPending && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            )}
-            {previewQuery.isError &&
-            !previewQuery.data &&
-            !initialPreviewData ? (
-              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                <AlertCircle className="h-8 w-8 text-destructive" />
-                <p className="text-sm font-medium text-destructive">
-                  Query failed
-                </p>
-                <p className="text-xs max-w-xs text-center">
-                  {previewQuery.error?.message}
-                </p>
-              </div>
-            ) : previewQuery.data || initialPreviewData ? (
-              <CardContainer
-                widget={{
-                  id: "preview",
-                  chartType,
-                  connectionId,
-                  query,
-                  settings: {
-                    title: title || undefined,
-                    chartOptions,
-                    stylingConfig: buildStylingConfig(),
-                    conditionalFormatting: colorScales.length
-                      ? { colorScales }
-                      : undefined,
-                    transforms: transforms.length ? transforms : undefined,
-                    transformsEnabled,
-                  },
-                }}
-                previewData={(previewQuery.data ?? initialPreviewData)!.data}
-                previewResultId={
-                  (previewQuery.data ?? initialPreviewData)!.resultId
-                }
-              />
-            ) : connectionId && query.trim() && !previewQuery.isError ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                Run a query to see the preview
-              </div>
-            )}
-          </>
-        )}
+        {renderPreviewContent()}
       </div>
     </div>
   );

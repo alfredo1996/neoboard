@@ -4,6 +4,8 @@ import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { encryptJson, decryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
+import { closeConnection } from "@/lib/query/query-executor";
+import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { updateConnectionSchema } from "@/lib/shared/schemas";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import {
@@ -98,11 +100,16 @@ export async function PATCH(
     const updates: Record<string, unknown> = {};
     if (result.data.name) updates.name = result.data.name;
 
+    // Fetch the existing row — needed for password merge and cache eviction.
+    let oldCredentials: ConnectionCredentials | null = null;
     let finalConfig = result.data.config;
-    if (finalConfig && !finalConfig.password) {
-      // Password omitted — merge with existing encrypted config
+
+    if (finalConfig) {
       const [existing] = await db
-        .select({ configEncrypted: connections.configEncrypted })
+        .select({
+          configEncrypted: connections.configEncrypted,
+          type: connections.type,
+        })
         .from(connections)
         .where(
           and(
@@ -112,12 +119,16 @@ export async function PATCH(
           ),
         )
         .limit(1);
+
       if (existing?.configEncrypted) {
         try {
-          const prev = decryptJson<Record<string, unknown>>(
+          const prev = decryptJson<ConnectionCredentials>(
             existing.configEncrypted,
           );
-          finalConfig = { ...finalConfig, password: prev.password as string };
+          oldCredentials = prev;
+          if (!finalConfig.password) {
+            finalConfig = { ...finalConfig, password: prev.password };
+          }
         } catch {
           // Stored config is corrupted/unreadable — user must re-enter password
           return badRequest(
@@ -125,9 +136,9 @@ export async function PATCH(
           );
         }
       }
-    }
 
-    if (finalConfig) updates.configEncrypted = encryptJson(finalConfig);
+      updates.configEncrypted = encryptJson(finalConfig);
+    }
 
     const [connection] = await db
       .update(connections)
@@ -149,6 +160,11 @@ export async function PATCH(
 
     if (!connection) {
       return notFound();
+    }
+
+    // Evict the old cached driver so stale credentials aren't reused
+    if (oldCredentials) {
+      closeConnection(connection.type as ConnectorType, oldCredentials);
     }
 
     // Fire-and-forget: re-warm the schema cache after credential update
@@ -212,6 +228,16 @@ export async function DELETE(
           eq(connections.tenantId, tenantId),
         );
 
+    // Fetch credentials before deletion so we can evict the cached driver
+    const [toDelete] = await db
+      .select({
+        type: connections.type,
+        configEncrypted: connections.configEncrypted,
+      })
+      .from(connections)
+      .where(whereClause)
+      .limit(1);
+
     const deleted = await db
       .delete(connections)
       .where(whereClause)
@@ -219,6 +245,18 @@ export async function DELETE(
 
     if (deleted.length === 0) {
       return notFound();
+    }
+
+    // Evict the cached driver so the connection pool is closed
+    if (toDelete?.configEncrypted) {
+      try {
+        const creds = decryptJson<ConnectionCredentials>(
+          toDelete.configEncrypted,
+        );
+        closeConnection(toDelete.type as ConnectorType, creds);
+      } catch {
+        // Corrupted credentials — nothing to evict
+      }
     }
 
     return apiSuccess({ deleted: true });

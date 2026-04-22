@@ -16,13 +16,13 @@ import {
   CodePreview,
 } from "@neoboard/components";
 
-interface TemplateBrowserProps {
+type TemplateBrowserProps = Readonly<{
   templates: WidgetTemplate[] | undefined;
   loading: boolean;
   connectorType: ConnectorType | null;
   onApply: (template: WidgetTemplate) => void;
   onBack: () => void;
-}
+}>;
 
 export function TemplateBrowser({
   templates,

@@ -69,6 +69,41 @@ describe("validateEntry", () => {
   it("includes the index in error messages", () => {
     assert.match(validateEntry({}, 5), /plugins\[5\]/);
   });
+
+  it("rejects package with whitespace", () => {
+    assert.match(
+      validateEntry({ package: "foo bar" }, 0),
+      /must not contain whitespace, quotes, or backslashes/,
+    );
+  });
+
+  it("rejects package with quotes", () => {
+    assert.match(
+      validateEntry({ package: 'foo"bar' }, 0),
+      /must not contain whitespace, quotes, or backslashes/,
+    );
+  });
+
+  it("rejects package with backslashes", () => {
+    assert.match(
+      validateEntry({ package: "foo\\bar" }, 0),
+      /must not contain whitespace, quotes, or backslashes/,
+    );
+  });
+
+  it("rejects invalid JS identifier for export", () => {
+    assert.match(
+      validateEntry({ package: "foo", export: "not-valid" }, 0),
+      /must be a valid JavaScript identifier/,
+    );
+  });
+
+  it("allows 'default' as export without identifier check", () => {
+    assert.equal(
+      validateEntry({ package: "foo", export: "default" }, 0),
+      null,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
