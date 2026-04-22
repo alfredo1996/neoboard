@@ -77,3 +77,6 @@ docs/.next
 cli/dist/
 .neoboard.local
 
+# Recorded user journey videos (generated, not committed)
+videos/
+
