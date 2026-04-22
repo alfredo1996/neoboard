@@ -63,6 +63,14 @@ describe("COLOR_PALETTES", () => {
     expect(COLOR_PALETTES["monochrome"]).toBeDefined();
   });
 
+  it("contains 'earth-tones' as a distinct palette (not aliased to monochrome)", () => {
+    expect(COLOR_PALETTES["earth-tones"]).toBeDefined();
+    expect(COLOR_PALETTES["earth-tones"].colors).toHaveLength(10);
+    expect(COLOR_PALETTES["earth-tones"].colors).not.toEqual(
+      COLOR_PALETTES["monochrome"].colors,
+    );
+  });
+
   it("deep-ocean colors match DEEP_OCEAN_LIGHT from theme", () => {
     const deepOcean = COLOR_PALETTES["deep-ocean"];
     expect(deepOcean.colors[0]).toBe("hsl(217, 91%, 60%)"); // Blue
