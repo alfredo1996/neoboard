@@ -34,16 +34,15 @@ export async function run(page) {
 
   const widgetDialog = page.getByRole("dialog", { name: "Add Widget" });
 
-  // Select connection
-  await narrate(page, "Pick a database connection");
+  // Select the PostgreSQL Ecommerce connection
+  await narrate(page, "Pick the PostgreSQL Ecommerce connection");
   await widgetDialog.getByRole("combobox").first().click();
   await wait(page, SHORT);
-  // Click the first available connection option
-  await page.getByRole("option").first().click();
+  await page.getByRole("option", { name: /Ecommerce.*read/i }).click();
   await wait(page, MEDIUM);
 
   // Type a query
-  await narrate(page, "Write a query to fetch data");
+  await narrate(page, "Write a SQL query to fetch revenue by category");
   await wait(page, MEDIUM);
 
   // The query editor is a CodeMirror instance — type into it
@@ -52,7 +51,7 @@ export async function run(page) {
   await wait(page, SHORT);
 
   const query =
-    "SELECT c.name AS category, SUM(oi.qty * oi.price) AS revenue FROM neoboard_demo_public.categories c JOIN neoboard_demo_public.products p ON p.category_id = c.id JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id WHERE c.parent_id IS NOT NULL GROUP BY c.name ORDER BY revenue DESC";
+    "SELECT c.name AS category, SUM(oi.qty * oi.price) AS revenue FROM categories c JOIN products p ON p.category_id = c.id JOIN order_items oi ON oi.product_id = p.id WHERE c.parent_id IS NOT NULL GROUP BY c.name ORDER BY revenue DESC";
   await page.keyboard.type(query, { delay: 8 });
   await wait(page, MEDIUM);
 
