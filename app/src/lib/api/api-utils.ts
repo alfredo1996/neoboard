@@ -118,7 +118,12 @@ export function handleRouteError(
   apiLogger.error(
     {
       event: "api_error",
+      // `err` key triggers pino.stdSerializers → message + stack + code
       err: error instanceof Error ? error : String(error),
+      errorCode:
+        error instanceof Error
+          ? ((error as Error & { code?: string }).code ?? error.name)
+          : "UNKNOWN",
     },
     "api_error",
   );
