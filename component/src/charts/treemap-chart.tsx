@@ -118,29 +118,34 @@ function TreemapChart({
           },
           upperLabel: {
             show: true,
-            height: 30,
+            height: 22,
+            color: "inherit",
           },
           itemStyle: {
-            borderColor: "#fff",
+            borderColor: "rgba(128, 128, 128, 0.25)",
             borderWidth: 2,
             gapWidth: 2,
           },
           levels: [
             {
-              itemStyle: { borderWidth: 3, borderColor: "#555", gapWidth: 3 },
+              itemStyle: {
+                borderWidth: 3,
+                borderColor: "rgba(128, 128, 128, 0.4)",
+                gapWidth: 3,
+              },
               upperLabel: { show: false },
             },
             {
               colorSaturation: satRange,
               itemStyle: {
-                borderColorSaturation: 0.6,
+                borderColorSaturation: 0.5,
                 gapWidth: 2,
-                borderWidth: 2,
+                borderWidth: 1,
               },
             },
             {
               colorSaturation: satRange,
-              itemStyle: { borderColorSaturation: 0.35, gapWidth: 1 },
+              itemStyle: { borderColorSaturation: 0.3, gapWidth: 1 },
             },
           ],
         },

@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import * as echarts from "echarts/core";
 import { RadarChart as ERadarChart } from "echarts/charts";
-import { TitleComponent, TooltipComponent, LegendComponent } from "echarts/components";
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+} from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
@@ -10,7 +14,13 @@ import { useContainerSize } from "@/hooks/useContainerSize";
 import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
-echarts.use([ERadarChart, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+echarts.use([
+  ERadarChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  CanvasRenderer,
+]);
 
 export interface RadarIndicator {
   name: string;
@@ -66,9 +76,11 @@ function RadarChart({
   const hideLegend = width > 0 && height < 200;
 
   const options = useMemo((): EChartsOption => {
-    if (!data.indicators.length || !data.series.length) return buildEmptyDataOption();
+    if (!data.indicators.length || !data.series.length)
+      return buildEmptyDataOption();
 
-    const effectiveShowLegend = (hideLegend || compact) ? false : (showLegend && data.series.length > 1);
+    const effectiveShowLegend =
+      hideLegend || compact ? false : showLegend && data.series.length > 1;
 
     return {
       tooltip: {
@@ -80,8 +92,16 @@ function RadarChart({
       radar: {
         shape,
         indicator: data.indicators,
-        radius: compact ? "70%" : "60%",
+        radius: compact ? "70%" : "65%",
         center: effectiveShowLegend ? ["50%", "45%"] : ["50%", "50%"],
+        axisName: { color: "inherit" },
+        splitArea: {
+          show: true,
+          areaStyle: {
+            color: ["rgba(128,128,128,0.04)", "rgba(128,128,128,0.08)"],
+          },
+        },
+        splitLine: { lineStyle: { color: "rgba(128,128,128,0.2)" } },
       },
       series: [
         {
@@ -96,20 +116,39 @@ function RadarChart({
               name: s.name,
               value: s.values,
               label: showValues
-                ? { show: true, formatter: (params: unknown) => String((params as { value: number }).value) }
+                ? {
+                    show: true,
+                    formatter: (params: unknown) =>
+                      String((params as { value: number }).value),
+                  }
                 : { show: false },
-              areaStyle: filled ? { opacity: 0.3, ...(seriesColor ? { color: seriesColor } : {}) } : undefined,
+              areaStyle: filled
+                ? {
+                    opacity: 0.15,
+                    ...(seriesColor ? { color: seriesColor } : {}),
+                  }
+                : undefined,
               lineStyle: seriesColor ? { color: seriesColor } : undefined,
               itemStyle: seriesColor ? { color: seriesColor } : undefined,
             };
           }),
           emphasis: {
-            lineStyle: { width: 3 },
+            lineStyle: { width: 4 },
           },
         },
       ],
     };
-  }, [data, shape, filled, showLegend, showValues, compact, hideLegend, stylingRules, paramValues]);
+  }, [
+    data,
+    shape,
+    filled,
+    showLegend,
+    showValues,
+    compact,
+    hideLegend,
+    stylingRules,
+    paramValues,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
