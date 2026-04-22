@@ -114,6 +114,21 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
       "#a50026", // Dark Red
     ],
   },
+  "earth-tones": {
+    label: "Earth Tones",
+    colors: [
+      "#b7410e", // Rust
+      "#cc7722", // Ochre
+      "#6b8e23", // Olive
+      "#8b4513", // Saddle Brown
+      "#d2b48c", // Tan / Sand
+      "#a0522d", // Sienna
+      "#556b2f", // Dark Olive / Moss
+      "#cd853f", // Peru / Clay
+      "#704214", // Umber
+      "#967969", // Bark
+    ],
+  },
   monochrome: {
     label: "Monochrome",
     colors: [
@@ -138,7 +153,6 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
 const PALETTE_ALIASES: Record<string, string> = {
   "warm-sunset": "warm",
   "cool-breeze": "cool",
-  "earth-tones": "monochrome",
   neon: "observable",
 };
 
