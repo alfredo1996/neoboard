@@ -93,7 +93,7 @@ export function anonymizeLogRecord(
       continue;
     }
     if (isPlainObject(value)) {
-      output[key] = anonymizeLogRecord(value as Record<string, unknown>);
+      output[key] = anonymizeLogRecord(value);
       continue;
     }
     output[key] = value;

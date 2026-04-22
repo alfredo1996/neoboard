@@ -70,6 +70,10 @@ vi.mock("@/lib/connector/schema-prefetch", () => ({
 vi.mock("@/lib/db/connection-usage", () => ({
   getConnectionUsage: mockGetConnectionUsage,
 }));
+const mockCloseConnection = vi.fn();
+vi.mock("@/lib/query/query-executor", () => ({
+  closeConnection: mockCloseConnection,
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -315,6 +319,11 @@ describe("PATCH /api/connections/[id]", () => {
 
   it("re-encrypts config and triggers prefetch", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    const existing = {
+      configEncrypted: "enc:existing",
+      type: "neo4j",
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([existing]));
     const updated = {
       id: "c1",
       name: "Neo4j",
@@ -338,6 +347,13 @@ describe("PATCH /api/connections/[id]", () => {
       uri: "bolt://new-host",
       username: "neo4j",
       password: "newpass",
+    });
+    expect(mockCloseConnection).toHaveBeenCalledWith("neo4j", {
+      uri: "bolt://localhost:7687",
+      username: "neo4j",
+      password: "secret",
+      database: "neo4j",
+      connectionTimeout: 5000,
     });
     expect(mockPrefetchSchema).toHaveBeenCalledWith("neo4j", {
       uri: "bolt://new-host",

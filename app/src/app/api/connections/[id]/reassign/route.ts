@@ -7,6 +7,7 @@ import {
   validateBody,
   notFound,
   badRequest,
+  forbidden,
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
@@ -40,7 +41,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, role, tenantId } = await requireSession();
+    const { userId, role, canWrite, tenantId } = await requireSession();
+    if (!canWrite) return forbidden("Write permission required");
     const { id } = await params;
     const isAdmin = role === "admin";
 

@@ -50,7 +50,7 @@ export async function runDemoSeed(opts?: { only?: string }): Promise<void> {
   }
 
   const targets = onlyKeys
-    ? manifest.SHOWCASES.filter((s) => onlyKeys!.includes(s.key))
+    ? manifest.SHOWCASES.filter((s) => onlyKeys.includes(s.key))
     : manifest.SHOWCASES;
 
   info(

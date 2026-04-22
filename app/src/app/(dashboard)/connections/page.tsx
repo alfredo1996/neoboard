@@ -1103,19 +1103,7 @@ export default function ConnectionsPage() {
 
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading connections...">
-          {!connections?.length ? (
-            <EmptyState
-              icon={<Database className="h-12 w-12" />}
-              title="No connections yet"
-              description="Add your first database connection to start querying data."
-              action={
-                <Button onClick={() => openCreateDialog()}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add your first connection
-                </Button>
-              }
-            />
-          ) : (
+          {connections?.length ? (
             <div className="space-y-3">
               {connections.map((c) => {
                 const status = getConnectionStatus(c.id);
@@ -1148,6 +1136,18 @@ export default function ConnectionsPage() {
                 );
               })}
             </div>
+          ) : (
+            <EmptyState
+              icon={<Database className="h-12 w-12" />}
+              title="No connections yet"
+              description="Add your first database connection to start querying data."
+              action={
+                <Button onClick={() => openCreateDialog()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add your first connection
+                </Button>
+              }
+            />
           )}
         </LoadingOverlay>
       </div>
