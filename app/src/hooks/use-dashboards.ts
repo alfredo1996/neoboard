@@ -36,6 +36,8 @@ export interface DashboardDetail extends DashboardListItem {
   /** Stored as-is from the DB; call migrateLayout() before use. */
   layoutJson: DashboardLayout | null;
   userId: string;
+  /** Optimistic lock version — send as `expectedVersion` on PUT. */
+  version: number;
 }
 
 export interface DashboardShareItem {
@@ -93,6 +95,7 @@ export function useUpdateDashboard() {
   return useMutation({
     mutationFn: async ({
       id,
+      expectedVersion,
       ...data
     }: {
       id: string;
@@ -100,11 +103,13 @@ export function useUpdateDashboard() {
       description?: string;
       layoutJson?: DashboardLayoutV2;
       isPublic?: boolean;
+      /** Optimistic lock — when provided, server returns 409 on mismatch. */
+      expectedVersion?: number;
     }) => {
       const res = await fetch(`/api/dashboards/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, expectedVersion }),
       });
       return unwrapResponse(res);
     },

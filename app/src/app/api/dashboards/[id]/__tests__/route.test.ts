@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain, makeUpdateChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  makeUpdateChain,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -8,7 +11,12 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // ---------------------------------------------------------------------------
 
 const mockRequireSession = vi.fn<
-  () => Promise<{ userId: string; tenantId: string; canWrite: boolean; role: string }>
+  () => Promise<{
+    userId: string;
+    tenantId: string;
+    canWrite: boolean;
+    role: string;
+  }>
 >();
 
 function makeDeleteChain() {
@@ -47,7 +55,12 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SESSION = { userId: "user-1", tenantId: "tenant-1", canWrite: true, role: "creator" };
+const SESSION = {
+  userId: "user-1",
+  tenantId: "tenant-1",
+  canWrite: true,
+  role: "creator",
+};
 
 const OWNER_DASHBOARD = {
   id: "d1",
@@ -66,8 +79,10 @@ const OWNER_DASHBOARD = {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/dashboards/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let GET: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
+  let GET: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -102,7 +117,12 @@ describe("GET /api/dashboards/[id]", () => {
   it("returns dashboard for shared viewer", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
     const sharedDashboard = { ...OWNER_DASHBOARD, userId: "user-1" };
-    const share = { dashboardId: "d1", userId: "user-2", tenantId: "tenant-1", role: "viewer" };
+    const share = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "viewer",
+    };
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
       .mockReturnValueOnce(makeSelectChain([share]));
@@ -123,7 +143,10 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns 404 when dashboard belongs to different tenant", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, tenantId: "tenant-other" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      tenantId: "tenant-other",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
@@ -154,7 +177,11 @@ describe("GET /api/dashboards/[id]", () => {
   });
 
   it("returns dashboard for admin (bypasses per-dashboard ACL)", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "admin-1", role: "admin" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      userId: "admin-1",
+      role: "admin",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
@@ -190,8 +217,10 @@ describe("GET /api/dashboards/[id]", () => {
 });
 
 describe("PUT /api/dashboards/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let PUT: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
+  let PUT: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -207,13 +236,21 @@ describe("PUT /api/dashboards/[id]", () => {
   });
 
   it("returns 403 for reader role", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "reader" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      canWrite: false,
+      role: "reader",
+    });
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(403);
   });
 
   it("returns 403 when canWrite is false even for creator role", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "creator" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      canWrite: false,
+      role: "creator",
+    });
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(403);
   });
@@ -240,11 +277,18 @@ describe("PUT /api/dashboards/[id]", () => {
   it("sets updatedBy to session userId on update", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
-    const updated = { ...OWNER_DASHBOARD, name: "Updated", updatedBy: "user-1" };
+    const updated = {
+      ...OWNER_DASHBOARD,
+      name: "Updated",
+      updatedBy: "user-1",
+    };
     const setSpy = vi.fn();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chain: any = {
-      set: (...args: unknown[]) => { setSpy(...args); return chain; },
+      set: (...args: unknown[]) => {
+        setSpy(...args);
+        return chain;
+      },
       where: () => chain,
       returning: () => Promise.resolve([updated]),
     };
@@ -252,7 +296,9 @@ describe("PUT /api/dashboards/[id]", () => {
 
     const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ updatedBy: "user-1" }));
+    expect(setSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedBy: "user-1" }),
+    );
   });
 
   it("returns 400 when request body is invalid", async () => {
@@ -281,7 +327,10 @@ describe("PUT /api/dashboards/[id]", () => {
       pages: [{ id: "p1", title: "Page 1", widgets: [], gridLayout: [] }],
       settings: { autoRefresh: true, refreshIntervalSeconds: 4 },
     };
-    const res = await PUT(makeRequest({ layoutJson: layout }), makeParams("d1"));
+    const res = await PUT(
+      makeRequest({ layoutJson: layout }),
+      makeParams("d1"),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -295,7 +344,10 @@ describe("PUT /api/dashboards/[id]", () => {
     };
     const updated = { ...OWNER_DASHBOARD, layoutJson: layout };
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
-    const res = await PUT(makeRequest({ layoutJson: layout }), makeParams("d1"));
+    const res = await PUT(
+      makeRequest({ layoutJson: layout }),
+      makeParams("d1"),
+    );
     expect(res.status).toBe(200);
   });
 
@@ -322,14 +374,19 @@ describe("PUT /api/dashboards/[id]", () => {
     };
     const updated = { ...OWNER_DASHBOARD, layoutJson: layout };
     mockDb.update.mockReturnValue(makeUpdateChain([updated]));
-    const res = await PUT(makeRequest({ layoutJson: layout }), makeParams("d1"));
+    const res = await PUT(
+      makeRequest({ layoutJson: layout }),
+      makeParams("d1"),
+    );
     expect(res.status).toBe(200);
   });
 });
 
 describe("DELETE /api/dashboards/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let DELETE: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
+  let DELETE: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -345,13 +402,21 @@ describe("DELETE /api/dashboards/[id]", () => {
   });
 
   it("returns 403 for reader role", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "reader" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      canWrite: false,
+      role: "reader",
+    });
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(403);
   });
 
   it("returns 403 when canWrite is false even for creator role", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, canWrite: false, role: "creator" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      canWrite: false,
+      role: "creator",
+    });
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(403);
   });
@@ -374,17 +439,90 @@ describe("DELETE /api/dashboards/[id]", () => {
   });
 
   it("returns 404 when dashboard belongs to different tenant", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, tenantId: "tenant-other" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      tenantId: "tenant-other",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
   });
 
   it("allows admin to delete any dashboard in the tenant", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "admin-1", role: "admin" });
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      userId: "admin-1",
+      role: "admin",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([{ id: "d1" }]));
     mockDb.delete.mockReturnValue(makeDeleteChain());
     const res = await DELETE({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("PUT /api/dashboards/[id] — optimistic locking", () => {
+  let PUT: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<Response>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    const mod = await import("../route");
+    PUT = mod.PUT;
+  });
+
+  it("returns 409 when expectedVersion does not match (version conflict)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // canAccess check passes
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // update returns empty — version mismatch, no rows updated
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+
+    const res = await PUT(
+      makeRequest({
+        layoutJson: {
+          version: 2,
+          pages: [{ id: "p1", title: "P", widgets: [], gridLayout: [] }],
+        },
+        expectedVersion: 3,
+      }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/modified by someone else/i);
+  });
+
+  it("succeeds and increments version when expectedVersion matches", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ id: "d1", version: 4, name: "Updated" }]),
+    );
+
+    const res = await PUT(
+      makeRequest({
+        name: "Updated",
+        expectedVersion: 3,
+      }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.version).toBe(4);
+  });
+
+  it("succeeds without expectedVersion (backwards-compatible)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ id: "d1", version: 2, name: "Updated" }]),
+    );
+
+    const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
     expect(res.status).toBe(200);
   });
 });

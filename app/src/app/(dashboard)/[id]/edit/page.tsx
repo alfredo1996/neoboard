@@ -279,7 +279,11 @@ export default function DashboardEditorPage({
           };
         }),
       };
-      await updateDashboard.mutateAsync({ id, layoutJson: sanitizedLayout });
+      await updateDashboard.mutateAsync({
+        id,
+        layoutJson: sanitizedLayout,
+        expectedVersion: dashboard?.version,
+      });
       markSaved();
 
       // Fire-and-forget: capture widget thumbnails from the active page's live DOM.
@@ -309,7 +313,15 @@ export default function DashboardEditorPage({
         error instanceof Error ? error.message : "Failed to save dashboard",
       );
     }
-  }, [id, layout, activePage, updateDashboard, updateThumbnails, markSaved]);
+  }, [
+    id,
+    layout,
+    activePage,
+    updateDashboard,
+    updateThumbnails,
+    markSaved,
+    dashboard,
+  ]);
 
   function openAddWidget() {
     setEditorMode("add");

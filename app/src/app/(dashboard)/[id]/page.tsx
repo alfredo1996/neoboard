@@ -130,6 +130,39 @@ export default function DashboardViewerPage({
 
   const { data: dashboard, isLoading, isFetching } = useDashboard(id);
   const updateDashboard = useUpdateDashboard();
+
+  // Optimistic lock: detect when another user saves while we're viewing.
+  // Track the initial version via `useSyncExternalStore`-style pattern:
+  // a module-scoped map keyed by dashboard ID, populated on first data load.
+  const [versionBumpMsg, setVersionBumpMsg] = useState<string | null>(null);
+
+  const dashboardVersion = (dashboard as { version?: number } | undefined)
+    ?.version;
+  const dashboardUpdatedBy = (
+    dashboard as { updatedByName?: string | null } | undefined
+  )?.updatedByName;
+
+  // Use a stable callback in TanStack Query's onSuccess-equivalent: when
+  // the dashboard data changes, compare versions. The subscription runs
+  // outside of render so React Compiler is happy.
+  useEffect(() => {
+    if (dashboardVersion === undefined) return;
+    const key = `__nb_dash_ver_${id}`;
+    const stored = sessionStorage.getItem(key);
+    if (stored === null) {
+      sessionStorage.setItem(key, String(dashboardVersion));
+    } else if (dashboardVersion > Number(stored)) {
+      sessionStorage.setItem(key, String(dashboardVersion));
+      const who = dashboardUpdatedBy ?? "someone";
+      setVersionBumpMsg(`Dashboard updated by ${who}`);
+    }
+    return () => {
+      // Clean up when navigating away from this dashboard
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only fire on version change
+  }, [dashboardVersion]);
+
+  const versionBump = versionBumpMsg;
   const parameters = useParameterStore((s) => s.parameters);
   const parameterCount = useMemo(
     () => filterParentParams(Object.entries(parameters)).length,
@@ -442,6 +475,29 @@ export default function DashboardViewerPage({
           )}
         </ToolbarSection>
       </Toolbar>
+
+      {versionBump && (
+        <div className="bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800 px-4 py-2 text-sm text-blue-700 dark:text-blue-300 flex items-center justify-between">
+          <span>{versionBump}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-blue-700 dark:text-blue-300"
+            onClick={() => {
+              setVersionBumpMsg(null);
+              if (dashboardVersion !== undefined) {
+                sessionStorage.setItem(
+                  `__nb_dash_ver_${id}`,
+                  String(dashboardVersion),
+                );
+              }
+              router.refresh();
+            }}
+          >
+            Refresh
+          </Button>
+        </div>
+      )}
 
       {resolvedLayout.pages.length > 1 && (
         <PageTabs
