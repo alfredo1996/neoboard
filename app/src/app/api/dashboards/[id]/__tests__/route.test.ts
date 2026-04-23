@@ -70,6 +70,7 @@ const OWNER_DASHBOARD = {
   description: null,
   isPublic: false,
   layoutJson: null,
+  version: 3,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -478,11 +479,14 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
     PUT = mod.PUT;
   });
 
+  // TODO: Add E2E conflict detection test (two browser contexts editing
+  // the same dashboard, second save gets 409). Deferred from this PR.
+
   it("returns 409 when expectedVersion does not match (version conflict)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // canAccess check passes
+    // canAccess check passes — OWNER_DASHBOARD has version: 3
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
-    // update returns empty — version mismatch, no rows updated
+    // update returns empty — version mismatch (client sent 2, server has 3)
     mockDb.update.mockReturnValue(makeUpdateChain([]));
 
     const res = await PUT(
@@ -491,7 +495,7 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
           version: 2,
           pages: [{ id: "p1", title: "P", widgets: [], gridLayout: [] }],
         },
-        expectedVersion: 3,
+        expectedVersion: 2, // stale — server has version 3
       }),
       makeParams("d1"),
     );

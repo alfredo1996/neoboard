@@ -185,14 +185,25 @@ export async function PUT(
       conditions.push(eq(dashboards.version, expectedVersion));
     }
 
+    // Only increment version on meaningful edits — thumbnails-only or
+    // settings-only saves should not bump version and trigger the
+    // "updated by X" banner in other viewers' browsers.
+    const isMeaningfulEdit =
+      expectedVersion !== undefined ||
+      updateData.layoutJson !== undefined ||
+      updateData.name !== undefined ||
+      updateData.description !== undefined ||
+      updateData.isPublic !== undefined;
+
     const [updated] = await db
       .update(dashboards)
       .set({
         ...updateData,
         updatedAt: new Date(),
         updatedBy: userId,
-        // Atomically increment version on every save
-        version: sql`${dashboards.version} + 1`,
+        ...(isMeaningfulEdit
+          ? { version: sql`${dashboards.version} + 1` }
+          : {}),
       })
       .where(and(...conditions))
       .returning();

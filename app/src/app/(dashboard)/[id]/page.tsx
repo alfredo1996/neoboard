@@ -136,15 +136,11 @@ export default function DashboardViewerPage({
   // a module-scoped map keyed by dashboard ID, populated on first data load.
   const [versionBumpMsg, setVersionBumpMsg] = useState<string | null>(null);
 
-  const dashboardVersion = (dashboard as { version?: number } | undefined)
-    ?.version;
-  const dashboardUpdatedBy = (
-    dashboard as { updatedByName?: string | null } | undefined
-  )?.updatedByName;
+  const dashboardVersion = dashboard?.version;
+  const dashboardUpdatedBy = dashboard?.updatedByName;
 
-  // Use a stable callback in TanStack Query's onSuccess-equivalent: when
-  // the dashboard data changes, compare versions. The subscription runs
-  // outside of render so React Compiler is happy.
+  // Detect when another user saves while we're viewing. Compares the
+  // server's version to the one we saw on first load (sessionStorage).
   useEffect(() => {
     if (dashboardVersion === undefined) return;
     const key = `__nb_dash_ver_${id}`;
@@ -156,9 +152,6 @@ export default function DashboardViewerPage({
       const who = dashboardUpdatedBy ?? "someone";
       setVersionBumpMsg(`Dashboard updated by ${who}`);
     }
-    return () => {
-      // Clean up when navigating away from this dashboard
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only fire on version change
   }, [dashboardVersion]);
 
