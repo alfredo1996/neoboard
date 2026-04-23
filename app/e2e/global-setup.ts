@@ -264,9 +264,23 @@ export default async function globalSetup() {
     NEXTAUTH_URL: `http://localhost:${serverPort}`,
   };
 
-  // Build once (skipped if .next/BUILD_ID already exists and E2E_SKIP_BUILD is set)
-  if (!process.env.E2E_SKIP_BUILD) {
-    console.log("⏳ Building Next.js (production)...");
+  // Build once — skip if a previous build exists and E2E_SKIP_BUILD is set,
+  // OR if .next/BUILD_ID already exists (auto-detect cached build).
+  const buildIdPath = path.join(appDir, ".next", "BUILD_ID");
+  const hasCachedBuild = fs.existsSync(buildIdPath);
+
+  if (process.env.E2E_SKIP_BUILD && hasCachedBuild) {
+    console.log(
+      "⏩ Skipping build (E2E_SKIP_BUILD set, .next/BUILD_ID exists)",
+    );
+  } else {
+    if (hasCachedBuild) {
+      console.log(
+        "⏳ Rebuilding Next.js (production)... (set E2E_SKIP_BUILD=1 to reuse previous build)",
+      );
+    } else {
+      console.log("⏳ Building Next.js (production)...");
+    }
     const { execSync } = await import("node:child_process");
     execSync("npx next build", {
       cwd: appDir,
@@ -274,8 +288,6 @@ export default async function globalSetup() {
       env: serverEnv,
     });
     console.log("✅ Next.js build complete");
-  } else {
-    console.log("⏡ Skipping build (E2E_SKIP_BUILD set)");
   }
 
   console.log(`⏳ Starting Next.js production server on port ${serverPort}...`);
