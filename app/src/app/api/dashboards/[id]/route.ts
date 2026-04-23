@@ -10,7 +10,8 @@ import {
   notFound,
   handleRouteError,
 } from "@/lib/api/api-utils";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { sql } from "drizzle-orm";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -58,6 +59,8 @@ const updateDashboardSchema = z.object({
     .optional(),
   isPublic: z.boolean().optional(),
   thumbnailJson: z.record(thumbnailValueSchema).optional(),
+  /** Optimistic lock — must match the server's current version. */
+  expectedVersion: z.number().int().positive().optional(),
 });
 
 type DashboardAccessRole = "owner" | "editor" | "viewer" | "admin";
@@ -170,11 +173,49 @@ export async function PUT(
     const result = validateBody(updateDashboardSchema, body);
     if (!result.success) return result.response;
 
+    const { expectedVersion, ...updateData } = result.data;
+
+    // Build WHERE clause — always scope by id + tenant; add version
+    // check when the client sends expectedVersion (optimistic lock).
+    const conditions = [
+      eq(dashboards.id, id),
+      eq(dashboards.tenantId, tenantId),
+    ];
+    if (expectedVersion !== undefined) {
+      conditions.push(eq(dashboards.version, expectedVersion));
+    }
+
+    // Only increment version on meaningful edits — thumbnails-only or
+    // settings-only saves should not bump version and trigger the
+    // "updated by X" banner in other viewers' browsers.
+    const isMeaningfulEdit =
+      expectedVersion !== undefined ||
+      updateData.layoutJson !== undefined ||
+      updateData.name !== undefined ||
+      updateData.description !== undefined ||
+      updateData.isPublic !== undefined;
+
     const [updated] = await db
       .update(dashboards)
-      .set({ ...result.data, updatedAt: new Date(), updatedBy: userId })
-      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+        updatedBy: userId,
+        ...(isMeaningfulEdit
+          ? { version: sql`${dashboards.version} + 1` }
+          : {}),
+      })
+      .where(and(...conditions))
       .returning();
+
+    if (!updated) {
+      // Row exists (canAccess passed) but version didn't match →
+      // another user saved since the client last fetched.
+      return apiError(
+        "CONFLICT",
+        "This dashboard was modified by someone else. Reload to see their changes.",
+      );
+    }
 
     return apiSuccess(updated);
   } catch (error) {

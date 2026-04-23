@@ -131,6 +131,9 @@ export const dashboards = pgTable("dashboard", {
     }),
   /** Per-widget JPEG data-URI thumbnails keyed by widget ID, captured on save. */
   thumbnailJson: jsonb("thumbnailJson").$type<Record<string, string>>(),
+  /** Optimistic locking counter — incremented on every PUT. Clients must
+   *  send the current version; a mismatch returns 409 Conflict. */
+  version: integer("version").notNull().default(1),
   isPublic: boolean("isPublic").default(false),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
