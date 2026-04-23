@@ -50,10 +50,14 @@ export const CustomRange: Story = {
   },
 };
 
-export const NoPointer: Story = {
+export const ThresholdZones: Story = {
   args: {
-    data: [{ value: 55, name: "Progress" }],
-    showPointer: false,
+    data: [{ value: 72, name: "Health" }],
+    thresholdZones: JSON.stringify([
+      { value: 40, color: "#FF6E76" },
+      { value: 70, color: "#FDDD60" },
+      { value: 100, color: "#58D9A3" },
+    ]),
   },
 };
 

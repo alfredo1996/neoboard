@@ -249,28 +249,41 @@ export default async function globalSetup() {
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
 
-  // ── Start the Next.js server on a dynamically allocated port ────────────
-  // Env vars are passed directly to the process — .env.local is never touched.
+  // ── Build & start the Next.js server on a dynamically allocated port ───
+  // Always use a production build + `next start` for consistent, fast E2E
+  // runs. `next dev` recompiles pages on demand which adds 10+ minutes of
+  // webpack overhead locally. A one-time `next build` (~2 min) then instant
+  // `next start` is what CI already does and is dramatically faster overall.
   const appDir = path.resolve(__dirname, "..");
-  const serverCmd = process.env.CI ? "start" : "dev";
-  console.log(
-    `⏳ Starting Next.js ${serverCmd} server on port ${serverPort}...`,
-  );
-  const args = ["next", serverCmd, "--port", String(serverPort)];
-  // Use webpack explicitly — Turbopack (Next.js 16 default) doesn't correctly
-  // resolve CJS/ESM interop for the @neoboard/connection package at runtime.
-  if (serverCmd === "dev") args.push("--webpack");
+  const serverEnv = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
+    API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
+    NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
+    NEXTAUTH_URL: `http://localhost:${serverPort}`,
+  };
+
+  // Build once (skipped if .next/BUILD_ID already exists and E2E_SKIP_BUILD is set)
+  if (!process.env.E2E_SKIP_BUILD) {
+    console.log("⏳ Building Next.js (production)...");
+    const { execSync } = await import("node:child_process");
+    execSync("npx next build", {
+      cwd: appDir,
+      stdio: "inherit",
+      env: serverEnv,
+    });
+    console.log("✅ Next.js build complete");
+  } else {
+    console.log("⏡ Skipping build (E2E_SKIP_BUILD set)");
+  }
+
+  console.log(`⏳ Starting Next.js production server on port ${serverPort}...`);
+  const args = ["next", "start", "--port", String(serverPort)];
   const server = spawn("npx", args, {
     cwd: appDir,
     stdio: "pipe",
-    env: {
-      ...process.env,
-      DATABASE_URL: databaseUrl,
-      ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
-      API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
-      NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
-      NEXTAUTH_URL: `http://localhost:${serverPort}`,
-    },
+    env: serverEnv,
     detached: true,
   });
   server.unref();

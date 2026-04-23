@@ -33,7 +33,6 @@ function GaugePluginComponent({
       min={settings.min}
       max={settings.max}
       showProgress={settings.showProgress}
-      showPointer={settings.showPointer}
       showDetail={settings.showDetail}
       startAngle={settings.startAngle}
       endAngle={settings.endAngle}

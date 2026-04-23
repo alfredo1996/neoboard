@@ -247,7 +247,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Gauge\n\nSingle-value visualized against a scale with optional threshold zones. Use for **% SLA**, **% conversion**, any bounded 0–100 metric.\n\n**Options shown:** `min: 0`, `max: 100`, `showProgress: true`, `showPointer: true`."
+                "content": "## Gauge\n\nSingle-value visualized against a scale with optional threshold zones. Use for **% SLA**, **% conversion**, any bounded 0–100 metric.\n\n**Options shown:** `min: 0`, `max: 100`, `showProgress: true`."
               }
             }
           },
@@ -262,7 +262,6 @@
                 "min": 0,
                 "max": 100,
                 "showProgress": true,
-                "showPointer": true,
                 "showDetail": true
               }
             }

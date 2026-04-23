@@ -66,42 +66,45 @@ describe("GaugeChart", () => {
     expect(optionsCall.series[0].max).toBe(200);
   });
 
-  // --- axisTick distance bug fix ---
-  it("sets axisTick.distance to -20 in non-compact mode", () => {
+  // --- minimal design: no ticks, no labels ---
+  it("hides axisTick in minimal design", () => {
+    render(<GaugeChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].axisTick.show).toBe(false);
+  });
+
+  it("hides splitLine in minimal design", () => {
+    render(<GaugeChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].splitLine.show).toBe(false);
+  });
+
+  it("hides axisLabel in minimal design", () => {
+    render(<GaugeChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].axisLabel.show).toBe(false);
+  });
+
+  it("shows progress arc with roundCap by default", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const series = optionsCall.series[0];
-    expect(series.axisTick.show).toBe(true);
-    expect(series.axisTick.distance).toBe(-20);
+    expect(series.progress.show).toBe(true);
+    expect(series.progress.roundCap).toBe(true);
   });
 
-  it("sets splitLine.distance to -20 in non-compact mode", () => {
+  it("hides pointer and anchor", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const series = optionsCall.series[0];
-    expect(series.splitLine.show).toBe(true);
-    expect(series.splitLine.distance).toBe(-20);
+    expect(series.pointer.show).toBe(false);
+    expect(series.anchor.show).toBe(false);
   });
 
-  it("sets axisLabel.distance to 30 in non-compact mode", () => {
+  it("uses roundCap on axisLine track", () => {
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    const series = optionsCall.series[0];
-    expect(series.axisLabel.show).toBe(true);
-    expect(series.axisLabel.distance).toBe(30);
-  });
-
-  it("sets axisLabel.fontSize to 11", () => {
-    render(<GaugeChart data={sampleData} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].axisLabel.fontSize).toBe(11);
-  });
-
-  // --- axisTick splitNumber ---
-  it("sets axisTick.splitNumber to 2 to reduce number of minor ticks", () => {
-    render(<GaugeChart data={sampleData} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].axisTick.splitNumber).toBe(2);
+    expect(optionsCall.series[0].axisLine.roundCap).toBe(true);
   });
 
   it("shows loading state", () => {
@@ -177,17 +180,18 @@ describe("GaugeChart", () => {
 
   // --- compact mode ---
 
-  it("hides axisTick, splitLine, and axisLabel in compact mode (container < 200px)", () => {
+  it("uses smaller arc width and font in compact mode (container < 200px)", () => {
     mockSize.width = 150;
     mockSize.height = 150;
     render(<GaugeChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const series = optionsCall.series[0];
-    expect(series.axisTick.show).toBe(false);
-    expect(series.splitLine.show).toBe(false);
-    expect(series.axisLabel.show).toBe(false);
-    // Detail stays visible in compact mode (smaller font), title hides
+    // Thinner arc in compact
+    expect(series.axisLine.lineStyle.width).toBe(10);
+    expect(series.progress.width).toBe(10);
+    // Smaller detail font, title hidden
     expect(series.detail.show).toBe(true);
+    expect(series.detail.fontSize).toBe(18);
     expect(series.title.show).toBe(false);
   });
 });

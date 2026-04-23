@@ -23,6 +23,8 @@ export interface SunburstChartProps extends Omit<BaseChartProps, "options"> {
   data: SunburstDataItem[];
   /** Show segment labels */
   showLabels?: boolean;
+  /** Maximum depth at which labels are shown (1 = only first ring, 2 = first two, etc.). 0 or undefined = auto (show first 2 levels). */
+  maxLabelDepth?: number;
   /** Sort order for segments */
   sort?: "desc" | "asc" | "none";
   /** Highlight segments on hover */
@@ -40,6 +42,7 @@ export interface SunburstChartProps extends Omit<BaseChartProps, "options"> {
 function SunburstChart({
   data,
   showLabels = true,
+  maxLabelDepth,
   sort = "desc",
   highlightOnHover = true,
   stylingRules,
@@ -54,6 +57,53 @@ function SunburstChart({
 
     // Sort function for echarts sunburst
     const sortFn = sort === "none" ? null : sort === "asc" ? "asc" : "desc";
+
+    // Determine how deep labels should display.
+    // Default to 2 levels if not specified.
+    const labelDepth = maxLabelDepth ?? 2;
+    const canShowLabel = (depth: number) =>
+      showLabels && !compact && depth <= labelDepth;
+
+    // Walk the tree to find max depth and count nodes at each level
+    const countByLevel: number[] = [];
+    const walk = (items: SunburstDataItem[], depth: number) => {
+      countByLevel[depth] = (countByLevel[depth] ?? 0) + items.length;
+      for (const item of items) {
+        if (item.children?.length) walk(item.children, depth + 1);
+      }
+    };
+    walk(data, 1);
+    const dataDepth = countByLevel.length - 1;
+
+    // Level 0 = root (center), level 1 = first ring, etc.
+    // Labels beyond maxLabelDepth are rendered but invisible (transparent)
+    // so that emphasis can reveal them along the ancestor path on hover.
+    const levels: Record<string, unknown>[] = [{}]; // root
+    for (let i = 1; i <= dataDepth; i++) {
+      const count = countByLevel[i] ?? 0;
+      const withinDepth = canShowLabel(i);
+      // Always use radial rotation when dense — it packs tighter
+      const rotation = count > 6 ? "radial" : "tangential";
+      // Scale font down progressively as rings get more crowded
+      const fontSize = count > 20 ? 9 : count > 12 ? 10 : i === 1 ? 12 : 11;
+      // Narrower truncation width for crowded rings
+      const width = count > 12 ? 50 : rotation === "tangential" ? 100 : 70;
+      levels.push({
+        ...(i === 1 ? { itemStyle: { borderWidth: 2 } } : {}),
+        label: {
+          // When showLabels is off, hide everything.
+          // Otherwise, keep labels present but use transparent color for
+          // hidden levels so emphasis can reveal them on hover.
+          show: showLabels && !compact,
+          rotate: rotation,
+          overflow: "truncate",
+          ellipsis: "…",
+          width,
+          fontSize: withinDepth ? fontSize : 10,
+          color: withinDepth ? "inherit" : "transparent",
+        },
+      });
+    }
 
     return {
       tooltip: {
@@ -91,15 +141,20 @@ function SunburstChart({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sort: sortFn as any,
           label: {
-            show: showLabels && !compact,
+            show: !compact,
             fontSize: 11,
           },
-          // Hide labels for segments with arc angle below 5 degrees
+          // Hide labels on very thin slivers regardless of level settings
           minAngle: 5,
           emphasis: highlightOnHover
             ? {
                 focus: "ancestor",
-                label: { show: showLabels && !compact },
+                label: {
+                  show: true,
+                  fontSize: 12,
+                  fontWeight: "bold" as const,
+                  color: "inherit",
+                },
                 itemStyle: {
                   shadowBlur: 4,
                   shadowOffsetX: 0,
@@ -107,39 +162,14 @@ function SunburstChart({
                 },
               }
             : {},
-          levels: [
-            {},
-            {
-              itemStyle: { borderWidth: 2 },
-              label: {
-                show: showLabels && !compact,
-                rotate: "tangential",
-                overflow: "truncate",
-                ellipsis: "…",
-                width: 100,
-                fontSize: 12,
-              },
-            },
-            {
-              label: {
-                show: showLabels && !compact,
-                rotate: "radial",
-                overflow: "truncate",
-                ellipsis: "…",
-                width: 80,
-                fontSize: 11,
-              },
-            },
-            {
-              label: { show: false },
-            },
-          ],
+          levels,
         },
       ],
     };
   }, [
     data,
     showLabels,
+    maxLabelDepth,
     sort,
     highlightOnHover,
     compact,

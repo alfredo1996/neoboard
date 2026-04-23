@@ -30,8 +30,6 @@ export interface GaugeChartProps extends Omit<BaseChartProps, "options"> {
   max?: number;
   /** Show progress arc filling */
   showProgress?: boolean;
-  /** Show the needle pointer */
-  showPointer?: boolean;
   /** Show the numeric value and name detail */
   showDetail?: boolean;
   /** Start angle in degrees (0 = 3 o'clock) */
@@ -58,7 +56,6 @@ function GaugeChart({
   min = 0,
   max = 100,
   showProgress = true,
-  showPointer = true,
   showDetail = true,
   startAngle = 225,
   endAngle = -45,
@@ -78,6 +75,31 @@ function GaugeChart({
     if (!data.length) return buildEmptyDataOption();
 
     const point = data[0];
+    const arcWidth = compact ? 10 : 18;
+
+    const thresholdZones = parseGaugeThresholdZones(
+      thresholdZonesJson,
+      min,
+      max,
+    ) as [number, string][];
+
+    const hasCustomZones =
+      thresholdZones.length > 1 ||
+      (thresholdZones.length === 1 && thresholdZones[0][0] !== 1);
+
+    const resolvedColor = resolveItemColor(
+      point.value,
+      stylingRules,
+      paramValues,
+    );
+
+    // Determine the progress color: styling rule > custom zones > default accent
+    const progressColor = resolvedColor ?? "#5470c6";
+
+    // Track color — light gray that works in both themes
+    const trackColor = hasCustomZones
+      ? (thresholdZones as never)
+      : ([[1, "rgba(140, 140, 140, 0.15)"]] as never);
 
     return {
       tooltip: {
@@ -90,86 +112,64 @@ function GaugeChart({
           max,
           startAngle,
           endAngle,
+          radius: "90%",
           progress: {
             show: showProgress,
-            width: compact ? 10 : 16,
+            width: arcWidth,
             roundCap: true,
+            itemStyle: {
+              color: progressColor,
+            },
           },
           pointer: {
-            show: showPointer,
-            length: "55%",
-            width: compact ? 4 : 6,
-            itemStyle: { color: "auto" },
+            show: false,
           },
           axisLine: {
             roundCap: true,
             lineStyle: {
-              width: compact ? 10 : 16,
-              color: parseGaugeThresholdZones(
-                thresholdZonesJson,
-                min,
-                max,
-              ) as never,
+              width: arcWidth,
+              color: trackColor,
             },
           },
           axisTick: {
-            show: !compact,
-            distance: compact ? 0 : -20,
-            splitNumber: 2,
-            length: 6,
-            lineStyle: { width: 1.5, color: "inherit" },
+            show: false,
           },
           splitLine: {
-            show: !compact,
-            distance: compact ? 0 : -20,
-            length: compact ? 8 : 12,
-            lineStyle: { width: 2, color: "inherit" },
+            show: false,
           },
           axisLabel: {
-            show: !compact,
-            distance: compact ? 0 : 30,
-            fontSize: 11,
-            color: "inherit",
+            show: false,
           },
           anchor: {
-            show: showPointer && !compact,
-            size: 10,
-            showAbove: true,
-            itemStyle: { borderWidth: 2, borderColor: "auto" },
+            show: false,
           },
           detail: {
             show: showDetail,
             valueAnimation: true,
-            fontSize: compact ? 14 : 24,
-            fontWeight: "bold",
+            fontSize: compact ? 18 : 36,
+            fontWeight: 600,
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             formatter: "{value}",
-            offsetCenter: [0, showPointer ? "70%" : "0%"],
+            offsetCenter: [0, "0%"],
             color: "inherit",
           },
           title: {
             show: showDetail && !compact,
-            offsetCenter: [0, showPointer ? "90%" : "25%"],
-            fontSize: 12,
-            color: "inherit",
+            offsetCenter: [0, "22%"],
+            fontSize: compact ? 11 : 14,
+            color: "rgba(140, 140, 140, 0.8)",
+            fontWeight: 400,
           },
           animationDuration: 1000,
           animationEasingUpdate: "cubicOut",
-          data: (() => {
-            const resolvedColor = resolveItemColor(
-              point.value,
-              stylingRules,
-              paramValues,
-            );
-            return [
-              {
-                value: point.value,
-                name: point.name ?? "",
-                ...(resolvedColor
-                  ? { itemStyle: { color: resolvedColor } }
-                  : {}),
-              },
-            ];
-          })(),
+          data: [
+            {
+              value: point.value,
+              name: point.name ?? "",
+              ...(resolvedColor ? { itemStyle: { color: resolvedColor } } : {}),
+            },
+          ],
         },
       ],
     };
@@ -181,7 +181,6 @@ function GaugeChart({
     startAngle,
     endAngle,
     showProgress,
-    showPointer,
     showDetail,
     thresholdZonesJson,
     compact,

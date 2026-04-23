@@ -3,6 +3,15 @@ import { type ChartOptionDef, SHARED_SHOW_LABELS } from "./shared";
 export const sunburstOptions: ChartOptionDef[] = [
   { ...SHARED_SHOW_LABELS, description: "Show the name of each segment." },
   {
+    key: "maxLabelDepth",
+    label: "Label Depth",
+    type: "number",
+    default: 2,
+    category: "Labels",
+    description:
+      "Maximum ring depth at which labels are shown (1 = first ring only, 2 = first two, etc.).",
+  },
+  {
     key: "sort",
     label: "Sort Segments",
     type: "select",
