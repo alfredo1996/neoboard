@@ -56,6 +56,19 @@ vi.mock("@neoboard/components", () => ({
   ),
 }));
 
+// Mock @radix-ui/react-select primitives used directly in transform-editor
+vi.mock("@radix-ui/react-select", () => ({
+  Item: ({ children, value }: { children: React.ReactNode; value: string }) => (
+    <option value={value}>{children}</option>
+  ),
+  ItemText: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
+  ItemIndicator: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
 // Mock ValueOrParamInput
 vi.mock("../value-or-param-input", () => ({
   ValueOrParamInput: (props: Record<string, unknown>) => (
