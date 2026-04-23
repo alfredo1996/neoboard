@@ -6,6 +6,7 @@
 import { login } from "../helpers/login.mjs";
 import { narrate, clearNarration } from "../helpers/narrate.mjs";
 import { wait, SHORT, MEDIUM, LONG, HERO } from "../helpers/pace.mjs";
+import { scrollToFirstChart, scrollToTop } from "../helpers/scroll.mjs";
 
 export const title = "Data Transformations";
 
@@ -23,26 +24,34 @@ export async function run(page) {
     }
   });
   await wait(page, HERO);
+  await wait(page, LONG);
 
-  await narrate(page, "Transformations modify query results before charting — no SQL changes needed");
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
-  await wait(page, HERO);
-
-  // Tour tabs
+  // Tour tabs — each shows before/after of a transform
   const tabs = await page.getByRole("tab").all();
-  const tabNames = [
-    "filter", "sort", "groupBy", "calculatedColumn", "rename", "limit"
+  const tabDescs = [
+    "Filter — keep only rows matching a condition",
+    "Sort — reorder by column, ascending or descending",
+    "Group By — aggregate rows into summary stats",
+    "Calculated Column — add derived values (e.g. profit = revenue - cost)",
+    "Rename — clean up column headers for display",
+    "Limit — cap the result set to N rows",
   ];
 
-  for (let i = 0; i < Math.min(tabs.length, 6); i++) {
-    const name = tabNames[i] ?? `tab ${i + 1}`;
-    await narrate(page, `Transform: ${name} — before/after side by side`);
-    await tabs[i].click();
-    await wait(page, MEDIUM);
-    await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
-    await wait(page, HERO);
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  for (let i = 0; i < Math.min(tabs.length, tabDescs.length); i++) {
+    await scrollToTop(page);
     await wait(page, SHORT);
+
+    await narrate(page, tabDescs[i]);
+    await tabs[i].click();
+    await wait(page, LONG);
+
+    // Show the actual chart/table, not the markdown
+    await scrollToFirstChart(page);
+    await wait(page, HERO);
+
+    // Scroll further to show the "after" widget if there are two side-by-side
+    await page.evaluate(() => window.scrollBy(0, 400));
+    await wait(page, LONG);
   }
 
   await narrate(page, "Transforms are stacked in order — each step feeds the next");

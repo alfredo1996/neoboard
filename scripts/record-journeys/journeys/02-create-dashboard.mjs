@@ -50,9 +50,20 @@ export async function run(page) {
   await editor.click();
   await wait(page, SHORT);
 
-  const query =
-    "SELECT c.name AS category, SUM(oi.qty * oi.price) AS revenue FROM categories c JOIN products p ON p.category_id = c.id JOIN order_items oi ON oi.product_id = p.id WHERE c.parent_id IS NOT NULL GROUP BY c.name ORDER BY revenue DESC";
-  await page.keyboard.type(query, { delay: 8 });
+  const queryLines = [
+    "SELECT c.name AS category,",
+    "       SUM(oi.qty * oi.price) AS revenue",
+    "FROM categories c",
+    "JOIN products p ON p.category_id = c.id",
+    "JOIN order_items oi ON oi.product_id = p.id",
+    "WHERE c.parent_id IS NOT NULL",
+    "GROUP BY c.name",
+    "ORDER BY revenue DESC",
+  ];
+  for (const line of queryLines) {
+    await page.keyboard.type(line, { delay: 6 });
+    await page.keyboard.press("Enter");
+  }
   await wait(page, MEDIUM);
 
   // Run the preview

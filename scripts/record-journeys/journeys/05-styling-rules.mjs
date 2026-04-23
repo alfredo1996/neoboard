@@ -6,6 +6,7 @@
 import { login } from "../helpers/login.mjs";
 import { narrate, clearNarration } from "../helpers/narrate.mjs";
 import { wait, SHORT, MEDIUM, LONG, HERO } from "../helpers/pace.mjs";
+import { scrollToFirstChart, scrollToTop } from "../helpers/scroll.mjs";
 
 export const title = "Rule-Based Styling";
 
@@ -24,30 +25,54 @@ export async function run(page) {
   });
   await wait(page, HERO);
 
+  // Wait for charts to load
+  await wait(page, LONG);
+
   await narrate(page, "Charts use conditional colors — values above/below thresholds get different colors");
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  await scrollToFirstChart(page);
   await wait(page, HERO);
 
   await narrate(page, "Rules can target bar color, text color, or background");
-  await page.evaluate(() => window.scrollTo({ top: 700, behavior: "smooth" }));
+  // Scroll further to see more charts
+  await page.evaluate(() => window.scrollTo({ top: 900, behavior: "smooth" }));
   await wait(page, HERO);
 
-  // Visit a few tabs if they exist
+  // Visit other tabs
   const tabs = await page.getByRole("tab").all();
-  if (tabs.length > 2) {
-    await narrate(page, "Each chart type has its own styling rules page");
+  if (tabs.length > 1) {
+    await scrollToTop(page);
+    await wait(page, SHORT);
+
+    await narrate(page, "Line chart with styling rules — color by value");
     await tabs[1].click();
-    await wait(page, MEDIUM);
-    await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+    await wait(page, LONG);
+    await scrollToFirstChart(page);
     await wait(page, HERO);
 
-    await tabs[2].click();
-    await wait(page, MEDIUM);
-    await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
-    await wait(page, HERO);
+    if (tabs.length > 2) {
+      await scrollToTop(page);
+      await wait(page, SHORT);
+
+      await narrate(page, "Pie chart with styling rules — segment colors by threshold");
+      await tabs[2].click();
+      await wait(page, LONG);
+      await scrollToFirstChart(page);
+      await wait(page, HERO);
+    }
+
+    if (tabs.length > 3) {
+      await scrollToTop(page);
+      await wait(page, SHORT);
+
+      await narrate(page, "Table with styling — row and cell-level conditional formatting");
+      await tabs[3].click();
+      await wait(page, LONG);
+      await scrollToFirstChart(page);
+      await wait(page, HERO);
+    }
   }
 
-  await narrate(page, "Styling rules are set per-widget in the widget editor");
+  await narrate(page, "Styling rules are configured per-widget in the widget editor");
   await wait(page, LONG);
 
   await clearNarration(page);

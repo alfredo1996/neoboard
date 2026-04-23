@@ -6,6 +6,7 @@
 import { login } from "../helpers/login.mjs";
 import { narrate, clearNarration } from "../helpers/narrate.mjs";
 import { wait, SHORT, MEDIUM, LONG, HERO } from "../helpers/pace.mjs";
+import { scrollToFirstChart, scrollToTop } from "../helpers/scroll.mjs";
 
 export const title = "Click Actions — Interactive Charts";
 
@@ -24,33 +25,58 @@ export async function run(page) {
   });
   await wait(page, HERO);
 
+  // Wait for data to load
+  await wait(page, LONG);
+
   await narrate(page, "Click Actions let you interact with charts to filter data");
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  await scrollToFirstChart(page);
   await wait(page, HERO);
 
-  // Try clicking on a chart element if a canvas is visible
+  // Try clicking on a chart bar
   const canvas = page.locator("canvas").first();
-  if (await canvas.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await narrate(page, "Click a bar to set a parameter — other widgets react");
+  if (await canvas.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await narrate(page, "Click a bar to set a parameter — other widgets update automatically");
     const box = await canvas.boundingBox();
     if (box) {
-      // Click roughly in the middle of the first bar
-      await canvas.click({ position: { x: box.width * 0.2, y: box.height * 0.5 } });
+      // Click on the tallest bar (roughly center-left area)
+      await canvas.click({
+        position: { x: box.width * 0.15, y: box.height * 0.3 },
+      });
+      await wait(page, HERO);
+
+      await narrate(page, "The parameter is set — linked widgets now filter by this value");
+      await wait(page, HERO);
+
+      // Click another bar
+      await canvas.click({
+        position: { x: box.width * 0.45, y: box.height * 0.4 },
+      });
       await wait(page, HERO);
     }
   }
 
-  // Check for parameter tags
-  await narrate(page, "Active parameters appear as filter tags below the toolbar");
+  // Show the parameter tags if visible
+  await scrollToTop(page);
+  await wait(page, MEDIUM);
+
+  await narrate(page, "Active parameters appear as filter tags in the toolbar");
   await wait(page, LONG);
 
-  // Visit another tab
+  // Visit second tab if it exists
   const tabs = await page.getByRole("tab").all();
   if (tabs.length > 1) {
-    await narrate(page, "Navigate to another page — click actions can also switch pages");
+    await narrate(page, "Page 2: click actions can also navigate between dashboard pages");
     await tabs[1].click();
-    await wait(page, MEDIUM);
-    await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+    await wait(page, LONG);
+    await scrollToFirstChart(page);
+    await wait(page, HERO);
+  }
+
+  if (tabs.length > 2) {
+    await narrate(page, "Page 3: combined actions — set a parameter AND navigate");
+    await tabs[2].click();
+    await wait(page, LONG);
+    await scrollToFirstChart(page);
     await wait(page, HERO);
   }
 

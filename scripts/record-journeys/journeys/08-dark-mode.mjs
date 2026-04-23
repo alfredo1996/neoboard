@@ -6,6 +6,7 @@
 import { login } from "../helpers/login.mjs";
 import { narrate, clearNarration } from "../helpers/narrate.mjs";
 import { wait, SHORT, MEDIUM, LONG, HERO } from "../helpers/pace.mjs";
+import { scrollToFirstChart, scrollToTop } from "../helpers/scroll.mjs";
 
 export const title = "Dark Mode";
 
@@ -27,38 +28,54 @@ export async function run(page) {
   });
   await wait(page, HERO);
 
-  // Show a chart in light mode
-  await page.getByRole("tab", { name: "6. Gauge" }).click();
-  await wait(page, MEDIUM);
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  // Show a chart in light mode first
+  await page.getByRole("tab", { name: "1. Bar" }).click();
+  await wait(page, LONG);
+  await scrollToFirstChart(page);
   await wait(page, LONG);
 
-  await narrate(page, "Light mode — the default. Clean, bright backgrounds");
+  await narrate(page, "Light mode — clean, bright backgrounds");
   await wait(page, LONG);
 
   // Switch to dark
+  await scrollToTop(page);
+  await wait(page, SHORT);
   await narrate(page, "Toggle dark mode from the sidebar");
   await page.getByRole("button", { name: "Theme" }).click();
   await wait(page, SHORT);
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
   await wait(page, LONG);
 
-  await narrate(page, "Dark mode — all charts adapt automatically. Labels, ticks, grids are theme-aware");
+  await narrate(page, "Dark mode — charts adapt automatically");
+  await scrollToFirstChart(page);
   await wait(page, HERO);
 
-  // Show another chart type in dark
-  await page.getByRole("tab", { name: "17. Radar" }).click();
-  await wait(page, MEDIUM);
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  // Show gauge in dark
+  await scrollToTop(page);
+  await wait(page, SHORT);
+  await page.getByRole("tab", { name: "6. Gauge" }).click();
+  await wait(page, LONG);
+  await scrollToFirstChart(page);
   await wait(page, HERO);
 
+  await narrate(page, "Gauge in dark mode — ticks and labels now theme-aware");
+  await wait(page, LONG);
+
+  // Show treemap in dark
+  await scrollToTop(page);
+  await wait(page, SHORT);
   await page.getByRole("tab", { name: "15. Treemap" }).click();
-  await wait(page, MEDIUM);
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  await wait(page, LONG);
+  await scrollToFirstChart(page);
   await wait(page, HERO);
+
+  await narrate(page, "Treemap — neutral borders, no white-on-dark clash");
+  await wait(page, LONG);
 
   // Switch back to light
-  await narrate(page, "Switch back to light mode — instant transition");
+  await scrollToTop(page);
+  await wait(page, SHORT);
+  await narrate(page, "Switch back — instant transition");
   await page.getByRole("button", { name: "Theme" }).click();
   await wait(page, SHORT);
   await page.getByRole("menuitemradio", { name: "Light" }).click();

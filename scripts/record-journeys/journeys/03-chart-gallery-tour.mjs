@@ -6,6 +6,7 @@
 import { login } from "../helpers/login.mjs";
 import { narrate, clearNarration } from "../helpers/narrate.mjs";
 import { wait, SHORT, MEDIUM, LONG, HERO } from "../helpers/pace.mjs";
+import { scrollToFirstChart, scrollToTop } from "../helpers/scroll.mjs";
 
 export const title = "Chart Gallery Tour";
 
@@ -25,7 +26,6 @@ export async function run(page) {
   await login(page);
 
   await narrate(page, "Opening the Chart Gallery demo dashboard");
-  // Click the Chart Gallery card
   await page.evaluate(() => {
     const cards = document.querySelectorAll('[class*="cursor-pointer"]');
     for (const c of cards) {
@@ -42,14 +42,13 @@ export async function run(page) {
     await narrate(page, tab.desc);
     const tabEl = page.getByRole("tab", { name: tab.name });
     await tabEl.click();
-    await wait(page, MEDIUM);
+    await wait(page, LONG);
 
-    // Scroll down to see the chart widget
-    await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+    // Scroll past the markdown description to show the actual chart
+    await scrollToFirstChart(page);
     await wait(page, HERO);
 
-    // Scroll back up for next tab
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    await scrollToTop(page);
     await wait(page, SHORT);
   }
 
@@ -60,18 +59,18 @@ export async function run(page) {
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
   await wait(page, LONG);
 
-  // Show a couple charts in dark mode
+  // Show charts in dark mode
   await page.getByRole("tab", { name: "6. Gauge" }).click();
-  await wait(page, MEDIUM);
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  await wait(page, LONG);
+  await scrollToFirstChart(page);
   await wait(page, HERO);
 
   await narrate(page, "Gauge in dark mode — theme-aware colors");
   await wait(page, LONG);
 
   await page.getByRole("tab", { name: "17. Radar" }).click();
-  await wait(page, MEDIUM);
-  await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
+  await wait(page, LONG);
+  await scrollToFirstChart(page);
   await wait(page, HERO);
 
   await narrate(page, "Radar in dark mode — readable axis labels, subtle grid");
