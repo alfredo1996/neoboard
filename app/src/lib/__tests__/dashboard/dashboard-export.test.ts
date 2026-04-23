@@ -54,6 +54,7 @@ const DASHBOARD = {
   createdAt: new Date(),
   updatedAt: new Date(),
   updatedBy: null,
+  version: 1,
 };
 
 describe("buildExportPayload", () => {

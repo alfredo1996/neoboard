@@ -199,7 +199,9 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: "Alice" }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { data: { updatedByName: string | null } };
+    const body = (await res.json()) as {
+      data: { updatedByName: string | null };
+    };
     expect(body.data.updatedByName).toBe("Alice");
   });
 
@@ -211,7 +213,9 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
-    const body = res._body as { data: { updatedByName: string | null } };
+    const body = (await res.json()) as {
+      data: { updatedByName: string | null };
+    };
     expect(body.data.updatedByName).toBeNull();
   });
 });
