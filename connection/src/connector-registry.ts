@@ -17,12 +17,38 @@ import {
 } from "./generalized/connector-plugin";
 import { neo4jPlugin } from "./neo4j/plugin";
 import { postgresPlugin } from "./postgresql/plugin";
+import { EXTERNAL_CONNECTORS } from "./external-connectors.generated";
 
 const registry: ConnectorRegistry = createConnectorRegistry();
 
 // Register built-in connectors
 registry.register(neo4jPlugin);
 registry.register(postgresPlugin);
+
+// ── External connectors (from neoboard-connectors.json) ─────────────────
+// Registered AFTER built-ins. Same-type duplicates without overrides throw
+// loudly so operators spot the conflict at startup.
+for (const { plugin, overrides } of EXTERNAL_CONNECTORS) {
+  if (registry.has(plugin.type)) {
+    if (!overrides) {
+      const existing = registry.get(plugin.type);
+      const source =
+        existing === neo4jPlugin || existing === postgresPlugin
+          ? "built-in"
+          : "previously-registered external";
+      throw new Error(
+        'External connector "' +
+          plugin.type +
+          '" conflicts with a ' +
+          source +
+          " connector. " +
+          'Set "overrides": true in neoboard-connectors.json to replace it.',
+      );
+    }
+    registry.unregister(plugin.type);
+  }
+  registry.register(plugin);
+}
 
 // Re-export for external use
 export { registry as connectorRegistry };
