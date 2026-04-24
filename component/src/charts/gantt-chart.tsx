@@ -79,12 +79,34 @@ function GanttChart({
     // Resolve colors per item
     const resolvedColors = data.map((item) => {
       if (!stylingRules?.length) return undefined;
-      // Try matching against category first, then task name
-      const categoryColor = item.category
-        ? resolveStylingRuleColor(item.category, stylingRules, paramValues)
-        : undefined;
-      if (categoryColor) return categoryColor;
-      return resolveStylingRuleColor(item.task, stylingRules, paramValues);
+      // Evaluate each rule against the column it targets.
+      // Rules with a `column` field match that specific data field;
+      // rules without `column` try category first, then task name.
+      for (const rule of stylingRules) {
+        if (rule.column) {
+          const cellValue = item[rule.column];
+          if (cellValue != null) {
+            const color = resolveStylingRuleColor(
+              cellValue,
+              [rule],
+              paramValues,
+            );
+            if (color) return color;
+          }
+        } else {
+          const catColor = item.category
+            ? resolveStylingRuleColor(item.category, [rule], paramValues)
+            : undefined;
+          if (catColor) return catColor;
+          const taskColor = resolveStylingRuleColor(
+            item.task,
+            [rule],
+            paramValues,
+          );
+          if (taskColor) return taskColor;
+        }
+      }
+      return undefined;
     });
 
     // Build series data: [taskIndex, start, end, duration, category, progress, resolvedColor]
