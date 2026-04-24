@@ -59,8 +59,13 @@ function SunburstChart({
     const sortFn = sort === "none" ? null : sort === "asc" ? "asc" : "desc";
 
     // Determine how deep labels should display.
-    // Default to 2 levels if not specified.
-    const labelDepth = maxLabelDepth ?? 2;
+    // 0 / undefined / null → auto (default 2). Positive integer = exact depth.
+    const labelDepth =
+      typeof maxLabelDepth === "number" &&
+      Number.isFinite(maxLabelDepth) &&
+      maxLabelDepth > 0
+        ? Math.floor(maxLabelDepth)
+        : 2;
     const canShowLabel = (depth: number) =>
       showLabels && !compact && depth <= labelDepth;
 

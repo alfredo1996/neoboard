@@ -93,8 +93,17 @@ function GaugeChart({
       paramValues,
     );
 
-    // Determine the progress color: styling rule > custom zones > default accent
-    const progressColor = resolvedColor ?? "#5470c6";
+    // Determine the progress color: styling rule > threshold zone > default accent
+    const gaugeSpan = max - min;
+    const normalizedValue =
+      gaugeSpan > 0
+        ? Math.max(0, Math.min(1, (point.value - min) / gaugeSpan))
+        : undefined;
+    const thresholdColor =
+      hasCustomZones && normalizedValue !== undefined
+        ? thresholdZones.find(([stop]) => normalizedValue <= stop)?.[1]
+        : undefined;
+    const progressColor = resolvedColor ?? thresholdColor ?? "#5470c6";
 
     // Track color — light gray that works in both themes
     const trackColor = hasCustomZones

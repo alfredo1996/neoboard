@@ -4,7 +4,7 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import * as net from "node:net";
 import * as http from "node:http";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -269,9 +269,16 @@ export default async function globalSetup() {
   const buildIdPath = path.join(appDir, ".next", "BUILD_ID");
   const hasCachedBuild = fs.existsSync(buildIdPath);
 
-  if (process.env.E2E_SKIP_BUILD && hasCachedBuild) {
+  if (process.env.E2E_SKIP_BUILD && !hasCachedBuild) {
+    throw new Error(
+      "E2E_SKIP_BUILD is set but no prior build found at .next/BUILD_ID. " +
+        "Run `npx next build` once or unset E2E_SKIP_BUILD.",
+    );
+  }
+
+  if (process.env.E2E_SKIP_BUILD) {
     console.log(
-      "⏩ Skipping build (E2E_SKIP_BUILD set, .next/BUILD_ID exists)",
+      "⏩ Skipping build (E2E_SKIP_BUILD set, reusing existing .next)",
     );
   } else {
     if (hasCachedBuild) {
@@ -281,7 +288,6 @@ export default async function globalSetup() {
     } else {
       console.log("⏳ Building Next.js (production)...");
     }
-    const { execSync } = await import("node:child_process");
     execSync("npx next build", {
       cwd: appDir,
       stdio: "inherit",

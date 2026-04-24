@@ -175,6 +175,7 @@ function GanttChart({
       // Progress overlay
       if (showProgress && progress > 0) {
         const progressWidth = width * Math.min(progress, 1);
+        const full = progress >= 1;
         (group.children as unknown[]).push({
           type: "rect",
           shape: {
@@ -182,10 +183,13 @@ function GanttChart({
             y,
             width: progressWidth,
             height: barHeight,
-            r: barBorderRadius,
+            // Only round the right side when the overlay spans the whole bar
+            r: full
+              ? barBorderRadius
+              : [barBorderRadius, 0, 0, barBorderRadius],
           },
           style: {
-            fill: "rgba(255, 255, 255, 0.3)",
+            fill: "rgba(255, 255, 255, 0.25)",
           },
         });
       }
@@ -207,7 +211,7 @@ function GanttChart({
               formatter: "Today",
               position: "insideStartTop" as const,
               fontSize: 10,
-              color: "#E74C3C",
+              color: "inherit",
             },
             data: [{ xAxis: Date.now() }],
           },

@@ -76,8 +76,9 @@ export function transformToGanttData(data: unknown): unknown {
       if (progressKey && row[progressKey] != null) {
         const p = Number(row[progressKey]);
         if (!Number.isNaN(p)) {
-          // Accept 0-1 or 0-100 range
-          item.progress = p > 1 ? p / 100 : p;
+          // Accept 0-1 or 0-100 range, then clamp to [0, 1]
+          const scaled = p > 1 ? p / 100 : p;
+          item.progress = Math.max(0, Math.min(1, scaled));
         }
       }
 
@@ -90,7 +91,10 @@ function parseTime(value: unknown): number | null {
   if (value == null) return null;
   if (value instanceof Date) return value.getTime();
   if (typeof value === "number") {
-    // Heuristic: if < 1e12, assume seconds; otherwise milliseconds
+    // Heuristic: values below 1e12 (~Sep 2001 in ms) are treated as seconds.
+    // This correctly handles Unix timestamps (seconds since epoch) but will
+    // misclassify pre-2001 millisecond timestamps. In practice, Gantt data
+    // is almost always recent dates, so this is an acceptable trade-off.
     return value < 1e12 ? value * 1000 : value;
   }
   if (typeof value === "string") {
