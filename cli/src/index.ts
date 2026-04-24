@@ -198,6 +198,44 @@ config
     runConfigSet(key, value);
   });
 
+// plugin subcommand group
+
+const plugin = program
+  .command("plugin")
+  .description("Manage external chart and connector plugins");
+
+plugin
+  .command("add <package>")
+  .description(
+    "Install and register an external plugin\n" +
+      "  Auto-detects chart vs connector from the package export",
+  )
+  .option("--override", "Allow replacing a built-in plugin")
+  .option("--export <name>", "Named export to use (default: default)")
+  .action(async (packageName, opts) => {
+    const { runPluginAdd } = await import("./commands/plugin.js");
+    await runPluginAdd(packageName, {
+      override: opts.override,
+      export: opts.export,
+    });
+  });
+
+plugin
+  .command("list")
+  .description("Show all registered plugins (built-in + external)")
+  .action(async () => {
+    const { runPluginList } = await import("./commands/plugin.js");
+    runPluginList();
+  });
+
+plugin
+  .command("remove <package>")
+  .description("Unregister and uninstall an external plugin")
+  .action(async (packageName) => {
+    const { runPluginRemove } = await import("./commands/plugin.js");
+    await runPluginRemove(packageName);
+  });
+
 // logs command
 
 program
