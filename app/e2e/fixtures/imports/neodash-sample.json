@@ -52,6 +52,30 @@
           "height": 4,
           "settings": {},
           "parameters": {}
+        },
+        {
+          "id": "r5",
+          "title": "Movie Timeline",
+          "type": "gantt",
+          "query": "MATCH (m:Movie) RETURN m.title AS task, m.released AS start, m.released + 2 AS end LIMIT 5",
+          "x": 0,
+          "y": 8,
+          "width": 12,
+          "height": 4,
+          "settings": {},
+          "parameters": {}
+        },
+        {
+          "id": "r6",
+          "title": "3D Network",
+          "type": "graph3d",
+          "query": "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 20",
+          "x": 0,
+          "y": 12,
+          "width": 12,
+          "height": 6,
+          "settings": {},
+          "parameters": {}
         }
       ]
     }

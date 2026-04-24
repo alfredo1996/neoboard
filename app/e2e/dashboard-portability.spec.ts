@@ -160,7 +160,7 @@ test.describe("NeoDash legacy import", () => {
       timeout: 5_000,
     });
     await expect(dialog.getByText("E2E NeoDash Import Test")).toBeVisible();
-    await expect(dialog.getByText("4 widgets")).toBeVisible();
+    await expect(dialog.getByText("6 widgets")).toBeVisible();
 
     // No connection mapping should appear (NeoDash skips it)
     await expect(dialog.getByText("Map each connection")).not.toBeVisible();
@@ -173,9 +173,9 @@ test.describe("NeoDash legacy import", () => {
     // Should redirect to the imported dashboard
     await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
-    // Verify 4 widget cards rendered (NeoDash report titles are not preserved
-    // as widget titles — the converter maps settings but not report.title)
-    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(4, {
+    // Verify 6 widget cards rendered — includes gantt and graph3d→graph
+    // Report titles are now preserved as widget settings.title
+    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(6, {
       timeout: 15_000,
     });
 

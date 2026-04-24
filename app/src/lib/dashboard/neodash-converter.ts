@@ -10,11 +10,16 @@ const CHART_TYPE_MAP: Record<string, string> = {
   bar: "bar",
   line: "line",
   graph: "graph",
+  graph3d: "graph",
+  "3d-graph": "graph",
   map: "map",
+  choropleth: "map",
+  areamap: "map",
   pie: "pie",
   value: "single-value",
   gauge: "gauge",
   sunburst: "sunburst",
+  circle_packing: "sunburst",
   treemap: "treemap",
   sankey: "sankey",
   radar: "radar",
@@ -92,6 +97,8 @@ export function convertNeoDash(json: unknown): NeoboardExport {
         params: report.parameters ?? {},
         settings: {
           ...(report.settings ?? {}),
+          // Preserve report title as widget title
+          ...(report.title ? { title: report.title } : {}),
           // Set area mode for NeoDash "area" chart type
           ...(report.type === "area" ? { chartOptions: { area: true } } : {}),
         },

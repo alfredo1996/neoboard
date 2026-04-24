@@ -169,6 +169,12 @@ describe("convertNeoDash", () => {
     { type: "markdown", expected: "markdown" },
     { type: "gauge", expected: "gauge" },
     { type: "select", expected: "parameter-select" },
+    { type: "gantt", expected: "gantt" },
+    { type: "graph3d", expected: "graph" },
+    { type: "3d-graph", expected: "graph" },
+    { type: "circle_packing", expected: "sunburst" },
+    { type: "choropleth", expected: "map" },
+    { type: "areamap", expected: "map" },
     { type: "unknown_type", expected: "json" },
   ])("maps $type → $expected", ({ type, expected }) => {
     const result = convertNeoDash(makeNeoDash({ type }));
@@ -302,7 +308,8 @@ describe("convertNeoDash", () => {
     const widget = result.layout.pages[0].widgets[0];
     expect(widget.query).toBe("");
     expect(widget.params).toEqual({});
-    expect(widget.settings).toEqual({});
+    // Title is preserved from report.title even when settings/parameters are missing
+    expect(widget.settings).toEqual({ title: "W" });
   });
 
   it("falls back to 'Imported Dashboard' when title is missing", () => {
@@ -348,7 +355,7 @@ describe("convertNeoDash", () => {
     expect(grid).toMatchObject({ x: 3, y: 5, w: 8, h: 6 });
   });
 
-  it("all chart type mappings", () => {
+  it("all direct chart type mappings", () => {
     const types = [
       "table",
       "bar",
@@ -361,10 +368,84 @@ describe("convertNeoDash", () => {
       "treemap",
       "sankey",
       "radar",
+      "gantt",
     ];
     for (const type of types) {
       const result = convertNeoDash(makeNeoDash({ dashTitle: "T", type }));
       expect(result.layout.pages[0].widgets[0].chartType).toBe(type);
     }
+  });
+
+  // --- widget title preservation ---
+
+  it("preserves report.title as widget settings.title", () => {
+    const result = convertNeoDash(NEODASH_SIMPLE);
+    const widget = result.layout.pages[0].widgets[0];
+    expect((widget.settings as Record<string, unknown>).title).toBe(
+      "Users Table",
+    );
+  });
+
+  it("preserves report.title for all widgets", () => {
+    const result = convertNeoDash(NEODASH_SIMPLE);
+    const titles = result.layout.pages[0].widgets.map(
+      (w) => (w.settings as Record<string, unknown>).title,
+    );
+    expect(titles).toEqual(["Users Table", "Bar Chart"]);
+  });
+
+  it("omits title from settings when report.title is empty", () => {
+    const result = convertNeoDash(makeNeoDash({ title: "" }));
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.title).toBeUndefined();
+  });
+
+  // --- degraded type conversions ---
+
+  it("maps graph3d to 2D graph (best-effort)", () => {
+    const result = convertNeoDash(
+      makeNeoDash({ dashTitle: "T", type: "graph3d" }),
+    );
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("graph");
+  });
+
+  it("maps circle_packing to sunburst (same hierarchical data)", () => {
+    const result = convertNeoDash(
+      makeNeoDash({ dashTitle: "T", type: "circle_packing" }),
+    );
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("sunburst");
+  });
+
+  it("maps choropleth to map (best-effort, point markers only)", () => {
+    const result = convertNeoDash(
+      makeNeoDash({ dashTitle: "T", type: "choropleth" }),
+    );
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("map");
+  });
+
+  // --- parameter conversion ---
+
+  it("converts multiple $neodash_ parameters in a single query", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        query:
+          "MATCH (n) WHERE n.name = $neodash_name AND n.age > $neodash_minAge RETURN n",
+      }),
+    );
+    expect(result.layout.pages[0].widgets[0].query).toBe(
+      "MATCH (n) WHERE n.name = $param_name AND n.age > $param_minAge RETURN n",
+    );
+  });
+
+  it("leaves non-neodash parameters unchanged", () => {
+    const result = convertNeoDash(
+      makeNeoDash({ query: "MATCH (n) WHERE n.id = $someParam RETURN n" }),
+    );
+    expect(result.layout.pages[0].widgets[0].query).toBe(
+      "MATCH (n) WHERE n.id = $someParam RETURN n",
+    );
   });
 });
