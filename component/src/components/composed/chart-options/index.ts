@@ -31,6 +31,7 @@ import { sankeyOptions } from "./sankey";
 import { sunburstOptions } from "./sunburst";
 import { radarOptions } from "./radar";
 import { treemapOptions } from "./treemap";
+import { ganttOptions } from "./gantt";
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   bar: [
@@ -70,6 +71,7 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   sunburst: [...sunburstOptions, ...behaviorOptions, ...appearanceOptions],
   radar: [...radarOptions, ...behaviorOptions, ...appearanceOptions],
   treemap: [...treemapOptions, ...behaviorOptions, ...appearanceOptions],
+  gantt: [...ganttOptions, ...behaviorOptions, ...appearanceOptions],
 };
 
 export function getChartOptions(chartType: string): ChartOptionDef[] {

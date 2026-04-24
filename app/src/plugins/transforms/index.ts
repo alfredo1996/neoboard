@@ -21,3 +21,4 @@ export { transformToSankeyData } from "../sankey/transform";
 export { transformToHierarchicalData } from "./hierarchical-utils";
 export { transformToRadarData } from "../radar/transform";
 export { transformToSelectData } from "../parameter-select/transform";
+export { transformToGanttData } from "../gantt/transform";

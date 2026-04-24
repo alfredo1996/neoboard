@@ -21,6 +21,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   area: "line",
   iFrame: "iframe",
   iframe: "iframe",
+  gantt: "gantt",
   select: "parameter-select",
   markdown: "markdown",
   form: "form",
