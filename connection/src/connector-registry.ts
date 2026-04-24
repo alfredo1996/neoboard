@@ -31,11 +31,18 @@ registry.register(postgresPlugin);
 for (const { plugin, overrides } of EXTERNAL_CONNECTORS) {
   if (registry.has(plugin.type)) {
     if (!overrides) {
+      const existing = registry.get(plugin.type);
+      const source =
+        existing === neo4jPlugin || existing === postgresPlugin
+          ? "built-in"
+          : "previously-registered external";
       throw new Error(
         'External connector "' +
           plugin.type +
-          '" conflicts with an existing connector. ' +
-          'Set "overrides": true in neoboard-connectors.json to replace the built-in.',
+          '" conflicts with a ' +
+          source +
+          " connector. " +
+          'Set "overrides": true in neoboard-connectors.json to replace it.',
       );
     }
     registry.unregister(plugin.type);
