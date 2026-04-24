@@ -214,6 +214,85 @@ neoboard config set ports.app 4000
 neoboard config set postgres.database mydb
 ```
 
+## plugin add
+
+Install an external chart or connector plugin from npm, validate it, and register it in the appropriate manifest. The CLI auto-detects whether the package is a chart plugin (has `transform`) or connector plugin (has `createModule`).
+
+```bash
+neoboard plugin add <package> [--override] [--export <name>]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--override` | `false` | Allow replacing a built-in plugin of the same type. |
+| `--export <name>` | `default` | Named export to use from the package. |
+
+The CLI validates the package after installation:
+- Must export an object with `type` (string) and `label` (string)
+- Chart plugins must have `transform` (function) and `compatibleWith` (array)
+- Connector plugins must have `createModule` (function) and `category` (enum)
+- If validation fails, the package is automatically uninstalled
+
+```bash
+# Add a connector plugin
+neoboard plugin add @myorg/neoboard-mongodb
+# ✔ Installed @myorg/neoboard-mongodb
+# ✔ Plugin "mongodb" registered as connector in neoboard-connectors.json
+
+# Add a chart plugin that overrides a built-in
+neoboard plugin add @myorg/custom-bar --override
+# ✔ Plugin "bar" registered as chart in neoboard-plugins.json
+
+# Invalid package — auto-rollback
+neoboard plugin add some-random-package
+# ✔ Installed some-random-package
+# ERROR: Package "some-random-package" is not a valid NeoBoard plugin:
+#   - "type" must be a non-empty string
+#   - Not a valid NeoBoard plugin
+# WARN: Rolling back: uninstalling some-random-package
+```
+
+## plugin list
+
+Show all registered plugins — both built-in and external.
+
+```bash
+neoboard plugin list
+```
+
+```bash
+neoboard plugin list
+# Charts (18 built-in, 1 external):
+#   bar                 built-in
+#   line                built-in
+#   pie                 built-in
+#   ...
+#   @myorg/heatmap      external
+#
+# Connectors (2 built-in, 1 external):
+#   neo4j               built-in
+#   postgresql          built-in
+#   @myorg/mongodb      external
+```
+
+## plugin remove
+
+Unregister an external plugin and uninstall its npm package. Cannot remove built-in plugins.
+
+```bash
+neoboard plugin remove <package>
+```
+
+```bash
+neoboard plugin remove @myorg/neoboard-mongodb
+# ✔ Plugin "@myorg/neoboard-mongodb" removed
+
+# Attempting to remove a built-in
+neoboard plugin remove neo4j
+# ERROR: Package "neo4j" is not registered as an external plugin.
+#        Cannot remove built-in plugins.
+```
+
 ## logs
 
 Tail Docker container logs. Available services: `postgres` (or `pg`), `neo4j`, `app`.

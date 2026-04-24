@@ -1,9 +1,29 @@
-# Authoring external chart plugins for NeoBoard
+# Authoring external plugins for NeoBoard
 
-NeoBoard loads external chart plugins at **build time** via a manifest
-at the repository root: `neoboard-plugins.json`. This doc walks through
-writing a plugin, wiring it into the manifest, and the trust model you
-sign up for as an operator.
+NeoBoard supports two types of external plugins:
+
+- **Chart plugins** — add new visualization types (heatmap, waterfall, etc.)
+- **Connector plugins** — add new database connectors (MongoDB, MySQL, etc.)
+
+Both are loaded at **build time** via manifest files at the repository root:
+
+- `neoboard-plugins.json` — chart plugins
+- `neoboard-connectors.json` — connector plugins
+
+The easiest way to manage plugins is via the CLI:
+
+```bash
+# Add a plugin (auto-detects chart vs connector)
+neoboard plugin add @myorg/neoboard-mongodb
+
+# List all plugins
+neoboard plugin list
+
+# Remove a plugin
+neoboard plugin remove @myorg/neoboard-mongodb
+```
+
+You can also edit the manifest files directly — see below.
 
 ## Trust model (read this first)
 
@@ -85,6 +105,17 @@ dep. Peer-depend on `react` and (if you use them) `zod` and
 
 ## Wiring it in
 
+**Option A: CLI (recommended)**
+
+```bash
+neoboard plugin add @myorg/neoboard-heatmap
+```
+
+This installs the package, validates the export, adds it to the manifest,
+and runs codegen — all in one command.
+
+**Option B: Manual**
+
 1. `npm install @myorg/neoboard-heatmap` in the NeoBoard repo root.
 2. Add an entry to `neoboard-plugins.json`:
 
@@ -97,7 +128,8 @@ dep. Peer-depend on `react` and (if you use them) `zod` and
 
 3. Run `npm run generate:plugins` (or just start dev/build — it's wired
    into `predev` and `prebuild`).
-4. A new chart type `"heatmap"` appears in the widget editor.
+
+Either way, a new chart type `"heatmap"` appears in the widget editor.
 
 ### Named exports
 
@@ -148,3 +180,125 @@ npm package with its own test suite. NeoBoard does not run your tests.
 Integration testing against a real NeoBoard install is the most
 reliable signal. A stripped-down example lives in
 `examples/plugin-sparkline/` (coming soon) — clone it, rename, ship.
+
+---
+
+## Connector plugins
+
+Connector plugins work the same way as chart plugins but target the
+`connection/` package instead of `app/`. They add support for new
+database types (MongoDB, MySQL, ClickHouse, etc.).
+
+### Connector plugin shape
+
+A connector plugin is a `ConnectorPlugin` object (see
+`connection/src/generalized/connector-plugin.ts` for the full type):
+
+```ts
+import type { ConnectorPlugin } from "@neoboard/connection";
+
+export const plugin: ConnectorPlugin = {
+  type: "mongodb",
+  label: "MongoDB",
+  category: "database",
+  queryLanguage: "javascript",
+  supportsWrite: true,
+  supportsGraphData: false,
+  allowedProtocols: ["mongodb:", "mongodb+srv:"],
+  uriPlaceholder: "mongodb://localhost:27017/mydb",
+  databasePlaceholder: "mydb",
+  formFields: [
+    { key: "database", label: "Database", type: "text", required: true },
+    {
+      key: "authSource",
+      label: "Auth Source",
+      type: "text",
+      placeholder: "admin",
+    },
+  ],
+  createModule(authConfig, advancedOptions) {
+    return new MongoConnectionModule(authConfig, advancedOptions);
+  },
+};
+```
+
+| Field               | Required | What it does                                                                     |
+| ------------------- | -------- | -------------------------------------------------------------------------------- |
+| `type`              | yes      | Unique connector identifier (e.g. `"mongodb"`).                                  |
+| `label`             | yes      | Human-readable name in the connection type picker.                               |
+| `category`          | yes      | One of: `"database"`, `"graph"`, `"api"`, `"file"`.                              |
+| `createModule`      | yes      | Factory function that returns a `ConnectionModule` instance.                     |
+| `queryLanguage`     | no       | CodeMirror language for syntax highlighting (`"sql"`, `"cypher"`, etc.).         |
+| `supportsWrite`     | no       | Whether the connector supports INSERT/UPDATE/DELETE.                             |
+| `supportsGraphData` | no       | Whether queries can return nodes and edges.                                      |
+| `allowedProtocols`  | no       | URI protocols for connection string validation.                                  |
+| `formFields`        | no       | Auto-generated connection form fields. When present, no custom form code needed. |
+
+### Wiring a connector
+
+**Option A: CLI (recommended)**
+
+```bash
+neoboard plugin add @myorg/neoboard-mongodb
+# ✔ Installed @myorg/neoboard-mongodb
+# ✔ Plugin "mongodb" registered as connector in neoboard-connectors.json
+```
+
+The CLI auto-detects that the package has `createModule` and registers it
+as a connector (not a chart).
+
+**Option B: Manual**
+
+1. `npm install @myorg/neoboard-mongodb`
+2. Add to `neoboard-connectors.json`:
+   ```json
+   { "connectors": [{ "package": "@myorg/neoboard-mongodb" }] }
+   ```
+3. Run `npm run generate:connectors`
+
+### Server-side considerations
+
+Unlike chart plugins (client-side React), connectors run **server-side**:
+
+- The driver npm package must be in `dependencies` (not dynamically downloaded)
+- The driver must be added to `serverExternalPackages` in `next.config.ts`
+- The `ConnectionModule` runs in Node.js — no browser APIs
+- Schema fetching (`getSchema()`) is optional but enables query editor autocomplete
+
+### ConnectionModule interface
+
+Your connector must implement the `ConnectionModule` abstract class:
+
+```ts
+import { ConnectionModule } from "@neoboard/connection";
+
+export class MongoConnectionModule extends ConnectionModule {
+  async connect(): Promise<void> {
+    /* ... */
+  }
+  async disconnect(): Promise<void> {
+    /* ... */
+  }
+  async executeQuery(query: string, params?: Record<string, unknown>) {
+    /* ... */
+  }
+  async getSchema(): Promise<SchemaResult> {
+    /* ... */
+  }
+  async testConnection(): Promise<boolean> {
+    /* ... */
+  }
+}
+```
+
+### Removing a plugin
+
+```bash
+neoboard plugin remove @myorg/neoboard-mongodb
+# ✔ Plugin "@myorg/neoboard-mongodb" removed
+```
+
+Or manually: remove the entry from the manifest file and run
+`npm uninstall @myorg/neoboard-mongodb`.
+
+Built-in plugins (neo4j, postgresql, bar, line, etc.) cannot be removed.
