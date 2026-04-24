@@ -68,6 +68,9 @@ export type {
 export { TreemapChart } from "./treemap-chart";
 export type { TreemapChartProps, TreemapDataItem } from "./treemap-chart";
 
+export { GanttChart } from "./gantt-chart";
+export type { GanttChartProps, GanttDataItem } from "./gantt-chart";
+
 export type {
   BaseChartProps,
   ChartSize,

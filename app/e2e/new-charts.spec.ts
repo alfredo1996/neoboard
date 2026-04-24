@@ -1,10 +1,16 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
-// New chart types (v0.8) — creation flow tests
+// New chart types — creation flow tests
 // ---------------------------------------------------------------------------
 // These tests verify the end-to-end creation flow for each new chart type:
-// Gauge, Sankey, Sunburst, Radar, Treemap.
+// Gauge, Sankey, Sunburst, Radar, Treemap, Gantt.
 //
 // We focus on the creation flow (dialog → query → add widget) rather than
 // visual rendering details — chart rendering is verified by unit tests.
@@ -50,7 +56,9 @@ test.describe("New chart types — creation flow", () => {
     );
 
     // The Add Widget button should be enabled (no Run required for this flow)
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -78,7 +86,9 @@ test.describe("New chart types — creation flow", () => {
       "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 10",
     );
 
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -106,7 +116,9 @@ test.describe("New chart types — creation flow", () => {
       "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value, 100 AS max",
     );
 
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -134,7 +146,9 @@ test.describe("New chart types — creation flow", () => {
       "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p.name AS source, m.title AS target, 1 AS value LIMIT 15",
     );
 
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -162,7 +176,39 @@ test.describe("New chart types — creation flow", () => {
       "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS parent, m.title AS name, 1 AS value LIMIT 20",
     );
 
-    await expect(dialog.getByRole("button", { name: "Add Widget" })).toBeEnabled({
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({
+      timeout: 10_000,
+    });
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+  });
+
+  test("should create a Gantt widget", async ({ page }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    // Select Neo4j connection first
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    // Select Gantt chart type
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Gantt" }).click();
+
+    // Type query — tasks with start/end timestamps
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m.title AS task, m.released AS start, m.released + 2 AS end RETURN task, start, end LIMIT 8",
+    );
+
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
@@ -182,11 +228,15 @@ test.describe("Widget Showcase seed dashboard", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
   });
 
-  test("should render the Widget Showcase dashboard with widget cards", async ({ page }) => {
+  test("should render the Widget Showcase dashboard with widget cards", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
 
     // At least one widget card should be visible on the page
-    await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible({
+    await expect(
+      page.locator("[data-testid='widget-card']").first(),
+    ).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -202,7 +252,9 @@ test.describe("Widget Showcase seed dashboard", () => {
   test("should show the Rule-Based Styling page tab", async ({ page }) => {
     test.setTimeout(30_000);
 
-    await expect(page.getByRole("tab", { name: "Rule-Based Styling" })).toBeVisible({
+    await expect(
+      page.getByRole("tab", { name: "Rule-Based Styling" }),
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -214,18 +266,22 @@ test.describe("Widget Showcase seed dashboard", () => {
     await page.getByRole("tab", { name: "Simple Charts" }).click();
 
     // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, radar, sankey, treemap, sunburst)
-    await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible({
+    await expect(
+      page.locator("[data-testid='widget-card']").first(),
+    ).toBeVisible({
       timeout: 15_000,
     });
 
     // At least 10 widgets should be on this page
-    const widgetCount = await page.locator("[data-testid='widget-card']").count();
+    const widgetCount = await page
+      .locator("[data-testid='widget-card']")
+      .count();
     expect(widgetCount).toBeGreaterThanOrEqual(10);
   });
 
   test("should show Color Palettes page tab", async ({ page }) => {
-    await expect(
-      page.getByRole("tab", { name: "Color Palettes" }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("tab", { name: "Color Palettes" })).toBeVisible(
+      { timeout: 10_000 },
+    );
   });
 });

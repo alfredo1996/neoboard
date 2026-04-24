@@ -8,7 +8,6 @@ export const gaugeSettingsSchema = z
     min: z.coerce.number().default(0),
     max: z.coerce.number().default(100),
     showProgress: z.boolean().default(true),
-    showPointer: z.boolean().default(true),
     showDetail: z.boolean().default(true),
     startAngle: z.coerce.number().default(225),
     endAngle: z.coerce.number().default(-45),

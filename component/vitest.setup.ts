@@ -31,6 +31,7 @@ vi.mock("echarts/charts", () => ({
   SunburstChart: vi.fn(),
   RadarChart: vi.fn(),
   TreemapChart: vi.fn(),
+  CustomChart: vi.fn(),
 }));
 
 vi.mock("echarts/components", () => ({

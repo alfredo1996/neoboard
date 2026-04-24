@@ -26,14 +26,6 @@ export const gaugeOptions: ChartOptionDef[] = [
     description: "Fill the gauge arc to show progress toward the maximum.",
   },
   {
-    key: "showPointer",
-    label: "Show Pointer",
-    type: "boolean",
-    default: true,
-    category: "Style",
-    description: "Display a needle pointer on the gauge.",
-  },
-  {
     key: "showDetail",
     label: "Show Value Detail",
     type: "boolean",

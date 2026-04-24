@@ -32,6 +32,7 @@ function SunburstPluginComponent({
     <SunburstChart
       data={(data as SunburstDataItem[]) ?? []}
       showLabels={settings.showLabels}
+      maxLabelDepth={settings.maxLabelDepth}
       sort={settings.sort}
       highlightOnHover={settings.highlightOnHover}
       colorPalette={settings.colorPalette}

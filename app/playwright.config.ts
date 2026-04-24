@@ -20,12 +20,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1,
-  // CI: 2 workers for parallel execution against the production server.
-  // Locally: 4 workers — Playwright's auto-detect picks based on CPU cores
-  // but collapses to serial under Docker-testcontainer load, turning a
-  // ~11-minute run into a ~20-minute run. An explicit number keeps local
-  // timing deterministic regardless of host contention.
-  workers: process.env.CI ? 2 : 4,
+  // CI: 2 workers (constrained runner resources).
+  // Locally: 6 workers — balances parallelism with server/DB contention.
+  // Override with --workers=N on the CLI for experimentation.
+  workers: process.env.CI ? 2 : 6,
   // CI: github (PR annotations) + list (real-time stream) + blob (for cross-shard merge).
   // Local: interactive HTML report.
   reporter: process.env.CI ? [["github"], ["list"], ["blob"]] : "html",

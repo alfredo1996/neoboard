@@ -189,7 +189,6 @@ describe("gaugeSettingsSchema", () => {
     expect(result.min).toBe(0);
     expect(result.max).toBe(100);
     expect(result.showProgress).toBe(true);
-    expect(result.showPointer).toBe(true);
     expect(result.showDetail).toBe(true);
     expect(result.startAngle).toBe(225);
     expect(result.endAngle).toBe(-45);

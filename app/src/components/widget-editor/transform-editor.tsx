@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Check } from "lucide-react";
 import { Button, Input, Label, Badge } from "@neoboard/components";
 import {
   Select,
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@neoboard/components";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import type { Transform } from "@/lib/query/data-transforms";
 import { computeColumnsPerStep } from "@/lib/query/data-transforms";
 import { ValueOrParamInput } from "./value-or-param-input";
@@ -522,14 +523,21 @@ export function TransformEditor({
           </SelectTrigger>
           <SelectContent>
             {TRANSFORM_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value} textValue={t.label}>
-                <div className="flex flex-col">
-                  <span>{t.label}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {t.description}
-                  </span>
-                </div>
-              </SelectItem>
+              <SelectPrimitive.Item
+                key={t.value}
+                value={t.value}
+                className="relative flex w-full cursor-default select-none flex-col rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+              >
+                <span className="absolute right-2 top-2 flex h-3.5 w-3.5 items-center justify-center">
+                  <SelectPrimitive.ItemIndicator>
+                    <Check className="h-4 w-4" />
+                  </SelectPrimitive.ItemIndicator>
+                </span>
+                <SelectPrimitive.ItemText>{t.label}</SelectPrimitive.ItemText>
+                <span className="text-muted-foreground text-[11px] leading-tight">
+                  {t.description}
+                </span>
+              </SelectPrimitive.Item>
             ))}
           </SelectContent>
         </Select>
