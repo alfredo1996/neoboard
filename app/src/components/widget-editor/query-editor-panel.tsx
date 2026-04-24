@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { AlertCircle, Info, RefreshCw } from "lucide-react";
+import { AlertCircle, Info, RefreshCw, Clock } from "lucide-react";
 import {
   Alert,
   AlertDescription,
@@ -11,6 +11,9 @@ import {
   TooltipContent,
   TooltipTrigger,
   Button,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -27,6 +30,18 @@ const QueryEditor = dynamic(
     import("@neoboard/components").then((m) => ({ default: m.QueryEditor })),
   { ssr: false },
 );
+
+function formatTimeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min + "m ago";
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr + "h ago";
+  const days = Math.floor(hr / 24);
+  return days + "d ago";
+}
 
 /** Per-chart-type hints shown next to the Query label to guide column conventions. */
 export const QUERY_HINTS: Partial<Record<ChartType, string>> = {
@@ -118,6 +133,7 @@ export function QueryEditorPanel({
   const query = useWidgetEditorStore((s) => s.query);
   const onQueryChange = useWidgetEditorStore((s) => s.setQuery);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
+  const queryHistory = useWidgetEditorStore((s) => s.queryHistory);
   // Prefetch schema for autocompletion. The hook caches for 10 min
   // and also writes to the Zustand store for synchronous reads.
   const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
@@ -188,6 +204,47 @@ export function QueryEditorPanel({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+            {queryHistory.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
+                    aria-label="Query history"
+                  >
+                    <Clock className="h-3 w-3" />
+                    History
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-80 max-h-64 overflow-y-auto p-0"
+                >
+                  <div className="px-3 py-2 border-b">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Previous queries
+                    </p>
+                  </div>
+                  {queryHistory.map((entry, i) => (
+                    <button
+                      key={entry.savedAt + i}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-xs border-b last:border-b-0 transition-colors"
+                      onClick={() => onQueryChange(entry.query)}
+                    >
+                      <code className="block truncate text-[11px]">
+                        {entry.query.split("\n")[0]}
+                      </code>
+                      <span className="text-muted-foreground text-[10px]">
+                        {formatTimeAgo(entry.savedAt)}
+                      </span>
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
             )}
           </>
         )}

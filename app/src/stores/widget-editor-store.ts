@@ -48,6 +48,13 @@ function reverseParamTypeMapping(internalType: string): {
 // State interface
 // ---------------------------------------------------------------------------
 
+export interface QueryHistoryEntry {
+  query: string;
+  savedAt: string;
+}
+
+const MAX_QUERY_HISTORY = 10;
+
 export interface WidgetEditorState {
   // ── Widget identity ─────────────────────────────────────────────
   chartType: string;
@@ -99,6 +106,9 @@ export interface WidgetEditorState {
   availableFields: string[];
   parameterSuggestions: string[];
 
+  // ── Query history ───────────────────────────────────────────────
+  queryHistory: QueryHistoryEntry[];
+
   // ── UI state ────────────────────────────────────────────────────
   dialogStep: "main" | "rules" | "styling-rules" | "templates";
   connectorChanged: boolean;
@@ -146,6 +156,9 @@ export interface WidgetEditorState {
   setParameterSuggestions: (v: string[]) => void;
   setDialogStep: (v: "main" | "rules" | "styling-rules" | "templates") => void;
   setConnectorChanged: (v: boolean) => void;
+
+  // ── Query history ───────────────────────────────────────────────
+  addToQueryHistory: (query: string) => void;
 
   // ── Bulk operations ─────────────────────────────────────────────
   resetForAdd: () => void;
@@ -251,6 +264,7 @@ function getInitialState() {
     labTagsInput: "",
     availableFields: [] as string[],
     parameterSuggestions: [] as string[],
+    queryHistory: [] as QueryHistoryEntry[],
     dialogStep: "main" as const,
     connectorChanged: false,
   };
@@ -307,6 +321,20 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
   setConnectorChanged: (v) => set({ connectorChanged: v }),
 
   // ── Bulk operations ─────────────────────────────────────────────
+  // ── Query history ───────────────────────────────────────────────
+  addToQueryHistory: (query) => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    const prev = get().queryHistory;
+    // Deduplicate: skip if identical to the most recent entry
+    if (prev.length > 0 && prev[0].query === trimmed) return;
+    const entry: QueryHistoryEntry = {
+      query: trimmed,
+      savedAt: new Date().toISOString(),
+    };
+    set({ queryHistory: [entry, ...prev].slice(0, MAX_QUERY_HISTORY) });
+  },
+
   resetForAdd: () => set(getInitialState()),
   clearQueryState: () =>
     set({ query: "", availableFields: [], transforms: [] }),
@@ -382,6 +410,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
       refreshWidgetIds: (opts.refreshWidgetIds as string[] | undefined) ?? [],
       transforms: (s.transforms as Transform[] | undefined) ?? [],
       transformsEnabled: s.transformsEnabled !== false,
+      queryHistory: (s.queryHistory as QueryHistoryEntry[] | undefined) ?? [],
       dialogStep: "main",
       connectorChanged: false,
     });
