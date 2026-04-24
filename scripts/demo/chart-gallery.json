@@ -707,6 +707,43 @@
           { "i": "radar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
           { "i": "radar-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
         ]
+      },
+      {
+        "id": "page-gantt",
+        "title": "18. Gantt",
+        "widgets": [
+          {
+            "id": "gantt-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Gantt chart\n\nTimeline visualization showing tasks as horizontal bars on a time axis. Perfect for **project plans**, **ETL pipelines**, **incident timelines**, or any data with start/end dates.\n\n**Data shape:** query returns `task` (name), `start` (date), `end` (date) columns. Optional: `category`/`status` for color grouping, `progress` (0–1) for completion overlay.\n\n**Options shown:** `showTodayLine: true`, `showProgress: false`, `showGridLines: true`."
+              }
+            }
+          },
+          {
+            "id": "gantt-chart",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS task, o.created_at AS start, o.created_at + INTERVAL '7 days' * (ROW_NUMBER() OVER (ORDER BY p.name)) AS end, CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price, o.created_at ORDER BY o.created_at LIMIT 12",
+            "settings": {
+              "title": "Product order timeline",
+              "chartOptions": {
+                "showTodayLine": true,
+                "showProgress": false,
+                "showGridLines": true,
+                "barBorderRadius": 2
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "gantt-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "gantt-chart", "x": 1, "y": 3, "w": 10, "h": 7 }
+        ]
       }
     ]
   }

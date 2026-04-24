@@ -237,6 +237,7 @@ function GanttChart({
         splitLine: { show: false },
       },
       dataZoom: [
+        // Horizontal: time axis zoom
         {
           type: "slider",
           xAxisIndex: 0,
@@ -248,6 +249,26 @@ function GanttChart({
           type: "inside",
           xAxisIndex: 0,
         },
+        // Vertical: task list scroll (show ~15 tasks at a time)
+        ...(taskNames.length > 15
+          ? [
+              {
+                type: "slider" as const,
+                yAxisIndex: 0,
+                width: 12,
+                right: 0,
+                startValue: 0,
+                endValue: 14,
+                borderColor: "transparent",
+                fillerColor: "rgba(140, 140, 140, 0.15)",
+                handleSize: "60%",
+              },
+              {
+                type: "inside" as const,
+                yAxisIndex: 0,
+              },
+            ]
+          : []),
       ],
       series: [
         {
