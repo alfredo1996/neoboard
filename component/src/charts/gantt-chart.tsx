@@ -124,7 +124,7 @@ function GanttChart({
 
     // Custom renderItem for horizontal bars
     const renderItem = (
-      params: {
+      _params: {
         coordSys: { x: number; y: number; width: number; height: number };
       },
       api: {
