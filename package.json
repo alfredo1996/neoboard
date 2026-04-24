@@ -11,8 +11,9 @@
   ],
   "scripts": {
     "generate:plugins": "node scripts/generate-plugin-imports.mjs",
-    "predev": "node scripts/generate-plugin-imports.mjs",
-    "prebuild": "node scripts/generate-plugin-imports.mjs",
+    "generate:connectors": "node scripts/generate-connector-imports.mjs",
+    "predev": "node scripts/generate-plugin-imports.mjs && node scripts/generate-connector-imports.mjs",
+    "prebuild": "node scripts/generate-plugin-imports.mjs && node scripts/generate-connector-imports.mjs",
     "dev": "npm -w app run dev",
     "build": "npm -w connection run build && npm -w app run build",
     "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
