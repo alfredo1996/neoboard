@@ -77,6 +77,12 @@ export type {
   CirclePackingDataItem,
 } from "./circle-packing-chart";
 
+export { ChoroplethChart } from "./choropleth-chart";
+export type {
+  ChoroplethChartProps,
+  ChoroplethDataItem,
+} from "./choropleth-chart";
+
 export type {
   BaseChartProps,
   ChartSize,

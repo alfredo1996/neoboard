@@ -32,6 +32,7 @@ vi.mock("echarts/charts", () => ({
   RadarChart: vi.fn(),
   TreemapChart: vi.fn(),
   CustomChart: vi.fn(),
+  MapChart: vi.fn(),
 }));
 
 vi.mock("echarts/components", () => ({
@@ -44,6 +45,8 @@ vi.mock("echarts/components", () => ({
   RadarComponent: vi.fn(),
   MarkLineComponent: vi.fn(),
   GraphicComponent: vi.fn(),
+  VisualMapComponent: vi.fn(),
+  GeoComponent: vi.fn(),
 }));
 
 vi.mock("echarts/renderers", () => ({
