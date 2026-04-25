@@ -19,7 +19,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   value: "single-value",
   gauge: "gauge",
   sunburst: "sunburst",
-  circle_packing: "sunburst",
+  circle_packing: "circle-packing",
   treemap: "treemap",
   sankey: "sankey",
   radar: "radar",

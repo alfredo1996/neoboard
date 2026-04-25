@@ -71,6 +71,12 @@ export type { TreemapChartProps, TreemapDataItem } from "./treemap-chart";
 export { GanttChart } from "./gantt-chart";
 export type { GanttChartProps, GanttDataItem } from "./gantt-chart";
 
+export { CirclePackingChart } from "./circle-packing-chart";
+export type {
+  CirclePackingChartProps,
+  CirclePackingDataItem,
+} from "./circle-packing-chart";
+
 export type {
   BaseChartProps,
   ChartSize,
