@@ -22,7 +22,6 @@ export interface PluginProps {
   query?: string;
   autoFit?: boolean;
   clickableColumns?: string[];
-  colorThresholds?: string;
 }
 
 /**

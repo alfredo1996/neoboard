@@ -24,7 +24,6 @@ function PiePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-  colorThresholds,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = pieSettingsSchema.parse(raw);
@@ -40,7 +39,6 @@ function PiePluginComponent({
       sortSlices={settings.sortSlices}
       topN={settings.topN}
       donutCenterText={settings.donutCenterText}
-      colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}

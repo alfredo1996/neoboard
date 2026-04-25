@@ -24,7 +24,6 @@ function LinePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-  colorThresholds,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = lineSettingsSchema.parse(raw);
@@ -53,7 +52,6 @@ function LinePluginComponent({
       connectNulls={settings.connectNulls}
       endLabel={settings.endLabel}
       referenceLines={settings.referenceLines}
-      colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}

@@ -22,7 +22,6 @@ function BarPluginComponent({
   data,
   settings: raw,
   onChartClick,
-  colorThresholds,
   stylingRules,
   paramValues,
 }: PluginProps) {
@@ -43,7 +42,6 @@ function BarPluginComponent({
       showGridLines={settings.showGridLines}
       axisLabelRotation={settings.axisLabelRotation}
       referenceLines={settings.referenceLines}
-      colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}

@@ -14,7 +14,6 @@ import {
   buildMarkLineFromRefs,
   isTimeSeriesData,
 } from "./chart-utils";
-import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 
 export interface LineChartProps extends Omit<BaseChartProps, "options"> {
@@ -44,8 +43,6 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   endLabel?: boolean;
   /** JSON string of reference lines: [{ value, label?, color? }] */
   referenceLines?: string;
-  /** @deprecated Use stylingRules instead. JSON string of thresholds */
-  colorThresholds?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -83,7 +80,6 @@ function LineChart({
   connectNulls = false,
   endLabel = false,
   referenceLines: referenceLinesJson,
-  colorThresholds,
   stylingRules,
   paramValues,
   rightAxisSeries,
@@ -104,9 +100,6 @@ function LineChart({
       seriesKeys.length,
       hideLegend,
     );
-    const thresholds = stylingRules
-      ? []
-      : parseColorThresholds(colorThresholds ?? "");
     const refLines = parseReferenceLines(referenceLinesJson);
     const markLine = buildMarkLineFromRefs(refLines);
     const xValues = data.map((d) => d.x);
@@ -160,7 +153,7 @@ function LineChart({
         }
         const seriesColor =
           lastValue !== undefined
-            ? resolveItemColor(lastValue, stylingRules, paramValues, thresholds)
+            ? resolveItemColor(lastValue, stylingRules, paramValues)
             : undefined;
         return {
           name: key,
@@ -201,7 +194,6 @@ function LineChart({
     connectNulls,
     endLabel,
     referenceLinesJson,
-    colorThresholds,
     stylingRules,
     paramValues,
     rightAxisSeries,

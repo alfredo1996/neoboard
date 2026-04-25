@@ -14,7 +14,6 @@ import {
   parseReferenceLines,
   buildMarkLineFromRefs,
 } from "./chart-utils";
-import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 
 export interface BarChartProps extends Omit<BaseChartProps, "options"> {
@@ -42,8 +41,6 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   axisLabelRotation?: number;
   /** JSON string of reference lines: [{ value, label?, color? }] */
   referenceLines?: string;
-  /** @deprecated Use stylingRules instead. JSON string of thresholds for per-bar coloring */
-  colorThresholds?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -72,7 +69,6 @@ function BarChart({
   yAxisLabel,
   axisLabelRotation,
   referenceLines: referenceLinesJson,
-  colorThresholds,
   stylingRules,
   paramValues,
   ...rest
@@ -92,9 +88,8 @@ function BarChart({
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
-    const thresholds = stylingRules
-      ? []
-      : parseColorThresholds(colorThresholds ?? "");
+    // Legacy colorThresholds removed — styling is now handled exclusively
+    // via stylingRules (migrated at the card-container level).
     const refLines = parseReferenceLines(referenceLinesJson);
     const markLine = buildMarkLineFromRefs(refLines);
 
@@ -141,12 +136,7 @@ function BarChart({
           const numericValue =
             typeof rawValue === "number" ? rawValue : Number(rawValue);
           const color = Number.isFinite(numericValue)
-            ? resolveItemColor(
-                numericValue,
-                stylingRules,
-                paramValues,
-                thresholds,
-              )
+            ? resolveItemColor(numericValue, stylingRules, paramValues)
             : undefined;
           return color ? { value: rawValue, itemStyle: { color } } : rawValue;
         }),
@@ -177,7 +167,6 @@ function BarChart({
     yAxisLabel,
     axisLabelRotation,
     referenceLinesJson,
-    colorThresholds,
     stylingRules,
     paramValues,
     compact,

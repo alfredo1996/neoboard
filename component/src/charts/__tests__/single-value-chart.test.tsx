@@ -26,14 +26,20 @@ describe("SingleValueChart", () => {
 
   it("shows up trend", () => {
     render(
-      <SingleValueChart value={100} trend={{ direction: "up", label: "+12%" }} />,
+      <SingleValueChart
+        value={100}
+        trend={{ direction: "up", label: "+12%" }}
+      />,
     );
     expect(screen.getByText(/\+12%/)).toBeInTheDocument();
   });
 
   it("shows down trend", () => {
     render(
-      <SingleValueChart value={80} trend={{ direction: "down", label: "-5%" }} />,
+      <SingleValueChart
+        value={80}
+        trend={{ direction: "down", label: "-5%" }}
+      />,
     );
     expect(screen.getByText(/-5%/)).toBeInTheDocument();
   });
@@ -97,29 +103,49 @@ describe("SingleValueChart", () => {
   });
 
   it("format prop takes precedence over numberFormat", () => {
-    render(<SingleValueChart value={1000} format={(v) => `~${v}`} numberFormat="comma" />);
+    render(
+      <SingleValueChart
+        value={1000}
+        format={(v) => `~${v}`}
+        numberFormat="comma"
+      />,
+    );
     expect(screen.getByText("~1000")).toBeInTheDocument();
   });
 
-  // --- New options: colorThresholds ---
+  // --- Styling rules (replaced legacy colorThresholds) ---
 
-  it("applies threshold color when value is below threshold", () => {
-    const thresholds = JSON.stringify([{ value: 50, color: "#ff0000" }, { value: 100, color: "#00ff00" }]);
-    const { container } = render(<SingleValueChart value={30} colorThresholds={thresholds} />);
+  it("applies styling rule color when value matches", () => {
+    const rules = [
+      { id: "r1", operator: "<" as const, value: 50, color: "#ff0000" },
+      { id: "r2", operator: ">=" as const, value: 50, color: "#00ff00" },
+    ];
+    const { container } = render(
+      <SingleValueChart value={30} stylingRules={rules} />,
+    );
     const valueEl = container.querySelector("[style]");
     expect(valueEl).toHaveStyle({ color: "rgb(255, 0, 0)" });
   });
 
-  it("applies next threshold color when value exceeds first threshold", () => {
-    const thresholds = JSON.stringify([{ value: 50, color: "#ff0000" }, { value: 100, color: "#00ff00" }]);
-    const { container } = render(<SingleValueChart value={75} colorThresholds={thresholds} />);
+  it("applies second styling rule when value exceeds first threshold", () => {
+    const rules = [
+      { id: "r1", operator: "<" as const, value: 50, color: "#ff0000" },
+      { id: "r2", operator: ">=" as const, value: 50, color: "#00ff00" },
+    ];
+    const { container } = render(
+      <SingleValueChart value={75} stylingRules={rules} />,
+    );
     const valueEl = container.querySelector("[style]");
     expect(valueEl).toHaveStyle({ color: "rgb(0, 255, 0)" });
   });
 
-  it("does not apply threshold color for string values", () => {
-    const thresholds = JSON.stringify([{ value: 50, color: "red" }]);
-    const { container } = render(<SingleValueChart value="N/A" colorThresholds={thresholds} />);
+  it("does not apply styling rule color for string values", () => {
+    const rules = [
+      { id: "r1", operator: "<" as const, value: 50, color: "red" },
+    ];
+    const { container } = render(
+      <SingleValueChart value="N/A" stylingRules={rules} />,
+    );
     expect(container.querySelector("[style]")).not.toBeInTheDocument();
   });
 
@@ -136,18 +162,18 @@ describe("SingleValueChart", () => {
   });
 
   it("combines decimalPlaces with numberFormat comma", () => {
-    render(<SingleValueChart value={1234567.891} decimalPlaces={1} numberFormat="comma" />);
+    render(
+      <SingleValueChart
+        value={1234567.891}
+        decimalPlaces={1}
+        numberFormat="comma"
+      />,
+    );
     expect(screen.getByText("1,234,567.9")).toBeInTheDocument();
   });
 
   it("ignores decimalPlaces of -1 (automatic)", () => {
     render(<SingleValueChart value={3.14159} decimalPlaces={-1} />);
     expect(screen.getByText("3.14159")).toBeInTheDocument();
-  });
-
-  it("handles invalid JSON in colorThresholds gracefully", () => {
-    expect(() =>
-      render(<SingleValueChart value={10} colorThresholds="not-json" />),
-    ).not.toThrow();
   });
 });
