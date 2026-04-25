@@ -32,6 +32,7 @@ import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import type {
   DashboardWidget,
   GridLayoutItem,
@@ -329,6 +330,33 @@ export default function DashboardEditorPage({
     setEditorOpen(true);
   }
 
+  // ── Keyboard shortcuts ──────────────────────────────────────────
+  useKeyboardShortcuts([
+    {
+      shortcut: "Cmd+S",
+      handler: () => {
+        handleSave();
+      },
+    },
+    {
+      shortcut: "Cmd+E",
+      handler: () => {
+        router.push("/" + id);
+      },
+    },
+    {
+      shortcut: "Cmd+N",
+      handler: openAddWidget,
+      disabled: editorOpen,
+    },
+    {
+      shortcut: "Escape",
+      handler: () => {
+        if (editorOpen) setEditorOpen(false);
+      },
+    },
+  ]);
+
   const [cachedPreviewData, setCachedPreviewData] = useState<
     { data: unknown; resultId: string } | undefined
   >();
@@ -436,7 +464,12 @@ export default function DashboardEditorPage({
                 )}
               </Button>
               <ToolbarSeparator />
-              <Button variant="outline" size="sm" onClick={openAddWidget}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openAddWidget}
+                title="Add widget (Cmd+N)"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Widget
               </Button>
@@ -446,6 +479,7 @@ export default function DashboardEditorPage({
                 loading={updateDashboard.isPending}
                 loadingText="Saving..."
                 onClick={handleSave}
+                title="Save dashboard (Cmd+S)"
               >
                 <Save className="mr-2 h-4 w-4" />
                 Save
