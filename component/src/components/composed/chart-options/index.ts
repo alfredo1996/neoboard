@@ -33,6 +33,7 @@ import { radarOptions } from "./radar";
 import { treemapOptions } from "./treemap";
 import { ganttOptions } from "./gantt";
 import { circlePackingOptions } from "./circle-packing";
+import { choroplethOptions } from "./choropleth";
 
 const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   bar: [
@@ -78,6 +79,7 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
     ...behaviorOptions,
     ...appearanceOptions,
   ],
+  choropleth: [...choroplethOptions, ...behaviorOptions, ...appearanceOptions],
 };
 
 export function getChartOptions(chartType: string): ChartOptionDef[] {

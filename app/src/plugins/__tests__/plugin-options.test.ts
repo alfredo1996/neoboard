@@ -111,8 +111,8 @@ describe("plugin options (Phase 5)", () => {
     }
   });
 
-  it("all 19 chart types are registered", () => {
-    expect(CHART_TYPES.length).toBe(19);
+  it("all 20 chart types are registered", () => {
+    expect(CHART_TYPES.length).toBe(20);
     for (const type of CHART_TYPES) {
       expect(pluginRegistry.has(type), `${type} should be registered`).toBe(
         true,

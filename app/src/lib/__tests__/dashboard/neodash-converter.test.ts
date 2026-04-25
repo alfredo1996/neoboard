@@ -173,8 +173,8 @@ describe("convertNeoDash", () => {
     { type: "graph3d", expected: "graph" },
     { type: "3d-graph", expected: "graph" },
     { type: "circle_packing", expected: "circle-packing" },
-    { type: "choropleth", expected: "map" },
-    { type: "areamap", expected: "map" },
+    { type: "choropleth", expected: "choropleth" },
+    { type: "areamap", expected: "choropleth" },
     { type: "unknown_type", expected: "json" },
   ])("maps $type → $expected", ({ type, expected }) => {
     const result = convertNeoDash(makeNeoDash({ type }));
@@ -419,11 +419,11 @@ describe("convertNeoDash", () => {
     expect(result.layout.pages[0].widgets[0].chartType).toBe("circle-packing");
   });
 
-  it("maps choropleth to map (best-effort, point markers only)", () => {
+  it("maps choropleth to choropleth (native)", () => {
     const result = convertNeoDash(
       makeNeoDash({ dashTitle: "T", type: "choropleth" }),
     );
-    expect(result.layout.pages[0].widgets[0].chartType).toBe("map");
+    expect(result.layout.pages[0].widgets[0].chartType).toBe("choropleth");
   });
 
   // --- parameter conversion ---

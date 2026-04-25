@@ -36,6 +36,7 @@ import { radarPlugin } from "./radar";
 import { treemapPlugin } from "./treemap";
 import { ganttPlugin } from "./gantt";
 import { circlePackingPlugin } from "./circle-packing";
+import { choroplethPlugin } from "./choropleth";
 
 const BUILT_IN_PLUGINS = [
   markdownPlugin,
@@ -57,6 +58,7 @@ const BUILT_IN_PLUGINS = [
   treemapPlugin,
   ganttPlugin,
   circlePackingPlugin,
+  choroplethPlugin,
 ];
 
 // Idempotent registration — the first import of this module registers

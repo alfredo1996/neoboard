@@ -118,7 +118,7 @@ function ChoroplethChart({
       },
       visualMap: showVisualMap
         ? {
-            type: "piecewise",
+            type: "piecewise" as const,
             right: 16,
             top: 16,
             orient: "vertical",
@@ -132,10 +132,10 @@ function ChoroplethChart({
             itemWidth: 12,
             itemHeight: 12,
             itemGap: 4,
-            formatter: (a: number, b: number) =>
+            formatter: ((a: number, b: number) =>
               Math.round(a).toLocaleString() +
-              " – " +
-              Math.round(b).toLocaleString(),
+              " \u2013 " +
+              Math.round(b).toLocaleString()) as never,
           }
         : undefined,
       series: [

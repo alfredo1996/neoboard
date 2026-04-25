@@ -26,6 +26,7 @@ export const CHART_TYPES = [
   "treemap",
   "gantt",
   "circle-packing",
+  "choropleth",
 ] as const;
 
 export type ChartType = (typeof CHART_TYPES)[number];

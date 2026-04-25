@@ -20,6 +20,7 @@ import {
   LayoutGrid,
   GanttChart as GanttChartIcon,
   Circle,
+  MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Label, Combobox } from "@neoboard/components";
@@ -47,6 +48,7 @@ export const chartTypeIcons: Record<ChartType, LucideIcon> = {
   treemap: LayoutGrid,
   gantt: GanttChartIcon,
   "circle-packing": Circle,
+  choropleth: MapPin,
 };
 
 /** Get label + Icon for a chart type. Label from registry, Icon from UI layer. */
