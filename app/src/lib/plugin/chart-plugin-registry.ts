@@ -82,7 +82,9 @@ export interface ChartPluginConfig {
    * Transforms raw rows with an explicit column mapping (optional).
    * Used when the user overrides auto-detected axis columns in the UI.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mapping shape lives in component package
+  // ColumnMapping shape: { xAxis?, yAxis?, groupBy? } from component package.
+  // Using a loose type here to avoid coupling the registry to the component package.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ColumnMapping lives in component package
   transformWithMapping?: (data: unknown, mapping: any) => unknown;
   /**
    * Validates raw data shape. Returns an error string when data is present

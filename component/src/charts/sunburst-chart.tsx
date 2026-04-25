@@ -56,7 +56,8 @@ function SunburstChart({
     if (!data.length) return buildEmptyDataOption();
 
     // Sort function for echarts sunburst
-    const sortFn = sort === "none" ? null : sort === "asc" ? "asc" : "desc";
+    const sortFn =
+      sort === "none" ? undefined : sort === "asc" ? "asc" : "desc";
 
     // Determine how deep labels should display.
     // 0 / undefined / null → auto (default 2). Positive integer = exact depth.
@@ -143,8 +144,7 @@ function SunburstChart({
             : data,
           center: ["50%", "50%"],
           radius: ["10%", "92%"],
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sort: sortFn as any,
+          sort: sortFn as "desc" | "asc" | undefined,
           label: {
             show: !compact,
             fontSize: 11,
