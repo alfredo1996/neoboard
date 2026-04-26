@@ -1,6 +1,4 @@
 import type { EChartsOption } from "echarts";
-import type { ColorThreshold } from "./color-threshold";
-import { resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import type { PieChartDataPoint } from "./types";
@@ -348,14 +346,10 @@ export function buildCompactGrid(compact: boolean, showLegend: boolean) {
 export function resolveItemColor(
   value: number,
   stylingRules: StylingRule[] | undefined,
-  paramValues: Record<string, unknown> | undefined,
-  thresholds: ColorThreshold[] = [],
+  paramValues?: Record<string, unknown>,
 ): string | undefined {
   if (stylingRules?.length) {
     return resolveStylingRuleColor(value, stylingRules, paramValues);
-  }
-  if (thresholds.length) {
-    return resolveThresholdColor(value, thresholds);
   }
   return undefined;
 }

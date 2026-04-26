@@ -28,7 +28,6 @@ function SingleValuePluginComponent({
   settings: raw,
   stylingRules,
   paramValues,
-  colorThresholds,
 }: PluginProps) {
   const parsed = singleValueSettingsSchema.safeParse(raw);
   const settings = parsed.success
@@ -50,7 +49,6 @@ function SingleValuePluginComponent({
       fontSize={settings.fontSize}
       numberFormat={settings.numberFormat}
       decimalPlaces={settings.decimalPlaces}
-      colorThresholds={colorThresholds}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
     />

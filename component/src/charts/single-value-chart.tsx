@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import { formatNumber } from "./chart-utils";
@@ -49,8 +48,6 @@ export interface SingleValueChartProps {
   numberFormat?: SingleValueNumberFormat;
   /** Fixed decimal places (0-6). Set to -1 or omit for automatic. */
   decimalPlaces?: number;
-  /** @deprecated Use stylingRules instead. JSON string of thresholds */
-  colorThresholds?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -77,7 +74,6 @@ function SingleValueChart({
   fontSize = "lg",
   numberFormat = "plain",
   decimalPlaces,
-  colorThresholds,
   stylingRules,
   paramValues,
   className,
@@ -111,15 +107,8 @@ function SingleValueChart({
     displayValue = value;
   }
 
-  // Resolve color from styling rules or legacy thresholds
-  const thresholds =
-    colorThresholds && !stylingRules
-      ? parseColorThresholds(colorThresholds)
-      : [];
-  const legacyColor =
-    typeof value === "number" && thresholds.length > 0
-      ? resolveThresholdColor(value, thresholds)
-      : undefined;
+  // Legacy colorThresholds removed — styling is now handled exclusively
+  // via stylingRules (migrated at the card-container level).
 
   // Resolve from styling rules — separate text color and background color
   let textColor: string | undefined;
@@ -136,8 +125,7 @@ function SingleValueChart({
       ? resolveStylingRuleColor(value, bgRules, paramValues)
       : undefined;
   }
-  // Fallback to legacy threshold for text color
-  const thresholdColor = textColor ?? legacyColor;
+  const thresholdColor = textColor;
 
   const trendColor =
     trend?.direction === "up"

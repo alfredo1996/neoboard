@@ -10,7 +10,6 @@ import {
   resolveItemColor,
   groupTopN,
 } from "./chart-utils";
-import { parseColorThresholds } from "./color-threshold";
 import type { StylingRule } from "./styling-rule";
 
 export interface PieChartProps extends Omit<BaseChartProps, "options"> {
@@ -34,8 +33,6 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   topN?: number;
   /** Text shown in the center of a donut chart (e.g. total value). Empty = auto-total. */
   donutCenterText?: string;
-  /** @deprecated Use stylingRules instead. JSON string of thresholds */
-  colorThresholds?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -61,7 +58,6 @@ function PieChart({
   sortSlices = false,
   topN = 0,
   donutCenterText,
-  colorThresholds,
   stylingRules,
   paramValues,
   ...rest
@@ -83,16 +79,8 @@ function PieChart({
       : data;
     const sortedData = groupTopN(sorted, topN);
 
-    const thresholds = stylingRules
-      ? []
-      : parseColorThresholds(colorThresholds ?? "");
     const coloredData = sortedData.map((d) => {
-      const color = resolveItemColor(
-        d.value,
-        stylingRules,
-        paramValues,
-        thresholds,
-      );
+      const color = resolveItemColor(d.value, stylingRules, paramValues);
       return color ? { ...d, itemStyle: { color } } : d;
     });
 
@@ -190,7 +178,6 @@ function PieChart({
     sortSlices,
     topN,
     donutCenterText,
-    colorThresholds,
     stylingRules,
     paramValues,
     compact,
