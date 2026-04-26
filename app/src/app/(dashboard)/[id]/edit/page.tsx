@@ -341,19 +341,19 @@ export default function DashboardEditorPage({
     {
       shortcut: "Cmd+E",
       handler: () => {
-        router.push("/" + id);
+        // Route through unsaved-changes guard (same as the Back button)
+        if (requestNavigation("/" + id)) router.push("/" + id);
       },
     },
     {
-      shortcut: "Cmd+N",
+      shortcut: "Cmd+Shift+N",
       handler: openAddWidget,
       disabled: editorOpen,
     },
     {
       shortcut: "Escape",
-      handler: () => {
-        if (editorOpen) setEditorOpen(false);
-      },
+      handler: () => setEditorOpen(false),
+      disabled: !editorOpen,
     },
   ]);
 
@@ -468,7 +468,7 @@ export default function DashboardEditorPage({
                 variant="outline"
                 size="sm"
                 onClick={openAddWidget}
-                title="Add widget (Cmd+N)"
+                title="Add widget (Cmd+Shift+N)"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Widget

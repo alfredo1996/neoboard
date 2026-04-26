@@ -303,6 +303,7 @@ export function CardContainer({
       );
     }
     let mappedData: unknown;
+    let transformError: string | null = null;
     try {
       mappedData = (chartConfig.transformWithMapping ?? chartConfig.transform)(
         previewData,
@@ -314,6 +315,7 @@ export function CardContainer({
         err,
       );
       mappedData = previewData;
+      transformError = "Data transform failed — showing raw data";
     }
     // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
     let transformedData: unknown = mappedData;
@@ -327,11 +329,17 @@ export function CardContainer({
       } catch (err) {
         console.error("Data transform failed:", err);
         transformedData = mappedData;
+        transformError = "Data transform failed — showing raw data";
       }
     }
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
+        {transformError && (
+          <div className="px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs">
+            {transformError}
+          </div>
+        )}
         <div className="flex-1 min-h-0">
           <ChartRenderer
             type={chartConfig.type}
@@ -602,6 +610,7 @@ export function CardContainer({
   }
 
   let mappedData: unknown;
+  let liveTransformError: string | null = null;
   try {
     mappedData = (chartConfig.transformWithMapping ?? chartConfig.transform)(
       rawData,
@@ -610,6 +619,7 @@ export function CardContainer({
   } catch (err) {
     console.error("Chart transform failed for " + widget.chartType + ":", err);
     mappedData = rawData;
+    liveTransformError = "Data transform failed — showing raw data";
   }
   let transformedData: unknown = mappedData;
   if (dataTransforms.length) {
@@ -622,12 +632,18 @@ export function CardContainer({
     } catch (err) {
       console.error("Data transform failed:", err);
       transformedData = mappedData;
+      liveTransformError = "Data transform failed — showing raw data";
     }
   }
   const availableColumns = extractColumnNames(rawData);
 
   return (
     <div className="h-full w-full flex flex-col">
+      {liveTransformError && (
+        <div className="px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs">
+          {liveTransformError}
+        </div>
+      )}
       {widgetQuery.data?.truncated && (
         <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 border-b flex items-center gap-1.5">
           <span>&#9888;</span>

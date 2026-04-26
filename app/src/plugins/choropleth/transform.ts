@@ -18,7 +18,9 @@ export function transformToChoroplethData(data: unknown): unknown {
     keys.find(
       (k) =>
         k !== nameKey && /^(value|count|total|population|gdp|amount)$/i.test(k),
-    ) ?? keys[1];
+    ) ??
+    keys.find((k) => k !== nameKey) ??
+    keys[1];
 
   return records
     .map((row) => ({
