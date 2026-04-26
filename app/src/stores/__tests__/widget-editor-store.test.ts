@@ -497,4 +497,77 @@ describe("widget-editor-store", () => {
       expect(action?.clickableColumns).toEqual(["name", "year"]);
     });
   });
+
+  // ── Query History ────────────────────────────────────────────────
+  describe("query history", () => {
+    it("starts with empty history", () => {
+      expect(getState().queryHistory).toEqual([]);
+    });
+
+    it("adds a query to history", () => {
+      getState().addToQueryHistory("MATCH (m:Movie) RETURN m");
+      expect(getState().queryHistory).toHaveLength(1);
+      expect(getState().queryHistory[0].query).toBe("MATCH (m:Movie) RETURN m");
+      expect(getState().queryHistory[0].savedAt).toBeTruthy();
+    });
+
+    it("deduplicates consecutive identical queries", () => {
+      getState().addToQueryHistory("RETURN 1");
+      getState().addToQueryHistory("RETURN 1");
+      expect(getState().queryHistory).toHaveLength(1);
+    });
+
+    it("allows the same query again after a different one", () => {
+      getState().addToQueryHistory("RETURN 1");
+      getState().addToQueryHistory("RETURN 2");
+      getState().addToQueryHistory("RETURN 1");
+      expect(getState().queryHistory).toHaveLength(3);
+    });
+
+    it("skips empty queries", () => {
+      getState().addToQueryHistory("");
+      getState().addToQueryHistory("   ");
+      expect(getState().queryHistory).toEqual([]);
+    });
+
+    it("caps history at 10 entries (drops oldest)", () => {
+      for (let i = 0; i < 15; i++) {
+        getState().addToQueryHistory("RETURN " + i);
+      }
+      expect(getState().queryHistory).toHaveLength(10);
+      // Most recent is first
+      expect(getState().queryHistory[0].query).toBe("RETURN 14");
+      // Oldest kept is RETURN 5 (0-4 dropped)
+      expect(getState().queryHistory[9].query).toBe("RETURN 5");
+    });
+
+    it("loadFromWidget restores queryHistory from settings", () => {
+      const history = [{ query: "RETURN 1", savedAt: "2026-04-25T00:00:00Z" }];
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "table",
+        connectionId: "c1",
+        query: "RETURN 1",
+        settings: { queryHistory: history },
+      });
+      expect(getState().queryHistory).toEqual(history);
+    });
+
+    it("loadFromWidget defaults to empty history when not present", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "table",
+        connectionId: "c1",
+        query: "RETURN 1",
+        settings: {},
+      });
+      expect(getState().queryHistory).toEqual([]);
+    });
+
+    it("resetForAdd clears history", () => {
+      getState().addToQueryHistory("RETURN 1");
+      getState().resetForAdd();
+      expect(getState().queryHistory).toEqual([]);
+    });
+  });
 });

@@ -31,6 +31,7 @@ import { useConnections } from "@/hooks/use-connections";
 import type { DashboardWidget } from "@/lib/db/schema";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { useCountdown } from "@/hooks/use-countdown";
 import type { DashboardSettings } from "@/lib/db/schema";
@@ -299,6 +300,25 @@ export default function DashboardViewerPage({
     [layout],
   );
 
+  // ── Keyboard shortcuts ──────────────────────────────────────────
+  // Must be called before any early returns (React hook rules).
+  const canEdit =
+    dashboard?.role === "owner" ||
+    dashboard?.role === "editor" ||
+    dashboard?.role === "admin";
+  useKeyboardShortcuts([
+    {
+      shortcut: "Cmd+E",
+      handler: () => {
+        if (layout) {
+          const idx = Math.min(activePageIndex, layout.pages.length - 1);
+          router.push("/" + id + "/edit?page=" + idx);
+        }
+      },
+      disabled: !canEdit || !layout,
+    },
+  ]);
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -334,10 +354,6 @@ export default function DashboardViewerPage({
   // layout is non-null here because dashboard is defined (guarded above)
   const resolvedLayout = layout!;
   const safeIndex = Math.min(activePageIndex, resolvedLayout.pages.length - 1);
-  const canEdit =
-    dashboard.role === "owner" ||
-    dashboard.role === "editor" ||
-    dashboard.role === "admin";
 
   return (
     <div className="flex flex-col h-full">
@@ -455,6 +471,7 @@ export default function DashboardViewerPage({
                 size="sm"
                 loading={isPending}
                 loadingText="Opening editor..."
+                title="Edit dashboard (Cmd+E)"
                 onClick={() =>
                   startTransition(() =>
                     router.push(`/${id}/edit?page=${safeIndex}`),

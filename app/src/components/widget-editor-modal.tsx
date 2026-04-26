@@ -133,6 +133,8 @@ export function WidgetEditorModal({
   const transforms = useWidgetEditorStore((s) => s.transforms);
   const setTransforms = useWidgetEditorStore((s) => s.setTransforms);
   const transformsEnabled = useWidgetEditorStore((s) => s.transformsEnabled);
+  const queryHistory = useWidgetEditorStore((s) => s.queryHistory);
+  const addToQueryHistory = useWidgetEditorStore((s) => s.addToQueryHistory);
   const setTransformsEnabled = useWidgetEditorStore(
     (s) => s.setTransformsEnabled,
   );
@@ -554,6 +556,10 @@ export function WidgetEditorModal({
             savedTimerRef.current = null;
           }, 1500);
           const id = widget?.id ?? crypto.randomUUID();
+          // Record query in history before saving
+          if (query.trim()) addToQueryHistory(query);
+          // Read the updated history after adding
+          const updatedHistory = useWidgetEditorStore.getState().queryHistory;
           onSave({
             id,
             chartType,
@@ -574,6 +580,7 @@ export function WidgetEditorModal({
                 : undefined,
               enableCache,
               cacheTtlMinutes,
+              queryHistory: updatedHistory.length ? updatedHistory : undefined,
             },
             templateId,
             templateSyncedAt,
@@ -597,9 +604,11 @@ export function WidgetEditorModal({
     chartOptions,
     formFields,
     transforms,
+    transformsEnabled,
     enableCache,
     cacheTtlMinutes,
     colorScales,
+    addToQueryHistory,
     onSave,
     onOpenChange,
     templateId,
@@ -677,6 +686,10 @@ export function WidgetEditorModal({
 
   function handleSave() {
     const id = widget?.id ?? crypto.randomUUID();
+    // Record query in history before saving
+    if (query.trim() && !isParamSelect && !isContentOnly) {
+      addToQueryHistory(query);
+    }
     const clickAction = buildClickAction();
     const stylingConfig = buildStylingConfig();
     const resolvedChartOptions = isParamSelect
@@ -735,6 +748,12 @@ export function WidgetEditorModal({
             ? undefined
             : transforms.length
               ? transforms
+              : undefined,
+        queryHistory:
+          isParamSelect || isContentOnly
+            ? undefined
+            : queryHistory.length
+              ? queryHistory
               : undefined,
       },
       templateId,
