@@ -105,14 +105,33 @@ for (const { plugin, overrides } of EXTERNAL_PLUGINS) {
 }
 
 // ── Startup validation ──────────────────────────────────────────────────
-// Verify that every chart type declared in CHART_TYPES has a registered
-// plugin. A mismatch is a dev-time bug, not a runtime error.
+
+// 1. Every CHART_TYPES entry must have a registered plugin.
 const registeredTypes = new Set(pluginRegistry.getTypes());
 for (const t of CHART_TYPES) {
   if (!registeredTypes.has(t)) {
     console.warn(
       `Chart type "${t}" declared in CHART_TYPES but no plugin registered`,
     );
+  }
+}
+
+// 2. Validate compatibleWith references actual connector types.
+const KNOWN_CONNECTORS = new Set(["neo4j", "postgresql"]);
+for (const type of pluginRegistry.getTypes()) {
+  const plugin = pluginRegistry.get(type);
+  if (plugin?.compatibleWith) {
+    for (const ct of plugin.compatibleWith) {
+      if (!KNOWN_CONNECTORS.has(ct)) {
+        console.warn(
+          'Plugin "' +
+            type +
+            '" declares compatibleWith "' +
+            ct +
+            '" but no such connector is registered',
+        );
+      }
+    }
   }
 }
 

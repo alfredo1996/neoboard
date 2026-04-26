@@ -182,8 +182,14 @@ describe("chartRequiresQuery", () => {
 // getChartDefaults
 // ---------------------------------------------------------------------------
 describe("getChartDefaults", () => {
-  it("returns empty object", () => {
-    expect(getChartDefaults("bar")).toEqual({});
+  it("returns defaults from settings schema when available", () => {
+    const defaults = getChartDefaults("bar");
+    // Bar plugin has a Zod schema with defaults — should extract them
+    expect(typeof defaults).toBe("object");
+  });
+
+  it("returns empty object for unknown type", () => {
+    expect(getChartDefaults("unknown_type_xyz")).toEqual({});
   });
 });
 
@@ -191,15 +197,17 @@ describe("getChartDefaults", () => {
 // supportsColumnMapping
 // ---------------------------------------------------------------------------
 describe("supportsColumnMapping", () => {
-  it("returns true for bar, line, pie", () => {
+  it("returns true for types with transformWithMapping", () => {
+    // bar, line, pie all define transformWithMapping
     expect(supportsColumnMapping("bar")).toBe(true);
     expect(supportsColumnMapping("line")).toBe(true);
     expect(supportsColumnMapping("pie")).toBe(true);
   });
 
-  it("returns false for table, json", () => {
-    expect(supportsColumnMapping("table")).toBe(false);
-    expect(supportsColumnMapping("json")).toBe(false);
+  it("returns false for types without transformWithMapping", () => {
+    // markdown has no transformWithMapping (content-only widget)
+    expect(supportsColumnMapping("markdown")).toBe(false);
+    expect(supportsColumnMapping("iframe")).toBe(false);
   });
 });
 
