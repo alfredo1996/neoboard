@@ -17,6 +17,7 @@
 import { pluginRegistry } from "./registry";
 import { CHART_TYPES } from "./chart-types";
 import { EXTERNAL_PLUGINS } from "./external-plugins.generated";
+import { validatePluginStubSync } from "@/lib/plugin/chart-helpers";
 import { markdownPlugin } from "./markdown";
 import { barPlugin } from "./bar";
 import { linePlugin } from "./line";
@@ -137,6 +138,25 @@ for (const type of pluginRegistry.getTypes()) {
       }
     }
   }
+}
+
+// 3. Validate stub/plugin capability sync (dev only).
+validatePluginStubSync();
+
+// 4. Log registration summary for debugging.
+if (typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
+  const builtInCount = BUILT_IN_PLUGINS.length;
+  const externalCount = EXTERNAL_PLUGINS.length;
+  const totalRegistered = pluginRegistry.getTypes().length;
+  console.log(
+    "[plugins] Registered " +
+      totalRegistered +
+      " chart types (" +
+      builtInCount +
+      " built-in" +
+      (externalCount > 0 ? ", " + externalCount + " external" : "") +
+      ")",
+  );
 }
 
 // Re-export for convenience
