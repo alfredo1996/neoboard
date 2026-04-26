@@ -1,0 +1,58 @@
+---
+title: Choropleth Map
+description: World map with countries colored by data value.
+---
+
+## Overview
+
+The Choropleth Map fills countries with colors based on data values, creating a heat map of the world. Use it for population, GDP, sales by country, or any country-level metric.
+
+## Query Format
+
+Return 2 columns: country name and numeric value. Country names must match standard English names (e.g., "United States", "United Kingdom", "South Korea").
+
+### Cypher
+
+```cypher
+MATCH (o:Order)-[:SHIPPED_TO]->(c:Country)
+RETURN c.name AS name, count(o) AS value
+```
+
+### SQL
+
+```sql
+SELECT country AS name, SUM(revenue) AS value
+FROM sales
+GROUP BY country
+ORDER BY value DESC
+```
+
+## Country Name Mapping
+
+Common aliases are automatically resolved:
+
+| You Write | Maps To |
+|-----------|---------|
+| `USA` | United States |
+| `UK` | United Kingdom |
+| `South Korea` | Korea |
+| `North Korea` | Dem. Rep. Korea |
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Show Labels | `false` | Show country name labels on the map |
+| Show Legend | `true` | Show the piecewise color range legend |
+| Enable Zoom & Pan | `true` | Allow zooming (up to 20x) and panning |
+| Min Color | `#e8f4f8` | Color for the lowest value |
+| Max Color | `#08306b` | Color for the highest value |
+
+## Features
+
+- **Zoom & pan** — scroll to zoom up to 20x, drag to pan
+- **Piecewise legend** — auto-calculated ranges with color squares (top-right)
+- **Hover emphasis** — gold highlight with shadow and country name
+- **Dark tooltip** — formatted number with country name
+- **5-stop gradient** — smooth color transition across data range
+- **Click actions** — click a country to navigate or set a parameter

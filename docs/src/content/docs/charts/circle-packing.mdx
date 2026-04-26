@@ -1,0 +1,43 @@
+---
+title: Circle Packing
+description: Hierarchical data visualized as nested circles.
+---
+
+## Overview
+
+Circle Packing displays hierarchical data as nested circles where circle size encodes the value. It shares the same data format as Sunburst and Treemap charts — you can switch between them freely.
+
+## Query Format
+
+Return hierarchical data with name and value columns. Optional: parent column for flat-to-tree conversion.
+
+### Cypher
+
+```cypher
+MATCH (p:Category)-[:HAS_CHILD]->(c:Category)
+RETURN p.name AS parent, c.name AS name, c.count AS value
+```
+
+### SQL
+
+```sql
+SELECT parent_name AS parent, name, value
+FROM categories
+ORDER BY parent_name, value DESC
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Show Labels | `true` | Show text labels inside circles (auto-hide when too small) |
+| Padding | `3` | Spacing between sibling circles (px) |
+
+## Features
+
+- **Nested circles** — size proportional to value
+- **Color by depth** — automatic color palette by hierarchy level
+- **Labels** — auto-hidden when circle radius is too small
+- **Tooltip** — shows name and value on hover
+- **Click actions** — click a circle to navigate or set a parameter
+- **Rule-based styling** — color circles by condition
