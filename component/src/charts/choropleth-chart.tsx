@@ -78,14 +78,27 @@ function ChoroplethChart({
   useEffect(() => {
     if (mapRegistered || registering.current) return;
     registering.current = true;
+    let cancelled = false;
 
-    import("./world.geo.json").then((module) => {
-      const geoJSON = module.default ?? module;
-      if (!echarts.getMap("world")) {
-        echarts.registerMap("world", geoJSON as never);
-      }
-      setMapRegistered(true);
-    });
+    import("./world.geo.json")
+      .then((module) => {
+        if (cancelled) return;
+        const geoJSON = module.default ?? module;
+        if (!echarts.getMap("world")) {
+          echarts.registerMap("world", geoJSON as never);
+        }
+        setMapRegistered(true);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Failed to load world map GeoJSON:", err);
+          registering.current = false; // allow retry on re-mount
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [mapRegistered]);
 
   const options = useMemo((): EChartsOption | undefined => {
