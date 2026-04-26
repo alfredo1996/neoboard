@@ -196,3 +196,31 @@ describe("myDatabasePlugin", () => {
   });
 });
 ```
+
+## Error Handling
+
+NeoBoard provides standard error types for connectors. Use these in your `ConnectionModule` so the UI can show appropriate messages:
+
+```ts
+import {
+  ConnectionError,
+  QueryError,
+  QueryTimeoutError,
+  SchemaError,
+} from "@neoboard/connection";
+```
+
+| Error Type | When to Throw | UI Behavior |
+|------------|---------------|-------------|
+| `ConnectionError` | Can't connect (credentials, host, SSL) | Shows connection settings hint |
+| `QueryError` | Query failed (syntax, permissions) | Shows error in widget card |
+| `QueryTimeoutError` | Query exceeded timeout | Shows retry option |
+| `SchemaError` | Schema introspection failed | Disables autocomplete |
+
+## Registration Validation
+
+NeoBoard validates your plugin on registration:
+
+- **Required fields**: `type`, `label`, `createModule` — throws if missing
+- **formFields**: warns on missing key/label/type, duplicate keys, select fields with no options
+- **category**: warns if not one of `database`, `graph`, `api`, `file`

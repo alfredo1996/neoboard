@@ -1,0 +1,43 @@
+---
+title: Radar Chart
+description: Multi-dimensional comparison across categories on radial axes.
+---
+
+## Overview
+
+The Radar chart plots multiple metrics on radial axes radiating from a center point. Use it for comparing entities across 3+ dimensions, such as skill profiles, product attributes, or performance benchmarks.
+
+## Query Format
+
+Return columns: indicator name, value, and optional max (for axis scaling). Add a series column for multi-entity comparisons.
+
+### Cypher
+
+```cypher
+MATCH (p:Person)-[r]->(m:Movie)
+WITH type(r) AS indicator, count(*) AS value
+RETURN indicator, value, 100 AS max
+```
+
+### SQL
+
+```sql
+SELECT metric_name AS indicator, score AS value, 100 AS max
+FROM performance_scores
+WHERE employee_id = 42
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Shape | `polygon` | Axis shape: `polygon` or `circle` |
+| Filled | `true` | Fill the area under the radar polygon |
+| Show Legend | `true` | Show series legend |
+
+## Features
+
+- **Multi-series** — compare multiple entities on the same chart
+- **Auto-scaling** — each axis scales independently if max column provided
+- **Filled or outline** — toggle between filled polygon and outline
+- **Rule-based styling** — color areas by condition
