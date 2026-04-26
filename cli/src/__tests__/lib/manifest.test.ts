@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { writeFileSync, mkdirSync, rmSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -92,6 +92,25 @@ describe("manifest", () => {
       });
       const result = readManifest(path, "plugins");
       expect(result[0].overrides).toBe(true);
+    });
+  });
+
+  describe("error handling and safety", () => {
+    it("warns and returns empty on corrupted JSON", () => {
+      const path = join(tempDir, "corrupt.json");
+      writeFileSync(path, "NOT VALID JSON{{{");
+      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const result = readManifest(path, "plugins");
+      expect(result).toEqual([]);
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("atomic write doesn't leave temp files on success", () => {
+      const path = join(tempDir, "atomic.json");
+      addToManifest(path, "plugins", { package: "@myorg/test" });
+      const files = readdirSync(tempDir);
+      expect(files.filter((f) => f.startsWith(".tmp-"))).toHaveLength(0);
     });
   });
 
