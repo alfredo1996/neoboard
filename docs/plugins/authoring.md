@@ -291,6 +291,50 @@ export class MongoConnectionModule extends ConnectionModule {
 }
 ```
 
+### Error handling
+
+NeoBoard provides standard error types for connectors. Use these so the
+UI can show appropriate messages:
+
+```ts
+import {
+  ConnectionError,
+  QueryError,
+  QueryTimeoutError,
+  SchemaError,
+} from "@neoboard/connection";
+
+// In your ConnectionModule:
+async executeQuery(query: string) {
+  try {
+    return await this.client.query(query);
+  } catch (err) {
+    if (isTimeout(err)) {
+      throw new QueryTimeoutError("Query timed out after 30s", query);
+    }
+    if (isAuthError(err)) {
+      throw new ConnectionError("Authentication failed", "AUTH_FAILED");
+    }
+    throw new QueryError(err.message, "QUERY_FAILED", query);
+  }
+}
+```
+
+| Error Type          | When to throw                          | UI behavior                    |
+| ------------------- | -------------------------------------- | ------------------------------ |
+| `ConnectionError`   | Can't connect (credentials, host, SSL) | Shows connection settings hint |
+| `QueryError`        | Query failed (syntax, permissions)     | Shows error in widget card     |
+| `QueryTimeoutError` | Query exceeded timeout                 | Shows retry option             |
+| `SchemaError`       | Schema introspection failed            | Disables autocomplete          |
+
+### Validation at registration
+
+NeoBoard validates your plugin when it registers:
+
+- **Required fields**: `type`, `label`, `createModule` (throws if missing)
+- **formFields**: warns on missing key/label/type, duplicate keys, select fields with no options
+- **category**: warns if not one of `database`, `graph`, `api`, `file`
+
 ### Removing a plugin
 
 ```bash

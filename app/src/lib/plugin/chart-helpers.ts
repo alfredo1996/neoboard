@@ -225,6 +225,56 @@ for (const def of LIGHTWEIGHT_DEFS) {
   }
 }
 
+/**
+ * Validate that registered plugins match LIGHTWEIGHT_DEFS expectations.
+ * Call after all real plugins have registered to catch capability drift.
+ * Runs only in development — skipped in production and tests.
+ */
+export function validatePluginStubSync(): void {
+  if (
+    typeof process !== "undefined" &&
+    (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test")
+  ) {
+    return;
+  }
+  for (const def of LIGHTWEIGHT_DEFS) {
+    const real = pluginRegistry.get(def.type);
+    if (!real) continue; // Not registered yet — will be caught by startup validation
+
+    // Check capability mismatches between stub definition and real plugin
+    if (def.capabilities) {
+      const stubCaps = def.capabilities;
+      const realCaps = real.capabilities;
+      if (
+        stubCaps.isECharts !== undefined &&
+        stubCaps.isECharts !== realCaps.isECharts
+      ) {
+        console.warn(
+          '[plugin-sync] "' +
+            def.type +
+            '": stub says isECharts=' +
+            stubCaps.isECharts +
+            " but real plugin has " +
+            realCaps.isECharts,
+        );
+      }
+      if (
+        stubCaps.supportsStyling !== undefined &&
+        stubCaps.supportsStyling !== realCaps.supportsStyling
+      ) {
+        console.warn(
+          '[plugin-sync] "' +
+            def.type +
+            '": stub says supportsStyling=' +
+            stubCaps.supportsStyling +
+            " but real plugin has " +
+            realCaps.supportsStyling,
+        );
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
