@@ -283,15 +283,30 @@ export function chartRequiresQuery(type: string): boolean {
  * Get default chart settings for a chart type.
  * Returns an empty object — defaults are managed by Zod schemas in plugins.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function getChartDefaults(_type: string): Record<string, unknown> {
+export function getChartDefaults(type: string): Record<string, unknown> {
+  const plugin = pluginRegistry.get(type);
+  if (plugin?.settingsSchema) {
+    try {
+      // Parse empty object through the Zod schema to extract defaults
+      return plugin.settingsSchema.parse({}) as Record<string, unknown>;
+    } catch {
+      // Schema requires fields — can't extract defaults
+    }
+  }
   return {};
 }
 
 /**
  * Check whether a chart type supports column mapping.
+ * Uses the plugin's transformWithMapping function as the signal —
+ * if a plugin provides it, column mapping is supported.
+ * Falls back to the hardcoded set for plugins that haven't adopted yet.
  */
 export function supportsColumnMapping(type: string): boolean {
+  const plugin = pluginRegistry.get(type);
+  if (plugin) {
+    return typeof plugin.transformWithMapping === "function";
+  }
   return COLUMN_MAPPING_TYPES.has(type);
 }
 

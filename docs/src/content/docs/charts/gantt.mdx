@@ -1,0 +1,46 @@
+---
+title: Gantt Chart
+description: Timeline visualization showing tasks as horizontal bars on a time axis.
+---
+
+## Overview
+
+The Gantt Chart displays tasks as horizontal bars on a time axis. Use it for project plans, ETL pipelines, incident timelines, or any data with start and end dates.
+
+## Query Format
+
+Return 3+ columns: task name, start date, end date. Optional: category/status for color grouping, progress (0-1) for completion overlay.
+
+### Cypher
+
+```cypher
+MATCH (t:Task)
+RETURN t.name AS task, t.start AS start, t.end AS end, t.status AS category
+ORDER BY t.start
+```
+
+### SQL
+
+```sql
+SELECT task_name AS task, start_date AS start, end_date AS end, status AS category
+FROM projects
+ORDER BY start_date
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Show Today Line | `true` | Red dashed vertical line marking today's date |
+| Show Progress | `false` | Overlay showing completion percentage (requires progress column) |
+| Show Grid Lines | `true` | Vertical grid lines on the time axis |
+| Bar Corner Radius | `2` | Corner roundness for task bars |
+
+## Features
+
+- **Zoom & pan** — scroll to zoom the time axis, drag to pan
+- **Vertical scroll** — automatic scrollbar when more than 15 tasks
+- **Color by category** — use rule-based styling to color bars by status
+- **Progress overlay** — semi-transparent fill showing completion percentage
+- **Today marker** — red dashed line with "Today" label
+- **Click actions** — click a bar to navigate or set a parameter

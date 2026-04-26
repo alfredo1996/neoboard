@@ -73,27 +73,65 @@ for (const plugin of BUILT_IN_PLUGINS) {
 // Same-type duplicates without overrides throw loudly so operators spot
 // the conflict at startup instead of debugging a silent replacement.
 for (const { plugin, overrides } of EXTERNAL_PLUGINS) {
-  if (pluginRegistry.has(plugin.type)) {
-    if (!overrides) {
-      throw new Error(
-        `External plugin "${plugin.type}" conflicts with an existing plugin. ` +
-          `Set "overrides": true in neoboard-plugins.json to replace the built-in.`,
+  try {
+    if (!plugin || typeof plugin !== "object" || !plugin.type) {
+      console.error(
+        "External plugin skipped: invalid plugin object (missing type)",
       );
+      continue;
     }
-    pluginRegistry.unregister(plugin.type);
+    if (pluginRegistry.has(plugin.type)) {
+      if (!overrides) {
+        console.error(
+          'External plugin "' +
+            plugin.type +
+            '" conflicts with an existing plugin. ' +
+            'Set "overrides": true in neoboard-plugins.json to replace it. Skipping.',
+        );
+        continue;
+      }
+      pluginRegistry.unregister(plugin.type);
+    }
+    pluginRegistry.register(plugin);
+  } catch (err) {
+    console.error(
+      "External plugin registration failed for type " +
+        JSON.stringify(plugin?.type) +
+        ":",
+      err,
+    );
+    // Continue loading remaining plugins — one broken plugin shouldn't crash the app
   }
-  pluginRegistry.register(plugin);
 }
 
 // ── Startup validation ──────────────────────────────────────────────────
-// Verify that every chart type declared in CHART_TYPES has a registered
-// plugin. A mismatch is a dev-time bug, not a runtime error.
+
+// 1. Every CHART_TYPES entry must have a registered plugin.
 const registeredTypes = new Set(pluginRegistry.getTypes());
 for (const t of CHART_TYPES) {
   if (!registeredTypes.has(t)) {
     console.warn(
       `Chart type "${t}" declared in CHART_TYPES but no plugin registered`,
     );
+  }
+}
+
+// 2. Validate compatibleWith references actual connector types.
+const KNOWN_CONNECTORS = new Set(["neo4j", "postgresql"]);
+for (const type of pluginRegistry.getTypes()) {
+  const plugin = pluginRegistry.get(type);
+  if (plugin?.compatibleWith) {
+    for (const ct of plugin.compatibleWith) {
+      if (!KNOWN_CONNECTORS.has(ct)) {
+        console.warn(
+          'Plugin "' +
+            type +
+            '" declares compatibleWith "' +
+            ct +
+            '" but no such connector is registered',
+        );
+      }
+    }
   }
 }
 

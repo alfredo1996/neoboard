@@ -302,18 +302,33 @@ export function CardContainer({
         />
       );
     }
-    const mappedData = (
-      chartConfig.transformWithMapping ?? chartConfig.transform
-    )(previewData, columnMapping);
+    let mappedData: unknown;
+    try {
+      mappedData = (chartConfig.transformWithMapping ?? chartConfig.transform)(
+        previewData,
+        columnMapping,
+      );
+    } catch (err) {
+      console.error(
+        "Chart transform failed for " + widget.chartType + ":",
+        err,
+      );
+      mappedData = previewData;
+    }
     // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
-    const transformedData =
-      dataTransforms.length && widget.chartType !== "graph"
-        ? applyTransforms(
-            mappedData as Record<string, unknown>[],
-            dataTransforms,
-            allParamValues,
-          )
-        : mappedData;
+    let transformedData: unknown = mappedData;
+    if (dataTransforms.length && widget.chartType !== "graph") {
+      try {
+        transformedData = applyTransforms(
+          mappedData as Record<string, unknown>[],
+          dataTransforms,
+          allParamValues,
+        );
+      } catch (err) {
+        console.error("Data transform failed:", err);
+        transformedData = mappedData;
+      }
+    }
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
@@ -586,16 +601,29 @@ export function CardContainer({
     );
   }
 
-  const mappedData = (
-    chartConfig.transformWithMapping ?? chartConfig.transform
-  )(rawData, columnMapping);
-  const transformedData = dataTransforms.length
-    ? applyTransforms(
+  let mappedData: unknown;
+  try {
+    mappedData = (chartConfig.transformWithMapping ?? chartConfig.transform)(
+      rawData,
+      columnMapping,
+    );
+  } catch (err) {
+    console.error("Chart transform failed for " + widget.chartType + ":", err);
+    mappedData = rawData;
+  }
+  let transformedData: unknown = mappedData;
+  if (dataTransforms.length) {
+    try {
+      transformedData = applyTransforms(
         mappedData as Record<string, unknown>[],
         dataTransforms,
         allParamValues,
-      )
-    : mappedData;
+      );
+    } catch (err) {
+      console.error("Data transform failed:", err);
+      transformedData = mappedData;
+    }
+  }
   const availableColumns = extractColumnNames(rawData);
 
   return (

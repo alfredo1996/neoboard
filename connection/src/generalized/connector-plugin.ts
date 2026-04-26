@@ -124,6 +124,57 @@ export function createConnectorRegistry(): ConnectorRegistry {
             `Call unregister first if you want to replace it.`,
         );
       }
+
+      // Validate formFields if provided
+      if (plugin.formFields) {
+        const keys = new Set<string>();
+        for (const field of plugin.formFields) {
+          if (!field.key || !field.label || !field.type) {
+            console.warn(
+              'Connector "' +
+                plugin.type +
+                '": formField missing key/label/type:',
+              field,
+            );
+          }
+          if (keys.has(field.key)) {
+            console.warn(
+              'Connector "' +
+                plugin.type +
+                '": duplicate formField key "' +
+                field.key +
+                '"',
+            );
+          }
+          keys.add(field.key);
+          if (
+            field.type === "select" &&
+            (!field.options || field.options.length === 0)
+          ) {
+            console.warn(
+              'Connector "' +
+                plugin.type +
+                '": select field "' +
+                field.key +
+                '" has no options',
+            );
+          }
+        }
+      }
+
+      // Validate category if provided
+      const validCategories = ["database", "graph", "api", "file"];
+      if (plugin.category && !validCategories.includes(plugin.category)) {
+        console.warn(
+          'Connector "' +
+            plugin.type +
+            '": invalid category "' +
+            plugin.category +
+            '". Expected: ' +
+            validCategories.join(", "),
+        );
+      }
+
       plugins.set(plugin.type, plugin);
     },
     unregister(type) {
