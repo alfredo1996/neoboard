@@ -1,0 +1,1 @@
+export { choroplethPlugin } from "./component";
