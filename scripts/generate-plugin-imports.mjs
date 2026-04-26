@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
@@ -218,20 +219,14 @@ export function runGenerator(opts = {}) {
   }
 
   // Verify that all referenced packages are actually installed
+  const req = createRequire(import.meta.url);
   for (const entry of entries) {
     try {
-      import.meta.resolve?.(entry.package);
+      req.resolve(entry.package);
     } catch {
-      // Fallback: try require.resolve via createRequire
-      try {
-        const { createRequire } = await import("node:module");
-        const require = createRequire(manifestPath);
-        require.resolve(entry.package);
-      } catch {
-        errors.push(
-          `Package "${entry.package}" is not installed. Run: npm install ${entry.package}`,
-        );
-      }
+      errors.push(
+        `Package "${entry.package}" is not installed. Run: npm install ${entry.package}`,
+      );
     }
   }
   if (errors.length > 0) {
