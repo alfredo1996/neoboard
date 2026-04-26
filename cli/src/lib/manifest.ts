@@ -1,8 +1,18 @@
 /**
  * Read/write helpers for neoboard-plugins.json and neoboard-connectors.json.
+ *
+ * Writes use atomic temp-file + rename to prevent corruption from
+ * concurrent processes or crashes mid-write.
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  existsSync,
+  unlinkSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 
 export interface ManifestEntry {
   package: string;
@@ -13,7 +23,31 @@ export interface ManifestEntry {
 type ManifestKey = "plugins" | "connectors";
 
 /**
- * Read entries from a manifest file. Returns empty array if file missing.
+ * Atomically write JSON to a file: write to temp file, then rename.
+ * Rename is atomic on POSIX and near-atomic on Windows.
+ */
+function atomicWriteJson(filePath: string, data: unknown): void {
+  const tmpPath = join(
+    dirname(filePath),
+    ".tmp-" + Date.now() + "-" + Math.random().toString(36).slice(2),
+  );
+  try {
+    writeFileSync(tmpPath, JSON.stringify(data, null, 2) + "\n");
+    renameSync(tmpPath, filePath);
+  } catch (err) {
+    // Clean up temp file on failure
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // ignore cleanup errors
+    }
+    throw err;
+  }
+}
+
+/**
+ * Read entries from a manifest file. Returns empty array if file missing
+ * or corrupted (with a warning for corruption).
  */
 export function readManifest(
   filePath: string,
@@ -23,7 +57,8 @@ export function readManifest(
   try {
     const raw = JSON.parse(readFileSync(filePath, "utf-8"));
     return Array.isArray(raw[key]) ? raw[key] : [];
-  } catch {
+  } catch (err) {
+    console.warn("Failed to parse manifest " + filePath + ":", err);
     return [];
   }
 }
@@ -42,7 +77,7 @@ export function addToManifest(
     return false; // already exists
   }
   entries.push(entry);
-  writeFileSync(filePath, JSON.stringify({ [key]: entries }, null, 2) + "\n");
+  atomicWriteJson(filePath, { [key]: entries });
   return true;
 }
 
@@ -59,6 +94,6 @@ export function removeFromManifest(
   const entries = readManifest(filePath, key);
   const filtered = entries.filter((e) => e.package !== packageName);
   if (filtered.length === entries.length) return false; // not found
-  writeFileSync(filePath, JSON.stringify({ [key]: filtered }, null, 2) + "\n");
+  atomicWriteJson(filePath, { [key]: filtered });
   return true;
 }

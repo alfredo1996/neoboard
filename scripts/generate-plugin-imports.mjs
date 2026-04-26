@@ -217,6 +217,27 @@ export function runGenerator(opts = {}) {
     return { ok: false, errors, wrote: false };
   }
 
+  // Verify that all referenced packages are actually installed
+  for (const entry of entries) {
+    try {
+      import.meta.resolve?.(entry.package);
+    } catch {
+      // Fallback: try require.resolve via createRequire
+      try {
+        const { createRequire } = await import("node:module");
+        const require = createRequire(manifestPath);
+        require.resolve(entry.package);
+      } catch {
+        errors.push(
+          `Package "${entry.package}" is not installed. Run: npm install ${entry.package}`,
+        );
+      }
+    }
+  }
+  if (errors.length > 0) {
+    return { ok: false, errors, wrote: false };
+  }
+
   const source = renderSource(entries);
 
   // Idempotent write — skip if content matches (preserves mtime for

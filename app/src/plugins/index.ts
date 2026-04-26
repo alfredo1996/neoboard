@@ -73,16 +73,35 @@ for (const plugin of BUILT_IN_PLUGINS) {
 // Same-type duplicates without overrides throw loudly so operators spot
 // the conflict at startup instead of debugging a silent replacement.
 for (const { plugin, overrides } of EXTERNAL_PLUGINS) {
-  if (pluginRegistry.has(plugin.type)) {
-    if (!overrides) {
-      throw new Error(
-        `External plugin "${plugin.type}" conflicts with an existing plugin. ` +
-          `Set "overrides": true in neoboard-plugins.json to replace the built-in.`,
+  try {
+    if (!plugin || typeof plugin !== "object" || !plugin.type) {
+      console.error(
+        "External plugin skipped: invalid plugin object (missing type)",
       );
+      continue;
     }
-    pluginRegistry.unregister(plugin.type);
+    if (pluginRegistry.has(plugin.type)) {
+      if (!overrides) {
+        console.error(
+          'External plugin "' +
+            plugin.type +
+            '" conflicts with an existing plugin. ' +
+            'Set "overrides": true in neoboard-plugins.json to replace it. Skipping.',
+        );
+        continue;
+      }
+      pluginRegistry.unregister(plugin.type);
+    }
+    pluginRegistry.register(plugin);
+  } catch (err) {
+    console.error(
+      "External plugin registration failed for type " +
+        JSON.stringify(plugin?.type) +
+        ":",
+      err,
+    );
+    // Continue loading remaining plugins — one broken plugin shouldn't crash the app
   }
-  pluginRegistry.register(plugin);
 }
 
 // ── Startup validation ──────────────────────────────────────────────────

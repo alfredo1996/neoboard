@@ -132,7 +132,7 @@ const DEFAULT_CAPABILITIES: ChartCapabilities = {
 };
 
 export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
-  // Validation
+  // ── Validation ──────────────────────────────────────────────────────
   if (!config.type || config.type.trim() === "") {
     throw new Error("Chart plugin: type is required and cannot be empty");
   }
@@ -141,6 +141,30 @@ export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
   }
   if (typeof config.transform !== "function") {
     throw new Error("Chart plugin: transform must be a function");
+  }
+
+  // Validate options shape if provided
+  if (config.options) {
+    for (const opt of config.options) {
+      if (!opt.key || !opt.label || !opt.type) {
+        console.warn(
+          'Chart plugin "' + config.type + '": option missing key/label/type:',
+          opt,
+        );
+      }
+    }
+  }
+
+  // Validate compatibleWith entries
+  if (config.compatibleWith) {
+    for (const ct of config.compatibleWith) {
+      if (typeof ct !== "string" || ct.trim() === "") {
+        console.warn(
+          'Chart plugin "' + config.type + '": invalid compatibleWith entry:',
+          ct,
+        );
+      }
+    }
   }
 
   // supportsStyling defaults to true if stylingTargets is provided, false otherwise
