@@ -1,0 +1,44 @@
+---
+title: Sankey Chart
+description: Flow diagram showing weighted connections between categories.
+---
+
+## Overview
+
+The Sankey chart visualizes flows between nodes. The width of each link is proportional to its value. Use it for showing money flows, user journeys, supply chains, or any source-target-value data.
+
+## Query Format
+
+Return 3 columns: source, target, and value.
+
+### Cypher
+
+```cypher
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+RETURN p.name AS source, m.title AS target, 1 AS value
+LIMIT 20
+```
+
+### SQL
+
+```sql
+SELECT source_department AS source, target_department AS target, COUNT(*) AS value
+FROM transfers
+GROUP BY source, target
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Orientation | `horizontal` | Layout direction: horizontal or vertical |
+| Show Labels | `true` | Show node name labels |
+| Node Width | `20` | Width of each node bar (px) |
+| Node Gap | `8` | Vertical gap between nodes (px) |
+
+## Features
+
+- **Auto-layout** — nodes are positioned automatically based on flow direction
+- **Hover emphasis** — highlights the full path through the diagram
+- **Rule-based styling** — color links by condition
+- **Click actions** — click a node or link to navigate or set a parameter

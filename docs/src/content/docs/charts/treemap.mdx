@@ -1,0 +1,42 @@
+---
+title: Treemap
+description: Hierarchical data as nested rectangles sized by value.
+---
+
+## Overview
+
+The Treemap displays hierarchical data as nested rectangles where each tile's area is proportional to its value. It shares the same data format as Sunburst and Circle Packing — you can switch between them freely.
+
+## Query Format
+
+Return hierarchical data with name and value columns. Optional: parent column for flat-to-tree conversion.
+
+### Cypher
+
+```cypher
+MATCH (c:Category)-[:CONTAINS]->(p:Product)
+RETURN c.name AS parent, p.name AS name, p.sales AS value
+```
+
+### SQL
+
+```sql
+SELECT category AS parent, product_name AS name, revenue AS value
+FROM products
+ORDER BY category, revenue DESC
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Show Labels | `true` | Show tile name labels |
+
+## Features
+
+- **Nested tiles** — area proportional to value
+- **Color by depth** — automatic palette by hierarchy level
+- **Drill-down** — click a tile to zoom into its children
+- **Tooltip** — shows name, value, and percentage of parent
+- **Rule-based styling** — color tiles by condition
+- **Click actions** — click a tile to navigate or set a parameter

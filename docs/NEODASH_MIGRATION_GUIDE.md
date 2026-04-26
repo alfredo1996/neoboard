@@ -29,32 +29,32 @@ That's it. No configuration needed. NeoBoard converts the dashboard structure, q
 | Cypher queries                      | Copied verbatim                                                    |
 | Parameter syntax                    | `$neodash_paramName` automatically converted to `$param_paramName` |
 
-### Chart Type Mapping (19 of 22 types)
+### Chart Type Mapping (20 of 22 types)
 
-| NeoDash Type       | NeoBoard Type    | Notes                                               |
-| ------------------ | ---------------- | --------------------------------------------------- |
-| Table              | Table            | Direct mapping                                      |
-| Graph              | Graph            | 2D graph via Neo4j NVL                              |
-| Bar Chart          | Bar              | Direct mapping                                      |
-| Line Chart         | Line             | Direct mapping                                      |
-| Pie Chart          | Pie              | Direct mapping                                      |
-| Area Chart         | Line             | Imported as line chart with area fill enabled       |
-| Map                | Map              | Leaflet-based point markers                         |
-| Single Value       | Single Value     | Direct mapping                                      |
-| Gauge              | Gauge            | Minimal arc style                                   |
-| Sunburst           | Sunburst         | Direct mapping                                      |
-| Treemap            | Treemap          | Direct mapping                                      |
-| Sankey             | Sankey           | Direct mapping                                      |
-| Radar              | Radar            | Direct mapping                                      |
-| Gantt              | Gantt            | Timeline bars on time axis                          |
-| Parameter Select   | Parameter Select | Direct mapping                                      |
-| Form               | Form             | Direct mapping                                      |
-| Markdown           | Markdown         | Direct mapping                                      |
-| Raw JSON           | JSON Viewer      | Direct mapping                                      |
-| iFrame             | iFrame           | Direct mapping                                      |
-| **3D Graph**       | Graph (2D)       | Converted to 2D graph - 3D view is lost             |
-| **Circle Packing** | Sunburst         | Same data, different visual representation          |
-| **Choropleth**     | JSON Viewer      | No region-fill map in NeoBoard (uses point markers) |
+| NeoDash Type       | NeoBoard Type    | Notes                                         |
+| ------------------ | ---------------- | --------------------------------------------- |
+| Table              | Table            | Direct mapping                                |
+| Graph              | Graph            | 2D graph via Neo4j NVL                        |
+| Bar Chart          | Bar              | Direct mapping                                |
+| Line Chart         | Line             | Direct mapping                                |
+| Pie Chart          | Pie              | Direct mapping                                |
+| Area Chart         | Line             | Imported as line chart with area fill enabled |
+| Map                | Map              | Leaflet-based point markers                   |
+| Single Value       | Single Value     | Direct mapping                                |
+| Gauge              | Gauge            | Minimal arc style                             |
+| Sunburst           | Sunburst         | Direct mapping                                |
+| Treemap            | Treemap          | Direct mapping                                |
+| Sankey             | Sankey           | Direct mapping                                |
+| Radar              | Radar            | Direct mapping                                |
+| Gantt              | Gantt            | Timeline bars on time axis                    |
+| Parameter Select   | Parameter Select | Direct mapping                                |
+| Form               | Form             | Direct mapping                                |
+| Markdown           | Markdown         | Direct mapping                                |
+| Raw JSON           | JSON Viewer      | Direct mapping                                |
+| iFrame             | iFrame           | Direct mapping                                |
+| **3D Graph**       | Graph (2D)       | Converted to 2D graph - 3D view is lost       |
+| **Circle Packing** | Circle Packing   | Nested circles sized by value                 |
+| **Choropleth**     | Choropleth Map   | World map with countries colored by value     |
 
 ### What Requires Manual Setup After Import
 
@@ -70,23 +70,23 @@ That's it. No configuration needed. NeoBoard converts the dashboard structure, q
 
 ### Visualization Features
 
-| Feature                          | NeoDash | NeoBoard | Notes                       |
-| -------------------------------- | ------- | -------- | --------------------------- |
-| Bar, Line, Pie charts            | Yes     | Yes      | Full parity                 |
-| Graph visualization              | 2D + 3D | 2D only  | Neo4j NVL for 2D            |
-| Map (point markers)              | Yes     | Yes      | Leaflet-based               |
-| Choropleth (region fill)         | Yes     | No       | NeoBoard uses point markers |
-| Gantt chart                      | Yes     | Yes      | ECharts custom series       |
-| Gauge chart                      | Yes     | Yes      | Minimal arc design          |
-| Hierarchical (Sunburst, Treemap) | Yes     | Yes      | Full parity                 |
-| Sankey, Radar                    | Yes     | Yes      | Full parity                 |
-| Circle Packing                   | Yes     | No       | Use Sunburst as alternative |
-| Table with checklist             | Yes     | No       | Standard table only         |
-| Single Value                     | Yes     | Yes      | Full parity                 |
-| Markdown                         | Yes     | Yes      | Full parity                 |
-| iFrame                           | Yes     | Yes      | Full parity                 |
-| Form (write queries)             | Yes     | Yes      | Full parity                 |
-| Parameter Select                 | Yes     | Yes      | Full parity                 |
+| Feature                          | NeoDash | NeoBoard | Notes                    |
+| -------------------------------- | ------- | -------- | ------------------------ |
+| Bar, Line, Pie charts            | Yes     | Yes      | Full parity              |
+| Graph visualization              | 2D + 3D | 2D only  | Neo4j NVL for 2D         |
+| Map (point markers)              | Yes     | Yes      | Leaflet-based            |
+| Choropleth (region fill)         | Yes     | Yes      | ECharts world map        |
+| Gantt chart                      | Yes     | Yes      | ECharts custom series    |
+| Gauge chart                      | Yes     | Yes      | Minimal arc design       |
+| Hierarchical (Sunburst, Treemap) | Yes     | Yes      | Full parity              |
+| Sankey, Radar                    | Yes     | Yes      | Full parity              |
+| Circle Packing                   | Yes     | Yes      | d3-hierarchy pack layout |
+| Table with checklist             | Yes     | No       | Standard table only      |
+| Single Value                     | Yes     | Yes      | Full parity              |
+| Markdown                         | Yes     | Yes      | Full parity              |
+| iFrame                           | Yes     | Yes      | Full parity              |
+| Form (write queries)             | Yes     | Yes      | Full parity              |
+| Parameter Select                 | Yes     | Yes      | Full parity              |
 
 ### Data Sources
 
@@ -129,15 +129,15 @@ That's it. No configuration needed. NeoBoard converts the dashboard structure, q
 
 These NeoDash features cannot be migrated due to fundamental architectural differences:
 
-| NeoDash Feature               | Why                                                                 | Workaround                                                    |
-| ----------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **3D Graph**                  | NeoBoard uses Neo4j NVL (2D). No WebGL 3D renderer.                 | Data preserved as 2D graph.                                   |
-| **Choropleth / Area Map**     | NeoBoard's map uses Leaflet point markers, not GeoJSON region fill. | Use the map widget with lat/lng data, or view as JSON.        |
-| **Circle Packing**            | No ECharts circle packing chart type.                               | Automatically converted to Sunburst (same hierarchical data). |
-| **Text2Cypher**               | NeoBoard has no LLM integration for natural language queries.       | Write Cypher queries directly.                                |
-| **Bloom Deep Links**          | NeoBoard has no Neo4j Bloom integration.                            | Links preserved as text but non-functional.                   |
-| **Dashboard stored in Neo4j** | NeoBoard stores dashboards in PostgreSQL.                           | One-time import; no ongoing sync with Neo4j.                  |
-| **Table Checklist mode**      | NeoBoard table doesn't support interactive checkboxes.              | Standard table with sorting/filtering.                        |
+| NeoDash Feature               | Why                                                                 | Workaround                                             |
+| ----------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
+| **3D Graph**                  | NeoBoard uses Neo4j NVL (2D). No WebGL 3D renderer.                 | Data preserved as 2D graph.                            |
+| **Choropleth / Area Map**     | NeoBoard's map uses Leaflet point markers, not GeoJSON region fill. | Use the map widget with lat/lng data, or view as JSON. |
+| **Circle Packing**            | Now a native chart type.                                            | Direct mapping, no fallback needed.                    |
+| **Text2Cypher**               | NeoBoard has no LLM integration for natural language queries.       | Write Cypher queries directly.                         |
+| **Bloom Deep Links**          | NeoBoard has no Neo4j Bloom integration.                            | Links preserved as text but non-functional.            |
+| **Dashboard stored in Neo4j** | NeoBoard stores dashboards in PostgreSQL.                           | One-time import; no ongoing sync with Neo4j.           |
+| **Table Checklist mode**      | NeoBoard table doesn't support interactive checkboxes.              | Standard table with sorting/filtering.                 |
 
 ---
 
@@ -213,7 +213,7 @@ After import, NeoBoard creates a dashboard with:
 A: The importer accepts any NeoDash JSON with the `pages[].reports[]` structure (NeoDash 2.x). NeoDash 1.x format is not supported.
 
 **Q: What happens to chart types NeoBoard doesn't support?**
-A: Unsupported types (3D Graph, Circle Packing, Choropleth) are converted to the closest equivalent or fall back to a JSON viewer. Your data and queries are preserved.
+A: Unsupported types (3D Graph) are converted to the closest equivalent or fall back to a JSON viewer. Your data and queries are preserved.
 
 **Q: Can I go back to NeoDash after importing?**
 A: NeoBoard export format is different from NeoDash. The import is one-way. Keep your original NeoDash JSON as a backup.

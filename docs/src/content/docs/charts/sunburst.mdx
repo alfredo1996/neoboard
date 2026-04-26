@@ -1,0 +1,44 @@
+---
+title: Sunburst
+description: Hierarchical data as concentric ring segments.
+---
+
+## Overview
+
+The Sunburst chart displays hierarchical data as concentric rings. Inner rings represent higher levels, outer rings represent leaves. It shares the same data format as Treemap and Circle Packing.
+
+## Query Format
+
+Return hierarchical data with name and value columns. Optional: parent column for flat-to-tree conversion.
+
+### Cypher
+
+```cypher
+MATCH (d:Department)-[:HAS_TEAM]->(t:Team)-[:HAS_MEMBER]->(m:Member)
+RETURN d.name AS parent, t.name AS name, count(m) AS value
+```
+
+### SQL
+
+```sql
+SELECT region AS parent, country AS name, population AS value
+FROM demographics
+ORDER BY region, population DESC
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Show Labels | `true` | Show segment name labels |
+| Max Label Depth | `2` | Maximum ring depth for labels (0 = auto) |
+| Sort | `desc` | Segment order: largest first, smallest first, or data order |
+| Highlight on Hover | `true` | Emphasize segment and ancestors on hover |
+
+## Features
+
+- **Smart label management** — auto-hides labels on crowded rings (>12 segments)
+- **Ancestor path on hover** — hover any segment to see its full path highlighted with bold labels
+- **Click to drill down** — click a segment to make it the new root
+- **Rule-based styling** — color segments by condition
+- **Click actions** — click a segment to navigate or set a parameter

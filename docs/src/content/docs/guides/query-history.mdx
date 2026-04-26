@@ -1,0 +1,30 @@
+---
+title: Query History
+description: Browse and restore previous queries in the widget editor.
+---
+
+## Overview
+
+NeoBoard stores the last 10 queries for each widget. When you save a widget, the current query is added to history. You can browse and restore previous queries from the widget editor.
+
+## Using Query History
+
+1. Open a widget in edit mode (click the edit icon on any widget card)
+2. Look for the **clock icon** and **"History"** button next to the query editor label
+3. Click it to open the history popover
+4. Each entry shows the first line of the query and how long ago it was saved
+5. Click an entry to restore it to the editor
+
+## How It Works
+
+- History is saved **on widget save** (not on every keystroke or preview)
+- **Duplicate queries** are skipped — the same query won't appear twice in a row
+- History is **capped at 10 entries** — the oldest is dropped when the limit is reached
+- Empty queries are never added to history
+- History **persists across sessions** — it's stored in the dashboard layout JSON
+
+## Notes
+
+- The history button only appears when there are previous queries to show
+- History travels with the dashboard when exported/imported
+- Each widget has its own independent history

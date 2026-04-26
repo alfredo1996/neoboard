@@ -1,0 +1,49 @@
+---
+title: Gauge
+description: Single-value indicator displayed as a minimal arc.
+---
+
+## Overview
+
+The Gauge chart shows a single numeric value against a scale. A colored arc fills proportionally to the value. Use it for KPI dashboards showing percentages, scores, or bounded metrics.
+
+## Query Format
+
+Return 1-2 columns: a numeric value and an optional name/label.
+
+### Cypher
+
+```cypher
+MATCH (o:Order)
+RETURN
+  (count(CASE WHEN o.status = 'delivered' THEN 1 END) * 100.0 / count(*)) AS value,
+  'Delivery Rate' AS name
+```
+
+### SQL
+
+```sql
+SELECT
+  ROUND(COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / COUNT(*)) AS value,
+  'Delivery Rate' AS name
+FROM orders
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Min Value | `0` | Minimum value on the scale |
+| Max Value | `100` | Maximum value on the scale |
+| Show Progress Arc | `true` | Fill the arc to show progress |
+| Show Value Detail | `true` | Show the numeric value and name |
+| Start Angle | `225` | Arc start angle (degrees) |
+| End Angle | `-45` | Arc end angle (degrees) |
+| Threshold Zones | — | JSON color bands: `[{"value":50,"color":"#ff0000"}]` |
+
+## Features
+
+- **Minimal design** — thin rounded arc with centered value
+- **Custom gradient** — default blue accent or threshold zone colors
+- **Responsive** — adapts to container size, hides details when compact
+- **Rule-based styling** — override arc color based on value conditions
