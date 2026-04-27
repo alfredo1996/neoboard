@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isNeoDashFormat,
   convertNeoDash,
+  convertNeoDashWithNotes,
 } from "@/lib/dashboard/neodash-converter";
 
 const NEODASH_SIMPLE = {
@@ -447,5 +448,211 @@ describe("convertNeoDash", () => {
     expect(result.layout.pages[0].widgets[0].query).toBe(
       "MATCH (n) WHERE n.id = $someParam RETURN n",
     );
+  });
+
+  // --- P0: dashboard description ---
+
+  it("preserves dashboard description when present", () => {
+    const nd = {
+      title: "My Dashboard",
+      description: "A detailed description",
+      version: "2.4",
+      pages: [{ title: "P1", reports: [] }],
+    };
+    const result = convertNeoDash(nd);
+    expect(result.dashboard.description).toBe("A detailed description");
+  });
+
+  it("defaults description to null when missing", () => {
+    const result = convertNeoDash(makeNeoDash({}));
+    expect(result.dashboard.description).toBeNull();
+  });
+
+  // --- P1: report actions ---
+
+  it("maps NeoDash set-parameter action to click action", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: {
+          actionsRules: [
+            {
+              field: "name",
+              customization: {
+                type: "set-parameter",
+                parameterName: "selected_name",
+              },
+            },
+          ],
+        },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    const action = settings.clickAction as Record<string, unknown>;
+    expect(action.type).toBe("set-parameter");
+    expect(
+      (action.parameterMapping as Record<string, unknown>).parameterName,
+    ).toBe("selected_name");
+    expect(
+      (action.parameterMapping as Record<string, unknown>).sourceField,
+    ).toBe("name");
+  });
+
+  it("skips click action when no actionsRules", () => {
+    const result = convertNeoDash(makeNeoDash({ dashTitle: "T" }));
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.clickAction).toBeUndefined();
+  });
+
+  // --- P1: styling rules ---
+
+  it("maps NeoDash styleRules to stylingConfig", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: {
+          styleRules: [
+            {
+              field: "status",
+              condition: "=",
+              value: "active",
+              color: "#00ff00",
+            },
+            {
+              field: "status",
+              condition: "=",
+              value: "inactive",
+              color: "#ff0000",
+            },
+          ],
+        },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    const config = settings.stylingConfig as Record<string, unknown>;
+    expect(config.enabled).toBe(true);
+    const rules = config.rules as Array<Record<string, unknown>>;
+    expect(rules).toHaveLength(2);
+    expect(rules[0].operator).toBe("==");
+    expect(rules[0].color).toBe("#00ff00");
+    expect(rules[1].color).toBe("#ff0000");
+  });
+
+  // --- P1: refresh rate ---
+
+  it("maps refreshRate to cache settings", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: { refreshRate: 300 },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.enableCache).toBe(true);
+    expect(settings.cacheTtlMinutes).toBe(5);
+  });
+
+  it("ignores zero or negative refreshRate", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: { refreshRate: 0 },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.enableCache).toBeUndefined();
+  });
+
+  // --- P1: parameter defaults ---
+
+  it("maps defaultValue from settings", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: { defaultValue: "hello" },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.defaultValue).toBe("hello");
+  });
+
+  // --- Conversion notes ---
+
+  it("returns notes for downgraded types", () => {
+    const nd = {
+      title: "T",
+      version: "2.4",
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "3D Graph",
+              type: "graph3d",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+            },
+          ],
+        },
+      ],
+    };
+    const { notes } = convertNeoDashWithNotes(nd);
+    expect(notes.length).toBeGreaterThan(0);
+    expect(notes[0]).toContain("graph3d");
+    expect(notes[0]).toContain("2D");
+  });
+
+  it("returns notes for unknown types", () => {
+    const nd = {
+      title: "T",
+      version: "2.4",
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Unknown",
+              type: "totally_unknown",
+              query: "q",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+            },
+          ],
+        },
+      ],
+    };
+    const { notes } = convertNeoDashWithNotes(nd);
+    expect(notes.length).toBeGreaterThan(0);
+    expect(notes[0]).toContain("JSON Viewer");
+  });
+
+  it("returns empty notes when all types map directly", () => {
+    const { notes } = convertNeoDashWithNotes(makeNeoDash({ dashTitle: "T" }));
+    expect(notes).toEqual([]);
   });
 });
