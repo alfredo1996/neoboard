@@ -81,7 +81,7 @@ function CirclePackingChart({
 
     // Build d3 hierarchy and run circle packing layout
     const h = hierarchy(root)
-      .sum((d) => d.value ?? 0)
+      .sum((d) => (d.children?.length ? 0 : (d.value ?? 0)))
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
     const size = Math.min(width, height);

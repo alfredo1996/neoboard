@@ -5,6 +5,7 @@
  * concurrent processes or crashes mid-write.
  */
 
+import { randomUUID } from "node:crypto";
 import {
   readFileSync,
   writeFileSync,
@@ -27,10 +28,7 @@ type ManifestKey = "plugins" | "connectors";
  * Rename is atomic on POSIX and near-atomic on Windows.
  */
 function atomicWriteJson(filePath: string, data: unknown): void {
-  const tmpPath = join(
-    dirname(filePath),
-    ".tmp-" + Date.now() + "-" + Math.random().toString(36).slice(2),
-  );
+  const tmpPath = join(dirname(filePath), ".tmp-" + randomUUID());
   try {
     writeFileSync(tmpPath, JSON.stringify(data, null, 2) + "\n");
     renameSync(tmpPath, filePath);
