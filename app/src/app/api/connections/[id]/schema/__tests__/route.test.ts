@@ -140,6 +140,6 @@ describe("GET /api/connections/[id]/schema", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
-    expect(body.error.message).toBe("Failed to fetch schema");
+    expect(body.error.message).toBe("Schema fetch failed");
   });
 });

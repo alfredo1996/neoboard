@@ -255,7 +255,7 @@ describe("POST /api/query", () => {
     // handleRouteError returns a generic fallback message to the client;
     // the raw error is logged but never surfaced (avoids leaking schema).
     expect(body.error.code).toBe("INTERNAL_ERROR");
-    expect(body.error.message).toBe("Query execution failed");
+    expect(body.error.message).toBe("Driver error");
   });
 
   // --- Access fallback tests ---
