@@ -122,7 +122,10 @@ for (const t of CHART_TYPES) {
 }
 
 // 2. Validate compatibleWith references actual connector types.
-const KNOWN_CONNECTORS = new Set(["neo4j", "postgresql"]);
+// Uses the canonical CONNECTOR_TYPES from the connection package
+// so new connectors are automatically recognized.
+import { CONNECTOR_TYPES as KNOWN_CONNECTOR_LIST } from "@neoboard/connection";
+const KNOWN_CONNECTORS = new Set<string>(KNOWN_CONNECTOR_LIST);
 for (const type of pluginRegistry.getTypes()) {
   const plugin = pluginRegistry.get(type);
   if (plugin?.compatibleWith) {

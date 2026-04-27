@@ -136,6 +136,7 @@ export function createConnectorRegistry(): ConnectorRegistry {
                 '": formField missing key/label/type:',
               field,
             );
+            continue; // Skip duplicate check for invalid fields
           }
           if (keys.has(field.key)) {
             console.warn(
