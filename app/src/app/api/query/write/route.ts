@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections } from "@/lib/db/schema";
+import { connections, dashboards } from "@/lib/db/schema";
+import type { DashboardLayoutV2, DashboardWidget } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { executeQuery } from "@/lib/query/query-executor";
@@ -18,6 +19,10 @@ const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
   params: z.record(z.unknown()).optional(),
+  /** Widget ID — required so the server can verify allowWrites on the widget. */
+  widgetId: z.string().min(1).optional(),
+  /** Dashboard ID — required alongside widgetId for lookup. */
+  dashboardId: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -32,7 +37,8 @@ export async function POST(request: Request) {
     const validation = validateBody(writeQuerySchema, body);
     if (!validation.success) return validation.response;
 
-    const { connectionId, query, params } = validation.data;
+    const { connectionId, query, params, widgetId, dashboardId } =
+      validation.data;
 
     // Only connection owners can execute write queries (tenant-scoped)
     const [connection] = await db
@@ -51,14 +57,56 @@ export async function POST(request: Request) {
       return notFound("Connection not found");
     }
 
+    // Per-widget write enforcement: when widgetId + dashboardId are provided,
+    // verify the widget's allowWrites flag from the dashboard layout.
+    // Form widgets (legacy path) omit these fields — user-level canWrite
+    // is still enforced above.
+    let widgetDatabaseOverride: string | undefined;
+    if (widgetId && dashboardId) {
+      const [dashboard] = await db
+        .select()
+        .from(dashboards)
+        .where(
+          and(
+            eq(dashboards.id, dashboardId),
+            eq(dashboards.tenantId, tenantId),
+          ),
+        )
+        .limit(1);
+
+      if (!dashboard) {
+        return notFound("Dashboard not found");
+      }
+
+      const layout = dashboard.layoutJson as DashboardLayoutV2 | null;
+      const widget = layout?.pages
+        ?.flatMap((p) => p.widgets)
+        .find((w: DashboardWidget) => w.id === widgetId);
+
+      if (!widget) {
+        return notFound("Widget not found in dashboard");
+      }
+
+      if (!widget.allowWrites) {
+        return forbidden("Write mode is not enabled for this widget");
+      }
+
+      widgetDatabaseOverride = widget.database;
+    }
+
     const credentials = decryptJson<ConnectionCredentials>(
       connection.configEncrypted,
     );
 
+    // Use per-card database override if set
+    const effectiveCredentials = widgetDatabaseOverride
+      ? { ...credentials, database: widgetDatabaseOverride }
+      : credentials;
+
     const queryStart = performance.now();
     const result = await executeQuery(
       connection.type as DbType,
-      credentials,
+      effectiveCredentials,
       { query, params },
       { accessMode: "WRITE" },
     );

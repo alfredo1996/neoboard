@@ -11,6 +11,8 @@ interface WidgetQueryInput {
   connectionId: string;
   query: string;
   params?: Record<string, unknown>;
+  /** Per-card database override. */
+  database?: string;
 }
 
 interface QueryResult {

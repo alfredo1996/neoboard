@@ -209,3 +209,32 @@ export async function testConnection(
 
   return connModule.checkConnection(config);
 }
+
+/**
+ * List available databases on the connection server.
+ * Returns an empty array if the operation is unsupported or fails.
+ */
+export async function listDatabases(
+  type: DbType,
+  credentials: ConnectionCredentials,
+): Promise<string[]> {
+  const connModule = getOrCreateModule(type, credentials) as {
+    listDatabases: () => Promise<string[]>;
+  };
+  return connModule.listDatabases();
+}
+
+/**
+ * List available schemas in the current database (PostgreSQL only).
+ * Returns an empty array if the operation is unsupported or fails.
+ */
+export async function listSchemas(
+  type: DbType,
+  credentials: ConnectionCredentials,
+): Promise<string[]> {
+  const connModule = getOrCreateModule(type, credentials) as {
+    listSchemas?: () => Promise<string[]>;
+  };
+  if (typeof connModule.listSchemas !== "function") return [];
+  return connModule.listSchemas();
+}

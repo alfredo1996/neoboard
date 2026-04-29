@@ -139,6 +139,32 @@ export class Neo4jConnectionModule extends ConnectionModule {
   }
 
   /**
+   * Lists available databases on the Neo4j server.
+   * Uses SHOW DATABASES (Neo4j 4.x+). Filters out the "system" database
+   * and any databases that are not online.
+   * Returns an empty array if SHOW DATABASES is not supported (Neo4j < 4.x)
+   * or if the query fails for any reason (graceful fallback).
+   */
+  async listDatabases(): Promise<string[]> {
+    const driver = this.getDriver();
+    const session = driver.session({
+      defaultAccessMode: neo4j.session.READ,
+      database: "system",
+    });
+    try {
+      const result = await session.run(
+        "SHOW DATABASES YIELD name, currentStatus WHERE name <> 'system' AND currentStatus = 'online' RETURN name",
+      );
+      return result.records.map((r) => r.get("name") as string);
+    } catch {
+      // Graceful fallback: SHOW DATABASES not supported or permission denied
+      return [];
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
    * Checks if the database connection is working by running a simple query.
    * @returns Promise<boolean> - true if connection is valid, otherwise throws.
    * @param connectionConfig
