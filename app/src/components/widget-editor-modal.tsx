@@ -40,6 +40,7 @@ import {
   Alert,
   AlertTitle,
   AlertDescription,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -66,6 +67,7 @@ import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { TransformEditor } from "./widget-editor/transform-editor";
+import { DatabaseSelector } from "./widget-editor/database-selector";
 import { TemplateBrowser } from "./widget-editor/template-browser";
 import { useAutoPreview } from "./widget-editor/use-auto-preview";
 import { AdvancedCachingSection } from "./widget-editor/advanced-caching-section";
@@ -96,6 +98,8 @@ export interface WidgetEditorModalProps {
   initialTemplate?: WidgetTemplate;
   /** Cached query data from the dashboard — shown as preview immediately without re-running */
   initialPreviewData?: { data: unknown; resultId: string };
+  /** Whether the current user has write permission. Controls visibility of the write toggle. */
+  canWrite?: boolean;
 }
 
 export function WidgetEditorModal({
@@ -110,6 +114,7 @@ export function WidgetEditorModal({
   layout,
   initialTemplate,
   initialPreviewData,
+  canWrite = false,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
@@ -119,6 +124,10 @@ export function WidgetEditorModal({
   const setChartType = useWidgetEditorStore((s) => s.setChartType);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const setConnectionId = useWidgetEditorStore((s) => s.setConnectionId);
+  const database = useWidgetEditorStore((s) => s.database);
+  const setDatabase = useWidgetEditorStore((s) => s.setDatabase);
+  const allowWrites = useWidgetEditorStore((s) => s.allowWrites);
+  const setAllowWrites = useWidgetEditorStore((s) => s.setAllowWrites);
   const query = useWidgetEditorStore((s) => s.query);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const setChartOptions = useWidgetEditorStore((s) => s.setChartOptions);
@@ -714,6 +723,18 @@ export function WidgetEditorModal({
                         />
                       )}
 
+                      {/* Per-card database selector */}
+                      {!isParamSelect &&
+                        !isContentOnly &&
+                        selectedConnection?.allowPerCardDb &&
+                        connectionId && (
+                          <DatabaseSelector
+                            connectionId={connectionId}
+                            database={database}
+                            onDatabaseChange={setDatabase}
+                          />
+                        )}
+
                       {/* Form fields editor (form type only) */}
                       {isForm && <FormFieldsEditor />}
                     </div>
@@ -784,6 +805,34 @@ export function WidgetEditorModal({
                       />
                     ) : (
                       <div className="space-y-4">
+                        {/* Write mode — only for users with canWrite, not content-only widgets */}
+                        {canWrite && !isLabMode && !isContentOnly && (
+                          <div className="space-y-4">
+                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                              Write Mode
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="allow-writes"
+                                checked={allowWrites}
+                                onCheckedChange={(checked) =>
+                                  setAllowWrites(!!checked)
+                                }
+                              />
+                              <Label htmlFor="allow-writes" className="text-sm">
+                                Enable write mode
+                              </Label>
+                            </div>
+                            {allowWrites && (
+                              <p className="text-xs text-muted-foreground pl-6">
+                                This widget can execute write queries. The
+                                server still requires your account to have write
+                                permission.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         <AdvancedCachingSection />
                         {chartSupportsClickAction(chartType) && (
                           <AdvancedInteractivitySection

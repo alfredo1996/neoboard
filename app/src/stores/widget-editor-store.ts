@@ -64,6 +64,12 @@ export interface WidgetEditorState {
   templateId?: string;
   templateSyncedAt?: string;
 
+  // ── Per-card database + write mode ───────────────────────────────
+  /** Per-card database override (empty = use connection default). */
+  database: string;
+  /** When true, this widget may execute write queries. */
+  allowWrites: boolean;
+
   // ── Chart options ───────────────────────────────────────────────
   chartOptions: Record<string, unknown>;
   enableCache: boolean;
@@ -118,6 +124,8 @@ export interface WidgetEditorState {
   setConnectionId: (id: string) => void;
   setQuery: (q: string) => void;
   setTitle: (t: string) => void;
+  setDatabase: (v: string) => void;
+  setAllowWrites: (v: boolean) => void;
   setChartOptions: (
     opts:
       | Record<string, unknown>
@@ -238,6 +246,8 @@ function getInitialState() {
     title: "",
     templateId: undefined as string | undefined,
     templateSyncedAt: undefined as string | undefined,
+    database: "",
+    allowWrites: false,
     chartOptions: getChartDefaults("bar"),
     enableCache: true,
     cacheTtlMinutes: 5,
@@ -280,6 +290,8 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
     if (!chartSupportsStyling(t)) set({ stylingEnabled: false });
   },
   setConnectionId: (id) => set({ connectionId: id }),
+  setDatabase: (v) => set({ database: v }),
+  setAllowWrites: (v) => set({ allowWrites: v }),
   setQuery: (q) => set({ query: q }),
   setTitle: (t) => set({ title: t }),
   setChartOptions: (opts) =>
@@ -390,6 +402,8 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
         Object.keys(opts).length > 0
           ? opts
           : getChartDefaults(widget.chartType),
+      database: widget.database ?? "",
+      allowWrites: widget.allowWrites ?? false,
       enableCache: s.enableCache !== false,
       cacheTtlMinutes: (s.cacheTtlMinutes as number | undefined) ?? 5,
       clickActionEnabled: !!ca,

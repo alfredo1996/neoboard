@@ -29,6 +29,7 @@ export async function GET(request: Request) {
         id: connections.id,
         name: connections.name,
         type: connections.type,
+        allowPerCardDb: connections.allowPerCardDb,
         createdAt: connections.createdAt,
         updatedAt: connections.updatedAt,
       })

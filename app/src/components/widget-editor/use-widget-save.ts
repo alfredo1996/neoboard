@@ -29,6 +29,8 @@ export function useBuildWidgetForSave(
   const dateSub = useWidgetEditorStore((s) => s.dateSub);
   const multiSelect = useWidgetEditorStore((s) => s.multiSelect);
   const paramWidgetName = useWidgetEditorStore((s) => s.paramWidgetName);
+  const database = useWidgetEditorStore((s) => s.database);
+  const allowWrites = useWidgetEditorStore((s) => s.allowWrites);
   const templateId = useWidgetEditorStore((s) => s.templateId);
   const templateSyncedAt = useWidgetEditorStore((s) => s.templateSyncedAt);
   const buildClickAction = useWidgetEditorStore((s) => s.buildClickAction);
@@ -82,6 +84,8 @@ export function useBuildWidgetForSave(
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
       params: existingWidget?.params,
+      database: isContentOnly ? undefined : database || undefined,
+      allowWrites: isContentOnly ? undefined : allowWrites || undefined,
       settings: {
         ...(existingWidget?.settings ?? {}),
         title: title || undefined,
@@ -117,6 +121,8 @@ export function useBuildWidgetForSave(
     layout,
     chartType,
     connectionId,
+    database,
+    allowWrites,
     query,
     title,
     chartOptions,
