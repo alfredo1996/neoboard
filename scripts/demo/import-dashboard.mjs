@@ -178,6 +178,9 @@ const KNOWN_CHART_TYPES = new Set([
   "sunburst",
   "radar",
   "treemap",
+  "gantt",
+  "circle-packing",
+  "choropleth",
 ]);
 
 const KNOWN_CLICK_ACTION_TYPES = new Set([
