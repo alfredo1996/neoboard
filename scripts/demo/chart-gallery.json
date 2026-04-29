@@ -744,6 +744,80 @@
           { "i": "gantt-md", "x": 0, "y": 0, "w": 12, "h": 3 },
           { "i": "gantt-chart", "x": 1, "y": 3, "w": 10, "h": 7 }
         ]
+      },
+      {
+        "id": "page-circle-packing",
+        "title": "19. Circle Packing",
+        "widgets": [
+          {
+            "id": "circle-packing-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Circle Packing\n\nNested circles showing hierarchical data — similar to treemap but uses area of circles instead of rectangles. Best for **proportional comparisons** across a hierarchy.\n\n**Data shape:** query returns `name` and `value` columns. Hierarchy is built from the data structure.\n\n**Options shown:** `showLabels: true`, `padding: 3`."
+              }
+            }
+          },
+          {
+            "id": "circle-packing-chart",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 25",
+            "settings": {
+              "title": "Top 25 products by revenue",
+              "chartOptions": {
+                "showLabels": true,
+                "padding": 3,
+                "colorPalette": "tableau"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "circle-packing-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "circle-packing-chart", "x": 2, "y": 3, "w": 8, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-choropleth",
+        "title": "20. Choropleth Map",
+        "widgets": [
+          {
+            "id": "choropleth-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Choropleth Map\n\nWorld map shaded by value per country. Uses GeoJSON boundaries and a continuous color scale. Great for **geographic distributions** like revenue by country, user signups, or regional metrics.\n\n**Data shape:** query returns `name` (country name) and `value` (numeric) columns.\n\n**Options shown:** `showLabels: false`, `showVisualMap: true`, `roam: true` (scroll to zoom), custom min/max colors."
+              }
+            }
+          },
+          {
+            "id": "choropleth-chart",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "Customers by country",
+              "chartOptions": {
+                "showLabels": false,
+                "showVisualMap": true,
+                "roam": true,
+                "minColor": "#e8f4f8",
+                "maxColor": "#08306b"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "choropleth-md", "x": 0, "y": 0, "w": 12, "h": 3 },
+          { "i": "choropleth-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+        ]
       }
     ]
   }
