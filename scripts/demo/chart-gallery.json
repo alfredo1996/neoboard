@@ -728,7 +728,7 @@
             "id": "gantt-chart",
             "chartType": "gantt",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS task, o.created_at AS start, o.created_at + INTERVAL '7 days' * (ROW_NUMBER() OVER (ORDER BY p.name)) AS end, CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price, o.created_at ORDER BY o.created_at LIMIT 12",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 12) sub",
             "settings": {
               "title": "Product order timeline",
               "chartOptions": {
