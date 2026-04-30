@@ -91,14 +91,22 @@ export async function POST(request: Request) {
         return forbidden("Write mode is not enabled for this widget");
       }
 
-      widgetDatabaseOverride = widget.database;
+      // Validate widget is bound to this connection
+      if (widget.connectionId !== connectionId) {
+        return forbidden("Widget does not belong to this connection");
+      }
+
+      // Only apply per-card DB override when the connection allows it
+      if (widget.database && connection.allowPerCardDb) {
+        widgetDatabaseOverride = widget.database;
+      }
     }
 
     const credentials = decryptJson<ConnectionCredentials>(
       connection.configEncrypted,
     );
 
-    // Use per-card database override if set
+    // Use per-card database override if set and allowed
     const effectiveCredentials = widgetDatabaseOverride
       ? { ...credentials, database: widgetDatabaseOverride }
       : credentials;

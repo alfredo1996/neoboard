@@ -22,6 +22,11 @@ export async function POST(request: Request) {
       username: config.username,
       password: config.password,
       database: config.database,
+      sslRejectUnauthorized: config.sslRejectUnauthorized,
+      connectionTimeout: config.connectionTimeout,
+      queryTimeout: config.queryTimeout,
+      maxPoolSize: config.maxPoolSize,
+      statementTimeout: config.statementTimeout,
     };
 
     const databases = await listDatabases(type as DbType, credentials).catch(

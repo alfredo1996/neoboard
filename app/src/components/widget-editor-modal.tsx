@@ -949,8 +949,8 @@ export function WidgetEditorModal({
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
       params: widget?.params,
-      database: database || undefined,
-      allowWrites: allowWrites || undefined,
+      database: isContentOnly ? undefined : database || undefined,
+      allowWrites: isContentOnly ? undefined : allowWrites || undefined,
       settings: {
         ...(widget?.settings ?? {}),
         title: title || undefined,
@@ -1493,8 +1493,8 @@ export function WidgetEditorModal({
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {/* Write mode — only for users with canWrite */}
-                        {canWrite && !isLabMode && (
+                        {/* Write mode — only for users with canWrite, not content-only widgets */}
+                        {canWrite && !isLabMode && !isContentOnly && (
                           <div className="space-y-4">
                             <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
                               Write Mode

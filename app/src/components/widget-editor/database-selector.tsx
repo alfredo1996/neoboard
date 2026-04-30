@@ -34,7 +34,12 @@ export function DatabaseSelector({
   }
 
   if (databases.length === 0) {
-    return null;
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-xs">Database</Label>
+        <p className="text-xs text-muted-foreground">No databases available</p>
+      </div>
+    );
   }
 
   return (

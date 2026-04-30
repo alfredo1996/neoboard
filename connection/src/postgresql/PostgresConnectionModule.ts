@@ -247,7 +247,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       const client = await pool.connect();
       try {
         const result = await client.query(
-          "SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' ORDER BY schema_name",
+          "SELECT schema_name FROM information_schema.schemata WHERE schema_name <> 'information_schema' AND schema_name NOT LIKE 'pg\\_%' ORDER BY schema_name",
         );
         return result.rows.map(
           (row: { schema_name: string }) => row.schema_name,

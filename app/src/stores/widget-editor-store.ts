@@ -275,7 +275,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
     if (!chartSupportsClickAction(t)) set({ clickActionEnabled: false });
     if (!chartSupportsStyling(t)) set({ stylingEnabled: false });
   },
-  setConnectionId: (id) => set({ connectionId: id }),
+  setConnectionId: (id) => set({ connectionId: id, database: undefined }),
   setDatabase: (v) => set({ database: v }),
   setAllowWrites: (v) => set({ allowWrites: v }),
   setQuery: (q) => set({ query: q }),
