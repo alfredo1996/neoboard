@@ -18,6 +18,9 @@ vi.mock("@neoboard/components", () => ({
   SunburstChart: Stub,
   RadarChart: Stub,
   TreemapChart: Stub,
+  GanttChart: Stub,
+  CirclePackingChart: Stub,
+  ChoroplethChart: Stub,
   EmptyState: Stub,
   Skeleton: Stub,
 }));
