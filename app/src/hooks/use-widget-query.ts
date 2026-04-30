@@ -188,6 +188,7 @@ export function useWidgetQuery(
     queryKey: [
       "widget-query",
       mergedInput?.connectionId,
+      mergedInput?.database ?? null,
       mergedInput?.query,
       mergedInput?.params,
       options?.staleTime ?? 0,

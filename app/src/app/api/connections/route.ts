@@ -68,7 +68,9 @@ export async function POST(request: Request) {
         id: connections.id,
         name: connections.name,
         type: connections.type,
+        allowPerCardDb: connections.allowPerCardDb,
         createdAt: connections.createdAt,
+        updatedAt: connections.updatedAt,
       });
 
     // Fire-and-forget: pre-warm the schema cache for the new connection

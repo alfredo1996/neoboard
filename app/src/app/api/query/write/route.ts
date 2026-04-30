@@ -100,6 +100,11 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         return forbidden("Write mode is not enabled for this widget");
       }
 
+      // Validate widget is bound to this connection
+      if (widget.connectionId !== connectionId) {
+        return forbidden("Widget does not belong to this connection");
+      }
+
       // Only apply per-card DB override when the connection allows it
       if (widget.database && connection.allowPerCardDb) {
         widgetDatabaseOverride = widget.database;
