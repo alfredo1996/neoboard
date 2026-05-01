@@ -558,4 +558,178 @@ describe("POST /api/query", () => {
     expect(body.meta.rowLimit).toBe(5000);
     expect(body.data.data).toEqual({ nodes: [], edges: [] });
   });
+
+  // --- Per-card database override tests ---
+
+  it("applies databaseOverride when connection.allowPerCardDb is true", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "neo4j",
+          configEncrypted: "enc",
+          userId: "user-1",
+          allowPerCardDb: true,
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+      database: "neo4j",
+    });
+    mockExecuteQuery.mockResolvedValue({
+      data: [{ n: 1 }],
+      fields: ["n"],
+      truncated: false,
+      rowLimit: 5000,
+    });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "MATCH (n) RETURN n",
+        database: "otherdb",
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    // executeQuery should have been called with credentials where database is overridden
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "neo4j",
+      expect.objectContaining({ database: "otherdb" }),
+      expect.anything(),
+    );
+  });
+
+  it("ignores databaseOverride when connection.allowPerCardDb is false", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "neo4j",
+          configEncrypted: "enc",
+          userId: "user-1",
+          allowPerCardDb: false,
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+      database: "neo4j",
+    });
+    mockExecuteQuery.mockResolvedValue({
+      data: [{ n: 1 }],
+      fields: ["n"],
+      truncated: false,
+      rowLimit: 5000,
+    });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "MATCH (n) RETURN n",
+        database: "otherdb",
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    // executeQuery should have been called with the original credentials (database NOT overridden)
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "neo4j",
+      expect.objectContaining({ database: "neo4j" }),
+      expect.anything(),
+    );
+  });
+
+  it("ignores databaseOverride when connection.allowPerCardDb is undefined", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "postgresql",
+          configEncrypted: "enc",
+          userId: "user-1",
+          // allowPerCardDb not set
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({
+      uri: "postgres://localhost",
+      username: "u",
+      password: "p",
+      database: "mydb",
+    });
+    mockExecuteQuery.mockResolvedValue({
+      data: [{ n: 1 }],
+      fields: ["n"],
+      truncated: false,
+      rowLimit: 5000,
+    });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "SELECT 1",
+        database: "hackerdb",
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    // Original database preserved — override ignored
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "postgresql",
+      expect.objectContaining({ database: "mydb" }),
+      expect.anything(),
+    );
+  });
+
+  it("does not override when no database field is sent in body", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "neo4j",
+          configEncrypted: "enc",
+          userId: "user-1",
+          allowPerCardDb: true,
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+      database: "neo4j",
+    });
+    mockExecuteQuery.mockResolvedValue({
+      data: [],
+      fields: [],
+      truncated: false,
+      rowLimit: 5000,
+    });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "MATCH (n) RETURN n",
+        // no database field
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    // Original credentials used as-is
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "neo4j",
+      expect.objectContaining({ database: "neo4j" }),
+      expect.anything(),
+    );
+  });
 });
