@@ -17,16 +17,14 @@ export async function POST(request: Request) {
 
     const { type, config } = validation.data;
 
-    const credentials = config;
-
-    const databases = await listDatabases(type as DbType, credentials).catch(
+    const databases = await listDatabases(type as DbType, config).catch(
       () => [] as string[],
     );
 
     // For PostgreSQL, also fetch schemas
     let schemas: string[] | undefined;
     if (type === "postgresql") {
-      schemas = await listSchemas(type as DbType, credentials).catch(
+      schemas = await listSchemas(type as DbType, config).catch(
         () => [] as string[],
       );
     }
