@@ -288,7 +288,7 @@ export default async function globalSetup() {
     } else {
       console.log("⏳ Building Next.js (production)...");
     }
-    execSync("npx next build", {
+    execSync("npx next build --webpack", {
       cwd: appDir,
       stdio: "inherit",
       env: serverEnv,
