@@ -690,6 +690,7 @@ describe("query-executor", () => {
       mockCreateConnectionModule.mockReturnValue({
         runQuery: mockRunQuery,
         checkConnection: mockCheckConnection,
+        close: mockClose,
         listDatabases: mockListDatabases,
         listSchemas: undefined,
       });
