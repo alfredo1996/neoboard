@@ -34,9 +34,7 @@ import {
   ChartSettingsPanel,
   getDefaultChartSettings,
   ColorScalePanel,
-  Badge,
   Button,
-  LoadingButton,
   Input,
   Label,
   Alert,
@@ -46,12 +44,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  Checkbox,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
-  getChartConfig,
   chartSupportsClickAction,
   chartSupportsStyling,
   getAllChartTypes,
@@ -59,22 +54,26 @@ import {
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
-import { extractReferencedParams } from "@/hooks/use-widget-query";
 import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
 export { wrapWithPreviewLimit };
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
+import { useBuildWidgetForSave } from "./widget-editor/use-widget-save";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
 import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
-import {
-  ParameterConfigSection,
-  resolveInternalParamType,
-} from "./widget-editor/parameter-config-section";
+import { ParameterConfigSection } from "./widget-editor/parameter-config-section";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { TransformEditor } from "./widget-editor/transform-editor";
 import { TemplateBrowser } from "./widget-editor/template-browser";
+import { useAutoPreview } from "./widget-editor/use-auto-preview";
+import { AdvancedCachingSection } from "./widget-editor/advanced-caching-section";
+import { AdvancedInteractivitySection } from "./widget-editor/advanced-interactivity-section";
+import { AdvancedStylingSection } from "./widget-editor/advanced-styling-section";
+import { AdvancedFormRefreshSection } from "./widget-editor/advanced-form-refresh-section";
+import { LabMetadataForm } from "./widget-editor/lab-metadata-form";
+import { ModalFooter } from "./widget-editor/modal-footer";
 import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
 
 export interface WidgetEditorModalProps {
@@ -123,7 +122,6 @@ export function WidgetEditorModal({
   const query = useWidgetEditorStore((s) => s.query);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const setChartOptions = useWidgetEditorStore((s) => s.setChartOptions);
-  const stylingRules = useWidgetEditorStore((s) => s.stylingRules);
   const actionRules = useWidgetEditorStore((s) => s.actionRules);
   const formFields = useWidgetEditorStore((s) => s.formFields);
   const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
@@ -133,8 +131,6 @@ export function WidgetEditorModal({
   const transforms = useWidgetEditorStore((s) => s.transforms);
   const setTransforms = useWidgetEditorStore((s) => s.setTransforms);
   const transformsEnabled = useWidgetEditorStore((s) => s.transformsEnabled);
-  const queryHistory = useWidgetEditorStore((s) => s.queryHistory);
-  const addToQueryHistory = useWidgetEditorStore((s) => s.addToQueryHistory);
   const setTransformsEnabled = useWidgetEditorStore(
     (s) => s.setTransformsEnabled,
   );
@@ -142,29 +138,19 @@ export function WidgetEditorModal({
   // ── Store-backed state (formerly local useState) ──────────────────
   const title = useWidgetEditorStore((s) => s.title);
   const setTitle = useWidgetEditorStore((s) => s.setTitle);
-  const templateId = useWidgetEditorStore((s) => s.templateId);
-  const templateSyncedAt = useWidgetEditorStore((s) => s.templateSyncedAt);
   const clickActionEnabled = useWidgetEditorStore((s) => s.clickActionEnabled);
   const setClickActionEnabled = useWidgetEditorStore(
     (s) => s.setClickActionEnabled,
   );
   const parameterName = useWidgetEditorStore((s) => s.parameterName);
-  const stylingEnabled = useWidgetEditorStore((s) => s.stylingEnabled);
   const setStylingEnabled = useWidgetEditorStore((s) => s.setStylingEnabled);
   const colorScales = useWidgetEditorStore((s) => s.colorScales);
   const setColorScales = useWidgetEditorStore((s) => s.setColorScales);
   const dialogStep = useWidgetEditorStore((s) => s.dialogStep);
   const setDialogStep = useWidgetEditorStore((s) => s.setDialogStep);
   const labName = useWidgetEditorStore((s) => s.labName);
-  const setLabName = useWidgetEditorStore((s) => s.setLabName);
   const labDescription = useWidgetEditorStore((s) => s.labDescription);
-  const setLabDescription = useWidgetEditorStore((s) => s.setLabDescription);
   const labTagsInput = useWidgetEditorStore((s) => s.labTagsInput);
-  const setLabTagsInput = useWidgetEditorStore((s) => s.setLabTagsInput);
-  const enableCache = useWidgetEditorStore((s) => s.enableCache);
-  const setEnableCache = useWidgetEditorStore((s) => s.setEnableCache);
-  const cacheTtlMinutes = useWidgetEditorStore((s) => s.cacheTtlMinutes);
-  const setCacheTtlMinutes = useWidgetEditorStore((s) => s.setCacheTtlMinutes);
   const connectorChanged = useWidgetEditorStore((s) => s.connectorChanged);
   const setConnectorChanged = useWidgetEditorStore(
     (s) => s.setConnectorChanged,
@@ -210,6 +196,9 @@ export function WidgetEditorModal({
 
   // ── Local-only state (not in store) ────────────────────────────────
 
+  // Build the widget object for saving — shared by handleSave and handleRunAndSave
+  const buildWidgetForSave = useBuildWidgetForSave(widget, layout);
+
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
   const updateTemplate = useUpdateWidgetTemplate();
@@ -239,12 +228,6 @@ export function WidgetEditorModal({
       }));
   }, [layout, widget?.id]);
 
-  // Save status for visual feedback after CMD+Shift+Enter
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
-    "idle",
-  );
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Widgets that already set the same parameter name (collision warning).
   // Use widget?.id ?? "" so new widgets (no id yet) still get collision checks.
   const paramSelectCollisions = useMemo(
@@ -270,12 +253,6 @@ export function WidgetEditorModal({
     }
     return all;
   }, [layout, widget?.id, clickActionEnabled, parameterName, actionRules]);
-
-  // refreshWidgetIds — local since no sub-editor writes to it
-  const refreshWidgetIds = useWidgetEditorStore((s) => s.refreshWidgetIds);
-  const setRefreshWidgetIds = useWidgetEditorStore(
-    (s) => s.setRefreshWidgetIds,
-  );
 
   // Seed query preview options — populated when user clicks "Test Seed Query"
   const seedQueryExecution = useQueryExecution();
@@ -304,20 +281,6 @@ export function WidgetEditorModal({
     () => connections.find((c) => c.id === connectionId) ?? null,
     [connections, connectionId],
   );
-
-  // Keep refs for values used inside handlePreview so that the callback
-  // identity stays stable and does not trigger the auto-preview effects
-  // on every render (fixes infinite preview loop — see #354).
-  const connectionIdRef = useRef(connectionId);
-  connectionIdRef.current = connectionId;
-  const queryRef = useRef(query);
-  queryRef.current = query;
-  const selectedConnectionRef = useRef(selectedConnection);
-  selectedConnectionRef.current = selectedConnection;
-  const allParamValuesRef = useRef(allParamValues);
-  allParamValuesRef.current = allParamValues;
-  const previewQueryRef = useRef(previewQuery);
-  previewQueryRef.current = previewQuery;
 
   // Template picker — only used in add mode
   const selectedConnectorType = selectedConnection?.type ?? undefined;
@@ -481,163 +444,20 @@ export function WidgetEditorModal({
     [],
   );
 
-  const handlePreview = useCallback(() => {
-    const cId = connectionIdRef.current;
-    const q = queryRef.current;
-    if (cId && q.trim()) {
-      const referenced = extractReferencedParams(q, allParamValuesRef.current);
-      const params =
-        Object.keys(referenced).length > 0 ? referenced : undefined;
-      const connectorType = selectedConnectionRef.current?.type ?? "neo4j";
-      const previewQuery_ = wrapWithPreviewLimit(q, connectorType);
-      previewQueryRef.current.mutate({
-        connectionId: cId,
-        query: previewQuery_,
-        params,
-      });
-    }
-  }, []);
-
-  // Auto-run preview when connection and query are present so column selectors
-  // are populated.  For "add" mode a short debounce avoids firing on every
-  // keystroke while the user is still typing the query.
-  // Skip if initialPreviewData was provided (we already have data to show).
-  const autoPreviewTriggered = useRef(false);
-  useEffect(() => {
-    if (!open) {
-      autoPreviewTriggered.current = false;
-      return;
-    }
-    if (autoPreviewTriggered.current) return;
-    if (!connectionId || !query.trim()) return;
-    if (initialPreviewData) {
-      autoPreviewTriggered.current = true;
-      return;
-    }
-    autoPreviewTriggered.current = true;
-    // Short delay so state updates (connectionId, query) from modal
-    // initialization commit before handlePreview reads them.
-    const delay = mode === "add" ? 300 : 50;
-    const timer = setTimeout(() => {
-      handlePreview();
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
-
-  // Auto-run preview when the query changes (debounced 800ms).
-  const prevQueryRef = useRef(query);
-  useEffect(() => {
-    if (!open) return;
-    if (prevQueryRef.current === query) return;
-    prevQueryRef.current = query;
-    if (!connectionId || !query.trim()) return;
-    const timer = setTimeout(() => {
-      handlePreview();
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [open, query, connectionId, handlePreview]);
-
-  // Handles CMD+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win/Linux): run query, then save on success.
-  const handleRunAndSave = useCallback(() => {
-    // Content-only widgets (markdown, iframe) don't have a query — skip the run+save shortcut.
-    if (chartType === "markdown" || chartType === "iframe") return;
-    if (!query.trim() || saveStatus === "saving") return;
-    setSaveStatus("saving");
-    previewQueryRef.current.mutate(
-      { connectionId, query },
-      {
-        onSuccess: () => {
-          if (savedTimerRef.current !== null) {
-            clearTimeout(savedTimerRef.current);
-          }
-          setSaveStatus("saved");
-          savedTimerRef.current = setTimeout(() => {
-            setSaveStatus("idle");
-            savedTimerRef.current = null;
-          }, 1500);
-          const id = widget?.id ?? crypto.randomUUID();
-          // Record query in history before saving
-          if (query.trim()) addToQueryHistory(query);
-          // Read the updated history after adding
-          const updatedHistory = useWidgetEditorStore.getState().queryHistory;
-          onSave({
-            id,
-            chartType,
-            connectionId,
-            query,
-            params: widget?.params,
-            settings: {
-              ...(widget?.settings ?? {}),
-              title: title || undefined,
-              chartOptions,
-              formFields: chartType === "form" ? formFields : undefined,
-              clickAction: buildClickAction(),
-              stylingConfig: buildStylingConfig(),
-              transforms: transforms.length ? transforms : undefined,
-              transformsEnabled,
-              conditionalFormatting: colorScales.length
-                ? { colorScales }
-                : undefined,
-              enableCache,
-              cacheTtlMinutes,
-              queryHistory: updatedHistory.length ? updatedHistory : undefined,
-            },
-            templateId,
-            templateSyncedAt,
-          });
-          onOpenChange(false);
-        },
-        onError: () => {
-          setSaveStatus("idle");
-        },
-      },
-    );
-  }, [
-    query,
-    saveStatus,
+  const { handlePreview, saveStatus } = useAutoPreview({
+    open,
+    mode,
     connectionId,
-    widget,
-    buildClickAction,
-    buildStylingConfig,
+    query,
     chartType,
-    title,
-    chartOptions,
-    formFields,
-    transforms,
-    transformsEnabled,
-    enableCache,
-    cacheTtlMinutes,
-    colorScales,
-    addToQueryHistory,
+    allParamValues,
+    selectedConnection: selectedConnection ?? undefined,
+    initialPreviewData,
+    previewQuery,
+    buildWidgetForSave,
     onSave,
     onOpenChange,
-    templateId,
-    templateSyncedAt,
-  ]);
-
-  // Register CMD+Shift+Enter / Ctrl+Shift+Enter on the dialog when it is open.
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "Enter") {
-        e.preventDefault();
-        handleRunAndSave();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => {
-      document.removeEventListener("keydown", handler);
-    };
-  }, [open, handleRunAndSave]);
-
-  // Clean up the "saved" feedback timer when the modal is closed.
-  useEffect(() => {
-    if (!open && savedTimerRef.current !== null) {
-      clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = null;
-      setSaveStatus("idle");
-    }
-  }, [open]);
+  });
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
@@ -685,80 +505,8 @@ export function WidgetEditorModal({
   const isContentOnly = isMarkdown || isIframe;
 
   function handleSave() {
-    const id = widget?.id ?? crypto.randomUUID();
-    // Record query in history before saving
-    if (query.trim() && !isParamSelect && !isContentOnly) {
-      addToQueryHistory(query);
-    }
-    const clickAction = buildClickAction();
-    const stylingConfig = buildStylingConfig();
-    const resolvedChartOptions = isParamSelect
-      ? {
-          ...chartOptions,
-          parameterType: resolveInternalParamType(
-            paramUIType,
-            dateSub,
-            multiSelect,
-          ),
-          parameterName: paramWidgetName,
-          seedQuery:
-            paramUIType === "select"
-              ? (chartOptions.seedQuery ?? "")
-              : undefined,
-        }
-      : chartOptions;
-    onSave({
-      id,
-      chartType,
-      connectionId:
-        (isParamSelect && paramUIType !== "select") || isContentOnly
-          ? ""
-          : connectionId,
-      query: isParamSelect || isContentOnly ? "" : query,
-      params: widget?.params,
-      settings: {
-        ...(widget?.settings ?? {}),
-        title: title || undefined,
-        chartOptions: isForm
-          ? {
-              ...chartOptions,
-              refreshWidgetIds:
-                refreshWidgetIds.length > 0 ? refreshWidgetIds : undefined,
-            }
-          : resolvedChartOptions,
-        formFields: isForm ? formFields : undefined,
-        clickAction:
-          isParamSelect || isForm || isContentOnly ? undefined : clickAction,
-        stylingConfig:
-          isParamSelect || isForm || isContentOnly ? undefined : stylingConfig,
-        conditionalFormatting:
-          isParamSelect || isForm || isContentOnly
-            ? undefined
-            : colorScales.length
-              ? { colorScales }
-              : undefined,
-        enableCache:
-          isParamSelect || isForm || isContentOnly ? undefined : enableCache,
-        cacheTtlMinutes:
-          isParamSelect || isForm || isContentOnly
-            ? undefined
-            : cacheTtlMinutes,
-        transforms:
-          isParamSelect || isForm || isContentOnly
-            ? undefined
-            : transforms.length
-              ? transforms
-              : undefined,
-        queryHistory:
-          isParamSelect || isContentOnly
-            ? undefined
-            : queryHistory.length
-              ? queryHistory
-              : undefined,
-      },
-      templateId,
-      templateSyncedAt,
-    });
+    const widgetToSave = buildWidgetForSave();
+    onSave(widgetToSave);
     onOpenChange(false);
   }
 
@@ -871,50 +619,7 @@ export function WidgetEditorModal({
               {/* Left column: tabs + settings */}
               <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
                 {/* Lab mode: template metadata */}
-                {isLabMode && (
-                  <div className="space-y-3 mb-4 pb-4 border-b">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lab-template-name">
-                        Template Name{" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="lab-template-name"
-                        value={labName}
-                        onChange={(e) => setLabName(e.target.value)}
-                        placeholder="My chart template"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lab-template-desc">
-                        Description{" "}
-                        <span className="text-muted-foreground text-xs">
-                          (optional)
-                        </span>
-                      </Label>
-                      <Input
-                        id="lab-template-desc"
-                        value={labDescription}
-                        onChange={(e) => setLabDescription(e.target.value)}
-                        placeholder="What does this template do?"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lab-template-tags">
-                        Tags{" "}
-                        <span className="text-muted-foreground text-xs">
-                          (comma-separated)
-                        </span>
-                      </Label>
-                      <Input
-                        id="lab-template-tags"
-                        value={labTagsInput}
-                        onChange={(e) => setLabTagsInput(e.target.value)}
-                        placeholder="e.g. neo4j, monitoring, kpi"
-                      />
-                    </div>
-                  </div>
-                )}
+                {isLabMode && <LabMetadataForm />}
 
                 {/* Widget title — always visible above tabs */}
                 <div className="space-y-1.5 mb-4">
@@ -1074,232 +779,19 @@ export function WidgetEditorModal({
                         No advanced options for parameter widgets.
                       </p>
                     ) : isForm ? (
-                      <div className="space-y-4">
-                        <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                          After Submit
-                        </h4>
-                        <p className="text-xs text-muted-foreground">
-                          Refresh these widgets when the form submits
-                          successfully.
-                        </p>
-                        {otherWidgets && otherWidgets.length > 0 ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">
-                                {refreshWidgetIds.length} of{" "}
-                                {otherWidgets.length} selected
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-xs px-2"
-                                onClick={() => {
-                                  const allSelected = otherWidgets.every((w) =>
-                                    refreshWidgetIds.includes(w.id),
-                                  );
-                                  setRefreshWidgetIds(
-                                    allSelected
-                                      ? []
-                                      : otherWidgets.map((w) => w.id),
-                                  );
-                                }}
-                              >
-                                {otherWidgets.every((w) =>
-                                  refreshWidgetIds.includes(w.id),
-                                )
-                                  ? "Deselect all"
-                                  : "Select all"}
-                              </Button>
-                            </div>
-                            {otherWidgets.map((w) => (
-                              <div
-                                key={w.id}
-                                className="flex items-center gap-2"
-                              >
-                                <Checkbox
-                                  id={`refresh-widget-${w.id}`}
-                                  checked={refreshWidgetIds.includes(w.id)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setRefreshWidgetIds([
-                                        ...refreshWidgetIds,
-                                        w.id,
-                                      ]);
-                                    } else {
-                                      setRefreshWidgetIds(
-                                        refreshWidgetIds.filter(
-                                          (id: string) => id !== w.id,
-                                        ),
-                                      );
-                                    }
-                                  }}
-                                />
-                                <Label
-                                  htmlFor={`refresh-widget-${w.id}`}
-                                  className="text-sm flex items-center gap-1.5"
-                                >
-                                  {w.title || "(untitled)"}
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs font-normal"
-                                  >
-                                    {getChartConfig(w.chartType)?.label ??
-                                      w.chartType}
-                                  </Badge>
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            No other widgets on this page.
-                          </p>
-                        )}
-                      </div>
+                      <AdvancedFormRefreshSection
+                        otherWidgets={otherWidgets ?? []}
+                      />
                     ) : (
                       <div className="space-y-4">
-                        {/* Caching */}
-                        <div className="space-y-4">
-                          <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                            Caching
-                          </h4>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="enable-cache"
-                              checked={enableCache}
-                              onCheckedChange={(checked) =>
-                                setEnableCache(!!checked)
-                              }
-                            />
-                            <Label htmlFor="enable-cache" className="text-sm">
-                              Cache query results
-                            </Label>
-                          </div>
-                          {enableCache && (
-                            <div className="pl-6 space-y-1.5">
-                              <Label htmlFor="cache-ttl" className="text-sm">
-                                Cache timeout (minutes)
-                              </Label>
-                              <Input
-                                id="cache-ttl"
-                                type="number"
-                                min={1}
-                                max={1440}
-                                value={cacheTtlMinutes}
-                                onChange={(e) =>
-                                  setCacheTtlMinutes(
-                                    Math.max(1, Number(e.target.value)),
-                                  )
-                                }
-                                className="w-24"
-                              />
-                              <p className="text-xs text-muted-foreground">
-                                Results are reused for up to {cacheTtlMinutes}{" "}
-                                minute{cacheTtlMinutes !== 1 ? "s" : ""} before
-                                re-querying.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Interactivity — hidden for chart types that don't support click actions */}
+                        <AdvancedCachingSection />
                         {chartSupportsClickAction(chartType) && (
-                          <div className="space-y-4 border-t pt-4">
-                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                              Interactivity
-                            </h4>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="click-action-enabled"
-                                checked={clickActionEnabled}
-                                onCheckedChange={(checked) =>
-                                  setClickActionEnabled(!!checked)
-                                }
-                              />
-                              <Label
-                                htmlFor="click-action-enabled"
-                                className="text-sm"
-                              >
-                                Enable click action
-                              </Label>
-                            </div>
-                            {clickActionEnabled && (
-                              <div className="space-y-3 pl-6">
-                                <p className="text-sm text-muted-foreground">
-                                  {actionRules.length === 0
-                                    ? "No action rules configured."
-                                    : `${actionRules.length} action rule(s) configured.`}
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setDialogStep("rules")}
-                                >
-                                  Manage Action Rules
-                                </Button>
-                                {clickActionCollisions.length > 0 && (
-                                  <Alert
-                                    variant="default"
-                                    className="py-2"
-                                    data-testid="click-action-collision-banner"
-                                  >
-                                    <Info className="h-4 w-4" />
-                                    <AlertTitle className="text-sm">
-                                      Parameter name already in use
-                                    </AlertTitle>
-                                    <AlertDescription className="text-xs">
-                                      {clickActionCollisions.length === 1
-                                        ? `A parameter set here is also set by: ${clickActionCollisions[0].title}.`
-                                        : `Parameters set here are also set by: ${clickActionCollisions.map((c) => c.title).join(", ")}.`}{" "}
-                                      Multiple widgets writing to the same
-                                      parameter may conflict.
-                                    </AlertDescription>
-                                  </Alert>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <AdvancedInteractivitySection
+                            clickActionCollisions={clickActionCollisions}
+                          />
                         )}
-
-                        {/* Styling — row-level rules + cell-level formatting */}
                         {chartSupportsStyling(chartType) && (
-                          <div className="space-y-4 border-t pt-4">
-                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                              Styling
-                            </h4>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="styling-enabled"
-                                checked={stylingEnabled}
-                                onCheckedChange={(checked) =>
-                                  setStylingEnabled(!!checked)
-                                }
-                              />
-                              <Label
-                                htmlFor="styling-enabled"
-                                className="text-sm"
-                              >
-                                Enable rule-based styling
-                              </Label>
-                            </div>
-                            {stylingEnabled && (
-                              <div className="space-y-3 pl-6">
-                                <p className="text-sm text-muted-foreground">
-                                  {stylingRules.length === 0
-                                    ? "No styling rules configured."
-                                    : `${stylingRules.length} styling rule(s) configured.`}
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setDialogStep("styling-rules")}
-                                >
-                                  Manage Styling Rules
-                                </Button>
-                              </div>
-                            )}
-                          </div>
+                          <AdvancedStylingSection />
                         )}
                       </div>
                     )
@@ -1347,56 +839,16 @@ export function WidgetEditorModal({
               />
             </div>
 
-            <DialogFooter>
-              {labError && (
-                <p className="text-sm text-destructive mr-auto">{labError}</p>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              {isLabMode ? (
-                <LoadingButton
-                  type="button"
-                  disabled={
-                    !labName.trim() || (!isContentOnly && !query.trim())
-                  }
-                  loading={labSaving}
-                  loadingText="Saving..."
-                  onClick={handleLabSave}
-                >
-                  {mode === "lab-edit" ? "Save Template" : "Create Template"}
-                </LoadingButton>
-              ) : (
-                <LoadingButton
-                  type="button"
-                  disabled={
-                    isParamSelect
-                      ? !paramWidgetName.trim() ||
-                        (paramUIType === "select" &&
-                          (!connectionId ||
-                            !String(chartOptions.seedQuery ?? "").trim()))
-                      : isContentOnly
-                        ? false
-                        : isForm
-                          ? !connectionId || !query.trim()
-                          : !query.trim()
-                  }
-                  loading={saveStatus === "saving"}
-                  loadingText="Saving..."
-                  onClick={handleSave}
-                >
-                  {saveStatus === "saved"
-                    ? "Saved!"
-                    : mode === "edit"
-                      ? "Save Changes"
-                      : "Add Widget"}
-                </LoadingButton>
-              )}
-            </DialogFooter>
+            <ModalFooter
+              mode={mode}
+              labError={labError}
+              labSaving={labSaving}
+              saveStatus={saveStatus}
+              isContentOnly={isContentOnly}
+              onCancel={() => onOpenChange(false)}
+              onSave={handleSave}
+              onLabSave={handleLabSave}
+            />
           </>
         )}
       </DialogContent>
