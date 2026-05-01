@@ -1,0 +1,341 @@
+import React from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+
+vi.mock("@neoboard/components", () => ({
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  ),
+  Label: ({
+    children,
+    htmlFor,
+  }: React.PropsWithChildren<{ htmlFor?: string }>) => (
+    <label htmlFor={htmlFor}>{children}</label>
+  ),
+  Input: ({
+    id,
+    value,
+    onChange,
+    ...props
+  }: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input
+      id={id}
+      value={value}
+      onChange={onChange}
+      data-testid={id}
+      {...props}
+    />
+  ),
+  Select: ({
+    children,
+    value,
+    onValueChange,
+  }: React.PropsWithChildren<{
+    value: string;
+    onValueChange: (v: string) => void;
+  }>) => (
+    <select value={value} onChange={(e) => onValueChange(e.target.value)}>
+      {children}
+    </select>
+  ),
+  SelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  SelectItem: ({
+    children,
+    value,
+  }: React.PropsWithChildren<{ value: string }>) => (
+    <option value={value}>{children}</option>
+  ),
+  SelectTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  SelectValue: ({ placeholder }: { placeholder?: string }) => (
+    <span>{placeholder}</span>
+  ),
+  Checkbox: ({
+    id,
+    checked,
+    onCheckedChange,
+  }: {
+    id?: string;
+    checked?: boolean;
+    onCheckedChange?: (v: boolean) => void;
+  }) => (
+    <input
+      type="checkbox"
+      id={id}
+      checked={checked}
+      onChange={(e) => onCheckedChange?.(e.target.checked)}
+      data-testid={id}
+    />
+  ),
+  Textarea: ({
+    id,
+    value,
+    onChange,
+    ...props
+  }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
+    <textarea
+      id={id}
+      value={value}
+      onChange={onChange}
+      data-testid={id}
+      {...props}
+    />
+  ),
+}));
+
+vi.mock("lucide-react", () => {
+  const Icon = () => <span />;
+  return { Calendar: Icon, Type: Icon, ListFilter: Icon };
+});
+
+const mockSetParamUIType = vi.fn();
+const mockSetDateSub = vi.fn();
+const mockSetMultiSelect = vi.fn();
+const mockSetParamWidgetName = vi.fn();
+const mockSetChartOptions = vi.fn();
+
+let mockStoreState: Record<string, unknown> = {};
+
+vi.mock("@/stores/widget-editor-store", () => ({
+  useWidgetEditorStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector(mockStoreState),
+}));
+
+import { ParameterConfigSection } from "../parameter-config-section";
+
+const baseSeedExecution = {
+  isPending: false,
+  isError: false,
+  error: null,
+  mutate: vi.fn(),
+};
+
+describe("ParameterConfigSection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStoreState = {
+      paramUIType: "select",
+      setParamUIType: mockSetParamUIType,
+      dateSub: "single",
+      setDateSub: mockSetDateSub,
+      multiSelect: false,
+      setMultiSelect: mockSetMultiSelect,
+      paramWidgetName: "",
+      setParamWidgetName: mockSetParamWidgetName,
+      chartOptions: { seedQuery: "" },
+      setChartOptions: mockSetChartOptions,
+      connectionId: "conn-1",
+    };
+  });
+
+  it("renders parameter type selector", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Parameter Type")).toBeInTheDocument();
+  });
+
+  it("renders parameter name input", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Parameter Name")).toBeInTheDocument();
+  });
+
+  it("calls setParamWidgetName on name change", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    fireEvent.change(screen.getByTestId("param-widget-name"), {
+      target: { value: "country" },
+    });
+    expect(mockSetParamWidgetName).toHaveBeenCalledWith("country");
+  });
+
+  it("shows reference hint when param name is set", () => {
+    mockStoreState.paramWidgetName = "country";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByTestId("param-reference-hint")).toBeInTheDocument();
+    expect(screen.getByText("$param_country")).toBeInTheDocument();
+  });
+
+  it("does not show reference hint when param name is empty", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(
+      screen.queryByTestId("param-reference-hint"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows multi-select toggle for select type", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Allow multiple selections")).toBeInTheDocument();
+  });
+
+  it("hides multi-select toggle for non-select types", () => {
+    mockStoreState.paramUIType = "date";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(
+      screen.queryByText("Allow multiple selections"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows date mode selector for date type", () => {
+    mockStoreState.paramUIType = "date";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Date Mode")).toBeInTheDocument();
+  });
+
+  it("hides date mode selector for non-date types", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.queryByText("Date Mode")).not.toBeInTheDocument();
+  });
+
+  it("shows seed query section for select type", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Seed Query")).toBeInTheDocument();
+    expect(screen.getByText("Test Seed Query")).toBeInTheDocument();
+  });
+
+  it("hides seed query section for freetext type", () => {
+    mockStoreState.paramUIType = "freetext";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.queryByText("Seed Query")).not.toBeInTheDocument();
+  });
+
+  it("disables test seed query button when no connection", () => {
+    mockStoreState.connectionId = "";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Test Seed Query")).toBeDisabled();
+  });
+
+  it("disables test seed query button when seed query empty", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Test Seed Query")).toBeDisabled();
+  });
+
+  it("shows Running... when seed query is pending", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={{ ...baseSeedExecution, isPending: true }}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Running...")).toBeInTheDocument();
+  });
+
+  it("shows error message on seed query error", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={{
+          ...baseSeedExecution,
+          isError: true,
+          error: new Error("Connection failed"),
+        }}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Connection failed")).toBeInTheDocument();
+  });
+
+  it("shows options count when seed preview has results", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={[
+          { value: "a", label: "A" },
+          { value: "b", label: "B" },
+          { value: "c", label: "C" },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/3 options loaded/)).toBeInTheDocument();
+  });
+
+  it("shows singular for 1 option", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={[{ value: "a", label: "A" }]}
+      />,
+    );
+    expect(screen.getByText(/1 option loaded/)).toBeInTheDocument();
+  });
+
+  it("shows date range sub-parameters in reference hint", () => {
+    mockStoreState.paramUIType = "date";
+    mockStoreState.dateSub = "range";
+    mockStoreState.paramWidgetName = "period";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("$param_period_from")).toBeInTheDocument();
+    expect(screen.getByText("$param_period_to")).toBeInTheDocument();
+  });
+});
