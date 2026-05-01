@@ -110,7 +110,7 @@ describe("plugin hardening", () => {
           type: "",
           label: "X",
           component: () => null,
-          transform: (d) => d,
+          transform: (d: unknown) => d,
         } as never),
       ).toThrow("type is required");
     });
@@ -121,7 +121,7 @@ describe("plugin hardening", () => {
           type: "x",
           label: "",
           component: () => null,
-          transform: (d) => d,
+          transform: (d: unknown) => d,
         } as never),
       ).toThrow("label is required");
     });
@@ -143,7 +143,7 @@ describe("plugin hardening", () => {
         type: "test",
         label: "Test",
         component: (() => null) as never,
-        transform: (d) => d,
+        transform: (d: unknown) => d,
         options: [{ key: "", label: "X", type: "boolean", default: false }],
       } as never);
       expect(spy).toHaveBeenCalledWith(
@@ -159,7 +159,7 @@ describe("plugin hardening", () => {
         type: "test2",
         label: "Test",
         component: (() => null) as never,
-        transform: (d) => d,
+        transform: (d: unknown) => d,
         compatibleWith: ["neo4j", ""],
       } as never);
       expect(spy).toHaveBeenCalledWith(
