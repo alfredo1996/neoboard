@@ -17,17 +17,7 @@ export async function POST(request: Request) {
 
     const { type, config } = validation.data;
 
-    const credentials = {
-      uri: config.uri,
-      username: config.username,
-      password: config.password,
-      database: config.database,
-      sslRejectUnauthorized: config.sslRejectUnauthorized,
-      connectionTimeout: config.connectionTimeout,
-      queryTimeout: config.queryTimeout,
-      maxPoolSize: config.maxPoolSize,
-      statementTimeout: config.statementTimeout,
-    };
+    const credentials = config;
 
     const databases = await listDatabases(type as DbType, credentials).catch(
       () => [] as string[],
