@@ -524,6 +524,7 @@ describe("POST /api/query/write", () => {
       uri: "bolt://localhost",
       username: "neo4j",
       password: "pass",
+      database: "primary",
     });
     mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
 
@@ -536,13 +537,61 @@ describe("POST /api/query/write", () => {
       }),
     );
     expect(res.status).toBe(200);
-    // Should use original credentials without database override
+    // Should use original credentials with connection-level database preserved
     expect(mockExecuteQuery).toHaveBeenCalledWith(
       "neo4j",
-      { uri: "bolt://localhost", username: "neo4j", password: "pass" },
+      {
+        uri: "bolt://localhost",
+        username: "neo4j",
+        password: "pass",
+        database: "primary",
+      },
       expect.any(Object),
       { accessMode: "WRITE" },
     );
+  });
+
+  it("returns 403 when widget allowWrites is missing (legacy widget)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c1",
+                      query: "CREATE (n:Test)",
+                      // allowWrites intentionally omitted — legacy widget
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(403);
   });
 
   it("returns 403 when widget connectionId does not match request connectionId", async () => {

@@ -175,6 +175,35 @@ describe("widget-editor-store", () => {
       expect(getState().stylingEnabled).toBe(true);
       expect(getState().stylingRules).toHaveLength(2);
     });
+
+    it("hydrates database and allowWrites from widget", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "table",
+        connectionId: "c1",
+        query: "SELECT 1",
+        database: "analytics",
+        allowWrites: true,
+        settings: {},
+      });
+
+      expect(getState().database).toBe("analytics");
+      expect(getState().allowWrites).toBe(true);
+    });
+
+    it("defaults database and allowWrites for legacy widgets", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "table",
+        connectionId: "c1",
+        query: "SELECT 1",
+        // database and allowWrites intentionally omitted (legacy widget)
+        settings: {},
+      });
+
+      expect(getState().database).toBe("");
+      expect(getState().allowWrites).toBe(false);
+    });
   });
 
   describe("buildStylingConfig", () => {
