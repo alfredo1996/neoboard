@@ -497,4 +497,44 @@ describe("widget-editor-store", () => {
       expect(action?.clickableColumns).toEqual(["name", "year"]);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Per-card database + write mode
+  // -----------------------------------------------------------------------
+
+  describe("database and allowWrites", () => {
+    it("defaults database to empty string", () => {
+      expect(getState().database).toBe("");
+    });
+
+    it("defaults allowWrites to false", () => {
+      expect(getState().allowWrites).toBe(false);
+    });
+
+    it("setDatabase updates database", () => {
+      getState().setDatabase("analytics");
+      expect(getState().database).toBe("analytics");
+    });
+
+    it("setAllowWrites updates allowWrites", () => {
+      getState().setAllowWrites(true);
+      expect(getState().allowWrites).toBe(true);
+    });
+
+    it("setConnectionId clears database override", () => {
+      getState().setDatabase("analytics");
+      expect(getState().database).toBe("analytics");
+      getState().setConnectionId("new-conn");
+      expect(getState().connectionId).toBe("new-conn");
+      expect(getState().database).toBeUndefined();
+    });
+
+    it("resetForAdd clears database and allowWrites", () => {
+      getState().setDatabase("analytics");
+      getState().setAllowWrites(true);
+      getState().resetForAdd();
+      expect(getState().database).toBe("");
+      expect(getState().allowWrites).toBe(false);
+    });
+  });
 });

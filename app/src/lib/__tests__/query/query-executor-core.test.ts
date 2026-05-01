@@ -460,4 +460,96 @@ describe("query-executor", () => {
       expect.objectContaining({ database: "testdb" }),
     );
   });
+
+  // -----------------------------------------------------------------------
+  // listDatabases
+  // -----------------------------------------------------------------------
+
+  describe("listDatabases", () => {
+    let listDatabases: typeof import("@/lib/query/query-executor").listDatabases;
+
+    beforeEach(async () => {
+      vi.clearAllMocks();
+      vi.resetModules();
+      vi.doMock("../connection-adapter", () => ({
+        createConnectionModule: mockCreateConnectionModule,
+        DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
+        ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
+      }));
+      const mod = await import("@/lib/query/query-executor");
+      listDatabases = mod.listDatabases;
+    });
+
+    it("returns databases from the connection module", async () => {
+      const mockListDbs = vi.fn().mockResolvedValue(["neo4j", "movies"]);
+      mockCreateConnectionModule.mockReturnValue({
+        runQuery: mockRunQuery,
+        checkConnection: mockCheckConnection,
+        listDatabases: mockListDbs,
+      });
+
+      const result = await listDatabases("neo4j", neo4jCreds);
+      expect(result).toEqual(["neo4j", "movies"]);
+      expect(mockListDbs).toHaveBeenCalled();
+    });
+
+    it("creates module with correct credentials", async () => {
+      const mockListDbs = vi.fn().mockResolvedValue([]);
+      mockCreateConnectionModule.mockReturnValue({
+        runQuery: mockRunQuery,
+        checkConnection: mockCheckConnection,
+        listDatabases: mockListDbs,
+      });
+
+      await listDatabases("postgresql", pgCreds);
+      expect(mockCreateConnectionModule).toHaveBeenCalledWith(
+        "postgresql",
+        expect.objectContaining({ username: "postgres" }),
+        expect.anything(),
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // listSchemas
+  // -----------------------------------------------------------------------
+
+  describe("listSchemas", () => {
+    let listSchemas: typeof import("@/lib/query/query-executor").listSchemas;
+
+    beforeEach(async () => {
+      vi.clearAllMocks();
+      vi.resetModules();
+      vi.doMock("../connection-adapter", () => ({
+        createConnectionModule: mockCreateConnectionModule,
+        DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
+        ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
+      }));
+      const mod = await import("@/lib/query/query-executor");
+      listSchemas = mod.listSchemas;
+    });
+
+    it("returns schemas when module supports listSchemas", async () => {
+      const mockListSch = vi.fn().mockResolvedValue(["public", "analytics"]);
+      mockCreateConnectionModule.mockReturnValue({
+        runQuery: mockRunQuery,
+        checkConnection: mockCheckConnection,
+        listSchemas: mockListSch,
+      });
+
+      const result = await listSchemas("postgresql", pgCreds);
+      expect(result).toEqual(["public", "analytics"]);
+    });
+
+    it("returns empty array when module does not support listSchemas", async () => {
+      mockCreateConnectionModule.mockReturnValue({
+        runQuery: mockRunQuery,
+        checkConnection: mockCheckConnection,
+        // no listSchemas method
+      });
+
+      const result = await listSchemas("neo4j", neo4jCreds);
+      expect(result).toEqual([]);
+    });
+  });
 });
