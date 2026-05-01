@@ -7,10 +7,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRunQuery = vi.fn();
 const mockCheckConnection = vi.fn();
 const mockClose = vi.fn().mockResolvedValue(undefined);
+const mockListDatabases = vi.fn();
+const mockListSchemas = vi.fn();
 const mockCreateConnectionModule = vi.fn(() => ({
   runQuery: mockRunQuery,
   checkConnection: mockCheckConnection,
   close: mockClose,
+  listDatabases: mockListDatabases,
+  listSchemas: mockListSchemas as ((...args: unknown[]) => unknown) | undefined,
 }));
 
 vi.mock("@/lib/connector/connection-adapter", () => ({
@@ -637,25 +641,15 @@ describe("query-executor", () => {
     });
 
     it("returns databases from the connection module", async () => {
-      const mockListDbs = vi.fn().mockResolvedValue(["neo4j", "movies"]);
-      mockCreateConnectionModule.mockReturnValue({
-        runQuery: mockRunQuery,
-        checkConnection: mockCheckConnection,
-        listDatabases: mockListDbs,
-      });
+      mockListDatabases.mockResolvedValue(["neo4j", "movies"]);
 
       const result = await listDatabases("neo4j", neo4jCreds);
       expect(result).toEqual(["neo4j", "movies"]);
-      expect(mockListDbs).toHaveBeenCalled();
+      expect(mockListDatabases).toHaveBeenCalled();
     });
 
     it("creates module with correct credentials", async () => {
-      const mockListDbs = vi.fn().mockResolvedValue([]);
-      mockCreateConnectionModule.mockReturnValue({
-        runQuery: mockRunQuery,
-        checkConnection: mockCheckConnection,
-        listDatabases: mockListDbs,
-      });
+      mockListDatabases.mockResolvedValue([]);
 
       await listDatabases("postgresql", pgCreds);
       expect(mockCreateConnectionModule).toHaveBeenCalledWith(
@@ -686,12 +680,7 @@ describe("query-executor", () => {
     });
 
     it("returns schemas when module supports listSchemas", async () => {
-      const mockListSch = vi.fn().mockResolvedValue(["public", "analytics"]);
-      mockCreateConnectionModule.mockReturnValue({
-        runQuery: mockRunQuery,
-        checkConnection: mockCheckConnection,
-        listSchemas: mockListSch,
-      });
+      mockListSchemas.mockResolvedValue(["public", "analytics"]);
 
       const result = await listSchemas("postgresql", pgCreds);
       expect(result).toEqual(["public", "analytics"]);
@@ -701,7 +690,8 @@ describe("query-executor", () => {
       mockCreateConnectionModule.mockReturnValue({
         runQuery: mockRunQuery,
         checkConnection: mockCheckConnection,
-        // no listSchemas method
+        listDatabases: mockListDatabases,
+        listSchemas: undefined,
       });
 
       const result = await listSchemas("neo4j", neo4jCreds);
