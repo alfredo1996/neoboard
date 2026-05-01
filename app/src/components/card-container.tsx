@@ -226,6 +226,7 @@ export function CardContainer({
           connectionId: widget.connectionId,
           query: widget.query,
           params: widget.params as Record<string, unknown> | undefined,
+          database: widget.database,
         };
   const manualEnabled = isManualRun ? hasEverRun : true;
   const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, {

@@ -78,6 +78,37 @@ const fakeConnection = {
   userId: "user-1",
 };
 
+const fakeDashboard = {
+  id: "d1",
+  tenantId: "tenant-a",
+  layoutJson: {
+    version: 2,
+    pages: [
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "table",
+            connectionId: "c1",
+            query: "CREATE (n:Test)",
+            allowWrites: true,
+          },
+        ],
+        gridLayout: [],
+      },
+    ],
+  },
+};
+
+/** Sets up mocks for both connection + dashboard lookups. */
+function mockConnectionAndDashboard() {
+  mockDb.select
+    .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+    .mockReturnValueOnce(drizzleSelectChain([fakeDashboard]));
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -131,7 +162,12 @@ describe("POST /api/query/write", () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
     );
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -140,7 +176,7 @@ describe("POST /api/query/write", () => {
 
   it("returns 200 on success and calls executeQuery with accessMode WRITE", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
+    mockConnectionAndDashboard();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -149,7 +185,12 @@ describe("POST /api/query/write", () => {
     mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
 
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
     );
     expect(res.status).toBe(200);
 
@@ -171,7 +212,7 @@ describe("POST /api/query/write", () => {
 
   it("passes params correctly to executeQuery", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
+    mockConnectionAndDashboard();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -185,6 +226,8 @@ describe("POST /api/query/write", () => {
         connectionId: "c1",
         query: "CREATE (n:Person {name: $param_name, age: $param_age})",
         params,
+        widgetId: "w1",
+        dashboardId: "d1",
       }),
     );
     expect(res.status).toBe(200);
@@ -201,7 +244,7 @@ describe("POST /api/query/write", () => {
 
   it("returns 500 when executeQuery throws", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
+    mockConnectionAndDashboard();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -210,7 +253,12 @@ describe("POST /api/query/write", () => {
     mockExecuteQuery.mockRejectedValue(new Error("Driver error"));
 
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
     );
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -221,7 +269,12 @@ describe("POST /api/query/write", () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
     );
     expect(res.status).toBe(404);
   });
@@ -233,14 +286,362 @@ describe("POST /api/query/write", () => {
     });
     mockDb.select.mockReturnValue(drizzleSelectChain([]));
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
     );
     expect(res.status).toBe(404);
   });
 
-  it("does not apply MAX_ROWS truncation on write results", async () => {
+  it("returns 403 when widget allowWrites is false", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    // First select: connection found. Second select: dashboard found.
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c1",
+                      query: "CREATE (n:Test)",
+                      allowWrites: false,
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/write mode.*not enabled/i);
+  });
+
+  it("succeeds without widgetId (legacy form-widget path)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: { ok: 1 } });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        // No widgetId or dashboardId — form widget legacy path
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 200 when widget has allowWrites=true", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c1",
+                      query: "CREATE (n:Test)",
+                      allowWrites: true,
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 404 when dashboard not found", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+      .mockReturnValueOnce(drizzleSelectChain([])); // dashboard not found
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("applies per-card database override when connection allows it", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(
+        drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: true }]),
+      )
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c1",
+                      query: "CREATE (n:Test)",
+                      allowWrites: true,
+                      database: "analytics",
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "neo4j",
+      expect.objectContaining({ database: "analytics" }),
+      expect.any(Object),
+      { accessMode: "WRITE" },
+    );
+  });
+
+  it("ignores per-card database override when connection disallows it", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(
+        drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: false }]),
+      )
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c1",
+                      query: "CREATE (n:Test)",
+                      allowWrites: true,
+                      database: "analytics",
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+    mockDecryptJson.mockReturnValue({
+      uri: "bolt://localhost",
+      username: "neo4j",
+      password: "pass",
+      database: "primary",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(200);
+    // Should use original credentials with connection-level database preserved
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "neo4j",
+      {
+        uri: "bolt://localhost",
+        username: "neo4j",
+        password: "pass",
+        database: "primary",
+      },
+      expect.any(Object),
+      { accessMode: "WRITE" },
+    );
+  });
+
+  it("returns 403 when widget allowWrites is missing (legacy widget)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c1",
+                      query: "CREATE (n:Test)",
+                      // allowWrites intentionally omitted — legacy widget
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when widget connectionId does not match request connectionId", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
+      .mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "d1",
+            tenantId: "tenant-a",
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "c-other", // different connection
+                      query: "CREATE (n:Test)",
+                      allowWrites: true,
+                    },
+                  ],
+                  gridLayout: [],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/does not belong/i);
+  });
+
+  it("does not apply MAX_ROWS truncation on write results", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockConnectionAndDashboard();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -251,7 +652,12 @@ describe("POST /api/query/write", () => {
     mockExecuteQuery.mockResolvedValue({ data: bigData });
 
     const res = await POST(
-      makeRequest({ connectionId: "c1", query: "CREATE (n:Test)" }),
+      makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();

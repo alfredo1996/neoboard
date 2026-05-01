@@ -109,6 +109,8 @@ export const connections = pgTable("connection", {
   name: text("name").notNull(),
   type: connectionTypeEnum("type").notNull(),
   configEncrypted: text("configEncrypted").notNull(),
+  /** When true, widget editors can override the connection's default database per-card. */
+  allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
 });
@@ -246,6 +248,13 @@ export interface DashboardWidget {
   query: string;
   params?: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  /** Per-card database override. When set, queries run against this database
+   *  instead of the connection's default. Only effective when the connection
+   *  has allowPerCardDb=true. */
+  database?: string;
+  /** When true, this widget is allowed to execute write queries.
+   *  Server enforces: write only if BOTH user.canWrite AND widget.allowWrites. */
+  allowWrites?: boolean;
   /** ID of the Widget Lab template this widget was created from. */
   templateId?: string;
   /** ISO timestamp of the template snapshot at apply-time (= template.updatedAt). */

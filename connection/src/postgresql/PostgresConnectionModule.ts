@@ -203,6 +203,64 @@ export class PostgresConnectionModule extends ConnectionModule {
   }
 
   /**
+   * Lists available databases on the PostgreSQL server.
+   * Excludes template databases (template0, template1).
+   * Returns an empty array if the query fails.
+   */
+  async listDatabases(): Promise<string[]> {
+    try {
+      if (!this.authModule.getPool()) {
+        const authenticated = await this.authModule
+          .verifyAuthentication()
+          .catch(() => false);
+        if (!authenticated) return [];
+      }
+      const pool = this.authModule.getPool()!;
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
+        );
+        return result.rows.map((row: { datname: string }) => row.datname);
+      } finally {
+        client.release();
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Lists available schemas in the current database.
+   * Excludes internal pg_ schemas.
+   * Returns an empty array if the query fails.
+   */
+  async listSchemas(): Promise<string[]> {
+    try {
+      if (!this.authModule.getPool()) {
+        const authenticated = await this.authModule
+          .verifyAuthentication()
+          .catch(() => false);
+        if (!authenticated) return [];
+      }
+      const pool = this.authModule.getPool()!;
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          "SELECT schema_name FROM information_schema.schemata WHERE schema_name <> 'information_schema' AND schema_name NOT LIKE 'pg\\_%' ORDER BY schema_name",
+        );
+        return result.rows.map(
+          (row: { schema_name: string }) => row.schema_name,
+        );
+      } finally {
+        client.release();
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Checks if the database connection is active and healthy.
    * @returns true if connection is valid, false otherwise
    */

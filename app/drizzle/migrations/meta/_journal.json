@@ -29,6 +29,13 @@
       "when": 1776890185225,
       "tag": "0003_loving_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777474513745,
+      "tag": "0004_furry_scourge",
+      "breakpoints": true
     }
   ]
 }

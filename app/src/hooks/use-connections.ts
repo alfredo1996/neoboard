@@ -8,6 +8,8 @@ export interface ConnectionListItem {
   id: string;
   name: string;
   type: ConnectorType;
+  /** When true, widgets can override the connection's default database per-card. */
+  allowPerCardDb: boolean;
   createdAt: string;
   updatedAt: string;
 }

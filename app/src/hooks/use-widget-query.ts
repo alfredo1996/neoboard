@@ -15,6 +15,8 @@ interface WidgetQueryInput {
   connectionId: string;
   query: string;
   params?: Record<string, unknown>;
+  /** Per-card database override. */
+  database?: string;
 }
 
 interface QueryResult {
@@ -186,6 +188,7 @@ export function useWidgetQuery(
     queryKey: [
       "widget-query",
       mergedInput?.connectionId,
+      mergedInput?.database ?? null,
       mergedInput?.query,
       mergedInput?.params,
       options?.staleTime ?? 0,

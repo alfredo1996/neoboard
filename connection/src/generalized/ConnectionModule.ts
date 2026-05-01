@@ -1,22 +1,43 @@
-import { AuthenticationModule } from './AuthenticationModule';
-import { ConnectionConfig, QueryCallback, QueryParams, QueryStatus } from './interfaces';
+import { AuthenticationModule } from "./AuthenticationModule";
+import {
+  ConnectionConfig,
+  QueryCallback,
+  QueryParams,
+  QueryStatus,
+} from "./interfaces";
 
 export abstract class ConnectionModule {
   abstract authModule: AuthenticationModule;
 
   protected constructor() {}
 
-  abstract runQuery<T>(queryParams: QueryParams, callbacks: QueryCallback<T>, config: ConnectionConfig): Promise<void>;
+  abstract runQuery<T>(
+    queryParams: QueryParams,
+    callbacks: QueryCallback<T>,
+    config: ConnectionConfig,
+  ): Promise<void>;
 
-  abstract checkConnection(connectionConfig?: ConnectionConfig): Promise<boolean>;
+  abstract checkConnection(
+    connectionConfig?: ConnectionConfig,
+  ): Promise<boolean>;
+
+  /**
+   * Lists available databases on the connected server.
+   * Returns an empty array if the operation is not supported or fails.
+   * Implementations should filter out internal/system databases.
+   */
+  abstract listDatabases(): Promise<string[]>;
 
   /**
    * Checks for empty/missing query and sets the appropriate status.
    * Returns true if the query is empty (caller should return early).
    */
-  protected handleEmptyQuery<T>(query: string | undefined, callbacks: QueryCallback<T>): boolean {
+  protected handleEmptyQuery<T>(
+    query: string | undefined,
+    callbacks: QueryCallback<T>,
+  ): boolean {
     if (callbacks.setStatus) {
-      if (!query || query.trim() === '') {
+      if (!query || query.trim() === "") {
         callbacks.setStatus(QueryStatus.NO_QUERY);
         return true;
       }

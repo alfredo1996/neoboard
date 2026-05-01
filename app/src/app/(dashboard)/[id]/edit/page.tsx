@@ -554,6 +554,7 @@ export default function DashboardEditorPage({
             initialPreviewData={
               editorMode === "edit" ? cachedPreviewData : undefined
             }
+            canWrite={session?.user?.canWrite !== false}
           />
 
           {templateWidget &&

@@ -37,6 +37,8 @@ const querySchema = z.object({
   params: z.record(z.unknown()).optional(),
   /** Optional defense-in-depth field: when provided, must match the session tenant. */
   tenantId: z.string().optional(),
+  /** Per-card database override — used when the connection allows per-card DB selection. */
+  database: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -59,6 +61,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
       query,
       params,
       tenantId: bodyTenantId,
+      database: databaseOverride,
     } = validation.data;
 
     // Defense-in-depth: if the caller explicitly passes a tenantId,
@@ -124,6 +127,12 @@ async function handleReadQuery(request: Request): Promise<Response> {
       connection.configEncrypted,
     );
 
+    // Apply per-card database override if the connection allows it
+    const effectiveCredentials =
+      databaseOverride && connection.allowPerCardDb
+        ? { ...credentials, database: databaseOverride }
+        : credentials;
+
     const metadata: Record<string, unknown> = { priority };
     if (requestId) metadata.requestId = requestId;
 
@@ -140,7 +149,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
 
     const queryStart = performance.now();
     const result = await runPipeline(ctx, async (pipelineCtx) =>
-      executeQuery(pipelineCtx.connectionType, credentials, {
+      executeQuery(pipelineCtx.connectionType, effectiveCredentials, {
         query: pipelineCtx.query,
         params: pipelineCtx.params,
       }),
