@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Circle packing and choropleth chart gallery demo pages (#630)
 - NeoDash migration tool: settings mapping and conversion notes (#626)
 - Widget editor sub-component unit tests (#628)
+- /api/health endpoint for container orchestration and Docker healthchecks
 
 ### Changed
 
@@ -44,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Query editor test teardown leak (dangling timers)
 - Build: resolve pg/tls client bundle error breaking E2E tests (#629)
 - Pre-existing type errors on release/2.0 branch (#632)
+- Resolved npm audit production vulnerabilities (lodash, postcss, uuid overrides)
 
 ### Security
 

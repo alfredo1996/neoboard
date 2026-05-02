@@ -178,8 +178,8 @@ function, snapshot-test the component with sample data, ship it as an
 npm package with its own test suite. NeoBoard does not run your tests.
 
 Integration testing against a real NeoBoard install is the most
-reliable signal. A stripped-down example lives in
-`examples/plugin-sparkline/` (coming soon) — clone it, rename, ship.
+reliable signal. For a working example, see the
+[MongoDB connector plugin](docs/src/content/docs/developer/plugins/mongodb-connector.mdx) — clone it, rename, ship.
 
 ---
 

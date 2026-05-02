@@ -18,14 +18,14 @@
 
 <!-- Replace with actual screenshot after first release -->
 
-![NeoBoard Dashboard](docs/screenshots/hero.png)
+![NeoBoard Dashboard](screenshots/03-dashboard-edit.png)
 
 ## Why NeoBoard?
 
 - **NeoDash alternative** — built for teams migrating from Neo4j's deprecated NeoDash
 - **Hybrid databases** — connect Neo4j and PostgreSQL in the same dashboard
 - **Modern stack** — Next.js 15, React 19, TypeScript, ECharts, Zustand, TanStack Query
-- **Extensible charts** — 12+ chart types with rule-based styling, click actions, and color palettes
+- **Extensible charts** — 20 chart types with rule-based styling, click actions, and color palettes
 
 ## Quick Start
 
