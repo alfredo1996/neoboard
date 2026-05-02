@@ -1,9 +1,17 @@
-# Full-stack local deployment: NeoBoard app + PostgreSQL + Neo4j
-# Usage: docker compose -f docker/docker-compose.full.yml up --build
+# Full-stack self-contained deployment: NeoBoard app + PostgreSQL + Neo4j.
 #
-# After first start, run migrations + seed:
-#   docker compose -f docker/docker-compose.full.yml exec neoboard \
-#     node -e "console.log('Ready — run setup script or access http://localhost:3000')"
+# This file bundles the application AND its databases into a single compose
+# stack. Use it for quick demos, evaluation, or the CLI (`neoboard start --full`).
+#
+# How the three compose files relate:
+#   docker-compose.yml      — Dev databases only (Postgres + Neo4j). Pair with `npm run dev`.
+#   docker-compose.prod.yml — App container only. Expects an external database via env vars.
+#   docker-compose.full.yml — (this file) App + databases. One command, nothing else needed.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.full.yml up --build
+#
+# After first start, open http://localhost:3000 to complete setup.
 services:
   postgres:
     image: postgres:16-alpine
