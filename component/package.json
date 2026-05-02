@@ -1,6 +1,6 @@
 {
   "name": "@neoboard/components",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "description": "NeoBoard component library built with shadcn/ui and React",
   "engines": {
     "node": ">=20.0.0"
