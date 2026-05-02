@@ -6,8 +6,10 @@
     <em>The modern alternative to NeoDash</em>
   </p>
   <p align="center">
-    <a href="LICENSE"><img alt="License: ELv2" src="https://img.shields.io/badge/license-Elastic--2.0-blue" /></a>
-    <a href="https://github.com/alfredo1996/neoboard/actions"><img alt="CI" src="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg" /></a>
+    <a href="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg?branch=dev" /></a>
+    <a href="LICENSE"><img alt="License: Elastic-2.0" src="https://img.shields.io/badge/License-Elastic--2.0-blue" /></a>
+    <img alt="Node >= 20" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" />
+    <img alt="Docker: ghcr.io" src="https://img.shields.io/badge/docker-ghcr.io-blue" />
     <a href="https://github.com/alfredo1996/neoboard/issues?q=label%3A%22good+first+issue%22"><img alt="Good First Issues" src="https://img.shields.io/github/issues/alfredo1996/neoboard/good%20first%20issue?color=7057ff" /></a>
   </p>
 </p>
@@ -88,6 +90,28 @@ See [`.env.example`](.env.example) for required environment variables.
 | **Export**        | CSV export, JSON dashboard import/export                                                 |
 | **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries         |
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/01-login.png" alt="NeoBoard login page" width="700" />
+</p>
+<p align="center"><em>Login page</em></p>
+
+<p align="center">
+  <img src="screenshots/03-dashboard-edit.png" alt="Dashboard view with widgets" width="700" />
+</p>
+<p align="center"><em>Dashboard in edit mode</em></p>
+
+<p align="center">
+  <img src="screenshots/04-widget-editor-data-tab.png" alt="Widget editor with query and chart options" width="700" />
+</p>
+<p align="center"><em>Widget editor - data tab</em></p>
+
+<p align="center">
+  <img src="screenshots/02-dashboards-home.png" alt="Dashboards home page listing all dashboards" width="700" />
+</p>
+<p align="center"><em>Dashboards home</em></p>
+
 ## Architecture
 
 ```
@@ -108,9 +132,23 @@ See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for setup instructions, branch na
 
 Looking for a first contribution? Check issues labeled [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
 
+### Branch Strategy
+
+| Branch        | Purpose                                       |
+| ------------- | --------------------------------------------- |
+| `main`        | Stable releases                               |
+| `dev`         | Integration branch for ongoing work           |
+| `release/X.Y` | Release stabilization before merging to `dev` |
+
+Feature and fix branches target `dev` by default, or the active `release/X.Y` branch when one exists.
+
 ## Migrating from NeoDash
 
-NeoBoard includes a NeoDash JSON converter — import your existing dashboards via Settings > Import Dashboard. See the [migration guide](docs/) for details.
+NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. The `neoboard migrate` CLI command converts your NeoDash JSON exports into NeoBoard-compatible dashboards, mapping chart types, parameters, and layout automatically. See the [NeoDash Migration Guide](docs/NEODASH_MIGRATION_GUIDE.md) for step-by-step instructions and a list of supported widget mappings.
+
+## API Documentation
+
+Running the app exposes interactive API docs at `/api/docs`. The docs cover all REST endpoints for connections, dashboards, sharing, query execution, and admin operations.
 
 ## License
 
