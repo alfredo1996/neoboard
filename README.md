@@ -90,6 +90,15 @@ See [`.env.example`](.env.example) for required environment variables.
 | **Export**        | CSV export, JSON dashboard import/export                                                 |
 | **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries         |
 
+## Ecosystem & Community
+
+NeoBoard has a plugin system for custom chart types and database connectors. See the full [Plugin Ecosystem](PLUGINS.md) directory.
+
+- **20 built-in charts** — Bar, Line, Pie, Table, Graph, Map, Gauge, Sankey, and more
+- **2 built-in connectors** — Neo4j and PostgreSQL
+- **Extensible** — Build and publish your own plugins via npm
+- **Community directory** — Share and discover third-party extensions
+
 ## Screenshots
 
 <p align="center">
