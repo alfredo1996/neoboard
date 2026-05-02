@@ -4,7 +4,7 @@ All notable changes to NeoBoard are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] — v1.0.0 Community Launch
+## [2.0.0] — 2026-05-02
 
 ### Added
 
@@ -21,12 +21,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Husky pre-commit hook with lint-staged (ESLint + Prettier)
 - jsdom component tests enabled in app/ package
 - Demo seed dashboards (Transform Playground)
+- Database selector for per-widget database/schema override (#633)
+- Per-card write toggle with server-side `can_write` enforcement (#633)
+- Circle packing and choropleth chart gallery demo pages (#630)
+- NeoDash migration tool: settings mapping and conversion notes (#626)
+- Widget editor sub-component unit tests (#628)
 
 ### Changed
 
 - License: Elastic License 2.0 with AI training restriction
 - Widget editor: eliminated bidirectional state sync (Zustand store as single source of truth)
 - Extracted pure business logic from components into testable lib/ files
+- Widget editor decomposed into focused sub-components (#627)
 
 ### Fixed
 
@@ -36,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Editor cache lookup for parameterized widgets (partial key match)
 - Null/undefined values matching numeric zero in transform filters
 - Query editor test teardown leak (dangling timers)
+- Build: resolve pg/tls client bundle error breaking E2E tests (#629)
+- Pre-existing type errors on release/2.0 branch (#632)
 
 ### Security
 
@@ -128,3 +136,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - User management with admin/creator roles
 - AES-256-GCM credential encryption
 - Multi-tenant architecture with tenant_id isolation
+
+[2.0.0]: https://github.com/alfredo1996/neoboard/releases/tag/v2.0.0
