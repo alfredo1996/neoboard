@@ -4,6 +4,8 @@ Thank you for your interest in contributing to NeoBoard! This guide will help yo
 
 ## Getting Started
 
+> For detailed local development setup, see [DEVELOPMENT.md](../DEVELOPMENT.md).
+
 ### Prerequisites
 
 - Node.js 20+

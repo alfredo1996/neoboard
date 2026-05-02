@@ -135,7 +135,7 @@ flowchart LR
     end
 ```
 
-**17 chart plugins:** bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, treemap, parameter-select
+**20 chart plugins:** bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, treemap, parameter-select, circle-packing, choropleth, heatmap
 
 ## State Management
 

@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide helps contributors get NeoBoard running locally and understand the development workflow. For PR etiquette and contribution policies, see [CONTRIBUTING.md](CONTRIBUTING.md).
+This guide helps contributors get NeoBoard running locally and understand the development workflow. For PR etiquette and contribution policies, see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## Prerequisites
 
