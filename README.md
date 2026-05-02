@@ -104,7 +104,7 @@ Three packages with **strict boundaries**: `app/` orchestrates, `component/` ren
 
 ## Contributing
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for setup instructions, branch naming, PR workflow, and code style.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for local setup, project structure, and development workflow. For PR etiquette, branch naming, and code style, see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 Looking for a first contribution? Check issues labeled [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
 
