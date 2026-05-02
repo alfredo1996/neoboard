@@ -40,7 +40,7 @@
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.564.0",
     "next": "^16.2.2",
-    "next-auth": "^5.0.0-beta.25",
+    "next-auth": "^5.0.0-beta.31",
     "pg": "^8.20.0",
     "pino": "^9.5.0",
     "pino-roll": "^3.0.0",
