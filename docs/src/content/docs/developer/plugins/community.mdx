@@ -1,0 +1,53 @@
+---
+title: Community Plugins
+description: Discover and share community-built chart types and database connectors for NeoBoard.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+The NeoBoard community builds and shares plugins that extend the platform with new chart types and database connectors. This page is a directory of known community extensions.
+
+## Official Plugins
+
+NeoBoard ships with **20 built-in chart types** and **2 database connectors** (Neo4j + PostgreSQL). These require no installation.
+
+<CardGrid>
+  <LinkCard title="All Chart Types" description="Browse the 20 built-in chart types" href="/charts/" />
+  <LinkCard title="MongoDB Example" description="Full walkthrough of building a connector plugin" href="/developer/plugins/mongodb-connector" />
+</CardGrid>
+
+## Community Connectors
+
+| Plugin | Author | Description | Install |
+|--------|--------|-------------|---------|
+| MongoDB | @neoboard | Query MongoDB collections with JSON syntax | `neoboard plugin add neoboard-connector-mongodb` |
+
+## Community Charts
+
+No community chart plugins published yet. Be the first!
+
+## Submit Your Plugin
+
+We welcome community contributions to the plugin ecosystem:
+
+1. **Build your plugin** following the [Plugin Authoring Guide](/developer/plugins/)
+2. **Publish to npm** with the naming convention:
+   - Charts: `neoboard-chart-{name}`
+   - Connectors: `neoboard-connector-{name}`
+3. **Open a PR** to add your plugin to [PLUGINS.md](https://github.com/alfredo1996/neoboard/blob/dev/PLUGINS.md)
+
+### Quality guidelines
+
+For inclusion in this directory, plugins should:
+- Have a README with installation and usage instructions
+- Include at least basic tests
+- Specify NeoBoard version compatibility
+- Use semantic versioning
+
+## Building Plugins
+
+<CardGrid>
+  <LinkCard title="Chart Plugin Guide" description="Create a new chart type" href="/developer/extending/new-chart-plugin" />
+  <LinkCard title="Connector Plugin Guide" description="Create a new database connector" href="/developer/extending/new-connector-plugin" />
+  <LinkCard title="External Plugins" description="Package and distribute as npm" href="/developer/plugins/" />
+</CardGrid>
