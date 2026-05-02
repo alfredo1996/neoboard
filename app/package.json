@@ -2,6 +2,13 @@
   "name": "@neoboard/app",
   "version": "2.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alfredo1996/neoboard.git"
+  },
   "scripts": {
     "predev": "node ../scripts/generate-plugin-imports.mjs",
     "prebuild": "node ../scripts/generate-plugin-imports.mjs",

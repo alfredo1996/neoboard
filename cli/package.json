@@ -2,6 +2,13 @@
   "name": "@neoboard/cli",
   "version": "2.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alfredo1996/neoboard.git"
+  },
   "type": "module",
   "bin": {
     "neoboard": "./dist/index.js"
