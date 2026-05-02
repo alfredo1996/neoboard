@@ -134,7 +134,7 @@ export async function runPluginAdd(
 export function runPluginList(): void {
   const root = findProjectRoot();
 
-  // Built-in chart types (hardcoded — mirrors chart-types.ts)
+  // Keep in sync with app/src/plugins/chart-types.ts
   const builtInCharts = [
     "bar",
     "line",
@@ -154,6 +154,8 @@ export function runPluginList(): void {
     "radar",
     "treemap",
     "gantt",
+    "circle-packing",
+    "choropleth",
   ];
 
   const builtInConnectors = ["neo4j", "postgresql"];
