@@ -7,16 +7,19 @@
   </p>
   <p align="center">
     <a href="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg?branch=dev" /></a>
+    <a href="https://sonarcloud.io/dashboard?id=alfredo1996_neoboard"><img alt="Quality Gate" src="https://sonarcloud.io/api/project_badges/measure?project=alfredo1996_neoboard&metric=alert_status" /></a>
+    <a href="https://sonarcloud.io/component_measures?id=alfredo1996_neoboard&metric=coverage"><img alt="Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=alfredo1996_neoboard&metric=coverage" /></a>
     <a href="LICENSE"><img alt="License: Elastic-2.0" src="https://img.shields.io/badge/License-Elastic--2.0-blue" /></a>
+  </p>
+  <p align="center">
     <img alt="Node >= 20" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" />
-    <img alt="Docker: ghcr.io" src="https://img.shields.io/badge/docker-ghcr.io-blue" />
-    <a href="https://github.com/alfredo1996/neoboard/issues?q=label%3A%22good+first+issue%22"><img alt="Good First Issues" src="https://img.shields.io/github/issues/alfredo1996/neoboard/good%20first%20issue?color=7057ff" /></a>
+    <a href="https://github.com/alfredo1996/neoboard/pkgs/container/neoboard"><img alt="Docker" src="https://img.shields.io/badge/docker-ghcr.io%2Fneoboard-2496ED?logo=docker&logoColor=white" /></a>
+    <a href="https://github.com/alfredo1996/neoboard/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/alfredo1996/neoboard?style=social" /></a>
+    <a href="https://github.com/alfredo1996/neoboard/issues?q=label%3A%22good+first+issue%22"><img alt="Good First Issues" src="https://img.shields.io/github/issues/alfredo1996/neoboard/good%20first%20issue?color=7057ff&label=good%20first%20issues" /></a>
   </p>
 </p>
 
 ---
-
-<!-- Replace with actual screenshot after first release -->
 
 ![NeoBoard Dashboard](screenshots/03-dashboard-edit.png)
 
