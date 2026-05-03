@@ -80,7 +80,7 @@ npm run test:e2e
 npm run lint
 
 # Auto-fix lint errors in app/
-npm -w app exec next lint -- --fix
+cd app && npx next lint --fix
 ```
 
 Coverage target is **80% per package**. Check with `npm run test:coverage` in each package.

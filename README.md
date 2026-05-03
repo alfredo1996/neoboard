@@ -20,11 +20,13 @@
 
 ![NeoBoard Dashboard](screenshots/03-dashboard-edit.png)
 
+**NeoBoard** is a free, self-hosted dashboarding platform for teams working with Neo4j graph databases and PostgreSQL. Build interactive dashboards with 20 chart types, write queries directly, and share insights — all from a modern web interface.
+
 ## Why NeoBoard?
 
 - **NeoDash alternative** — built for teams migrating from Neo4j's deprecated NeoDash
 - **Hybrid databases** — connect Neo4j and PostgreSQL in the same dashboard
-- **Modern stack** — Next.js 15, React 19, TypeScript, ECharts, Zustand, TanStack Query
+- **Modern stack** — Next.js 16, React 19, TypeScript, ECharts, Zustand, TanStack Query
 - **Extensible charts** — 20 chart types with rule-based styling, click actions, and color palettes
 
 ## Quick Start
@@ -56,7 +58,7 @@ Four showcase dashboards get seeded:
 
 | Showcase           | Pages | What it demonstrates                                                                       |
 | ------------------ | ----- | ------------------------------------------------------------------------------------------ |
-| Chart Gallery      | 17    | One page per registered chart type on the demo e-commerce data                             |
+| Chart Gallery      | 20    | One page per registered chart type on the demo e-commerce data                             |
 | Click Actions      | 5     | Drilldown, page navigation, and combined set-parameter-and-navigate                        |
 | Transformations    | 6     | Before/after for `filter`, `sort`, `groupBy`, `calculatedColumn`, `renameColumns`, `limit` |
 | Rule-Based Styling | 9     | Numeric, text, between-operator, and parameter-reference rules across chart types          |
@@ -70,25 +72,27 @@ Demo login: `admin@neoboard.local` / `admin123`
 ### Docker (Production)
 
 ```bash
-cp .env.example app/.env.local   # Fill in your secrets
+cp app/.env.example app/.env.local   # Fill in your secrets
 docker compose -f docker/docker-compose.prod.yml up
 ```
 
-See [`.env.example`](.env.example) for required environment variables.
+See [`app/.env.example`](app/.env.example) for required environment variables.
+
+> 🎥 **No time to install?** Watch the [2-minute walkthrough](https://github.com/alfredo1996/neoboard/wiki/Demo) or browse the [screenshots](#screenshots) below.
 
 ## Features
 
-| Category          | Details                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------- |
-| **Charts**        | Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Treemap, Graph, Map |
-| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                 |
-| **Parameters**    | Select, Multi-Select, Date, Date Range, Freetext — with cross-widget binding             |
-| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                    |
-| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline              |
-| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                            |
-| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                         |
-| **Export**        | CSV export, JSON dashboard import/export                                                 |
-| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries         |
+| Category          | Details                                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Charts**        | 20 types: Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Treemap, Gantt, Circle Packing, Choropleth, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
+| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                                                              |
+| **Parameters**    | Select, Multi-Select, Date, Date Range, Freetext — with cross-widget binding                                                                                                          |
+| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                                                                 |
+| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline                                                                                                           |
+| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                                                                                                                         |
+| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                                                                                                                      |
+| **Export**        | CSV export, JSON dashboard import/export                                                                                                                                              |
+| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries                                                                                                      |
 
 ## Ecosystem & Community
 
@@ -125,7 +129,7 @@ NeoBoard has a plugin system for custom chart types and database connectors. See
 
 ```
 neoboard/
-├── app/           # Next.js 15 application (API routes, pages, stores)
+├── app/           # Next.js 16 application (API routes, pages, stores)
 ├── component/     # React UI library (charts, widgets, design system)
 ├── connection/    # Database connector library (Neo4j, PostgreSQL)
 ├── docker/        # Docker Compose for dev containers
