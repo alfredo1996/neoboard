@@ -8,6 +8,17 @@ cd "$PROJECT_DIR"
 
 echo "=== Session Context ==="
 
+# Docker health check
+if command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then
+    echo "Docker: running"
+  else
+    echo "WARNING: Docker is installed but not running. Tests requiring Docker (connection/, E2E) will fail."
+  fi
+else
+  echo "WARNING: Docker not found. Tests requiring Docker (connection/, E2E) will fail."
+fi
+
 # Current branch & tracking
 BRANCH=$(git branch --show-current 2>/dev/null)
 echo "Branch: $BRANCH"
