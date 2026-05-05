@@ -119,11 +119,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             .limit(1);
           if (!dbUser) return null; // User deleted — invalidate token
           if (dbUser.disabledAt) return null; // User disabled — invalidate token
-          // Invalidate session if password was changed after token was issued
+          // Invalidate session if password was changed after token was issued.
+          // A 30-second grace period prevents the current session from being
+          // kicked out immediately after a self-service password change — the
+          // JWT refresh cycle runs within this window and picks up the new iat.
           if (
             token.iat &&
             dbUser.passwordChangedAt &&
-            dbUser.passwordChangedAt.getTime() > (token.iat as number) * 1000
+            dbUser.passwordChangedAt.getTime() >
+              (token.iat as number) * 1000 + 30_000
           ) {
             return null;
           }

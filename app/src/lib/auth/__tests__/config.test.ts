@@ -280,4 +280,33 @@ describe("JWT callback — session invalidation on password change", () => {
     expect(result).not.toBeNull();
     expect(result.role).toBe("creator");
   });
+
+  it("does NOT invalidate token within 30-second grace period after password change", async () => {
+    // Simulates the current session right after a self-service password change:
+    // iat is 10 seconds ago, passwordChangedAt is 5 seconds ago (within grace)
+    const iat = Math.floor(Date.now() / 1000) - 10;
+    const passwordChangedAt = new Date(Date.now() - 5000);
+
+    const token: Record<string, unknown> = {
+      id: "u1",
+      iat,
+      role: "admin",
+    };
+
+    mockDbRows([
+      {
+        role: "admin",
+        canWrite: true,
+        disabledAt: null,
+        forcePasswordChange: false,
+        name: "Alice",
+        tenantId: "default",
+        passwordChangedAt,
+      },
+    ]);
+
+    const result = (await callbacks.jwt({ token })) as Record<string, unknown>;
+    expect(result).not.toBeNull();
+    expect(result.role).toBe("admin");
+  });
 });
