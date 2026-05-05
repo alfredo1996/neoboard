@@ -200,17 +200,25 @@ describe("signup", () => {
   it("rejects signup when REGISTRATION_ENABLED=false and users exist", async () => {
     process.env.REGISTRATION_ENABLED = "false";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
-    const res = await signup(makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass" }));
+    const res = await signup(
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+    );
     expect(res.success).toBe(false);
-    expect((res as { error: string }).error).toBe("Registration is currently disabled.");
+    expect((res as { error: string }).error).toBe(
+      "Registration is currently disabled.",
+    );
   });
 
   it("rejects signup when REGISTRATION_ENABLED=False (case-insensitive)", async () => {
     process.env.REGISTRATION_ENABLED = "False";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
-    const res = await signup(makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass" }));
+    const res = await signup(
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+    );
     expect(res.success).toBe(false);
-    expect((res as { error: string }).error).toBe("Registration is currently disabled.");
+    expect((res as { error: string }).error).toBe(
+      "Registration is currently disabled.",
+    );
   });
 
   it("allows bootstrap (first admin) even when REGISTRATION_ENABLED=false", async () => {
@@ -218,7 +226,11 @@ describe("signup", () => {
     process.env.ADMIN_BOOTSTRAP_TOKEN = "correct-secret";
     mockDb.select.mockReturnValueOnce(makeSelectChain([])); // areUsersEmpty → true (bootstrap)
     setupTx([[], []]); // tx: email not taken, admin re-check → still empty
-    const form = makeForm({ name: "Admin", email: "admin@b.com", password: "adminpass" });
+    const form = makeForm({
+      name: "Admin",
+      email: "admin@b.com",
+      password: "adminpass1",
+    });
     form.append("bootstrapToken", "correct-secret");
     const res = await signup(form);
     expect(res.success).toBe(true);
@@ -228,7 +240,9 @@ describe("signup", () => {
     delete process.env.REGISTRATION_ENABLED;
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[]]); // tx: email not taken
-    const res = await signup(makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass" }));
+    const res = await signup(
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+    );
     expect(res.success).toBe(true);
   });
 
@@ -236,7 +250,9 @@ describe("signup", () => {
     process.env.REGISTRATION_ENABLED = "true";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[]]); // tx: email not taken
-    const res = await signup(makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass" }));
+    const res = await signup(
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+    );
     expect(res.success).toBe(true);
   });
 });
