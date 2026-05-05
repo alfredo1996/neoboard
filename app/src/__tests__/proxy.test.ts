@@ -40,9 +40,17 @@ function matchesRoute(pathname: string): boolean {
 // ---------------------------------------------------------------------------
 
 describe("proxy", () => {
+  const savedNodeEnv = process.env.NODE_ENV;
+  const savedForceHttps = process.env.FORCE_HTTPS;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetToken.mockResolvedValue(null);
+    // Reset env vars to defaults for non-HTTPS tests
+    if (savedNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = savedNodeEnv;
+    if (savedForceHttps === undefined) delete process.env.FORCE_HTTPS;
+    else process.env.FORCE_HTTPS = savedForceHttps;
   });
 
   describe("matcher config", () => {
@@ -191,6 +199,117 @@ describe("proxy", () => {
       const res = await proxy(makeRequest("/change-password"));
       // /change-password is a public route, so it passes through before token check
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("HTTPS redirect", () => {
+    function makeFullRequest(
+      url: string,
+      headers?: Record<string, string>,
+    ): NextRequest {
+      const parsed = new URL(url);
+      return {
+        nextUrl: parsed,
+        headers: new Headers(headers ?? {}),
+      } as unknown as NextRequest;
+    }
+
+    it("redirects HTTP to HTTPS in production", async () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.FORCE_HTTPS;
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe("https://example.com/dashboard");
+    });
+
+    it("does NOT redirect when already HTTPS", async () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.FORCE_HTTPS;
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("https://example.com/dashboard", {
+          "x-forwarded-proto": "https",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("does NOT redirect in development", async () => {
+      process.env.NODE_ENV = "development";
+      delete process.env.FORCE_HTTPS;
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("does NOT redirect when FORCE_HTTPS=false", async () => {
+      process.env.NODE_ENV = "production";
+      process.env.FORCE_HTTPS = "false";
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("does NOT redirect when FORCE_HTTPS=FALSE (case-insensitive)", async () => {
+      process.env.NODE_ENV = "production";
+      process.env.FORCE_HTTPS = "FALSE";
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("does NOT redirect for localhost", async () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.FORCE_HTTPS;
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://localhost:3000/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("does NOT redirect for 127.0.0.1", async () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.FORCE_HTTPS;
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://127.0.0.1:3000/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("preserves path and query string in redirect", async () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.FORCE_HTTPS;
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard?tab=overview&id=42", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe(
+        "https://example.com/dashboard?tab=overview&id=42",
+      );
     });
   });
 });

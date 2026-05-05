@@ -16,6 +16,21 @@ const publicExact = new Set([
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // --- HTTPS redirect (production only) ---
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.FORCE_HTTPS?.toLowerCase() !== "false"
+  ) {
+    const host = req.nextUrl.hostname;
+    const isLocal = host === "localhost" || host === "127.0.0.1";
+    const proto = req.headers.get("x-forwarded-proto");
+    if (!isLocal && proto !== "https") {
+      const httpsUrl = new URL(req.nextUrl.toString());
+      httpsUrl.protocol = "https:";
+      return NextResponse.redirect(httpsUrl, 301);
+    }
+  }
+
   const isPublic =
     publicExact.has(pathname) ||
     publicPrefixes.some((p) => pathname.startsWith(p));
