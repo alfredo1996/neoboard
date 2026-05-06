@@ -37,6 +37,21 @@ export async function proxy(req: NextRequest) {
   // headers — route handlers read it via `headers().get("x-request-id")`.
   req.headers.set("x-request-id", requestId);
 
+  // --- HTTPS redirect (production only) ---
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.FORCE_HTTPS?.toLowerCase() !== "false"
+  ) {
+    const host = req.nextUrl.hostname;
+    const isLocal = host === "localhost" || host === "127.0.0.1";
+    const proto = req.headers.get("x-forwarded-proto");
+    if (!isLocal && proto !== "https") {
+      const httpsUrl = new URL(req.nextUrl.toString());
+      httpsUrl.protocol = "https:";
+      return NextResponse.redirect(httpsUrl, 301);
+    }
+  }
+
   const isPublic =
     publicExact.has(pathname) ||
     publicPrefixes.some((p) => pathname.startsWith(p));
