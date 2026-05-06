@@ -21,7 +21,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: parseInt(process.env.SESSION_MAX_AGE || "28800", 10),
+  },
   pages: {
     signIn: "/login",
   },
@@ -109,12 +112,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               forcePasswordChange: users.forcePasswordChange,
               name: users.name,
               tenantId: users.tenantId,
+              passwordChangedAt: users.passwordChangedAt,
             })
             .from(users)
             .where(eq(users.id, token.id as string))
             .limit(1);
           if (!dbUser) return null; // User deleted — invalidate token
           if (dbUser.disabledAt) return null; // User disabled — invalidate token
+          // Invalidate session if password was changed after token was issued.
+          // A 30-second grace period prevents the current session from being
+          // kicked out immediately after a self-service password change — the
+          // JWT refresh cycle runs within this window and picks up the new iat.
+          if (
+            token.iat &&
+            dbUser.passwordChangedAt &&
+            dbUser.passwordChangedAt.getTime() >
+              (token.iat as number) * 1000 + 30_000
+          ) {
+            return null;
+          }
           token.role = dbUser.role;
           token.canWrite = dbUser.canWrite;
           token.forcePasswordChange = dbUser.forcePasswordChange;

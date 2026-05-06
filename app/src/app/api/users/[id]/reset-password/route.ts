@@ -54,7 +54,10 @@ export async function POST(
     const password = parsed.data.newPassword ?? generateTempPassword();
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const updateFields: Record<string, unknown> = { passwordHash };
+    const updateFields: Record<string, unknown> = {
+      passwordHash,
+      passwordChangedAt: new Date(),
+    };
     if (parsed.data.forcePasswordChange) {
       updateFields.forcePasswordChange = true;
     }
