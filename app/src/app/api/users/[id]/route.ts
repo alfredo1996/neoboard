@@ -82,12 +82,33 @@ export async function PATCH(
       role?: "admin" | "creator" | "reader";
       canWrite?: boolean;
       disabledAt?: Date | null;
+      passwordChangedAt?: Date;
     } = {};
     if (result.data.role !== undefined) updateFields.role = result.data.role;
     if (result.data.canWrite !== undefined)
       updateFields.canWrite = result.data.canWrite;
     if (result.data.disabled !== undefined)
       updateFields.disabledAt = result.data.disabled ? new Date() : null;
+
+    // Invalidate sessions on privilege reduction (demotion)
+    if (result.data.role !== undefined) {
+      const roleRank: Record<string, number> = {
+        admin: 3,
+        creator: 2,
+        reader: 1,
+      };
+      const [currentUser] = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
+        .limit(1);
+      if (
+        currentUser &&
+        roleRank[result.data.role] < roleRank[currentUser.role]
+      ) {
+        updateFields.passwordChangedAt = new Date();
+      }
+    }
 
     const [updated] = await db
       .update(users)

@@ -60,7 +60,11 @@ export async function PUT(req: Request) {
   const newHash = await bcrypt.hash(newPassword, 12);
   await db
     .update(users)
-    .set({ passwordHash: newHash, forcePasswordChange: false })
+    .set({
+      passwordHash: newHash,
+      forcePasswordChange: false,
+      passwordChangedAt: new Date(),
+    })
     .where(eq(users.id, session.userId));
 
   return NextResponse.json({ data: { success: true } });

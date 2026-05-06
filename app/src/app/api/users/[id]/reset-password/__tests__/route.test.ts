@@ -50,11 +50,10 @@ function makeParams(id: string) {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/users/[id]/reset-password", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let POST: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -158,5 +157,30 @@ describe("POST /api/users/[id]/reset-password", () => {
     expect(body.data.reset).toBe(true);
     expect(body.data.generatedPassword).toBeDefined();
     expect(typeof body.data.generatedPassword).toBe("string");
+  });
+
+  it("sets passwordChangedAt when admin resets password", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    let capturedFields: Record<string, unknown> = {};
+    const mockSet = vi.fn().mockImplementation((fields) => {
+      capturedFields = fields;
+      return {
+        where: () => ({
+          returning: () => Promise.resolve([{ id: "user-2" }]),
+        }),
+      };
+    });
+    mockDb.update.mockReturnValue({ set: mockSet });
+
+    const res = await POST(
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-2"),
+    );
+    expect(res.status).toBe(200);
+    expect(capturedFields.passwordChangedAt).toBeInstanceOf(Date);
   });
 });

@@ -31,6 +31,7 @@ export const users = pgTable(
     forcePasswordChange: boolean("force_password_change")
       .notNull()
       .default(false),
+    passwordChangedAt: timestamp("passwordChangedAt", { mode: "date" }),
     disabledAt: timestamp("disabledAt", { mode: "date" }),
     lastLoginAt: timestamp("lastLoginAt", { mode: "date" }),
     createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
