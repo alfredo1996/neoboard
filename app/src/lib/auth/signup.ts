@@ -49,7 +49,11 @@ export async function signup(formData: FormData): Promise<SignupResult> {
 
   const { name, email, password } = parsed.data;
 
+  // Allow bootstrap (first admin) even when registration is disabled
   const isEmpty = await areUsersEmpty();
+  if (!isEmpty && process.env.REGISTRATION_ENABLED?.toLowerCase() === "false") {
+    return { success: false, error: "Registration is currently disabled." };
+  }
   let role: "admin" | "creator" = "creator";
 
   if (isEmpty) {
