@@ -160,21 +160,25 @@ describe("POST /api/users/[id]/reset-password", () => {
   });
 
   it("sets passwordChangedAt when admin resets password", async () => {
-    mockRequireAdmin.mockResolvedValue(ADMIN);
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
     let capturedFields: Record<string, unknown> = {};
     const mockSet = vi.fn().mockImplementation((fields) => {
       capturedFields = fields;
       return {
         where: () => ({
-          returning: () => Promise.resolve([{ id: "u1" }]),
+          returning: () => Promise.resolve([{ id: "user-2" }]),
         }),
       };
     });
     mockDb.update.mockReturnValue({ set: mockSet });
 
     const res = await POST(
-      makeRequest({ newPassword: "newpass123" }),
-      makeParams("u1"),
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-2"),
     );
     expect(res.status).toBe(200);
     expect(capturedFields.passwordChangedAt).toBeInstanceOf(Date);
