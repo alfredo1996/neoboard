@@ -54,8 +54,8 @@ describe("GET /api/openapi.json", () => {
     expect(res.headers.get("content-type")).toMatch(/application\/json/);
   });
 
-  it("sets CORS header for public spec access", async () => {
+  it("does not include Access-Control-Allow-Origin header", async () => {
     const res = await GET();
-    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
