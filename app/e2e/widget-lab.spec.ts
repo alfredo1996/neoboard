@@ -792,41 +792,43 @@ test.describe("Widget Lab", () => {
 
     test("can filter templates by chart type", async ({ page }) => {
       await page.goto("/widget-lab");
-      await expect(
-        page.getByText("Neo4j Bar Template", { exact: true }),
-      ).toBeVisible({ timeout: 10_000 });
-      await expect(
-        page.getByText("PostgreSQL Table Template", { exact: true }),
-      ).toBeVisible();
+      const neo4jCard = page
+        .locator("[data-testid='template-card']")
+        .filter({ hasText: "Neo4j Bar Template" })
+        .first();
+      const pgCard = page
+        .locator("[data-testid='template-card']")
+        .filter({ hasText: "PostgreSQL Table Template" })
+        .first();
+      await expect(neo4jCard).toBeVisible({ timeout: 10_000 });
+      await expect(pgCard).toBeVisible();
 
       // Filter to bar charts only — shadcn Select uses combobox role
       await page.locator("button[role='combobox']").nth(0).click();
       await page.getByRole("option", { name: "Bar Chart" }).click();
 
-      await expect(
-        page.getByText("Neo4j Bar Template", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        page.getByText("PostgreSQL Table Template", { exact: true }),
-      ).not.toBeVisible();
+      await expect(neo4jCard).toBeVisible();
+      await expect(pgCard).not.toBeVisible();
     });
 
     test("can filter templates by connector type", async ({ page }) => {
       await page.goto("/widget-lab");
-      await expect(
-        page.getByText("Neo4j Bar Template", { exact: true }),
-      ).toBeVisible({ timeout: 10_000 });
+      const neo4jCard = page
+        .locator("[data-testid='template-card']")
+        .filter({ hasText: "Neo4j Bar Template" })
+        .first();
+      await expect(neo4jCard).toBeVisible({ timeout: 10_000 });
 
       // Filter to PostgreSQL only — connector select is the second combobox
       await page.locator("button[role='combobox']").nth(1).click();
       await page.getByRole("option", { name: /PostgreSQL/i }).click();
 
-      await expect(
-        page.getByText("PostgreSQL Table Template", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        page.getByText("Neo4j Bar Template", { exact: true }),
-      ).not.toBeVisible();
+      const pgCard = page
+        .locator("[data-testid='template-card']")
+        .filter({ hasText: "PostgreSQL Table Template" })
+        .first();
+      await expect(pgCard).toBeVisible();
+      await expect(neo4jCard).not.toBeVisible();
     });
 
     test("can search templates by name", async ({ page }) => {
