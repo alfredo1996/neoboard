@@ -290,6 +290,20 @@ export default async function globalSetup() {
   await waitForPort(serverPort, 60_000);
   console.log(`✅ Next.js server ready on port ${serverPort}`);
 
+  // ── Pre-warm critical routes ───────────────────────────────────────────
+  // In dev mode webpack compiles routes on first request (3-6s). If the
+  // first E2E test hits /login before compilation finishes, React hasn't
+  // hydrated and the form's onSubmit handler isn't attached — causing the
+  // login to fall back to a GET and stay on /login. Pre-warming ensures
+  // these routes are compiled and ready before any test runs.
+  console.log("⏳ Pre-warming critical routes...");
+  // Warm sequentially — /login first (most tests start here), then the
+  // dashboard and API routes that the first wave of tests will hit.
+  await warmRoute(serverPort, "/login");
+  await warmRoute(serverPort, "/api/auth/bootstrap-status");
+  await warmRoute(serverPort, "/api/auth/session");
+  console.log("✅ Routes pre-warmed");
+
   // ── Initialize E2E coverage collection (nextcov) ────────────────────────
   if (process.env.E2E_COVERAGE) {
     console.log("⏳ Initializing E2E coverage collection...");
@@ -321,5 +335,23 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
       });
     }
     check();
+  });
+}
+
+/**
+ * Trigger a GET request to a route so webpack compiles it ahead of time.
+ * Non-fatal — if the request fails the route will compile on first test hit.
+ */
+function warmRoute(port: number, routePath: string): Promise<void> {
+  return new Promise((resolve) => {
+    const req = http.get(`http://localhost:${port}${routePath}`, (res) => {
+      res.resume();
+      resolve();
+    });
+    req.on("error", () => resolve());
+    req.setTimeout(15_000, () => {
+      req.destroy();
+      resolve();
+    });
   });
 }

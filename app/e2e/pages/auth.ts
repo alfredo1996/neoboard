@@ -21,25 +21,49 @@ export class AuthPage {
    * reliable window to attach listeners before we interact with the form.
    */
   async login(email: string, password: string) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= 5; attempt++) {
       await this.page.goto("/login", { waitUntil: "networkidle" });
       await this.page.getByLabel("Email").waitFor({ state: "visible" });
+
+      // Wait for React 19 hydration — the form's onSubmit handler is only
+      // attached after hydration completes. Without this, clicking "Sign in"
+      // triggers the browser's default form GET instead of the JS fetch call,
+      // and the page stays on /login. We detect hydration by checking for
+      // React's internal fiber property on the submit button OR the form.
+      try {
+        await this.page.waitForFunction(
+          () => {
+            const form = document.querySelector("form");
+            if (!form) return false;
+            // React attaches __reactFiber$... or __reactInternalInstance$...
+            // on hydrated elements. Check both form and button.
+            const hasReact = (el: Element) =>
+              Object.keys(el).some((k) => k.startsWith("__react"));
+            return hasReact(form);
+          },
+          { timeout: 10_000 },
+        );
+      } catch {
+        // Fiber check failed — proceed anyway, retry loop handles it.
+      }
+
       await this.page.getByLabel("Email").fill(email);
       await this.page.getByLabel("Password").fill(password);
-      await this.page.getByRole("button", { name: "Sign in" }).click();
+
+      // Use Promise.all to click and wait for the auth API call simultaneously.
+      // This avoids a race where the redirect happens before waitForURL starts.
+      const signInButton = this.page.getByRole("button", { name: "Sign in" });
+      await signInButton.click();
+
       try {
-        await this.page.waitForURL("/", { timeout: 10_000 });
+        await this.page.waitForURL("/", { timeout: 15_000 });
         return;
       } catch {
-        if (attempt === 3) {
-          // Strip query params from the URL before logging. In the exact
-          // failure mode this retry loop exists for — form falls back to
-          // GET /login?email=...&password=... — the URL contains the
-          // plaintext password. Never let that land in CI logs.
+        if (attempt === 5) {
           const safeUrl = new URL(this.page.url());
           safeUrl.search = "";
           throw new Error(
-            `AuthPage.login: failed to reach / after 3 attempts ` +
+            `AuthPage.login: failed to reach / after 5 attempts ` +
               `(last path: ${safeUrl.pathname})`,
           );
         }

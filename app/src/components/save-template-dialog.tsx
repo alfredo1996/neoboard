@@ -6,6 +6,7 @@ import { useCreateWidgetTemplate } from "@/hooks/use-widget-templates";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -88,6 +89,9 @@ export function SaveTemplateDialog({
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Save to Widget Lab</DialogTitle>
+          <DialogDescription className="sr-only">
+            Save the current widget as a reusable template.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
