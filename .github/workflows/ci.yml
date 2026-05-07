@@ -8,6 +8,7 @@ on:
       - 'component/**'
       - 'connection/**'
       - 'cli/**'
+      - 'enterprise/**'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -20,6 +21,7 @@ on:
       - 'component/**'
       - 'connection/**'
       - 'cli/**'
+      - 'enterprise/**'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -126,12 +128,17 @@ jobs:
           CONN_PID=$!
           cd cli && npm run test:coverage &
           CLI_PID=$!
+          if [ -d enterprise ]; then
+            cd enterprise && npm run test &
+            ENT_PID=$!
+          fi
 
           FAIL=0
           wait $APP_PID  || FAIL=1
           wait $COMP_PID || FAIL=1
           wait $CONN_PID || FAIL=1
           wait $CLI_PID  || FAIL=1
+          [ -n "${ENT_PID:-}" ] && { wait $ENT_PID || FAIL=1; }
           exit $FAIL
         env:
           POSTGRES_HOST: localhost
