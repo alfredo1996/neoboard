@@ -52,7 +52,10 @@ export class AuthPage {
 
       // Use Promise.all to click and wait for the auth API call simultaneously.
       // This avoids a race where the redirect happens before waitForURL starts.
-      const signInButton = this.page.getByRole("button", { name: "Sign in" });
+      const signInButton = this.page.getByRole("button", {
+        name: "Sign in",
+        exact: true,
+      });
       await signInButton.click();
 
       try {

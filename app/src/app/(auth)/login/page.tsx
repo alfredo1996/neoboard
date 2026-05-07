@@ -35,7 +35,7 @@ function SsoButtons({ providers }: { providers: SsoProviderInfo[] }) {
           key={provider.id}
           variant="outline"
           className="w-full"
-          onClick={() => signIn("sso-" + provider.id)}
+          onClick={() => signIn("sso-" + provider.id, { callbackUrl: "/" })}
         >
           <Shield className="mr-2 h-4 w-4" />
           Sign in with {provider.name}

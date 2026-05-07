@@ -65,6 +65,10 @@ export async function loadSsoProviders(
     clientId: row.clientId,
     clientSecret: decrypt(row.clientSecretEncrypted),
     authorization: { params: { scope: row.scopes } },
+    // Allow linking SSO accounts to existing users with the same email.
+    // Our signIn callback handles provisioning and role mapping — the
+    // adapter just needs to link the OIDC account to the user record.
+    allowDangerousEmailAccountLinking: true,
     metadata: {
       claimMappings: row.claimMappings,
       autoProvision: row.autoProvision,

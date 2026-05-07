@@ -27,7 +27,9 @@ export default async function globalTeardown() {
   }
 
   if (isServiceContainerMode) {
-    console.log("CI service containers — skipping docker rm (GitHub manages them).");
+    console.log(
+      "CI service containers — skipping docker rm (GitHub manages them).",
+    );
   } else {
     if (!fs.existsSync(STATE_FILE)) {
       console.log("No container state file found, nothing to clean up.");
@@ -35,6 +37,7 @@ export default async function globalTeardown() {
       const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
         pgContainerId: string;
         neo4jContainerId: string;
+        keycloakContainerId?: string;
       };
 
       for (const [name, id] of Object.entries(state)) {
@@ -60,9 +63,15 @@ export default async function globalTeardown() {
   }
 
   // Clean up temp files
-  try { fs.unlinkSync(STATE_FILE); } catch {}
-  try { fs.unlinkSync(SERVER_PID_FILE); } catch {}
-  try { fs.unlinkSync(ENV_FILE); } catch {}
+  try {
+    fs.unlinkSync(STATE_FILE);
+  } catch {}
+  try {
+    fs.unlinkSync(SERVER_PID_FILE);
+  } catch {}
+  try {
+    fs.unlinkSync(ENV_FILE);
+  } catch {}
 
   console.log("✅ Cleanup complete.\n");
 }

@@ -9,7 +9,6 @@ import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
 import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
 import { getCachedSsoProviders } from "@/lib/auth/sso/provider-cache";
 import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
-import { provisionOrLinkSsoUser } from "@/lib/auth/sso/provision";
 import type { LoadedSsoProvider } from "@/lib/auth/sso/provider-loader";
 
 const loginSchema = z.object({
@@ -112,37 +111,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         const { claimMappings, autoProvision, defaultRole } =
           providerConfig.metadata;
 
-        // Resolve role from IdP claims
+        // Check if user already exists in the DB
+        const existingUsers = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, user.email ?? ""))
+          .limit(1);
+
+        if (existingUsers.length === 0 && !autoProvision) {
+          // Auto-provision is off and user doesn't exist — reject login
+          return false;
+        }
+
+        // Resolve role from IdP claims and sync to DB
         const resolvedRole = resolveRoleFromClaims(
           (profile ?? {}) as Record<string, unknown>,
           claimMappings,
           defaultRole,
         );
 
-        // Provision or link the SSO user
-        const ssoUser = await provisionOrLinkSsoUser({
-          email: user.email ?? "",
-          name: (profile?.name as string) ?? user.name ?? null,
-          image: (profile?.picture as string) ?? user.image ?? null,
-          resolvedRole,
-          tenantId,
-          autoProvision,
-        });
-
-        if (!ssoUser) {
-          // Auto-provision is off and user doesn't exist — reject login
-          return false;
+        if (existingUsers.length > 0) {
+          // Existing user: sync role from IdP claims on every login
+          await db
+            .update(users)
+            .set({
+              role: resolvedRole,
+              canWrite: resolvedRole !== "reader",
+              lastLoginAt: new Date(),
+            })
+            .where(eq(users.id, existingUsers[0].id));
         }
 
-        // Attach provisioned user data so the JWT callback can read it
-        user.id = ssoUser.id;
-        user.name = ssoUser.name;
-        user.email = ssoUser.email;
-        user.image = ssoUser.image;
-        (user as Record<string, unknown>).role = ssoUser.role;
-        (user as Record<string, unknown>).canWrite = ssoUser.canWrite;
-        (user as Record<string, unknown>).forcePasswordChange = false;
-        (user as Record<string, unknown>).tenantId = ssoUser.tenantId;
+        // For new users: the DrizzleAdapter creates the user record
+        // automatically. We set default role/tenantId via the profile.
+        // The JWT callback will pick up the role from DB on next refresh.
 
         return true;
       },
