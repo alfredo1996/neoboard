@@ -48,13 +48,11 @@ openssl rand -hex 32
 
 ## Enterprise Variables
 
-These enable enterprise features when set:
+Set `NEOBOARD_EDITION=enterprise` to enable enterprise features (requires the `@neoboard/enterprise` package). See the [SSO guide](/guides/sso) for setup instructions.
 
-| Variable | Description |
-|----------|-------------|
-| `SSO_ENABLED` | Enable SSO authentication providers |
-| `CUSTOM_ROLES_ENABLED` | Enable custom role definitions |
-| `CONNECTOR_LABELS_ENABLED` | Enable labeling connectors |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEOBOARD_EDITION` | Set to `enterprise` to enable SSO and other enterprise features | (unset — community edition) |
 
 ## Config File (Optional)
 
