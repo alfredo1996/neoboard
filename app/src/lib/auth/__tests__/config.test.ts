@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // vi.hoisted runs BEFORE vi.mock factories, so these are available there
@@ -18,11 +18,17 @@ const { callbacks, sessionConfig, mockDbSelect } = vi.hoisted(() => {
 
 vi.mock("next-auth", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (config: any) => {
-    callbacks.jwt = config.callbacks.jwt;
-    callbacks.session = config.callbacks.session;
-    sessionConfig.strategy = config.session?.strategy;
-    sessionConfig.maxAge = config.session?.maxAge;
+  default: (configOrFn: any) => {
+    // Support both static config and lazy init (async function)
+    const resolve = async () => {
+      const config =
+        typeof configOrFn === "function" ? await configOrFn() : configOrFn;
+      callbacks.jwt = config.callbacks.jwt;
+      callbacks.session = config.callbacks.session;
+      sessionConfig.strategy = config.session?.strategy;
+      sessionConfig.maxAge = config.session?.maxAge;
+    };
+    resolve();
     return { handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() };
   },
 }));
@@ -76,6 +82,18 @@ vi.mock("bcryptjs", () => ({
   default: { compare: vi.fn() },
 }));
 
+vi.mock("@/lib/auth/sso/provider-cache", () => ({
+  getCachedSsoProviders: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/auth/sso/claim-mapping", () => ({
+  resolveRoleFromClaims: vi.fn(() => "creator"),
+}));
+
+vi.mock("@/lib/auth/sso/provision", () => ({
+  provisionOrLinkSsoUser: vi.fn(async () => null),
+}));
+
 vi.mock("zod", () => {
   const schema = {
     safeParse: vi.fn(() => ({
@@ -91,8 +109,14 @@ vi.mock("zod", () => {
   };
 });
 
-// Import triggers NextAuth() which captures callbacks
+// Import triggers NextAuth() which captures callbacks via the async resolve()
 import "../config";
+
+// The lazy init runs asynchronously — give it time to resolve before tests
+beforeAll(async () => {
+  // Wait for the NextAuth mock's resolve() to complete
+  await new Promise((r) => setTimeout(r, 50));
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

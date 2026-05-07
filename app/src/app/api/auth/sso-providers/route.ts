@@ -17,6 +17,7 @@ export async function GET() {
       .select({
         id: ssoProviders.id,
         name: ssoProviders.name,
+        enforceSso: ssoProviders.enforceSso,
       })
       .from(ssoProviders)
       .where(
@@ -26,7 +27,10 @@ export async function GET() {
         ),
       );
 
-    return apiSuccess(rows);
+    const enforceSso = rows.some((r) => r.enforceSso);
+    const providers = rows.map(({ id, name }) => ({ id, name }));
+
+    return apiSuccess(providers, 200, { enforceSso });
   } catch (e) {
     return handleRouteError(e);
   }
