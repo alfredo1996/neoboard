@@ -1,22 +1,15 @@
 ---
 title: Single Sign-On (SSO)
 description: Configure OIDC single sign-on providers to enable SSO login for your organization.
-badge:
-  text: Enterprise
-  variant: tip
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-NeoBoard Enterprise supports OIDC-based single sign-on (SSO). Users can sign in with their organization's identity provider (Okta, Azure AD/Entra, Google Workspace, Keycloak, Auth0, etc.) instead of managing separate NeoBoard passwords.
-
-<Aside type="note">
-SSO is an enterprise feature. Set `NEOBOARD_EDITION=enterprise` in your environment to enable it.
-</Aside>
+NeoBoard supports OIDC-based single sign-on (SSO). Users can sign in with their organization's identity provider (Okta, Azure AD/Entra, Google Workspace, Keycloak, Auth0, etc.) instead of managing separate NeoBoard passwords.
 
 ## How It Works
 
-1. An admin configures one or more OIDC providers in **Settings > Authentication**
+1. SSO is configured via **environment variables** (recommended) or the **Admin UI**
 2. The login page shows "Sign in with [Provider]" buttons above the password form
 3. Clicking a button redirects the user to the identity provider (IdP)
 4. After authentication, the IdP redirects back to NeoBoard with an authorization code
@@ -26,11 +19,69 @@ SSO is an enterprise feature. Set `NEOBOARD_EDITION=enterprise` in your environm
 
 Before configuring SSO, you need:
 
-- NeoBoard running with `NEOBOARD_EDITION=enterprise`
 - An OIDC client registered in your identity provider
 - The client ID, client secret, and issuer URL from your IdP
 
-## Configuring a Provider
+## Quick Setup (Environment Variables)
+
+The fastest way to enable SSO. Set these three variables and restart NeoBoard:
+
+```bash
+OIDC_ISSUER=https://myorg.okta.com
+OIDC_CLIENT_ID=neoboard
+OIDC_CLIENT_SECRET=your-client-secret
+```
+
+That's it — an SSO button will appear on the login page. No `NEOBOARD_EDITION=enterprise` required.
+
+### All Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OIDC_ISSUER` | Yes | — | OIDC issuer URL (e.g., `https://myorg.okta.com`) |
+| `OIDC_CLIENT_ID` | Yes | — | OIDC client identifier |
+| `OIDC_CLIENT_SECRET` | Yes | — | OIDC client secret |
+| `OIDC_DISPLAY_NAME` | No | `SSO` | Button label on the login page |
+| `OIDC_SCOPES` | No | `openid profile email` | OIDC scopes to request |
+| `OIDC_CLAIM_KEY` | No | — | IdP claim key for role mapping (e.g., `groups`) |
+| `OIDC_ADMIN_VALUE` | No | — | Claim value that maps to Admin role |
+| `OIDC_CREATOR_VALUE` | No | — | Claim value that maps to Creator role |
+| `OIDC_READER_VALUE` | No | — | Claim value that maps to Reader role |
+| `OIDC_AUTO_PROVISION` | No | `true` | Auto-create users on first SSO login |
+| `OIDC_DEFAULT_ROLE` | No | `creator` | Role when no claim matches |
+| `OIDC_ENFORCE_SSO` | No | `false` | Hide password form for non-admin users |
+
+### Docker Compose Example
+
+```yaml
+services:
+  neoboard:
+    image: neoboard:latest
+    environment:
+      DATABASE_URL: postgresql://neoboard:neoboard@db:5432/neoboard
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: https://neoboard.example.com
+      # SSO
+      OIDC_ISSUER: https://myorg.okta.com
+      OIDC_CLIENT_ID: neoboard-prod
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_DISPLAY_NAME: Company SSO
+      OIDC_CLAIM_KEY: groups
+      OIDC_ADMIN_VALUE: neoboard-admins
+      OIDC_CREATOR_VALUE: neoboard-editors
+      OIDC_READER_VALUE: neoboard-viewers
+```
+
+## Multi-Provider Setup (Admin UI)
+
+<Aside type="note">
+The Admin UI for SSO is an enterprise feature. Set `NEOBOARD_EDITION=enterprise` to enable Settings &gt; Authentication. Env-based SSO works without it.
+</Aside>
+
+For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use the Admin UI. The env-based provider and UI-based providers work together — the env provider appears first on the login page.
+
+### Configuring a Provider
 
 <Steps>
 

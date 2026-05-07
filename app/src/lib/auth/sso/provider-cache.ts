@@ -1,4 +1,5 @@
 import { loadSsoProviders } from "./provider-loader";
+import { loadEnvSsoProvider } from "./env-provider";
 import type { LoadedSsoProvider } from "./provider-loader";
 
 const CACHE_TTL_MS = 60_000; // 1 minute
@@ -12,6 +13,8 @@ const cache = new Map<string, CacheEntry>();
 
 /**
  * Load SSO providers for a tenant with in-memory caching (60s TTL).
+ * Merges the env-based provider (if configured) with DB-based providers.
+ * Env provider comes first so it appears as the primary SSO button.
  * Falls back to empty array if the DB query fails.
  */
 export async function getCachedSsoProviders(
@@ -24,13 +27,18 @@ export async function getCachedSsoProviders(
     return cached.providers;
   }
 
+  const envProvider = loadEnvSsoProvider();
+
+  let dbProviders: LoadedSsoProvider[] = [];
   try {
-    const providers = await loadSsoProviders(tenantId);
-    cache.set(tenantId, { providers, expiresAt: now + CACHE_TTL_MS });
-    return providers;
+    dbProviders = await loadSsoProviders(tenantId);
   } catch {
-    return [];
+    // DB unavailable — env provider may still work
   }
+
+  const providers = envProvider ? [envProvider, ...dbProviders] : dbProviders;
+  cache.set(tenantId, { providers, expiresAt: now + CACHE_TTL_MS });
+  return providers;
 }
 
 /**

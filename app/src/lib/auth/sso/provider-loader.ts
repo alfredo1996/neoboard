@@ -27,6 +27,7 @@ export interface LoadedSsoProvider {
   clientId: string;
   clientSecret: string;
   authorization: { params: { scope: string } };
+  allowDangerousEmailAccountLinking: boolean;
   metadata: SsoProviderMetadata;
 }
 

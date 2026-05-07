@@ -46,13 +46,27 @@ openssl rand -hex 32
 | `MAX_QUERY_ROWS` | Maximum rows returned per query | `1000` |
 | `QUERY_TIMEOUT_MS` | Default query timeout in milliseconds | `30000` |
 
-## Enterprise Variables
+## SSO / OIDC Variables
 
-Set `NEOBOARD_EDITION=enterprise` to enable enterprise features (requires the `@neoboard/enterprise` package). See the [SSO guide](/guides/sso) for setup instructions.
+Set the three required variables to enable single sign-on. See the [SSO guide](/guides/sso) for full setup instructions and IdP examples.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEOBOARD_EDITION` | Set to `enterprise` to enable SSO and other enterprise features | (unset — community edition) |
+| `OIDC_ISSUER` | OIDC issuer URL | (required for SSO) |
+| `OIDC_CLIENT_ID` | OIDC client identifier | (required for SSO) |
+| `OIDC_CLIENT_SECRET` | OIDC client secret | (required for SSO) |
+| `OIDC_DISPLAY_NAME` | Login button label | `SSO` |
+| `OIDC_CLAIM_KEY` | IdP claim for role mapping | (unset — no mapping) |
+| `OIDC_DEFAULT_ROLE` | Role when no claim matches | `creator` |
+| `OIDC_ENFORCE_SSO` | Hide password form for non-admins | `false` |
+
+## Enterprise Variables
+
+Set `NEOBOARD_EDITION=enterprise` to enable enterprise features like the Admin UI for multi-provider SSO, custom roles, and more.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEOBOARD_EDITION` | Set to `enterprise` to enable enterprise features | (unset — community edition) |
 
 ## Config File (Optional)
 
