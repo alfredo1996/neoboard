@@ -6,7 +6,17 @@ describe("loadEnvSsoProvider", () => {
     vi.unstubAllEnvs();
   });
 
+  it("returns null when NEOBOARD_EDITION is not enterprise", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "");
+    vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
+    vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
+    vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
+    const { loadEnvSsoProvider } = await import("../env-provider");
+    expect(loadEnvSsoProvider()).toBeNull();
+  });
+
   it("returns null when no OIDC env vars are set", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "");
     vi.stubEnv("OIDC_CLIENT_ID", "");
     vi.stubEnv("OIDC_CLIENT_SECRET", "");
@@ -15,6 +25,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("returns null when only OIDC_ISSUER is set", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "");
     vi.stubEnv("OIDC_CLIENT_SECRET", "");
@@ -23,6 +34,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("returns null when OIDC_CLIENT_SECRET is missing", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "");
@@ -30,7 +42,8 @@ describe("loadEnvSsoProvider", () => {
     expect(loadEnvSsoProvider()).toBeNull();
   });
 
-  it("returns provider when all required vars are set", async () => {
+  it("returns provider when enterprise edition and all required vars set", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -46,6 +59,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("uses default display name when OIDC_DISPLAY_NAME is not set", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -55,6 +69,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("uses custom display name from OIDC_DISPLAY_NAME", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -65,6 +80,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("uses default scopes when OIDC_SCOPES is not set", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -74,6 +90,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("builds claim mappings from OIDC_CLAIM_KEY and value vars", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -92,6 +109,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("returns null claim mappings when OIDC_CLAIM_KEY is not set", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -101,6 +119,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("uses default auto-provision and role", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -112,6 +131,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("respects OIDC_AUTO_PROVISION=false", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -122,6 +142,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("respects OIDC_DEFAULT_ROLE=reader", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -132,6 +153,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("respects OIDC_ENFORCE_SSO=true", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");
@@ -142,6 +164,7 @@ describe("loadEnvSsoProvider", () => {
   });
 
   it("includes allowDangerousEmailAccountLinking", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     vi.stubEnv("OIDC_ISSUER", "https://idp.example.com");
     vi.stubEnv("OIDC_CLIENT_ID", "neoboard");
     vi.stubEnv("OIDC_CLIENT_SECRET", "secret123");

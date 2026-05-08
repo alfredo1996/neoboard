@@ -1,6 +1,9 @@
 ---
 title: Single Sign-On (SSO)
 description: Configure OIDC single sign-on providers to enable SSO login for your organization.
+badge:
+  text: Enterprise
+  variant: tip
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -24,15 +27,20 @@ Before configuring SSO, you need:
 
 ## Quick Setup (Environment Variables)
 
-The fastest way to enable SSO. Set these three variables and restart NeoBoard:
+<Aside type="note">
+SSO is an enterprise feature. Set `NEOBOARD_EDITION=enterprise` in your environment to enable it.
+</Aside>
+
+The fastest way to enable SSO. Set these variables and restart NeoBoard:
 
 ```bash
+NEOBOARD_EDITION=enterprise
 OIDC_ISSUER=https://myorg.okta.com
 OIDC_CLIENT_ID=neoboard
 OIDC_CLIENT_SECRET=your-client-secret
 ```
 
-That's it — an SSO button will appear on the login page. No `NEOBOARD_EDITION=enterprise` required.
+That's it — an SSO button will appear on the login page.
 
 ### All Environment Variables
 
@@ -62,7 +70,8 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: https://neoboard.example.com
-      # SSO
+      # Enterprise + SSO
+      NEOBOARD_EDITION: enterprise
       OIDC_ISSUER: https://myorg.okta.com
       OIDC_CLIENT_ID: neoboard-prod
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
@@ -76,7 +85,7 @@ services:
 ## Multi-Provider Setup (Admin UI)
 
 <Aside type="note">
-The Admin UI for SSO is an enterprise feature. Set `NEOBOARD_EDITION=enterprise` to enable Settings &gt; Authentication. Env-based SSO works without it.
+For multiple SSO providers, use the Admin UI in Settings &gt; Authentication. The env-based provider and UI-based providers work together.
 </Aside>
 
 For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use the Admin UI. The env-based provider and UI-based providers work together — the env provider appears first on the login page.

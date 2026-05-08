@@ -3,13 +3,18 @@ import type { UserRole } from "@/lib/db/schema";
 
 /**
  * Load a single OIDC provider from environment variables.
- * Returns null if the required vars (OIDC_ISSUER, OIDC_CLIENT_ID,
- * OIDC_CLIENT_SECRET) are not all set.
+ * Returns null if:
+ * - NEOBOARD_EDITION is not "enterprise"
+ * - Any of OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET is missing
  *
- * This is the primary SSO config method for on-prem / single-tenant
- * deployments. No DB, no encryption, no enterprise edition required.
+ * SSO is an enterprise feature — both env-based and UI-based providers
+ * require the enterprise edition.
  */
 export function loadEnvSsoProvider(): LoadedSsoProvider | null {
+  if (process.env.NEOBOARD_EDITION !== "enterprise") {
+    return null;
+  }
+
   const issuer = process.env.OIDC_ISSUER;
   const clientId = process.env.OIDC_CLIENT_ID;
   const clientSecret = process.env.OIDC_CLIENT_SECRET;
