@@ -44,9 +44,9 @@ That's it — an SSO button will appear on the login page. No `NEOBOARD_EDITION=
 | `OIDC_DISPLAY_NAME` | No | `SSO` | Button label on the login page |
 | `OIDC_SCOPES` | No | `openid profile email` | OIDC scopes to request |
 | `OIDC_CLAIM_KEY` | No | — | IdP claim key for role mapping (e.g., `groups`) |
-| `OIDC_ADMIN_VALUE` | No | — | Claim value that maps to Admin role |
-| `OIDC_CREATOR_VALUE` | No | — | Claim value that maps to Creator role |
-| `OIDC_READER_VALUE` | No | — | Claim value that maps to Reader role |
+| `OIDC_ADMIN_VALUE` | No | — | Claim value(s) that map to Admin role (comma-separated) |
+| `OIDC_CREATOR_VALUE` | No | — | Claim value(s) that map to Creator role (comma-separated) |
+| `OIDC_READER_VALUE` | No | — | Claim value(s) that map to Reader role (comma-separated) |
 | `OIDC_AUTO_PROVISION` | No | `true` | Auto-create users on first SSO login |
 | `OIDC_DEFAULT_ROLE` | No | `creator` | Role when no claim matches |
 | `OIDC_ENFORCE_SSO` | No | `false` | Hide password form for non-admin users |
@@ -68,9 +68,9 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
       OIDC_DISPLAY_NAME: Company SSO
       OIDC_CLAIM_KEY: groups
-      OIDC_ADMIN_VALUE: neoboard-admins
-      OIDC_CREATOR_VALUE: neoboard-editors
-      OIDC_READER_VALUE: neoboard-viewers
+      OIDC_ADMIN_VALUE: devops,platform-team
+      OIDC_CREATOR_VALUE: engineering,data-team
+      OIDC_READER_VALUE: marketing,sales
 ```
 
 ## Multi-Provider Setup (Admin UI)
@@ -217,6 +217,16 @@ Google's OIDC tokens don't include a `groups` claim by default. All Google SSO u
 Role mapping is evaluated on **every login**, not just the first time. If a user's group membership changes in the IdP, their NeoBoard role updates automatically on their next sign-in.
 
 **Priority order:** Admin > Creator > Reader. If a user is in multiple mapped groups, the highest-priority role wins.
+
+**Multiple groups per role:** Use comma-separated values to map several IdP groups to the same NeoBoard role:
+
+```bash
+OIDC_ADMIN_VALUE=devops,platform-team,it-ops
+OIDC_CREATOR_VALUE=engineering,data-team,analytics
+OIDC_READER_VALUE=marketing,sales,support
+```
+
+If a user belongs to any of the listed groups, they get that role. This also works in the Admin UI claim mapping fields.
 
 **Nested claims** are supported with dot notation. For example, Keycloak's `realm_access.roles` claim can be mapped with:
 
