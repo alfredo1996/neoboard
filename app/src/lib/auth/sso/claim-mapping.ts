@@ -22,11 +22,14 @@ export function resolveRoleFromClaims(
 
   const values = normalizeToArray(claimValue);
 
-  // Check in priority order: admin > creator > reader
-  if (mapping.adminValue && values.includes(mapping.adminValue)) return "admin";
-  if (mapping.creatorValue && values.includes(mapping.creatorValue))
+  // Check in priority order: admin > creator > reader.
+  // Each mapping value supports comma-separated lists (e.g. "devops,platform-team")
+  // so multiple IdP groups can map to the same NeoBoard role.
+  if (mapping.adminValue && matchesAny(values, mapping.adminValue))
+    return "admin";
+  if (mapping.creatorValue && matchesAny(values, mapping.creatorValue))
     return "creator";
-  if (mapping.readerValue && values.includes(mapping.readerValue))
+  if (mapping.readerValue && matchesAny(values, mapping.readerValue))
     return "reader";
 
   return defaultRole;
@@ -51,6 +54,15 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   }
 
   return current;
+}
+
+/**
+ * Check if any of the user's claim values matches any of the comma-separated
+ * mapping targets. Supports "devops,platform-team,it-ops" syntax.
+ */
+function matchesAny(claimValues: string[], mappingValue: string): boolean {
+  const targets = mappingValue.split(",").map((s) => s.trim());
+  return claimValues.some((v) => targets.includes(v));
 }
 
 /**

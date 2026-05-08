@@ -101,4 +101,70 @@ describe("resolveRoleFromClaims", () => {
     const profile = { groups: [] };
     expect(resolveRoleFromClaims(profile, mapping, "creator")).toBe("creator");
   });
+
+  // ── Comma-separated multi-value mapping ─────────────────────────────────
+
+  it("matches any of comma-separated admin values", () => {
+    const multiMapping: SsoClaimMapping = {
+      claimKey: "groups",
+      adminValue: "devops,platform-team,it-ops",
+      creatorValue: "engineering",
+    };
+    const profile = { groups: ["platform-team", "users"] };
+    expect(resolveRoleFromClaims(profile, multiMapping, "reader")).toBe(
+      "admin",
+    );
+  });
+
+  it("matches any of comma-separated creator values", () => {
+    const multiMapping: SsoClaimMapping = {
+      claimKey: "groups",
+      adminValue: "devops",
+      creatorValue: "engineering,data-team,analytics",
+    };
+    const profile = { groups: ["data-team"] };
+    expect(resolveRoleFromClaims(profile, multiMapping, "reader")).toBe(
+      "creator",
+    );
+  });
+
+  it("matches any of comma-separated reader values", () => {
+    const multiMapping: SsoClaimMapping = {
+      claimKey: "groups",
+      readerValue: "marketing,sales,support",
+    };
+    const profile = { groups: ["sales"] };
+    expect(resolveRoleFromClaims(profile, multiMapping, "creator")).toBe(
+      "reader",
+    );
+  });
+
+  it("trims whitespace around comma-separated values", () => {
+    const multiMapping: SsoClaimMapping = {
+      claimKey: "groups",
+      adminValue: " devops , platform-team , it-ops ",
+    };
+    const profile = { groups: ["platform-team"] };
+    expect(resolveRoleFromClaims(profile, multiMapping, "reader")).toBe(
+      "admin",
+    );
+  });
+
+  it("still works with single value (no comma)", () => {
+    // Existing behavior preserved — single values work as before
+    const profile = { groups: ["neoboard-admins"] };
+    expect(resolveRoleFromClaims(profile, mapping, "reader")).toBe("admin");
+  });
+
+  it("prioritizes admin over creator with comma-separated values", () => {
+    const multiMapping: SsoClaimMapping = {
+      claimKey: "groups",
+      adminValue: "admins,super-admins",
+      creatorValue: "editors,writers",
+    };
+    const profile = { groups: ["writers", "super-admins"] };
+    expect(resolveRoleFromClaims(profile, multiMapping, "reader")).toBe(
+      "admin",
+    );
+  });
 });
