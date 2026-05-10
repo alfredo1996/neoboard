@@ -35,8 +35,17 @@ The NeoBoard CLI handles project setup, database management, and service lifecyc
 | `neoboard status` | Show health of PostgreSQL, Neo4j, and the app. |
 | `neoboard doctor` | Check prerequisites: Docker, Node.js, ports, env file. |
 | `neoboard demo` | Full setup + seed demo data and sample dashboards. |
-| `neoboard env` | Generate or validate `app/.env.local`. |
 | `neoboard logs` | Tail Docker container logs. |
+
+### Environment Commands
+
+| Command | Description |
+|---------|-------------|
+| `neoboard env generate` | Generate `app/.env.local` with fresh secrets. |
+| `neoboard env validate` | Check all required env vars are set. |
+| `neoboard env list` | Show all known env vars with set/unset status. |
+| `neoboard env get <key>` | Get a single env var value. |
+| `neoboard env set <key> <value>` | Set a single env var in `.env.local`. |
 
 ### Config Commands
 

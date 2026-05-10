@@ -144,28 +144,81 @@ neoboard demo
 #   Password: admin123
 ```
 
-## env
+## env generate
 
-Generate or validate the `app/.env.local` file. In Docker mode, environment is managed by `docker-compose` so this command is not needed.
+Generate `app/.env.local` with random secrets. Skips if the file already exists unless `--regenerate` is passed.
 
 ```bash
-neoboard env [--regenerate] [--validate]
+neoboard env generate [--regenerate]
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--regenerate` | `false` | Overwrite existing `.env.local` with fresh secrets. |
-| `--validate` | `false` | Check that all required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`) are set. |
 
 ```bash
 # Generate .env.local (skips if it already exists)
-neoboard env
+neoboard env generate
 
 # Force regenerate all secrets
-neoboard env --regenerate
+neoboard env generate --regenerate
+```
 
-# Validate existing file
-neoboard env --validate
+## env validate
+
+Check that all required environment variables are set in `app/.env.local`.
+
+```bash
+neoboard env validate
+```
+
+Checks for: `DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
+
+## env list
+
+Show all known environment variables with their set/unset status, grouped by category (Required, Auth, Security, Enterprise, SSO).
+
+```bash
+neoboard env list
+```
+
+```bash
+neoboard env list
+#   Required:
+#     DATABASE_URL                    ✓ set
+#     ENCRYPTION_KEY                  ✓ set
+#     NEXTAUTH_SECRET                 ✓ set
+#     NEXTAUTH_URL                    · unset
+#   Enterprise:
+#     NEOBOARD_EDITION                · unset
+#   ...
+```
+
+## env get
+
+Get a single environment variable value from `app/.env.local`.
+
+```bash
+neoboard env get <key>
+```
+
+```bash
+neoboard env get DATABASE_URL
+# DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
+```
+
+## env set
+
+Set a single environment variable in `app/.env.local`. Creates the file if it doesn't exist. Updates existing keys in place and removes duplicates.
+
+```bash
+neoboard env set <key> <value>
+```
+
+```bash
+neoboard env set NEOBOARD_EDITION enterprise
+neoboard env set SESSION_MAX_AGE 57600
+neoboard env set OIDC_ISSUER https://myorg.okta.com
 ```
 
 ## config list
