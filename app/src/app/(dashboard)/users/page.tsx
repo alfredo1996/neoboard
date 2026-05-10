@@ -20,6 +20,7 @@ import {
   Label,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -410,6 +411,9 @@ export default function UsersPage() {
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create User</DialogTitle>
+              <DialogDescription className="sr-only">
+                Create a new user account.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -546,6 +550,9 @@ export default function UsersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Temporary Password</DialogTitle>
+            <DialogDescription className="sr-only">
+              Temporary password for the new user.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">

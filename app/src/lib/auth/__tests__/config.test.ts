@@ -1,28 +1,47 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterAll,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
-// vi.hoisted runs BEFORE vi.mock factories, so these are available there
+// vi.hoisted runs BEFORE vi.mock factories, so these are available there.
+// TENANT_ID must be set here so it's available when NextAuth lazy init runs.
 // ---------------------------------------------------------------------------
-const { callbacks, sessionConfig, mockDbSelect } = vi.hoisted(() => {
-  const callbacks = {
+const { callbacks, sessionConfig, mockDbSelect, originalTenantId } = vi.hoisted(
+  () => {
+    const orig = process.env.TENANT_ID;
+    process.env.TENANT_ID = "test-tenant";
+    const callbacks = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      jwt: null as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      session: null as any,
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    jwt: null as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    session: null as any,
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessionConfig = { strategy: "" as string, maxAge: 0 as any };
-  const mockDbSelect = vi.fn();
-  return { callbacks, sessionConfig, mockDbSelect };
-});
+    const sessionConfig = { strategy: "" as string, maxAge: 0 as any };
+    const mockDbSelect = vi.fn();
+    return { callbacks, sessionConfig, mockDbSelect, originalTenantId: orig };
+  },
+);
 
 vi.mock("next-auth", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (config: any) => {
-    callbacks.jwt = config.callbacks.jwt;
-    callbacks.session = config.callbacks.session;
-    sessionConfig.strategy = config.session?.strategy;
-    sessionConfig.maxAge = config.session?.maxAge;
+  default: (configOrFn: any) => {
+    // Support both static config and lazy init (async function)
+    const resolve = async () => {
+      const config =
+        typeof configOrFn === "function" ? await configOrFn() : configOrFn;
+      callbacks.jwt = config.callbacks.jwt;
+      callbacks.session = config.callbacks.session;
+      sessionConfig.strategy = config.session?.strategy;
+      sessionConfig.maxAge = config.session?.maxAge;
+    };
+    resolve();
     return { handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() };
   },
 }));
@@ -70,10 +89,23 @@ vi.mock("@/lib/crypto/rate-limiter", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((a: unknown, b: unknown) => ({ field: a, value: b })),
+  and: vi.fn((...args: unknown[]) => args),
 }));
 
 vi.mock("bcryptjs", () => ({
   default: { compare: vi.fn() },
+}));
+
+vi.mock("@/lib/auth/sso/provider-cache", () => ({
+  getCachedSsoProviders: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/auth/sso/claim-mapping", () => ({
+  resolveRoleFromClaims: vi.fn(() => "creator"),
+}));
+
+vi.mock("@/lib/auth/sso/provision", () => ({
+  provisionOrLinkSsoUser: vi.fn(async () => null),
 }));
 
 vi.mock("zod", () => {
@@ -91,8 +123,22 @@ vi.mock("zod", () => {
   };
 });
 
-// Import triggers NextAuth() which captures callbacks
+// Import triggers NextAuth() which captures callbacks via the async resolve()
 import "../config";
+
+// The lazy init runs asynchronously — give it time to resolve before tests
+beforeAll(async () => {
+  // Wait for the NextAuth mock's resolve() to complete
+  await new Promise((r) => setTimeout(r, 50));
+});
+
+afterAll(() => {
+  if (originalTenantId !== undefined) {
+    process.env.TENANT_ID = originalTenantId;
+  } else {
+    delete process.env.TENANT_ID;
+  }
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

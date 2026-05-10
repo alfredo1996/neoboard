@@ -1039,6 +1039,7 @@ export function WidgetEditorModal({
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
         onInteractOutside={() => onOpenChange(false)}
+        aria-describedby={undefined}
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />

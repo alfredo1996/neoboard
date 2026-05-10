@@ -7,22 +7,23 @@ NeoBoard is a monorepo with three packages plus a CLI. Each package has strict b
 
 ## Package Boundaries
 
-```
-                    +-----------------------+
-                    |       app/            |
-                    |  Next.js Application  |
-                    |  API routes, stores,  |
-                    |  hooks, pages, plugins|
-                    +------+--------+-------+
-                           |        |
-              imports UI   |        |  imports connectors
-                           v        v
-            +----------------+   +------------------+
-            |  component/    |   |  connection/      |
-            |  React UI lib  |   |  DB connector lib |
-            |  Charts, forms |   |  Neo4j, Postgres  |
-            |  shadcn/ui     |   |  Query execution  |
-            +----------------+   +------------------+
+```mermaid
+graph TD
+    APP["<b>app/</b><br/>Next.js Application<br/>API routes, stores, hooks, pages"]
+    COMP["<b>component/</b><br/>React UI Library<br/>Charts, forms, shadcn/ui"]
+    CONN["<b>connection/</b><br/>DB Connector Library<br/>Neo4j, PostgreSQL drivers"]
+    CLI["<b>cli/</b><br/>CLI Tool<br/>Setup, migrations"]
+    ENT["<b>enterprise/</b><br/>Enterprise Features<br/>SSO, custom roles"]
+
+    APP -->|imports UI| COMP
+    APP -->|imports connectors| CONN
+    APP -.->|dynamic import| ENT
+
+    style APP fill:#3b82f6,color:#fff
+    style COMP fill:#10b981,color:#fff
+    style CONN fill:#f59e0b,color:#fff
+    style CLI fill:#6b7280,color:#fff
+    style ENT fill:#8b5cf6,color:#fff
 ```
 
 | Package | What it does | What it must NOT do |
@@ -105,7 +106,7 @@ Inside route handlers, `requireSession()` extracts the user's `userId`, `role`, 
 
 ## Multi-Tenancy
 
-Every data table includes a `tenant_id` column. All queries filter by the authenticated user's tenant. See [Multi-Tenancy](/concepts/multi-tenancy) for details.
+Every data table includes a `tenant_id` column. All queries filter by the authenticated user's tenant. See [Multi-Tenancy](/administration/multi-tenancy) for details.
 
 ## Security
 
@@ -114,3 +115,54 @@ Every data table includes a `tenant_id` column. All queries filter by the authen
 - **Read-only**: PostgreSQL uses `BEGIN TRANSACTION READ ONLY`. Neo4j uses `session.executeRead()`.
 - **Timeouts**: Enforced at driver level (statement timeout for PostgreSQL, transaction timeout for Neo4j).
 - **Rate limiting**: Login attempts limited to 20 per minute per IP.
+
+## Where Does Code Live?
+
+| Feature | Package | Key Directory |
+|---------|---------|--------------|
+| API routes | `app/` | `src/app/api/` |
+| Dashboard pages | `app/` | `src/app/(dashboard)/` |
+| Auth (login, signup) | `app/` | `src/app/(auth)/`, `src/lib/auth/` |
+| Zustand stores | `app/` | `src/stores/` |
+| React hooks | `app/` | `src/hooks/` |
+| Widget editor | `app/` | `src/components/widget-editor/` |
+| Chart components | `component/` | `src/charts/` |
+| UI primitives (shadcn) | `component/` | `src/components/ui/` |
+| Composed components | `component/` | `src/components/composed/` |
+| Chart options schema | `component/` | `src/components/composed/chart-options-schema.ts` |
+| Neo4j driver | `connection/` | `src/neo4j/` |
+| PostgreSQL driver | `connection/` | `src/postgresql/` |
+| Schema introspection | `connection/` | `src/schema/` |
+| DB schema (Drizzle) | `app/` | `src/lib/db/schema.ts` |
+| Migrations | `app/` | `drizzle/migrations/` |
+| E2E tests | `app/` | `e2e/` |
+| SSO (enterprise) | `enterprise/` | `src/` |
+
+## Common Tasks
+
+### Add a new API route
+
+1. Create `app/src/app/api/your-route/route.ts`
+2. Use `requireSession()` or `requireAdmin()` for auth
+3. Use `apiSuccess()` / `apiError()` for response envelope
+4. Add tests in `__tests__/route.test.ts` next to the route
+5. See any existing route in `app/src/app/api/` for the pattern
+
+### Add a new chart type
+
+Follow the [Chart Plugin Guide](/developer/extending/new-chart-plugin). Key steps:
+1. Create the chart component in `component/src/charts/`
+2. Register it in `app/src/lib/chart-registry.ts`
+3. Add chart options in `component/src/components/composed/chart-options-schema.ts`
+
+### Add a new setting
+
+1. Add the env var to `.env.example`
+2. Read it in the relevant module via `process.env.YOUR_VAR`
+3. Document it in `docs/src/content/docs/getting-started/configuration.mdx`
+
+### Add a new database table
+
+1. Add the Drizzle schema in `app/src/lib/db/schema.ts`
+2. Run `npm run db:generate` to create the migration
+3. Add inferred types at the bottom of `schema.ts`

@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { User, KeyRound } from "lucide-react";
+import { User, KeyRound, Shield } from "lucide-react";
 
 const tabs = [
   { href: "/settings/profile", label: "Profile", icon: User },
   { href: "/settings/api-keys", label: "API Keys", icon: KeyRound },
+  { href: "/settings/authentication", label: "Authentication", icon: Shield },
 ];
 
 export default function SettingsLayout({

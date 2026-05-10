@@ -16,20 +16,28 @@ export default defineConfig({
           autogenerate: { directory: "getting-started" },
         },
         {
-          label: "CLI",
-          autogenerate: { directory: "cli" },
+          label: "Authentication",
+          autogenerate: { directory: "authentication" },
         },
         {
-          label: "User Guides",
-          autogenerate: { directory: "guides" },
+          label: "Dashboards",
+          autogenerate: { directory: "dashboards" },
+        },
+        {
+          label: "Connections",
+          autogenerate: { directory: "connections" },
         },
         {
           label: "Chart Types",
           autogenerate: { directory: "charts" },
         },
         {
-          label: "Concepts",
-          autogenerate: { directory: "concepts" },
+          label: "Administration",
+          autogenerate: { directory: "administration" },
+        },
+        {
+          label: "CLI",
+          autogenerate: { directory: "cli" },
         },
         {
           label: "Developer Guide",

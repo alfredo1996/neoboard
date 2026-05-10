@@ -18,6 +18,7 @@ import {
   Label,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -401,6 +402,9 @@ export default function ConnectionsPage() {
             <>
               <DialogHeader>
                 <DialogTitle>Choose Database Type</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Choose a database type for the new connection.
+                </DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 py-4">
                 <button
@@ -703,6 +707,9 @@ export default function ConnectionsPage() {
           <form onSubmit={handleEdit}>
             <DialogHeader>
               <DialogTitle>Edit {editTarget?.name}</DialogTitle>
+              <DialogDescription className="sr-only">
+                Edit connection settings.
+              </DialogDescription>
             </DialogHeader>
             {editLoading ? (
               <div className="flex items-center justify-center py-8">
