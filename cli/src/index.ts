@@ -121,18 +121,49 @@ program
     await runDemo({ mode: opts.mode });
   });
 
-program
+const env = program
   .command("env")
-  .description(
-    "Generate or validate app/.env.local\n" +
-      "  --validate     Check that all required vars are set\n" +
-      "  --regenerate   Overwrite with fresh secrets",
-  )
-  .option("--regenerate", "Force regenerate all secrets")
-  .option("--validate", "Check all required vars are set")
+  .description("Manage app environment variables (app/.env.local)");
+
+env
+  .command("generate")
+  .description("Generate app/.env.local with fresh secrets")
+  .option("--regenerate", "Overwrite existing file")
   .action(async (opts) => {
     const { runEnv } = await import("./commands/env.js");
-    await runEnv({ regenerate: opts.regenerate, validate: opts.validate });
+    await runEnv({ regenerate: opts.regenerate });
+  });
+
+env
+  .command("validate")
+  .description("Check that all required vars are set")
+  .action(async () => {
+    const { runEnv } = await import("./commands/env.js");
+    await runEnv({ validate: true });
+  });
+
+env
+  .command("list")
+  .description("Show all known env vars with set/unset status")
+  .action(async () => {
+    const { runEnvList } = await import("./commands/env.js");
+    await runEnvList();
+  });
+
+env
+  .command("get <key>")
+  .description("Get an env var value from app/.env.local")
+  .action(async (key) => {
+    const { runEnvGet } = await import("./commands/env.js");
+    await runEnvGet(key);
+  });
+
+env
+  .command("set <key> <value>")
+  .description("Set an env var in app/.env.local")
+  .action(async (key, value) => {
+    const { runEnvSet } = await import("./commands/env.js");
+    await runEnvSet(key, value);
   });
 
 // config subcommand group

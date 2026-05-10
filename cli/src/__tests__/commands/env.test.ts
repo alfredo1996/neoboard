@@ -34,8 +34,18 @@ vi.mock("../../lib/output.js", () => ({
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { getMode } from "../../lib/config.js";
-import { info, error as logError } from "../../lib/output.js";
-import { validateEnv, generateEnvFile, runEnv } from "../../commands/env.js";
+import { info, success, warn, error as logError } from "../../lib/output.js";
+import {
+  validateEnv,
+  generateEnvFile,
+  runEnv,
+  runEnvList,
+  runEnvGet,
+  runEnvSet,
+  listEnvVars,
+  getEnvVar,
+  setEnvVar,
+} from "../../commands/env.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockReadFileSync = vi.mocked(readFileSync);
@@ -138,5 +148,140 @@ describe("runEnv", () => {
     mockExistsSync.mockReturnValue(false);
     await runEnv({});
     expect(mockWriteFileSync).toHaveBeenCalled();
+  });
+});
+
+describe("getEnvVar", () => {
+  it("returns null when file does not exist", () => {
+    mockExistsSync.mockReturnValue(false);
+    expect(getEnvVar("DATABASE_URL")).toBeNull();
+  });
+
+  it("returns value when key exists", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("DATABASE_URL=postgres://localhost\n");
+    expect(getEnvVar("DATABASE_URL")).toBe("postgres://localhost");
+  });
+
+  it("returns null when key is not set", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("DATABASE_URL=postgres://localhost\n");
+    expect(getEnvVar("OIDC_ISSUER")).toBeNull();
+  });
+});
+
+describe("setEnvVar", () => {
+  it("creates file and writes key when file does not exist", () => {
+    mockExistsSync.mockReturnValue(false);
+    setEnvVar("OIDC_ISSUER", "https://idp.example.com");
+    expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("OIDC_ISSUER=https://idp.example.com");
+  });
+
+  it("updates existing key in place", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "DATABASE_URL=old-value\nENCRYPTION_KEY=abc\n",
+    );
+    setEnvVar("DATABASE_URL", "new-value");
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("DATABASE_URL=new-value");
+    expect(content).not.toContain("old-value");
+    expect(content).toContain("ENCRYPTION_KEY=abc");
+  });
+
+  it("removes all duplicate keys when updating", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "DATABASE_URL=first\nENCRYPTION_KEY=abc\nDATABASE_URL=second\n",
+    );
+    setEnvVar("DATABASE_URL", "new-value");
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("DATABASE_URL=new-value");
+    // Both old occurrences should be gone
+    expect(content).not.toContain("first");
+    expect(content).not.toContain("second");
+    // Only one DATABASE_URL line
+    const dbLines = content
+      .split("\n")
+      .filter((l: string) => l.startsWith("DATABASE_URL="));
+    expect(dbLines).toHaveLength(1);
+  });
+
+  it("appends new key when not present", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("DATABASE_URL=postgres://localhost\n");
+    setEnvVar("OIDC_ISSUER", "https://idp.example.com");
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("DATABASE_URL=postgres://localhost");
+    expect(content).toContain("OIDC_ISSUER=https://idp.example.com");
+  });
+});
+
+describe("listEnvVars", () => {
+  it("shows set/unset status for known vars", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("DATABASE_URL=postgres://localhost\n");
+    listEnvVars();
+    expect(info).toHaveBeenCalled();
+  });
+
+  it("handles missing .env.local gracefully", () => {
+    mockExistsSync.mockReturnValue(false);
+    listEnvVars();
+    expect(info).toHaveBeenCalled();
+  });
+});
+
+describe("setEnvVar — trailing newline edge case", () => {
+  it("adds trailing newline when content does not end with one", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("DATABASE_URL=x");
+    setEnvVar("NEW_KEY", "value");
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("NEW_KEY=value");
+  });
+});
+
+describe("runEnv — validate success branch", () => {
+  it("prints success when all required vars are set", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "DATABASE_URL=x\nENCRYPTION_KEY=x\nNEXTAUTH_SECRET=x\nNEXTAUTH_URL=x\n",
+    );
+    await runEnv({ validate: true });
+    expect(success).toHaveBeenCalledWith(
+      expect.stringContaining("All required"),
+    );
+  });
+});
+
+describe("runEnvList / runEnvGet / runEnvSet wrappers", () => {
+  it("runEnvList calls listEnvVars", async () => {
+    mockExistsSync.mockReturnValue(false);
+    await runEnvList();
+    expect(info).toHaveBeenCalled();
+  });
+
+  it("runEnvGet shows value when set", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("MY_VAR=hello\n");
+    await runEnvGet("MY_VAR");
+    expect(info).toHaveBeenCalledWith("MY_VAR=hello");
+  });
+
+  it("runEnvGet warns when not set", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("");
+    await runEnvGet("MISSING_VAR");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("MISSING_VAR"));
+  });
+
+  it("runEnvSet writes and confirms", async () => {
+    mockExistsSync.mockReturnValue(false);
+    await runEnvSet("NEW_KEY", "new-value");
+    expect(mockWriteFileSync).toHaveBeenCalled();
+    expect(success).toHaveBeenCalledWith(expect.stringContaining("NEW_KEY"));
   });
 });

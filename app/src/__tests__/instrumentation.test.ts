@@ -6,9 +6,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockBootstrapAdmin =
   vi.fn<(opts: { email: string; password: string }) => Promise<void>>();
+const mockValidateEnvConfig = vi.fn();
 
 vi.mock("@/lib/auth/bootstrap", () => ({
   bootstrapAdmin: mockBootstrapAdmin,
+}));
+
+vi.mock("@/lib/env-config", () => ({
+  validateEnvConfig: mockValidateEnvConfig,
 }));
 
 // ---------------------------------------------------------------------------
@@ -28,6 +33,15 @@ describe("register (instrumentation hook)", () => {
     vi.doMock("@/lib/auth/bootstrap", () => ({
       bootstrapAdmin: mockBootstrapAdmin,
     }));
+    vi.doMock("@/lib/env-config", () => ({
+      validateEnvConfig: mockValidateEnvConfig,
+    }));
+    mockValidateEnvConfig.mockReturnValue({
+      status: "ok",
+      errors: [],
+      warnings: [],
+      config: {},
+    });
     const mod = await import("../instrumentation");
     register = mod.register;
   });
@@ -87,5 +101,65 @@ describe("register (instrumentation hook)", () => {
     process.env.BOOTSTRAP_ADMIN_PASSWORD = "password123";
     mockBootstrapAdmin.mockRejectedValue(new Error("DB connection failed"));
     await expect(register()).resolves.toBeUndefined();
+  });
+
+  it("calls validateEnvConfig on startup", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    await register();
+    expect(mockValidateEnvConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs errors from env validation", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockValidateEnvConfig.mockReturnValue({
+      status: "error",
+      errors: [
+        {
+          key: "DATABASE_URL",
+          level: "error",
+          message: "Required variable DATABASE_URL is not set",
+        },
+      ],
+      warnings: [],
+      config: {},
+    });
+    await register();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("DATABASE_URL"));
+    spy.mockRestore();
+  });
+
+  it("logs warnings from env validation", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockValidateEnvConfig.mockReturnValue({
+      status: "degraded",
+      errors: [],
+      warnings: [
+        {
+          key: "OIDC_CLIENT_ID",
+          level: "warning",
+          message: "OIDC_CLIENT_ID is missing",
+        },
+      ],
+      config: {},
+    });
+    await register();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("OIDC_CLIENT_ID"));
+    spy.mockRestore();
+  });
+
+  it("does not crash when env validation throws", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockValidateEnvConfig.mockImplementation(() => {
+      throw new Error("validation boom");
+    });
+    await expect(register()).resolves.toBeUndefined();
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to validate"),
+      expect.stringContaining("validation boom"),
+    );
+    spy.mockRestore();
   });
 });
