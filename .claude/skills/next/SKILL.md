@@ -35,32 +35,39 @@ git checkout -b <type>/<short-description>
 
 Branch prefix from labels: bug → fix/, enhancement → feat/, security → security/, docs → docs/.
 
-## Step 3 — Read the issue and relevant docs
+## Step 3 — Run /drill
+
+Before implementing, run `/drill <number>` to gather requirements, edge cases, and acceptance criteria. This is mandatory per CLAUDE.md.
+
+## Step 4 — Read the issue and relevant docs
 
 Read the full issue body. Check `claude_code_docs/` for relevant context.
 Identify which package(s) are affected: app/, component/, connection/.
 
-## Step 4 — Implement
+## Step 5 — Implement
 
 Follow all CLAUDE.md rules. Respect package boundaries.
 If building UI, check existing components first (`find component/src -name '*.tsx'`).
 
-## Step 5 — Test and lint
+## Step 6 — Test and lint
 
 ```bash
-npm run lint:fix
+cd app && npx next lint --fix
+npm run lint
 npm run build
-npm run test
+cd app && npm test
+cd component && npm test
+cd app && npx playwright test
 ```
 
 Fix any failures. Do not skip.
 
-## Step 6 — Commit
+## Step 7 — Commit
 
 Use Conventional Commits: `type(scope): description`
 Reference the issue: `Closes #<number>`
 
-## Step 7 — Push and create PR
+## Step 8 — Push and create PR
 
 ```bash
 git push -u origin HEAD
@@ -71,7 +78,7 @@ gh pr create \
   --label '<labels from the issue>'
 ```
 
-## Step 8 — Report
+## Step 9 — Report
 
 Output:
 
