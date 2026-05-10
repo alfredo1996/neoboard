@@ -34,11 +34,14 @@ vi.mock("../../lib/output.js", () => ({
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { getMode } from "../../lib/config.js";
-import { info, error as logError } from "../../lib/output.js";
+import { info, success, warn, error as logError } from "../../lib/output.js";
 import {
   validateEnv,
   generateEnvFile,
   runEnv,
+  runEnvList,
+  runEnvGet,
+  runEnvSet,
   listEnvVars,
   getEnvVar,
   setEnvVar,
@@ -228,5 +231,57 @@ describe("listEnvVars", () => {
     mockExistsSync.mockReturnValue(false);
     listEnvVars();
     expect(info).toHaveBeenCalled();
+  });
+});
+
+describe("setEnvVar — trailing newline edge case", () => {
+  it("adds trailing newline when content does not end with one", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("DATABASE_URL=x");
+    setEnvVar("NEW_KEY", "value");
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("NEW_KEY=value");
+  });
+});
+
+describe("runEnv — validate success branch", () => {
+  it("prints success when all required vars are set", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "DATABASE_URL=x\nENCRYPTION_KEY=x\nNEXTAUTH_SECRET=x\nNEXTAUTH_URL=x\n",
+    );
+    await runEnv({ validate: true });
+    expect(success).toHaveBeenCalledWith(
+      expect.stringContaining("All required"),
+    );
+  });
+});
+
+describe("runEnvList / runEnvGet / runEnvSet wrappers", () => {
+  it("runEnvList calls listEnvVars", async () => {
+    mockExistsSync.mockReturnValue(false);
+    await runEnvList();
+    expect(info).toHaveBeenCalled();
+  });
+
+  it("runEnvGet shows value when set", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("MY_VAR=hello\n");
+    await runEnvGet("MY_VAR");
+    expect(info).toHaveBeenCalledWith("MY_VAR=hello");
+  });
+
+  it("runEnvGet warns when not set", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("");
+    await runEnvGet("MISSING_VAR");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("MISSING_VAR"));
+  });
+
+  it("runEnvSet writes and confirms", async () => {
+    mockExistsSync.mockReturnValue(false);
+    await runEnvSet("NEW_KEY", "new-value");
+    expect(mockWriteFileSync).toHaveBeenCalled();
+    expect(success).toHaveBeenCalledWith(expect.stringContaining("NEW_KEY"));
   });
 });
