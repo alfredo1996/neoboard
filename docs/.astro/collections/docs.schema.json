@@ -62,7 +62,9 @@
                 "default": ""
               }
             },
-            "required": ["tag"],
+            "required": [
+              "tag"
+            ],
             "additionalProperties": false
           },
           "default": []
@@ -98,7 +100,10 @@
         },
         "template": {
           "type": "string",
-          "enum": ["doc", "splash"],
+          "enum": [
+            "doc",
+            "splash"
+          ],
           "default": "doc"
         },
         "hero": {
@@ -123,7 +128,9 @@
                       "type": "string"
                     }
                   },
-                  "required": ["file"],
+                  "required": [
+                    "file"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -140,7 +147,10 @@
                       "type": "string"
                     }
                   },
-                  "required": ["dark", "light"],
+                  "required": [
+                    "dark",
+                    "light"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -150,7 +160,9 @@
                       "type": "string"
                     }
                   },
-                  "required": ["html"],
+                  "required": [
+                    "html"
+                  ],
                   "additionalProperties": false
                 }
               ]
@@ -168,7 +180,11 @@
                   },
                   "variant": {
                     "type": "string",
-                    "enum": ["primary", "secondary", "minimal"],
+                    "enum": [
+                      "primary",
+                      "secondary",
+                      "minimal"
+                    ],
                     "default": "primary"
                   },
                   "icon": {
@@ -429,11 +445,18 @@
                   "attrs": {
                     "type": "object",
                     "additionalProperties": {
-                      "type": ["string", "number", "boolean"]
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
                     }
                   }
                 },
-                "required": ["text", "link"],
+                "required": [
+                  "text",
+                  "link"
+                ],
                 "additionalProperties": false
               },
               "default": []
@@ -548,7 +571,9 @@
                       "type": "string"
                     }
                   },
-                  "required": ["text"],
+                  "required": [
+                    "text"
+                  ],
                   "additionalProperties": false
                 }
               ]
@@ -584,7 +609,9 @@
               "type": "string"
             }
           },
-          "required": ["content"],
+          "required": [
+            "content"
+          ],
           "additionalProperties": false
         },
         "pagefind": {
@@ -599,7 +626,9 @@
           "type": "string"
         }
       },
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "additionalProperties": false
     }
   },

@@ -40,6 +40,7 @@ import {
   CardFooter,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -221,6 +222,9 @@ function ImportDashboardDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Import Dashboard</DialogTitle>
+            <DialogDescription className="sr-only">
+              Import a dashboard from a JSON file.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="py-4 space-y-4">
@@ -518,6 +522,9 @@ export default function DashboardListPage() {
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create Dashboard</DialogTitle>
+              <DialogDescription className="sr-only">
+                Create a new dashboard.
+              </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <Label htmlFor="dashboard-name">Name</Label>

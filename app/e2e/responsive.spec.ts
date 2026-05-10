@@ -34,7 +34,7 @@ test.describe("Responsive — mobile login (unauthenticated)", () => {
     await expect(page.getByText("NeoBoard")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   });
 });
 

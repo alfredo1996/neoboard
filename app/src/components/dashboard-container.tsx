@@ -343,7 +343,10 @@ export function DashboardContainer({
           if (!open) closeFullscreen();
         }}
       >
-        <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
+        <DialogContent
+          className="sm:max-w-[90vw] h-[85vh] flex flex-col"
+          aria-describedby={undefined}
+        >
           <DialogTitle className="text-lg font-semibold mb-2">
             {fullscreenWidget
               ? interpolateTitle(

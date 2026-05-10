@@ -45,7 +45,7 @@ test.describe("Authentication", () => {
     // Re-login — should land back on / via callbackUrl
     await page.getByLabel("Email").fill(ALICE.email);
     await page.getByLabel("Password").fill(ALICE.password);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
 
     await expect(page).toHaveURL("/", { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
@@ -223,7 +223,7 @@ test.describe.serial("Force password change", () => {
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForLoadState("networkidle");
   }
 

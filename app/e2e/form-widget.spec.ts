@@ -571,7 +571,7 @@ test.describe("Write permission enforcement", () => {
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill(ALICE.email);
     await page.getByLabel("Password").fill(ALICE.password);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL("/", { timeout: 15_000 });
 
     // Create a creator user (can_write defaults to true)
@@ -665,7 +665,7 @@ test.describe("Write permission enforcement", () => {
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill(ALICE.email);
     await page.getByLabel("Password").fill(ALICE.password);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL("/", { timeout: 15_000 });
     await page.request.delete(`/api/dashboards/${dashboardId}`);
     await context.close();

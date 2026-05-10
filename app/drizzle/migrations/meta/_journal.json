@@ -29,6 +29,13 @@
       "when": 1778003055667,
       "tag": "0003_perfect_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778119327484,
+      "tag": "0004_busy_champions",
+      "breakpoints": true
     }
   ]
 }
