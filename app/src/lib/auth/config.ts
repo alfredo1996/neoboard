@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
 import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
@@ -23,6 +23,11 @@ const loginSchema = z.object({
  */
 export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
   const tenantId = process.env.TENANT_ID ?? "default";
+  if (!process.env.TENANT_ID) {
+    console.warn(
+      "[auth] TENANT_ID not set — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
+    );
+  }
   const ssoProviders = await getCachedSsoProviders(tenantId);
 
   return {
@@ -59,7 +64,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
           const user = await db
             .select()
             .from(users)
-            .where(eq(users.email, parsed.data.email))
+            .where(
+              and(
+                eq(users.email, parsed.data.email),
+                eq(users.tenantId, tenantId),
+              ),
+            )
             .limit(1)
             .then((rows) => rows[0]);
 
@@ -106,7 +116,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         const providerConfig = ssoProviders.find(
           (p: LoadedSsoProvider) => p.id === account.provider,
         );
-        if (!providerConfig) return true;
+        if (!providerConfig) return false;
 
         const { claimMappings, autoProvision, defaultRole } =
           providerConfig.metadata;
@@ -115,7 +125,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         const existingUsers = await db
           .select({ id: users.id })
           .from(users)
-          .where(eq(users.email, user.email ?? ""))
+          .where(
+            and(
+              eq(users.email, user.email ?? ""),
+              eq(users.tenantId, tenantId),
+            ),
+          )
           .limit(1);
 
         if (existingUsers.length === 0 && !autoProvision) {
@@ -139,7 +154,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
               canWrite: resolvedRole !== "reader",
               lastLoginAt: new Date(),
             })
-            .where(eq(users.id, existingUsers[0].id));
+            .where(
+              and(
+                eq(users.id, existingUsers[0].id),
+                eq(users.tenantId, tenantId),
+              ),
+            );
         }
 
         // For new users: the DrizzleAdapter creates the user record
@@ -175,7 +195,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
                 passwordChangedAt: users.passwordChangedAt,
               })
               .from(users)
-              .where(eq(users.id, token.id as string))
+              .where(
+                and(
+                  eq(users.id, token.id as string),
+                  eq(users.tenantId, token.tenantId as string),
+                ),
+              )
               .limit(1);
             if (!dbUser) return null;
             if (dbUser.disabledAt) return null;

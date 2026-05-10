@@ -193,6 +193,7 @@ describe("provisionOrLinkSsoUser", () => {
         capturedValues = vals;
         return insertChain;
       },
+      onConflictDoUpdate: () => insertChain,
       returning: () =>
         Promise.resolve([
           {

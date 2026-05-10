@@ -80,31 +80,14 @@ export async function POST(request: Request) {
       enforceSso,
     } = result.data;
 
-    // Check for duplicate issuer within tenant
-    const existing = await db
-      .select({ id: ssoProviders.id })
-      .from(ssoProviders)
-      .where(
-        and(
-          eq(ssoProviders.tenantId, tenantId),
-          eq(ssoProviders.issuer, issuer),
-        ),
-      );
-
-    if (existing.length > 0) {
-      return apiError(
-        "CONFLICT",
-        "An SSO provider with this issuer already exists",
-      );
-    }
-
-    // Check max providers limit
-    const allProviders = await db
+    // Check max providers limit before insert to give a clear error message.
+    // The unique constraint on (tenantId, issuer) handles duplicate detection atomically.
+    const providerCount = await db
       .select({ id: ssoProviders.id })
       .from(ssoProviders)
       .where(eq(ssoProviders.tenantId, tenantId));
 
-    if (allProviders.length >= MAX_PROVIDERS_PER_TENANT) {
+    if (providerCount.length >= MAX_PROVIDERS_PER_TENANT) {
       return apiError(
         "CONFLICT",
         "Maximum of " +
@@ -113,37 +96,51 @@ export async function POST(request: Request) {
       );
     }
 
-    const [provider] = await db
-      .insert(ssoProviders)
-      .values({
-        tenantId,
-        name,
-        issuer,
-        clientId,
-        clientSecretEncrypted: encrypt(clientSecret),
-        scopes,
-        claimMappings: claimMappings ?? null,
-        autoProvision,
-        defaultRole,
-        enforceSso,
-      })
-      .returning({
-        id: ssoProviders.id,
-        name: ssoProviders.name,
-        protocol: ssoProviders.protocol,
-        issuer: ssoProviders.issuer,
-        clientId: ssoProviders.clientId,
-        scopes: ssoProviders.scopes,
-        claimMappings: ssoProviders.claimMappings,
-        autoProvision: ssoProviders.autoProvision,
-        defaultRole: ssoProviders.defaultRole,
-        enforceSso: ssoProviders.enforceSso,
-        enabled: ssoProviders.enabled,
-        createdAt: ssoProviders.createdAt,
-        updatedAt: ssoProviders.updatedAt,
-      });
+    try {
+      const [provider] = await db
+        .insert(ssoProviders)
+        .values({
+          tenantId,
+          name,
+          issuer,
+          clientId,
+          clientSecretEncrypted: encrypt(clientSecret),
+          scopes,
+          claimMappings: claimMappings ?? null,
+          autoProvision,
+          defaultRole,
+          enforceSso,
+        })
+        .returning({
+          id: ssoProviders.id,
+          name: ssoProviders.name,
+          protocol: ssoProviders.protocol,
+          issuer: ssoProviders.issuer,
+          clientId: ssoProviders.clientId,
+          scopes: ssoProviders.scopes,
+          claimMappings: ssoProviders.claimMappings,
+          autoProvision: ssoProviders.autoProvision,
+          defaultRole: ssoProviders.defaultRole,
+          enforceSso: ssoProviders.enforceSso,
+          enabled: ssoProviders.enabled,
+          createdAt: ssoProviders.createdAt,
+          updatedAt: ssoProviders.updatedAt,
+        });
 
-    return apiSuccess(provider, 201);
+      return apiSuccess(provider, 201);
+    } catch (err: unknown) {
+      // Unique constraint violation on (tenantId, issuer) — duplicate provider
+      if (
+        err instanceof Error &&
+        err.message.includes("sso_provider_tenant_issuer_unique")
+      ) {
+        return apiError(
+          "CONFLICT",
+          "An SSO provider with this issuer already exists",
+        );
+      }
+      throw err;
+    }
   } catch (e) {
     return handleRouteError(e);
   }

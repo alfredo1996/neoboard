@@ -25,6 +25,13 @@ export function loadEnvSsoProvider(): LoadedSsoProvider | null {
 
   const claimKey = process.env.OIDC_CLAIM_KEY;
 
+  const validRoles: UserRole[] = ["admin", "creator", "reader"];
+  const rawDefaultRole = process.env.OIDC_DEFAULT_ROLE;
+  const defaultRole: UserRole =
+    rawDefaultRole && validRoles.includes(rawDefaultRole as UserRole)
+      ? (rawDefaultRole as UserRole)
+      : "creator";
+
   return {
     id: "sso-env-oidc",
     name: process.env.OIDC_DISPLAY_NAME || "SSO",
@@ -46,7 +53,7 @@ export function loadEnvSsoProvider(): LoadedSsoProvider | null {
           }
         : null,
       autoProvision: process.env.OIDC_AUTO_PROVISION !== "false",
-      defaultRole: (process.env.OIDC_DEFAULT_ROLE as UserRole) || "creator",
+      defaultRole,
       enforceSso: process.env.OIDC_ENFORCE_SSO === "true",
     },
   };

@@ -61,7 +61,7 @@ export async function provisionOrLinkSsoUser(
         name: name ?? existingUser.name,
         image: image ?? existingUser.image,
       })
-      .where(eq(users.id, existingUser.id));
+      .where(and(eq(users.id, existingUser.id), eq(users.tenantId, tenantId)));
 
     return {
       ...existingUser,
@@ -77,7 +77,8 @@ export async function provisionOrLinkSsoUser(
     return null;
   }
 
-  // Provision new user
+  // Provision new user — use ON CONFLICT to handle race where two concurrent
+  // first logins for the same (email, tenantId) both pass the existence check.
   const canWrite = resolvedRole !== "reader";
 
   const [newUser] = await db
@@ -90,6 +91,16 @@ export async function provisionOrLinkSsoUser(
       canWrite,
       forcePasswordChange: false,
       tenantId,
+    })
+    .onConflictDoUpdate({
+      target: [users.email, users.tenantId],
+      set: {
+        role: resolvedRole,
+        canWrite,
+        lastLoginAt: new Date(),
+        name: name ?? undefined,
+        image: image ?? undefined,
+      },
     })
     .returning({
       id: users.id,

@@ -187,37 +187,43 @@ describe("POST /api/sso-providers", () => {
 
   it("returns 409 when duplicate issuer for tenant", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
-    // Simulate existing provider with same issuer
-    mockDb.select.mockReturnValue(makeSelectChain([{ id: "existing-1" }]));
+    // Count check passes (under limit)
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    // Insert fails with unique constraint violation
+    mockDb.insert.mockReturnValue({
+      values: () => ({
+        returning: () =>
+          Promise.reject(
+            new Error(
+              'duplicate key value violates unique constraint "sso_provider_tenant_issuer_unique"',
+            ),
+          ),
+      }),
+    });
     const res = await POST(makeRequest(validProvider));
     expect(res.status).toBe(409);
   });
 
   it("returns 409 when max providers (5) reached", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
-    // First select: no duplicate issuer
-    const noDuplicate = makeSelectChain([]);
-    // Second select: 5 existing providers
-    const fiveProviders = makeSelectChain([
-      { id: "1" },
-      { id: "2" },
-      { id: "3" },
-      { id: "4" },
-      { id: "5" },
-    ]);
-    mockDb.select
-      .mockReturnValueOnce(noDuplicate)
-      .mockReturnValueOnce(fiveProviders);
+    // Count check: 5 existing providers (at limit)
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { id: "1" },
+        { id: "2" },
+        { id: "3" },
+        { id: "4" },
+        { id: "5" },
+      ]),
+    );
     const res = await POST(makeRequest(validProvider));
     expect(res.status).toBe(409);
   });
 
   it("encrypts client secret before storing", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
-    // No duplicate issuer
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([])); // count check
+    // Count check: under limit
+    mockDb.select.mockReturnValue(makeSelectChain([]));
 
     let capturedValues: Record<string, unknown> | null = null;
     const insertChain = {

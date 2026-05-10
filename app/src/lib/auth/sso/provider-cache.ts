@@ -30,14 +30,20 @@ export async function getCachedSsoProviders(
   const envProvider = loadEnvSsoProvider();
 
   let dbProviders: LoadedSsoProvider[] = [];
+  let dbFailed = false;
   try {
     dbProviders = await loadSsoProviders(tenantId);
   } catch {
-    // DB unavailable — env provider may still work
+    // DB unavailable — env provider may still work, but don't cache this result
+    dbFailed = true;
   }
 
   const providers = envProvider ? [envProvider, ...dbProviders] : dbProviders;
-  cache.set(tenantId, { providers, expiresAt: now + CACHE_TTL_MS });
+  // Only cache when the DB query succeeded — caching a fallback result
+  // would extend the outage window by the full TTL after DB recovery.
+  if (!dbFailed) {
+    cache.set(tenantId, { providers, expiresAt: now + CACHE_TTL_MS });
+  }
   return providers;
 }
 
