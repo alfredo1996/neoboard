@@ -15,18 +15,23 @@ ENCRYPTION_KEY="your-64-char-hex-key-here"
 
 # Optional
 NEXTAUTH_URL="http://localhost:3000"
-MAX_QUERY_ROWS=1000
-QUERY_TIMEOUT_MS=30000
+SESSION_MAX_AGE=28800
 ```
 
 Generate secrets with:
 
 ```bash
 # NEXTAUTH_SECRET
-openssl rand -base64 32
+openssl rand -hex 32
 
 # ENCRYPTION_KEY
 openssl rand -hex 32
+```
+
+Or use the CLI to generate everything automatically:
+
+```bash
+neoboard env generate
 ```
 
 ## Required Variables
@@ -39,12 +44,25 @@ openssl rand -hex 32
 
 ## Optional Variables
 
+### Auth
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NEXTAUTH_URL` | Public URL of the NeoBoard instance | `http://localhost:3000` |
-| `DEFAULT_TENANT_ID` | Default tenant for single-tenant deployments | `default` |
-| `MAX_QUERY_ROWS` | Maximum rows returned per query | `1000` |
-| `QUERY_TIMEOUT_MS` | Default query timeout in milliseconds | `30000` |
+| `TENANT_ID` | Multi-tenant isolation key | `default` |
+| `SESSION_MAX_AGE` | Session timeout in seconds | `28800` (8 hours) |
+| `REGISTRATION_ENABLED` | Allow new user signups | `true` |
+| `ADMIN_BOOTSTRAP_TOKEN` | Token required for first admin signup | (unset) |
+| `BOOTSTRAP_ADMIN_EMAIL` | Auto-create admin on first start | (unset) |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Password for auto-created admin | (unset) |
+| `API_KEY_HMAC_SECRET` | HMAC key for API key hashing | (auto-generated) |
+
+### Security
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FORCE_HTTPS` | Redirect HTTP to HTTPS | `true` in production |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins | `NEXTAUTH_URL` only |
 
 ## SSO / OIDC Variables
 
@@ -68,40 +86,28 @@ Set `NEOBOARD_EDITION=enterprise` to enable enterprise features like the Admin U
 |----------|-------------|---------|
 | `NEOBOARD_EDITION` | Set to `enterprise` to enable enterprise features | (unset — community edition) |
 
-## Config File (Optional)
+## Health Endpoint
 
-You can also use a `neoboard.config.json` file in the project root for non-secret settings:
+NeoBoard validates all environment variables on startup and exposes a health check at:
 
-```json
-{
-  "maxQueryRows": 1000,
-  "queryTimeoutMs": 30000,
-  "defaultTenantId": "default",
-  "features": {
-    "sso": false,
-    "customRoles": false,
-    "connectorLabels": false
-  }
-}
 ```
+GET /api/health
+```
+
+Returns `200` when config is valid, `503` when required variables are missing. Reports set/unset status per variable (never actual values). Useful for Docker health checks and monitoring.
 
 ## View Current Config
 
-Use the CLI to see all active configuration values:
+Use the CLI to inspect environment variable status:
+
+```bash
+neoboard env list
+```
+
+Or check project configuration (ports, database credentials):
 
 ```bash
 neoboard config list
-```
-
-```
-  NeoBoard Config
-  ---------------
-  DATABASE_URL       = postgresql://...@localhost:5432/neoboard
-  NEXTAUTH_URL       = http://localhost:3000
-  ENCRYPTION_KEY     = ******** (set)
-  MAX_QUERY_ROWS     = 1000
-  QUERY_TIMEOUT_MS   = 30000
-  DEFAULT_TENANT_ID  = default
 ```
 
 ## Security Notes
