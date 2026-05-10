@@ -66,12 +66,40 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# All config is via runtime env vars:
+# All config is via runtime env vars — see app/.env.example for full reference.
+#
+# Required:
 #   DATABASE_URL          — PostgreSQL connection string
-#   ENCRYPTION_KEY        — AES-256 key for connection credential encryption (64-char hex)
-#   NEXTAUTH_SECRET       — Auth.js session signing secret
-#   NEXTAUTH_URL          — Public URL of the app (e.g. https://neoboard.example.com)
-#   API_KEY_HMAC_SECRET   — (optional) HMAC key for API key hashing
-#   TENANT_ID             — (optional) Multi-tenant isolation key (default: "default")
+#   ENCRYPTION_KEY        — AES-256 key (64-char hex). Generate: openssl rand -hex 32
+#   NEXTAUTH_SECRET       — Session signing secret (32+ chars). Generate: openssl rand -hex 32
+#   NEXTAUTH_URL          — Public URL (e.g. https://neoboard.example.com)
+#
+# Optional — Auth:
+#   TENANT_ID             — Multi-tenant isolation key (default: "default")
+#   SESSION_MAX_AGE       — Session timeout in seconds (default: 28800)
+#   REGISTRATION_ENABLED  — Allow signups (default: true)
+#   ADMIN_BOOTSTRAP_TOKEN — Required token for first admin signup
+#   BOOTSTRAP_ADMIN_EMAIL — Auto-create admin on first start
+#   BOOTSTRAP_ADMIN_PASSWORD
+#   API_KEY_HMAC_SECRET   — HMAC key for API key hashing
+#
+# Optional — Security:
+#   FORCE_HTTPS           — HTTPS redirect (default: true in production)
+#   CORS_ALLOWED_ORIGINS  — Comma-separated allowed origins
+#
+# Optional — Enterprise SSO (requires NEOBOARD_EDITION=enterprise):
+#   NEOBOARD_EDITION      — Set to "enterprise" to enable SSO
+#   OIDC_ISSUER           — IdP issuer URL (all three OIDC_* required together)
+#   OIDC_CLIENT_ID        — OIDC client ID
+#   OIDC_CLIENT_SECRET    — OIDC client secret
+#   OIDC_DISPLAY_NAME     — Login button label (default: "SSO")
+#   OIDC_SCOPES           — OIDC scopes (default: "openid profile email")
+#   OIDC_AUTO_PROVISION   — Auto-create users on SSO login (default: true)
+#   OIDC_DEFAULT_ROLE     — Default role: admin/creator/reader (default: creator)
+#   OIDC_ENFORCE_SSO      — Disable password login for non-admins (default: false)
+#   OIDC_CLAIM_KEY        — IdP claim for role mapping (e.g. "groups")
+#   OIDC_ADMIN_VALUE      — Claim value(s) for admin role
+#   OIDC_CREATOR_VALUE    — Claim value(s) for creator role
+#   OIDC_READER_VALUE     — Claim value(s) for reader role
 
 CMD ["node", "app/server.js"]

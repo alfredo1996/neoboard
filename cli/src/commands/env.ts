@@ -5,6 +5,7 @@ import {
   info,
   success,
   error as logError,
+  warn,
   banner,
 } from "../lib/output.js";
 
@@ -15,11 +16,48 @@ const REQUIRED_VARS = [
   "NEXTAUTH_URL",
 ];
 
+/** All known env vars grouped by category for display. */
+const ALL_KNOWN_VARS: Record<string, string[]> = {
+  Required: [
+    "DATABASE_URL",
+    "ENCRYPTION_KEY",
+    "NEXTAUTH_SECRET",
+    "NEXTAUTH_URL",
+  ],
+  Auth: [
+    "TENANT_ID",
+    "SESSION_MAX_AGE",
+    "REGISTRATION_ENABLED",
+    "ADMIN_BOOTSTRAP_TOKEN",
+    "BOOTSTRAP_ADMIN_EMAIL",
+    "BOOTSTRAP_ADMIN_PASSWORD",
+    "API_KEY_HMAC_SECRET",
+  ],
+  Security: ["FORCE_HTTPS", "CORS_ALLOWED_ORIGINS"],
+  Enterprise: ["NEOBOARD_EDITION"],
+  "SSO (OIDC)": [
+    "OIDC_ISSUER",
+    "OIDC_CLIENT_ID",
+    "OIDC_CLIENT_SECRET",
+    "OIDC_DISPLAY_NAME",
+    "OIDC_SCOPES",
+    "OIDC_AUTO_PROVISION",
+    "OIDC_DEFAULT_ROLE",
+    "OIDC_ENFORCE_SSO",
+  ],
+  "SSO Claim Mapping": [
+    "OIDC_CLAIM_KEY",
+    "OIDC_ADMIN_VALUE",
+    "OIDC_CREATOR_VALUE",
+    "OIDC_READER_VALUE",
+  ],
+};
+
 function generateSecret(): string {
   return randomBytes(32).toString("hex");
 }
 
-function parseEnvFile(content: string): Record<string, string> {
+export function parseEnvFile(content: string): Record<string, string> {
   const vars: Record<string, string> = {};
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
@@ -74,6 +112,71 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
   ]);
 }
 
+/**
+ * List all known env vars with their set/unset status.
+ * Sensitive values are masked — only shows whether they're set.
+ */
+export function listEnvVars(): void {
+  const vars = existsSync(paths.envFile)
+    ? parseEnvFile(readFileSync(paths.envFile, "utf-8"))
+    : {};
+
+  for (const [category, keys] of Object.entries(ALL_KNOWN_VARS)) {
+    info(`\n  ${category}:`);
+    for (const key of keys) {
+      const isSet = key in vars && vars[key] !== "";
+      const status = isSet ? "✓ set" : "· unset";
+      info(`    ${key.padEnd(30)} ${status}`);
+    }
+  }
+}
+
+/**
+ * Get a single env var value from .env.local.
+ * Returns the value or null if not set.
+ */
+export function getEnvVar(key: string): string | null {
+  if (!existsSync(paths.envFile)) return null;
+  const vars = parseEnvFile(readFileSync(paths.envFile, "utf-8"));
+  return vars[key] ?? null;
+}
+
+/**
+ * Set a single env var in .env.local.
+ * Creates the file if it doesn't exist. Updates existing key or appends.
+ */
+export function setEnvVar(key: string, value: string): void {
+  let content = existsSync(paths.envFile)
+    ? readFileSync(paths.envFile, "utf-8")
+    : "";
+
+  const lines = content.split("\n");
+  let found = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const lineKey = trimmed.slice(0, eqIdx).trim();
+    if (lineKey === key) {
+      lines[i] = `${key}=${value}`;
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    // Append with a newline if content doesn't end with one
+    if (content.length > 0 && !content.endsWith("\n")) {
+      lines.push("");
+    }
+    lines.push(`${key}=${value}`);
+  }
+
+  writeFileSync(paths.envFile, lines.join("\n"));
+}
+
 export async function runEnv(opts: {
   regenerate?: boolean;
   validate?: boolean;
@@ -97,4 +200,22 @@ export async function runEnv(opts: {
   }
 
   generateEnvFile({ regenerate: opts.regenerate });
+}
+
+export async function runEnvList(): Promise<void> {
+  listEnvVars();
+}
+
+export async function runEnvGet(key: string): Promise<void> {
+  const value = getEnvVar(key);
+  if (value === null) {
+    warn(`${key} is not set in app/.env.local`);
+  } else {
+    info(`${key}=${value}`);
+  }
+}
+
+export async function runEnvSet(key: string, value: string): Promise<void> {
+  setEnvVar(key, value);
+  success(`Set ${key} in app/.env.local`);
 }
