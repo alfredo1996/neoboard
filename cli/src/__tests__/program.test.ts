@@ -65,11 +65,14 @@ describe("CLI program", () => {
     expect(opts).toContain("--mode");
   });
 
-  it("env has --regenerate and --validate options", () => {
+  it("env has generate, validate, list, get, set subcommands", () => {
     const envCmd = program.commands.find((c) => c.name() === "env");
-    const opts = envCmd!.options.map((o) => o.long);
-    expect(opts).toContain("--regenerate");
-    expect(opts).toContain("--validate");
+    const subNames = envCmd!.commands.map((c) => c.name());
+    expect(subNames).toContain("generate");
+    expect(subNames).toContain("validate");
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("get");
+    expect(subNames).toContain("set");
   });
 
   it("db migrate has --status, --to, --dry-run options", () => {

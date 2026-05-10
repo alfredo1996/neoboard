@@ -13,6 +13,26 @@ export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Validate environment variables on startup
+  try {
+    const { validateEnvConfig } = await import("@/lib/env-config");
+    const result = validateEnvConfig();
+    for (const err of result.errors) {
+      console.error(`[config] ERROR: ${err.message}`);
+    }
+    for (const warn of result.warnings) {
+      console.warn(`[config] WARNING: ${warn.message}`);
+    }
+    if (result.status === "ok") {
+      console.log("[config] Environment configuration validated successfully");
+    }
+  } catch (err) {
+    const msg =
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[config] Failed to validate environment:", msg);
+  }
+
+  // Bootstrap first admin user if configured
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 
