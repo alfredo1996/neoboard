@@ -1,7 +1,0 @@
-# Paths excluded from the public mirror by sync-public.yml.
-# Each line maps to a --path argument passed to git filter-repo --invert-paths.
-#
-# To add a new exclusion:
-#   1. Add the path here
-#   2. Add a matching --path line in .github/workflows/sync-public.yml
-enterprise/

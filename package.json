@@ -7,13 +7,12 @@
     "app",
     "component",
     "connection",
-    "cli",
-    "enterprise"
+    "cli"
   ],
   "scripts": {
     "dev": "npm -w app run dev",
     "build": "npm -w connection run build && npm -w app run build",
-    "test": "npm -w app run test && npm -w component run test && npm -w cli run test && npm -w enterprise run test",
+    "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
     "test:app": "npm -w app run test",
     "test:components": "npm -w component run test",
     "test:cli": "npm -w cli run test",
@@ -37,9 +36,6 @@
       "prettier --write"
     ],
     "connection/**/*.{ts,tsx}": [
-      "prettier --write"
-    ],
-    "enterprise/**/*.{ts,tsx}": [
       "prettier --write"
     ],
     "**/*.{js,jsx,json,css,md}": [
