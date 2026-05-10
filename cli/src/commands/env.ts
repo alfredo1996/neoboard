@@ -146,35 +146,27 @@ export function getEnvVar(key: string): string | null {
  * Creates the file if it doesn't exist. Updates existing key or appends.
  */
 export function setEnvVar(key: string, value: string): void {
-  let content = existsSync(paths.envFile)
+  const content = existsSync(paths.envFile)
     ? readFileSync(paths.envFile, "utf-8")
     : "";
 
+  // Remove all existing occurrences of the key (handles duplicates)
   const lines = content.split("\n");
-  let found = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.startsWith("#")) continue;
+  const filtered = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return true;
     const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const lineKey = trimmed.slice(0, eqIdx).trim();
-    if (lineKey === key) {
-      lines[i] = `${key}=${value}`;
-      found = true;
-      break;
-    }
-  }
+    if (eqIdx === -1) return true;
+    return trimmed.slice(0, eqIdx).trim() !== key;
+  });
 
-  if (!found) {
-    // Append with a newline if content doesn't end with one
-    if (content.length > 0 && !content.endsWith("\n")) {
-      lines.push("");
-    }
-    lines.push(`${key}=${value}`);
+  // Ensure trailing newline before appending
+  if (filtered.length > 0 && filtered[filtered.length - 1] !== "") {
+    filtered.push("");
   }
+  filtered.push(`${key}=${value}`);
 
-  writeFileSync(paths.envFile, lines.join("\n"));
+  writeFileSync(paths.envFile, filtered.join("\n"));
 }
 
 export async function runEnv(opts: {

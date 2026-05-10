@@ -104,6 +104,23 @@ describe("validateEnvConfig", () => {
     expect(result.status).toBe("ok");
   });
 
+  it("returns error when NEXTAUTH_SECRET is too short", async () => {
+    process.env.NEXTAUTH_SECRET = "short";
+    const result = await loadAndValidate();
+    expect(result.status).toBe("error");
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ key: "NEXTAUTH_SECRET", level: "error" }),
+    );
+  });
+
+  it("no OIDC warning when none of the OIDC vars are set", async () => {
+    delete process.env.OIDC_ISSUER;
+    delete process.env.OIDC_CLIENT_ID;
+    delete process.env.OIDC_CLIENT_SECRET;
+    const result = await loadAndValidate();
+    expect(result.warnings).toHaveLength(0);
+  });
+
   it("returns config map with set/unset status (never values)", async () => {
     process.env.TENANT_ID = "my-tenant";
     const result = await loadAndValidate();

@@ -188,6 +188,24 @@ describe("setEnvVar", () => {
     expect(content).toContain("ENCRYPTION_KEY=abc");
   });
 
+  it("removes all duplicate keys when updating", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "DATABASE_URL=first\nENCRYPTION_KEY=abc\nDATABASE_URL=second\n",
+    );
+    setEnvVar("DATABASE_URL", "new-value");
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("DATABASE_URL=new-value");
+    // Both old occurrences should be gone
+    expect(content).not.toContain("first");
+    expect(content).not.toContain("second");
+    // Only one DATABASE_URL line
+    const dbLines = content
+      .split("\n")
+      .filter((l: string) => l.startsWith("DATABASE_URL="));
+    expect(dbLines).toHaveLength(1);
+  });
+
   it("appends new key when not present", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue("DATABASE_URL=postgres://localhost\n");
