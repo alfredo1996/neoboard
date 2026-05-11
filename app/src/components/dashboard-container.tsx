@@ -6,7 +6,9 @@ import { CardContainer } from "./card-container";
 import {
   buildCsvString,
   triggerDownload,
+  triggerSvgDownload,
   buildExportFilename,
+  exportChartToSvg,
 } from "@neoboard/components";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { buildExportData } from "@/lib/widget/card-utils";
@@ -15,6 +17,7 @@ import {
   isWidgetTemplateOutdated,
 } from "@/lib/widget/widget-utils";
 import { isDataWidget } from "@/lib/widget/widget-actions";
+import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -193,6 +196,19 @@ export function DashboardContainer({
     triggerDownload(csv, filename);
   }
 
+  function exportWidgetSvg(widget: DashboardWidget) {
+    const el = document.querySelector(`[data-widget-id="${widget.id}"]`);
+    if (!el) return;
+    // Find the ECharts container (div with data-testid="base-chart")
+    const chartEl = el.querySelector<HTMLElement>('[data-testid="base-chart"]');
+    if (!chartEl) return;
+    const svg = exportChartToSvg(chartEl);
+    if (!svg) return;
+    const title = (widget.settings?.title as string) || widget.chartType;
+    const filename = buildExportFilename(title, "svg", page.title);
+    triggerSvgDownload(svg, filename);
+  }
+
   const buildActions = (widget: DashboardWidget) => {
     const actions = [];
 
@@ -200,6 +216,13 @@ export function DashboardContainer({
       actions.push({
         label: "Export CSV",
         onClick: () => exportWidgetCsv(widget),
+      });
+    }
+
+    if (getChartConfig(widget.chartType)?.capabilities.isECharts) {
+      actions.push({
+        label: "Export SVG",
+        onClick: () => exportWidgetSvg(widget),
       });
     }
 

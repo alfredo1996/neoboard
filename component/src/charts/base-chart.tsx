@@ -18,7 +18,7 @@ import {
   MarkLineComponent,
   GraphicComponent,
 } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
+import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { cn } from "@/lib/utils";
 import type { BaseChartProps, EChartsClickEvent } from "./types";
@@ -46,6 +46,7 @@ echarts.use([
   MarkLineComponent,
   GraphicComponent,
   CanvasRenderer,
+  SVGRenderer,
 ]);
 
 // Register NeoBoard themes once at module load
@@ -279,9 +280,56 @@ function BaseChart({
   );
 }
 
+/**
+ * Export an ECharts chart to SVG by creating an offscreen instance with the
+ * SVG renderer and the same options as the visible chart.
+ *
+ * @param container - The DOM element containing the ECharts canvas
+ * @returns SVG string or null if the chart instance can't be found
+ */
+function exportChartToSvg(container: HTMLElement): string | null {
+  const instance = echarts.getInstanceByDom(container);
+  if (!instance) return null;
+
+  const options = instance.getOption();
+  const { width, height } = instance.getDom().getBoundingClientRect();
+
+  // Create an offscreen container for the SVG renderer
+  const offscreen = document.createElement("div");
+  offscreen.style.width = `${width}px`;
+  offscreen.style.height = `${height}px`;
+  offscreen.style.position = "absolute";
+  offscreen.style.left = "-9999px";
+  document.body.appendChild(offscreen);
+
+  try {
+    const themeName = isDarkMode() ? THEME_DARK : THEME_LIGHT;
+    const svgInstance = echarts.init(offscreen, themeName, {
+      renderer: "svg",
+      width,
+      height,
+    });
+    svgInstance.setOption(options);
+
+    // Extract the rendered SVG from the offscreen container
+    const svgEl = offscreen.querySelector("svg");
+    if (!svgEl) {
+      svgInstance.dispose();
+      return null;
+    }
+
+    const svgString = new XMLSerializer().serializeToString(svgEl);
+    svgInstance.dispose();
+    return svgString;
+  } finally {
+    document.body.removeChild(offscreen);
+  }
+}
+
 export {
   BaseChart,
   CHART_COLORS_FALLBACK as CHART_COLORS,
   resolveChartColors,
   useDarkMode,
+  exportChartToSvg,
 };

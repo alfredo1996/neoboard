@@ -51,4 +51,5 @@ vi.mock("echarts/components", () => ({
 
 vi.mock("echarts/renderers", () => ({
   CanvasRenderer: vi.fn(),
+  SVGRenderer: vi.fn(),
 }));
