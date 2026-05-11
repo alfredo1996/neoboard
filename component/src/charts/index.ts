@@ -3,6 +3,7 @@ export {
   CHART_COLORS,
   resolveChartColors,
   useDarkMode,
+  exportChartToSvg,
 } from "./base-chart";
 export {
   THEME_LIGHT,
