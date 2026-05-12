@@ -9,7 +9,7 @@ describe("getChartOptions", () => {
     const options = getChartOptions("bar");
     const keys = options.map((o) => o.key);
     expect(keys).toContain("orientation");
-    expect(keys).toContain("stacked");
+    expect(keys).toContain("stackMode");
     expect(keys).toContain("showValues");
     expect(keys).toContain("showLegend");
   });
@@ -160,7 +160,7 @@ describe("getDefaultChartSettings", () => {
   it("returns correct defaults for bar chart", () => {
     const d = getDefaultChartSettings("bar");
     expect(d.orientation).toBe("vertical");
-    expect(d.stacked).toBe(false);
+    expect(d.stackMode).toBe("none");
     expect(d.showValues).toBe(false);
     expect(d.showLegend).toBe(true);
   });
