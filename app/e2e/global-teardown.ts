@@ -34,11 +34,10 @@ export default async function globalTeardown() {
     if (!fs.existsSync(STATE_FILE)) {
       console.log("No container state file found, nothing to clean up.");
     } else {
-      const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as {
-        pgContainerId: string;
-        neo4jContainerId: string;
-        keycloakContainerId?: string;
-      };
+      const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")) as Record<
+        string,
+        string
+      >;
 
       for (const [name, id] of Object.entries(state)) {
         try {
