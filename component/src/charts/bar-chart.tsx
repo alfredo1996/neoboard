@@ -165,7 +165,7 @@ function BarChart({
             typeof rawValue === "number" ? rawValue : Number(rawValue);
 
           // In percent mode, normalize to percentage of row total
-          let displayValue: unknown = rawValue;
+          let displayValue = rawValue as number | string;
           if (isPercent) {
             const total = rowTotals[rowIdx];
             displayValue =
