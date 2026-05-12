@@ -570,7 +570,9 @@ export function FormWidgetRenderer({
          * but allowed keyboard Tab navigation into fields.
          */}
         <div
-          {...(readOnly ? { inert: "" } : {})}
+          {...(readOnly
+            ? ({ inert: "" } as React.HTMLAttributes<HTMLDivElement>)
+            : {})}
           className={
             readOnly ? "select-none space-y-4 opacity-60" : "space-y-4"
           }
