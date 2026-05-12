@@ -1,6 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { MarkdownWidget } from "../markdown-widget";
+
+// Mock the code highlighter — Shiki uses WASM which isn't available in jsdom
+vi.mock("@/lib/code-highlighter", () => ({
+  highlightSync: vi.fn((code: string, lang: string) => {
+    if (lang === "unknown-lang") return null;
+    return `<pre class="shiki"><code data-lang="${lang}">${code}</code></pre>`;
+  }),
+  ensureHighlighter: vi.fn(async () => true),
+}));
 
 describe("MarkdownWidget", () => {
   it("renders markdown content as HTML", () => {
@@ -64,9 +73,7 @@ describe("MarkdownWidget", () => {
   });
 
   it("sanitizes script tags in markdown", () => {
-    render(
-      <MarkdownWidget content='<script>alert("xss")</script>Hello' />,
-    );
+    render(<MarkdownWidget content='<script>alert("xss")</script>Hello' />);
     // Raw HTML is escaped — there should be no live <script> element in the DOM.
     expect(document.querySelector("script")).toBeNull();
     // The content is displayed as escaped text, not as live HTML.
@@ -136,9 +143,7 @@ describe("MarkdownWidget", () => {
   });
 
   it("allows data:image/ URLs in images (safe)", () => {
-    render(
-      <MarkdownWidget content="![logo](data:image/png;base64,abc)" />,
-    );
+    render(<MarkdownWidget content="![logo](data:image/png;base64,abc)" />);
     const container = screen.getByTestId("markdown-widget");
     // data:image/ is allowed — img tag should appear
     expect(container.innerHTML).toContain("<img");
@@ -180,12 +185,10 @@ describe("MarkdownWidget", () => {
     expect(code!.textContent).toContain("console.log");
   });
 
-  it("escapes HTML inside fenced code blocks", () => {
-    render(
-      <MarkdownWidget content={"```html\n<div>test</div>\n```"} />,
-    );
+  it("escapes HTML inside fenced code blocks without language tag", () => {
+    // Without a language tag, the plain fallback path escapes HTML
+    render(<MarkdownWidget content={"```\n<div>test</div>\n```"} />);
     const container = screen.getByTestId("markdown-widget");
-    // The <div> should be escaped, not rendered as a real element
     expect(container.innerHTML).toContain("&lt;div&gt;");
   });
 
@@ -413,7 +416,8 @@ describe("MarkdownWidget", () => {
   });
 
   it("renders a GFM table with alignment markers (colons)", () => {
-    const md = "| Left | Center | Right |\n| :--- | :---: | ---: |\n| a | b | c |";
+    const md =
+      "| Left | Center | Right |\n| :--- | :---: | ---: |\n| a | b | c |";
     render(<MarkdownWidget content={md} />);
     const container = screen.getByTestId("markdown-widget");
     expect(container.querySelector("table")).not.toBeNull();
@@ -454,5 +458,39 @@ describe("MarkdownWidget", () => {
     render(<MarkdownWidget content={md} />);
     const container = screen.getByTestId("markdown-widget");
     expect(container.querySelector("table")).toBeNull();
+  });
+
+  // ── Syntax highlighting ─────────────────────────────────────────────────
+
+  it("uses syntax highlighter for fenced code with language tag", () => {
+    render(<MarkdownWidget content={"```sql\nSELECT * FROM users;\n```"} />);
+    const container = screen.getByTestId("markdown-widget");
+    const shikiPre = container.querySelector("pre.shiki");
+    expect(shikiPre).not.toBeNull();
+    const code = shikiPre!.querySelector("code");
+    expect(code).not.toBeNull();
+    expect(code!.getAttribute("data-lang")).toBe("sql");
+  });
+
+  it("falls back to plain pre/code when language is unknown", () => {
+    render(<MarkdownWidget content={"```unknown-lang\nsome code\n```"} />);
+    const container = screen.getByTestId("markdown-widget");
+    // Should NOT have shiki class — highlightSync returns null for unknown langs
+    const shikiPre = container.querySelector("pre.shiki");
+    expect(shikiPre).toBeNull();
+    // Should have plain pre/code
+    const pre = container.querySelector("pre");
+    expect(pre).not.toBeNull();
+    expect(pre!.textContent).toContain("some code");
+  });
+
+  it("renders plain code block when no language tag specified", () => {
+    render(<MarkdownWidget content={"```\nplain code\n```"} />);
+    const container = screen.getByTestId("markdown-widget");
+    const pre = container.querySelector("pre");
+    expect(pre).not.toBeNull();
+    expect(pre!.textContent).toContain("plain code");
+    // No shiki class — no language means no highlighting
+    expect(container.querySelector("pre.shiki")).toBeNull();
   });
 });
