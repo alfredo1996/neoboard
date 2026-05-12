@@ -32,6 +32,7 @@ function BarPluginComponent({
     <BarChart
       data={(data as BarChartDataPoint[]) ?? []}
       orientation={settings.orientation}
+      stackMode={settings.stackMode}
       stacked={settings.stacked}
       showValues={settings.showValues}
       showLegend={settings.showLegend}

@@ -16,12 +16,16 @@ import {
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
+export type BarStackMode = "none" | "stacked" | "percent";
+
 export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has a `label` key and one or more numeric series keys. */
   data: BarChartDataPoint[];
   /** Bar orientation */
   orientation?: "vertical" | "horizontal";
-  /** Stack bars when multiple series */
+  /** Stack mode: none (grouped), stacked (absolute), percent (100% stacked) */
+  stackMode?: BarStackMode;
+  /** @deprecated Use stackMode instead. Stack bars when multiple series */
   stacked?: boolean;
   /** Show values on bars */
   showValues?: boolean;
@@ -59,6 +63,7 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
 function BarChart({
   data,
   orientation = "vertical",
+  stackMode: stackModeProp,
   stacked = false,
   showValues = false,
   showLegend,
@@ -76,10 +81,26 @@ function BarChart({
   const { width, height, containerRef } = useContainerSize();
   const { compact, hideLegend } = getCompactState(width, height);
 
+  // Resolve stack mode: prefer explicit stackMode, fall back to legacy boolean
+  const stackMode: BarStackMode =
+    stackModeProp ?? (stacked ? "stacked" : "none");
+  const isPercent = stackMode === "percent";
+  const isStacked = stackMode === "stacked" || isPercent;
+
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption();
 
     const seriesKeys = Object.keys(data[0]).filter((k) => k !== "label");
+
+    // Pre-compute row totals for percentage normalization
+    const rowTotals = isPercent
+      ? data.map((d) =>
+          seriesKeys.reduce((sum, key) => {
+            const v = Number(d[key]);
+            return sum + (Number.isFinite(v) ? Math.abs(v) : 0);
+          }, 0),
+        )
+      : [];
     const effectiveShowLegend = resolveShowLegend(
       showLegend,
       seriesKeys.length,
@@ -111,18 +132,56 @@ function BarChart({
     };
     const valueAxis = {
       type: "value" as const,
-      axisLabel: { show: !compact },
+      axisLabel: {
+        show: !compact,
+        ...(isPercent ? { formatter: "{value}%" } : {}),
+      },
       splitLine: { show: showGridLines },
       name: compact ? undefined : isHorizontal ? xAxisLabel : yAxisLabel,
       nameLocation: "middle" as const,
       nameGap: 50,
+      ...(isPercent ? { max: 100 } : {}),
     };
+
+    // In percent mode, build a tooltip showing "pct% (absolute)"
+    const percentTooltipFormatter = isPercent
+      ? (params: unknown) => {
+          const items = Array.isArray(params)
+            ? (params as {
+                seriesName?: string;
+                name?: string;
+                value?: number;
+                marker?: string;
+                dataIndex?: number;
+              }[])
+            : [
+                params as {
+                  seriesName?: string;
+                  name?: string;
+                  value?: number;
+                  marker?: string;
+                  dataIndex?: number;
+                },
+              ];
+          const header = items[0]?.name ?? "";
+          const lines = items.map((p) => {
+            const pct =
+              typeof p.value === "number" ? p.value.toFixed(1) : p.value;
+            const rowIdx = p.dataIndex ?? 0;
+            const seriesKey =
+              seriesKeys.find((k) => k === p.seriesName) ?? seriesKeys[0];
+            const absValue = seriesKey ? data[rowIdx]?.[seriesKey] : "";
+            return `${p.marker ?? ""} ${p.seriesName}: ${pct}% (${absValue})`;
+          });
+          return `<strong>${header}</strong><br/>${lines.join("<br/>")}`;
+        }
+      : undefined;
 
     return {
       tooltip: {
         trigger: "axis" as const,
         axisPointer: { type: "shadow" as const },
-        formatter: buildTooltipFormatter(),
+        formatter: percentTooltipFormatter ?? buildTooltipFormatter(),
       },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
       grid: buildCompactGrid(compact, effectiveShowLegend),
@@ -131,16 +190,29 @@ function BarChart({
       series: seriesKeys.map((key, idx) => ({
         name: key,
         type: "bar" as const,
-        data: data.map((d) => {
+        data: data.map((d, rowIdx) => {
           const rawValue = d[key];
           const numericValue =
             typeof rawValue === "number" ? rawValue : Number(rawValue);
+
+          // In percent mode, normalize to percentage of row total
+          let displayValue: unknown = rawValue;
+          if (isPercent) {
+            const total = rowTotals[rowIdx];
+            displayValue =
+              total > 0 && Number.isFinite(numericValue)
+                ? Math.round((numericValue / total) * 10000) / 100
+                : 0;
+          }
+
           const color = Number.isFinite(numericValue)
             ? resolveItemColor(numericValue, stylingRules, paramValues)
             : undefined;
-          return color ? { value: rawValue, itemStyle: { color } } : rawValue;
+          return color
+            ? { value: displayValue, itemStyle: { color } }
+            : displayValue;
         }),
-        stack: stacked ? "total" : undefined,
+        stack: isStacked ? "total" : undefined,
         barWidth: effectiveBarWidth,
         barGap,
         label: effectiveShowValues
@@ -157,7 +229,8 @@ function BarChart({
   }, [
     data,
     orientation,
-    stacked,
+    isStacked,
+    isPercent,
     showValues,
     showLegend,
     barWidth,

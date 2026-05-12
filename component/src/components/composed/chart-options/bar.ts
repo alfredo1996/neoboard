@@ -22,13 +22,18 @@ export const barOptions: ChartOptionDef[] = [
     ],
   },
   {
-    key: "stacked",
-    label: "Stacked",
-    type: "boolean",
-    default: false,
+    key: "stackMode",
+    label: "Stack Mode",
+    type: "select",
+    default: "none",
     category: "Layout",
     description:
-      "Stack series on top of each other instead of placing them side by side.",
+      "How to arrange multiple series: side by side, stacked, or 100% stacked (percentage).",
+    options: [
+      { label: "Normal (grouped)", value: "none" },
+      { label: "Stacked", value: "stacked" },
+      { label: "100% Stacked", value: "percent" },
+    ],
   },
   {
     key: "barWidth",

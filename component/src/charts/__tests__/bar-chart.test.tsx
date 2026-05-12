@@ -143,7 +143,14 @@ describe("BarChart", () => {
   });
 
   it("swaps axis label targets for horizontal orientation", () => {
-    render(<BarChart data={sampleData} orientation="horizontal" xAxisLabel="Revenue" yAxisLabel="Product" />);
+    render(
+      <BarChart
+        data={sampleData}
+        orientation="horizontal"
+        xAxisLabel="Revenue"
+        yAxisLabel="Product"
+      />,
+    );
     const optionsCall = mockSetOption.mock.calls[0][0];
     // xAxisLabel goes to the value axis (xAxis in horizontal), yAxisLabel to category (yAxis)
     expect(optionsCall.xAxis.name).toBe("Revenue");
@@ -153,7 +160,9 @@ describe("BarChart", () => {
   // --- Reference lines (markLine) ---
 
   it("attaches markLine to the first series when referenceLines is provided", () => {
-    const refs = JSON.stringify([{ value: 150, label: "Target", color: "#ff0000" }]);
+    const refs = JSON.stringify([
+      { value: 150, label: "Target", color: "#ff0000" },
+    ]);
     render(<BarChart data={sampleData} referenceLines={refs} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].markLine).toBeDefined();
@@ -174,5 +183,61 @@ describe("BarChart", () => {
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.dataZoom).toBeDefined();
     expect(optionsCall.dataZoom.length).toBeGreaterThan(0);
+  });
+
+  // --- Percentage stacked ---
+
+  it("normalizes values to percentages when stackMode is percent", () => {
+    render(<BarChart data={stackedData} stackMode="percent" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    // Q1: sales=100, returns=20 → total=120 → sales=83.33%, returns=16.67%
+    const salesSeries = optionsCall.series[0];
+    const returnsSeries = optionsCall.series[1];
+    expect(salesSeries.data[0]).toBeCloseTo(83.33, 1);
+    expect(returnsSeries.data[0]).toBeCloseTo(16.67, 1);
+  });
+
+  it("sets y-axis max to 100 and formats as percent in percent mode", () => {
+    render(<BarChart data={stackedData} stackMode="percent" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    const valueAxis = optionsCall.yAxis;
+    expect(valueAxis.max).toBe(100);
+  });
+
+  it("stacks series in percent mode", () => {
+    render(<BarChart data={stackedData} stackMode="percent" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].stack).toBe("total");
+    expect(optionsCall.series[1].stack).toBe("total");
+  });
+
+  it("stacks series in stacked mode (backward compat)", () => {
+    render(<BarChart data={stackedData} stackMode="stacked" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].stack).toBe("total");
+  });
+
+  it("does not stack in none mode", () => {
+    render(<BarChart data={stackedData} stackMode="none" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].stack).toBeUndefined();
+  });
+
+  it("backward compat: stacked boolean still works", () => {
+    render(<BarChart data={stackedData} stacked />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].stack).toBe("total");
+  });
+
+  it("handles zero total gracefully in percent mode", () => {
+    const zeroData = [
+      { label: "A", x: 0, y: 0 },
+      { label: "B", x: 10, y: 20 },
+    ];
+    render(<BarChart data={zeroData} stackMode="percent" />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    // Zero total row: all values should be 0 (not NaN)
+    expect(optionsCall.series[0].data[0]).toBe(0);
+    expect(optionsCall.series[1].data[0]).toBe(0);
   });
 });
