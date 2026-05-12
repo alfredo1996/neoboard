@@ -19,6 +19,14 @@ import {
   CascadingSelector,
   Button,
   Label,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   type RelativeDatePreset,
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
@@ -346,6 +354,7 @@ export function FormWidgetRenderer({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const refreshWidgetIds = useMemo(
@@ -469,33 +478,13 @@ export function FormWidgetRenderer({
     return () => clearTimeout(timer);
   }, [successMessage]);
 
-  const handleSubmit = useCallback(() => {
-    // Guard against double-submit while a mutation is in flight
-    if (writeQuery.isPending) return;
+  const confirmBeforeSubmit = !!chartOptions.confirmBeforeSubmit;
+  const confirmMessage =
+    (chartOptions.confirmMessage as string) ||
+    "Are you sure you want to submit this form?";
 
-    // Flush any pending debounced text inputs so localValues is current
-    for (const handle of textInputRefs.current.values()) {
-      handle.flush();
-    }
-
-    setSuccessMessage(null);
-    setErrorMessage(null);
-
-    // Validate required + validationType for all fields
-    const errors: Record<string, string> = {};
-    for (const field of fields) {
-      const error = validateFieldValue(field, localValues[field.parameterName]);
-      if (error) {
-        errors[field.parameterName] = error;
-      }
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    setFieldErrors({});
+  /** Execute the write query (called after validation and optional confirm). */
+  const executeSubmit = useCallback(() => {
     const params = buildFormParams(fields, localValues);
 
     writeQuery.mutate(
@@ -526,6 +515,43 @@ export function FormWidgetRenderer({
     refreshWidgetIds,
     queryClient,
   ]);
+
+  /** Validate, flush debounce, optionally confirm, then execute. */
+  const handleSubmit = useCallback(() => {
+    // Guard against double-submit while a mutation is in flight
+    if (writeQuery.isPending) return;
+
+    // Flush any pending debounced text inputs so localValues is current
+    for (const handle of textInputRefs.current.values()) {
+      handle.flush();
+    }
+
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    // Validate required + validationType for all fields
+    const errors: Record<string, string> = {};
+    for (const field of fields) {
+      const error = validateFieldValue(field, localValues[field.parameterName]);
+      if (error) {
+        errors[field.parameterName] = error;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
+
+    if (confirmBeforeSubmit) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    executeSubmit();
+  }, [fields, localValues, writeQuery, confirmBeforeSubmit, executeSubmit]);
 
   if (fields.length === 0) {
     return (
@@ -644,6 +670,26 @@ export function FormWidgetRenderer({
             : (chartOptions.submitButtonText as string) || "Submit"}
         </Button>
       </form>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm submission</AlertDialogTitle>
+            <AlertDialogDescription>{confirmMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                executeSubmit();
+              }}
+            >
+              Submit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
