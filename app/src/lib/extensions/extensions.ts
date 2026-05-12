@@ -23,17 +23,17 @@ function createEmptyRegistry(): ExtensionRegistry {
 /** Check if an error (or its cause chain) indicates a missing module. */
 function checkModuleNotFound(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
-  const e = err as NodeJS.ErrnoException;
+  const code = "code" in err ? (err as { code?: string }).code : undefined;
   if (
-    e.code === "MODULE_NOT_FOUND" ||
-    e.code === "ERR_MODULE_NOT_FOUND" ||
-    e.message.includes("Cannot find module") ||
-    e.message.includes("Cannot find package")
+    code === "MODULE_NOT_FOUND" ||
+    code === "ERR_MODULE_NOT_FOUND" ||
+    err.message.includes("Cannot find module") ||
+    err.message.includes("Cannot find package")
   ) {
     return true;
   }
   // Check the cause chain (e.g. bundler/test-runner wrappers)
-  if (e.cause) return checkModuleNotFound(e.cause);
+  if ("cause" in err && err.cause) return checkModuleNotFound(err.cause);
   return false;
 }
 
