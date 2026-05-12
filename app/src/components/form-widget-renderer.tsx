@@ -596,9 +596,8 @@ export function FormWidgetRenderer({
          * but allowed keyboard Tab navigation into fields.
          */}
         <div
-          {...(readOnly
-            ? ({ inert: "" } as React.HTMLAttributes<HTMLDivElement>)
-            : {})}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          {...(readOnly ? ({ inert: "" } as any) : {})}
           className={
             readOnly ? "select-none space-y-4 opacity-60" : "space-y-4"
           }
