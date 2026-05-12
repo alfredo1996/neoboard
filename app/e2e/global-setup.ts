@@ -14,13 +14,11 @@ const STATE_FILE = path.join(__dirname, ".containers-state.json");
 const SERVER_PID_FILE = path.join(__dirname, ".server-pid");
 const ENV_FILE = path.join(__dirname, "..", ".env.test");
 
-// Stable test secrets (not real — only for local E2E)
-const TEST_ENCRYPTION_KEY =
-  "b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9";
-const TEST_NEXTAUTH_SECRET =
-  "d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65";
-const TEST_API_KEY_HMAC_SECRET =
-  "a1f3c9e2d47b6a85f0e12d3c4b5a6978f0e1d2c3b4a59687f0e1d2c3b4a59687";
+import {
+  TEST_ENCRYPTION_KEY,
+  TEST_NEXTAUTH_SECRET,
+  TEST_API_KEY_HMAC_SECRET,
+} from "./global-setup-constants";
 
 /** Encrypt a plaintext string using the same algorithm as the app (aes-256-gcm). */
 function encryptString(plaintext: string): string {
@@ -113,54 +111,16 @@ async function updateConnectionConfigs(
   }
 }
 
-const TEST_SSO_PROVIDER_ID = "keycloak-e2e";
-
-/** Seed an SSO provider pointing at the Keycloak test container. */
-async function seedSsoProvider(connectionString: string, keycloakPort: number) {
-  const issuer = `http://localhost:${keycloakPort}/realms/neoboard-test`;
-  const clientSecret = encryptString("neoboard-test-secret-e2e");
-  const claimMappings = JSON.stringify({
-    claimKey: "groups",
-    adminValue: "neoboard-admins",
-    creatorValue: "neoboard-editors",
-    readerValue: "neoboard-viewers",
-  });
-
-  const sql = postgres(connectionString, { max: 1, idle_timeout: 5 });
-  try {
-    await sql`
-      INSERT INTO "sso_provider" (
-        "id", "tenant_id", "name", "protocol", "issuer",
-        "client_id", "client_secret_encrypted", "scopes",
-        "claim_mappings", "auto_provision", "default_role",
-        "enforce_sso", "enabled", "created_at", "updated_at"
-      ) VALUES (
-        ${TEST_SSO_PROVIDER_ID}, 'default', 'Keycloak Test', 'oidc',
-        ${issuer}, 'neoboard', ${clientSecret},
-        'openid profile email', ${claimMappings}::jsonb,
-        true, 'creator', false, true, NOW(), NOW()
-      )
-      ON CONFLICT DO NOTHING
-    `;
-  } finally {
-    await sql.end();
-  }
-}
-
 export default async function globalSetup() {
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
   const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
   const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
-  const keycloakRealmJson = path.join(
-    dockerRoot,
-    "keycloak",
-    "neoboard-test-realm.json",
-  );
 
   console.log("\n⏳ Starting test containers...\n");
 
-  // Start all containers in parallel to minimise total startup time.
-  const [pgContainer, neo4jContainer, keycloakContainer] = await Promise.all([
+  // Start core containers in parallel (PG + Neo4j).
+  // Keycloak is enterprise-only and started by the enterprise E2E setup.
+  const [pgContainer, neo4jContainer] = await Promise.all([
     new GenericContainer("postgres:16-alpine")
       .withEnvironment({
         POSTGRES_USER: "neoboard",
@@ -183,13 +143,6 @@ export default async function globalSetup() {
     new GenericContainer("neo4j:5-community")
       .withEnvironment({
         NEO4J_AUTH: "neo4j/neoboard123",
-        // APOC is loaded for potential future use in E2E tests. It was
-        // originally added for the Cypher timeout test in query-safety.spec.ts,
-        // but that test intentionally avoids `apoc.util.sleep` — sleep runs
-        // as pure Thread.sleep inside the transaction and bypasses Neo4j's
-        // guard points, so the driver-level timeout can't interrupt it. The
-        // test uses a compute-heavy UNWIND instead. Kept enabled so new
-        // Cypher tests can use APOC helpers without an infra change.
         NEO4J_PLUGINS: '["apoc"]',
         NEO4J_dbms_security_procedures_unrestricted: "apoc.*",
       })
@@ -203,36 +156,17 @@ export default async function globalSetup() {
       .withWaitStrategy(Wait.forLogMessage(/Started\./, 1))
       .withStartupTimeout(120_000)
       .start(),
-
-    new GenericContainer("quay.io/keycloak/keycloak:24.0")
-      .withEnvironment({
-        KEYCLOAK_ADMIN: "admin",
-        KEYCLOAK_ADMIN_PASSWORD: "admin123",
-      })
-      .withExposedPorts(8080)
-      .withCopyFilesToContainer([
-        {
-          source: keycloakRealmJson,
-          target: "/opt/keycloak/data/import/neoboard-test-realm.json",
-        },
-      ])
-      .withCommand(["start-dev", "--import-realm"])
-      .withWaitStrategy(Wait.forLogMessage(/Listening on/, 1))
-      .withStartupTimeout(120_000)
-      .start(),
   ]);
 
   const pgHost = pgContainer.getHost();
   const pgPort = pgContainer.getMappedPort(5432);
   const neo4jBoltPort = neo4jContainer.getMappedPort(7687);
   const neo4jHttpPort = neo4jContainer.getMappedPort(7474);
-  const keycloakPort = keycloakContainer.getMappedPort(8080);
 
   console.log(`✅ PostgreSQL ready at port ${pgPort}`);
   console.log(
     `✅ Neo4j ready at bolt port ${neo4jBoltPort}, http port ${neo4jHttpPort}`,
   );
-  console.log(`✅ Keycloak ready at port ${keycloakPort}`);
 
   // Seed Neo4j with the init.cypher via cypher-shell inside the container.
   console.log("⏳ Seeding Neo4j with movies dataset...");
@@ -257,7 +191,6 @@ export default async function globalSetup() {
     JSON.stringify({
       pgContainerId: pgContainer.getId(),
       neo4jContainerId: neo4jContainer.getId(),
-      keycloakContainerId: keycloakContainer.getId(),
     }),
   );
 
@@ -275,14 +208,6 @@ export default async function globalSetup() {
   // ── Encrypt real connection configs and update the seeded rows ──────────
   console.log("⏳ Updating seeded connection configs with encrypted values...");
   await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
-
-  // ── Seed SSO provider pointing at the Keycloak test container ──────────
-  console.log("⏳ Seeding SSO provider for Keycloak...");
-  await seedSsoProvider(
-    `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`,
-    keycloakPort,
-  );
-  console.log("✅ SSO provider seeded");
 
   // ── Resolve the server port ──────────────────────────────────────────────
   // Use TEST_SERVER_PORT when set; otherwise default to 3100 to stay in sync
@@ -305,11 +230,6 @@ export default async function globalSetup() {
     `TEST_NEO4J_BOLT_URL=bolt://localhost:${neo4jBoltPort}`,
     `TEST_NEO4J_HTTP_PORT=${neo4jHttpPort}`,
     `TEST_PG_PORT=${pgPort}`,
-    `# Keycloak SSO test container`,
-    `TEST_KEYCLOAK_URL=http://localhost:${keycloakPort}`,
-    `TEST_KEYCLOAK_ISSUER=http://localhost:${keycloakPort}/realms/neoboard-test`,
-    `TEST_KEYCLOAK_CLIENT_ID=neoboard`,
-    `TEST_KEYCLOAK_CLIENT_SECRET=neoboard-test-secret-e2e`,
     "",
   ].join("\n");
 
@@ -325,10 +245,6 @@ export default async function globalSetup() {
   process.env.TEST_SERVER_PORT = String(serverPort);
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;
   process.env.TEST_PG_PORT = String(pgPort);
-  process.env.TEST_KEYCLOAK_URL = `http://localhost:${keycloakPort}`;
-  process.env.TEST_KEYCLOAK_ISSUER = `http://localhost:${keycloakPort}/realms/neoboard-test`;
-  process.env.TEST_KEYCLOAK_CLIENT_ID = "neoboard";
-  process.env.TEST_KEYCLOAK_CLIENT_SECRET = "neoboard-test-secret-e2e";
 
   // ── Start the Next.js server on a dynamically allocated port ────────────
   // Env vars are passed directly to the process — .env.local is never touched.
