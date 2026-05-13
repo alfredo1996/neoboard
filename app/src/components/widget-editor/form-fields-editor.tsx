@@ -184,14 +184,15 @@ function SortableFieldItem({
             type="number"
             min={0}
             value={field.step ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
+              const parsed = parseInt(e.target.value, 10);
               onUpdate(field.id, {
                 step:
-                  e.target.value === ""
+                  e.target.value === "" || Number.isNaN(parsed)
                     ? undefined
-                    : parseInt(e.target.value, 10),
-              })
-            }
+                    : parsed,
+              });
+            }}
             placeholder="—"
             className="h-7 text-xs w-20"
           />

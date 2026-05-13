@@ -80,7 +80,7 @@ export function useFormWizard(
 
   const goToStep = useCallback(
     (step: number) => {
-      if (step < currentStep) setCurrentStep(step);
+      if (step >= 0 && step < currentStep) setCurrentStep(step);
     },
     [currentStep],
   );

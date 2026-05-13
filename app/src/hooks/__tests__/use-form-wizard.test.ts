@@ -297,6 +297,21 @@ describe("useFormWizard", () => {
       });
       expect(result.current.currentStep).toBe(0); // unchanged
     });
+
+    it("prevents jumping to negative step", () => {
+      const { result } = renderHook(() => useFormWizard(wizardFields, {}));
+
+      // Advance to step 1
+      act(() => {
+        result.current.goNext({ name: "Alice" });
+      });
+      expect(result.current.currentStep).toBe(1);
+
+      act(() => {
+        result.current.goToStep(-1);
+      });
+      expect(result.current.currentStep).toBe(1); // unchanged
+    });
   });
 
   describe("reset", () => {

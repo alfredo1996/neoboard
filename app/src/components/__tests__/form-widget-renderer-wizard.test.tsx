@@ -457,7 +457,7 @@ describe("formatSummaryValue — via summary step rendering", () => {
     });
   });
 
-  it("formats array values as comma-separated", () => {
+  it("renders multi-select field label on summary step", () => {
     const multiField: FormFieldDef = {
       id: "f3",
       label: "Tags",

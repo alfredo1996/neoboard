@@ -311,6 +311,9 @@ function FieldInput({
 /** Format a field value for the summary step display. */
 function formatSummaryValue(value: unknown, field: FormFieldDef): string {
   if (value === undefined || value === null || value === "") return "—";
+  if (field.parameterType === "number-range" && Array.isArray(value)) {
+    return `${value[0]} – ${value[1]}`;
+  }
   if (Array.isArray(value)) return value.join(", ") || "—";
   if (field.parameterType === "date-range" && typeof value === "object") {
     const r = value as { from?: string; to?: string };
@@ -318,9 +321,6 @@ function formatSummaryValue(value: unknown, field: FormFieldDef): string {
     if (r.from) return `From ${r.from}`;
     if (r.to) return `To ${r.to}`;
     return "—";
-  }
-  if (field.parameterType === "number-range" && Array.isArray(value)) {
-    return `${value[0]} – ${value[1]}`;
   }
   return String(value);
 }
