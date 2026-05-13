@@ -190,7 +190,7 @@ describe("LoginPage", () => {
     mockFetchBootstrapStatus(true);
     mockSignIn.mockResolvedValue({ error: "CredentialsSignin" });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<LoginPage />);
 
     const emailInput = screen.getByLabelText("Email");
@@ -210,7 +210,7 @@ describe("LoginPage", () => {
     mockFetchBootstrapStatus(true);
     mockSignIn.mockResolvedValue({ error: null });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<LoginPage />);
 
     const emailInput = screen.getByLabelText("Email");
