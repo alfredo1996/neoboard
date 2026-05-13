@@ -32,13 +32,20 @@ describe("CopyButton", () => {
 
     render(<CopyButton value="test" />);
     await user.click(screen.getByRole("button", { name: /copy/i }));
-    expect(screen.getByText("Copied!")).toBeInTheDocument();
 
-    act(() => {
+    // Wait for the async clipboard write to resolve and "Copied!" to appear
+    await waitFor(() => {
+      expect(screen.getByText("Copied!")).toBeInTheDocument();
+    });
+
+    await act(async () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(screen.getByText("Copy")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Copy")).toBeInTheDocument();
+    });
+
     vi.useRealTimers();
   });
 
