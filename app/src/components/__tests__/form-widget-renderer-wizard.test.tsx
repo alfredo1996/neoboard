@@ -118,10 +118,10 @@ const defaultWizardState = {
   reset: mockReset,
 };
 
-const mockUseFormWizard = vi.fn(() => defaultWizardState);
+const mockUseFormWizard = vi.fn().mockReturnValue(defaultWizardState);
 
 vi.mock("@/hooks/use-form-wizard", () => ({
-  useFormWizard: (...args: unknown[]) => mockUseFormWizard(...args),
+  useFormWizard: () => mockUseFormWizard(),
 }));
 
 /* ---------- import under test ---------- */

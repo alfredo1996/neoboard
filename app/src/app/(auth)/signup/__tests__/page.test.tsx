@@ -238,7 +238,7 @@ describe("SignupPage", () => {
   it("shows error when passwords do not match", async () => {
     mockFetchBootstrapStatus(false, true);
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -263,7 +263,7 @@ describe("SignupPage", () => {
       error: "Email already registered",
     });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -286,7 +286,7 @@ describe("SignupPage", () => {
     mockSignup.mockResolvedValue({ success: true });
     mockSignIn.mockResolvedValue({ error: null });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -309,7 +309,7 @@ describe("SignupPage", () => {
     mockSignup.mockResolvedValue({ success: true });
     mockSignIn.mockResolvedValue({ error: "some-error" });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
