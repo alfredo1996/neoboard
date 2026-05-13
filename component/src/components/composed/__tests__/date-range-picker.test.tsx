@@ -65,69 +65,27 @@ describe("DateRangePicker", () => {
     expect(screen.queryByText("Last 7 days")).not.toBeInTheDocument();
   });
 
-  it("calls onChange with correct range for 'Today' preset", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const onChange = vi.fn();
-    render(<DateRangePicker onChange={onChange} />);
+  it.each([
+    ["Today", "2025-06-15", "2025-06-15"],
+    ["Yesterday", "2025-06-14", "2025-06-14"],
+    ["Last 7 days", "2025-06-09", "2025-06-15"],
+    ["Last 30 days", "2025-05-17", "2025-06-15"],
+    ["This month", "2025-06-01", "2025-06-30"],
+    ["This year", "2025-01-01", "2025-06-15"],
+  ])(
+    "calls onChange with correct range for '%s' preset",
+    async (label, expectedFrom, expectedTo) => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(<DateRangePicker onChange={onChange} />);
 
-    await user.click(screen.getByText("Pick a date range"));
-    await user.click(screen.getByText("Today"));
+      await user.click(screen.getByText("Pick a date range"));
+      await user.click(screen.getByText(label));
 
-    expect(onChange).toHaveBeenCalledOnce();
-    const range = onChange.mock.calls[0][0];
-    expect(format(range.from, "yyyy-MM-dd")).toBe("2025-06-15");
-    expect(format(range.to, "yyyy-MM-dd")).toBe("2025-06-15");
-  });
-
-  it("calls onChange with correct range for 'Yesterday' preset", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const onChange = vi.fn();
-    render(<DateRangePicker onChange={onChange} />);
-
-    await user.click(screen.getByText("Pick a date range"));
-    await user.click(screen.getByText("Yesterday"));
-
-    const range = onChange.mock.calls[0][0];
-    expect(format(range.from, "yyyy-MM-dd")).toBe("2025-06-14");
-    expect(format(range.to, "yyyy-MM-dd")).toBe("2025-06-14");
-  });
-
-  it("calls onChange with correct range for 'Last 7 days' preset", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const onChange = vi.fn();
-    render(<DateRangePicker onChange={onChange} />);
-
-    await user.click(screen.getByText("Pick a date range"));
-    await user.click(screen.getByText("Last 7 days"));
-
-    const range = onChange.mock.calls[0][0];
-    expect(format(range.from, "yyyy-MM-dd")).toBe("2025-06-09");
-    expect(format(range.to, "yyyy-MM-dd")).toBe("2025-06-15");
-  });
-
-  it("calls onChange with correct range for 'This month' preset", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const onChange = vi.fn();
-    render(<DateRangePicker onChange={onChange} />);
-
-    await user.click(screen.getByText("Pick a date range"));
-    await user.click(screen.getByText("This month"));
-
-    const range = onChange.mock.calls[0][0];
-    expect(format(range.from, "yyyy-MM-dd")).toBe("2025-06-01");
-    expect(format(range.to, "yyyy-MM-dd")).toBe("2025-06-30");
-  });
-
-  it("calls onChange with correct range for 'This year' preset", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const onChange = vi.fn();
-    render(<DateRangePicker onChange={onChange} />);
-
-    await user.click(screen.getByText("Pick a date range"));
-    await user.click(screen.getByText("This year"));
-
-    const range = onChange.mock.calls[0][0];
-    expect(format(range.from, "yyyy-MM-dd")).toBe("2025-01-01");
-    expect(format(range.to, "yyyy-MM-dd")).toBe("2025-06-15");
-  });
+      expect(onChange).toHaveBeenCalledOnce();
+      const range = onChange.mock.calls[0][0];
+      expect(format(range.from, "yyyy-MM-dd")).toBe(expectedFrom);
+      expect(format(range.to, "yyyy-MM-dd")).toBe(expectedTo);
+    },
+  );
 });
