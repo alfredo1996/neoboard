@@ -1388,6 +1388,53 @@ export function WidgetEditorModal({
                       </p>
                     ) : isForm ? (
                       <div className="space-y-4">
+                        {/* Wizard step labels */}
+                        {formFields.some(
+                          (f: { step?: number }) => f.step !== undefined,
+                        ) && (
+                          <>
+                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                              Wizard Steps
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Name each step. Steps are derived from field
+                              assignments.
+                            </p>
+                            {(() => {
+                              const stepNums = [
+                                ...new Set(
+                                  formFields
+                                    .map((f: { step?: number }) => f.step ?? 0)
+                                    .sort((a: number, b: number) => a - b),
+                                ),
+                              ];
+                              const labels =
+                                (chartOptions.stepLabels as
+                                  | string[]
+                                  | undefined) ?? [];
+                              return stepNums.map(
+                                (stepNum: number, idx: number) => (
+                                  <Input
+                                    key={stepNum}
+                                    value={labels[idx] ?? ""}
+                                    onChange={(e) => {
+                                      const next = [...labels];
+                                      while (next.length <= idx) next.push("");
+                                      next[idx] = e.target.value;
+                                      setChartOptions({
+                                        ...chartOptions,
+                                        stepLabels: next,
+                                      });
+                                    }}
+                                    placeholder={`Step ${idx + 1}`}
+                                    className="text-sm"
+                                  />
+                                ),
+                              );
+                            })()}
+                          </>
+                        )}
+
                         <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
                           After Submit
                         </h4>

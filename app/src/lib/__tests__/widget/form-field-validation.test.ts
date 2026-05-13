@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { validateFieldValue } from "@/lib/widget/form-field-validation";
+import {
+  validateFieldValue,
+  validateStepFields,
+} from "@/lib/widget/form-field-validation";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 
 describe("validateFieldValue", () => {
@@ -151,5 +154,47 @@ describe("validateFieldValue", () => {
       expect(validateFieldValue(field, "anything")).toBeNull();
       expect(validateFieldValue(field, "")).toBeNull();
     });
+  });
+});
+
+describe("validateStepFields", () => {
+  it("returns empty object when all fields are valid", () => {
+    const fields: FormFieldDef[] = [
+      {
+        id: "1",
+        label: "Name",
+        parameterName: "name",
+        parameterType: "text",
+        required: true,
+      },
+    ];
+    const errors = validateStepFields(fields, { name: "Alice" });
+    expect(Object.keys(errors)).toHaveLength(0);
+  });
+
+  it("returns errors for invalid fields", () => {
+    const fields: FormFieldDef[] = [
+      {
+        id: "1",
+        label: "Name",
+        parameterName: "name",
+        parameterType: "text",
+        required: true,
+      },
+      {
+        id: "2",
+        label: "Email",
+        parameterName: "email",
+        parameterType: "text",
+        required: true,
+      },
+    ];
+    const errors = validateStepFields(fields, { name: "Alice" });
+    expect(errors.email).toBe("This field is required");
+    expect(errors.name).toBeUndefined();
+  });
+
+  it("returns empty object for empty fields array", () => {
+    expect(Object.keys(validateStepFields([], {}))).toHaveLength(0);
   });
 });

@@ -177,6 +177,29 @@ function SortableFieldItem({
           </p>
         </div>
 
+        {/* Step (for multi-step wizard) */}
+        <div className="space-y-1">
+          <Label className="text-xs">Step (optional)</Label>
+          <Input
+            type="number"
+            min={0}
+            value={field.step ?? ""}
+            onChange={(e) =>
+              onUpdate(field.id, {
+                step:
+                  e.target.value === ""
+                    ? undefined
+                    : parseInt(e.target.value, 10),
+              })
+            }
+            placeholder="—"
+            className="h-7 text-xs w-20"
+          />
+          <p className="text-xs text-muted-foreground">
+            Assign a step number to enable multi-step wizard mode.
+          </p>
+        </div>
+
         {/* Input Type */}
         <div className="space-y-1.5">
           <Label className="text-xs">Input Type</Label>
