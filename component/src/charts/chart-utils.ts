@@ -77,6 +77,19 @@ export function formatNumber(
 }
 
 // ---------------------------------------------------------------------------
+// HTML escaping for tooltip content (prevents XSS via database values)
+// ---------------------------------------------------------------------------
+
+/** Escape HTML special characters in a string to prevent injection. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ---------------------------------------------------------------------------
 // ECharts tooltip formatter
 // ---------------------------------------------------------------------------
 
@@ -106,14 +119,15 @@ export function buildTooltipFormatter(
     const items = Array.isArray(params)
       ? (params as TooltipParam[])
       : [params as TooltipParam];
-    const header = items[0]?.name ?? "";
+    const header = escapeHtml(String(items[0]?.name ?? ""));
     const lines = items.map((p) => {
       const raw = Array.isArray(p.value) ? p.value[1] : p.value;
       const val =
         typeof raw === "number"
-          ? formatNumber(raw, tooltipConfig)
-          : String(raw ?? "");
-      const label = p.seriesName ? `${p.seriesName}: ` : "";
+          ? escapeHtml(formatNumber(raw, tooltipConfig))
+          : escapeHtml(String(raw ?? ""));
+      const label = p.seriesName ? `${escapeHtml(p.seriesName)}: ` : "";
+      // marker is ECharts-generated HTML (colored dot) — safe to pass through
       const marker = typeof p.marker === "string" ? p.marker : "";
       return `${marker} ${label}<b>${val}</b>`;
     });
@@ -138,14 +152,17 @@ export function buildPercentTooltipFormatter(
     const items = Array.isArray(params)
       ? (params as TooltipParam[])
       : [params as TooltipParam];
-    const header = items[0]?.name ?? "";
+    const header = escapeHtml(String(items[0]?.name ?? ""));
     const lines = items.map((p) => {
       const pct = typeof p.value === "number" ? p.value.toFixed(1) : p.value;
       const rowIdx = p.dataIndex ?? 0;
       const seriesKey =
         seriesKeys.find((k) => k === p.seriesName) ?? seriesKeys[0];
       const absValue = seriesKey ? data[rowIdx]?.[seriesKey] : "";
-      return `${p.marker ?? ""} ${p.seriesName}: ${pct}% (${absValue})`;
+      const safeName = escapeHtml(String(p.seriesName ?? ""));
+      const safeAbs = escapeHtml(String(absValue ?? ""));
+      // marker is ECharts-generated HTML (colored dot) — safe to pass through
+      return `${p.marker ?? ""} ${safeName}: ${pct}% (${safeAbs})`;
     });
     return `<strong>${header}</strong><br/>${lines.join("<br/>")}`;
   };
