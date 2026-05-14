@@ -66,6 +66,9 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=30s \
+  CMD wget -q -O- http://localhost:3000/api/health || exit 1
+
 # All config is via runtime env vars — see app/.env.example for full reference.
 #
 # Required:
