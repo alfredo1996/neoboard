@@ -1435,6 +1435,54 @@ export function WidgetEditorModal({
                           </>
                         )}
 
+                        {/* Confirmation dialog toggle */}
+                        <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                          Submit Behavior
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="confirm-before-submit"
+                            checked={
+                              !!(chartOptions as Record<string, unknown>)
+                                .confirmBeforeSubmit
+                            }
+                            onCheckedChange={(checked) =>
+                              setChartOptions({
+                                ...chartOptions,
+                                confirmBeforeSubmit: !!checked,
+                              })
+                            }
+                          />
+                          <Label
+                            htmlFor="confirm-before-submit"
+                            className="text-sm"
+                          >
+                            Confirm before submit
+                          </Label>
+                        </div>
+                        {!!(chartOptions as Record<string, unknown>)
+                          .confirmBeforeSubmit && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">
+                              Confirmation message
+                            </Label>
+                            <Input
+                              value={
+                                ((chartOptions as Record<string, unknown>)
+                                  .confirmMessage as string) ?? ""
+                              }
+                              onChange={(e) =>
+                                setChartOptions({
+                                  ...chartOptions,
+                                  confirmMessage: e.target.value || undefined,
+                                })
+                              }
+                              placeholder="Are you sure you want to submit this form?"
+                              className="text-sm"
+                            />
+                          </div>
+                        )}
+
                         <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
                           After Submit
                         </h4>

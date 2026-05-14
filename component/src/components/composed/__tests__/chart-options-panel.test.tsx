@@ -26,7 +26,7 @@ describe("ChartOptionsPanel", () => {
     );
     expandAllCategories();
     expect(screen.getByText("Orientation")).toBeInTheDocument();
-    expect(screen.getByText("Stacked")).toBeInTheDocument();
+    expect(screen.getByText("Stack Mode")).toBeInTheDocument();
     expect(screen.getByText("Show Values")).toBeInTheDocument();
     expect(screen.getByText("Show Legend")).toBeInTheDocument();
     expect(screen.getByText("Bar Width (px, 0=auto)")).toBeInTheDocument();
@@ -49,14 +49,15 @@ describe("ChartOptionsPanel", () => {
     render(
       <ChartOptionsPanel
         chartType="bar"
-        settings={{ stacked: false }}
+        settings={{ showValues: false }}
         onSettingsChange={onChange}
       />,
     );
-    const switchEl = screen.getByRole("switch", { name: "Stacked" });
+    expandAllCategories();
+    const switchEl = screen.getByRole("switch", { name: "Show Values" });
     fireEvent.click(switchEl);
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ stacked: true }),
+      expect.objectContaining({ showValues: true }),
     );
   });
 

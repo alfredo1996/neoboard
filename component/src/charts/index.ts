@@ -3,6 +3,7 @@ export {
   CHART_COLORS,
   resolveChartColors,
   useDarkMode,
+  exportChartToSvg,
 } from "./base-chart";
 export {
   THEME_LIGHT,
@@ -31,7 +32,7 @@ export {
 export { LineChart } from "./line-chart";
 export type { LineChartProps } from "./line-chart";
 export { BarChart } from "./bar-chart";
-export type { BarChartProps } from "./bar-chart";
+export type { BarChartProps, BarStackMode } from "./bar-chart";
 export { PieChart } from "./pie-chart";
 export type { PieChartProps } from "./pie-chart";
 export { SingleValueChart } from "./single-value-chart";

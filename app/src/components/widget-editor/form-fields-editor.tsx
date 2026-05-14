@@ -86,6 +86,8 @@ interface SortableFieldItemProps {
   index: number;
   onRemove: (id: string) => void;
   onUpdate: (id: string, patch: Partial<FormFieldDef>) => void;
+  /** Whether another field already uses the same parameterName */
+  hasDuplicateName?: boolean;
 }
 
 function SortableFieldItem({
@@ -93,6 +95,7 @@ function SortableFieldItem({
   index,
   onRemove,
   onUpdate,
+  hasDuplicateName,
 }: SortableFieldItemProps) {
   const {
     attributes,
@@ -175,6 +178,12 @@ function SortableFieldItem({
             </code>{" "}
             in your query
           </p>
+          {hasDuplicateName && field.parameterName && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Duplicate parameter name — another field uses the same name. The
+              last value will overwrite earlier ones on submit.
+            </p>
+          )}
         </div>
 
         {/* Step (for multi-step wizard) */}
@@ -421,15 +430,25 @@ export function FormFieldsEditor(_props: FormFieldsEditorProps) {
               onValueChange={setOpenItems}
               className="space-y-1"
             >
-              {fields.map((field, index) => (
-                <SortableFieldItem
-                  key={field.id}
-                  field={field}
-                  index={index}
-                  onRemove={removeItem}
-                  onUpdate={updateItem}
-                />
-              ))}
+              {fields.map((field, index) => {
+                const isDuplicate =
+                  !!field.parameterName &&
+                  fields.some(
+                    (f) =>
+                      f.id !== field.id &&
+                      f.parameterName === field.parameterName,
+                  );
+                return (
+                  <SortableFieldItem
+                    key={field.id}
+                    field={field}
+                    index={index}
+                    onRemove={removeItem}
+                    onUpdate={updateItem}
+                    hasDuplicateName={isDuplicate}
+                  />
+                );
+              })}
             </Accordion>
           </SortableContext>
         </DndContext>

@@ -94,3 +94,10 @@ export function triggerPngDownload(dataUrl: string, filename: string): void {
   a.click();
   document.body.removeChild(a);
 }
+
+/**
+ * Trigger an SVG file download from an SVG string.
+ */
+export function triggerSvgDownload(svgString: string, filename: string): void {
+  triggerDownload(svgString, filename, "image/svg+xml");
+}

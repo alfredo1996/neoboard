@@ -57,5 +57,6 @@ export function registerEChartsMocks() {
 
   vi.mock("echarts/renderers", () => ({
     CanvasRenderer: vi.fn(),
+    SVGRenderer: vi.fn(),
   }));
 }

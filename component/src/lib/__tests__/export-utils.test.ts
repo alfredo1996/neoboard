@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildCsvString,
   triggerDownload,
+  triggerSvgDownload,
   buildExportFilename,
   escapeCsvCell,
 } from "../export-utils";
@@ -205,5 +206,19 @@ describe("buildExportFilename", () => {
 describe("triggerDownload", () => {
   it("is a function", () => {
     expect(typeof triggerDownload).toBe("function");
+  });
+});
+
+describe("triggerSvgDownload", () => {
+  it("is a function", () => {
+    expect(typeof triggerSvgDownload).toBe("function");
+  });
+});
+
+describe("buildExportFilename — svg extension", () => {
+  it("builds filename with svg extension", () => {
+    expect(buildExportFilename("Sales Chart", "svg", "Dashboard")).toBe(
+      "dashboard_sales-chart.svg",
+    );
   });
 });

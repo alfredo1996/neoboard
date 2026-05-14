@@ -3,6 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
+import { highlightSync, ensureHighlighter } from "@/lib/code-highlighter";
 
 export interface MarkdownWidgetProps {
   /** Markdown content to render */
@@ -83,6 +84,7 @@ function parseMarkdown(md: string): string {
   let inBlockquote = false;
   let inFencedCode = false;
   let fencedCodeLines: string[] = [];
+  let fencedCodeLang = "";
 
   const closeList = () => {
     if (listType) {
@@ -94,24 +96,37 @@ function parseMarkdown(md: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Fenced code blocks (```...```)
+    // Fenced code blocks (```lang...```)
     if (line.startsWith("```")) {
       if (!inFencedCode) {
-        // Opening fence — start collecting code lines
+        // Opening fence — extract optional language tag and start collecting
         closeList();
         if (inBlockquote) {
           result.push("</blockquote>");
           inBlockquote = false;
         }
         inFencedCode = true;
+        fencedCodeLang = line.slice(3).trim();
         fencedCodeLines = [];
       } else {
-        // Closing fence — emit the block
+        // Closing fence — emit highlighted or plain block
         inFencedCode = false;
-        result.push(
-          `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
-        );
+        const code = fencedCodeLines.join("\n");
+        const highlighted = fencedCodeLang
+          ? highlightSync(code, fencedCodeLang)
+          : null;
+        if (highlighted) {
+          // Shiki output includes <pre><code> — wrap with our spacing classes
+          result.push(
+            `<div class="rounded-md overflow-x-auto my-2 text-sm [&_pre]:p-3 [&_pre]:overflow-x-auto">${highlighted}</div>`,
+          );
+        } else {
+          result.push(
+            `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(code)}</code></pre>`,
+          );
+        }
         fencedCodeLines = [];
+        fencedCodeLang = "";
       }
       continue;
     }
@@ -334,10 +349,28 @@ function processInline(text: string): string {
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
+  // Lazy-load Shiki highlighter. On first render code blocks are plain text;
+  // once Shiki loads, highlighterReady flips to true and we re-render with
+  // syntax-highlighted output via highlightSync().
+  const [highlighterReady, setHighlighterReady] = React.useState(false);
+  React.useEffect(() => {
+    // Only load if content has fenced code blocks with a language tag
+    if (!content || !content.includes("```")) return;
+    let cancelled = false;
+    ensureHighlighter().then((ok) => {
+      if (!cancelled && ok) setHighlighterReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [content]);
+
   // useMemo must be declared before any early return to satisfy Rules of Hooks.
+  // Re-compute when highlighterReady changes so code blocks get highlighted.
   const html = React.useMemo(
     () => (content ? parseMarkdown(content) : null),
-    [content],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [content, highlighterReady],
   );
 
   if (!content) {
