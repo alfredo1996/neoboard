@@ -19,6 +19,14 @@ import {
   CascadingSelector,
   Button,
   Label,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   type RelativeDatePreset,
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
@@ -27,7 +35,10 @@ import { useSeedQuery } from "@/hooks/use-seed-query";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import { validateFieldValue } from "@/lib/widget/form-field-validation";
-import { DebouncedTextInput } from "./debounced-text-input";
+import {
+  DebouncedTextInput,
+  type DebouncedTextInputHandle,
+} from "./debounced-text-input";
 
 export interface FormWidgetRendererProps {
   connectionId: string;
@@ -45,6 +56,8 @@ interface FieldInputProps {
   tenantId?: string;
   // The current local values map, used by cascading-select for parent lookup
   localValues: Record<string, unknown>;
+  /** Ref callback for text fields — allows parent to flush debounce on submit */
+  textInputRef?: (handle: DebouncedTextInputHandle | null) => void;
 }
 
 function FieldInput({
@@ -54,6 +67,7 @@ function FieldInput({
   connectionId,
   tenantId,
   localValues,
+  textInputRef,
 }: FieldInputProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -107,7 +121,11 @@ function FieldInput({
     return Object.keys(base).length > 0 ? base : undefined;
   }, [field.parameterType, field.searchable, parentParams, debouncedSearch]);
 
-  const { options: seedOptions, loading } = useSeedQuery(
+  const {
+    options: seedOptions,
+    loading,
+    error: seedError,
+  } = useSeedQuery(
     connectionId,
     field.seedQuery,
     needsSeed && cascadingEnabled,
@@ -136,12 +154,22 @@ function FieldInput({
     onChange,
   ]);
 
+  // Show inline error when a seed query fails (e.g. bad SQL, connection down)
+  if (needsSeed && seedError && !loading) {
+    return (
+      <p className="text-xs text-destructive">
+        Failed to load options: {seedError.message}
+      </p>
+    );
+  }
+
   switch (field.parameterType) {
     case "text": {
       const textValue =
         value !== undefined && value !== null ? String(value) : "";
       return (
         <DebouncedTextInput
+          ref={textInputRef}
           parameterName={field.parameterName}
           value={textValue}
           onChange={(v) => onChange(field.parameterName, v || undefined)}
@@ -326,6 +354,7 @@ export function FormWidgetRenderer({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const refreshWidgetIds = useMemo(
@@ -437,27 +466,25 @@ export function FormWidgetRenderer({
     [localValues],
   );
 
+  // Refs for text inputs — used to flush pending debounce on submit
+  const textInputRefs = useRef(new Map<string, DebouncedTextInputHandle>());
+
   const writeQuery = useWriteQueryExecution();
 
-  const handleSubmit = useCallback(() => {
-    setSuccessMessage(null);
-    setErrorMessage(null);
+  // Auto-dismiss success message after 5 seconds
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
-    // Validate required + validationType for all fields
-    const errors: Record<string, string> = {};
-    for (const field of fields) {
-      const error = validateFieldValue(field, localValues[field.parameterName]);
-      if (error) {
-        errors[field.parameterName] = error;
-      }
-    }
+  const confirmBeforeSubmit = !!chartOptions.confirmBeforeSubmit;
+  const confirmMessage =
+    (chartOptions.confirmMessage as string) ||
+    "Are you sure you want to submit this form?";
 
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    setFieldErrors({});
+  /** Execute the write query (called after validation and optional confirm). */
+  const executeSubmit = useCallback(() => {
     const params = buildFormParams(fields, localValues);
 
     writeQuery.mutate(
@@ -488,6 +515,43 @@ export function FormWidgetRenderer({
     refreshWidgetIds,
     queryClient,
   ]);
+
+  /** Validate, flush debounce, optionally confirm, then execute. */
+  const handleSubmit = useCallback(() => {
+    // Guard against double-submit while a mutation is in flight
+    if (writeQuery.isPending) return;
+
+    // Flush any pending debounced text inputs so localValues is current
+    for (const handle of textInputRefs.current.values()) {
+      handle.flush();
+    }
+
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    // Validate required + validationType for all fields
+    const errors: Record<string, string> = {};
+    for (const field of fields) {
+      const error = validateFieldValue(field, localValues[field.parameterName]);
+      if (error) {
+        errors[field.parameterName] = error;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
+
+    if (confirmBeforeSubmit) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    executeSubmit();
+  }, [fields, localValues, writeQuery, confirmBeforeSubmit, executeSubmit]);
 
   if (fields.length === 0) {
     return (
@@ -525,20 +589,17 @@ export function FormWidgetRenderer({
         )}
 
         {/*
-         * When the viewer is read-only, we disable pointer events on the
-         * field container and dim it to 60% opacity. This blocks all
-         * interactions (clicks, hover, focus via mouse) without having to
-         * thread a `disabled` prop through every FieldInput variant. The
-         * aria-disabled attribute tells screen readers the section is
-         * inactive. Submit is handled separately via the Button's own
-         * `disabled` prop below.
+         * When the viewer is read-only, the `inert` attribute blocks ALL
+         * interactions — mouse, keyboard, and assistive technology. This
+         * is the proper HTML standard way to disable a subtree, replacing
+         * the old pointer-events-none approach which only blocked mouse
+         * but allowed keyboard Tab navigation into fields.
          */}
         <div
-          aria-disabled={readOnly}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          {...(readOnly ? ({ inert: "" } as any) : {})}
           className={
-            readOnly
-              ? "pointer-events-none select-none space-y-4 opacity-60"
-              : "space-y-4"
+            readOnly ? "select-none space-y-4 opacity-60" : "space-y-4"
           }
         >
           {fields.map((field) => (
@@ -560,6 +621,20 @@ export function FormWidgetRenderer({
                 connectionId={connectionId}
                 tenantId={tenantId}
                 localValues={localValues}
+                textInputRef={
+                  field.parameterType === "text"
+                    ? (handle) => {
+                        if (handle) {
+                          textInputRefs.current.set(
+                            field.parameterName,
+                            handle,
+                          );
+                        } else {
+                          textInputRefs.current.delete(field.parameterName);
+                        }
+                      }
+                    : undefined
+                }
               />
               {fieldErrors[field.parameterName] && (
                 <p className="text-xs text-destructive">
@@ -596,6 +671,26 @@ export function FormWidgetRenderer({
             : (chartOptions.submitButtonText as string) || "Submit"}
         </Button>
       </form>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm submission</AlertDialogTitle>
+            <AlertDialogDescription>{confirmMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                executeSubmit();
+              }}
+            >
+              Submit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

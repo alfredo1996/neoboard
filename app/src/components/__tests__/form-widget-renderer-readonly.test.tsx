@@ -31,6 +31,34 @@ vi.mock("@neoboard/components", () => ({
     children: React.ReactNode;
     htmlFor?: string;
   }) => <label htmlFor={htmlFor}>{children}</label>,
+  AlertDialog: ({
+    children,
+    open,
+  }: {
+    children: React.ReactNode;
+    open?: boolean;
+  }) => (open ? <div>{children}</div> : null),
+  AlertDialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogAction: ({ children }: { children: React.ReactNode }) => (
+    <button>{children}</button>
+  ),
+  AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
+    <button>{children}</button>
+  ),
 }));
 
 // DebouncedTextInput pulls in debounce/useEffect — stub to a plain input.
