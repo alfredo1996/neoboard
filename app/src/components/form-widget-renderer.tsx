@@ -516,8 +516,10 @@ export function FormWidgetRenderer({
           setSuccessMessage(msg || "Form submitted successfully");
           if (chartOptions.resetOnSuccess !== false) {
             setLocalValues({});
-            wizard.reset();
           }
+          // Always reset wizard to step 0 — even when resetOnSuccess is
+          // false, leaving the user on the summary step is a dead end.
+          wizard.reset();
           for (const id of refreshWidgetIds) {
             queryClient.invalidateQueries({ queryKey: ["widget-query", id] });
           }
@@ -562,6 +564,21 @@ export function FormWidgetRenderer({
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      // In wizard mode, navigate to the first step that has an error so
+      // the user can see what needs fixing (not just a disabled button).
+      if (wizard.isWizard) {
+        const firstErrorField = fields.find((f) => errors[f.parameterName]);
+        if (firstErrorField) {
+          const stepIdx = wizard.stepGroups.findIndex((group) =>
+            group.some(
+              (f) => f.parameterName === firstErrorField.parameterName,
+            ),
+          );
+          if (stepIdx >= 0 && stepIdx !== wizard.currentStep) {
+            wizard.goToStep(stepIdx);
+          }
+        }
+      }
       return;
     }
 
