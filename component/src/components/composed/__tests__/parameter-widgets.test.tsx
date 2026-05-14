@@ -17,14 +17,18 @@ import {
 describe("TextInputParameter", () => {
   it("renders with a label matching parameterName", () => {
     render(
-      <TextInputParameter parameterName="city" value="" onChange={vi.fn()} />
+      <TextInputParameter parameterName="city" value="" onChange={vi.fn()} />,
     );
     expect(screen.getByText("city")).toBeInTheDocument();
   });
 
   it("renders the current value in the input", () => {
     render(
-      <TextInputParameter parameterName="city" value="Berlin" onChange={vi.fn()} />
+      <TextInputParameter
+        parameterName="city"
+        value="Berlin"
+        onChange={vi.fn()}
+      />,
     );
     const input = screen.getByRole("textbox");
     expect(input).toHaveValue("Berlin");
@@ -33,22 +37,30 @@ describe("TextInputParameter", () => {
   it("calls onChange when the user types", () => {
     const onChange = vi.fn();
     render(
-      <TextInputParameter parameterName="city" value="" onChange={onChange} />
+      <TextInputParameter parameterName="city" value="" onChange={onChange} />,
     );
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Paris" } });
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Paris" },
+    });
     expect(onChange).toHaveBeenCalledWith("Paris");
   });
 
   it("shows a clear button when value is set", () => {
     render(
-      <TextInputParameter parameterName="city" value="Berlin" onChange={vi.fn()} />
+      <TextInputParameter
+        parameterName="city"
+        value="Berlin"
+        onChange={vi.fn()}
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear city/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear city/i }),
+    ).toBeInTheDocument();
   });
 
   it("hides the clear button when value is empty", () => {
     render(
-      <TextInputParameter parameterName="city" value="" onChange={vi.fn()} />
+      <TextInputParameter parameterName="city" value="" onChange={vi.fn()} />,
     );
     expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
   });
@@ -56,7 +68,11 @@ describe("TextInputParameter", () => {
   it("calls onChange with empty string when clear button is clicked", () => {
     const onChange = vi.fn();
     render(
-      <TextInputParameter parameterName="city" value="Berlin" onChange={onChange} />
+      <TextInputParameter
+        parameterName="city"
+        value="Berlin"
+        onChange={onChange}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onChange).toHaveBeenCalledWith("");
@@ -69,14 +85,19 @@ describe("TextInputParameter", () => {
         value=""
         onChange={vi.fn()}
         placeholder="Type something…"
-      />
+      />,
     );
     expect(screen.getByPlaceholderText("Type something…")).toBeInTheDocument();
   });
 
   it("applies extra className to the root element", () => {
     const { container } = render(
-      <TextInputParameter parameterName="city" value="" onChange={vi.fn()} className="extra-cls" />
+      <TextInputParameter
+        parameterName="city"
+        value=""
+        onChange={vi.fn()}
+        className="extra-cls"
+      />,
     );
     expect(container.firstChild).toHaveClass("extra-cls");
   });
@@ -97,7 +118,7 @@ describe("ParamSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("dbType")).toBeInTheDocument();
   });
@@ -110,10 +131,12 @@ describe("ParamSelector", () => {
         value=""
         onChange={vi.fn()}
         loading
-      />
+      />,
     );
     // Loading state renders skeleton elements (animate-pulse class from Skeleton component)
-    expect(container.querySelectorAll('[class*="animate-pulse"]').length).toBeGreaterThan(0);
+    expect(
+      container.querySelectorAll('[class*="animate-pulse"]').length,
+    ).toBeGreaterThan(0);
     // The select trigger should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
   });
@@ -125,9 +148,11 @@ describe("ParamSelector", () => {
         options={options}
         value="neo4j"
         onChange={vi.fn()}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear dbType/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear dbType/i }),
+    ).toBeInTheDocument();
   });
 
   it("calls onChange with empty string when clear is clicked", () => {
@@ -138,7 +163,7 @@ describe("ParamSelector", () => {
         options={options}
         value="neo4j"
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onChange).toHaveBeenCalledWith("");
@@ -151,7 +176,7 @@ describe("ParamSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
   });
@@ -163,7 +188,7 @@ describe("ParamSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByRole("combobox")).toBeInTheDocument();
   });
@@ -176,7 +201,7 @@ describe("ParamSelector", () => {
         value=""
         onChange={vi.fn()}
         className="my-class"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("my-class");
   });
@@ -199,7 +224,7 @@ describe("ParamMultiSelector", () => {
         options={options}
         values={[]}
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("tags")).toBeInTheDocument();
   });
@@ -212,7 +237,7 @@ describe("ParamMultiSelector", () => {
         values={[]}
         onChange={vi.fn()}
         placeholder="Pick tags…"
-      />
+      />,
     );
     expect(screen.getByText("Pick tags…")).toBeInTheDocument();
   });
@@ -224,7 +249,7 @@ describe("ParamMultiSelector", () => {
         options={options}
         values={["a", "b"]}
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("Beta")).toBeInTheDocument();
@@ -237,7 +262,7 @@ describe("ParamMultiSelector", () => {
         options={options}
         values={["a"]}
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByRole("button", { name: /clear/i })).toBeInTheDocument();
   });
@@ -250,7 +275,7 @@ describe("ParamMultiSelector", () => {
         options={options}
         values={["a", "b"]}
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onChange).toHaveBeenCalledWith([]);
@@ -263,7 +288,7 @@ describe("ParamMultiSelector", () => {
         options={options}
         values={[]}
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByRole("button", { name: /^clear$/i })).toBeNull();
   });
@@ -276,7 +301,7 @@ describe("ParamMultiSelector", () => {
         values={[]}
         onChange={vi.fn()}
         loading
-      />
+      />,
     );
     // When loading, the combobox trigger should not be present
     expect(screen.queryByRole("combobox")).toBeNull();
@@ -290,7 +315,7 @@ describe("ParamMultiSelector", () => {
         values={["a", "b", "c", "d"]}
         onChange={vi.fn()}
         maxDisplay={2}
-      />
+      />,
     );
     // +2 overflow badge for items c and d
     expect(screen.getByText("+2")).toBeInTheDocument();
@@ -304,7 +329,7 @@ describe("ParamMultiSelector", () => {
         options={options}
         values={["a", "b"]}
         onChange={onChange}
-      />
+      />,
     );
     // Click the close button on the first badge (Alpha)
     const alphaClose = document.querySelector('button[type="button"].ml-1');
@@ -322,7 +347,7 @@ describe("ParamMultiSelector", () => {
         values={[]}
         onChange={vi.fn()}
         className="custom-multi"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("custom-multi");
   });
@@ -337,7 +362,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("eventDate")).toBeInTheDocument();
   });
@@ -348,7 +373,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText(/pick a date/i)).toBeInTheDocument();
   });
@@ -359,7 +384,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value="2024-06-15"
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText(/jun 15, 2024/i)).toBeInTheDocument();
   });
@@ -370,9 +395,11 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value="2024-06-15"
         onChange={vi.fn()}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear eventDate/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear eventDate/i }),
+    ).toBeInTheDocument();
   });
 
   it("calls onChange with empty string when clear is clicked", () => {
@@ -382,7 +409,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value="2024-06-15"
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onChange).toHaveBeenCalledWith("");
@@ -394,7 +421,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
   });
@@ -406,7 +433,7 @@ describe("DatePickerParameter", () => {
         value=""
         onChange={vi.fn()}
         className="date-cls"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("date-cls");
   });
@@ -417,7 +444,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     // The Radix Popover trigger is labeled by aria-labelledby → "eventDate" label
     const triggerBtn = screen.getByRole("button", { name: "eventDate" });
@@ -433,7 +460,7 @@ describe("DatePickerParameter", () => {
         parameterName="eventDate"
         value=""
         onChange={onChange}
-      />
+      />,
     );
     // Open the calendar
     fireEvent.click(screen.getByRole("button", { name: "eventDate" }));
@@ -445,7 +472,9 @@ describe("DatePickerParameter", () => {
     const dayBtn = document.querySelector("button[data-day]");
     if (dayBtn) {
       fireEvent.click(dayBtn);
-      expect(onChange).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+      expect(onChange).toHaveBeenCalledWith(
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      );
     }
   });
 });
@@ -460,7 +489,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("period")).toBeInTheDocument();
   });
@@ -472,7 +501,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText(/pick a date range/i)).toBeInTheDocument();
   });
@@ -484,7 +513,7 @@ describe("DateRangeParameter", () => {
         from="2024-06-01"
         to=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText(/jun 1, 2024/i)).toBeInTheDocument();
   });
@@ -496,7 +525,7 @@ describe("DateRangeParameter", () => {
         from="2024-06-01"
         to="2024-06-30"
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText(/jun 1, 2024/i)).toBeInTheDocument();
     expect(screen.getByText(/jun 30, 2024/i)).toBeInTheDocument();
@@ -509,9 +538,11 @@ describe("DateRangeParameter", () => {
         from="2024-06-01"
         to=""
         onChange={vi.fn()}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear period/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear period/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows clear button when to is set", () => {
@@ -521,9 +552,11 @@ describe("DateRangeParameter", () => {
         from=""
         to="2024-06-30"
         onChange={vi.fn()}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear period/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear period/i }),
+    ).toBeInTheDocument();
   });
 
   it("calls onChange with empty strings when clear is clicked", () => {
@@ -534,7 +567,7 @@ describe("DateRangeParameter", () => {
         from="2024-06-01"
         to="2024-06-30"
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear period/i }));
     expect(onChange).toHaveBeenCalledWith("", "");
@@ -547,7 +580,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
   });
@@ -560,7 +593,7 @@ describe("DateRangeParameter", () => {
         to=""
         onChange={vi.fn()}
         className="range-cls"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("range-cls");
   });
@@ -572,7 +605,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={vi.fn()}
-      />
+      />,
     );
     // Radix Popover trigger is labeled by aria-labelledby → "period" label
     const triggerBtn = screen.getByRole("button", { name: "period" });
@@ -585,7 +618,7 @@ describe("DateRangeParameter", () => {
   });
 
   it("calls onChange with ISO strings when 'Today' preset is clicked", () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2024-06-15T12:00:00Z"));
     const onChange = vi.fn();
     render(
@@ -594,7 +627,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "period" }));
     fireEvent.click(screen.getByText("Today"));
@@ -603,7 +636,7 @@ describe("DateRangeParameter", () => {
   });
 
   it("calls onChange with ISO strings when 'Last 7 days' preset is clicked", () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2024-06-15T12:00:00Z"));
     const onChange = vi.fn();
     render(
@@ -612,7 +645,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "period" }));
     fireEvent.click(screen.getByText("Last 7 days"));
@@ -621,7 +654,7 @@ describe("DateRangeParameter", () => {
   });
 
   it("calls onChange with ISO strings when 'Last 30 days' preset is clicked", () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2024-06-15T12:00:00Z"));
     const onChange = vi.fn();
     render(
@@ -630,7 +663,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "period" }));
     fireEvent.click(screen.getByText("Last 30 days"));
@@ -639,7 +672,7 @@ describe("DateRangeParameter", () => {
   });
 
   it("calls onChange with ISO strings when 'This month' preset is clicked", () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2024-06-15T12:00:00Z"));
     const onChange = vi.fn();
     render(
@@ -648,7 +681,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "period" }));
     fireEvent.click(screen.getByText("This month"));
@@ -657,7 +690,7 @@ describe("DateRangeParameter", () => {
   });
 
   it("calls onChange with ISO strings when 'This year' preset is clicked", () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2024-06-15T12:00:00Z"));
     const onChange = vi.fn();
     render(
@@ -666,7 +699,7 @@ describe("DateRangeParameter", () => {
         from=""
         to=""
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "period" }));
     fireEvent.click(screen.getByText("This year"));
@@ -680,23 +713,29 @@ describe("DateRangeParameter", () => {
 describe("DateRelativePicker", () => {
   it("renders the parameter label", () => {
     render(
-      <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />
+      <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />,
     );
     expect(screen.getByText("window")).toBeInTheDocument();
   });
 
   it("renders all preset buttons", () => {
     render(
-      <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />
+      <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />,
     );
     for (const preset of RELATIVE_DATE_PRESETS) {
-      expect(screen.getByRole("button", { name: preset.label })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: preset.label }),
+      ).toBeInTheDocument();
     }
   });
 
   it("marks the active preset button as pressed", () => {
     render(
-      <DateRelativePicker parameterName="window" value="last_7_days" onChange={vi.fn()} />
+      <DateRelativePicker
+        parameterName="window"
+        value="last_7_days"
+        onChange={vi.fn()}
+      />,
     );
     const btn = screen.getByRole("button", { name: "Last 7 days" });
     expect(btn).toHaveAttribute("aria-pressed", "true");
@@ -704,7 +743,11 @@ describe("DateRelativePicker", () => {
 
   it("marks inactive preset buttons as not pressed", () => {
     render(
-      <DateRelativePicker parameterName="window" value="today" onChange={vi.fn()} />
+      <DateRelativePicker
+        parameterName="window"
+        value="today"
+        onChange={vi.fn()}
+      />,
     );
     const btn = screen.getByRole("button", { name: "Last 7 days" });
     expect(btn).toHaveAttribute("aria-pressed", "false");
@@ -713,7 +756,11 @@ describe("DateRelativePicker", () => {
   it("calls onChange with the preset key when a button is clicked", () => {
     const onChange = vi.fn();
     render(
-      <DateRelativePicker parameterName="window" value="" onChange={onChange} />
+      <DateRelativePicker
+        parameterName="window"
+        value=""
+        onChange={onChange}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Today" }));
     expect(onChange).toHaveBeenCalledWith("today");
@@ -722,7 +769,11 @@ describe("DateRelativePicker", () => {
   it("calls onChange with empty string when the active preset is clicked again (toggle off)", () => {
     const onChange = vi.fn();
     render(
-      <DateRelativePicker parameterName="window" value="today" onChange={onChange} />
+      <DateRelativePicker
+        parameterName="window"
+        value="today"
+        onChange={onChange}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Today" }));
     expect(onChange).toHaveBeenCalledWith("");
@@ -733,7 +784,11 @@ describe("DateRelativePicker", () => {
     for (const preset of RELATIVE_DATE_PRESETS) {
       onChange.mockClear();
       const { unmount } = render(
-        <DateRelativePicker parameterName="window" value="" onChange={onChange} />
+        <DateRelativePicker
+          parameterName="window"
+          value=""
+          onChange={onChange}
+        />,
       );
       fireEvent.click(screen.getByRole("button", { name: preset.label }));
       expect(onChange).toHaveBeenCalledWith(preset.key);
@@ -743,7 +798,7 @@ describe("DateRelativePicker", () => {
 
   it("renders a group role for accessibility", () => {
     render(
-      <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />
+      <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />,
     );
     expect(screen.getByRole("group")).toBeInTheDocument();
   });
@@ -755,7 +810,7 @@ describe("DateRelativePicker", () => {
         value=""
         onChange={vi.fn()}
         className="rel-cls"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("rel-cls");
   });
@@ -773,7 +828,7 @@ describe("NumberRangeSlider", () => {
         value={null}
         onChange={vi.fn()}
         onClear={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("price")).toBeInTheDocument();
   });
@@ -787,7 +842,7 @@ describe("NumberRangeSlider", () => {
         value={null}
         onChange={vi.fn()}
         onClear={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("10")).toBeInTheDocument();
     expect(screen.getByText("999")).toBeInTheDocument();
@@ -802,9 +857,11 @@ describe("NumberRangeSlider", () => {
         value={[100, 500]}
         onChange={vi.fn()}
         onClear={vi.fn()}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear price/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear price/i }),
+    ).toBeInTheDocument();
   });
 
   it("hides Reset button when value is null", () => {
@@ -816,7 +873,7 @@ describe("NumberRangeSlider", () => {
         value={null}
         onChange={vi.fn()}
         onClear={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByRole("button", { name: /clear price/i })).toBeNull();
   });
@@ -831,7 +888,7 @@ describe("NumberRangeSlider", () => {
         value={[100, 500]}
         onChange={vi.fn()}
         onClear={onClear}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear price/i }));
     expect(onClear).toHaveBeenCalled();
@@ -847,7 +904,7 @@ describe("NumberRangeSlider", () => {
         onChange={vi.fn()}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const minInput = screen.getByRole("spinbutton", { name: /price minimum/i });
     const maxInput = screen.getByRole("spinbutton", { name: /price maximum/i });
@@ -866,7 +923,7 @@ describe("NumberRangeSlider", () => {
         onChange={onChange}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const minInput = screen.getByRole("spinbutton", { name: /price minimum/i });
     fireEvent.change(minInput, { target: { value: "200" } });
@@ -884,7 +941,7 @@ describe("NumberRangeSlider", () => {
         onChange={onChange}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const maxInput = screen.getByRole("spinbutton", { name: /price maximum/i });
     fireEvent.change(maxInput, { target: { value: "800" } });
@@ -902,7 +959,7 @@ describe("NumberRangeSlider", () => {
         onChange={onChange}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const minInput = screen.getByRole("spinbutton", { name: /price minimum/i });
     // Try to set min above current max of 500
@@ -921,7 +978,7 @@ describe("NumberRangeSlider", () => {
         onChange={onChange}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const maxInput = screen.getByRole("spinbutton", { name: /price maximum/i });
     // Try to set max below current min of 200
@@ -940,7 +997,7 @@ describe("NumberRangeSlider", () => {
         onChange={onChange}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const minInput = screen.getByRole("spinbutton", { name: /price minimum/i });
     // Setting min to below the overall min (50) should clamp to 50
@@ -959,7 +1016,7 @@ describe("NumberRangeSlider", () => {
         onChange={onChange}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
     const maxInput = screen.getByRole("spinbutton", { name: /price maximum/i });
     // Setting max above the overall max (800) should clamp to 800
@@ -977,7 +1034,7 @@ describe("NumberRangeSlider", () => {
         onChange={vi.fn()}
         onClear={vi.fn()}
         showInputs={false}
-      />
+      />,
     );
     expect(screen.queryByRole("spinbutton")).toBeNull();
   });
@@ -992,10 +1049,14 @@ describe("NumberRangeSlider", () => {
         onChange={vi.fn()}
         onClear={vi.fn()}
         showInputs
-      />
+      />,
     );
-    expect(screen.getByRole("spinbutton", { name: /qty minimum/i })).toHaveValue(5);
-    expect(screen.getByRole("spinbutton", { name: /qty maximum/i })).toHaveValue(50);
+    expect(
+      screen.getByRole("spinbutton", { name: /qty minimum/i }),
+    ).toHaveValue(5);
+    expect(
+      screen.getByRole("spinbutton", { name: /qty maximum/i }),
+    ).toHaveValue(50);
   });
 
   it("applies className to root element", () => {
@@ -1008,7 +1069,7 @@ describe("NumberRangeSlider", () => {
         onChange={vi.fn()}
         onClear={vi.fn()}
         className="slider-cls"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("slider-cls");
   });
@@ -1029,7 +1090,7 @@ describe("CascadingSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("subCategory")).toBeInTheDocument();
   });
@@ -1042,7 +1103,7 @@ describe("CascadingSelector", () => {
         value=""
         onChange={vi.fn()}
         parentParameterName="category"
-      />
+      />,
     );
     expect(screen.getByText(/depends on category/i)).toBeInTheDocument();
   });
@@ -1056,7 +1117,7 @@ describe("CascadingSelector", () => {
         onChange={vi.fn()}
         parentParameterName="category"
         parentValue=""
-      />
+      />,
     );
     // The select trigger should be disabled
     const trigger = screen.getByRole("combobox");
@@ -1072,7 +1133,7 @@ describe("CascadingSelector", () => {
         onChange={vi.fn()}
         parentParameterName="category"
         parentValue="cat1"
-      />
+      />,
     );
     const trigger = screen.getByRole("combobox");
     expect(trigger).not.toBeDisabled();
@@ -1085,9 +1146,11 @@ describe("CascadingSelector", () => {
         options={options}
         value="sub1"
         onChange={vi.fn()}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: /clear subCategory/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /clear subCategory/i }),
+    ).toBeInTheDocument();
   });
 
   it("calls onChange with empty string when clear is clicked", () => {
@@ -1098,7 +1161,7 @@ describe("CascadingSelector", () => {
         options={options}
         value="sub1"
         onChange={onChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onChange).toHaveBeenCalledWith("");
@@ -1112,12 +1175,14 @@ describe("CascadingSelector", () => {
         value=""
         onChange={vi.fn()}
         loading
-      />
+      />,
     );
     // The select combobox should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
     // Skeleton placeholders should be rendered (animate-pulse divs)
-    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThanOrEqual(2);
+    expect(
+      container.querySelectorAll(".animate-pulse").length,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("does not show dependency hint when parentParameterName is not provided", () => {
@@ -1127,7 +1192,7 @@ describe("CascadingSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByText(/depends on/i)).toBeNull();
   });
@@ -1141,7 +1206,7 @@ describe("CascadingSelector", () => {
         onChange={vi.fn()}
         parentParameterName="category"
         parentValue=""
-      />
+      />,
     );
     // The placeholder includes the parent name
     expect(screen.getByText(/select category first/i)).toBeInTheDocument();
@@ -1155,7 +1220,7 @@ describe("CascadingSelector", () => {
         value=""
         onChange={vi.fn()}
         placeholder="Choose sub-category…"
-      />
+      />,
     );
     expect(screen.getByText("Choose sub-category…")).toBeInTheDocument();
   });
@@ -1167,7 +1232,7 @@ describe("CascadingSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
   });
@@ -1180,7 +1245,7 @@ describe("CascadingSelector", () => {
         value=""
         onChange={vi.fn()}
         className="cascade-cls"
-      />
+      />,
     );
     expect(container.firstChild).toHaveClass("cascade-cls");
   });
@@ -1192,7 +1257,7 @@ describe("CascadingSelector", () => {
         options={options}
         value=""
         onChange={vi.fn()}
-      />
+      />,
     );
     const trigger = screen.getByRole("combobox");
     expect(trigger).not.toBeDisabled();
