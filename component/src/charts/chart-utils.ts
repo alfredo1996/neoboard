@@ -85,6 +85,7 @@ export interface TooltipParam {
   name?: string;
   value?: number | string | (number | string)[];
   marker?: string;
+  dataIndex?: number;
 }
 
 /**
@@ -119,6 +120,34 @@ export function buildTooltipFormatter(
     return header
       ? `${header}<br/>${lines.join("<br/>")}`
       : lines.join("<br/>");
+  };
+}
+
+/**
+ * Build a tooltip formatter for percent-stacked charts.
+ * Shows "pct% (absolute)" for each series item.
+ *
+ * @param seriesKeys - ordered series key names
+ * @param data       - the original data rows (used to look up absolute values)
+ */
+export function buildPercentTooltipFormatter(
+  seriesKeys: string[],
+  data: Record<string, unknown>[],
+): (params: unknown) => string {
+  return (params: unknown) => {
+    const items = Array.isArray(params)
+      ? (params as TooltipParam[])
+      : [params as TooltipParam];
+    const header = items[0]?.name ?? "";
+    const lines = items.map((p) => {
+      const pct = typeof p.value === "number" ? p.value.toFixed(1) : p.value;
+      const rowIdx = p.dataIndex ?? 0;
+      const seriesKey =
+        seriesKeys.find((k) => k === p.seriesName) ?? seriesKeys[0];
+      const absValue = seriesKey ? data[rowIdx]?.[seriesKey] : "";
+      return `${p.marker ?? ""} ${p.seriesName}: ${pct}% (${absValue})`;
+    });
+    return `<strong>${header}</strong><br/>${lines.join("<br/>")}`;
   };
 }
 

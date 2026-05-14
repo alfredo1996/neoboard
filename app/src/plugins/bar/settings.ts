@@ -6,6 +6,8 @@ import { z } from "zod";
 export const barSettingsSchema = z
   .object({
     orientation: z.enum(["vertical", "horizontal"]).default("vertical"),
+    stackMode: z.enum(["none", "stacked", "percent"]).default("none"),
+    /** @deprecated Use stackMode instead. Kept for backward compatibility. */
     stacked: z.boolean().default(false),
     showValues: z.boolean().default(false),
     showLegend: z.boolean().default(true),
