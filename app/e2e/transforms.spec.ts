@@ -19,9 +19,6 @@ async function setupWidgetWithQuery(page: import("@playwright/test").Page) {
   await dialog.getByRole("combobox").nth(0).click();
   await page.getByRole("option").first().click();
 
-  // Wait for editor to stabilize after connection selection triggers schema fetch
-  await page.waitForTimeout(1_000);
-
   await typeInEditor(
     dialog,
     page,
@@ -134,9 +131,11 @@ test.describe("Data Transforms", () => {
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
-    // Save the dashboard
+    // Save the dashboard and wait for it to persist
     await page.getByRole("button", { name: /save/i }).click();
-    await page.waitForTimeout(1_000);
+    await expect(page.getByRole("button", { name: /save/i })).toBeEnabled({
+      timeout: 10_000,
+    });
 
     // Reopen the widget editor
     const widgetCard = page.locator("[data-testid='widget-card']").first();

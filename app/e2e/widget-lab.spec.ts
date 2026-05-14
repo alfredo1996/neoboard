@@ -575,10 +575,11 @@ test.describe("Widget Lab", () => {
         await mainDialog.getByRole("button", { name: "Add Widget" }).click();
         await expect(mainDialog).not.toBeVisible();
 
-        // Save dashboard
+        // Save dashboard and wait for it to persist
         await page.getByRole("button", { name: "Save" }).click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await page.waitForTimeout(1_000);
+        await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
+          timeout: 10_000,
+        });
 
         // 3. Edit the template in Widget Lab — change its name
         await page.goto("/widget-lab");
