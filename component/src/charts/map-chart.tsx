@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
+import { escapeHtml } from "./chart-utils";
 import { useDarkMode } from "./base-chart";
 
 export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
@@ -94,14 +95,6 @@ function resolveTileLayer(
       attribution ??
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   };
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function buildPropertiesTooltip(marker: MapMarker): string {

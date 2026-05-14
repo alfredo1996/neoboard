@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { escapeHtml } from "@/charts/chart-utils";
 import { EmptyState } from "./empty-state";
 import { highlightSync, ensureHighlighter } from "@/lib/code-highlighter";
 
@@ -280,14 +281,6 @@ function parseMarkdown(md: string): string {
   if (inBlockquote) result.push("</blockquote>");
 
   return result.join("\n");
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 /** Escapes only the double-quote character for safe use in HTML attributes. */
