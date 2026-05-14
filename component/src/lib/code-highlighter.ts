@@ -54,20 +54,20 @@ async function getHighlighter(): Promise<HighlighterCore> {
 
     const instance = await createHighlighterCore({
       themes: [
-        import("shiki/themes/github-light"),
-        import("shiki/themes/github-dark"),
+        import("@shikijs/themes/github-light"),
+        import("@shikijs/themes/github-dark"),
       ],
       langs: [
-        import("shiki/langs/sql"),
-        import("shiki/langs/json"),
-        import("shiki/langs/javascript"),
-        import("shiki/langs/typescript"),
-        import("shiki/langs/python"),
-        import("shiki/langs/bash"),
-        import("shiki/langs/css"),
-        import("shiki/langs/html"),
-        import("shiki/langs/yaml"),
-        import("shiki/langs/cypher"),
+        import("@shikijs/langs/sql"),
+        import("@shikijs/langs/json"),
+        import("@shikijs/langs/javascript"),
+        import("@shikijs/langs/typescript"),
+        import("@shikijs/langs/python"),
+        import("@shikijs/langs/bash"),
+        import("@shikijs/langs/css"),
+        import("@shikijs/langs/html"),
+        import("@shikijs/langs/yaml"),
+        import("@shikijs/langs/cypher"),
       ],
       engine: createOnigurumaEngine(import("shiki/wasm")),
     });
