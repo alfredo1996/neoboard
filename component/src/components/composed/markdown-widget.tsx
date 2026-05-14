@@ -116,9 +116,14 @@ function parseMarkdown(md: string): string {
           ? highlightSync(code, fencedCodeLang)
           : null;
         if (highlighted) {
-          // Shiki output includes <pre><code> — wrap with our spacing classes
+          // Shiki output includes <pre><code> — wrap with our spacing classes.
+          // Sanitize as defense-in-depth: strip <script>, <style>, and on* attributes.
+          const sanitized = highlighted
+            .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+            .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+            .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "");
           result.push(
-            `<div class="rounded-md overflow-x-auto my-2 text-sm [&_pre]:p-3 [&_pre]:overflow-x-auto">${highlighted}</div>`,
+            `<div class="rounded-md overflow-x-auto my-2 text-sm [&_pre]:p-3 [&_pre]:overflow-x-auto">${sanitized}</div>`,
           );
         } else {
           result.push(
