@@ -1,0 +1,111 @@
+---
+title: Deployment Checklist
+description: Pre-deployment and post-deployment verification for production NeoBoard.
+---
+
+Use this checklist before deploying NeoBoard to production or to a new customer.
+
+## Pre-deployment
+
+### Environment
+
+- [ ] `DATABASE_URL` points to the production PostgreSQL instance
+- [ ] `ENCRYPTION_KEY` generated and stored securely (secrets manager or encrypted vault)
+- [ ] `NEXTAUTH_SECRET` generated (minimum 32 characters)
+- [ ] `NEXTAUTH_URL` set to the public URL (e.g., `https://neoboard.example.com`)
+- [ ] `API_KEY_HMAC_SECRET` generated (if using API keys)
+- [ ] `REGISTRATION_ENABLED` set to `false` (unless self-registration is desired)
+- [ ] `FORCE_HTTPS` set to `true` (default in production)
+
+### Infrastructure
+
+- [ ] PostgreSQL 16+ running and accessible from the NeoBoard container
+- [ ] TLS/SSL certificate configured on the reverse proxy
+- [ ] Docker resource limits set (CPU: 2 cores, Memory: 1GB recommended)
+- [ ] Log rotation configured (max 10MB, 3 files)
+- [ ] Backup strategy in place (see [Backup & Restore](/administration/backup-restore))
+- [ ] Health check configured (see [Monitoring](/administration/monitoring))
+
+### Security
+
+- [ ] `ENCRYPTION_KEY` backed up in a separate secure location
+- [ ] No `.env` files committed to version control
+- [ ] Reverse proxy configured (nginx, Caddy, Traefik, or cloud LB)
+- [ ] CORS origins configured if embedding (`CORS_ALLOWED_ORIGINS`)
+- [ ] Database user has minimum required privileges
+
+### First admin
+
+Choose one method to create the first admin:
+
+**Option A: Bootstrap via environment variables**
+```bash
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=<secure-password>
+```
+The admin is created automatically on first start. Remove these vars after first boot.
+
+**Option B: Bootstrap token**
+```bash
+ADMIN_BOOTSTRAP_TOKEN=<random-64-char-hex>
+```
+Navigate to `/signup` and enter the token to create the admin account.
+
+## Post-deployment
+
+### Verify
+
+- [ ] `GET /api/health` returns `200` with `status: "ok"` and `db.status: "ok"`
+- [ ] Login page loads at `/login`
+- [ ] Admin can log in with bootstrap credentials
+- [ ] Admin can create a database connection and test it
+- [ ] Admin can create a dashboard with at least one widget
+- [ ] Dashboard renders data correctly from the connected database
+- [ ] Password change works (Settings > Profile)
+- [ ] User creation works (Users page, admin only)
+
+### Performance baseline
+
+After first deployment, record baseline metrics:
+
+- [ ] `/api/health` response time: _______ ms (expect < 50ms)
+- [ ] Dashboard page load time: _______ ms (expect < 2s)
+- [ ] Query execution time (simple query): _______ ms (expect < 500ms)
+- [ ] PostgreSQL connection count at idle: _______ (expect < 5)
+
+### Ongoing
+
+- [ ] Set up uptime monitoring on `/api/health`
+- [ ] Set up log monitoring (errors, slow queries)
+- [ ] Schedule daily database backups
+- [ ] Plan for NeoBoard upgrades (check releases monthly)
+- [ ] Document the `ENCRYPTION_KEY` recovery procedure for your team
+
+## Rollback procedure
+
+If a deployment fails:
+
+1. **Stop the new version:**
+   ```bash
+   docker compose -f docker/docker-compose.prod.yml down
+   ```
+
+2. **Restore the previous image:**
+   ```bash
+   docker compose -f docker/docker-compose.prod.yml up -d --force-recreate \
+     -e NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version
+   ```
+
+3. **If database was migrated, restore from backup:**
+   ```bash
+   pg_restore -d neoboard neoboard_pre_upgrade.dump
+   ```
+
+4. **Verify the rollback:**
+   ```bash
+   curl -s http://localhost:3000/api/health | jq .data.status
+   ```
+
+:::tip
+Always create a database backup **before** upgrading NeoBoard, especially if the new version includes database migrations.
+:::

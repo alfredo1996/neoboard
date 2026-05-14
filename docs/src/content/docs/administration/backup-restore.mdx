@@ -1,0 +1,180 @@
+---
+title: Backup & Restore
+description: How to back up NeoBoard data and restore from backups.
+---
+
+NeoBoard stores all persistent data in PostgreSQL. Backing up NeoBoard means backing up your PostgreSQL database and your `ENCRYPTION_KEY`.
+
+:::caution[ENCRYPTION_KEY is critical]
+If you lose your `ENCRYPTION_KEY`, **all stored database credentials and SSO secrets become permanently unrecoverable**. Back up this key separately and store it in a secure location (e.g., a secrets manager or encrypted vault).
+:::
+
+## What to back up
+
+| Item | Location | Why |
+|------|----------|-----|
+| PostgreSQL database | `DATABASE_URL` connection | All dashboards, users, connections, templates, audit logs |
+| `ENCRYPTION_KEY` | Environment variable | Required to decrypt stored credentials |
+| `NEXTAUTH_SECRET` | Environment variable | Required for session continuity (users won't need to re-login) |
+| `API_KEY_HMAC_SECRET` | Environment variable | Required for API key validation |
+
+## Database backup
+
+### Manual backup with `pg_dump`
+
+```bash
+# Full backup (custom format — supports selective restore)
+pg_dump -Fc -h localhost -U neoboard -d neoboard -f neoboard_$(date +%Y%m%d_%H%M%S).dump
+
+# Plain SQL backup (human-readable, larger file)
+pg_dump -h localhost -U neoboard -d neoboard > neoboard_$(date +%Y%m%d_%H%M%S).sql
+```
+
+If NeoBoard runs in Docker:
+
+```bash
+# Backup from Docker container
+docker exec neoboard-postgres pg_dump -U neoboard -d neoboard -Fc > neoboard_backup.dump
+```
+
+### Automated daily backups with cron
+
+Create a backup script:
+
+```bash title="/opt/neoboard/backup.sh"
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="/opt/neoboard/backups"
+RETENTION_DAYS=30
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p "$BACKUP_DIR"
+
+# Create backup
+pg_dump -Fc -h localhost -U neoboard -d neoboard \
+  -f "$BACKUP_DIR/neoboard_$TIMESTAMP.dump"
+
+# Remove backups older than retention period
+find "$BACKUP_DIR" -name "neoboard_*.dump" -mtime +$RETENTION_DAYS -delete
+
+echo "Backup complete: neoboard_$TIMESTAMP.dump"
+```
+
+Add to crontab (`crontab -e`):
+
+```
+# Daily backup at 2:00 AM
+0 2 * * * /opt/neoboard/backup.sh >> /var/log/neoboard-backup.log 2>&1
+```
+
+### Backup verification
+
+Always verify backups can be restored:
+
+```bash
+# List contents of a backup file
+pg_restore -l neoboard_backup.dump
+
+# Test restore to a temporary database
+createdb neoboard_verify
+pg_restore -d neoboard_verify neoboard_backup.dump
+psql -d neoboard_verify -c "SELECT count(*) FROM dashboard;"
+dropdb neoboard_verify
+```
+
+## Restore from backup
+
+:::danger[Restore overwrites all data]
+Restoring a backup replaces all current data. Make sure you have a backup of the current state before restoring.
+:::
+
+### Full restore
+
+```bash
+# Stop NeoBoard
+docker compose -f docker/docker-compose.prod.yml down
+
+# Drop and recreate the database
+dropdb neoboard
+createdb neoboard
+
+# Restore from backup
+pg_restore -d neoboard neoboard_backup.dump
+
+# Restart NeoBoard
+docker compose -f docker/docker-compose.prod.yml up -d
+```
+
+If using Docker for PostgreSQL:
+
+```bash
+# Stop NeoBoard (keep PostgreSQL running)
+docker stop neoboard
+
+# Restore into the running PostgreSQL container
+cat neoboard_backup.sql | docker exec -i neoboard-postgres psql -U neoboard -d neoboard
+
+# Or for custom-format dumps:
+docker exec -i neoboard-postgres pg_restore -U neoboard -d neoboard < neoboard_backup.dump
+
+# Restart NeoBoard
+docker start neoboard
+```
+
+### Selective restore (single table)
+
+```bash
+# Restore only dashboards
+pg_restore -d neoboard -t dashboard neoboard_backup.dump
+```
+
+## Environment variable backup
+
+Store your secrets securely. Never commit them to version control.
+
+```bash title="Backup secrets (store securely!)"
+# Export to encrypted file
+echo "ENCRYPTION_KEY=$ENCRYPTION_KEY" > /secure/neoboard-secrets.env
+echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /secure/neoboard-secrets.env
+echo "API_KEY_HMAC_SECRET=$API_KEY_HMAC_SECRET" >> /secure/neoboard-secrets.env
+
+# Encrypt the file
+gpg -c /secure/neoboard-secrets.env
+rm /secure/neoboard-secrets.env
+```
+
+For production, use a secrets manager:
+- **AWS:** AWS Secrets Manager or SSM Parameter Store
+- **GCP:** Secret Manager
+- **Azure:** Key Vault
+- **Self-hosted:** HashiCorp Vault
+
+## Migration between environments
+
+To migrate NeoBoard from one server to another:
+
+1. **Back up the source database:**
+   ```bash
+   pg_dump -Fc -h source-host -U neoboard -d neoboard -f migration.dump
+   ```
+
+2. **Copy the backup and env vars to the new server**
+
+3. **Set up the new server:**
+   ```bash
+   # Use the SAME ENCRYPTION_KEY as the source
+   cp .env.source app/.env.local
+   docker compose -f docker/docker-compose.prod-full.yml up -d
+   ```
+
+4. **Restore the database:**
+   ```bash
+   pg_restore -h new-host -U neoboard -d neoboard migration.dump
+   ```
+
+5. **Verify:** Log in and check dashboards, connections, and users
+
+:::tip
+The `ENCRYPTION_KEY` must be identical on both servers. If you use a different key, all stored credentials will fail to decrypt.
+:::
