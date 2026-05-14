@@ -10,6 +10,7 @@ import {
   buildCompactGrid,
   resolveItemColor,
   buildTooltipFormatter,
+  buildPercentTooltipFormatter,
   buildCategoryAxisLabel,
   parseReferenceLines,
   buildMarkLineFromRefs,
@@ -148,45 +149,13 @@ function BarChart({
       ...(isPercent ? { max: 100 } : {}),
     };
 
-    // In percent mode, build a tooltip showing "pct% (absolute)"
-    const percentTooltipFormatter = isPercent
-      ? (params: unknown) => {
-          const items = Array.isArray(params)
-            ? (params as {
-                seriesName?: string;
-                name?: string;
-                value?: number;
-                marker?: string;
-                dataIndex?: number;
-              }[])
-            : [
-                params as {
-                  seriesName?: string;
-                  name?: string;
-                  value?: number;
-                  marker?: string;
-                  dataIndex?: number;
-                },
-              ];
-          const header = items[0]?.name ?? "";
-          const lines = items.map((p) => {
-            const pct =
-              typeof p.value === "number" ? p.value.toFixed(1) : p.value;
-            const rowIdx = p.dataIndex ?? 0;
-            const seriesKey =
-              seriesKeys.find((k) => k === p.seriesName) ?? seriesKeys[0];
-            const absValue = seriesKey ? data[rowIdx]?.[seriesKey] : "";
-            return `${p.marker ?? ""} ${p.seriesName}: ${pct}% (${absValue})`;
-          });
-          return `<strong>${header}</strong><br/>${lines.join("<br/>")}`;
-        }
-      : undefined;
-
     return {
       tooltip: {
         trigger: "axis" as const,
         axisPointer: { type: "shadow" as const },
-        formatter: percentTooltipFormatter ?? buildTooltipFormatter(),
+        formatter: isPercent
+          ? buildPercentTooltipFormatter(seriesKeys, data)
+          : buildTooltipFormatter(),
       },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
       grid: buildCompactGrid(compact, effectiveShowLegend),
