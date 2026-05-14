@@ -14,16 +14,20 @@ export enum ConnectorErrorType {
 export class ConnectorError extends Error {
   public readonly type: ConnectorErrorType;
   public readonly originalError?: unknown;
+  /** Raw error detail — for server-side logging only, NEVER expose to API consumers. */
+  public readonly detail?: string;
 
   constructor(
     message: string,
     type: ConnectorErrorType = ConnectorErrorType.UNKNOWN,
     originalError?: unknown,
+    detail?: string,
   ) {
     super(message);
     this.name = "ConnectorError";
     this.type = type;
     this.originalError = originalError;
+    this.detail = detail;
   }
 }
 
@@ -98,7 +102,25 @@ export function detectPostgresErrorType(err: unknown): ConnectorErrorType {
 }
 
 /**
+ * User-safe messages per error type. These are shown to API consumers
+ * and must never contain sensitive details (hostnames, usernames, ports).
+ */
+const SAFE_MESSAGES: Record<ConnectorErrorType, string> = {
+  [ConnectorErrorType.TIMEOUT]: "Query timed out",
+  [ConnectorErrorType.AUTHENTICATION]: "Authentication failed",
+  [ConnectorErrorType.CONNECTION]: "Connection failed",
+  [ConnectorErrorType.READ_ONLY_VIOLATION]:
+    "Write operation not permitted in read-only mode",
+  [ConnectorErrorType.QUERY]: "Query execution failed",
+  [ConnectorErrorType.UNKNOWN]: "An unexpected error occurred",
+};
+
+/**
  * Wrap a raw database error into a ConnectorError with detected type.
+ *
+ * The returned error has a safe, generic `message` (never leaks hostnames,
+ * usernames, or ports) and a `detail` field with the raw message for
+ * server-side logging only.
  */
 export function wrapError(
   err: unknown,
@@ -108,18 +130,20 @@ export function wrapError(
     dbType === "neo4j"
       ? detectNeo4jErrorType(err)
       : detectPostgresErrorType(err);
-  let message: string;
+
+  let rawDetail: string;
   if (err instanceof Error) {
-    message = err.message;
+    rawDetail = err.message;
   } else if (
     typeof err === "object" &&
     err !== null &&
     "message" in err &&
     typeof (err as { message?: unknown }).message === "string"
   ) {
-    message = (err as { message: string }).message;
+    rawDetail = (err as { message: string }).message;
   } else {
-    message = String(err);
+    rawDetail = String(err);
   }
-  return new ConnectorError(message, type, err);
+
+  return new ConnectorError(SAFE_MESSAGES[type], type, err, rawDetail);
 }

@@ -113,4 +113,94 @@ describe("wrapError", () => {
     const wrapped = wrapError(raw, "postgresql");
     expect(wrapped.type).toBe(ConnectorErrorType.TIMEOUT);
   });
+
+  it("sanitizes PostgreSQL auth error — does not leak username", () => {
+    const raw = new Error(
+      'FATAL: password authentication failed for user "admin"',
+    );
+    (raw as unknown as { code: string }).code = "28P01";
+    const wrapped = wrapError(raw, "postgresql");
+    expect(wrapped.message).not.toContain("admin");
+    expect(wrapped.message).toBe("Authentication failed");
+    expect(wrapped.detail).toContain("admin");
+  });
+
+  it("sanitizes Neo4j connection error — does not leak hostname", () => {
+    const raw = {
+      code: "ServiceUnavailable",
+      message: "Could not connect to bolt://prod-neo4j.internal:7687",
+    };
+    const wrapped = wrapError(raw, "neo4j");
+    expect(wrapped.message).not.toContain("prod-neo4j");
+    expect(wrapped.message).not.toContain("7687");
+    expect(wrapped.message).toBe("Connection failed");
+    expect(wrapped.detail).toContain("prod-neo4j");
+  });
+
+  it("uses safe message for each error type", () => {
+    const cases: Array<{
+      raw: unknown;
+      db: "neo4j" | "postgresql";
+      expectedType: ConnectorErrorType;
+      expectedMessage: string;
+    }> = [
+      {
+        raw: { code: "ServiceUnavailable", message: "conn error" },
+        db: "neo4j",
+        expectedType: ConnectorErrorType.CONNECTION,
+        expectedMessage: "Connection failed",
+      },
+      {
+        raw: { code: "Neo.ClientError.Security.Unauthorized", message: "bad" },
+        db: "neo4j",
+        expectedType: ConnectorErrorType.AUTHENTICATION,
+        expectedMessage: "Authentication failed",
+      },
+      {
+        raw: {
+          message: "The transaction has been terminated. Retry your query",
+        },
+        db: "neo4j" as const,
+        expectedType: ConnectorErrorType.TIMEOUT,
+        expectedMessage: "Query timed out",
+      },
+      {
+        raw: { code: "42601", message: "syntax error at position 5" },
+        db: "neo4j" as const,
+        expectedType: ConnectorErrorType.QUERY,
+        expectedMessage: "Query execution failed",
+      },
+      {
+        raw: { code: "25006", message: "cannot execute INSERT in read-only" },
+        db: "postgresql" as const,
+        expectedType: ConnectorErrorType.READ_ONLY_VIOLATION,
+        expectedMessage: "Write operation not permitted in read-only mode",
+      },
+    ];
+
+    for (const { raw, db, expectedType, expectedMessage } of cases) {
+      const wrapped = wrapError(raw, db);
+      expect(wrapped.type).toBe(expectedType);
+      expect(wrapped.message).toBe(expectedMessage);
+    }
+  });
+
+  it("stores raw detail for server-side logging", () => {
+    const raw = new Error("Some internal detail with host=db.prod:5432");
+    (raw as unknown as { code: string }).code = "08001";
+    const wrapped = wrapError(raw, "postgresql");
+    expect(wrapped.detail).toBe("Some internal detail with host=db.prod:5432");
+    expect(wrapped.message).toBe("Connection failed");
+  });
+
+  it("handles non-Error objects", () => {
+    const wrapped = wrapError("raw string error", "neo4j");
+    expect(wrapped.message).toBe("An unexpected error occurred");
+    expect(wrapped.detail).toBe("raw string error");
+  });
+
+  it("handles null/undefined errors", () => {
+    const wrapped = wrapError(null, "postgresql");
+    expect(wrapped.message).toBe("An unexpected error occurred");
+  });
 });
