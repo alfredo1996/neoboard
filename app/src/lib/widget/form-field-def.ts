@@ -22,6 +22,8 @@ export interface FormFieldDef {
   rangeStep?: number;
   placeholder?: string;
   searchable?: boolean;
+  /** Step index for multi-step wizard forms. Omit for single-page mode. */
+  step?: number;
 }
 
 /** Build the params object to send to the write-query API. */
@@ -71,4 +73,32 @@ export function buildFormParams(
     }
   }
   return params;
+}
+
+/** Returns true if any field has a `step` assigned (wizard mode). */
+export function isWizardForm(fields: FormFieldDef[]): boolean {
+  return fields.some((f) => f.step !== undefined);
+}
+
+/**
+ * Group fields by their step number, returning an array of arrays.
+ * Normalizes gaps in step numbers (e.g. steps 0, 2, 5 become indices 0, 1, 2).
+ * Fields without a step are placed in step 0.
+ */
+export function groupFieldsByStep(fields: FormFieldDef[]): FormFieldDef[][] {
+  if (!isWizardForm(fields)) {
+    return [fields];
+  }
+
+  // Collect unique step numbers and sort them
+  const stepSet = new Set<number>();
+  for (const f of fields) {
+    stepSet.add(f.step ?? 0);
+  }
+  const sortedSteps = [...stepSet].sort((a, b) => a - b);
+
+  // Build groups in normalized order
+  return sortedSteps.map((stepNum) =>
+    fields.filter((f) => (f.step ?? 0) === stepNum),
+  );
 }

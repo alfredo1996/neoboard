@@ -210,10 +210,6 @@ test.describe("Form widget", () => {
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(400);
 
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
     // Submit the form
     await page.getByRole("button", { name: "Submit" }).click();
 

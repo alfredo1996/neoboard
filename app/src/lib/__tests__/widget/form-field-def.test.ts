@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildFormParams } from "@/lib/widget/form-field-def";
+import {
+  buildFormParams,
+  isWizardForm,
+  groupFieldsByStep,
+} from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 
 describe("buildFormParams", () => {
@@ -198,5 +202,112 @@ describe("buildFormParams", () => {
     ];
     const result = buildFormParams(fields, { period: { from: "2024-01-01" } });
     expect(result).toEqual({ param_period_from: "2024-01-01" });
+  });
+});
+
+describe("isWizardForm", () => {
+  it("returns false when no fields have step", () => {
+    const fields: FormFieldDef[] = [
+      { id: "1", label: "Name", parameterName: "name", parameterType: "text" },
+    ];
+    expect(isWizardForm(fields)).toBe(false);
+  });
+
+  it("returns true when at least one field has step", () => {
+    const fields: FormFieldDef[] = [
+      {
+        id: "1",
+        label: "Name",
+        parameterName: "name",
+        parameterType: "text",
+        step: 0,
+      },
+    ];
+    expect(isWizardForm(fields)).toBe(true);
+  });
+
+  it("returns false for empty fields array", () => {
+    expect(isWizardForm([])).toBe(false);
+  });
+});
+
+describe("groupFieldsByStep", () => {
+  it("groups fields by step number", () => {
+    const fields: FormFieldDef[] = [
+      {
+        id: "1",
+        label: "Name",
+        parameterName: "name",
+        parameterType: "text",
+        step: 0,
+      },
+      {
+        id: "2",
+        label: "Email",
+        parameterName: "email",
+        parameterType: "text",
+        step: 0,
+      },
+      {
+        id: "3",
+        label: "Role",
+        parameterName: "role",
+        parameterType: "select",
+        step: 1,
+      },
+    ];
+    const groups = groupFieldsByStep(fields);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveLength(2);
+    expect(groups[1]).toHaveLength(1);
+  });
+
+  it("normalizes gaps in step numbers", () => {
+    const fields: FormFieldDef[] = [
+      {
+        id: "1",
+        label: "A",
+        parameterName: "a",
+        parameterType: "text",
+        step: 0,
+      },
+      {
+        id: "2",
+        label: "B",
+        parameterName: "b",
+        parameterType: "text",
+        step: 5,
+      },
+    ];
+    const groups = groupFieldsByStep(fields);
+    // Should normalize to 2 sequential steps, not 6
+    expect(groups).toHaveLength(2);
+  });
+
+  it("treats fields without step as step 0", () => {
+    const fields: FormFieldDef[] = [
+      { id: "1", label: "A", parameterName: "a", parameterType: "text" },
+      {
+        id: "2",
+        label: "B",
+        parameterName: "b",
+        parameterType: "text",
+        step: 1,
+      },
+    ];
+    const groups = groupFieldsByStep(fields);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveLength(1);
+    expect(groups[0][0].parameterName).toBe("a");
+  });
+
+  it("returns single group for non-wizard forms", () => {
+    const fields: FormFieldDef[] = [
+      { id: "1", label: "A", parameterName: "a", parameterType: "text" },
+      { id: "2", label: "B", parameterName: "b", parameterType: "text" },
+    ];
+    const groups = groupFieldsByStep(fields);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(2);
   });
 });

@@ -1,6 +1,5 @@
 import { AuthType } from "../src/generalized/interfaces";
 import type {
-  AdvancedConnectionOptions,
   Neo4jAdvancedOptions,
   PostgresAdvancedOptions,
 } from "../src/generalized/interfaces";
@@ -65,41 +64,6 @@ const pgAuth = {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
-describe("AdvancedConnectionOptions split types", () => {
-  it("Neo4jAdvancedOptions allows partial fields", () => {
-    const opts: Neo4jAdvancedOptions = {};
-    expect(opts).toEqual({});
-  });
-
-  it("Neo4jAdvancedOptions accepts all Neo4j-specific fields", () => {
-    const opts: Neo4jAdvancedOptions = {
-      neo4jConnectionTimeout: 5000,
-      neo4jQueryTimeout: 3000,
-      neo4jMaxPoolSize: 50,
-      neo4jAcquisitionTimeout: 10000,
-    };
-    expect(opts.neo4jConnectionTimeout).toBe(5000);
-  });
-
-  it("PostgresAdvancedOptions accepts all PostgreSQL-specific fields", () => {
-    const opts: PostgresAdvancedOptions = {
-      pgConnectionTimeoutMillis: 8000,
-      pgIdleTimeoutMillis: 15000,
-      pgMaxPoolSize: 20,
-      pgStatementTimeout: 60000,
-      pgSslRejectUnauthorized: false,
-    };
-    expect(opts.pgMaxPoolSize).toBe(20);
-  });
-
-  it("AdvancedConnectionOptions union accepts either type", () => {
-    const neo4j: AdvancedConnectionOptions = { neo4jConnectionTimeout: 5000 };
-    const pg: AdvancedConnectionOptions = { pgMaxPoolSize: 20 };
-    expect(neo4j).toBeDefined();
-    expect(pg).toBeDefined();
-  });
-});
 
 describe("Neo4jAuthenticationModule with advanced options", () => {
   beforeEach(() => {

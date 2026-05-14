@@ -179,6 +179,10 @@ export {
   type FormWidgetProps,
   type FormFieldDef,
 } from "./form-widget";
+export {
+  FormStepIndicator,
+  type FormStepIndicatorProps,
+} from "./form-step-indicator";
 
 // Content Widgets
 export { MarkdownWidget, type MarkdownWidgetProps } from "./markdown-widget";

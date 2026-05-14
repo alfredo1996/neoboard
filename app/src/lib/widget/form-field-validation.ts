@@ -64,3 +64,21 @@ export function validateFieldValue(
       return null;
   }
 }
+
+/**
+ * Validate all fields in a step. Returns a map of parameterName → error message
+ * for invalid fields, or an empty object if all fields are valid.
+ */
+export function validateStepFields(
+  stepFields: FormFieldDef[],
+  localValues: Record<string, unknown>,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const field of stepFields) {
+    const error = validateFieldValue(field, localValues[field.parameterName]);
+    if (error) {
+      errors[field.parameterName] = error;
+    }
+  }
+  return errors;
+}

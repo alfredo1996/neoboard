@@ -29,8 +29,10 @@ import {
   AlertDialogTitle,
   type RelativeDatePreset,
 } from "@neoboard/components";
+import { FormStepIndicator } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
+import { useFormWizard } from "@/hooks/use-form-wizard";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
@@ -334,6 +336,23 @@ function FieldInput({
 
 // ─── Main renderer ────────────────────────────────────────────────────────────
 
+/** Format a field value for the summary step display. */
+function formatSummaryValue(value: unknown, field: FormFieldDef): string {
+  if (value === undefined || value === null || value === "") return "—";
+  if (field.parameterType === "number-range" && Array.isArray(value)) {
+    return `${value[0]} – ${value[1]}`;
+  }
+  if (Array.isArray(value)) return value.join(", ") || "—";
+  if (field.parameterType === "date-range" && typeof value === "object") {
+    const r = value as { from?: string; to?: string };
+    if (r.from && r.to) return `${r.from} → ${r.to}`;
+    if (r.from) return `From ${r.from}`;
+    if (r.to) return `To ${r.to}`;
+    return "—";
+  }
+  return String(value);
+}
+
 export function FormWidgetRenderer({
   connectionId,
   query,
@@ -349,6 +368,8 @@ export function FormWidgetRenderer({
 
     [settings.chartOptions],
   );
+
+  const wizard = useFormWizard(fields, chartOptions);
 
   const [localValues, setLocalValues] = useState<Record<string, unknown>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -495,6 +516,7 @@ export function FormWidgetRenderer({
           setSuccessMessage(msg || "Form submitted successfully");
           if (chartOptions.resetOnSuccess !== false) {
             setLocalValues({});
+            wizard.reset();
           }
           for (const id of refreshWidgetIds) {
             queryClient.invalidateQueries({ queryKey: ["widget-query", id] });
@@ -588,6 +610,15 @@ export function FormWidgetRenderer({
           </div>
         )}
 
+        {/* Step indicator for wizard forms */}
+        {wizard.isWizard && (
+          <FormStepIndicator
+            stepLabels={wizard.stepLabels}
+            currentStep={wizard.currentStep}
+            onStepClick={wizard.goToStep}
+          />
+        )}
+
         {/*
          * When the viewer is read-only, the `inert` attribute blocks ALL
          * interactions — mouse, keyboard, and assistive technology. This
@@ -602,47 +633,70 @@ export function FormWidgetRenderer({
             readOnly ? "select-none space-y-4 opacity-60" : "space-y-4"
           }
         >
-          {fields.map((field) => (
-            <div
-              key={field.id}
-              className="space-y-1.5"
-              onBlur={() => handleFieldBlur(field)}
-            >
-              <Label htmlFor={`form-field-${field.parameterName}`}>
-                {field.label || field.parameterName}
-                {field.required && (
-                  <span className="text-destructive ml-0.5">*</span>
-                )}
-              </Label>
-              <FieldInput
-                field={field}
-                value={localValues[field.parameterName]}
-                onChange={handleFieldChange}
-                connectionId={connectionId}
-                tenantId={tenantId}
-                localValues={localValues}
-                textInputRef={
-                  field.parameterType === "text"
-                    ? (handle) => {
-                        if (handle) {
-                          textInputRefs.current.set(
-                            field.parameterName,
-                            handle,
-                          );
-                        } else {
-                          textInputRefs.current.delete(field.parameterName);
-                        }
-                      }
-                    : undefined
-                }
-              />
-              {fieldErrors[field.parameterName] && (
-                <p className="text-xs text-destructive">
-                  {fieldErrors[field.parameterName]}
-                </p>
-              )}
+          {wizard.isSummaryStep ? (
+            /* Summary step: show all values read-only */
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Review your entries before submitting
+              </h3>
+              {fields.map((field) => (
+                <div key={field.id} className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">
+                    {field.label || field.parameterName}
+                  </p>
+                  <p className="text-sm font-medium">
+                    {formatSummaryValue(
+                      localValues[field.parameterName],
+                      field,
+                    )}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            /* Regular step: render field inputs */
+            wizard.currentFields.map((field) => (
+              <div
+                key={field.id}
+                className="space-y-1.5"
+                onBlur={() => handleFieldBlur(field)}
+              >
+                <Label htmlFor={`form-field-${field.parameterName}`}>
+                  {field.label || field.parameterName}
+                  {field.required && (
+                    <span className="text-destructive ml-0.5">*</span>
+                  )}
+                </Label>
+                <FieldInput
+                  field={field}
+                  value={localValues[field.parameterName]}
+                  onChange={handleFieldChange}
+                  connectionId={connectionId}
+                  tenantId={tenantId}
+                  localValues={localValues}
+                  textInputRef={
+                    field.parameterType === "text"
+                      ? (handle) => {
+                          if (handle) {
+                            textInputRefs.current.set(
+                              field.parameterName,
+                              handle,
+                            );
+                          } else {
+                            textInputRefs.current.delete(field.parameterName);
+                          }
+                        }
+                      : undefined
+                  }
+                />
+                {fieldErrors[field.parameterName] && (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors[field.parameterName]}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
         </div>
 
         {successMessage && (
@@ -652,24 +706,66 @@ export function FormWidgetRenderer({
           <p className="text-sm text-destructive">{errorMessage}</p>
         )}
 
-        <Button
-          type="submit"
-          disabled={
-            readOnly ||
-            writeQuery.isPending ||
-            Object.keys(fieldErrors).length > 0
-          }
-          title={
-            readOnly
-              ? "You don't have permission to submit this form"
-              : undefined
-          }
-          className="w-full"
-        >
-          {writeQuery.isPending
-            ? "Submitting…"
-            : (chartOptions.submitButtonText as string) || "Submit"}
-        </Button>
+        {/* Navigation buttons */}
+        {wizard.isWizard ? (
+          <div className="flex gap-2">
+            {wizard.currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={wizard.goBack}
+                className="flex-1"
+              >
+                Back
+              </Button>
+            )}
+            {wizard.isSummaryStep || wizard.isLastStep ? (
+              <Button
+                type="submit"
+                disabled={
+                  readOnly ||
+                  writeQuery.isPending ||
+                  Object.keys(fieldErrors).length > 0
+                }
+                className="flex-1"
+              >
+                {writeQuery.isPending
+                  ? "Submitting…"
+                  : (chartOptions.submitButtonText as string) || "Submit"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => {
+                  const errors = wizard.goNext(localValues);
+                  if (errors) setFieldErrors(errors);
+                }}
+                className="flex-1"
+              >
+                Next
+              </Button>
+            )}
+          </div>
+        ) : (
+          <Button
+            type="submit"
+            disabled={
+              readOnly ||
+              writeQuery.isPending ||
+              Object.keys(fieldErrors).length > 0
+            }
+            title={
+              readOnly
+                ? "You don't have permission to submit this form"
+                : undefined
+            }
+            className="w-full"
+          >
+            {writeQuery.isPending
+              ? "Submitting…"
+              : (chartOptions.submitButtonText as string) || "Submit"}
+          </Button>
+        )}
       </form>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

@@ -4,7 +4,7 @@ module.exports = {
   transform: {
     "^.+.tsx?$": ["ts-jest", { diagnostics: false }],
   },
-  testPathIgnorePatterns: ["utils"],
+  testPathIgnorePatterns: ["utils", "dist"],
   globalSetup: "./__tests__/utils/setup.ts",
   globalTeardown: "./__tests__/utils/teardown.ts",
   // Integration tests hit a live Neo4j/PostgreSQL testcontainer.
