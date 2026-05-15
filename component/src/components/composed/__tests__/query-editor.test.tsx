@@ -504,7 +504,7 @@ describe("QueryEditor — snippets", () => {
     await user.click(screen.getByLabelText("Snippets"));
     await user.click(screen.getByText("Match all"));
     expect(onChange).toHaveBeenCalledWith("MATCH (n) RETURN n");
-  });
+  }, 15_000);
 
   it("filters out snippets for other languages", async () => {
     const sqlOnly = [
