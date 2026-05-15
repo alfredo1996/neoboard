@@ -105,7 +105,7 @@ describe("GET /api/audit-logs", () => {
     const res = await GET(makeRequest({ page: "2", limit: "10" }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.meta.page).toBe(2);
+    expect(body.meta.offset).toBe(10);
     expect(body.meta.limit).toBe(10);
   });
 });

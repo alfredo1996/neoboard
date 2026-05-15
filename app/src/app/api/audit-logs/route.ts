@@ -55,9 +55,8 @@ export async function GET(request: Request) {
   const total = countResult[0]?.count ?? 0;
 
   return apiList(rows, {
-    page,
-    limit,
     total,
-    totalPages: Math.ceil(total / limit),
+    limit,
+    offset,
   });
 }
