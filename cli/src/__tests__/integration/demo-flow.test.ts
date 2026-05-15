@@ -58,6 +58,17 @@ function getEncryptionKey(): string | null {
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
+/** Extract set-cookie values from a Response, compatible across Node versions. */
+function extractCookies(res: Response): string {
+  // Prefer getSetCookie() (Node 20+) — returns individual cookie strings
+  const cookies = res.headers.getSetCookie?.();
+  if (cookies && cookies.length > 0) {
+    return cookies.map((c) => c.split(";")[0]).join("; ");
+  }
+  // Fallback: get("set-cookie") returns all cookies joined
+  return res.headers.get("set-cookie") ?? "";
+}
+
 async function fetchJson(
   url: string,
   opts?: RequestInit,
@@ -73,15 +84,14 @@ async function login(email: string, password: string): Promise<string | null> {
   const csrfBody = (await csrfRes.json()) as { csrfToken: string };
 
   // Forward CSRF cookies — fetch() doesn't persist cookies across requests
-  const csrfCookies = csrfRes.headers.getSetCookie?.() ?? [];
-  const cookieHeader = csrfCookies.map((c) => c.split(";")[0]).join("; ");
+  const csrfCookieHeader = extractCookies(csrfRes);
 
   // 2. POST credentials
   const loginRes = await fetch(`${APP_URL}/api/auth/callback/credentials`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookieHeader,
+      Cookie: csrfCookieHeader,
     },
     body: new URLSearchParams({
       csrfToken: csrfBody.csrfToken,
@@ -92,12 +102,11 @@ async function login(email: string, password: string): Promise<string | null> {
   });
 
   // 3. Extract session token from response cookies
-  const setCookies = loginRes.headers.getSetCookie?.() ?? [];
-  for (const cookie of setCookies) {
-    const match = cookie.match(/(?:__Secure-)?authjs\.session-token=([^;]+)/);
-    if (match) return match[1];
-  }
-  return null;
+  const allCookies = extractCookies(loginRes);
+  const match = allCookies.match(
+    /(?:__Secure-)?authjs\.session-token=([^;,\s]+)/,
+  );
+  return match?.[1] ?? null;
 }
 
 async function waitForApp(timeoutMs = 60_000): Promise<void> {
@@ -190,8 +199,8 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
   });
 
   it("accepts valid seed credentials", async () => {
-    // The seed creates users from seed-neoboard.sql with password123
-    const token = await login("alice@example.com", "password123");
+    // The seed creates users from seed-neoboard.sql with admin123
+    const token = await login("admin@neoboard.local", "admin123");
     expect(token).not.toBeNull();
   });
 
@@ -257,7 +266,7 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
   // -------------------------------------------------------------------
 
   it("Neo4j connection test succeeds via API", async () => {
-    const token = await login("alice@example.com", "password123");
+    const token = await login("admin@neoboard.local", "admin123");
     expect(token).not.toBeNull();
     const cookie = `authjs.session-token=${token}`;
 
@@ -294,7 +303,7 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
   });
 
   it("PostgreSQL connection test succeeds via API", async () => {
-    const token = await login("alice@example.com", "password123");
+    const token = await login("admin@neoboard.local", "admin123");
     expect(token).not.toBeNull();
     const cookie = `authjs.session-token=${token}`;
 
@@ -332,7 +341,7 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
   // -------------------------------------------------------------------
 
   it("executes a Cypher query against Neo4j", async () => {
-    const token = await login("alice@example.com", "password123");
+    const token = await login("admin@neoboard.local", "admin123");
     expect(token).not.toBeNull();
     const cookie = `authjs.session-token=${token}`;
 
@@ -371,7 +380,7 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
   });
 
   it("executes a SQL query against PostgreSQL", async () => {
-    const token = await login("alice@example.com", "password123");
+    const token = await login("admin@neoboard.local", "admin123");
     expect(token).not.toBeNull();
     const cookie = `authjs.session-token=${token}`;
 
