@@ -12,13 +12,9 @@ vi.mock("@/lib/auth/session", () => ({
 
 const mockUser = { id: "u1", passwordHash: "$2a$12$fakehash" };
 const mockSelect = vi.fn();
-const mockUpdate = vi
-  .fn()
-  .mockReturnValue({
-    set: vi
-      .fn()
-      .mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-  });
+const mockUpdate = vi.fn().mockReturnValue({
+  set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+});
 vi.mock("@/lib/db", () => ({
   db: {
     select: mockSelect,
@@ -127,5 +123,26 @@ describe("PUT /api/users/me/password", () => {
     const res = await PUT(req);
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalled();
+  });
+
+  it("sets passwordChangedAt when password is changed", async () => {
+    let capturedFields: Record<string, unknown> = {};
+    const mockSet = vi.fn().mockImplementation((fields) => {
+      capturedFields = fields;
+      return { where: vi.fn().mockResolvedValue(undefined) };
+    });
+    mockUpdate.mockReturnValue({ set: mockSet });
+
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: "old123",
+        newPassword: "newPass1",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(200);
+    expect(capturedFields.passwordChangedAt).toBeInstanceOf(Date);
   });
 });
