@@ -242,7 +242,7 @@ describe("POST /api/query/write", () => {
     );
   });
 
-  it("returns 500 when executeQuery throws", async () => {
+  it("returns 500 with sanitized message when executeQuery throws (no driver leak)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockConnectionAndDashboard();
     mockDecryptJson.mockReturnValue({
@@ -250,19 +250,24 @@ describe("POST /api/query/write", () => {
       username: "neo4j",
       password: "pass",
     });
-    mockExecuteQuery.mockRejectedValue(new Error("Driver error"));
+    // Driver errors echo user-supplied SQL — must never bleed into the
+    // response body (security/PII consideration).
+    mockExecuteQuery.mockRejectedValue(
+      new Error('syntax error at or near "THIS"'),
+    );
 
     const res = await POST(
       makeRequest({
         connectionId: "c1",
-        query: "CREATE (n:Test)",
+        query: "THIS IS NOT VALID SQL",
         widgetId: "w1",
         dashboardId: "d1",
       }),
     );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error.message).toBe("Driver error");
+    expect(body.error.message).toBe("Write query execution failed");
+    expect(body.error.message).not.toMatch(/syntax error/i);
   });
 
   it("returns 404 when connection belongs to another user", async () => {
