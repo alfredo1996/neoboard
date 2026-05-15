@@ -1,0 +1,110 @@
+name: CLI Integration
+
+on:
+  push:
+    branches: [main, dev, 'release/*']
+    paths:
+      - 'cli/**'
+      - 'docker/**'
+      - 'scripts/seed-demo.mjs'
+      - 'Dockerfile'
+      - '.github/workflows/cli-integration.yml'
+  pull_request:
+    branches: [main, dev, 'release/*']
+    paths:
+      - 'cli/**'
+      - 'docker/**'
+      - 'scripts/seed-demo.mjs'
+      - 'Dockerfile'
+      - '.github/workflows/cli-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli-integration:
+    name: CLI Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build connection package
+        run: npm -w connection run build
+        continue-on-error: true
+
+      - name: Generate app/.env.local
+        run: |
+          cat > app/.env.local <<'ENVEOF'
+          DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
+          ENCRYPTION_KEY=b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9
+          NEXTAUTH_SECRET=d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65
+          NEXTAUTH_URL=http://localhost:3000
+          API_KEY_HMAC_SECRET=7f3b9c2a5e8d4f1b0a6c9e8d7f2a4b1c5e8d7f2a4b1c5e8d7f2a4b1c5e8d7f2a
+          ENVEOF
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' app/.env.local
+
+      - name: Build Docker image
+        run: docker build -t neoboard:integration-test .
+
+      - name: Start full stack
+        run: |
+          # Use the built image instead of rebuilding
+          FORCE_HTTPS=false docker compose -f docker/docker-compose.full.yml up -d
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 0
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for PostgreSQL..."
+          timeout 60 bash -c 'until docker exec neoboard-postgres pg_isready -U neoboard; do sleep 2; done'
+          echo "Waiting for Neo4j..."
+          timeout 120 bash -c 'until docker inspect --format={{.State.Health.Status}} neoboard-neo4j 2>/dev/null | grep -q healthy; do sleep 5; done'
+          echo "Waiting for NeoBoard app..."
+          timeout 90 bash -c 'until curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/auth/csrf | grep -q 200; do sleep 3; done'
+          echo "All services ready"
+
+      - name: Run migrations
+        run: |
+          DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard \
+            npx -w app drizzle-kit migrate
+
+      - name: Seed demo data
+        run: |
+          NEO4J_HOST=neoboard-neo4j \
+          PG_HOST=neoboard-postgres \
+          node scripts/seed-demo.mjs
+
+      - name: Run CLI integration tests
+        run: npm -w cli run test:integration
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          echo "=== neoboard-app ==="
+          docker logs neoboard-app 2>&1 | tail -50
+          echo "=== neoboard-postgres ==="
+          docker logs neoboard-postgres 2>&1 | tail -20
+          echo "=== neoboard-neo4j ==="
+          docker logs neoboard-neo4j 2>&1 | tail -20
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker/docker-compose.full.yml down -v 2>/dev/null || true

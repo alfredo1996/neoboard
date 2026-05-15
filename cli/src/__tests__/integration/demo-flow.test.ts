@@ -30,10 +30,7 @@ import { resolve } from "node:path";
 // Skip if Docker is not available or SKIP_INTEGRATION is set
 // ---------------------------------------------------------------------------
 
-const SKIP =
-  process.env.SKIP_INTEGRATION === "1" ||
-  process.env.CI === "true" ||
-  !isDockerAvailable();
+const SKIP = process.env.SKIP_INTEGRATION === "1" || !isDockerAvailable();
 
 function isDockerAvailable(): boolean {
   try {
