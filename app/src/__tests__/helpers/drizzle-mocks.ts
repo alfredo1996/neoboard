@@ -20,10 +20,12 @@ export function makeSelectChain(rows: unknown[]) {
   return c;
 }
 
-/** Chainable insert builder. Resolves `returning()` to `returning` array. */
+/** Chainable insert builder. Resolves `returning()` to `returning` array. Supports onConflictDoUpdate/onConflictDoNothing. */
 export function makeInsertChain(returning: unknown[] = []) {
   const c = {
     values: () => c,
+    onConflictDoUpdate: () => c,
+    onConflictDoNothing: () => c,
     returning: () => Promise.resolve(returning),
   };
   return c;
