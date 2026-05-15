@@ -19,7 +19,10 @@ export function composeFile(full = false): string {
 
 export function composeUp(opts?: { full?: boolean }): void {
   const file = composeFile(opts?.full);
-  run(`docker compose -f ${file} up -d --build`, { cwd: paths.root });
+  // Local deployments should never force HTTPS — set via env so the
+  // container picks it up without requiring the user to edit .env files.
+  const env = opts?.full ? { ...process.env, FORCE_HTTPS: "false" } : undefined;
+  run(`docker compose -f ${file} up -d --build`, { cwd: paths.root, env });
 }
 
 export function composeDown(opts?: { volumes?: boolean }): void {

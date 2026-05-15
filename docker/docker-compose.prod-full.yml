@@ -42,6 +42,7 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:-}
     depends_on:
       postgres:
