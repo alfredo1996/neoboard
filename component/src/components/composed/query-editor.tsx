@@ -1,5 +1,13 @@
 import * as React from "react";
-import { Play, Loader2, RotateCcw, Clock } from "lucide-react";
+import {
+  Play,
+  Loader2,
+  RotateCcw,
+  Clock,
+  Maximize2,
+  Minimize2,
+  Code2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -8,9 +16,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
+import type { QuerySnippet } from "@/lib/query-snippets";
 
 // ---------------------------------------------------------------------------
 // CodeMirror type aliases (dynamic imports — never imported at module level
@@ -39,6 +55,10 @@ export interface QueryEditorProps {
   runAndSaveHint?: boolean;
   /** Schema for autocompletion. Passed from the app layer. */
   schema?: DatabaseSchema;
+  /** Show an expand button that opens the editor in a full-screen dialog. */
+  expandable?: boolean;
+  /** Query snippets to show in a dropdown. Filtered by current language. */
+  snippets?: QuerySnippet[];
 }
 
 // ---------------------------------------------------------------------------
@@ -138,9 +158,12 @@ function QueryEditor({
   className,
   runAndSaveHint = false,
   schema,
+  expandable = false,
+  snippets,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
+  const [expanded, setExpanded] = React.useState(false);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<CMEditorView>(null);
@@ -436,6 +459,19 @@ function QueryEditor({
     onChange?.("");
   };
 
+  const handleSnippetSelect = (query: string) => {
+    const view = viewRef.current;
+    if (view) {
+      suppressUpdate.current = true;
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: query },
+      });
+      suppressUpdate.current = false;
+    }
+    if (!isControlled) setInternalValue(query);
+    onChange?.(query);
+  };
+
   const languageLabelMap: Record<string, string> = {
     sql: "SQL",
     postgresql: "SQL",
@@ -443,6 +479,19 @@ function QueryEditor({
     neo4j: "Cypher",
   };
   const languageLabel = languageLabelMap[language] ?? language;
+
+  const snippetLanguageMap: Record<string, string> = {
+    sql: "sql",
+    postgresql: "sql",
+    cypher: "cypher",
+    neo4j: "cypher",
+  };
+  const normalizedLang =
+    snippetLanguageMap[language.toLowerCase()] ?? language.toLowerCase();
+  const filteredSnippets = React.useMemo(
+    () => snippets?.filter((s) => s.language === normalizedLang) ?? [],
+    [snippets, normalizedLang],
+  );
 
   return (
     <div
@@ -454,6 +503,32 @@ function QueryEditor({
           <span className="text-xs font-medium text-muted-foreground">
             {languageLabel}
           </span>
+          {filteredSnippets.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  aria-label="Snippets"
+                >
+                  <Code2 className="h-3 w-3" />
+                  Snippets
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {filteredSnippets.map((snippet) => (
+                  <DropdownMenuItem
+                    key={snippet.label}
+                    onClick={() => handleSnippetSelect(snippet.query)}
+                    className="text-xs"
+                  >
+                    {snippet.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {history && history.length > 0 && (
             <Select onValueChange={handleHistorySelect}>
               <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent text-xs text-muted-foreground hover:text-foreground">
@@ -485,6 +560,17 @@ function QueryEditor({
           >
             <RotateCcw className="h-3 w-3" />
           </Button>
+          {expandable && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setExpanded(true)}
+              aria-label="Expand editor"
+            >
+              <Maximize2 className="h-3 w-3" />
+            </Button>
+          )}
           {runAndSaveHint && (
             <span
               className="hidden sm:inline-flex items-center text-[10px] text-muted-foreground select-none mr-1"
@@ -519,6 +605,84 @@ function QueryEditor({
         data-testid="codemirror-container"
         data-readonly={readOnly}
       />
+
+      {/* Full-screen dialog */}
+      {expandable && (
+        <Dialog open={expanded} onOpenChange={setExpanded}>
+          <DialogContent className="max-w-[95vw] h-[90vh] flex flex-col">
+            <DialogTitle className="sr-only">Query Editor</DialogTitle>
+            <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {languageLabel}
+                </span>
+                {filteredSnippets.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <Code2 className="h-3 w-3" />
+                        Snippets
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {filteredSnippets.map((snippet) => (
+                        <DropdownMenuItem
+                          key={snippet.label}
+                          onClick={() => handleSnippetSelect(snippet.query)}
+                          className="text-xs"
+                        >
+                          {snippet.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setExpanded(false)}
+                  aria-label="Collapse editor"
+                >
+                  <Minimize2 className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 gap-1"
+                  onClick={handleRun}
+                  disabled={!currentValue.trim() || running}
+                >
+                  {running ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3" />
+                  )}
+                  {running ? "Running" : "Run"}
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <textarea
+                value={currentValue}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!isControlled) setInternalValue(v);
+                  onChange?.(v);
+                }}
+                placeholder={placeholder}
+                className="w-full h-full resize-none bg-muted/30 p-4 font-mono text-sm outline-none placeholder:text-muted-foreground/60 rounded-b-lg"
+                spellCheck={false}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

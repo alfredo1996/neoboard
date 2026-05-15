@@ -407,3 +407,55 @@ describe("QueryEditor — history select", () => {
     expect(screen.getByText("History")).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Expand button
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — expand button", () => {
+  it("renders expand button when expandable is true", async () => {
+    render(<QueryEditor expandable />);
+    await flushAsync();
+    expect(screen.getByLabelText("Expand editor")).toBeInTheDocument();
+  });
+
+  it("does not render expand button by default", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+    expect(screen.queryByLabelText("Expand editor")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Snippets dropdown
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — snippets", () => {
+  const cypherSnippets = [
+    {
+      label: "Match all",
+      query: "MATCH (n) RETURN n",
+      language: "cypher" as const,
+    },
+    { label: "Select all", query: "SELECT * FROM t", language: "sql" as const },
+  ];
+
+  it("renders snippets button when matching snippets exist", async () => {
+    render(<QueryEditor snippets={cypherSnippets} language="cypher" />);
+    await flushAsync();
+    expect(screen.getByLabelText("Snippets")).toBeInTheDocument();
+  });
+
+  it("hides snippets button when no snippets match current language", async () => {
+    render(<QueryEditor snippets={cypherSnippets} language="sql" />);
+    await flushAsync();
+    // Only SQL snippet exists, so button should show for sql
+    expect(screen.getByLabelText("Snippets")).toBeInTheDocument();
+  });
+
+  it("does not render snippets button when no snippets provided", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+    expect(screen.queryByLabelText("Snippets")).not.toBeInTheDocument();
+  });
+});
