@@ -13,23 +13,23 @@ export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  const { logger: log } = await import("@/lib/logger");
+
   // Validate environment variables on startup
   try {
     const { validateEnvConfig } = await import("@/lib/env-config");
     const result = validateEnvConfig();
     for (const err of result.errors) {
-      console.error(`[config] ERROR: ${err.message}`);
+      log.error({ key: err.key }, err.message);
     }
     for (const warn of result.warnings) {
-      console.warn(`[config] WARNING: ${warn.message}`);
+      log.warn({ key: warn.key }, warn.message);
     }
     if (result.status === "ok") {
-      console.log("[config] Environment configuration validated successfully");
+      log.info("Environment configuration validated successfully");
     }
   } catch (err) {
-    const msg =
-      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    console.error("[config] Failed to validate environment:", msg);
+    log.error({ err }, "Failed to validate environment");
   }
 
   // Bootstrap first admin user if configured
@@ -43,8 +43,6 @@ export async function register() {
     await bootstrapAdmin({ email, password });
   } catch (err) {
     // Log but never crash the server — a missing DB at startup is recoverable
-    const msg =
-      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    console.error("[bootstrap] Failed to bootstrap admin user:", msg);
+    log.error({ err }, "Failed to bootstrap admin user");
   }
 }

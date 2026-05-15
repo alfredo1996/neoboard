@@ -1,5 +1,6 @@
 import type { ZodSchema } from "zod";
 import { apiError } from "./api-response";
+import { logger } from "@/lib/logger";
 
 /**
  * Shared API route utilities to reduce duplication across route handlers.
@@ -92,6 +93,6 @@ export function handleRouteError(
   if (message === "Forbidden") {
     return forbidden();
   }
-  console.error("[api-error]", error);
+  logger.error({ err: error }, "API route error");
   return serverError(fallbackMsg);
 }

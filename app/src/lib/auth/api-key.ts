@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys, users } from "@/lib/db/schema";
 import type { UserRole } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 
 /**
  * Server-side secret for HMAC-SHA256 key hashing.
@@ -74,7 +75,10 @@ export async function resolveApiKeyAuth(): Promise<{
   // distinguish valid key hashes from invalid ones via response latency.
   const storedHash = Buffer.from(rows[0].keyHash, "hex");
   const computedHash = Buffer.from(keyHash, "hex");
-  if (storedHash.length !== computedHash.length || !timingSafeEqual(storedHash, computedHash)) {
+  if (
+    storedHash.length !== computedHash.length ||
+    !timingSafeEqual(storedHash, computedHash)
+  ) {
     throw new Error("Unauthorized");
   }
 
@@ -89,15 +93,14 @@ export async function resolveApiKeyAuth(): Promise<{
     .set({ lastUsedAt: new Date() })
     .where(and(eq(apiKeys.id, row.id), eq(apiKeys.tenantId, row.tenantId)))
     .catch((err: unknown) => {
-      console.warn("[api-key] Failed to update lastUsedAt:", err instanceof Error ? err.message : "unknown");
+      logger.warn({ err }, "Failed to update API key lastUsedAt");
     });
 
   const role: UserRole = row.role;
   return {
     userId: row.userId,
     role,
-    canWrite:
-      role === "admin" ? true : role !== "reader" && row.canWrite,
+    canWrite: role === "admin" ? true : role !== "reader" && row.canWrite,
     tenantId: row.tenantId,
   };
 }
