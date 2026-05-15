@@ -424,6 +424,37 @@ describe("QueryEditor — expand button", () => {
     await flushAsync();
     expect(screen.queryByLabelText("Expand editor")).not.toBeInTheDocument();
   });
+
+  it("opens full-screen dialog when expand button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<QueryEditor expandable defaultValue="MATCH (n) RETURN n" />);
+    await flushAsync();
+    await user.click(screen.getByLabelText("Expand editor"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // Dialog has a textarea with the current value
+    expect(screen.getByDisplayValue("MATCH (n) RETURN n")).toBeInTheDocument();
+  });
+
+  it("closes dialog when collapse button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<QueryEditor expandable defaultValue="test" />);
+    await flushAsync();
+    await user.click(screen.getByLabelText("Expand editor"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("Collapse editor"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("syncs textarea changes back to onChange", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<QueryEditor expandable defaultValue="" onChange={onChange} />);
+    await flushAsync();
+    await user.click(screen.getByLabelText("Expand editor"));
+    const textarea = screen.getByRole("textbox");
+    await user.type(textarea, "SELECT 1");
+    expect(onChange).toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -456,6 +487,32 @@ describe("QueryEditor — snippets", () => {
   it("does not render snippets button when no snippets provided", async () => {
     render(<QueryEditor />);
     await flushAsync();
+    expect(screen.queryByLabelText("Snippets")).not.toBeInTheDocument();
+  });
+
+  it("calls onChange when a snippet is selected", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <QueryEditor
+        snippets={cypherSnippets}
+        language="cypher"
+        onChange={onChange}
+      />,
+    );
+    await flushAsync();
+    await user.click(screen.getByLabelText("Snippets"));
+    await user.click(screen.getByText("Match all"));
+    expect(onChange).toHaveBeenCalledWith("MATCH (n) RETURN n");
+  });
+
+  it("filters out snippets for other languages", async () => {
+    const sqlOnly = [
+      { label: "SQL Only", query: "SELECT 1", language: "sql" as const },
+    ];
+    render(<QueryEditor snippets={sqlOnly} language="cypher" />);
+    await flushAsync();
+    // No cypher snippets, so button should not appear
     expect(screen.queryByLabelText("Snippets")).not.toBeInTheDocument();
   });
 });
