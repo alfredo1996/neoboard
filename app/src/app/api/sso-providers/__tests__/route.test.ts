@@ -3,6 +3,7 @@ import {
   makeSelectChain,
   makeInsertChain,
   makeDeleteChain,
+  makeUpdateChain,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -19,7 +20,9 @@ const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
   delete: vi.fn(),
+  update: vi.fn(),
 };
+const mockInvalidateCache = vi.fn();
 
 class UnauthorizedError extends Error {
   constructor() {
@@ -36,6 +39,9 @@ vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/sso/provider-cache", () => ({
+  invalidateProviderCache: mockInvalidateCache,
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -394,5 +400,80 @@ describe("DELETE /api/sso-providers", () => {
       makeRequest(null, "http://localhost/api/sso-providers?id=sso-1"),
     );
     expect(res.status).toBe(200);
+    expect(mockInvalidateCache).toHaveBeenCalledWith("default");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — PATCH /api/sso-providers
+// ---------------------------------------------------------------------------
+
+describe("PATCH /api/sso-providers", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let PATCH: (req: Request) => Promise<any>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.doMock("@/lib/auth/session", () => ({
+      requireAdmin: mockRequireAdmin,
+    }));
+    vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    const mod = await import("../route");
+    PATCH = mod.PATCH;
+  });
+
+  it("returns 403 for non-admin", async () => {
+    mockRequireAdmin.mockRejectedValue(new ForbiddenError());
+    const res = await PATCH(makeRequest({ id: "sso-1", name: "Updated" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 when id is missing", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    const res = await PATCH(makeRequest({ name: "Updated" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("updates provider and invalidates cache", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([
+        {
+          id: "sso-1",
+          name: "Updated SSO",
+          issuer: "https://idp.example.com",
+          enabled: true,
+        },
+      ]),
+    );
+    const res = await PATCH(
+      makeRequest({ id: "sso-1", name: "Updated SSO", enforceSso: true }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.name).toBe("Updated SSO");
+    expect(mockInvalidateCache).toHaveBeenCalledWith("default");
+  });
+
+  it("encrypts clientSecret when provided", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ id: "sso-1", name: "SSO" }]),
+    );
+    await PATCH(makeRequest({ id: "sso-1", clientSecret: "new-secret-789" }));
+    expect(mockEncrypt).toHaveBeenCalledWith("new-secret-789");
+  });
+
+  it("returns 404 when provider not found", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+    const res = await PATCH(makeRequest({ id: "nonexistent", name: "Nope" }));
+    expect(res.status).toBe(404);
   });
 });
