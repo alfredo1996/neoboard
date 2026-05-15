@@ -31,6 +31,7 @@ export const users = pgTable(
     forcePasswordChange: boolean("force_password_change")
       .notNull()
       .default(false),
+    passwordChangedAt: timestamp("passwordChangedAt", { mode: "date" }),
     disabledAt: timestamp("disabledAt", { mode: "date" }),
     lastLoginAt: timestamp("lastLoginAt", { mode: "date" }),
     createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
@@ -303,6 +304,74 @@ export interface ClickAction {
   rules?: ClickActionRule[];
 }
 
+// ─── Enterprise tables ──────────────────────────────────────────────
+
+export const ssoProtocolEnum = pgEnum("sso_protocol", ["oidc"]);
+
+/**
+ * Claim-mapping configuration for an SSO provider.
+ * Maps an IdP claim (e.g. "groups") to NeoBoard roles based on claim values.
+ */
+export interface SsoClaimMapping {
+  /** The IdP claim key to inspect (e.g. "groups", "roles", "realm_access.roles"). */
+  claimKey: string;
+  /** Claim value that maps to the admin role. */
+  adminValue?: string;
+  /** Claim value that maps to the creator role. */
+  creatorValue?: string;
+  /** Claim value that maps to the reader role. */
+  readerValue?: string;
+}
+
+export const ssoProviders = pgTable(
+  "sso_provider",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id").notNull().default("default"),
+    name: text("name").notNull(),
+    protocol: ssoProtocolEnum("protocol").notNull().default("oidc"),
+    issuer: text("issuer").notNull(),
+    clientId: text("client_id").notNull(),
+    /** Encrypted with AES-256-GCM (same scheme as connection credentials). */
+    clientSecretEncrypted: text("client_secret_encrypted").notNull(),
+    scopes: text("scopes").notNull().default("openid profile email"),
+    claimMappings: jsonb("claim_mappings").$type<SsoClaimMapping>(),
+    autoProvision: boolean("auto_provision").notNull().default(true),
+    defaultRole: userRoleEnum("default_role").notNull().default("creator"),
+    enforceSso: boolean("enforce_sso").notNull().default(false),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    unique("sso_provider_tenant_issuer_unique").on(
+      table.tenantId,
+      table.issuer,
+    ),
+  ],
+);
+
+// ─── Audit log ──────────────────────────────────────────────────────
+
+export const auditLogs = pgTable("audit_log", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  tenantId: text("tenant_id").notNull().default("default"),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  resourceType: text("resource_type"),
+  resourceId: text("resource_id"),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
+
 // ─── Inferred types ──────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -313,3 +382,5 @@ export type Dashboard = typeof dashboards.$inferSelect;
 export type NewDashboard = typeof dashboards.$inferInsert;
 export type DashboardShare = typeof dashboardShares.$inferSelect;
 export type NewDashboardShare = typeof dashboardShares.$inferInsert;
+export type SsoProvider = typeof ssoProviders.$inferSelect;
+export type NewSsoProvider = typeof ssoProviders.$inferInsert;

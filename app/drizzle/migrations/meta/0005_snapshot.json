@@ -1,6 +1,6 @@
 {
-  "id": "7b9937b8-824a-4bcd-83ff-97c399ff8096",
-  "prevId": "f3e72f09-0731-4ceb-95f6-ce27e251c2d6",
+  "id": "d5bdb422-ab74-449d-8e95-0342205ac8f3",
+  "prevId": "7b9937b8-824a-4bcd-83ff-97c399ff8096",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -537,6 +537,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "passwordChangedAt": {
+          "name": "passwordChangedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "disabledAt": {
           "name": "disabledAt",
