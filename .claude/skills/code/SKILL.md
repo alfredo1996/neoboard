@@ -15,9 +15,10 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash(npm *), Bash(npx *), Bash(git 
 ## Before coding
 
 1. If issue number: `gh issue view <number>`
-2. If existing PR: `gh pr view <number> --comments` — check CodeRabbit & SonarQube feedback
-3. Identify package: component/ (UI only), connection/ (DB only), app/ (orchestration)
-4. Read relevant docs in `claude_code_docs/`
+2. **Run `/drill <number>`** — mandatory requirements gathering before implementation. No exceptions.
+3. If existing PR: `gh pr view <number> --comments` — check CodeRabbit & SonarCloud feedback
+4. Identify package: component/ (UI only), connection/ (DB only), app/ (orchestration)
+5. Read relevant docs in `claude_code_docs/`
 
 ## TDD Workflow (mandatory — no exceptions)
 

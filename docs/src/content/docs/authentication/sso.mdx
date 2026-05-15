@@ -1,0 +1,276 @@
+---
+title: Single Sign-On (SSO)
+description: Configure OIDC single sign-on providers to enable SSO login for your organization.
+badge:
+  text: Enterprise
+  variant: tip
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+NeoBoard supports OIDC-based single sign-on (SSO). Users can sign in with their organization's identity provider (Okta, Azure AD/Entra, Google Workspace, Keycloak, Auth0, etc.) instead of managing separate NeoBoard passwords.
+
+## How It Works
+
+1. SSO is configured via **environment variables** (recommended) or the **Admin UI**
+2. The login page shows "Sign in with [Provider]" buttons above the password form
+3. Clicking a button redirects the user to the identity provider (IdP)
+4. After authentication, the IdP redirects back to NeoBoard with an authorization code
+5. NeoBoard exchanges the code for tokens, reads the user's profile and group claims, and creates or links the user account
+
+## Prerequisites
+
+Before configuring SSO, you need:
+
+- `NEOBOARD_EDITION=enterprise` set in your environment
+- An OIDC client registered in your identity provider
+- The client ID, client secret, and issuer URL from your IdP
+
+## Quick Setup (Environment Variables)
+
+<Aside type="note">
+SSO is an enterprise feature. Set `NEOBOARD_EDITION=enterprise` in your environment to enable it.
+</Aside>
+
+The fastest way to enable SSO. Set these variables and restart NeoBoard:
+
+```bash
+NEOBOARD_EDITION=enterprise
+OIDC_ISSUER=https://myorg.okta.com
+OIDC_CLIENT_ID=neoboard
+OIDC_CLIENT_SECRET=your-client-secret
+```
+
+That's it — an SSO button will appear on the login page.
+
+### All Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OIDC_ISSUER` | Yes | — | OIDC issuer URL (e.g., `https://myorg.okta.com`) |
+| `OIDC_CLIENT_ID` | Yes | — | OIDC client identifier |
+| `OIDC_CLIENT_SECRET` | Yes | — | OIDC client secret |
+| `OIDC_DISPLAY_NAME` | No | `SSO` | Button label on the login page |
+| `OIDC_SCOPES` | No | `openid profile email` | OIDC scopes to request |
+| `OIDC_CLAIM_KEY` | No | — | IdP claim key for role mapping (e.g., `groups`) |
+| `OIDC_ADMIN_VALUE` | No | — | Claim value(s) that map to Admin role (comma-separated) |
+| `OIDC_CREATOR_VALUE` | No | — | Claim value(s) that map to Creator role (comma-separated) |
+| `OIDC_READER_VALUE` | No | — | Claim value(s) that map to Reader role (comma-separated) |
+| `OIDC_AUTO_PROVISION` | No | `true` | Auto-create users on first SSO login |
+| `OIDC_DEFAULT_ROLE` | No | `creator` | Role when no claim matches |
+| `OIDC_ENFORCE_SSO` | No | `false` | Hide password form for non-admin users |
+
+### Docker Compose Example
+
+```yaml
+services:
+  neoboard:
+    image: neoboard:latest
+    environment:
+      DATABASE_URL: postgresql://neoboard:neoboard@db:5432/neoboard
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: https://neoboard.example.com
+      # Enterprise + SSO
+      NEOBOARD_EDITION: enterprise
+      OIDC_ISSUER: https://myorg.okta.com
+      OIDC_CLIENT_ID: neoboard-prod
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_DISPLAY_NAME: Company SSO
+      OIDC_CLAIM_KEY: groups
+      OIDC_ADMIN_VALUE: devops,platform-team
+      OIDC_CREATOR_VALUE: engineering,data-team
+      OIDC_READER_VALUE: marketing,sales
+```
+
+## Multi-Provider Setup (Admin UI)
+
+<Aside type="note">
+For multiple SSO providers, use the Admin UI in Settings &gt; Authentication. The env-based provider and UI-based providers work together.
+</Aside>
+
+For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use the Admin UI. The env-based provider and UI-based providers work together — the env provider appears first on the login page.
+
+### Configuring a Provider
+
+<Steps>
+
+1. **Log in as an admin** and navigate to **Settings > Authentication**
+
+2. **Click "Add Provider"** and fill in the form:
+
+   | Field | Description | Example |
+   |-------|-------------|---------|
+   | Display Name | Shown on the login button | `Company SSO` |
+   | Issuer URL | Your IdP's OIDC issuer endpoint | `https://login.example.com/realms/myorg` |
+   | Client ID | The OIDC client identifier | `neoboard-prod` |
+   | Client Secret | The OIDC client secret (stored encrypted) | `abc123...` |
+   | Scopes | OIDC scopes to request | `openid profile email` (default) |
+
+3. **Configure role mapping** (optional) to map IdP group claims to NeoBoard roles:
+
+   | Field | Description | Example |
+   |-------|-------------|---------|
+   | IdP Claim Key | The token claim containing groups | `groups` or `realm_access.roles` |
+   | Admin | Claim value that maps to Admin role | `neoboard-admins` |
+   | Creator | Claim value that maps to Creator role | `neoboard-editors` |
+   | Reader | Claim value that maps to Reader role | `neoboard-viewers` |
+
+4. **Set provisioning options:**
+
+   - **Auto-provision new users** — When enabled, users signing in via SSO for the first time are automatically created in NeoBoard. When disabled, only pre-existing users can use SSO.
+   - **Default role** — The role assigned when no claim mapping matches (default: Creator).
+   - **Enforce SSO** — When enabled, the password login form is hidden for non-admin users. Admins can still use password login via `?password=true` in the URL.
+
+5. **Click "Add Provider"** to save
+
+</Steps>
+
+The SSO button will appear on the login page immediately.
+
+## IdP Configuration Examples
+
+### Okta
+
+<Steps>
+
+1. In the Okta admin console, go to **Applications > Create App Integration**
+2. Select **OIDC - OpenID Connect** and **Web Application**
+3. Set the redirect URI to: `https://your-neoboard-domain/api/auth/callback/sso-{provider-id}`
+4. Note the **Client ID** and **Client Secret**
+5. The issuer URL is your Okta domain: `https://your-org.okta.com`
+6. To map groups: go to **Directory > Groups**, create groups like `neoboard-admins`, assign users
+7. In the app's **Sign On** settings, add a **Groups claim** with filter `Matches regex: neoboard-.*`
+
+</Steps>
+
+In NeoBoard Settings > Authentication:
+```
+Display Name:    Okta
+Issuer URL:      https://your-org.okta.com
+Client ID:       0oa1234567890abcdef
+Client Secret:   your-client-secret
+Claim Key:       groups
+Admin value:     neoboard-admins
+Creator value:   neoboard-editors
+Reader value:    neoboard-viewers
+```
+
+### Azure AD / Entra ID
+
+<Steps>
+
+1. In the Azure portal, go to **App Registrations > New Registration**
+2. Set the redirect URI to: `https://your-neoboard-domain/api/auth/callback/sso-{provider-id}`
+3. Under **Certificates & Secrets**, create a new client secret
+4. Under **Token Configuration**, add the `groups` optional claim to the ID token
+5. The issuer URL is: `https://login.microsoftonline.com/{tenant-id}/v2.0`
+
+</Steps>
+
+In NeoBoard Settings > Authentication:
+```
+Display Name:    Azure AD
+Issuer URL:      https://login.microsoftonline.com/{tenant-id}/v2.0
+Client ID:       your-app-client-id
+Client Secret:   your-client-secret
+Claim Key:       groups
+Admin value:     {group-object-id-for-admins}
+Creator value:   {group-object-id-for-editors}
+```
+
+<Aside type="tip">
+Azure AD returns group object IDs (GUIDs) in the `groups` claim, not group names. Use the group's Object ID from the Azure portal as the mapping value.
+</Aside>
+
+### Keycloak
+
+<Steps>
+
+1. In the Keycloak admin console, create a new **Client** in your realm
+2. Set **Client authentication** to On (confidential client)
+3. Set the redirect URI to: `https://your-neoboard-domain/api/auth/callback/sso-{provider-id}`
+4. Under **Client Scopes > neoboard-dedicated**, add a **Group Membership** mapper with claim name `groups`
+5. Create groups (e.g., `neoboard-admins`, `neoboard-editors`) and assign users
+
+</Steps>
+
+In NeoBoard Settings > Authentication:
+```
+Display Name:    Keycloak
+Issuer URL:      https://keycloak.example.com/realms/your-realm
+Client ID:       neoboard
+Client Secret:   your-client-secret
+Claim Key:       groups
+Admin value:     neoboard-admins
+Creator value:   neoboard-editors
+Reader value:    neoboard-viewers
+```
+
+### Google Workspace
+
+<Steps>
+
+1. In the Google Cloud Console, go to **APIs & Services > Credentials**
+2. Create an **OAuth 2.0 Client ID** (Web application)
+3. Set the redirect URI to: `https://your-neoboard-domain/api/auth/callback/sso-{provider-id}`
+4. The issuer URL is: `https://accounts.google.com`
+
+</Steps>
+
+<Aside type="caution">
+Google's OIDC tokens don't include a `groups` claim by default. All Google SSO users will get the **default role** unless you use Google Workspace directory groups with a custom claim mapper.
+</Aside>
+
+## Role Mapping
+
+Role mapping is evaluated on **every login**, not just the first time. If a user's group membership changes in the IdP, their NeoBoard role updates automatically on their next sign-in.
+
+**Priority order:** Admin > Creator > Reader. If a user is in multiple mapped groups, the highest-priority role wins.
+
+**Multiple groups per role:** Use comma-separated values to map several IdP groups to the same NeoBoard role:
+
+```bash
+OIDC_ADMIN_VALUE=devops,platform-team,it-ops
+OIDC_CREATOR_VALUE=engineering,data-team,analytics
+OIDC_READER_VALUE=marketing,sales,support
+```
+
+If a user belongs to any of the listed groups, they get that role. This also works in the Admin UI claim mapping fields.
+
+**Nested claims** are supported with dot notation. For example, Keycloak's `realm_access.roles` claim can be mapped with:
+
+```
+Claim Key: realm_access.roles
+```
+
+When no claim mapping is configured, or no claim matches, the **default role** is used.
+
+## Account Linking
+
+When an SSO user's email matches an existing password-based NeoBoard account, the accounts are automatically linked. The user can then sign in with either method. The SSO login will update the user's role based on the latest IdP claims.
+
+## Limits
+
+- Up to **5 SSO providers** can be configured per tenant
+- Client secrets are encrypted at rest using AES-256-GCM (same encryption as database connection credentials)
+- Provider configurations are cached for 60 seconds — changes take up to 1 minute to propagate
+
+## Deleting a Provider
+
+When you delete an SSO provider:
+
+- Users who were provisioned via that provider **keep their accounts**
+- They can no longer sign in via SSO for that provider
+- If they have a password set, they can still use password login
+- An admin can assign them a new password in **Users** management
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Invalid parameter: redirect_uri" | The redirect URI in your IdP doesn't match. Set it to `https://your-domain/api/auth/callback/sso-{provider-id}` where `{provider-id}` is the provider's ID in NeoBoard (visible in Settings > Authentication URL). |
+| SSO button not showing | Check that the provider is **Enabled** in Settings > Authentication. The public endpoint only returns enabled providers. |
+| User gets wrong role | Verify the claim key and values match exactly what your IdP sends. Check the IdP's token debugger to inspect the actual claims. |
+| "Auto-provision is disabled" error | The user doesn't exist in NeoBoard and auto-provisioning is turned off. Create the user manually first, or enable auto-provisioning. |
+| Login loops back to /login | Ensure `NEXTAUTH_URL` is set correctly in your environment and matches the URL users access NeoBoard from. |

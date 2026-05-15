@@ -1,7 +1,7 @@
 ---
 name: design-review
 description: Design Review — NeoBoard Design Taste Document
-model: sonnet
+model: haiku
 user-invocable: false
 ---
 

@@ -1,0 +1,170 @@
+---
+title: Monitoring
+description: Monitor NeoBoard health, performance, and resource usage.
+---
+
+## Health check endpoint
+
+NeoBoard exposes a health check at `GET /api/health` that reports:
+
+- Environment configuration status
+- Database connectivity and latency
+
+```bash
+curl -s http://localhost:3000/api/health | jq
+```
+
+```json
+{
+  "data": {
+    "status": "ok",
+    "errors": [],
+    "warnings": [],
+    "config": {
+      "DATABASE_URL": "set",
+      "ENCRYPTION_KEY": "set",
+      "NEXTAUTH_SECRET": "set"
+    },
+    "db": {
+      "status": "ok",
+      "latencyMs": 4
+    }
+  }
+}
+```
+
+### Status values
+
+| Status | HTTP Code | Meaning |
+|--------|-----------|---------|
+| `ok` | 200 | All systems operational |
+| `degraded` | 200 | Functional but with warnings (e.g., slow DB) |
+| `error` | 503 | Missing required configuration or DB unreachable |
+
+### Using with Docker
+
+Docker Compose health check (already configured in `docker-compose.prod.yml`):
+
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000/api/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+```
+
+### Using with Kubernetes
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+```
+
+## Key metrics to monitor
+
+### Application health
+
+| Metric | How to check | Alert threshold |
+|--------|-------------|-----------------|
+| Health endpoint | `GET /api/health` | HTTP status != 200 |
+| DB latency | `health.db.latencyMs` | > 500ms |
+| Response time | Load balancer / reverse proxy logs | p95 > 2s |
+| Error rate | Application logs (5xx responses) | > 1% of requests |
+
+### Infrastructure
+
+| Metric | How to check | Alert threshold |
+|--------|-------------|-----------------|
+| CPU usage | Docker stats / cAdvisor | > 80% sustained |
+| Memory usage | Docker stats / cAdvisor | > 80% of limit |
+| Disk usage | `df -h` on data volumes | > 85% |
+| PostgreSQL connections | `SELECT count(*) FROM pg_stat_activity` | > 80% of `max_connections` |
+| PostgreSQL replication lag | `pg_stat_replication` | > 10s (if using replicas) |
+
+### Database health queries
+
+```sql
+-- Active connections
+SELECT count(*) AS active_connections FROM pg_stat_activity
+WHERE datname = 'neoboard';
+
+-- Database size
+SELECT pg_size_pretty(pg_database_size('neoboard')) AS db_size;
+
+-- Largest tables
+SELECT relname AS table, pg_size_pretty(pg_total_relation_size(relid)) AS size
+FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 10;
+
+-- Slow queries (requires pg_stat_statements extension)
+SELECT query, calls, mean_exec_time, total_exec_time
+FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;
+```
+
+## Uptime monitoring
+
+For external uptime monitoring, point your preferred tool at the health endpoint:
+
+- **UptimeRobot** (free): Monitor `GET /api/health`, alert on non-200
+- **Better Uptime**: Same endpoint, add status page
+- **Pingdom**: HTTP check on `/api/health`
+
+## Log monitoring
+
+NeoBoard outputs JSON-structured logs (when configured with structured logging). Key log fields:
+
+| Field | Description |
+|-------|-------------|
+| `level` | Log severity: `info`, `warn`, `error` |
+| `msg` | Human-readable message |
+| `requestId` | Correlation ID for tracing requests |
+| `userId` | Authenticated user (if applicable) |
+| `duration` | Request duration in milliseconds |
+
+### Filtering logs
+
+```bash
+# View errors only
+docker logs neoboard 2>&1 | jq 'select(.level == "error")'
+
+# View slow requests (> 1s)
+docker logs neoboard 2>&1 | jq 'select(.duration > 1000)'
+
+# View specific user's activity
+docker logs neoboard 2>&1 | jq 'select(.userId == "user-uuid")'
+```
+
+### Log aggregation
+
+For production deployments, ship logs to a centralized system:
+
+- **Grafana Loki** + Promtail: Lightweight, pairs with Grafana dashboards
+- **ELK Stack** (Elasticsearch + Logstash + Kibana): Full-text search
+- **Datadog**: SaaS monitoring with log management
+- **AWS CloudWatch**: Native if running on AWS
+
+Example Promtail config for Docker:
+
+```yaml title="promtail-config.yml"
+scrape_configs:
+  - job_name: neoboard
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/neoboard'
+        action: keep
+```

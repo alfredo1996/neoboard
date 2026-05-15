@@ -1,0 +1,60 @@
+---
+title: Roles & Permissions
+description: Understand NeoBoard's role-based access control system.
+---
+
+Every NeoBoard user is assigned one of three roles. Roles determine what a user can see and do across the application.
+
+## Role Comparison
+
+| Capability | Admin | Creator | Reader |
+|-----------|-------|---------|--------|
+| View dashboards | Yes | Yes | Yes |
+| Create/edit dashboards | Yes | Yes (own) | No |
+| Delete dashboards | Yes | Yes (own) | No |
+| Manage connections | Yes | View only | No |
+| Manage users | Yes | No | No |
+| Access settings | Yes | No | No |
+| Run read queries | Yes | Yes | No |
+| Run write queries | Yes (if enabled) | Yes (if enabled) | No |
+
+## Admin
+
+Full access to everything: dashboards, connections, user management, and settings. Admins are the only role that can create other users and configure SSO providers.
+
+## Creator
+
+Can build and edit their own dashboards and widgets. Creators can run queries against existing connections but cannot add, modify, or delete connections. They cannot access user management or settings.
+
+## Reader
+
+View-only access. Readers can view dashboards shared with them but cannot edit anything, run custom queries, or access connections.
+
+## Write Permission
+
+The **write permission** toggle is an additional control, independent of the role. It determines whether a user can execute write queries (`CREATE`, `INSERT`, `UPDATE`, `DELETE`).
+
+| Role | Write Permission On | Write Permission Off |
+|------|-------------------|---------------------|
+| Admin | Can write | Can write (always) |
+| Creator | Can write | Read-only queries |
+| Reader | No effect | No effect |
+
+Admins always have write access regardless of the toggle. This is useful when you want a Creator to build dashboards but not modify the underlying data.
+
+## Role Assignment
+
+### At user creation
+Admins assign a role when creating a user in **Users** management.
+
+### Via SSO claim mapping
+When SSO is configured, roles can be automatically assigned based on IdP group claims. See [SSO Role Mapping](/authentication/sso#role-mapping).
+
+### Default role
+New SSO users who don't match any claim mapping get the configured **default role** (defaults to Creator).
+
+## Related
+
+- [Managing Users](/administration/managing-users) — create and manage user accounts
+- [Password Login](/authentication/password-login) — email/password setup
+- [SSO](/authentication/sso) — automatic role assignment from IdP claims
