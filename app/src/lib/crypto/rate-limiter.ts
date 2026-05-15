@@ -88,3 +88,14 @@ export const signupRateLimiter = new RateLimiter({
   maxAttempts: isTest ? 100 : 10,
   windowMs: 60_000,
 });
+
+/**
+ * Per-user query rate limiter.
+ * Limits how many queries a single user can execute per minute.
+ * Configurable via QUERY_RATE_LIMIT env var (default: 60 per minute).
+ */
+const queryLimit = parseInt(process.env.QUERY_RATE_LIMIT ?? "60", 10);
+export const queryRateLimiter = new RateLimiter({
+  maxAttempts: isTest ? 10_000 : queryLimit,
+  windowMs: 60_000,
+});

@@ -12,8 +12,10 @@ import {
   forbidden,
   notFound,
   serverError,
+  rateLimited,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { queryRateLimiter } from "@/lib/crypto/rate-limiter";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
@@ -24,6 +26,9 @@ const writeQuerySchema = z.object({
 export async function POST(request: Request) {
   try {
     const { userId, canWrite, tenantId } = await requireSession();
+
+    const rl = queryRateLimiter.check(userId);
+    if (!rl.allowed) return rateLimited(rl.retryAfterMs!);
 
     if (!canWrite) {
       return forbidden("Write permission required");
