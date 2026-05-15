@@ -282,14 +282,26 @@ export function DashboardContainer({
                   onRefresh={
                     showRefresh
                       ? () => {
-                          // Invalidate all TanStack Query entries matching this widget's
-                          // connection + query combo. This triggers a refetch.
+                          // Invalidate the TanStack Query entry for this widget so
+                          // it refetches. We must mirror the prefix shape used by
+                          // useWidgetQuery exactly:
+                          //   ["widget-query", connectionId, database, query, params, staleTime]
+                          // Earlier we omitted `database`, which made position 2
+                          // mismatch (null vs query string), so invalidation never
+                          // matched and the refresh button silently no-op'd.
+                          //
+                          // We intentionally stop the prefix at `query` — the hook
+                          // merges $param_xxx values into `params` at call time, so
+                          // `widget.params` here is not deep-equal to the hook's
+                          // mergedParams when parameters are referenced. Stopping
+                          // at `query` guarantees prefix match for both the
+                          // parameterless and parameterised cases.
                           void queryClient.invalidateQueries({
                             queryKey: [
                               "widget-query",
                               widget.connectionId,
+                              widget.database ?? null,
                               widget.query,
-                              widget.params,
                             ],
                           });
                         }
