@@ -10,6 +10,7 @@ import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
 import { getCachedSsoProviders } from "@/lib/auth/sso/provider-cache";
 import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
 import type { LoadedSsoProvider } from "@/lib/auth/sso/provider-loader";
+import { logger } from "@/lib/logger";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -24,8 +25,8 @@ const loginSchema = z.object({
 export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
   const tenantId = process.env.TENANT_ID ?? "default";
   if (!process.env.TENANT_ID) {
-    console.warn(
-      "[auth] TENANT_ID not set — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
+    logger.warn(
+      "TENANT_ID not set — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
     );
   }
   const ssoProviders = await getCachedSsoProviders(tenantId);
@@ -87,7 +88,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
             .where(eq(users.id, user.id))
             .then(
               () => {},
-              (err) => console.error("[auth] lastLoginAt update failed", err),
+              (err) => logger.error({ err }, "lastLoginAt update failed"),
             );
 
           return {

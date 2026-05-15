@@ -95,7 +95,9 @@ describe("Advanced Query to Neo4j", () => {
       },
       onFail: (err) => {
         expect(err).toBeInstanceOf(ConnectorError);
-        expect(err.message).toMatch(/Writing in read access mode not allowed/);
+        // wrapError() sanitizes the message; check type + raw detail instead
+        expect(err.message).toBe("Query execution failed");
+        expect(err.detail).toMatch(/Writing in read access mode not allowed/);
       },
     };
     await connection.runQuery(

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 
 /**
  * Creates the first admin user if the users table is empty.
@@ -46,7 +47,7 @@ export async function bootstrapAdmin({
         tenantId,
       });
 
-      console.info("[bootstrap] Created initial admin user");
+      logger.info({ email }, "Created initial admin user");
     },
     { isolationLevel: "serializable" },
   );

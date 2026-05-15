@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { logger } from "@/lib/logger";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { executeQuery } from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
@@ -66,10 +67,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.data, 200, { serverDurationMs });
   } catch (error) {
-    console.error(
-      "[write-query]",
-      error instanceof Error ? error.message : error,
-    );
+    logger.error({ err: error }, "Write query execution failed");
     return serverError("Write query execution failed");
   }
 }

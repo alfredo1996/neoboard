@@ -16,6 +16,7 @@ export type {
 export {
   ConnectorError,
   ConnectorErrorType,
+  wrapError,
 } from "./generalized/ConnectorError";
 /// Schema
 export type {

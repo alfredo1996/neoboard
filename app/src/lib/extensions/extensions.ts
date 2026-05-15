@@ -65,8 +65,9 @@ export async function bootstrapExtensions(): Promise<ExtensionRegistry> {
     const isModuleNotFound = checkModuleNotFound(err);
 
     if (isModuleNotFound) {
-      console.warn(
-        "[extensions] NEOBOARD_EDITION=enterprise but @neoboard/enterprise is not installed. Running in community mode.",
+      const { logger } = await import("@/lib/logger");
+      logger.warn(
+        "NEOBOARD_EDITION=enterprise but @neoboard/enterprise is not installed. Running in community mode.",
       );
     } else {
       throw err;
