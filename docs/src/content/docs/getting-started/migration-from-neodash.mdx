@@ -1,0 +1,169 @@
+---
+title: Migrating from NeoDash
+description: Step-by-step guide to import your NeoDash dashboards into NeoBoard.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+NeoDash was [deprecated by Neo4j Labs](https://neo4j.com/labs/neodash/) in 2025. NeoBoard is a maintained, modern alternative that supports NeoDash dashboard imports with automatic chart type conversion.
+
+## Migration overview
+
+1. Export your dashboard from NeoDash as JSON
+2. Upload the JSON file into NeoBoard's import dialog
+3. Map your database connections
+4. Review and adjust
+
+The entire process takes under 5 minutes per dashboard.
+
+## Step 1: Export from NeoDash
+
+In NeoDash, open the dashboard you want to migrate, then:
+
+1. Click the **Settings** icon (gear) in the top-right
+2. Select **Save to File** or **Export**
+3. Save the `.json` file to your computer
+
+:::tip
+If NeoDash is no longer running, you may already have the JSON saved locally or stored in Neo4j. NeoBoard accepts the same JSON format that NeoDash stores in the database.
+:::
+
+## Step 2: Import into NeoBoard
+
+1. Log into NeoBoard
+2. On the dashboard list page, click **Import Dashboard**
+3. Select your NeoDash JSON file
+4. NeoBoard auto-detects the format and shows a **"NeoDash format"** badge
+5. Preview shows the dashboard name and widget count
+
+## Step 3: Map connections
+
+NeoDash doesn't encode database connection details in its exports. You need to tell NeoBoard which connections to use:
+
+1. For each connection referenced by widgets, select an existing NeoBoard connection from the dropdown
+2. If you haven't created the connection yet, cancel the import, go to **Connections**, add your Neo4j database, then return to import
+
+:::note
+All widgets that used the same NeoDash connection will be mapped to the same NeoBoard connection. If your NeoDash dashboard used multiple databases, you'll see multiple connection slots to map.
+:::
+
+## Step 4: Review
+
+After import, NeoBoard creates a new dashboard. Review it in edit mode:
+
+- **Verify queries execute** — click each widget's refresh button
+- **Check parameter syntax** — NeoBoard auto-converts `$neodash_paramName` to `$param_paramName`
+- **Adjust layout** — grid positions are preserved, but you may want to tweak sizing
+
+## Chart type mapping
+
+NeoBoard maps NeoDash chart types automatically:
+
+| NeoDash Type | NeoBoard Type | Notes |
+|-------------|---------------|-------|
+| Table | Table | 1:1 mapping |
+| Bar Chart | Bar | 1:1 mapping |
+| Line Chart | Line | 1:1 mapping |
+| Pie Chart | Pie | 1:1 mapping |
+| Graph | Graph | Uses Neo4j NVL for rendering |
+| Map | Map | Leaflet-based, marker clustering |
+| Single Value | Single Value | 1:1 mapping |
+| Gauge | Gauge | 1:1 mapping |
+| Sunburst | Sunburst | 1:1 mapping |
+| Treemap | Treemap | 1:1 mapping |
+| Sankey | Sankey | 1:1 mapping |
+| Radar | Radar | 1:1 mapping |
+| Area Chart | Line | Imported as line chart with `area: true` option |
+| iFrame | iFrame | 1:1 mapping |
+| Markdown | Markdown | 1:1 mapping |
+| Select | Parameter Select | Converted to NeoBoard's parameter widget |
+| Form | Form | 1:1 mapping |
+| JSON | JSON | 1:1 mapping |
+| Unknown types | JSON Viewer | Unsupported types fall back to raw JSON display |
+
+## Parameter syntax
+
+NeoDash uses `$neodash_` prefix for parameters. NeoBoard uses `$param_` prefix. The converter handles this automatically:
+
+<Tabs>
+  <TabItem label="NeoDash">
+```cypher
+MATCH (n:Person)
+WHERE n.name = $neodash_personName
+RETURN n
+```
+  </TabItem>
+  <TabItem label="NeoBoard">
+```cypher
+MATCH (n:Person)
+WHERE n.name = $param_personName
+RETURN n
+```
+  </TabItem>
+</Tabs>
+
+If you have queries with hardcoded `$neodash_` parameters that the converter missed, find and replace `$neodash_` with `$param_` in the query editor.
+
+## What's different in NeoBoard
+
+### Features you gain
+
+| Feature | NeoDash | NeoBoard |
+|---------|:---:|:---:|
+| PostgreSQL support | No | Yes |
+| Multi-page dashboards | Limited | Full (tabs, reorder, rename) |
+| Click actions (drill-down) | No | Yes |
+| Conditional styling | No | Yes (color scales, rules) |
+| Data transforms | No | Yes (filter, sort, groupBy, calculated columns) |
+| Write queries (forms) | Basic | Full (form fields editor, validation) |
+| Widget templates | No | Yes (Widget Lab) |
+| Dashboard sharing | Basic | Role-based (viewer/editor) |
+| API keys | No | Yes (HMAC-SHA256) |
+| Multi-tenant | No | Yes (tenant isolation) |
+| AES-256-GCM encryption | No | Yes (stored credentials) |
+| CSV export | No | Yes |
+
+### Features that differ
+
+- **Graph visualization** — NeoDash uses `neovis.js`; NeoBoard uses Neo4j NVL (newer, more performant)
+- **Authentication** — NeoDash relies on Neo4j auth; NeoBoard has its own user management + SSO
+- **Deployment** — NeoDash is a standalone React app; NeoBoard is a full Next.js application with its own PostgreSQL metadata database
+
+## Bulk migration
+
+If you have many dashboards to migrate, you can script the process using the NeoBoard API:
+
+```bash
+# Export all NeoDash dashboards from a directory
+for file in neodash-exports/*.json; do
+  curl -X POST http://localhost:3000/api/dashboards/import \
+    -H "Authorization: Bearer nb_your_api_key" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"payload\": $(cat "$file"),
+      \"connectionMapping\": {
+        \"\": \"your-neoboard-connection-id\"
+      }
+    }"
+  echo " <- imported $file"
+done
+```
+
+## Troubleshooting
+
+**Import fails with "Invalid format"**
+- Ensure the file is valid JSON (try opening it in a text editor)
+- NeoDash exports should have a `pages` array at the root level with `reports` arrays inside each page
+
+**Widgets show "No data"**
+- Check that you mapped the correct connection
+- Verify the connection is working (Connections page > Test)
+- Open the widget editor and run the query manually
+
+**Parameter widgets don't work**
+- Verify parameter names were converted from `$neodash_` to `$param_`
+- NeoBoard parameters need a parameter widget on the same dashboard page to provide values
+
+**Layout looks wrong**
+- Grid positions are preserved from NeoDash, but NeoBoard uses a 12-column grid
+- Drag and resize widgets in edit mode to adjust
