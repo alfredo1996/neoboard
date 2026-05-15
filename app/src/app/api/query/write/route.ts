@@ -157,6 +157,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
       },
       "write_query_failed",
     );
-    return handleRouteError(error, "Write query execution failed");
+    // safeMessage: write queries echo user SQL in driver errors — never leak.
+    return handleRouteError(error, "Write query execution failed", {
+      safeMessage: true,
+    });
   }
 }
