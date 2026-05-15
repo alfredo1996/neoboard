@@ -36,6 +36,13 @@
       "when": 1778119327484,
       "tag": "0004_busy_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778809730664,
+      "tag": "0005_free_loners",
+      "breakpoints": true
     }
   ]
 }
