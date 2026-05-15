@@ -134,6 +134,39 @@ describe("handleRouteError", () => {
     expect(body.error.code).toBe("REQUEST_TIMEOUT");
     expect(res.headers.get("Retry-After")).toBe("5");
   });
+
+  describe("safeMessage option", () => {
+    it("collapses raw driver errors to fallback when safeMessage=true", async () => {
+      const res = handleRouteError(
+        new Error('syntax error at or near "THIS"'),
+        "Write query execution failed",
+        { safeMessage: true },
+      );
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error.message).toBe("Write query execution failed");
+      expect(body.error.message).not.toMatch(/syntax error/i);
+    });
+
+    it("still returns raw driver errors when safeMessage is omitted", async () => {
+      const res = handleRouteError(
+        new Error('syntax error at or near "THIS"'),
+        "Write query execution failed",
+      );
+      const body = await res.json();
+      expect(body.error.message).toBe('syntax error at or near "THIS"');
+    });
+
+    it("safeMessage does not bypass typed app errors (Queue/Auth/etc.)", async () => {
+      const { QueueTimeoutError } = await import("@/lib/query/scheduler");
+      const res = handleRouteError(new QueueTimeoutError(), "Write failed", {
+        safeMessage: true,
+      });
+      // QueueTimeoutError still gets its specific 408 + Retry-After handling.
+      expect(res.status).toBe(408);
+      expect(res.headers.get("Retry-After")).toBe("5");
+    });
+  });
 });
 
 describe("validateBody", () => {
