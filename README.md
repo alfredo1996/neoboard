@@ -91,7 +91,9 @@ Looking for a first contribution? Check issues labeled [`good first issue`](http
 
 ## Migrating from NeoDash
 
-NeoBoard includes a NeoDash JSON converter — import your existing dashboards via Settings > Import Dashboard. See the [migration guide](docs/) for details.
+NeoBoard includes a NeoDash JSON converter — import your existing dashboards via the Import Dashboard dialog. All chart types, parameters, and grid layouts are converted automatically.
+
+See the [Migration Guide](docs/src/content/docs/getting-started/migration-from-neodash.mdx) for step-by-step instructions.
 
 ## License
 
