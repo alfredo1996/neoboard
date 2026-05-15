@@ -341,6 +341,25 @@ export const ssoProviders = pgTable(
   ],
 );
 
+// ─── Audit log ──────────────────────────────────────────────────────
+
+export const auditLogs = pgTable("audit_log", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  tenantId: text("tenant_id").notNull().default("default"),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  resourceType: text("resource_type"),
+  resourceId: text("resource_id"),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
+
 // ─── Inferred types ──────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
