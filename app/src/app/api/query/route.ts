@@ -12,8 +12,10 @@ import {
   forbidden,
   notFound,
   serverError,
+  rateLimited,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { queryRateLimiter } from "@/lib/crypto/rate-limiter";
 
 const querySchema = z.object({
   connectionId: z.string().min(1),
@@ -26,6 +28,10 @@ const querySchema = z.object({
 export async function POST(request: Request) {
   try {
     const { userId, tenantId: sessionTenantId, role } = await requireSession();
+
+    const rl = queryRateLimiter.check(userId);
+    if (!rl.allowed) return rateLimited(rl.retryAfterMs!);
+
     const body = await request.json();
     const validation = validateBody(querySchema, body);
     if (!validation.success) return validation.response;

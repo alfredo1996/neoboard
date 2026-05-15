@@ -44,6 +44,13 @@ vi.mock("@/lib/crypto/crypto", () => ({
 vi.mock("@/lib/query/query-executor", () => ({
   executeQuery: mockExecuteQuery,
 }));
+
+const mockRateLimitCheck = vi
+  .fn()
+  .mockReturnValue({ allowed: true, remaining: 59 });
+vi.mock("@/lib/crypto/rate-limiter", () => ({
+  queryRateLimiter: { check: mockRateLimitCheck },
+}));
 vi.mock("@/lib/connector/schema-prefetch", () => ({ prefetchSchema: vi.fn() }));
 
 // Minimal Next.js server shim
@@ -94,6 +101,10 @@ describe("POST /api/query", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockRateLimitCheck.mockReturnValue({ allowed: true, remaining: 59 });
+    vi.doMock("@/lib/crypto/rate-limiter", () => ({
+      queryRateLimiter: { check: mockRateLimitCheck },
+    }));
 
     const mod = await import("../route");
     POST = mod.POST;
@@ -557,5 +568,22 @@ describe("POST /api/query", () => {
     expect(body.meta.truncated).toBeUndefined();
     expect(body.meta.rowLimit).toBe(5000);
     expect(body.data.data).toEqual({ nodes: [], edges: [] });
+  });
+
+  it("returns 429 when rate limited", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockRateLimitCheck.mockReturnValueOnce({
+      allowed: false,
+      remaining: 0,
+      retryAfterMs: 30_000,
+    });
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT 1" }),
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("30");
+    const body = await res.json();
+    expect(body.error.code).toBe("RATE_LIMITED");
   });
 });

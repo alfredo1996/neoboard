@@ -31,6 +31,13 @@ export function serverError(msg = "Internal server error") {
   return apiError("INTERNAL_ERROR", msg);
 }
 
+export function rateLimited(retryAfterMs: number) {
+  const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+  const res = apiError("RATE_LIMITED", "Too many requests");
+  res.headers.set("Retry-After", String(retryAfterSec));
+  return res;
+}
+
 // ---------------------------------------------------------------------------
 // Error message sanitization
 // ---------------------------------------------------------------------------
