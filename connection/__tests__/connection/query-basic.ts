@@ -74,7 +74,8 @@ describe("Query to Neo4j", () => {
       onFail: (err) => {
         expect(err).toBeInstanceOf(ConnectorError);
         expect((err as ConnectorError).type).toBe(ConnectorErrorType.TIMEOUT);
-        expect(err.message).toMatch(/The transaction has been terminated/);
+        expect(err.message).toBe("Query timed out");
+        expect(err.detail).toMatch(/The transaction has been terminated/);
       },
     };
     const connectionConfig = {
@@ -100,7 +101,8 @@ describe("Query to Neo4j", () => {
       onFail: (err) => {
         expect(err).toBeInstanceOf(ConnectorError);
         expect((err as ConnectorError).type).toBe(ConnectorErrorType.TIMEOUT);
-        expect(err.message).toMatch(/The transaction has been terminated/);
+        expect(err.message).toBe("Query timed out");
+        expect(err.detail).toMatch(/The transaction has been terminated/);
       },
     };
     const connectionConfig = {
