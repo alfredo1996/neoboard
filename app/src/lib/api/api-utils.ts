@@ -87,6 +87,16 @@ export function validateBody<T>(
 export function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
+  options?: {
+    /**
+     * When true, untyped errors (e.g. raw driver/query errors) collapse to
+     * `fallbackMsg` instead of being passed through `sanitizeErrorMessage`.
+     * Use this on routes where the underlying error message could leak schema
+     * details, query structure, or other sensitive shape — most notably the
+     * write-query route where pg syntax errors echo the user-supplied SQL.
+     */
+    safeMessage?: boolean;
+  },
 ): ReturnType<typeof apiError> {
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
@@ -130,5 +140,10 @@ export function handleRouteError(
   // Return a sanitized error message to the client. Raw driver/DB errors
   // can leak query structure and schema details, so sanitizeErrorMessage
   // strips bundler internals while preserving meaningful messages.
+  // Routes that opt into `safeMessage` collapse to the fallback unconditionally
+  // — used by the write route to keep pg/Cypher syntax errors out of responses.
+  if (options?.safeMessage) {
+    return serverError(fallbackMsg);
+  }
   return serverError(sanitizeErrorMessage(message, fallbackMsg));
 }
