@@ -14,10 +14,13 @@ INSERT INTO "user" ("id", "name", "email", "passwordHash", "role", "can_write") 
     ('user-carol-003', 'Carol Demo', 'carol@example.com', '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'reader',  false),
     ('user-dave-004',  'Dave Demo',  'dave@example.com',  '$2b$12$Y9ET62vxVM7zf3tXwTQHSuJ4j3RqlZziI35aVgZzcL8bWBDcAM5b6', 'creator', true);
 
--- Seed connections (configEncrypted values are placeholders — global-setup.ts re-encrypts them with real ports)
+-- Seed connections — configEncrypted values are PLAINTEXT PLACEHOLDERS.
+-- E2E global-setup.ts re-encrypts them with the test ENCRYPTION_KEY and
+-- replaces hostnames with Testcontainer ports before tests run.
+-- These MUST NOT be used as-is in Docker demo mode (use seed-demo.mjs instead).
 INSERT INTO "connection" ("id", "userId", "name", "type", "configEncrypted") VALUES
-    ('conn-neo4j-001', 'user-alice-001', 'Movies Graph (Neo4j)',    'neo4j',      '{"host":"bolt://neo4j:7687","username":"neo4j","password":"neoboard123"}'),
-    ('conn-pg-001',    'user-alice-001', 'Movies DB (PostgreSQL)',  'postgresql', '{"host":"postgres","port":5432,"database":"movies","username":"neoboard","password":"neoboard"}');
+    ('conn-neo4j-001', 'user-alice-001', 'Movies Graph (Neo4j)',    'neo4j',      '{"uri":"bolt://localhost:7687","username":"neo4j","password":"neoboard123","database":"neo4j"}'),
+    ('conn-pg-001',    'user-alice-001', 'Movies DB (PostgreSQL)',  'postgresql', '{"uri":"postgresql://localhost:5432","username":"neoboard","password":"neoboard","database":"movies"}');
 
 -- Seed dashboards (v2 layout with pages — matches current schema)
 -- dash-001 has TWO pages so the tab-switch performance test can run

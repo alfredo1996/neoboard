@@ -96,11 +96,14 @@ describe("composeUp", () => {
     );
   });
 
-  it("uses full compose file when full=true", () => {
+  it("uses full compose file when full=true and sets FORCE_HTTPS=false", () => {
     composeUp({ full: true });
     expect(mockRun).toHaveBeenCalledWith(
       "docker compose -f /project/docker/docker-compose.full.yml up -d --build",
-      { cwd: "/project" },
+      {
+        cwd: "/project",
+        env: expect.objectContaining({ FORCE_HTTPS: "false" }),
+      },
     );
   });
 });

@@ -48,7 +48,7 @@ describe("runDemo", () => {
   it("shows login credentials", async () => {
     await runDemo();
     expect(banner).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.stringContaining("admin@neoboard.local")]),
+      expect.arrayContaining([expect.stringContaining("alice@example.com")]),
     );
   });
 });

@@ -55,6 +55,7 @@ services:
       ENCRYPTION_KEY: b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9
       NEXTAUTH_SECRET: d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65
       NEXTAUTH_URL: http://localhost:3000
+      FORCE_HTTPS: "false"
       API_KEY_HMAC_SECRET: 7f3b9c2a5e8d4f1b0a6c9e8d7f2a4b1c5e8d7f2a4b1c5e8d7f2a4b1c5e8d7f2a
     depends_on:
       postgres:

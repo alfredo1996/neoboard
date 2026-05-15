@@ -13,8 +13,10 @@ export async function runDemo(opts?: {
     "Demo environment ready!",
     "",
     "Login credentials:",
-    "  Email:    admin@neoboard.local",
-    "  Password: admin123",
+    "  Email:    alice@example.com",
+    "  Password: password123",
+    "",
+    "Other demo users: bob, carol, dave @example.com",
   ]);
   success("Open http://localhost:3000 to get started");
 }

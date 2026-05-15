@@ -22,7 +22,14 @@ export async function proxy(req: NextRequest) {
     process.env.FORCE_HTTPS?.toLowerCase() !== "false"
   ) {
     const host = req.nextUrl.hostname;
-    const isLocal = host === "localhost" || host === "127.0.0.1";
+    const isLocal =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "0.0.0.0" ||
+      host === "::1" ||
+      host.startsWith("192.168.") ||
+      host.startsWith("10.") ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host);
     const proto = req.headers.get("x-forwarded-proto");
     if (!isLocal && proto !== "https") {
       const httpsUrl = new URL(req.nextUrl.toString());
