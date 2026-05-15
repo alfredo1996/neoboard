@@ -14,7 +14,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
   pull_request:
-    branches: [main, dev, 'release/*']
+    branches: [main, dev, 'release/*', 'feat/*']
     paths:
       - 'app/**'
       - 'component/**'

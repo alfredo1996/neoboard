@@ -1,15 +1,19 @@
 #!/bin/bash
+set -euo pipefail
 # Hook: Prevent editing existing migration files (forward-only migrations)
 # Rule: "Forward-only. Idempotent." — CLAUDE.md
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
+FILE_PATH=$(echo "$INPUT" | jq -er '.tool_input.file_path // .tool_input.filePath // empty') || {
+  echo "BLOCKED: invalid hook payload (missing/invalid tool_input.file_path)" >&2
+  exit 2
+}
 [ -z "$FILE_PATH" ] && exit 0
 
 # Only check migration files
 case "$FILE_PATH" in
   *migrations/*.sql|*migrations/*.ts)
     # Allow creating NEW migration files (Write tool with no existing file)
-    TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+    TOOL_NAME=$(echo "$INPUT" | jq -er '.tool_name // empty') || TOOL_NAME=""
     if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
       exit 0
     fi
