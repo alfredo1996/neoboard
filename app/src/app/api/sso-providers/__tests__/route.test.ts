@@ -79,8 +79,32 @@ describe("GET /api/sso-providers", () => {
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     const mod = await import("../route");
     GET = mod.GET;
+  });
+
+  it("returns 403 when NEOBOARD_EDITION is not enterprise", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "");
+    // Re-import to pick up the env change
+    vi.resetModules();
+    vi.doMock("@/lib/auth/session", () => ({
+      requireAdmin: mockRequireAdmin,
+    }));
+    vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    const mod = await import("../route");
+    const res = await mod.GET();
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/enterprise/i);
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -362,6 +386,10 @@ describe("DELETE /api/sso-providers", () => {
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
