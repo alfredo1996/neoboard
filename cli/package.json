@@ -9,9 +9,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest run",
+    "test": "vitest run --exclude src/__tests__/integration/**",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage --exclude src/__tests__/integration/**",
+    "test:integration": "vitest run src/__tests__/integration/ --test-timeout 120000"
   },
   "dependencies": {
     "chalk": "^5.0.0",
