@@ -146,7 +146,10 @@ describe("runPluginAdd", () => {
   });
 
   it("records the export name in the manifest when --export <name> is used", async () => {
-    vi.doMock(CHART_PKG, () => ({
+    // Use a unique package name to avoid vitest module-cache collision with the
+    // default-export mock registered in beforeEach for CHART_PKG.
+    const NAMED_PKG = "@scope/chart-plugin-fake-named-export";
+    vi.doMock(NAMED_PKG, () => ({
       myExport: {
         type: "fake-chart",
         label: "Fake",
@@ -160,10 +163,10 @@ describe("runPluginAdd", () => {
       pluginType: "chart",
     });
 
-    await runPluginAdd(CHART_PKG, { export: "myExport" });
+    await runPluginAdd(NAMED_PKG, { export: "myExport" });
 
     const [, , entry] = mockAddToManifest.mock.calls[0];
-    expect(entry).toEqual({ package: CHART_PKG, export: "myExport" });
+    expect(entry).toEqual({ package: NAMED_PKG, export: "myExport" });
   });
 
   it("warns and skips registration when the package is already in the manifest", async () => {
