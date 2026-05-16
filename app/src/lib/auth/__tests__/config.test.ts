@@ -1,7 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterAll,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
-// vi.hoisted runs BEFORE vi.mock factories, so these are available there
+// vi.hoisted runs BEFORE vi.mock factories, so these are available there.
+// TENANT_ID must be set here so it's available when NextAuth lazy init runs.
 // ---------------------------------------------------------------------------
 const {
   callbacks,
@@ -11,7 +20,10 @@ const {
   mockUpdateThen,
   mockSafeParse,
   loggedEvents,
+  originalTenantId,
 } = vi.hoisted(() => {
+  const orig = process.env.TENANT_ID;
+  process.env.TENANT_ID = "test-tenant";
   const callbacks = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jwt: null as any,
@@ -57,6 +69,7 @@ const {
     mockUpdateThen,
     mockSafeParse,
     loggedEvents,
+    originalTenantId: orig,
   };
 });
 
@@ -79,11 +92,17 @@ vi.mock("@/lib/logger", () => {
 
 vi.mock("next-auth", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (config: any) => {
-    callbacks.jwt = config.callbacks.jwt;
-    callbacks.session = config.callbacks.session;
-    events.signOut = config.events?.signOut ?? null;
-    authorize.fn = config.providers[0].authorize;
+  default: (configOrFn: any) => {
+    // Support both static config and lazy init (async function)
+    const resolve = async () => {
+      const config =
+        typeof configOrFn === "function" ? await configOrFn() : configOrFn;
+      callbacks.jwt = config.callbacks.jwt;
+      callbacks.session = config.callbacks.session;
+      events.signOut = config.events?.signOut ?? null;
+      authorize.fn = config.providers[0].authorize;
+    };
+    resolve();
     return { handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() };
   },
 }));
@@ -122,8 +141,10 @@ vi.mock("@/lib/db/schema", () => ({
     disabledAt: "disabledAt",
     forcePasswordChange: "forcePasswordChange",
     passwordHash: "passwordHash",
+    passwordChangedAt: "passwordChangedAt",
     image: "image",
     lastLoginAt: "lastLoginAt",
+    tenantId: "tenantId",
   },
   accounts: {},
   sessions: {},
@@ -136,10 +157,23 @@ vi.mock("@/lib/crypto/rate-limiter", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((a: unknown, b: unknown) => ({ field: a, value: b })),
+  and: vi.fn((...args: unknown[]) => args),
 }));
 
 vi.mock("bcryptjs", () => ({
   default: { compare: vi.fn() },
+}));
+
+vi.mock("@/lib/auth/sso/provider-cache", () => ({
+  getCachedSsoProviders: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/auth/sso/claim-mapping", () => ({
+  resolveRoleFromClaims: vi.fn(() => "creator"),
+}));
+
+vi.mock("@/lib/auth/sso/provision", () => ({
+  provisionOrLinkSsoUser: vi.fn(async () => null),
 }));
 
 vi.mock("zod", () => {
@@ -152,8 +186,21 @@ vi.mock("zod", () => {
   };
 });
 
-// Import triggers NextAuth() which captures callbacks
+// Import triggers NextAuth() which captures callbacks via the async resolve()
 import "../config";
+
+// The lazy init runs asynchronously — give it time to resolve before tests
+beforeAll(async () => {
+  await new Promise((r) => setTimeout(r, 50));
+});
+
+afterAll(() => {
+  if (originalTenantId !== undefined) {
+    process.env.TENANT_ID = originalTenantId;
+  } else {
+    delete process.env.TENANT_ID;
+  }
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
