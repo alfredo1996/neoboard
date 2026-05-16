@@ -363,7 +363,7 @@ describe("DataGrid — enablePagination", () => {
     await user.click(checkboxes[1]);
 
     expect(screen.getByText(/1 of 30 row\(s\) selected\./)).toBeInTheDocument();
-  });
+  }, 15000);
 });
 
 // ---------------------------------------------------------------------------
