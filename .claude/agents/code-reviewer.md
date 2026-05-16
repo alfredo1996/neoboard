@@ -14,8 +14,12 @@ Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then 
 1. Run `git diff` and `git diff --cached` to get all changes.
 2. Read each changed file to understand full context.
 3. Check against the rules below.
-4. After code review, run `cd app && npx vitest run` and `cd component && npx vitest run` to verify tests pass.
-5. If any UI files changed (`*.tsx` in pages, components, or settings), recommend running `@feature-reviewer` on the affected feature.
+4. After code review, run `cd app && npm test` and `cd component && npm test` to verify tests pass.
+5. Check external review feedback:
+   - CodeRabbit: `gh pr view --comments | grep -A10 'coderabbitai'`
+   - SonarCloud: `gh pr checks` — verify quality gate passes
+   - Flag any unaddressed CRITICAL/MAJOR findings
+6. If any UI files changed (`*.tsx` in pages, components, or settings), recommend running `@feature-reviewer` on the affected feature.
 
 ## Rules (priority order)
 

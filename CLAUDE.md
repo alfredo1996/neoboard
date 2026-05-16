@@ -47,7 +47,6 @@ Rules:
 - Run the relevant test suite before and after every change to confirm Red → Green.
 - Every new behavior, bug fix, and edge case gets a test.
 - Tests live in `__tests__/` next to the file under test, same package.
-- See `claude_code_docs/TESTING_APPROACH.md` for suite structure, commands, and patterns.
 
 ## Testing Boundaries (app/ package)
 
@@ -94,6 +93,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 - Conventional Commits: `type(scope): description`.
 - Branch from `dev`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
+- **Exception**: when a `release/X.Y` branch is active, branch from and target it instead of `dev`.
 - PRs target `dev` (integration) before merging to `main`.
 - Do not push if tests are failing.
 - PRs need labels: type + package + area. See `/github` skill.
@@ -103,7 +103,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 - Read `gh pr view <number> --comments` when resuming work on an existing PR.
 - Address all CodeRabbit suggestions or dismiss with justification.
-- SonarQube quality gate must pass (coverage, duplications, code smells).
+- SonarCloud quality gate must pass (coverage, duplications, code smells).
 
 ## Query Safety — DO NOT VIOLATE
 
@@ -146,6 +146,33 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
 Test version-skip paths. `--skip-migrations` flag exists for emergency debugging.
 
+## Automated Guardrails (Hooks)
+
+The `.claude/settings.json` hooks enforce critical rules automatically:
+
+**PreToolUse (Edit/Write):**
+- Package boundary enforcement — blocks cross-package imports
+- Query interpolation guard — blocks `${...}` near SQL/Cypher keywords
+- Credential logging guard — blocks `console.log` of sensitive variables
+- Migration file guard — blocks edits to existing migration files (forward-only)
+- ECharts import guard — blocks `import * from 'echarts'`
+- SSR guard — blocks chart components without `ssr: false`
+- Main branch guard — blocks edits on `main`
+
+**PreToolUse (Bash):**
+- Dependency install guard — blocks `npm install/uninstall` without approval
+- E2E enforcement — blocks `git commit` if UI files edited but Playwright not run
+
+**PostToolUse:**
+- Auto-format + lint on every TypeScript file edit
+- E2E marker tracking (marks UI files as needing E2E, clears after playwright runs)
+- Coverage threshold warning after test runs
+
+**Session/Lifecycle:**
+- SessionStart: branch status, PR info, Docker health check
+- Stop: completion checklist (tests run? lint run? screenshots taken?)
+- PreCompact: re-injects critical rules after context compaction
+
 ## Design Review
 
 Before touching any UI code, read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns.
@@ -174,4 +201,4 @@ Agents work together in a pipeline. Each stage gates the next:
 
 ### Playwright CLI (for browser agents)
 
-`feature-reviewer` and `ux-crawler` use `npx @playwright/cli` to interact with the running app at `http://localhost:3000`. Ensure Docker is running before invoking them.
+`feature-reviewer`, `ux-crawler`, `user-sim-admin`, and `user-sim-creator` use `npx @playwright/cli` to interact with the running app at `http://localhost:3000`. Ensure Docker is running before invoking them.

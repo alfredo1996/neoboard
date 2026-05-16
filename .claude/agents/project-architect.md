@@ -17,7 +17,7 @@ Read these files for project rules and architecture:
 
 ## Tech Stack
 
-Next.js 15 (App Router), React 19, TypeScript, shadcn/ui, Tailwind CSS, ECharts, Neo4j NVL, Leaflet, Zustand, TanStack Query, Auth.js v5, Drizzle ORM.
+Next.js 16 (App Router), React 19, TypeScript, shadcn/ui, Tailwind CSS, ECharts, Neo4j NVL, Leaflet, Zustand, TanStack Query, Auth.js v5, Drizzle ORM.
 
 ## Three Packages (STRICT boundaries)
 
@@ -30,7 +30,7 @@ Next.js 15 (App Router), React 19, TypeScript, shadcn/ui, Tailwind CSS, ECharts,
 You may receive:
 
 - An issue number to fetch
-- A `REQUIREMENTS BRIEF` from a `/grill` session — if provided, this is your primary source of truth for what the user wants. It contains answers to detailed clarifying questions about scope, UX, data model, security, edge cases, and testing.
+- A `REQUIREMENTS BRIEF` from a `/drill` session — if provided, this is your primary source of truth for what the user wants. It contains answers to detailed clarifying questions about scope, UX, data model, security, edge cases, and testing.
 
 ## Steps
 
@@ -51,7 +51,7 @@ You may receive:
 # Implementation Plan: <Feature Name>
 
 ## Requirements Summary
-<2-3 sentences summarizing what was agreed during the grilling session — scope, MVP, key decisions>
+<2-3 sentences summarizing what was agreed during the drill session — scope, MVP, key decisions>
 
 ## Impact Analysis
 - Packages affected: [app, component, connection]
@@ -90,7 +90,7 @@ You may receive:
 - Unit tests: [what to cover, which files]
 - Integration tests: [what to cover]
 - E2E tests: [critical user flows to cover]
-- Edge cases from brief: [list specific edge cases identified during grilling]
+- Edge cases from brief: [list specific edge cases identified during drill]
 
 ## Risks
 - [Risk] — Mitigation

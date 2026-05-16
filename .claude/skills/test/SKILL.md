@@ -11,7 +11,7 @@ allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(cd *)
 ## State
 
 - Branch: !`git branch --show-current`
-- Changed files: !`git diff --name-only HEAD~1 2>/dev/null || git diff --name-only`
+- Changed files: !`git diff --name-only origin/dev..HEAD 2>/dev/null || git diff --name-only`
 
 ## Instructions
 
@@ -21,7 +21,7 @@ Detect which packages have changes and run the appropriate test suites.
 
 ```bash
 # Check which packages have changes
-CHANGED=$(git diff --name-only HEAD~1 2>/dev/null || git diff --name-only)
+CHANGED=$(git diff --name-only origin/dev..HEAD 2>/dev/null || git diff --name-only)
 RUN_APP=false
 RUN_COMPONENT=false
 RUN_CONNECTION=false
