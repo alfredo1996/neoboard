@@ -21,6 +21,9 @@ const mockDb = {
   delete: vi.fn(),
 };
 
+/** Track captured update fields for assertions */
+let lastUpdateFields: Record<string, unknown> = {};
+
 class UnauthorizedError extends Error {
   constructor() {
     super("Unauthorized");
@@ -48,11 +51,10 @@ const READONLY_ADMIN = {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/users/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let GET: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -108,11 +110,10 @@ describe("GET /api/users/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("PATCH /api/users/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let PATCH: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -243,6 +244,69 @@ describe("PATCH /api/users/[id]", () => {
     const body = await res.json();
     expect(body.data.disabledAt).toBeNull();
   });
+
+  it("sets passwordChangedAt on demotion (admin→creator)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    lastUpdateFields = {};
+    const mockSet = vi.fn().mockImplementation((fields) => {
+      lastUpdateFields = fields;
+      return {
+        where: () => ({
+          returning: () =>
+            Promise.resolve([
+              {
+                id: "u2",
+                name: "Eve",
+                email: "eve@example.com",
+                role: "creator",
+                canWrite: true,
+                disabledAt: null,
+                lastLoginAt: null,
+                createdAt: new Date(),
+              },
+            ]),
+        }),
+      };
+    });
+    mockDb.update.mockReturnValue({ set: mockSet });
+    // Must also mock select to return current role as admin
+    mockDb.select.mockReturnValue(makeSelectChain([{ role: "admin" }]));
+
+    const res = await PATCH(makeRequest({ role: "creator" }), makeParams("u2"));
+    expect(res.status).toBe(200);
+    expect(lastUpdateFields.passwordChangedAt).toBeInstanceOf(Date);
+  });
+
+  it("does NOT set passwordChangedAt on promotion (reader→creator)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    lastUpdateFields = {};
+    const mockSet = vi.fn().mockImplementation((fields) => {
+      lastUpdateFields = fields;
+      return {
+        where: () => ({
+          returning: () =>
+            Promise.resolve([
+              {
+                id: "u2",
+                name: "Eve",
+                email: "eve@example.com",
+                role: "creator",
+                canWrite: true,
+                disabledAt: null,
+                lastLoginAt: null,
+                createdAt: new Date(),
+              },
+            ]),
+        }),
+      };
+    });
+    mockDb.update.mockReturnValue({ set: mockSet });
+    mockDb.select.mockReturnValue(makeSelectChain([{ role: "reader" }]));
+
+    const res = await PATCH(makeRequest({ role: "creator" }), makeParams("u2"));
+    expect(res.status).toBe(200);
+    expect(lastUpdateFields.passwordChangedAt).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -250,11 +314,10 @@ describe("PATCH /api/users/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/users/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let DELETE: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();

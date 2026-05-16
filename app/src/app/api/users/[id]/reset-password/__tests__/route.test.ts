@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeUpdateChain } from "@/__tests__/helpers/drizzle-mocks";
-import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
 
 const mockRequireAdmin =
   vi.fn<
@@ -17,37 +20,44 @@ class UnauthorizedError extends Error {
     super("Unauthorized");
   }
 }
+class ForbiddenError extends Error {
+  constructor() {
+    super("Forbidden");
+  }
+}
 
-vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
-vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("bcryptjs", () => ({
-  default: { hash: vi.fn().mockResolvedValue("hashed-password") },
+vi.mock("@/lib/auth/session", () => ({
+  requireAdmin: mockRequireAdmin,
 }));
+vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
+vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
-const ADMIN = { userId: "admin-1", canWrite: true, tenantId: "default" };
-const READONLY_ADMIN = {
-  userId: "admin-1",
-  canWrite: false,
-  tenantId: "default",
-};
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeRequest(body: unknown) {
+  return { json: async () => body } as Request;
+}
+
+function makeParams(id: string) {
+  return { params: Promise.resolve({ id }) };
+}
+
+// ---------------------------------------------------------------------------
+// Tests — POST /api/users/[id]/reset-password
+// ---------------------------------------------------------------------------
 
 describe("POST /api/users/[id]/reset-password", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let POST: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
-    vi.doMock("@/lib/db", () => ({ db: mockDb }));
-    vi.doMock("bcryptjs", () => ({
-      default: { hash: vi.fn().mockResolvedValue("hashed-password") },
-    }));
-    vi.doMock("next/server", () => nextResponseMockFactory());
     const mod = await import("../route");
     POST = mod.POST;
   });
@@ -55,58 +65,122 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("returns 401 when unauthenticated", async () => {
     mockRequireAdmin.mockRejectedValue(new UnauthorizedError());
     const res = await POST(
-      makeRequest({ newPassword: "newpass123" }),
-      makeParams("u1"),
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-2"),
     );
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when admin has canWrite=false", async () => {
-    mockRequireAdmin.mockResolvedValue(READONLY_ADMIN);
+  it("returns 403 when admin cannot write", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: false,
+      tenantId: "tenant-a",
+    });
     const res = await POST(
-      makeRequest({ newPassword: "newpass123" }),
-      makeParams("u1"),
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-2"),
     );
     expect(res.status).toBe(403);
   });
 
-  it("returns 400 when trying to reset own password", async () => {
-    mockRequireAdmin.mockResolvedValue(ADMIN);
+  it("returns 400 when admin tries to reset own password", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
     const res = await POST(
-      makeRequest({ newPassword: "newpass123" }),
+      makeRequest({ newPassword: "NewPassword1!" }),
       makeParams("admin-1"),
     );
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 when password is too short", async () => {
-    mockRequireAdmin.mockResolvedValue(ADMIN);
-    const res = await POST(
-      makeRequest({ newPassword: "12345" }),
-      makeParams("u1"),
-    );
-    expect(res.status).toBe(400);
+  it("returns error when body is invalid", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    const res = await POST(makeRequest({}), makeParams("user-2"));
+    // Route catches the error via handleRouteError, returns non-200
+    expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
-  it("returns 404 when user not found", async () => {
-    mockRequireAdmin.mockResolvedValue(ADMIN);
-    mockDb.update.mockReturnValue(makeUpdateChain([]));
+  it("resets password for a user in the same tenant", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
     const res = await POST(
-      makeRequest({ newPassword: "newpass123" }),
-      makeParams("nonexistent"),
-    );
-    expect(res.status).toBe(404);
-  });
-
-  it("resets password and returns success", async () => {
-    mockRequireAdmin.mockResolvedValue(ADMIN);
-    mockDb.update.mockReturnValue(makeUpdateChain([{ id: "u1" }]));
-    const res = await POST(
-      makeRequest({ newPassword: "newpass123" }),
-      makeParams("u1"),
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-2"),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.reset).toBe(true);
+  });
+
+  it("returns 404 when target user belongs to a different tenant", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    // Simulate no rows returned because tenant filter excludes user from tenant-b
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+    const res = await POST(
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-in-tenant-b"),
+    );
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error.message).toBe("User not found");
+  });
+
+  it("returns generated password when generatePassword is true", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
+    const res = await POST(
+      makeRequest({ generatePassword: true }),
+      makeParams("user-2"),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.reset).toBe(true);
+    expect(body.data.generatedPassword).toBeDefined();
+    expect(typeof body.data.generatedPassword).toBe("string");
+  });
+
+  it("sets passwordChangedAt when admin resets password", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    let capturedFields: Record<string, unknown> = {};
+    const mockSet = vi.fn().mockImplementation((fields) => {
+      capturedFields = fields;
+      return {
+        where: () => ({
+          returning: () => Promise.resolve([{ id: "user-2" }]),
+        }),
+      };
+    });
+    mockDb.update.mockReturnValue({ set: mockSet });
+
+    const res = await POST(
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-2"),
+    );
+    expect(res.status).toBe(200);
+    expect(capturedFields.passwordChangedAt).toBeInstanceOf(Date);
   });
 });

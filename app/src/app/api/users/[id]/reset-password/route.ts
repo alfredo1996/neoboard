@@ -1,6 +1,6 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
@@ -35,7 +35,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, canWrite } = await requireAdmin();
+    const { userId, canWrite, tenantId } = await requireAdmin();
     if (!canWrite) return forbidden();
     const { id } = await params;
 
@@ -54,7 +54,10 @@ export async function POST(
     const password = parsed.data.newPassword ?? generateTempPassword();
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const updateFields: Record<string, unknown> = { passwordHash };
+    const updateFields: Record<string, unknown> = {
+      passwordHash,
+      passwordChangedAt: new Date(),
+    };
     if (parsed.data.forcePasswordChange) {
       updateFields.forcePasswordChange = true;
     }
@@ -62,7 +65,7 @@ export async function POST(
     const [updated] = await db
       .update(users)
       .set(updateFields)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .returning({ id: users.id });
 
     if (!updated) {
