@@ -45,6 +45,8 @@ npm run dev         # http://localhost:3000
 
 Create your first admin at `/signup` using the bootstrap token printed during setup.
 
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key), see the [Troubleshooting Setup](https://github.com/alfredo1996/neoboard/blob/main/docs/src/content/docs/getting-started/troubleshooting.mdx) guide.
+
 ### Demo showcases
 
 Want pre-loaded dashboards that demo every chart type, every click-action, every transform, and rule-based styling? Use the `neoboard demo` CLI:

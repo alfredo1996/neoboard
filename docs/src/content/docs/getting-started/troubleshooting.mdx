@@ -1,0 +1,175 @@
+---
+title: Troubleshooting Setup
+description: Common errors during first-time setup and how to recover.
+---
+
+Most first-run problems fall into one of five buckets. If you can match your symptom to a heading below, the fix is one or two commands. If nothing matches, jump to [Still stuck?](#still-stuck).
+
+When something breaks, **always run these two commands first** — they answer most of the "what's actually happening?" questions:
+
+```bash
+neoboard status      # shows mode, containers, DB health, migration state
+neoboard logs --tail 100   # last 100 log lines from every service
+```
+
+---
+
+## `npm install` fails
+
+NeoBoard is an npm workspace with four packages (`app`, `component`, `connection`, `cli`). Dependency installation can fail in two ways.
+
+### Symptom: `ERESOLVE` peer-dependency conflict
+
+The workspace pins specific React / Drizzle versions. If a previous `node_modules` was left over from a different branch, peer resolution can break.
+
+```bash
+rm -rf node_modules */node_modules
+npm install
+```
+
+### Symptom: `Node version not supported`
+
+NeoBoard requires Node 20 or newer (`engines.node` in `package.json`). Check your version and use `.nvmrc`:
+
+```bash
+node -v               # must print v20.x or v22.x
+nvm use               # picks up .nvmrc
+npm install
+```
+
+---
+
+## Docker Compose port conflict
+
+If another process is already on port 3000, 5432, 7474, or 7687, `docker compose up` fails with `bind: address already in use`.
+
+### Find the offending process
+
+```bash
+lsof -i :3000   # repeat for 5432, 7474, 7687
+```
+
+### Either kill it or change NeoBoard's port
+
+Edit `neoboard.config.json` and re-run `neoboard setup`:
+
+```json
+{
+  "ports": {
+    "app": 3001,
+    "postgres": 5433,
+    "neo4j_http": 7475,
+    "neo4j_bolt": 7688
+  }
+}
+```
+
+The CLI rewrites `.env.local` and `docker-compose.yml` to match.
+
+---
+
+## Database connection refused / timeout
+
+You see `ECONNREFUSED 127.0.0.1:5432` or `getaddrinfo ENOTFOUND` from migrations or the app.
+
+### Postgres or Neo4j isn't ready yet
+
+Neo4j in particular takes 10–20 seconds to boot. Wait, then retry:
+
+```bash
+docker compose ps          # is the container "running"?
+neoboard status            # waits for "PostgreSQL healthy" + "Neo4j healthy"
+```
+
+### Container is running but `pg_isready` reports false
+
+Health is checked from inside the host, not the container. If your `DATABASE_URL` points at a non-default host (Docker network, remote DB), update `.env.local`:
+
+```dotenv
+DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
+```
+
+### Auth failed (`password authentication failed for user "neoboard"`)
+
+The credentials in `.env.local` don't match `neoboard.config.json`. Re-sync with:
+
+```bash
+neoboard env --regenerate
+```
+
+---
+
+## Migration failures
+
+`neoboard db migrate` classifies failures into four buckets and prints a hint for each. The buckets are:
+
+| Bucket | Typical stderr | First thing to check |
+| --- | --- | --- |
+| **connection** | `ECONNREFUSED`, `password authentication failed`, `getaddrinfo` | See [DB connection refused](#database-connection-refused--timeout) above |
+| **lock** | `could not obtain advisory lock`, `deadlock detected` | Is another `db migrate` running? Wait for it. If nothing else is running, restart postgres to drop a stale lock. |
+| **schema** | `already exists`, `does not exist`, `violates`, `syntax error` | Manual schema changes have caused drift. NeoBoard migrations are **forward-only**. |
+| **unknown** | anything else | Raw stderr is always printed — paste it in an issue. |
+
+### Pre-launch recovery: nuke and reseed
+
+NeoBoard is pre-launch — if you don't yet have production data, you can collapse migration history and start fresh:
+
+```bash
+neoboard db reset       # drops all tables in postgres + Neo4j
+neoboard db migrate     # re-applies every migration
+neoboard demo --seed    # optional: reload the sample dataset
+```
+
+### Production recovery
+
+Once you ship: never run `db reset`. Revert the manual schema change, or write a **new** migration that reconciles the drift. Drizzle migrations append to a journal — editing or deleting an old migration breaks every other deployment.
+
+---
+
+## `ENCRYPTION_KEY` mistakes
+
+NeoBoard encrypts stored database credentials using `ENCRYPTION_KEY`. **If you lose this key, every saved connection's credentials become unrecoverable** — there is no master backdoor.
+
+### Symptom: app starts but every connection test fails with "decryption failed"
+
+You changed `ENCRYPTION_KEY` without using the rotation flow. Either:
+
+- Restore the original key from your secrets manager, or
+- If you can't recover it: clear `connections.credentials_encrypted` in the database and re-enter each connection's credentials manually.
+
+### Symptom: no `ENCRYPTION_KEY` set in production
+
+The app refuses to start. Generate one and store it in your secrets manager **before** creating any connections:
+
+```bash
+openssl rand -base64 32
+```
+
+For rotation procedure (intentional key change without data loss), see the [Credential Encryption](/getting-started/configuration#credential-encryption) section in Configuration.
+
+---
+
+## First debugging steps (always)
+
+If your symptom doesn't match anything above:
+
+1. **`neoboard status`** — what's the CLI's view of mode, containers, DB health, migrations?
+2. **`neoboard logs --tail 200`** — what did the failing service print? Grep for `error`.
+3. **`neoboard logs --service postgres --tail 100`** — narrow to one service.
+4. **`docker compose ps`** — does the container's `State` match the CLI's view?
+5. **`docker compose exec postgres pg_isready`** — does postgres answer from inside its own container?
+
+If postgres answers from inside but not from the host, the host port mapping is wrong — check `docker-compose.yml` against `neoboard.config.json:ports`.
+
+---
+
+## Still stuck?
+
+Open an issue at [github.com/alfredo1996/neoboard/issues](https://github.com/alfredo1996/neoboard/issues) and include:
+
+- `neoboard status` output
+- The last 50 lines from `neoboard logs`
+- Your OS, Node version (`node -v`), and Docker version (`docker -v`)
+- The exact command that failed and its full stderr
+
+Redact any real database credentials before pasting.
