@@ -135,6 +135,68 @@ describe("handleRouteError", () => {
     expect(res.headers.get("Retry-After")).toBe("5");
   });
 
+  describe("transient driver/connector errors", () => {
+    it("returns 408 with Retry-After for ETIMEDOUT driver errors", async () => {
+      const res = handleRouteError(
+        new Error("connect ETIMEDOUT 10.0.0.1:5432"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(408);
+      const body = await res.json();
+      expect(body.error.code).toBe("REQUEST_TIMEOUT");
+      expect(res.headers.get("Retry-After")).toBe("3");
+    });
+
+    it("returns 408 for statement_timeout (pg) errors", async () => {
+      const res = handleRouteError(
+        new Error("canceling statement due to statement timeout"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(408);
+      expect(res.headers.get("Retry-After")).toBe("3");
+    });
+
+    it("preserves the original message on transient 408 so the UI can show it", async () => {
+      const res = handleRouteError(
+        new Error("Connection terminated unexpectedly"),
+        "Query execution failed",
+      );
+      const body = await res.json();
+      expect(body.error.message).toBe("Connection terminated unexpectedly");
+    });
+
+    it("does NOT set Retry-After for permanent failures (syntax error)", async () => {
+      const res = handleRouteError(
+        new Error('syntax error at or near "FROM"'),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Retry-After")).toBeNull();
+    });
+
+    it("does NOT set Retry-After for ECONNREFUSED (service down)", async () => {
+      const res = handleRouteError(
+        new Error("connect ECONNREFUSED 127.0.0.1:5432"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Retry-After")).toBeNull();
+    });
+
+    it("safeMessage still hides the raw message on transient 408", async () => {
+      const res = handleRouteError(
+        new Error("ETIMEDOUT internal db host db-prod-1.internal"),
+        "Write query failed",
+        { safeMessage: true },
+      );
+      expect(res.status).toBe(408);
+      expect(res.headers.get("Retry-After")).toBe("3");
+      const body = await res.json();
+      expect(body.error.message).toBe("Write query failed");
+      expect(body.error.message).not.toMatch(/db-prod-1/);
+    });
+  });
+
   describe("safeMessage option", () => {
     it("collapses raw driver errors to fallback when safeMessage=true", async () => {
       const res = handleRouteError(
