@@ -1,31 +1,63 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { TextInputParameter } from "@neoboard/components";
+
+export interface DebouncedTextInputHandle {
+  /** Flush any pending debounced value immediately. */
+  flush: () => void;
+}
 
 /**
  * Thin wrapper around TextInputParameter that debounces the onChange callback
  * by 200 ms so that rapid keystrokes don't flood the parameter store.
+ *
+ * Exposes a `flush()` imperative handle so the parent form can flush
+ * pending edits before reading values on submit.
  */
-export function DebouncedTextInput({
-  parameterName,
-  value,
-  onChange,
-  placeholder,
-  className,
-}: {
-  parameterName: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  className?: string;
-}) {
+export const DebouncedTextInput = forwardRef<
+  DebouncedTextInputHandle,
+  {
+    parameterName: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    className?: string;
+  }
+>(function DebouncedTextInput(
+  { parameterName, value, onChange, placeholder, className },
+  ref,
+) {
   const [draft, setDraft] = useState(value);
   const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   // Track the previous value prop to detect external (non-user) changes.
   const prevValueRef = useRef(value);
+
+  useImperativeHandle(ref, () => ({
+    flush() {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = undefined;
+      }
+      if (draftRef.current !== value) {
+        onChangeRef.current(draftRef.current);
+      }
+    },
+  }));
 
   // Sync draft when the external (store) value changes (e.g. form reset).
   useEffect(() => {
@@ -60,4 +92,4 @@ export function DebouncedTextInput({
       className={className}
     />
   );
-}
+});
