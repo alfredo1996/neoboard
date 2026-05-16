@@ -733,6 +733,13 @@ test.describe("Widget Lab", () => {
   // ── Widget Lab consumption: duplicate, filter, search ───────────────
 
   test.describe("Widget Lab consumption", () => {
+    // Tests in this block share the same template names ("Neo4j Bar Template",
+    // "PostgreSQL Table Template") in their beforeEach. With fullyParallel and
+    // 2 CI workers, two tests' beforeEach can race → two templates with the
+    // same name → strict-mode locator violation. Force serial execution so
+    // each test's beforeEach/afterEach owns the templates exclusively.
+    test.describe.configure({ mode: "serial" });
+
     let templateIds: string[] = [];
 
     test.beforeEach(async ({ page }) => {
