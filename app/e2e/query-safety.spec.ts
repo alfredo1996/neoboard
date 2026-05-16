@@ -102,7 +102,11 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     // The driver/route must fail fast, not hang the full 3s. Allow some
     // overhead for round-trip + error handling — 5s is a generous ceiling.
     expect(elapsed).toBeLessThan(5_000);
-    expect(res.status()).toBe(500);
+    // Driver-level statement timeout is classified as transient by the
+    // route handler, which returns 408 + Retry-After so clients can back
+    // off. See app/src/lib/query/transient-error-classifier.ts.
+    expect(res.status()).toBe(408);
+    expect(res.headers()["retry-after"]).toBe("3");
 
     const body = await res.json();
     expect(body.error?.message).toBeTruthy();
@@ -143,7 +147,10 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     // Cypher's cancel cycle plus APOC plugin overhead is slower than PG —
     // allow up to 10s for the driver to abort and the route to respond.
     expect(elapsed).toBeLessThan(10_000);
-    expect(res.status()).toBe(500);
+    // Neo4j transaction timeout is classified as transient and returns
+    // 408 + Retry-After (same path as PG statement timeout above).
+    expect(res.status()).toBe(408);
+    expect(res.headers()["retry-after"]).toBe("3");
 
     const body = await res.json();
     expect(body.error?.message).toBeTruthy();
