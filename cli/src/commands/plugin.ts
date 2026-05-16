@@ -14,6 +14,10 @@ import {
   removeFromManifest,
 } from "../lib/manifest.js";
 import { validatePluginExport } from "../lib/plugin-validator.js";
+import {
+  hintForValidatorError,
+  hintForMissingExport,
+} from "../lib/plugin-validator-hints.js";
 
 const PLUGINS_MANIFEST = "neoboard-plugins.json";
 const CONNECTORS_MANIFEST = "neoboard-connectors.json";
@@ -44,8 +48,9 @@ export async function runPluginAdd(
 
   // 2. Try to load and validate the export
   let exported: unknown;
+  let mod: Record<string, unknown> = {};
   try {
-    const mod = await import(packageName);
+    mod = (await import(packageName)) as Record<string, unknown>;
     exported =
       exportName === "default" ? (mod.default ?? mod) : mod[exportName];
   } catch (err) {
@@ -62,6 +67,8 @@ export async function runPluginAdd(
         (exportName === "default" ? "default" : '"' + exportName + '"') +
         " export.",
     );
+    const exportHint = hintForMissingExport(exportName, Object.keys(mod));
+    if (exportHint) info("  " + exportHint);
     rollback(packageName, root);
     return;
   }
@@ -71,6 +78,8 @@ export async function runPluginAdd(
     logError('Package "' + packageName + '" is not a valid NeoBoard plugin:');
     for (const e of validation.errors) {
       logError("  - " + e);
+      const hint = hintForValidatorError(e);
+      if (hint) info("    → " + hint);
     }
     rollback(packageName, root);
     return;
