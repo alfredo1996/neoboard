@@ -13,10 +13,7 @@ import {
   addToManifest,
   removeFromManifest,
 } from "../lib/manifest.js";
-import {
-  validatePluginExport,
-  detectPluginType,
-} from "../lib/plugin-validator.js";
+import { validatePluginExport } from "../lib/plugin-validator.js";
 
 const PLUGINS_MANIFEST = "neoboard-plugins.json";
 const CONNECTORS_MANIFEST = "neoboard-connectors.json";

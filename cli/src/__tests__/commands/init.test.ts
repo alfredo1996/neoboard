@@ -43,14 +43,13 @@ vi.mock("../../commands/env.js", () => ({
   generateEnvFile: vi.fn(),
 }));
 
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { run } from "../../lib/exec.js";
 import { writeProjectConfig, writeLocalConfig } from "../../lib/config.js";
 import { generateEnvFile } from "../../commands/env.js";
 import { runInit } from "../../commands/init.js";
 
 const mockExistsSync = vi.mocked(existsSync);
-const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockRun = vi.mocked(run);
 const mockWriteProjectConfig = vi.mocked(writeProjectConfig);
 const mockWriteLocalConfig = vi.mocked(writeLocalConfig);

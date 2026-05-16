@@ -1,4 +1,4 @@
-import { execSync, execFileSync, spawn as nodeSpawn } from "node:child_process";
+import { execSync, spawn as nodeSpawn } from "node:child_process";
 import type { SpawnOptions, ChildProcess } from "node:child_process";
 
 export class ExecError extends Error {
