@@ -1,6 +1,6 @@
 {
-  "id": "7b9937b8-824a-4bcd-83ff-97c399ff8096",
-  "prevId": "f3e72f09-0731-4ceb-95f6-ce27e251c2d6",
+  "id": "f3590c20-fe02-4b05-b036-0baf5b882309",
+  "prevId": "d5bdb422-ab74-449d-8e95-0342205ac8f3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -476,6 +476,126 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.sso_provider": {
+      "name": "sso_provider",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "sso_protocol",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'oidc'"
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_secret_encrypted": {
+          "name": "client_secret_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'openid profile email'"
+        },
+        "claim_mappings": {
+          "name": "claim_mappings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "auto_provision": {
+          "name": "auto_provision",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "default_role": {
+          "name": "default_role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'creator'"
+        },
+        "enforce_sso": {
+          "name": "enforce_sso",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sso_provider_tenant_issuer_unique": {
+          "name": "sso_provider_tenant_issuer_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "issuer"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.user": {
       "name": "user",
       "schema": "",
@@ -537,6 +657,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "passwordChangedAt": {
+          "name": "passwordChangedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "disabledAt": {
           "name": "disabledAt",
@@ -739,6 +865,11 @@
       "name": "share_role",
       "schema": "public",
       "values": ["viewer", "editor"]
+    },
+    "public.sso_protocol": {
+      "name": "sso_protocol",
+      "schema": "public",
+      "values": ["oidc"]
     },
     "public.user_role": {
       "name": "user_role",
