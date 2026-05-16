@@ -210,7 +210,11 @@ export function useTestInlineConnection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      return unwrapResponse<{ success: boolean; error?: string }>(res);
+      return unwrapResponse<{
+        success: boolean;
+        error?: string;
+        code?: "auth_failed" | "network" | "bad_uri" | "unknown";
+      }>(res);
     },
   });
 }
