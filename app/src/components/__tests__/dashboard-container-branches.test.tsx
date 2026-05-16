@@ -394,7 +394,11 @@ describe("DashboardContainer — buildActions", () => {
   it("returns no actions when none apply (non-data widget, no callbacks, not editable)", () => {
     mockIsDataWidget.mockReturnValue(false);
     renderWithProviders(
-      <DashboardContainer page={makePage()} editable={false} />,
+      <DashboardContainer
+        // Use a non-ECharts widget so the Export SVG action isn't added.
+        page={makePage([makeWidget({ chartType: "markdown" })])}
+        editable={false}
+      />,
     );
     const props = widgetCardProps[0];
     expect(props.actions).toBeUndefined();
