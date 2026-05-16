@@ -59,6 +59,7 @@ import {
   showMigrationStatus,
   showDryRun,
   runDbMigrate,
+  redactSensitiveDetails,
 } from "../../../commands/db/migrate.js";
 
 const mockRun = vi.mocked(run);
@@ -211,7 +212,8 @@ describe("runDbMigrate", () => {
     }
 
     it("classifies ECONNREFUSED as a connection error with actionable hint", async () => {
-      failWith("Error: connect ECONNREFUSED 127.0.0.1:5432");
+      const stderr = "Error: connect ECONNREFUSED 127.0.0.1:5432";
+      failWith(stderr);
 
       await runDbMigrate({});
 
@@ -225,11 +227,14 @@ describe("runDbMigrate", () => {
       expect(hintMsgs.toLowerCase()).toContain("connection");
       expect(hintMsgs).toContain("DATABASE_URL");
       expect(hintMsgs).toMatch(/docker compose|docker-compose/i);
+      expect(hintMsgs).toContain(stderr);
       expect(process.exitCode).toBe(1);
     });
 
     it("classifies password-authentication failures as connection errors", async () => {
-      failWith('error: password authentication failed for user "neoboard"');
+      const stderr =
+        'error: password authentication failed for user "neoboard"';
+      failWith(stderr);
 
       await runDbMigrate({});
 
@@ -238,13 +243,14 @@ describe("runDbMigrate", () => {
         .mock.calls.map((c) => c[0] as string)
         .join("\n");
       expect(hintMsgs.toLowerCase()).toContain("connection");
+      expect(hintMsgs).toContain(stderr);
       expect(process.exitCode).toBe(1);
     });
 
     it("classifies advisory-lock contention with a wait-or-investigate hint", async () => {
-      failWith(
-        "error: could not obtain advisory lock for migration; another process holds it",
-      );
+      const stderr =
+        "error: could not obtain advisory lock for migration; another process holds it";
+      failWith(stderr);
 
       await runDbMigrate({});
 
@@ -254,11 +260,13 @@ describe("runDbMigrate", () => {
         .join("\n");
       expect(hintMsgs.toLowerCase()).toContain("lock");
       expect(hintMsgs.toLowerCase()).toMatch(/another|process|wait/);
+      expect(hintMsgs).toContain(stderr);
       expect(process.exitCode).toBe(1);
     });
 
     it("classifies schema conflicts (already exists / does not exist / constraint) with rollback guidance", async () => {
-      failWith('error: relation "users" already exists');
+      const stderr = 'error: relation "users" already exists';
+      failWith(stderr);
 
       await runDbMigrate({});
 
@@ -269,7 +277,28 @@ describe("runDbMigrate", () => {
       expect(hintMsgs.toLowerCase()).toContain("schema");
       // Mention the forward-only migration policy / db reset path
       expect(hintMsgs.toLowerCase()).toMatch(/migration|reset|drift/);
+      expect(hintMsgs).toContain(stderr);
       expect(process.exitCode).toBe(1);
+    });
+
+    it("redacts credentials in surfaced stderr (DSN passwords + password= params)", async () => {
+      failWith(
+        "Error: connect ECONNREFUSED postgresql://neoboard:s3cret-pw@db.internal:5432/neoboard?password=alsosecret",
+      );
+
+      await runDbMigrate({});
+
+      const hintMsgs = vi
+        .mocked(logError)
+        .mock.calls.map((c) => c[0] as string)
+        .join("\n");
+      expect(hintMsgs).not.toContain("s3cret-pw");
+      expect(hintMsgs).not.toContain("alsosecret");
+      expect(hintMsgs).toContain("***");
+      // Non-secret context still preserved
+      expect(hintMsgs).toContain("ECONNREFUSED");
+      expect(hintMsgs).toContain("db.internal");
+      expect(hintMsgs).toContain("neoboard");
     });
 
     it("falls back to a generic message for unrecognized failures, still emitting stderr", async () => {
@@ -294,5 +323,26 @@ describe("runDbMigrate", () => {
       expect(spinnerInstance.succeed).not.toHaveBeenCalled();
       expect(spinnerInstance.fail).toHaveBeenCalled();
     });
+  });
+});
+
+describe("redactSensitiveDetails", () => {
+  it("masks the password in a postgres DSN", () => {
+    expect(
+      redactSensitiveDetails(
+        "connect to postgresql://neoboard:s3cret@db.host:5432/neoboard failed",
+      ),
+    ).toBe("connect to postgresql://neoboard:***@db.host:5432/neoboard failed");
+  });
+
+  it("masks password= and access_token= query parameters", () => {
+    expect(
+      redactSensitiveDetails("...password=hunter2 access_token=abc.def"),
+    ).toBe("...password=*** access_token=***");
+  });
+
+  it("leaves text with no secrets unchanged", () => {
+    const safe = "ECONNREFUSED on 127.0.0.1:5432";
+    expect(redactSensitiveDetails(safe)).toBe(safe);
   });
 });

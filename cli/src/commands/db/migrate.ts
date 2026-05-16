@@ -173,13 +173,25 @@ export function classifyMigrateError(stderr: string): MigrateErrorKind {
   return "unknown";
 }
 
+/**
+ * Strip credential-bearing patterns from stderr before surfacing it to the
+ * user (CLI output is commonly pasted into issues / shared logs).
+ * Covers postgres DSNs and `password=...` / `access_token=...` query patterns.
+ */
+export function redactSensitiveDetails(text: string): string {
+  return text
+    .replace(/(postgres(?:ql)?:\/\/[^:\s]+:)([^@\s]+)(@)/gi, "$1***$3")
+    .replace(/(\b(?:password|access_token)\s*=\s*)(\S+)/gi, "$1***");
+}
+
+function extractStderr(err: unknown): string {
+  if (err instanceof ExecError) return err.stderr;
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 function reportMigrateFailure(err: unknown): void {
-  const stderr =
-    err instanceof ExecError
-      ? err.stderr
-      : err instanceof Error
-        ? err.message
-        : String(err);
+  const stderr = extractStderr(err);
   const kind = classifyMigrateError(stderr);
 
   switch (kind) {
@@ -227,6 +239,6 @@ function reportMigrateFailure(err: unknown): void {
   if (stderr.trim()) {
     logError("");
     logError("Underlying error:");
-    logError(stderr.trim());
+    logError(redactSensitiveDetails(stderr.trim()));
   }
 }
