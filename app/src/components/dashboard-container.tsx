@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import {
@@ -109,14 +109,40 @@ export function DashboardContainer({
   // settles.  Without this, NVL reads the canvas dimensions mid-animation
   // (at ~95% of final size) and the hit-test coordinates are permanently offset.
   const [fullscreenReady, setFullscreenReady] = useState(false);
+  // Track the deferred-ready timer so we can clear it on unmount or when the
+  // dialog is closed before the animation settles. Without this, the timer
+  // can fire after the component unmounts and call setState on a torn-down
+  // tree (jsdom: "window is not defined"; browser: React unmounted-update
+  // warning).
+  const fullscreenReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const openFullscreen = useCallback((w: DashboardWidget) => {
     setFullscreenReady(false);
     setFullscreenWidget(w);
-    setTimeout(() => setFullscreenReady(true), 250);
+    if (fullscreenReadyTimerRef.current !== null) {
+      clearTimeout(fullscreenReadyTimerRef.current);
+    }
+    fullscreenReadyTimerRef.current = setTimeout(() => {
+      fullscreenReadyTimerRef.current = null;
+      setFullscreenReady(true);
+    }, 250);
   }, []);
   const closeFullscreen = useCallback(() => {
+    if (fullscreenReadyTimerRef.current !== null) {
+      clearTimeout(fullscreenReadyTimerRef.current);
+      fullscreenReadyTimerRef.current = null;
+    }
     setFullscreenWidget(null);
     setFullscreenReady(false);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (fullscreenReadyTimerRef.current !== null) {
+        clearTimeout(fullscreenReadyTimerRef.current);
+        fullscreenReadyTimerRef.current = null;
+      }
+    };
   }, []);
   const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
