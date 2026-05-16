@@ -307,12 +307,21 @@ export function DashboardContainer({
                       ? () => {
                           // Invalidate all TanStack Query entries matching this widget's
                           // connection + query combo. This triggers a refetch.
+                          //
+                          // We deliberately stop the prefix at `query`. The hook's
+                          // actual cache key is 5 elements:
+                          //   ["widget-query", connectionId, query, mergedParams, staleTime]
+                          // `mergedParams` is computed at hook call time (raw
+                          // `widget.params` merged with dashboard parameter values)
+                          // and `staleTime` is supplied at the call site, so neither
+                          // is reproducible from `widget` alone. Including either in
+                          // the invalidation key would break prefix matching and
+                          // silently no-op the refresh (issue #779).
                           void queryClient.invalidateQueries({
                             queryKey: [
                               "widget-query",
                               widget.connectionId,
                               widget.query,
-                              widget.params,
                             ],
                           });
                         }
