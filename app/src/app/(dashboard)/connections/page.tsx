@@ -40,6 +40,7 @@ import {
   type ConnectorType,
   CONNECTOR_LABELS,
 } from "@/lib/connector/connector-types";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 import {
   parseOptionalInt,
   mapConfigToEditForm,
@@ -76,6 +77,7 @@ export default function ConnectionsPage() {
   const [inlineTestResult, setInlineTestResult] = useState<{
     success: boolean;
     error?: string;
+    code?: "auth_failed" | "network" | "bad_uri" | "unknown";
   } | null>(null);
 
   // Dialog state
@@ -662,9 +664,23 @@ export default function ConnectionsPage() {
                   variant={inlineTestResult.success ? "default" : "destructive"}
                 >
                   <AlertDescription>
-                    {inlineTestResult.success
-                      ? "Connection successful!"
-                      : inlineTestResult.error || "Connection failed"}
+                    {inlineTestResult.success ? (
+                      "Connection successful!"
+                    ) : (
+                      <>
+                        <div>
+                          {inlineTestResult.error || "Connection failed"}
+                        </div>
+                        {inlineTestResult.code &&
+                          inlineTestResult.code !== "unknown" && (
+                            <div className="mt-1 text-sm opacity-90">
+                              {hintForConnectionErrorCode(
+                                inlineTestResult.code,
+                              )}
+                            </div>
+                          )}
+                      </>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
