@@ -14,7 +14,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 - [ ] `NEXTAUTH_SECRET` generated (minimum 32 characters)
 - [ ] `NEXTAUTH_URL` set to the public URL (e.g., `https://neoboard.example.com`)
 - [ ] `API_KEY_HMAC_SECRET` generated (if using API keys)
-- [ ] `REGISTRATION_ENABLED` set to `false` (unless self-registration is desired)
+- [ ] `REGISTRATION_ENABLED` left unset or `false` (closed by default since v1.0 — set to `true` only if open signup is desired)
 - [ ] `FORCE_HTTPS` set to `true` (default in production)
 
 ### Infrastructure

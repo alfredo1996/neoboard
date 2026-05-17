@@ -229,6 +229,8 @@ export default async function globalSetup() {
     `NEXTAUTH_SECRET=${TEST_NEXTAUTH_SECRET}`,
     `NEXTAUTH_URL=http://localhost:${serverPort}`,
     `TEST_SERVER_PORT=${serverPort}`,
+    // E2E exercises /signup flows; v1.0 default is closed.
+    `REGISTRATION_ENABLED=true`,
     `# Test container ports (for reference in tests)`,
     `TEST_NEO4J_BOLT_URL=bolt://localhost:${neo4jBoltPort}`,
     `TEST_NEO4J_HTTP_PORT=${neo4jHttpPort}`,
@@ -262,6 +264,7 @@ export default async function globalSetup() {
     API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
     NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
     NEXTAUTH_URL: `http://localhost:${serverPort}`,
+    REGISTRATION_ENABLED: "true",
   };
 
   // Build once — skip if a previous build exists and E2E_SKIP_BUILD is set,
