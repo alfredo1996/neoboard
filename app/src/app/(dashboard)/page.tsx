@@ -599,7 +599,19 @@ export default function DashboardListPage() {
               <EmptyState
                 icon={<LayoutDashboard className="h-12 w-12" />}
                 title="No dashboards yet"
-                description="No dashboards have been assigned to you yet."
+                description="No dashboards have been shared with you yet. Ask an admin or editor to share one, or read the docs to learn what NeoBoard can do."
+                action={
+                  <Button variant="outline" asChild>
+                    <a
+                      href="https://neoboard.app/docs/getting-started/quick-start/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <BookOpen className="mr-2 h-4 w-4" />
+                      Read the docs
+                    </a>
+                  </Button>
+                }
               />
             )
           ) : (
