@@ -66,6 +66,74 @@ Edit `neoboard.config.json` and re-run `neoboard setup`:
 
 The CLI rewrites `.env.local` and `docker-compose.yml` to match.
 
+### Docker on Apple Silicon (M1/M2/M3)
+
+Some Neo4j and PostgreSQL tags are amd64-only and run under emulation on Apple Silicon, which is **slow** and occasionally triggers `exec format error` or container restart loops.
+
+```bash
+docker compose ps                 # check Status column for "(unhealthy)" or restarts
+docker inspect <container> | grep -i architecture
+```
+
+If you see emulation warnings or instability, pin a multi-arch tag or force the platform in `docker/docker-compose.full.yml`:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16        # 16+ tags are multi-arch
+    platform: linux/arm64     # explicit, optional
+  neo4j:
+    image: neo4j:5.20         # 5.x tags are multi-arch
+```
+
+Then rebuild with the same compose file you edited:
+
+```bash
+docker compose -f docker/docker-compose.full.yml down
+docker compose -f docker/docker-compose.full.yml up -d
+```
+
+---
+
+## Login redirects to the wrong URL / OAuth callback mismatch
+
+You can log in locally but hitting the deployed URL throws `redirect_uri_mismatch`, or sign-in succeeds and then bounces you back to `localhost:3000` from production.
+
+### Cause: `NEXTAUTH_URL` doesn't match the externally visible URL
+
+Auth.js builds OAuth callback URLs from `NEXTAUTH_URL`. It must be the URL **users actually hit in their browser**, not the container hostname, not the internal Docker network address.
+
+```dotenv
+# WRONG — container's internal name
+NEXTAUTH_URL=http://neoboard:3000
+
+# WRONG — has no trailing slash but proxy adds one (or vice versa)
+NEXTAUTH_URL=https://dash.example.com/
+
+# RIGHT — public URL, no trailing slash, correct scheme
+NEXTAUTH_URL=https://dash.example.com
+```
+
+### Behind a reverse proxy (nginx, Caddy, Traefik)
+
+If TLS terminates at the proxy and the app sees plain HTTP, Auth.js generates `http://` callback URLs that the OIDC provider rejects. Two things to check:
+
+1. `NEXTAUTH_URL=https://...` (the **public** scheme, not the internal one)
+2. The proxy forwards `X-Forwarded-Proto: https` and `X-Forwarded-Host: <public-host>`
+
+Example nginx fragment:
+
+```nginx
+location / {
+  proxy_pass http://neoboard:3000;
+  proxy_set_header Host              $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Forwarded-Host  $host;
+}
+```
+
+Restart the app after changing `NEXTAUTH_URL` — it's read at startup.
+
 ---
 
 ## Database connection refused / timeout
@@ -135,14 +203,49 @@ NeoBoard encrypts stored database credentials using `ENCRYPTION_KEY`. **If you l
 You changed `ENCRYPTION_KEY` without using the rotation flow. Either:
 
 - Restore the original key from your secrets manager, or
-- If you can't recover it: clear `connections.credentials_encrypted` in the database and re-enter each connection's credentials manually.
+- Use the recovery runbook below to purge unrecoverable credentials.
+
+### Production recovery runbook: I lost `ENCRYPTION_KEY`
+
+If the original key is gone and you have no backup, the stored credentials are mathematically unrecoverable — but the app, dashboards, users, and connection *metadata* (name, type, host) all survive. Recovery means clearing only the encrypted fields and asking each connection owner to re-enter their password.
+
+1. **Set a new key.** Generate and store it in your secrets manager:
+
+   ```bash
+   openssl rand -hex 32          # 64-char hex, what ENCRYPTION_KEY expects
+   ```
+
+2. **Stop the app** so no new writes happen mid-recovery:
+
+   ```bash
+   docker compose stop neoboard
+   ```
+
+3. **Back up the connections table** before clearing — you want the names and URIs preserved in case something goes wrong:
+
+   ```bash
+   docker compose exec postgres pg_dump -U neoboard -d neoboard \
+     -t connections > connections.backup.sql
+   ```
+
+4. **Null out the encrypted fields.** Connection records remain, but credentials are gone:
+
+   ```sql
+   UPDATE connections
+   SET credentials_encrypted = NULL,
+       updated_at = NOW();
+   ```
+
+5. **Restart with the new key** and notify connection owners to re-enter credentials via Settings → Connections → Edit. Each connection will show as "needs credentials" in the test panel.
+
+This procedure preserves every dashboard, widget, user, role, and audit log — only the encrypted blob is purged.
 
 ### Symptom: no `ENCRYPTION_KEY` set in production
 
-The app refuses to start. Generate one and store it in your secrets manager **before** creating any connections:
+The app refuses to start. `ENCRYPTION_KEY` must be a 64-character hex string (32 bytes) — base64 will be rejected by env validation. Generate one and store it in your secrets manager **before** creating any connections:
 
 ```bash
-openssl rand -base64 32
+openssl rand -hex 32
 ```
 
 For rotation procedure (intentional key change without data loss), see the [Credential Encryption](/getting-started/configuration#credential-encryption) section in Configuration.
