@@ -2,7 +2,7 @@
   "name": "@neoboard/cli",
   "version": "1.0.0",
   "description": "Install, run, and manage NeoBoard — open-source dashboards for Neo4j + PostgreSQL.",
-  "license": "Elastic-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=20.0.0"
   },

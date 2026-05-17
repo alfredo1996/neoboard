@@ -176,4 +176,5 @@ The polish cycle on top of `2.0.0` ahead of v1.0 going public. Focuses on first-
 - AES-256-GCM credential encryption
 - Multi-tenant architecture with tenant_id isolation
 
+[1.0.0]: https://github.com/alfredo1996/neoboard/releases/tag/v1.0.0
 [2.0.0]: https://github.com/alfredo1996/neoboard/releases/tag/v2.0.0
