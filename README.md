@@ -57,7 +57,7 @@ npm run dev        # http://localhost:3000
 
 Create your first admin at `/signup` using the bootstrap token printed during setup.
 
-If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see the [Troubleshooting Setup](https://github.com/alfredo1996/neoboard/blob/main/docs/src/content/docs/getting-started/troubleshooting.mdx) guide.
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see the [Troubleshooting Setup](https://neoboard.app/docs/getting-started/troubleshooting/) guide.
 
 ### Demo showcases
 

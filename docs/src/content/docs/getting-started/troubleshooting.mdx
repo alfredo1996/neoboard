@@ -86,7 +86,12 @@ services:
     image: neo4j:5.20         # 5.x tags are multi-arch
 ```
 
-Then rebuild: `docker compose down && docker compose up -d`.
+Then rebuild with the same compose file you edited:
+
+```bash
+docker compose -f docker/docker-compose.full.yml down
+docker compose -f docker/docker-compose.full.yml up -d
+```
 
 ---
 
@@ -237,10 +242,10 @@ This procedure preserves every dashboard, widget, user, role, and audit log — 
 
 ### Symptom: no `ENCRYPTION_KEY` set in production
 
-The app refuses to start. Generate one and store it in your secrets manager **before** creating any connections:
+The app refuses to start. `ENCRYPTION_KEY` must be a 64-character hex string (32 bytes) — base64 will be rejected by env validation. Generate one and store it in your secrets manager **before** creating any connections:
 
 ```bash
-openssl rand -base64 32
+openssl rand -hex 32
 ```
 
 For rotation procedure (intentional key change without data loss), see the [Credential Encryption](/getting-started/configuration#credential-encryption) section in Configuration.
