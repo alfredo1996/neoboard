@@ -90,7 +90,12 @@ vi.mock("@neoboard/components", () => ({
 
 vi.mock("lucide-react", () => {
   const Icon = () => <span />;
-  return { Calendar: Icon, Type: Icon, ListFilter: Icon };
+  return {
+    Calendar: Icon,
+    Type: Icon,
+    ListFilter: Icon,
+    SlidersHorizontal: Icon,
+  };
 });
 
 const mockSetParamUIType = vi.fn();
@@ -323,6 +328,59 @@ describe("ParameterConfigSection", () => {
       />,
     );
     expect(screen.getByText(/1 option loaded/)).toBeInTheDocument();
+  });
+
+  it("shows min/max/step inputs for number-range type", () => {
+    mockStoreState.paramUIType = "number-range";
+    mockStoreState.chartOptions = { rangeMin: 0, rangeMax: 50, rangeStep: 5 };
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByTestId("param-number-range-config")).toBeInTheDocument();
+    expect(screen.getByTestId("param-range-min")).toHaveValue(0);
+    expect(screen.getByTestId("param-range-max")).toHaveValue(50);
+    expect(screen.getByTestId("param-range-step")).toHaveValue(5);
+  });
+
+  it("hides number-range config for non-number-range types", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(
+      screen.queryByTestId("param-number-range-config"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides seed query section for number-range type", () => {
+    mockStoreState.paramUIType = "number-range";
+    mockStoreState.chartOptions = {};
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.queryByText("Seed Query")).not.toBeInTheDocument();
+  });
+
+  it("renders all three range inputs (min, max, step) for number-range", () => {
+    mockStoreState.paramUIType = "number-range";
+    mockStoreState.chartOptions = { rangeMin: 0, rangeMax: 100, rangeStep: 1 };
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByTestId("param-range-min")).toBeInTheDocument();
+    expect(screen.getByTestId("param-range-max")).toBeInTheDocument();
+    expect(screen.getByTestId("param-range-step")).toBeInTheDocument();
   });
 
   it("shows date range sub-parameters in reference hint", () => {

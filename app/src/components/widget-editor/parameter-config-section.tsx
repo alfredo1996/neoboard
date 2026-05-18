@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { Calendar, Type, ListFilter } from "lucide-react";
+import { Calendar, Type, ListFilter, SlidersHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   Button,
@@ -18,7 +18,7 @@ import {
 } from "@neoboard/components";
 
 // ── Parameter type mapping helpers ──────────────────────────────────
-export type ParamUIType = "date" | "freetext" | "select";
+export type ParamUIType = "date" | "freetext" | "select" | "number-range";
 export type DateSubType = "single" | "range" | "relative";
 
 export function resolveInternalParamType(
@@ -34,6 +34,7 @@ export function resolveInternalParamType(
         : "date";
   }
   if (ui === "freetext") return "text";
+  if (ui === "number-range") return "number-range";
   return multi ? "multi-select" : "select";
 }
 
@@ -53,6 +54,8 @@ export function reverseParamTypeMapping(t: string): {
       return { uiType: "freetext", dateSub: "single", multi: false };
     case "multi-select":
       return { uiType: "select", dateSub: "single", multi: true };
+    case "number-range":
+      return { uiType: "number-range", dateSub: "single", multi: false };
     default:
       return { uiType: "select", dateSub: "single", multi: false };
   }
@@ -63,6 +66,7 @@ const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> =
     date: { label: "Date Picker", Icon: Calendar },
     freetext: { label: "Freetext", Icon: Type },
     select: { label: "Select", Icon: ListFilter },
+    "number-range": { label: "Number Range", Icon: SlidersHorizontal },
   };
 
 const paramTypes = Object.keys(paramTypeMeta) as ParamUIType[];
@@ -249,6 +253,75 @@ export function ParameterConfigSection({
               {seedPreviewOptions.length !== 1 ? "s" : ""} loaded — see preview
             </p>
           )}
+        </div>
+      )}
+
+      {/* Number range config (only for number-range) */}
+      {paramUIType === "number-range" && (
+        <div className="space-y-1.5" data-testid="param-number-range-config">
+          <Label>Range Settings</Label>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="param-range-min" className="text-xs">
+                Min
+              </Label>
+              <Input
+                id="param-range-min"
+                type="number"
+                value={(chartOptions.rangeMin as number | undefined) ?? 0}
+                onChange={(e) =>
+                  onChartOptionsChange((prev) => ({
+                    ...prev,
+                    rangeMin: Number(e.target.value),
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="param-range-max" className="text-xs">
+                Max
+              </Label>
+              <Input
+                id="param-range-max"
+                type="number"
+                value={(chartOptions.rangeMax as number | undefined) ?? 100}
+                onChange={(e) =>
+                  onChartOptionsChange((prev) => ({
+                    ...prev,
+                    rangeMax: Number(e.target.value),
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="param-range-step" className="text-xs">
+                Step
+              </Label>
+              <Input
+                id="param-range-step"
+                type="number"
+                min={0}
+                value={(chartOptions.rangeStep as number | undefined) ?? 1}
+                onChange={(e) =>
+                  onChartOptionsChange((prev) => ({
+                    ...prev,
+                    rangeStep: Number(e.target.value),
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Dual-handle slider. Companion parameters{" "}
+            <code className="bg-muted px-1 rounded">
+              $param_{paramWidgetName || "name"}_min
+            </code>{" "}
+            and{" "}
+            <code className="bg-muted px-1 rounded">
+              $param_{paramWidgetName || "name"}_max
+            </code>{" "}
+            are also set.
+          </p>
         </div>
       )}
 

@@ -31,6 +31,7 @@ vi.mock("../parameter-config-section", () => ({
             : "date";
       }
       if (ui === "freetext") return "text";
+      if (ui === "number-range") return "number-range";
       return multi ? "multi-select" : "select";
     },
   ),
@@ -209,6 +210,28 @@ describe("useBuildWidgetForSave", () => {
       const { result } = renderHook(() => useBuildWidgetForSave(undefined));
       const widget = result.current();
 
+      expect(widget.connectionId).toBe("");
+    });
+
+    it("preserves rangeMin/rangeMax/rangeStep for number-range type", () => {
+      setStoreState({
+        chartType: "parameter-select",
+        paramUIType: "number-range",
+        paramWidgetName: "rating",
+        chartOptions: { rangeMin: 1, rangeMax: 10, rangeStep: 1 },
+      });
+      const { result } = renderHook(() => useBuildWidgetForSave(undefined));
+      const widget = result.current();
+
+      expect(widget.settings?.chartOptions).toEqual(
+        expect.objectContaining({
+          parameterType: "number-range",
+          parameterName: "rating",
+          rangeMin: 1,
+          rangeMax: 10,
+          rangeStep: 1,
+        }),
+      );
       expect(widget.connectionId).toBe("");
     });
 

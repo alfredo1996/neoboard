@@ -399,6 +399,30 @@ describe("widget-editor-store", () => {
       expect(getState().paramUIType).toBe("date");
       expect(getState().dateSub).toBe("relative");
     });
+
+    it("loads parameter-select with number-range type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "",
+        query: "",
+        settings: {
+          chartOptions: {
+            parameterType: "number-range",
+            parameterName: "rating",
+            rangeMin: 1,
+            rangeMax: 10,
+            rangeStep: 1,
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("number-range");
+      expect(getState().paramWidgetName).toBe("rating");
+      expect(getState().chartOptions.rangeMin).toBe(1);
+      expect(getState().chartOptions.rangeMax).toBe(10);
+      expect(getState().chartOptions.rangeStep).toBe(1);
+    });
   });
 
   describe("loadFromWidget — form widget fields", () => {
