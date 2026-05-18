@@ -79,10 +79,12 @@ test.describe("Table widget — per-column filters (#854)", () => {
     );
     try {
       await page.goto(`/${id}`);
-      // Wait for the data row to confirm the table actually rendered.
-      await expect(page.getByText("Alice")).toBeVisible({ timeout: 10_000 });
-      await expect(page.getByTestId("data-grid-filter-row")).toHaveCount(0);
-      await expect(page.getByLabel("Filter name")).toHaveCount(0);
+      // Scope assertions to the widget card — "Alice" also appears in the
+      // sidebar account menu ("Alice Demo") and "updated by Alice".
+      const widget = page.getByTestId("widget-card");
+      await expect(widget.getByText("Alice")).toBeVisible({ timeout: 10_000 });
+      await expect(widget.getByTestId("data-grid-filter-row")).toHaveCount(0);
+      await expect(widget.getByLabel("Filter name")).toHaveCount(0);
     } finally {
       await cleanup();
     }
@@ -98,20 +100,21 @@ test.describe("Table widget — per-column filters (#854)", () => {
     );
     try {
       await page.goto(`/${id}`);
-      await expect(page.getByText("Alice")).toBeVisible({ timeout: 10_000 });
-      await expect(page.getByText("Bob")).toBeVisible();
-      await expect(page.getByText("Charlie")).toBeVisible();
+      const widget = page.getByTestId("widget-card");
+      await expect(widget.getByText("Alice")).toBeVisible({ timeout: 10_000 });
+      await expect(widget.getByText("Bob")).toBeVisible();
+      await expect(widget.getByText("Charlie")).toBeVisible();
 
       // Filter row + per-column inputs are present.
-      await expect(page.getByTestId("data-grid-filter-row")).toBeVisible();
-      const nameFilter = page.getByLabel("Filter name");
+      await expect(widget.getByTestId("data-grid-filter-row")).toBeVisible();
+      const nameFilter = widget.getByLabel("Filter name");
       await expect(nameFilter).toBeVisible();
 
       await nameFilter.fill("ali");
       // Only Alice survives a case-insensitive contains on "ali".
-      await expect(page.getByText("Alice")).toBeVisible();
-      await expect(page.getByText("Bob")).toHaveCount(0);
-      await expect(page.getByText("Charlie")).toHaveCount(0);
+      await expect(widget.getByText("Alice")).toBeVisible();
+      await expect(widget.getByText("Bob")).toHaveCount(0);
+      await expect(widget.getByText("Charlie")).toHaveCount(0);
     } finally {
       await cleanup();
     }
@@ -125,17 +128,18 @@ test.describe("Table widget — per-column filters (#854)", () => {
     );
     try {
       await page.goto(`/${id}`);
-      await expect(page.getByText("Alice")).toBeVisible({ timeout: 10_000 });
+      const widget = page.getByTestId("widget-card");
+      await expect(widget.getByText("Alice")).toBeVisible({ timeout: 10_000 });
 
-      const cityFilter = page.getByLabel("Filter city");
+      const cityFilter = widget.getByLabel("Filter city");
       await cityFilter.fill("paris");
-      await expect(page.getByText("Bob")).toHaveCount(0);
-      await expect(page.getByText("Charlie")).toHaveCount(0);
+      await expect(widget.getByText("Bob")).toHaveCount(0);
+      await expect(widget.getByText("Charlie")).toHaveCount(0);
 
       await cityFilter.fill("");
-      await expect(page.getByText("Alice")).toBeVisible();
-      await expect(page.getByText("Bob")).toBeVisible();
-      await expect(page.getByText("Charlie")).toBeVisible();
+      await expect(widget.getByText("Alice")).toBeVisible();
+      await expect(widget.getByText("Bob")).toBeVisible();
+      await expect(widget.getByText("Charlie")).toBeVisible();
     } finally {
       await cleanup();
     }
