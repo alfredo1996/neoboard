@@ -293,6 +293,100 @@ describe("FormFieldsEditor", () => {
     expect(remaining[0].id).toBe("f2");
   });
 
+  describe("number-range field editor", () => {
+    it("renders rangeNumberType + min/max/step when parameterType is number-range", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      expect(screen.getByText("Number Type")).toBeInTheDocument();
+      expect(screen.getByText("Min")).toBeInTheDocument();
+      expect(screen.getByText("Max")).toBeInTheDocument();
+      expect(screen.getByText("Step")).toBeInTheDocument();
+    });
+
+    it("switches to float and bumps default step 1 → 0.1", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      // The Number Type select is the only <select> in the number-range section
+      // (Input Type uses the mocked Select that also renders as <select>).
+      const allSelects = screen.getAllByRole("combobox");
+      // last one is Number Type (rendered below Input Type)
+      const numberTypeSelect = allSelects[allSelects.length - 1];
+      fireEvent.change(numberTypeSelect, { target: { value: "float" } });
+      expect(mockSetFormFields).toHaveBeenCalled();
+      const next = mockSetFormFields.mock.calls[0][0] as FormFieldDef[];
+      const updated = next.find((f) => f.id === "f1")!;
+      expect(updated.rangeNumberType).toBe("float");
+      expect(updated.rangeStep).toBe(0.1);
+    });
+
+    it("rounds min/max/step when type is integer", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const minInput = screen.getByDisplayValue("0");
+      fireEvent.change(minInput, { target: { value: "3.7" } });
+      const setCall = mockSetFormFields.mock.calls.at(-1)!;
+      const next = setCall[0] as FormFieldDef[];
+      const updated = next.find((f) => f.id === "f1")!;
+      expect(updated.rangeMin).toBe(4);
+    });
+
+    it("preserves decimals on min when type is float", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Price",
+          parameterName: "price",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "float",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 0.1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const minInput = screen.getByDisplayValue("0");
+      fireEvent.change(minInput, { target: { value: "2.5" } });
+      const setCall = mockSetFormFields.mock.calls.at(-1)!;
+      const next = setCall[0] as FormFieldDef[];
+      const updated = next.find((f) => f.id === "f1")!;
+      expect(updated.rangeMin).toBe(2.5);
+    });
+  });
+
   it("shows param reference hint in field content", () => {
     mockFormFields = [
       {

@@ -22,16 +22,27 @@ vi.mock("@neoboard/components", () => ({
     id,
     value,
     onChange,
+    type,
     ...props
-  }: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input
-      id={id}
-      value={value}
-      onChange={onChange}
-      data-testid={id}
-      {...props}
-    />
-  ),
+  }: React.InputHTMLAttributes<HTMLInputElement>) => {
+    // Use defaultValue + key so React treats the input as uncontrolled.
+    // React's value-tracker swallows fireEvent.change updates when `value`
+    // is set numerically (or as a different "controlled" shape), making
+    // it impossible to assert fractional-coercion logic. Uncontrolled mode
+    // bypasses the tracker — onChange fires with the test's chosen value.
+    const safeType = type === "number" ? "text" : type;
+    return (
+      <input
+        id={id}
+        key={String(value)}
+        defaultValue={value as string | number | readonly string[] | undefined}
+        onChange={onChange}
+        data-testid={id}
+        type={safeType}
+        {...props}
+      />
+    );
+  },
   Select: ({
     children,
     value,
@@ -340,9 +351,9 @@ describe("ParameterConfigSection", () => {
       />,
     );
     expect(screen.getByTestId("param-number-range-config")).toBeInTheDocument();
-    expect(screen.getByTestId("param-range-min")).toHaveValue(0);
-    expect(screen.getByTestId("param-range-max")).toHaveValue(50);
-    expect(screen.getByTestId("param-range-step")).toHaveValue(5);
+    expect(screen.getByTestId("param-range-min")).toHaveValue("0");
+    expect(screen.getByTestId("param-range-max")).toHaveValue("50");
+    expect(screen.getByTestId("param-range-step")).toHaveValue("5");
   });
 
   it("hides number-range config for non-number-range types", () => {
@@ -381,6 +392,159 @@ describe("ParameterConfigSection", () => {
     expect(screen.getByTestId("param-range-min")).toBeInTheDocument();
     expect(screen.getByTestId("param-range-max")).toBeInTheDocument();
     expect(screen.getByTestId("param-range-step")).toBeInTheDocument();
+  });
+
+  // ── rangeNumberType + integer/float coercion ────────────────────
+  describe("number-range integer/float", () => {
+    function setupNumberRange(chartOptions: Record<string, unknown> = {}) {
+      mockStoreState.paramUIType = "number-range";
+      mockStoreState.chartOptions = chartOptions;
+    }
+
+    it("defaults rangeNumberType to integer when unset", () => {
+      setupNumberRange({});
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      // Number Type select is rendered with default "integer"
+      const trigger = screen.getByText("Number Type");
+      expect(trigger).toBeInTheDocument();
+    });
+
+    it("switching to float bumps default step (1) to 0.1", () => {
+      setupNumberRange({ rangeStep: 1 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      // The Number Type select is the 2nd <select> (1st is Parameter Type)
+      const selects = screen.getAllByRole("combobox");
+      const numberTypeSelect = selects[selects.length - 1];
+      fireEvent.change(numberTypeSelect, { target: { value: "float" } });
+      expect(mockSetChartOptions).toHaveBeenCalled();
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeStep: 1 });
+      expect(next.rangeNumberType).toBe("float");
+      expect(next.rangeStep).toBe(0.1);
+    });
+
+    it("switching to integer snaps a fractional step up to >=1 whole", () => {
+      setupNumberRange({ rangeNumberType: "float", rangeStep: 0.25 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      const selects = screen.getAllByRole("combobox");
+      const numberTypeSelect = selects[selects.length - 1];
+      fireEvent.change(numberTypeSelect, { target: { value: "integer" } });
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeNumberType: "float", rangeStep: 0.25 });
+      expect(next.rangeNumberType).toBe("integer");
+      // 0.25 → round → 0 → max(1, 0) → 1
+      expect(next.rangeStep).toBe(1);
+    });
+
+    it("min input rounds when type is integer", () => {
+      setupNumberRange({ rangeNumberType: "integer", rangeMin: 0 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      fireEvent.change(screen.getByTestId("param-range-min"), {
+        target: { value: "2.7" },
+      });
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeNumberType: "integer" });
+      expect(next.rangeMin).toBe(3);
+    });
+
+    it("min input preserves decimals when type is float", () => {
+      setupNumberRange({ rangeNumberType: "float", rangeMin: 0 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      fireEvent.change(screen.getByTestId("param-range-min"), {
+        target: { value: "2.7" },
+      });
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeNumberType: "float" });
+      expect(next.rangeMin).toBe(2.7);
+    });
+
+    it("max input rounds when type is integer", () => {
+      setupNumberRange({ rangeNumberType: "integer", rangeMax: 100 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      fireEvent.change(screen.getByTestId("param-range-max"), {
+        target: { value: "9.4" },
+      });
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeNumberType: "integer" });
+      expect(next.rangeMax).toBe(9);
+    });
+
+    it("step input rounds and floors at 1 when type is integer", () => {
+      setupNumberRange({ rangeNumberType: "integer", rangeStep: 1 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      fireEvent.change(screen.getByTestId("param-range-step"), {
+        target: { value: "0.3" },
+      });
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeNumberType: "integer" });
+      // 0.3 → round → 0 → max(1, 0) → 1
+      expect(next.rangeStep).toBe(1);
+    });
+
+    it("step input preserves decimals when type is float", () => {
+      setupNumberRange({ rangeNumberType: "float", rangeStep: 0.1 });
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      fireEvent.change(screen.getByTestId("param-range-step"), {
+        target: { value: "0.05" },
+      });
+      const updater = mockSetChartOptions.mock.calls[0][0] as (
+        prev: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      const next = updater({ rangeNumberType: "float" });
+      expect(next.rangeStep).toBe(0.05);
+    });
   });
 
   it("shows date range sub-parameters in reference hint", () => {
