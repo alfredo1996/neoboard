@@ -1,0 +1,4148 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-05-17T00:00:00.000Z",
+  "dashboard": {
+    "name": "Chart Reference",
+    "description": "Exhaustive customization reference — one page per chart type. Each tile demonstrates ONE chartOption value so you can see exactly what every setting does."
+  },
+  "connections": {
+    "conn_neo4j": {
+      "name": "Neo4j Movies (demo)",
+      "type": "neo4j"
+    },
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    },
+    "conn_postgres_write": {
+      "name": "PostgreSQL Ecommerce (demo, write)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-bar",
+        "title": "1. Bar",
+        "widgets": [
+          {
+            "id": "page-bar-md-1",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Bar chart — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: orientation, stackMode (normal/stacked/percent), barWidth, barGap, showValues, showLegend, axes labels, showGridLines, axisLabelRotation, referenceLines, color palette, colorblind mode, rule-based styling.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-2",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-bar-v-3",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "orientation = horizontal",
+              "chartOptions": {
+                "orientation": "horizontal"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-4",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "settings": {
+              "title": "stackMode = stacked",
+              "chartOptions": {
+                "stackMode": "stacked"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-5",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "settings": {
+              "title": "stackMode = percent",
+              "chartOptions": {
+                "stackMode": "percent"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-6",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "showValues = true",
+              "chartOptions": {
+                "showValues": true
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-7",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "settings": {
+              "title": "showLegend = false",
+              "chartOptions": {
+                "showLegend": false,
+                "stackMode": "stacked"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-8",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "barWidth = 40px",
+              "chartOptions": {
+                "barWidth": 40
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-9",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "settings": {
+              "title": "barGap = 80%",
+              "chartOptions": {
+                "barGap": "80%"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-10",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "axis labels + rotation 45°",
+              "chartOptions": {
+                "xAxisLabel": "Category",
+                "yAxisLabel": "Revenue ($)",
+                "axisLabelRotation": 45
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-11",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "showGridLines = false",
+              "chartOptions": {
+                "showGridLines": false
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-12",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "referenceLines (target = 60000)",
+              "chartOptions": {
+                "referenceLines": "[{\"value\":60000,\"label\":\"Target\",\"color\":\"#ef4444\"}]"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-13",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm",
+                "showLegend": false
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-14",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "palette = monochrome",
+              "chartOptions": {
+                "colorPalette": "monochrome",
+                "showLegend": false
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-15",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "palette = earth-tones",
+              "chartOptions": {
+                "colorPalette": "earth-tones",
+                "showLegend": false
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-16",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "settings": {
+              "title": "colorblindMode = true",
+              "chartOptions": {
+                "colorblindMode": true,
+                "stackMode": "stacked"
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-17",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "enableDataZoom = true",
+              "chartOptions": {
+                "enableDataZoom": true
+              }
+            }
+          },
+          {
+            "id": "page-bar-v-18",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id GROUP BY parent.name ORDER BY revenue DESC LIMIT 6",
+            "settings": {
+              "title": "rule-based styling (revenue ≥ 60k → green)",
+              "chartOptions": {
+                "showValues": true,
+                "showLegend": false
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "br1",
+                    "operator": ">=",
+                    "value": 60000,
+                    "color": "#22c55e",
+                    "target": "color"
+                  },
+                  {
+                    "id": "br2",
+                    "operator": "<",
+                    "value": 60000,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-bar-md-1",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-bar-v-2",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-3",
+            "x": 4,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-4",
+            "x": 8,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-5",
+            "x": 0,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-6",
+            "x": 4,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-7",
+            "x": 8,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-8",
+            "x": 0,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-9",
+            "x": 4,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-10",
+            "x": 8,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-11",
+            "x": 0,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-12",
+            "x": 4,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-13",
+            "x": 8,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-14",
+            "x": 0,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-15",
+            "x": 4,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-16",
+            "x": 8,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-17",
+            "x": 0,
+            "y": 23,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-bar-v-18",
+            "x": 4,
+            "y": 23,
+            "w": 4,
+            "h": 4
+          }
+        ]
+      },
+      {
+        "id": "page-line",
+        "title": "2. Line",
+        "widgets": [
+          {
+            "id": "page-line-md-19",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Line chart — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: smooth, area, lineWidth, stepped, showPoints, connectNulls, endLabel, axes labels, dual Y-axis, showLegend, referenceLines, sampling, palette, colorblind mode.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-20",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-line-v-21",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "smooth = true",
+              "chartOptions": {
+                "smooth": true
+              }
+            }
+          },
+          {
+            "id": "page-line-v-22",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "area = true",
+              "chartOptions": {
+                "area": true
+              }
+            }
+          },
+          {
+            "id": "page-line-v-23",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "smooth + area + lineWidth 4",
+              "chartOptions": {
+                "smooth": true,
+                "area": true,
+                "lineWidth": 4
+              }
+            }
+          },
+          {
+            "id": "page-line-v-24",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "stepped = true",
+              "chartOptions": {
+                "stepped": true
+              }
+            }
+          },
+          {
+            "id": "page-line-v-25",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "showPoints = true",
+              "chartOptions": {
+                "showPoints": true
+              }
+            }
+          },
+          {
+            "id": "page-line-v-26",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "settings": {
+              "title": "endLabel = true (multi-series)",
+              "chartOptions": {
+                "endLabel": true
+              }
+            }
+          },
+          {
+            "id": "page-line-v-27",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "axis labels",
+              "chartOptions": {
+                "xAxisLabel": "Week",
+                "yAxisLabel": "Revenue ($)"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-28",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "settings": {
+              "title": "right Y-axis series",
+              "chartOptions": {
+                "rightAxisSeries": "shipped",
+                "rightYAxisLabel": "Shipped ($)"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-29",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "settings": {
+              "title": "showLegend = false",
+              "chartOptions": {
+                "showLegend": false
+              }
+            }
+          },
+          {
+            "id": "page-line-v-30",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "showGridLines = false",
+              "chartOptions": {
+                "showGridLines": false
+              }
+            }
+          },
+          {
+            "id": "page-line-v-31",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "referenceLines target 10k",
+              "chartOptions": {
+                "referenceLines": "[{\"value\":10000,\"label\":\"Target\",\"color\":\"#10b981\"}]"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-32",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "samplingMethod = max",
+              "chartOptions": {
+                "samplingThreshold": 5,
+                "samplingMethod": "max"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-33",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "samplingMethod = min",
+              "chartOptions": {
+                "samplingThreshold": 5,
+                "samplingMethod": "min"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-34",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-35",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "settings": {
+              "title": "palette = observable",
+              "chartOptions": {
+                "colorPalette": "observable"
+              }
+            }
+          },
+          {
+            "id": "page-line-v-36",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "settings": {
+              "title": "colorblindMode = true",
+              "chartOptions": {
+                "colorblindMode": true
+              }
+            }
+          },
+          {
+            "id": "page-line-v-37",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total)::float AS revenue FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 LIMIT 12",
+            "settings": {
+              "title": "enableDataZoom = true",
+              "chartOptions": {
+                "enableDataZoom": true
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-line-md-19",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-line-v-20",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-21",
+            "x": 4,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-22",
+            "x": 8,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-23",
+            "x": 0,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-24",
+            "x": 4,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-25",
+            "x": 8,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-26",
+            "x": 0,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-27",
+            "x": 4,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-28",
+            "x": 8,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-29",
+            "x": 0,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-30",
+            "x": 4,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-31",
+            "x": 8,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-32",
+            "x": 0,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-33",
+            "x": 4,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-34",
+            "x": 8,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-35",
+            "x": 0,
+            "y": 23,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-36",
+            "x": 4,
+            "y": 23,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-line-v-37",
+            "x": 8,
+            "y": 23,
+            "w": 4,
+            "h": 4
+          }
+        ]
+      },
+      {
+        "id": "page-pie",
+        "title": "3. Pie",
+        "widgets": [
+          {
+            "id": "page-pie-md-38",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Pie / donut chart — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: donut, roseMode, labelPosition (outside/inside/center), showLabel, showPercentage, showLegend, sortSlices, topN, donutCenterText, palette, colorblind mode.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-39",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-pie-v-40",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "donut = true",
+              "chartOptions": {
+                "donut": true
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-41",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "roseMode = true",
+              "chartOptions": {
+                "roseMode": true
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-42",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "labelPosition = inside",
+              "chartOptions": {
+                "labelPosition": "inside"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-43",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "labelPosition = center",
+              "chartOptions": {
+                "labelPosition": "center"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-44",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "showLabel = false",
+              "chartOptions": {
+                "showLabel": false
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-45",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "showPercentage = false",
+              "chartOptions": {
+                "showPercentage": false
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-46",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "showLegend = false",
+              "chartOptions": {
+                "showLegend": false
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-47",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.name ORDER BY value DESC LIMIT 12",
+            "settings": {
+              "title": "sortSlices = true",
+              "chartOptions": {
+                "sortSlices": true
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-48",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.name ORDER BY value DESC LIMIT 12",
+            "settings": {
+              "title": "topN = 5",
+              "chartOptions": {
+                "topN": 5
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-49",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "donut + center text",
+              "chartOptions": {
+                "donut": true,
+                "donutCenterText": "Orders"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-50",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-51",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "palette = earth-tones",
+              "chartOptions": {
+                "colorPalette": "earth-tones"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-52",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "palette = monochrome",
+              "chartOptions": {
+                "colorPalette": "monochrome"
+              }
+            }
+          },
+          {
+            "id": "page-pie-v-53",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT status AS name, COUNT(*)::int AS value FROM neoboard_demo_public.orders GROUP BY status ORDER BY value DESC",
+            "settings": {
+              "title": "colorblindMode = true",
+              "chartOptions": {
+                "colorblindMode": true
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-pie-md-38",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-pie-v-39",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-40",
+            "x": 4,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-41",
+            "x": 8,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-42",
+            "x": 0,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-43",
+            "x": 4,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-44",
+            "x": 8,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-45",
+            "x": 0,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-46",
+            "x": 4,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-47",
+            "x": 8,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-48",
+            "x": 0,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-49",
+            "x": 4,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-50",
+            "x": 8,
+            "y": 15,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-51",
+            "x": 0,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-52",
+            "x": 4,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-pie-v-53",
+            "x": 8,
+            "y": 19,
+            "w": 4,
+            "h": 4
+          }
+        ]
+      },
+      {
+        "id": "page-table",
+        "title": "4. Table",
+        "widgets": [
+          {
+            "id": "page-table-md-54",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Table — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: enableSorting, enableSelection, enableGlobalFilter, enableColumnFilters, enableColumnResizing, enablePagination, pageSize, emptyMessage, enableGrouping + groupBy, aggregationFn.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-table-v-55",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-table-v-56",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "enableSorting = false",
+              "chartOptions": {
+                "enableSorting": false
+              }
+            }
+          },
+          {
+            "id": "page-table-v-57",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "enableGlobalFilter = false",
+              "chartOptions": {
+                "enableGlobalFilter": false
+              }
+            }
+          },
+          {
+            "id": "page-table-v-58",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "enableColumnFilters = false",
+              "chartOptions": {
+                "enableColumnFilters": false
+              }
+            }
+          },
+          {
+            "id": "page-table-v-59",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "enableSelection = true",
+              "chartOptions": {
+                "enableSelection": true
+              }
+            }
+          },
+          {
+            "id": "page-table-v-60",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "enableColumnResizing = true",
+              "chartOptions": {
+                "enableColumnResizing": true
+              }
+            }
+          },
+          {
+            "id": "page-table-v-61",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "enablePagination = false",
+              "chartOptions": {
+                "enablePagination": false
+              }
+            }
+          },
+          {
+            "id": "page-table-v-62",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "pageSize = 5",
+              "chartOptions": {
+                "pageSize": 5
+              }
+            }
+          },
+          {
+            "id": "page-table-v-63",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "pageSize = 25",
+              "chartOptions": {
+                "pageSize": 25
+              }
+            }
+          },
+          {
+            "id": "page-table-v-64",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "grouping by region, sum",
+              "chartOptions": {
+                "enableGrouping": true,
+                "groupBy": ["region"],
+                "aggregationFn": "sum"
+              }
+            }
+          },
+          {
+            "id": "page-table-v-65",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "grouping by region, mean",
+              "chartOptions": {
+                "enableGrouping": true,
+                "groupBy": ["region"],
+                "aggregationFn": "mean"
+              }
+            }
+          },
+          {
+            "id": "page-table-v-66",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
+            "settings": {
+              "title": "grouping by region, count",
+              "chartOptions": {
+                "enableGrouping": true,
+                "groupBy": ["region"],
+                "aggregationFn": "count"
+              }
+            }
+          },
+          {
+            "id": "page-table-v-67",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 1 WHERE FALSE",
+            "settings": {
+              "title": "empty result + custom emptyMessage",
+              "chartOptions": {
+                "emptyMessage": "Nothing to show here yet."
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-table-md-54",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-table-v-55",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-56",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-57",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-58",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-59",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-60",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-61",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-62",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-63",
+            "x": 0,
+            "y": 23,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-64",
+            "x": 6,
+            "y": 23,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-65",
+            "x": 0,
+            "y": 28,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-66",
+            "x": 6,
+            "y": 28,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-table-v-67",
+            "x": 0,
+            "y": 33,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-single-value",
+        "title": "5. Single Value (KPI)",
+        "widgets": [
+          {
+            "id": "page-single-value-md-68",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Single-value / KPI — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: title, prefix, suffix, decimalPlaces, fontSize (sm/md/lg/xl), numberFormat (plain/comma/compact/percent), trendEnabled.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-69",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-single-value-v-70",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "prefix = $",
+              "chartOptions": {
+                "prefix": "$"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-71",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "suffix = USD",
+              "chartOptions": {
+                "suffix": " USD"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-72",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "numberFormat = comma",
+              "chartOptions": {
+                "numberFormat": "comma"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-73",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "numberFormat = compact",
+              "chartOptions": {
+                "numberFormat": "compact",
+                "prefix": "$"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-74",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "decimalPlaces = 2",
+              "chartOptions": {
+                "decimalPlaces": 2
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-75",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "fontSize = sm",
+              "chartOptions": {
+                "fontSize": "sm",
+                "numberFormat": "compact"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-76",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "fontSize = md",
+              "chartOptions": {
+                "fontSize": "md",
+                "numberFormat": "compact"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-77",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "fontSize = lg (default)",
+              "chartOptions": {
+                "fontSize": "lg",
+                "numberFormat": "compact"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-78",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "fontSize = xl",
+              "chartOptions": {
+                "fontSize": "xl",
+                "numberFormat": "compact"
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-79",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT SUM(total)::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "title set + prefix + compact",
+              "chartOptions": {
+                "title": "Lifetime revenue",
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-80",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT (COUNT(*) FILTER (WHERE status='delivered') * 1.0 / NULLIF(COUNT(*),0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "numberFormat = percent (0.42)",
+              "chartOptions": {
+                "numberFormat": "percent",
+                "decimalPlaces": 1
+              }
+            }
+          },
+          {
+            "id": "page-single-value-v-81",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS label, SUM(total)::float AS value FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 DESC LIMIT 2",
+            "settings": {
+              "title": "trendEnabled = true",
+              "chartOptions": {
+                "trendEnabled": true,
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-single-value-md-68",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-69",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-70",
+            "x": 4,
+            "y": 3,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-71",
+            "x": 8,
+            "y": 3,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-72",
+            "x": 0,
+            "y": 6,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-73",
+            "x": 4,
+            "y": 6,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-74",
+            "x": 8,
+            "y": 6,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-75",
+            "x": 0,
+            "y": 9,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-76",
+            "x": 4,
+            "y": 9,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-77",
+            "x": 8,
+            "y": 9,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-78",
+            "x": 0,
+            "y": 12,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-79",
+            "x": 4,
+            "y": 12,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-80",
+            "x": 8,
+            "y": 12,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "page-single-value-v-81",
+            "x": 0,
+            "y": 15,
+            "w": 4,
+            "h": 3
+          }
+        ]
+      },
+      {
+        "id": "page-gauge",
+        "title": "6. Gauge",
+        "widgets": [
+          {
+            "id": "page-gauge-md-82",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Gauge — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: min/max range, showProgress, showDetail, startAngle/endAngle (arc shape), thresholdZones, palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-83",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "default (0–100)",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-gauge-v-84",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "max = 50 (zoomed scale)",
+              "chartOptions": {
+                "min": 0,
+                "max": 50
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-85",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "showProgress = false",
+              "chartOptions": {
+                "showProgress": false
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-86",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "showDetail = false",
+              "chartOptions": {
+                "showDetail": false
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-87",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "half-circle (start 180, end 0)",
+              "chartOptions": {
+                "startAngle": 180,
+                "endAngle": 0
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-88",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "full circle (start 90, end -270)",
+              "chartOptions": {
+                "startAngle": 90,
+                "endAngle": -270
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-89",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "thresholdZones (3 bands)",
+              "chartOptions": {
+                "thresholdZones": "[{\"value\":30,\"color\":\"#ef4444\"},{\"value\":70,\"color\":\"#f59e0b\"},{\"value\":100,\"color\":\"#22c55e\"}]"
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-90",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-gauge-v-91",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivered' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "palette = sequential",
+              "chartOptions": {
+                "colorPalette": "sequential"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-gauge-md-82",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-gauge-v-83",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-84",
+            "x": 4,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-85",
+            "x": 8,
+            "y": 3,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-86",
+            "x": 0,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-87",
+            "x": 4,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-88",
+            "x": 8,
+            "y": 7,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-89",
+            "x": 0,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-90",
+            "x": 4,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "i": "page-gauge-v-91",
+            "x": 8,
+            "y": 11,
+            "w": 4,
+            "h": 4
+          }
+        ]
+      },
+      {
+        "id": "page-sankey",
+        "title": "7. Sankey",
+        "widgets": [
+          {
+            "id": "page-sankey-md-92",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Sankey diagram — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: orient (horizontal/vertical), showLabels, nodeWidth, nodeGap, palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-93",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "default (horizontal)",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-sankey-v-94",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "orient = vertical",
+              "chartOptions": {
+                "orient": "vertical"
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-95",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "showLabels = false",
+              "chartOptions": {
+                "showLabels": false
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-96",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "nodeWidth = 40",
+              "chartOptions": {
+                "nodeWidth": 40
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-97",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "nodeWidth = 6 (thin)",
+              "chartOptions": {
+                "nodeWidth": 6
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-98",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "nodeGap = 24",
+              "chartOptions": {
+                "nodeGap": 24
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-99",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-sankey-v-100",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "settings": {
+              "title": "palette = observable",
+              "chartOptions": {
+                "colorPalette": "observable"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-sankey-md-92",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-sankey-v-93",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-94",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-95",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-96",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-97",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-98",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-99",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sankey-v-100",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-sunburst",
+        "title": "8. Sunburst",
+        "widgets": [
+          {
+            "id": "page-sunburst-md-101",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Sunburst — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showLabels, maxLabelDepth, sort (desc/asc/none), highlightOnHover, palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-102",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-sunburst-v-103",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "showLabels = false",
+              "chartOptions": {
+                "showLabels": false
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-104",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "maxLabelDepth = 1",
+              "chartOptions": {
+                "maxLabelDepth": 1
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-105",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "sort = asc (smallest first)",
+              "chartOptions": {
+                "sort": "asc"
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-106",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "sort = none (natural order)",
+              "chartOptions": {
+                "sort": "none"
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-107",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "highlightOnHover = false",
+              "chartOptions": {
+                "highlightOnHover": false
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-108",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-sunburst-v-109",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "palette = earth-tones",
+              "chartOptions": {
+                "colorPalette": "earth-tones"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-sunburst-md-101",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-sunburst-v-102",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-103",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-104",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-105",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-106",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-107",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-108",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-sunburst-v-109",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-radar",
+        "title": "9. Radar",
+        "widgets": [
+          {
+            "id": "page-radar-md-110",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Radar chart — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: shape (polygon/circle), filled, showValues, showLegend, palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-111",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "default (polygon, filled)",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-radar-v-112",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "shape = circle",
+              "chartOptions": {
+                "shape": "circle"
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-113",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "filled = false",
+              "chartOptions": {
+                "filled": false
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-114",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "showValues = true",
+              "chartOptions": {
+                "showValues": true
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-115",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "showLegend = false",
+              "chartOptions": {
+                "showLegend": false
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-116",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-117",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "palette = monochrome",
+              "chartOptions": {
+                "colorPalette": "monochrome"
+              }
+            }
+          },
+          {
+            "id": "page-radar-v-118",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "settings": {
+              "title": "circle + unfilled + values",
+              "chartOptions": {
+                "shape": "circle",
+                "filled": false,
+                "showValues": true
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-radar-md-110",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-radar-v-111",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-112",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-113",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-114",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-115",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-116",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-117",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-radar-v-118",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-treemap",
+        "title": "10. Treemap",
+        "widgets": [
+          {
+            "id": "page-treemap-md-119",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Treemap — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showLabels, showValues, showBreadcrumb, colorSaturation (low/medium/high), palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-120",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-treemap-v-121",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "showLabels = false",
+              "chartOptions": {
+                "showLabels": false
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-122",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "showValues = true",
+              "chartOptions": {
+                "showValues": true
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-123",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "showBreadcrumb = false",
+              "chartOptions": {
+                "showBreadcrumb": false
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-124",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "colorSaturation = low",
+              "chartOptions": {
+                "colorSaturation": "low"
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-125",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "colorSaturation = high",
+              "chartOptions": {
+                "colorSaturation": "high"
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-126",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-treemap-v-127",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "palette = earth-tones",
+              "chartOptions": {
+                "colorPalette": "earth-tones"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-treemap-md-119",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-treemap-v-120",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-121",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-122",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-123",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-124",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-125",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-126",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-treemap-v-127",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-circle-packing",
+        "title": "11. Circle Packing",
+        "widgets": [
+          {
+            "id": "page-circle-packing-md-128",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Circle packing — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showLabels, padding, palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-circle-packing-v-129",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-circle-packing-v-130",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "showLabels = false",
+              "chartOptions": {
+                "showLabels": false
+              }
+            }
+          },
+          {
+            "id": "page-circle-packing-v-131",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "padding = 0 (touching)",
+              "chartOptions": {
+                "padding": 0
+              }
+            }
+          },
+          {
+            "id": "page-circle-packing-v-132",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "padding = 12 (spaced)",
+              "chartOptions": {
+                "padding": 12
+              }
+            }
+          },
+          {
+            "id": "page-circle-packing-v-133",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-circle-packing-v-134",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "settings": {
+              "title": "palette = earth-tones",
+              "chartOptions": {
+                "colorPalette": "earth-tones"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-circle-packing-md-128",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-circle-packing-v-129",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-circle-packing-v-130",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-circle-packing-v-131",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-circle-packing-v-132",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-circle-packing-v-133",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-circle-packing-v-134",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-gantt",
+        "title": "12. Gantt",
+        "widgets": [
+          {
+            "id": "page-gantt-md-135",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Gantt chart — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showTodayLine, showProgress, showGridLines, barBorderRadius, palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-gantt-v-136",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 10) sub",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-gantt-v-137",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 10) sub",
+            "settings": {
+              "title": "showTodayLine = false",
+              "chartOptions": {
+                "showTodayLine": false
+              }
+            }
+          },
+          {
+            "id": "page-gantt-v-138",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 10) sub",
+            "settings": {
+              "title": "showGridLines = false",
+              "chartOptions": {
+                "showGridLines": false
+              }
+            }
+          },
+          {
+            "id": "page-gantt-v-139",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 10) sub",
+            "settings": {
+              "title": "barBorderRadius = 0 (square)",
+              "chartOptions": {
+                "barBorderRadius": 0
+              }
+            }
+          },
+          {
+            "id": "page-gantt-v-140",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 10) sub",
+            "settings": {
+              "title": "barBorderRadius = 8 (pill)",
+              "chartOptions": {
+                "barBorderRadius": 8
+              }
+            }
+          },
+          {
+            "id": "page-gantt-v-141",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT 10) sub",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-gantt-md-135",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-gantt-v-136",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-gantt-v-137",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-gantt-v-138",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-gantt-v-139",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-gantt-v-140",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-gantt-v-141",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-map",
+        "title": "13. Map (Leaflet)",
+        "widgets": [
+          {
+            "id": "page-map-md-142",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Map (Leaflet) — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: tileLayer (osm/carto-light/carto-dark), zoom/minZoom/maxZoom, autoFitBounds, markerSize, clusterMarkers, showPopup.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-map-v-143",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "default (OSM, auto-fit)",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-map-v-144",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "tileLayer = carto-light",
+              "chartOptions": {
+                "tileLayer": "carto-light"
+              }
+            }
+          },
+          {
+            "id": "page-map-v-145",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "tileLayer = carto-dark",
+              "chartOptions": {
+                "tileLayer": "carto-dark"
+              }
+            }
+          },
+          {
+            "id": "page-map-v-146",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "autoFitBounds = false, zoom 2",
+              "chartOptions": {
+                "autoFitBounds": false,
+                "zoom": 2
+              }
+            }
+          },
+          {
+            "id": "page-map-v-147",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "markerSize = 14 (large)",
+              "chartOptions": {
+                "markerSize": 14
+              }
+            }
+          },
+          {
+            "id": "page-map-v-148",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "markerSize = 3 (tiny)",
+              "chartOptions": {
+                "markerSize": 3
+              }
+            }
+          },
+          {
+            "id": "page-map-v-149",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "clusterMarkers = true",
+              "chartOptions": {
+                "clusterMarkers": true
+              }
+            }
+          },
+          {
+            "id": "page-map-v-150",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
+            "settings": {
+              "title": "showPopup = false",
+              "chartOptions": {
+                "showPopup": false
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-map-md-142",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-map-v-143",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-144",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-145",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-146",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-147",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-148",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-149",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-map-v-150",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-choropleth",
+        "title": "14. Choropleth",
+        "widgets": [
+          {
+            "id": "page-choropleth-md-151",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Choropleth map — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showLabels (country names), showVisualMap (legend), roam (zoom+pan), minColor/maxColor (color scale endpoints), palette.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-152",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "default",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-choropleth-v-153",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "showLabels = true",
+              "chartOptions": {
+                "showLabels": true
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-154",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "showVisualMap = false",
+              "chartOptions": {
+                "showVisualMap": false
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-155",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "roam = false",
+              "chartOptions": {
+                "roam": false
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-156",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "color scale: white → red",
+              "chartOptions": {
+                "minColor": "#ffffff",
+                "maxColor": "#b91c1c"
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-157",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "color scale: yellow → green",
+              "chartOptions": {
+                "minColor": "#fef3c7",
+                "maxColor": "#166534"
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-158",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "palette = warm",
+              "chartOptions": {
+                "colorPalette": "warm"
+              }
+            }
+          },
+          {
+            "id": "page-choropleth-v-159",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, COUNT(DISTINCT c.id)::float AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "palette = sequential",
+              "chartOptions": {
+                "colorPalette": "sequential"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-choropleth-md-151",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-choropleth-v-152",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-153",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-154",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-155",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-156",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-157",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-158",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-choropleth-v-159",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-graph",
+        "title": "15. Graph (Neo4j)",
+        "widgets": [
+          {
+            "id": "page-graph-md-160",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Graph (NVL) — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: layout (force/circular/hierarchical), nodeSize (small/medium/large), showLabels, showRelationshipLabels, physics.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-161",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "default (force, medium)",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-graph-v-162",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "layout = circular",
+              "chartOptions": {
+                "layout": "circular"
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-163",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "layout = hierarchical",
+              "chartOptions": {
+                "layout": "hierarchical"
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-164",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "nodeSize = small",
+              "chartOptions": {
+                "nodeSize": "small"
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-165",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "nodeSize = large",
+              "chartOptions": {
+                "nodeSize": "large"
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-166",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "showLabels = false",
+              "chartOptions": {
+                "showLabels": false
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-167",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "showRelationshipLabels = false",
+              "chartOptions": {
+                "showRelationshipLabels": false
+              }
+            }
+          },
+          {
+            "id": "page-graph-v-168",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
+            "settings": {
+              "title": "physics = false (static)",
+              "chartOptions": {
+                "physics": false
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-graph-md-160",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-graph-v-161",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-162",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-163",
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-164",
+            "x": 6,
+            "y": 8,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-165",
+            "x": 0,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-166",
+            "x": 6,
+            "y": 13,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-167",
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          },
+          {
+            "i": "page-graph-v-168",
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 5
+          }
+        ]
+      },
+      {
+        "id": "page-json",
+        "title": "16. JSON",
+        "widgets": [
+          {
+            "id": "page-json-md-169",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## JSON viewer — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: initialExpanded (depth 0/1/2/3), fontSize (sm/md/lg), showCopyButton, theme (dark/light).\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-json-v-170",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "default (depth 2, dark)",
+              "chartOptions": {}
+            }
+          },
+          {
+            "id": "page-json-v-171",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "initialExpanded = 0 (collapsed)",
+              "chartOptions": {
+                "initialExpanded": 0
+              }
+            }
+          },
+          {
+            "id": "page-json-v-172",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "initialExpanded = 1",
+              "chartOptions": {
+                "initialExpanded": 1
+              }
+            }
+          },
+          {
+            "id": "page-json-v-173",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "initialExpanded = 3",
+              "chartOptions": {
+                "initialExpanded": 3
+              }
+            }
+          },
+          {
+            "id": "page-json-v-174",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "fontSize = lg",
+              "chartOptions": {
+                "fontSize": "lg"
+              }
+            }
+          },
+          {
+            "id": "page-json-v-175",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "theme = light",
+              "chartOptions": {
+                "theme": "light"
+              }
+            }
+          },
+          {
+            "id": "page-json-v-176",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "showCopyButton = false",
+              "chartOptions": {
+                "showCopyButton": false
+              }
+            }
+          },
+          {
+            "id": "page-json-v-177",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
+            "settings": {
+              "title": "fontSize = md + light theme",
+              "chartOptions": {
+                "fontSize": "md",
+                "theme": "light"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-json-md-169",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-json-v-170",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-171",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-172",
+            "x": 0,
+            "y": 7,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-173",
+            "x": 6,
+            "y": 7,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-174",
+            "x": 0,
+            "y": 11,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-175",
+            "x": 6,
+            "y": 11,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-176",
+            "x": 0,
+            "y": 15,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-json-v-177",
+            "x": 6,
+            "y": 15,
+            "w": 6,
+            "h": 4
+          }
+        ]
+      },
+      {
+        "id": "page-markdown",
+        "title": "17. Markdown",
+        "widgets": [
+          {
+            "id": "page-markdown-md-178",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Markdown widget — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates the supported content kinds: headings, bold/italic/inline code, lists, links, tables, fenced code blocks, blockquotes, horizontal rules. (No HTML, no images, no Mermaid.)\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-179",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Headings (H1–H4)",
+              "chartOptions": {
+                "content": "# H1 heading\n## H2 heading\n### H3 heading\n#### H4 heading"
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-180",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Bold / italic / inline code",
+              "chartOptions": {
+                "content": "Plain text, **bold**, *italic*, ***bold italic***, and `inline code`."
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-181",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Bulleted + numbered lists",
+              "chartOptions": {
+                "content": "- one\n- two\n- three\n\n1. first\n2. second\n3. third"
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-182",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Links",
+              "chartOptions": {
+                "content": "[Neo4j homepage](https://neo4j.com)\n\n[Internal docs](/docs)"
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-183",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Table",
+              "chartOptions": {
+                "content": "| Metric | Value |\n|---|---|\n| Orders | 1,200 |\n| Revenue | $42k |\n| Customers | 380 |"
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-184",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Fenced code block (SQL)",
+              "chartOptions": {
+                "content": "```sql\nSELECT COUNT(*) FROM orders\nWHERE status = 'delivered';\n```"
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-185",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Blockquote",
+              "chartOptions": {
+                "content": "> Markdown widgets are great for **annotating** sections of a dashboard or pointing readers to the right context."
+              }
+            }
+          },
+          {
+            "id": "page-markdown-v-186",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Horizontal rule + mixed",
+              "chartOptions": {
+                "content": "## Mixed example\n\nParagraph one.\n\n---\n\nParagraph two with `code` and **bold**."
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-markdown-md-178",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-markdown-v-179",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-180",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-181",
+            "x": 0,
+            "y": 7,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-182",
+            "x": 6,
+            "y": 7,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-183",
+            "x": 0,
+            "y": 11,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-184",
+            "x": 6,
+            "y": 11,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-185",
+            "x": 0,
+            "y": 15,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "i": "page-markdown-v-186",
+            "x": 6,
+            "y": 15,
+            "w": 6,
+            "h": 4
+          }
+        ]
+      },
+      {
+        "id": "page-iframe",
+        "title": "18. iframe",
+        "widgets": [
+          {
+            "id": "page-iframe-md-187",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## iframe widget — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: url (different embeddable targets), iframeTitle (accessibility), sandbox (restrictive vs permissive).\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-iframe-v-188",
+            "chartType": "iframe",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "default (Wikipedia)",
+              "chartOptions": {
+                "url": "https://en.wikipedia.org/wiki/Data_visualization",
+                "iframeTitle": "Wikipedia — Data visualization"
+              }
+            }
+          },
+          {
+            "id": "page-iframe-v-189",
+            "chartType": "iframe",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "different URL (example.com)",
+              "chartOptions": {
+                "url": "https://example.com",
+                "iframeTitle": "Example domain"
+              }
+            }
+          },
+          {
+            "id": "page-iframe-v-190",
+            "chartType": "iframe",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "sandbox = allow-scripts only",
+              "chartOptions": {
+                "url": "https://example.com",
+                "iframeTitle": "Sandboxed",
+                "sandbox": "allow-scripts"
+              }
+            }
+          },
+          {
+            "id": "page-iframe-v-191",
+            "chartType": "iframe",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "sandbox = allow-scripts + allow-same-origin",
+              "chartOptions": {
+                "url": "https://en.wikipedia.org/wiki/Dashboard_(business)",
+                "iframeTitle": "Wikipedia (sandboxed)",
+                "sandbox": "allow-scripts allow-same-origin"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-iframe-md-187",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-iframe-v-188",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 6
+          },
+          {
+            "i": "page-iframe-v-189",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 6
+          },
+          {
+            "i": "page-iframe-v-190",
+            "x": 0,
+            "y": 9,
+            "w": 6,
+            "h": 6
+          },
+          {
+            "i": "page-iframe-v-191",
+            "x": 6,
+            "y": 9,
+            "w": 6,
+            "h": 6
+          }
+        ]
+      },
+      {
+        "id": "page-parameter-select",
+        "title": "19. Parameter Select",
+        "widgets": [
+          {
+            "id": "page-parameter-select-md-192",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Parameter select — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: placeholder, searchable, defaultValue, syncToUrl. (This page intentionally does not wire parameters into downstream queries — see the Chart Playground for that.)\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-193",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "default",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ref_region_a",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-194",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "custom placeholder",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ref_region_b",
+                "placeholder": "Pick your region…",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-195",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "searchable = false",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ref_region_c",
+                "searchable": false,
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-196",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "defaultValue preselected",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ref_region_d",
+                "defaultValue": "Europe",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-197",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "syncToUrl = true (shareable)",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ref_region_e",
+                "syncToUrl": true,
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-198",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "parameterType = multi-select",
+              "chartOptions": {
+                "parameterType": "multi-select",
+                "parameterName": "ref_regions_multi",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-199",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "parameterType = text",
+              "chartOptions": {
+                "parameterType": "text",
+                "parameterName": "ref_search",
+                "placeholder": "Type to search…"
+              }
+            }
+          },
+          {
+            "id": "page-parameter-select-v-200",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "parameterType = date",
+              "chartOptions": {
+                "parameterType": "date",
+                "parameterName": "ref_date"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-parameter-select-md-192",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-193",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-194",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-195",
+            "x": 0,
+            "y": 6,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-196",
+            "x": 6,
+            "y": 6,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-197",
+            "x": 0,
+            "y": 9,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-198",
+            "x": 6,
+            "y": 9,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-199",
+            "x": 0,
+            "y": 12,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "page-parameter-select-v-200",
+            "x": 6,
+            "y": 12,
+            "w": 6,
+            "h": 3
+          }
+        ]
+      },
+      {
+        "id": "page-form",
+        "title": "20. Form (write)",
+        "widgets": [
+          {
+            "id": "page-form-md-201",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Form widget — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: submitButtonText, successMessage, resetOnSuccess, mix of form field parameterTypes (number-range, text). Writes to `neoboard_demo_public.feedback` via the write-enabled PG connection.\n\n*Refresh the page to reset all parameters.*"
+              }
+            }
+          },
+          {
+            "id": "page-form-v-202",
+            "chartType": "form",
+            "connectionId": "conn_postgres_write",
+            "query": "INSERT INTO neoboard_demo_public.feedback (rating, category, comment) VALUES ($param_rf1_rating_max::int, $param_rf1_category, $param_rf1_comment) RETURNING id",
+            "settings": {
+              "title": "default labels",
+              "chartOptions": {},
+              "formFields": [
+                {
+                  "id": "rf1-r",
+                  "label": "Rating",
+                  "parameterName": "rf1_rating",
+                  "parameterType": "number-range",
+                  "rangeMin": 1,
+                  "rangeMax": 5,
+                  "rangeStep": 1
+                },
+                {
+                  "id": "rf1-c",
+                  "label": "Category",
+                  "parameterName": "rf1_category",
+                  "parameterType": "text",
+                  "placeholder": "e.g. shipping"
+                },
+                {
+                  "id": "rf1-co",
+                  "label": "Comment",
+                  "parameterName": "rf1_comment",
+                  "parameterType": "text",
+                  "placeholder": "Your feedback…"
+                }
+              ]
+            }
+          },
+          {
+            "id": "page-form-v-203",
+            "chartType": "form",
+            "connectionId": "conn_postgres_write",
+            "query": "INSERT INTO neoboard_demo_public.feedback (rating, category, comment) VALUES ($param_rf2_rating_max::int, $param_rf2_category, $param_rf2_comment) RETURNING id",
+            "settings": {
+              "title": "custom button + success + no reset",
+              "chartOptions": {
+                "submitButtonText": "Send it!",
+                "successMessage": "Got it — thanks for the feedback.",
+                "resetOnSuccess": false
+              },
+              "formFields": [
+                {
+                  "id": "rf2-r",
+                  "label": "Rating (1–5)",
+                  "parameterName": "rf2_rating",
+                  "parameterType": "number-range",
+                  "rangeMin": 1,
+                  "rangeMax": 5,
+                  "rangeStep": 1
+                },
+                {
+                  "id": "rf2-c",
+                  "label": "Category",
+                  "parameterName": "rf2_category",
+                  "parameterType": "text",
+                  "placeholder": "Topic"
+                },
+                {
+                  "id": "rf2-co",
+                  "label": "Comment",
+                  "parameterName": "rf2_comment",
+                  "parameterType": "text",
+                  "placeholder": "What happened?"
+                }
+              ]
+            }
+          }
+        ],
+        "gridLayout": [
+          {
+            "i": "page-form-md-201",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "page-form-v-202",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 6
+          },
+          {
+            "i": "page-form-v-203",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 6
+          }
+        ]
+      }
+    ]
+  }
+}
