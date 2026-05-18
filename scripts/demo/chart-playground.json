@@ -143,12 +143,12 @@
             "settings": {
               "title": "Limit (rows)",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "cat_limit",
-                "seedQuery": "SELECT '3' AS value, '3' AS label UNION ALL SELECT '5', '5' UNION ALL SELECT '8', '8' UNION ALL SELECT '10', '10' UNION ALL SELECT '12', '12' UNION ALL SELECT '15', '15'",
-                "defaultValue": "8",
-                "searchable": false,
-                "placeholder": "Pick a row limit…"
+                "rangeMin": 3,
+                "rangeMax": 15,
+                "rangeStep": 1,
+                "defaultValue": "8"
               }
             }
           },
@@ -156,7 +156,7 @@
             "id": "cat-bar-vertical",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue, o.id AS order_id FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, CASE WHEN $param_cat_metric = 'revenue' THEN SUM(line_revenue)::float ELSE COUNT(DISTINCT order_id)::float END AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue, o.id AS order_id FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, CASE WHEN $param_cat_metric = 'revenue' THEN SUM(line_revenue)::float ELSE COUNT(DISTINCT order_id)::float END AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
             "settings": {
               "title": "Vertical bar (rule: value > 5000 → red)",
               "chartOptions": {
@@ -180,7 +180,7 @@
             "id": "cat-bar-horizontal",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue, o.id AS order_id FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, CASE WHEN $param_cat_metric = 'revenue' THEN SUM(line_revenue)::float ELSE COUNT(DISTINCT order_id)::float END AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue, o.id AS order_id FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, CASE WHEN $param_cat_metric = 'revenue' THEN SUM(line_revenue)::float ELSE COUNT(DISTINCT order_id)::float END AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
             "settings": {
               "title": "Horizontal bar (same data, no rules)",
               "chartOptions": {
@@ -195,7 +195,7 @@
             "id": "cat-pie-solid",
             "chartType": "pie",
             "connectionId": "conn_postgres_read",
-            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, SUM(line_revenue)::float AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, SUM(line_revenue)::float AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
             "settings": {
               "title": "Solid pie",
               "chartOptions": {
@@ -210,7 +210,7 @@
             "id": "cat-pie-donut",
             "chartType": "pie",
             "connectionId": "conn_postgres_read",
-            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, SUM(line_revenue)::float AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, SUM(line_revenue)::float AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
             "settings": {
               "title": "Donut",
               "chartOptions": {
@@ -290,12 +290,12 @@
             "settings": {
               "title": "Window (days)",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "ts_window",
-                "seedQuery": "SELECT '30' AS value, '30 days' AS label UNION ALL SELECT '60', '60 days' UNION ALL SELECT '90', '90 days' UNION ALL SELECT '180', '180 days' UNION ALL SELECT '365', '365 days'",
-                "defaultValue": "180",
-                "searchable": false,
-                "placeholder": "Pick a window…"
+                "rangeMin": 30,
+                "rangeMax": 365,
+                "rangeStep": 30,
+                "defaultValue": "180"
               }
             }
           },
@@ -303,7 +303,7 @@
             "id": "ts-line-plain",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc($param_ts_grain, created_at), 'YYYY-MM-DD') AS period, CASE WHEN $param_ts_metric = 'revenue' THEN SUM(total)::float ELSE COUNT(*)::float END AS value FROM neoboard_demo_public.orders WHERE created_at >= NOW() - ($param_ts_window || ' days')::interval GROUP BY 1 ORDER BY 1",
+            "query": "SELECT to_char(date_trunc($param_ts_grain, created_at), 'YYYY-MM-DD') AS period, CASE WHEN $param_ts_metric = 'revenue' THEN SUM(total)::float ELSE COUNT(*)::float END AS value FROM neoboard_demo_public.orders WHERE created_at >= NOW() - ($param_ts_window_max || ' days')::interval GROUP BY 1 ORDER BY 1",
             "settings": {
               "title": "Straight lines, no fill",
               "chartOptions": {
@@ -318,7 +318,7 @@
             "id": "ts-line-smooth",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc($param_ts_grain, created_at), 'YYYY-MM-DD') AS period, CASE WHEN $param_ts_metric = 'revenue' THEN SUM(total)::float ELSE COUNT(*)::float END AS value FROM neoboard_demo_public.orders WHERE created_at >= NOW() - ($param_ts_window || ' days')::interval GROUP BY 1 ORDER BY 1",
+            "query": "SELECT to_char(date_trunc($param_ts_grain, created_at), 'YYYY-MM-DD') AS period, CASE WHEN $param_ts_metric = 'revenue' THEN SUM(total)::float ELSE COUNT(*)::float END AS value FROM neoboard_demo_public.orders WHERE created_at >= NOW() - ($param_ts_window_max || ' days')::interval GROUP BY 1 ORDER BY 1",
             "settings": {
               "title": "Smoothed + area fill",
               "chartOptions": {
@@ -337,12 +337,12 @@
             "settings": {
               "title": "Gantt — bars",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "ts_gantt_limit",
-                "seedQuery": "SELECT '5' AS value, '5' AS label UNION ALL SELECT '10', '10' UNION ALL SELECT '12', '12' UNION ALL SELECT '15', '15' UNION ALL SELECT '20', '20' UNION ALL SELECT '25', '25'",
-                "defaultValue": "12",
-                "searchable": false,
-                "placeholder": "Pick a bar count…"
+                "rangeMin": 5,
+                "rangeMax": 25,
+                "rangeStep": 1,
+                "defaultValue": "12"
               }
             }
           },
@@ -350,7 +350,7 @@
             "id": "ts-gantt-no-progress",
             "chartType": "gantt",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT $param_ts_gantt_limit) sub",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT $param_ts_gantt_limit_max) sub",
             "settings": {
               "title": "Without progress overlay",
               "chartOptions": {
@@ -365,7 +365,7 @@
             "id": "ts-gantt-with-progress",
             "chartType": "gantt",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT task, start::text, \"end\"::text, category, progress FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category, (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at)) * 7 % 100) / 100.0 AS progress FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT $param_ts_gantt_limit) sub",
+            "query": "SELECT task, start::text, \"end\"::text, category, progress FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category, (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at)) * 7 % 100) / 100.0 AS progress FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT $param_ts_gantt_limit_max) sub",
             "settings": {
               "title": "With progress overlay",
               "chartOptions": {
@@ -429,12 +429,12 @@
             "settings": {
               "title": "Limit (rows)",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "dist_limit",
-                "seedQuery": "SELECT '10' AS value, '10' AS label UNION ALL SELECT '15', '15' UNION ALL SELECT '20', '20' UNION ALL SELECT '25', '25' UNION ALL SELECT '30', '30' UNION ALL SELECT '40', '40'",
-                "defaultValue": "25",
-                "searchable": false,
-                "placeholder": "Pick a row limit…"
+                "rangeMin": 10,
+                "rangeMax": 40,
+                "rangeStep": 5,
+                "defaultValue": "25"
               }
             }
           },
@@ -442,7 +442,7 @@
             "id": "dist-treemap",
             "chartType": "treemap",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit",
+            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
             "settings": {
               "title": "Treemap",
               "chartOptions": {
@@ -457,7 +457,7 @@
             "id": "dist-sunburst",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit",
+            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
             "settings": {
               "title": "Sunburst",
               "chartOptions": {
@@ -472,7 +472,7 @@
             "id": "dist-circle",
             "chartType": "circle-packing",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit",
+            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
             "settings": {
               "title": "Circle packing",
               "chartOptions": {
@@ -531,12 +531,12 @@
             "settings": {
               "title": "Max markers",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "geo_max",
-                "seedQuery": "SELECT '50' AS value, '50' AS label UNION ALL SELECT '100', '100' UNION ALL SELECT '200', '200' UNION ALL SELECT '250', '250' UNION ALL SELECT '500', '500'",
-                "defaultValue": "250",
-                "searchable": false,
-                "placeholder": "Pick max markers…"
+                "rangeMin": 50,
+                "rangeMax": 500,
+                "rangeStep": 50,
+                "defaultValue": "250"
               }
             }
           },
@@ -544,7 +544,7 @@
             "id": "geo-map-nocluster",
             "chartType": "map",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name, c.city, c.lat, c.lng FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.continent LIKE $param_geo_continent LIMIT $param_geo_max",
+            "query": "SELECT c.name, c.city, c.lat, c.lng FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.continent LIKE $param_geo_continent LIMIT $param_geo_max_max",
             "settings": {
               "title": "Markers — no clustering",
               "chartOptions": {
@@ -558,7 +558,7 @@
             "id": "geo-map-cluster",
             "chartType": "map",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name, c.city, c.lat, c.lng FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.continent LIKE $param_geo_continent LIMIT $param_geo_max",
+            "query": "SELECT c.name, c.city, c.lat, c.lng FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.continent LIKE $param_geo_continent LIMIT $param_geo_max_max",
             "settings": {
               "title": "Markers — with clustering",
               "chartOptions": {
@@ -630,17 +630,17 @@
           {
             "id": "net-graph-limit",
             "chartType": "parameter-select",
-            "connectionId": "conn_postgres_read",
+            "connectionId": "conn_neo4j",
             "query": "",
             "settings": {
               "title": "Graph — relationships",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "net_graph_limit",
-                "seedQuery": "SELECT '10' AS value, '10' AS label UNION ALL SELECT '20', '20' UNION ALL SELECT '40', '40' UNION ALL SELECT '60', '60' UNION ALL SELECT '80', '80'",
-                "defaultValue": "40",
-                "searchable": false,
-                "placeholder": "Pick a relationship limit…"
+                "rangeMin": 10,
+                "rangeMax": 80,
+                "rangeStep": 5,
+                "defaultValue": "40"
               }
             }
           },
@@ -648,7 +648,7 @@
             "id": "net-graph",
             "chartType": "graph",
             "connectionId": "conn_neo4j",
-            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT $param_net_graph_limit",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT $param_net_graph_limit_max",
             "settings": {
               "title": "Actors and movies",
               "chartOptions": {
@@ -779,12 +779,12 @@
             "settings": {
               "title": "Gauge — minimum target %",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "tab_gauge_target",
-                "seedQuery": "SELECT '50' AS value, '50' AS label UNION ALL SELECT '75', '75' UNION ALL SELECT '85', '85' UNION ALL SELECT '95', '95' UNION ALL SELECT '100', '100'",
-                "defaultValue": "75",
-                "searchable": false,
-                "placeholder": "Pick a target…"
+                "rangeMin": 50,
+                "rangeMax": 100,
+                "rangeStep": 5,
+                "defaultValue": "75"
               }
             }
           },
@@ -792,7 +792,7 @@
             "id": "tab-gauge-progress",
             "chartType": "gauge",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'Delivery rate' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders WHERE total >= $param_tab_gauge_target",
+            "query": "SELECT 'Delivery rate' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders WHERE total >= $param_tab_gauge_target_max",
             "settings": {
               "title": "Gauge — progress style",
               "chartOptions": {
@@ -807,7 +807,7 @@
             "id": "tab-gauge-detail",
             "chartType": "gauge",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'Delivery rate' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders WHERE total >= $param_tab_gauge_target",
+            "query": "SELECT 'Delivery rate' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders WHERE total >= $param_tab_gauge_target_max",
             "settings": {
               "title": "Gauge — detail style",
               "chartOptions": {
@@ -826,12 +826,12 @@
             "settings": {
               "title": "Table — min total spend",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "tab_table_min",
-                "seedQuery": "SELECT '0' AS value, '0' AS label UNION ALL SELECT '50', '50' UNION ALL SELECT '100', '100' UNION ALL SELECT '250', '250' UNION ALL SELECT '500', '500'",
-                "defaultValue": "0",
-                "searchable": false,
-                "placeholder": "Pick a minimum…"
+                "rangeMin": 0,
+                "rangeMax": 500,
+                "rangeStep": 50,
+                "defaultValue": "0"
               }
             }
           },
@@ -843,12 +843,12 @@
             "settings": {
               "title": "Table — limit",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "tab_table_limit",
-                "seedQuery": "SELECT '10' AS value, '10' AS label UNION ALL SELECT '25', '25' UNION ALL SELECT '50', '50' UNION ALL SELECT '100', '100'",
-                "defaultValue": "25",
-                "searchable": false,
-                "placeholder": "Pick a row limit…"
+                "rangeMin": 10,
+                "rangeMax": 100,
+                "rangeStep": 10,
+                "defaultValue": "30"
               }
             }
           },
@@ -872,7 +872,7 @@
             "id": "tab-table-raw",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min ORDER BY CASE WHEN $param_tab_table_sort = 'total_spend' THEN SUM(o.total)::float WHEN $param_tab_table_sort = 'orders' THEN COUNT(o.id)::float ELSE 0 END DESC, CASE WHEN $param_tab_table_sort = 'name' THEN c.name ELSE '' END ASC LIMIT $param_tab_table_limit",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min_max ORDER BY CASE WHEN $param_tab_table_sort = 'total_spend' THEN SUM(o.total)::float WHEN $param_tab_table_sort = 'orders' THEN COUNT(o.id)::float ELSE 0 END DESC, CASE WHEN $param_tab_table_sort = 'name' THEN c.name ELSE '' END ASC LIMIT $param_tab_table_limit_max",
             "settings": {
               "title": "Raw (server-side sort + filter)",
               "chartOptions": {
@@ -887,7 +887,7 @@
             "id": "tab-table-transform",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min ORDER BY total_spend DESC LIMIT $param_tab_table_limit",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min_max ORDER BY total_spend DESC LIMIT $param_tab_table_limit_max",
             "settings": {
               "title": "Same data — client-side filter transform (orders >= 3)",
               "chartOptions": {
@@ -914,12 +914,12 @@
             "settings": {
               "title": "JSON viewer — rows",
               "chartOptions": {
-                "parameterType": "select",
+                "parameterType": "number-range",
                 "parameterName": "tab_json_limit",
-                "seedQuery": "SELECT '1' AS value, '1' AS label UNION ALL SELECT '3', '3' UNION ALL SELECT '5', '5' UNION ALL SELECT '10', '10'",
-                "defaultValue": "5",
-                "searchable": false,
-                "placeholder": "Pick a row count…"
+                "rangeMin": 1,
+                "rangeMax": 10,
+                "rangeStep": 1,
+                "defaultValue": "5"
               }
             }
           },
@@ -927,7 +927,7 @@
             "id": "tab-json",
             "chartType": "json",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT $param_tab_json_limit",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT $param_tab_json_limit_max",
             "settings": {
               "title": "Last N orders (raw)",
               "chartOptions": {
