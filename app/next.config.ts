@@ -32,22 +32,31 @@ const nextConfig: NextConfig = {
     "neo4j-driver-core",
   ],
   async headers() {
+    const baseHeaders = [
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=()",
+      },
+    ];
+
+    // HSTS must NOT be sent on plain-HTTP local/demo deployments — once a
+    // browser sees it on http://localhost it will refuse plain HTTP to that
+    // origin for up to a year. Default: off. Opt in via FORCE_HTTPS=true
+    // (set this on production deployments served over HTTPS).
+    if (process.env.FORCE_HTTPS === "true") {
+      baseHeaders.push({
+        key: "Strict-Transport-Security",
+        value: "max-age=31536000; includeSubDomains",
+      });
+    }
+
     return [
       {
         source: "/:path*",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains",
-          },
-        ],
+        headers: baseHeaders,
       },
     ];
   },
