@@ -46,6 +46,13 @@ export const SHOWCASES = [
     description: "Interactive sandbox — every chart with knobs to fiddle.",
     jsonPath: join(__dirname, "chart-playground.json"),
   },
+  {
+    key: "chart-reference",
+    label: "Chart Reference",
+    description:
+      "Exhaustive customization reference — one page per chart type, all options demonstrated.",
+    jsonPath: join(__dirname, "chart-reference.json"),
+  },
 ];
 
 /** Set of valid showcase keys for fast lookup + validation. */
