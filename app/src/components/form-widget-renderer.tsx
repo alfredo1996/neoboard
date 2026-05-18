@@ -284,6 +284,7 @@ function FieldInput({
           min={field.rangeMin ?? 0}
           max={field.rangeMax ?? 100}
           step={field.rangeStep ?? 1}
+          numberType={field.rangeNumberType ?? "integer"}
           value={rangeValue}
           onChange={(vals) => onChange(field.parameterName, vals)}
           onClear={() => onChange(field.parameterName, undefined)}

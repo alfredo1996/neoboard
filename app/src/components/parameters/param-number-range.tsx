@@ -9,6 +9,8 @@ interface ParamNumberRangeProps {
   rangeMin: number;
   rangeMax: number;
   rangeStep: number;
+  /** "integer" snaps values to whole numbers, "float" allows decimals. Default: "integer". */
+  rangeNumberType?: "integer" | "float";
   className?: string;
 }
 
@@ -18,6 +20,7 @@ export function ParamNumberRange({
   rangeMin,
   rangeMax,
   rangeStep,
+  rangeNumberType = "integer",
   className,
 }: ParamNumberRangeProps) {
   const rawRange = actions.currentEntry?.value;
@@ -26,9 +29,13 @@ export function ParamNumberRange({
     : null;
 
   const handleChange = (vals: [number, number]) => {
-    actions.set(vals);
-    actions.setCompanion("min", vals[0], "number-range");
-    actions.setCompanion("max", vals[1], "number-range");
+    const coerced: [number, number] =
+      rangeNumberType === "integer"
+        ? [Math.round(vals[0]), Math.round(vals[1])]
+        : vals;
+    actions.set(coerced);
+    actions.setCompanion("min", coerced[0], "number-range");
+    actions.setCompanion("max", coerced[1], "number-range");
   };
 
   const handleClear = () => {
@@ -43,6 +50,7 @@ export function ParamNumberRange({
       min={rangeMin}
       max={rangeMax}
       step={rangeStep}
+      numberType={rangeNumberType}
       value={rangeValue}
       onChange={handleChange}
       onClear={handleClear}

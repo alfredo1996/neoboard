@@ -16,6 +16,8 @@ export interface NumberRangeSliderProps {
   onChange: (value: [number, number]) => void;
   onClear: () => void;
   step?: number;
+  /** "integer" coerces inputs/typed values to whole numbers. Default: "integer". */
+  numberType?: "integer" | "float";
   showInputs?: boolean;
   className?: string;
 }
@@ -33,6 +35,7 @@ function NumberRangeSlider({
   onChange,
   onClear,
   step = 1,
+  numberType = "integer",
   showInputs = true,
   className,
 }: NumberRangeSliderProps) {
@@ -40,28 +43,33 @@ function NumberRangeSlider({
   const current: [number, number] = value ?? [min, max];
   const hasValue = value !== null;
 
+  const coerce = (n: number) => (numberType === "integer" ? Math.round(n) : n);
+
   const handleSliderChange = (vals: number[]) => {
-    onChange([vals[0], vals[1]]);
+    onChange([coerce(vals[0]), coerce(vals[1])]);
   };
 
   const handleMinInput = (raw: string) => {
     const num = Number(raw);
     if (isNaN(num)) return;
     const clamped = Math.min(Math.max(num, min), current[1]);
-    onChange([clamped, current[1]]);
+    onChange([coerce(clamped), current[1]]);
   };
 
   const handleMaxInput = (raw: string) => {
     const num = Number(raw);
     if (isNaN(num)) return;
     const clamped = Math.max(Math.min(num, max), current[0]);
-    onChange([current[0], clamped]);
+    onChange([current[0], coerce(clamped)]);
   };
 
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between">
-        <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
           {parameterName}
         </Label>
         {hasValue && (
@@ -91,7 +99,9 @@ function NumberRangeSlider({
             className="w-20 text-center text-sm h-7"
             aria-label={`${parameterName} minimum`}
           />
-          <span className="text-xs text-muted-foreground flex-shrink-0">to</span>
+          <span className="text-xs text-muted-foreground flex-shrink-0">
+            to
+          </span>
           <Input
             type="number"
             value={current[1]}

@@ -255,25 +255,72 @@ function SortableFieldItem({
 
         {/* Range config (for number-range) */}
         {field.parameterType === "number-range" && (
-          <div className="grid grid-cols-3 gap-2">
-            <LabeledInput
-              label="Min"
-              type="number"
-              value={field.rangeMin ?? 0}
-              onChange={(v) => onUpdate(field.id, { rangeMin: Number(v) })}
-            />
-            <LabeledInput
-              label="Max"
-              type="number"
-              value={field.rangeMax ?? 100}
-              onChange={(v) => onUpdate(field.id, { rangeMax: Number(v) })}
-            />
-            <LabeledInput
-              label="Step"
-              type="number"
-              value={field.rangeStep ?? 1}
-              onChange={(v) => onUpdate(field.id, { rangeStep: Number(v) })}
-            />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">
+                Number Type
+              </label>
+              <select
+                className="text-xs border rounded px-2 py-1 bg-background"
+                value={field.rangeNumberType ?? "integer"}
+                onChange={(e) => {
+                  const next = e.target.value as "integer" | "float";
+                  const currentStep = field.rangeStep ?? 1;
+                  let nextStep = currentStep;
+                  if (next === "float" && currentStep === 1) nextStep = 0.1;
+                  else if (next === "integer")
+                    nextStep = Math.max(1, Math.round(currentStep));
+                  onUpdate(field.id, {
+                    rangeNumberType: next,
+                    rangeStep: nextStep,
+                  });
+                }}
+              >
+                <option value="integer">Integer</option>
+                <option value="float">Float</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <LabeledInput
+                label="Min"
+                type="number"
+                value={field.rangeMin ?? 0}
+                onChange={(v) => {
+                  const raw = Number(v);
+                  const numType = field.rangeNumberType ?? "integer";
+                  onUpdate(field.id, {
+                    rangeMin: numType === "integer" ? Math.round(raw) : raw,
+                  });
+                }}
+              />
+              <LabeledInput
+                label="Max"
+                type="number"
+                value={field.rangeMax ?? 100}
+                onChange={(v) => {
+                  const raw = Number(v);
+                  const numType = field.rangeNumberType ?? "integer";
+                  onUpdate(field.id, {
+                    rangeMax: numType === "integer" ? Math.round(raw) : raw,
+                  });
+                }}
+              />
+              <LabeledInput
+                label="Step"
+                type="number"
+                value={field.rangeStep ?? 1}
+                onChange={(v) => {
+                  const raw = Number(v);
+                  const numType = field.rangeNumberType ?? "integer";
+                  onUpdate(field.id, {
+                    rangeStep:
+                      numType === "integer"
+                        ? Math.max(1, Math.round(raw))
+                        : raw,
+                  });
+                }}
+              />
+            </div>
           </div>
         )}
 

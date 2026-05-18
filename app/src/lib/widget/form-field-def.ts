@@ -20,6 +20,7 @@ export interface FormFieldDef {
   rangeMin?: number; // for number-range
   rangeMax?: number;
   rangeStep?: number;
+  rangeNumberType?: "integer" | "float"; // for number-range; default "integer"
   placeholder?: string;
   searchable?: boolean;
 }

@@ -34,6 +34,8 @@ export interface ParameterWidgetConfig {
   rangeMax?: number;
   /** For number-range: the step increment */
   rangeStep?: number;
+  /** For number-range: "integer" (default) snaps values to whole numbers; "float" allows decimals. */
+  rangeNumberType?: "integer" | "float";
   placeholder?: string;
   /** Enable search-as-you-type on select/multi-select (re-queries with $param_search) */
   searchable?: boolean;
@@ -59,6 +61,7 @@ export function ParameterWidgetRenderer({
   rangeMin = 0,
   rangeMax = 100,
   rangeStep = 1,
+  rangeNumberType = "integer",
   placeholder,
   searchable = true,
   className,
@@ -143,6 +146,7 @@ export function ParameterWidgetRenderer({
           rangeMin={rangeMin}
           rangeMax={rangeMax}
           rangeStep={rangeStep}
+          rangeNumberType={rangeNumberType}
           className={className}
         />
       );

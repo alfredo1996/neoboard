@@ -260,6 +260,48 @@ export function ParameterConfigSection({
       {paramUIType === "number-range" && (
         <div className="space-y-1.5" data-testid="param-number-range-config">
           <Label>Range Settings</Label>
+          <div className="space-y-1">
+            <Label htmlFor="param-range-number-type" className="text-xs">
+              Number Type
+            </Label>
+            <Select
+              value={
+                (chartOptions.rangeNumberType as string | undefined) ??
+                "integer"
+              }
+              onValueChange={(v) => {
+                const next = v as "integer" | "float";
+                onChartOptionsChange((prev) => {
+                  // When switching to float, drop integer-only step=1 default;
+                  // when switching to integer, snap step to >=1 whole number.
+                  const currentStep =
+                    (prev.rangeStep as number | undefined) ?? 1;
+                  let nextStep = currentStep;
+                  if (next === "float" && currentStep === 1) {
+                    nextStep = 0.1;
+                  } else if (next === "integer") {
+                    nextStep = Math.max(1, Math.round(currentStep));
+                  }
+                  return {
+                    ...prev,
+                    rangeNumberType: next,
+                    rangeStep: nextStep,
+                  };
+                });
+              }}
+            >
+              <SelectTrigger
+                id="param-range-number-type"
+                data-testid="param-range-number-type"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="integer">Integer</SelectItem>
+                <SelectItem value="float">Float</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
               <Label htmlFor="param-range-min" className="text-xs">
@@ -268,12 +310,23 @@ export function ParameterConfigSection({
               <Input
                 id="param-range-min"
                 type="number"
+                step={
+                  ((chartOptions.rangeNumberType as string | undefined) ??
+                    "integer") === "integer"
+                    ? 1
+                    : "any"
+                }
                 value={(chartOptions.rangeMin as number | undefined) ?? 0}
                 onChange={(e) =>
-                  onChartOptionsChange((prev) => ({
-                    ...prev,
-                    rangeMin: Number(e.target.value),
-                  }))
+                  onChartOptionsChange((prev) => {
+                    const numType =
+                      (prev.rangeNumberType as string | undefined) ?? "integer";
+                    const raw = Number(e.target.value);
+                    return {
+                      ...prev,
+                      rangeMin: numType === "integer" ? Math.round(raw) : raw,
+                    };
+                  })
                 }
               />
             </div>
@@ -284,12 +337,23 @@ export function ParameterConfigSection({
               <Input
                 id="param-range-max"
                 type="number"
+                step={
+                  ((chartOptions.rangeNumberType as string | undefined) ??
+                    "integer") === "integer"
+                    ? 1
+                    : "any"
+                }
                 value={(chartOptions.rangeMax as number | undefined) ?? 100}
                 onChange={(e) =>
-                  onChartOptionsChange((prev) => ({
-                    ...prev,
-                    rangeMax: Number(e.target.value),
-                  }))
+                  onChartOptionsChange((prev) => {
+                    const numType =
+                      (prev.rangeNumberType as string | undefined) ?? "integer";
+                    const raw = Number(e.target.value);
+                    return {
+                      ...prev,
+                      rangeMax: numType === "integer" ? Math.round(raw) : raw,
+                    };
+                  })
                 }
               />
             </div>
@@ -301,12 +365,26 @@ export function ParameterConfigSection({
                 id="param-range-step"
                 type="number"
                 min={0}
+                step={
+                  ((chartOptions.rangeNumberType as string | undefined) ??
+                    "integer") === "integer"
+                    ? 1
+                    : "any"
+                }
                 value={(chartOptions.rangeStep as number | undefined) ?? 1}
                 onChange={(e) =>
-                  onChartOptionsChange((prev) => ({
-                    ...prev,
-                    rangeStep: Number(e.target.value),
-                  }))
+                  onChartOptionsChange((prev) => {
+                    const numType =
+                      (prev.rangeNumberType as string | undefined) ?? "integer";
+                    const raw = Number(e.target.value);
+                    return {
+                      ...prev,
+                      rangeStep:
+                        numType === "integer"
+                          ? Math.max(1, Math.round(raw))
+                          : raw,
+                    };
+                  })
                 }
               />
             </div>

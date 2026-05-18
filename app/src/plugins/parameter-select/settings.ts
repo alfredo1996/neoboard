@@ -23,6 +23,7 @@ export const parameterSelectSettingsSchema = z
     rangeMin: z.coerce.number().default(0),
     rangeMax: z.coerce.number().default(100),
     rangeStep: z.coerce.number().default(1),
+    rangeNumberType: z.enum(["integer", "float"]).default("integer"),
     placeholder: z.string().optional(),
     searchable: z.boolean().default(true),
   })

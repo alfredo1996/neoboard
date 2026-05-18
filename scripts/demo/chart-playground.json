@@ -777,13 +777,14 @@
             "connectionId": "conn_postgres_read",
             "query": "",
             "settings": {
-              "title": "Gauge — minimum target %",
+              "title": "Gauge — minimum target % (float, step 0.5)",
               "chartOptions": {
                 "parameterType": "number-range",
                 "parameterName": "tab_gauge_target",
                 "rangeMin": 50,
                 "rangeMax": 100,
-                "rangeStep": 5,
+                "rangeStep": 0.5,
+                "rangeNumberType": "float",
                 "defaultValue": "75"
               }
             }

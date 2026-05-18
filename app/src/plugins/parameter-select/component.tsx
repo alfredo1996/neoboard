@@ -41,6 +41,7 @@ function ParameterSelectPluginComponent({
         rangeMin={settings.rangeMin}
         rangeMax={settings.rangeMax}
         rangeStep={settings.rangeStep}
+        rangeNumberType={settings.rangeNumberType}
         placeholder={settings.placeholder || undefined}
         searchable={settings.searchable}
         widgetId={widgetId}
