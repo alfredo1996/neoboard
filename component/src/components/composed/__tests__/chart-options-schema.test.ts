@@ -176,7 +176,7 @@ describe("getDefaultChartSettings", () => {
   it("returns correct defaults for table chart", () => {
     const d = getDefaultChartSettings("table");
     expect(d.enableSorting).toBe(true);
-    expect(d.enableColumnFilters).toBe(true);
+    expect(d.enableColumnFilters).toBe(false);
     expect(d.pageSize).toBe(10);
     expect(d.emptyMessage).toBe("No results");
     expect(d.enableGlobalFilter).toBeUndefined();
