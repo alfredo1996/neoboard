@@ -385,6 +385,114 @@ describe("FormFieldsEditor", () => {
       const updated = next.find((f) => f.id === "f1")!;
       expect(updated.rangeMin).toBe(2.5);
     });
+
+    it("switches to integer and snaps a fractional step up to >=1", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Price",
+          parameterName: "price",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "float",
+          rangeStep: 0.4,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const allSelects = screen.getAllByRole("combobox");
+      const numberTypeSelect = allSelects[allSelects.length - 1];
+      fireEvent.change(numberTypeSelect, { target: { value: "integer" } });
+      const next = mockSetFormFields.mock.calls[0][0] as FormFieldDef[];
+      const updated = next.find((f) => f.id === "f1")!;
+      expect(updated.rangeNumberType).toBe("integer");
+      // Math.max(1, Math.round(0.4)) === 1
+      expect(updated.rangeStep).toBe(1);
+    });
+
+    it("rounds max when type is integer", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const maxInput = screen.getByDisplayValue("10");
+      fireEvent.change(maxInput, { target: { value: "12.6" } });
+      const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
+      expect(next.find((f) => f.id === "f1")!.rangeMax).toBe(13);
+    });
+
+    it("preserves decimals on max when type is float", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Price",
+          parameterName: "price",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "float",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 0.1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const maxInput = screen.getByDisplayValue("10");
+      fireEvent.change(maxInput, { target: { value: "7.25" } });
+      const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
+      expect(next.find((f) => f.id === "f1")!.rangeMax).toBe(7.25);
+    });
+
+    it("snaps step to >=1 whole number when type is integer", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 0,
+          rangeMax: 100,
+          rangeStep: 5,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const stepInput = screen.getByDisplayValue("5");
+      fireEvent.change(stepInput, { target: { value: "0.3" } });
+      const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
+      // Math.max(1, Math.round(0.3)) === 1
+      expect(next.find((f) => f.id === "f1")!.rangeStep).toBe(1);
+    });
+
+    it("preserves decimal step when type is float", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Price",
+          parameterName: "price",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "float",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 0.5,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const stepInput = screen.getByDisplayValue("0.5");
+      fireEvent.change(stepInput, { target: { value: "0.25" } });
+      const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
+      expect(next.find((f) => f.id === "f1")!.rangeStep).toBe(0.25);
+    });
   });
 
   it("shows param reference hint in field content", () => {
