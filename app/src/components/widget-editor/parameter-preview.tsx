@@ -6,6 +6,7 @@ import {
   DatePickerParameter,
   DateRangeParameter,
   DateRelativePicker,
+  NumberRangeSlider,
   ParamSelector,
   ParamMultiSelector,
 } from "@neoboard/components";
@@ -90,6 +91,18 @@ export function ParameterPreview({
             options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
             placeholder={(chartOptions.placeholder as string) || "Select..."}
+          />
+        )}
+        {paramUIType === "number-range" && (
+          <NumberRangeSlider
+            parameterName={paramWidgetName || "preview"}
+            min={(chartOptions.rangeMin as number | undefined) ?? 0}
+            max={(chartOptions.rangeMax as number | undefined) ?? 100}
+            step={(chartOptions.rangeStep as number | undefined) ?? 1}
+            value={null}
+            onChange={() => {}}
+            onClear={() => {}}
+            showInputs
           />
         )}
         {paramUIType === "select" && multiSelect && (

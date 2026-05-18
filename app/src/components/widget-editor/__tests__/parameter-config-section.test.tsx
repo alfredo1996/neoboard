@@ -3,7 +3,12 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@neoboard/components", () => ({}));
 vi.mock("lucide-react", () => {
   const Icon = () => null;
-  return { Calendar: Icon, Type: Icon, ListFilter: Icon };
+  return {
+    Calendar: Icon,
+    Type: Icon,
+    ListFilter: Icon,
+    SlidersHorizontal: Icon,
+  };
 });
 vi.mock("@/stores/widget-editor-store", () => ({
   useWidgetEditorStore: () => ({}),
@@ -49,6 +54,15 @@ describe("resolveInternalParamType", () => {
 
   it("ignores multi for date types", () => {
     expect(resolveInternalParamType("date", "single", true)).toBe("date");
+  });
+
+  it("maps number-range to number-range (ignores multi/dateSub)", () => {
+    expect(resolveInternalParamType("number-range", "single", false)).toBe(
+      "number-range",
+    );
+    expect(resolveInternalParamType("number-range", "range", true)).toBe(
+      "number-range",
+    );
   });
 });
 
@@ -109,6 +123,14 @@ describe("reverseParamTypeMapping", () => {
     });
   });
 
+  it("maps number-range back to number-range UI type", () => {
+    expect(reverseParamTypeMapping("number-range")).toEqual({
+      uiType: "number-range",
+      dateSub: "single",
+      multi: false,
+    });
+  });
+
   it("roundtrips with resolveInternalParamType", () => {
     const cases = [
       { ui: "date" as const, sub: "single" as const, multi: false },
@@ -117,6 +139,7 @@ describe("reverseParamTypeMapping", () => {
       { ui: "freetext" as const, sub: "single" as const, multi: false },
       { ui: "select" as const, sub: "single" as const, multi: false },
       { ui: "select" as const, sub: "single" as const, multi: true },
+      { ui: "number-range" as const, sub: "single" as const, multi: false },
     ];
     for (const { ui, sub, multi } of cases) {
       const internal = resolveInternalParamType(ui, sub, multi);

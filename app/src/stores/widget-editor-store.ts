@@ -19,7 +19,7 @@ import type { Transform } from "@/lib/query/data-transforms";
 
 // ParamUIType/DateSubType are string unions — define locally to avoid importing
 // the React component file (which pulls in @neoboard/components UI barrel).
-export type ParamUIType = "date" | "freetext" | "select";
+export type ParamUIType = "date" | "freetext" | "select" | "number-range";
 export type DateSubType = "single" | "range" | "relative";
 
 /** Reverse-map an internal parameterType to UI state. Duplicated from parameter-config-section to avoid UI import. */
@@ -39,6 +39,8 @@ function reverseParamTypeMapping(internalType: string): {
       return { uiType: "freetext", dateSub: "single", multi: false };
     case "multi-select":
       return { uiType: "select", dateSub: "single", multi: true };
+    case "number-range":
+      return { uiType: "number-range", dateSub: "single", multi: false };
     default:
       return { uiType: "select", dateSub: "single", multi: false };
   }
