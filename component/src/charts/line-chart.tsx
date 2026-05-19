@@ -4,6 +4,7 @@ import { BaseChart } from "./base-chart";
 import type { BaseChartProps, LineChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
+  buildAutoAriaDescription,
   buildEmptyDataOption,
   getCompactState,
   resolveShowLegend,
@@ -220,24 +221,9 @@ function LineChart({
   // generic "Chart visualization" fallback is only used when the chart is
   // truly empty. Callers can still pass an explicit ariaDescription to
   // override (e.g., a widget title that already conveys the meaning).
-  const autoAria = useMemo(() => {
-    if (!data.length) return "Line chart with no data";
-    const seen = new Set<string>();
-    const seriesKeys: string[] = [];
-    for (const row of data) {
-      for (const k of Object.keys(row)) {
-        if (k !== "x" && !seen.has(k)) {
-          seen.add(k);
-          seriesKeys.push(k);
-        }
-      }
-    }
-    const seriesPart = seriesKeys.length
-      ? `${seriesKeys.length} series: ${seriesKeys.join(", ")}`
-      : "0 series";
-    return `Line chart with ${data.length} points and ${seriesPart}`;
-  }, [data]);
-  const effectiveAria = ariaDescription ?? autoAria;
+  const effectiveAria =
+    ariaDescription ??
+    buildAutoAriaDescription("Line chart", data, "x", "points");
 
   return (
     <div ref={containerRef} className="h-full w-full">

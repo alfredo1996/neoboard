@@ -400,6 +400,41 @@ export function buildEmptyDataOption(): EChartsOption {
 }
 
 /**
+ * Auto-derive a screen-reader description from a chart's data shape.
+ * Used by bar/line/etc. when the caller does not pass an explicit
+ * ariaDescription — replaces the generic ECharts "This is a chart"
+ * fallback with something that names the rows, series count and series.
+ *
+ * @param chartType   Human-readable chart kind, e.g. "Bar chart"
+ * @param data        The row array passed to the chart
+ * @param labelKey    The row key that holds the X / category label
+ *                    (excluded from the series-key enumeration)
+ * @param rowNoun     What a row represents — "categories" / "points" / etc.
+ */
+export function buildAutoAriaDescription(
+  chartType: string,
+  data: Record<string, unknown>[],
+  labelKey: string,
+  rowNoun: string,
+): string {
+  if (!data.length) return `${chartType} with no data`;
+  const seen = new Set<string>();
+  const seriesKeys: string[] = [];
+  for (const row of data) {
+    for (const k of Object.keys(row)) {
+      if (k !== labelKey && !seen.has(k)) {
+        seen.add(k);
+        seriesKeys.push(k);
+      }
+    }
+  }
+  const seriesPart = seriesKeys.length
+    ? `${seriesKeys.length} series: ${seriesKeys.join(", ")}`
+    : "0 series";
+  return `${chartType} with ${data.length} ${rowNoun} and ${seriesPart}`;
+}
+
+/**
  * Compact/responsive breakpoints used consistently across all ECharts components.
  * A chart is "compact" when its container is narrower than 300px.
  * The legend is hidden when the container height is below 200px.
