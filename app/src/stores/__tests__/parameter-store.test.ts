@@ -423,6 +423,64 @@ describe("useParameterStore", () => {
       expect(useParameterStore.getState().parameters).toEqual({});
     });
 
+    it("rejects non-object payloads (array, primitive)", () => {
+      localStorage.setItem("nb-params:bad-array", JSON.stringify(["x"]));
+      const { restoreFromDashboard } = useParameterStore.getState();
+      restoreFromDashboard("bad-array");
+      expect(useParameterStore.getState().parameters).toEqual({});
+
+      localStorage.setItem("nb-params:bad-num", JSON.stringify(42));
+      restoreFromDashboard("bad-num");
+      expect(useParameterStore.getState().parameters).toEqual({});
+    });
+
+    it("drops entries with missing required fields", () => {
+      localStorage.setItem(
+        "nb-params:partial",
+        JSON.stringify({
+          good: {
+            value: "x",
+            source: "W",
+            field: "f",
+            type: "text",
+            sourceType: "selector-widget",
+          },
+          // missing source + field — must be dropped
+          bad: { value: "x", type: "text" },
+        }),
+      );
+      useParameterStore.getState().restoreFromDashboard("partial");
+      const out = useParameterStore.getState().parameters;
+      expect(Object.keys(out)).toEqual(["good"]);
+    });
+
+    it("drops entries whose value fails coerceValue (e.g. scalar in number-range)", () => {
+      localStorage.setItem(
+        "nb-params:malformed",
+        JSON.stringify({
+          range: {
+            value: [0, 10],
+            source: "Slider",
+            field: "range",
+            type: "number-range",
+            sourceType: "selector-widget",
+          },
+          badRange: {
+            // legal-looking shape but invalid value for number-range
+            value: { nope: 1 },
+            source: "Slider",
+            field: "badRange",
+            type: "number-range",
+            sourceType: "selector-widget",
+          },
+        }),
+      );
+      useParameterStore.getState().restoreFromDashboard("malformed");
+      const out = useParameterStore.getState().parameters;
+      expect(out["range"]).toBeDefined();
+      expect(out["badRange"]).toBeUndefined();
+    });
+
     it("overwrites previously saved parameters on re-save", () => {
       const { setParameter, saveToDashboard, restoreFromDashboard, clearAll } =
         useParameterStore.getState();

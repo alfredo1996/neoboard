@@ -25,8 +25,9 @@ export const parameterSelectSettingsSchema = z
     rangeStep: z.coerce.number().default(1),
     placeholder: z.string().optional(),
     searchable: z.boolean().default(true),
+    rangeNumberType: z.enum(["integer", "float"]).default("integer"),
   })
-  .passthrough();
+  .strip();
 
 export type ParameterSelectSettings = z.infer<
   typeof parameterSelectSettingsSchema
