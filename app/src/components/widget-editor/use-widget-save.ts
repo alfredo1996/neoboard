@@ -60,8 +60,9 @@ export function useBuildWidgetForSave(
             multiSelect,
           ),
           parameterName: paramWidgetName,
+          // Seed query is only meaningful for the option-backed types.
           seedQuery:
-            paramUIType === "select"
+            paramUIType === "select" || paramUIType === "cascading"
               ? (chartOptions.seedQuery ?? "")
               : undefined,
         }
@@ -79,7 +80,12 @@ export function useBuildWidgetForSave(
       id: existingWidget?.id ?? crypto.randomUUID(),
       chartType,
       connectionId:
-        (isParamSelect && paramUIType !== "select") || isContentOnly
+        // Option-backed parameter types (select, cascading) need a connection
+        // to run the seed query. Date/freetext/number-range have no DB query.
+        (isParamSelect &&
+          paramUIType !== "select" &&
+          paramUIType !== "cascading") ||
+        isContentOnly
           ? ""
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,

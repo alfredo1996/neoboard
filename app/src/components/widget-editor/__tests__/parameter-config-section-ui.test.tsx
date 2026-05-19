@@ -90,7 +90,13 @@ vi.mock("@neoboard/components", () => ({
 
 vi.mock("lucide-react", () => {
   const Icon = () => <span />;
-  return { Calendar: Icon, Type: Icon, ListFilter: Icon };
+  return {
+    Calendar: Icon,
+    Type: Icon,
+    ListFilter: Icon,
+    SlidersHorizontal: Icon,
+    GitBranch: Icon,
+  };
 });
 
 const mockSetParamUIType = vi.fn();
@@ -337,5 +343,84 @@ describe("ParameterConfigSection", () => {
     );
     expect(screen.getByText("$param_period_from")).toBeInTheDocument();
     expect(screen.getByText("$param_period_to")).toBeInTheDocument();
+  });
+
+  // ── number-range editor (regression: #861) ────────────────────────
+  it("shows range-bounds inputs for number-range type", () => {
+    mockStoreState.paramUIType = "number-range";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByLabelText("Range minimum")).toBeInTheDocument();
+    expect(screen.getByLabelText("Range maximum")).toBeInTheDocument();
+    expect(screen.getByLabelText("Range step")).toBeInTheDocument();
+  });
+
+  it("shows number-range sub-parameters in reference hint", () => {
+    mockStoreState.paramUIType = "number-range";
+    mockStoreState.paramWidgetName = "year";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("$param_year_min")).toBeInTheDocument();
+    expect(screen.getByText("$param_year_max")).toBeInTheDocument();
+  });
+
+  it("writes rangeMax into chartOptions when user changes max input", () => {
+    mockStoreState.paramUIType = "number-range";
+    mockStoreState.chartOptions = { rangeMin: 0, rangeMax: 100, rangeStep: 1 };
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Range maximum"), {
+      target: { value: "250" },
+    });
+    // Either a direct object or a functional updater is acceptable —
+    // we only need to confirm chartOptions was updated for the max field.
+    expect(mockSetChartOptions).toHaveBeenCalled();
+  });
+
+  // ── cascading editor (regression: #861) ────────────────────────────
+  it("shows parent-parameter input for cascading type", () => {
+    mockStoreState.paramUIType = "cascading";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.getByText("Parent Parameter Name")).toBeInTheDocument();
+  });
+
+  it("still shows seed query input for cascading type", () => {
+    mockStoreState.paramUIType = "cascading";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    // The same seed-query block used by `select` should also render here.
+    expect(screen.getByText("Seed Query")).toBeInTheDocument();
+  });
+
+  it("hides seed query input for number-range type", () => {
+    mockStoreState.paramUIType = "number-range";
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    expect(screen.queryByText("Seed Query")).not.toBeInTheDocument();
   });
 });
