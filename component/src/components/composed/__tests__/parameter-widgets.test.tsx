@@ -1156,6 +1156,170 @@ describe("NumberRangeSlider", () => {
     );
     expect(container.firstChild).toHaveClass("slider-cls");
   });
+
+  // ── Coverage-uplift cases (regression: #857) ───────────────────────
+  //
+  // The branches below previously had no direct test:
+  // - float coerce (no Math.round)
+  // - NaN draft revert on blur
+  // - Enter key on max input
+  // - draft resync when value prop changes externally (slider drag)
+  // - showInputs default (true)
+
+  it("preserves decimals when numberType is float", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={10}
+        value={[0, 10]}
+        onChange={onChange}
+        onClear={vi.fn()}
+        numberType="float"
+        showInputs
+      />,
+    );
+    const minInput = screen.getByRole("textbox", { name: /price minimum/i });
+    fireEvent.change(minInput, { target: { value: "2.5" } });
+    fireEvent.blur(minInput);
+    expect(onChange).toHaveBeenCalledWith([2.5, 10]);
+  });
+
+  it("rounds to nearest integer by default", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="qty"
+        min={0}
+        max={10}
+        value={[0, 10]}
+        onChange={onChange}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    const minInput = screen.getByRole("textbox", { name: /qty minimum/i });
+    fireEvent.change(minInput, { target: { value: "3.7" } });
+    fireEvent.blur(minInput);
+    expect(onChange).toHaveBeenCalledWith([4, 10]);
+  });
+
+  it("reverts to prior value on blur when min draft is NaN", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={100}
+        value={[10, 50]}
+        onChange={onChange}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    const minInput = screen.getByRole("textbox", { name: /price minimum/i });
+    fireEvent.change(minInput, { target: { value: "abc" } });
+    fireEvent.blur(minInput);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(minInput).toHaveValue("10");
+  });
+
+  it("reverts to prior value on blur when max draft is NaN or empty", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={100}
+        value={[10, 50]}
+        onChange={onChange}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    const maxInput = screen.getByRole("textbox", { name: /price maximum/i });
+    fireEvent.change(maxInput, { target: { value: "" } });
+    fireEvent.blur(maxInput);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(maxInput).toHaveValue("50");
+
+    fireEvent.change(maxInput, { target: { value: "xyz" } });
+    fireEvent.blur(maxInput);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("commits max on Enter key", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[0, 1000]}
+        onChange={onChange}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    const maxInput = screen.getByRole("textbox", { name: /price maximum/i });
+    fireEvent.change(maxInput, { target: { value: "750" } });
+    fireEvent.keyDown(maxInput, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith([0, 750]);
+  });
+
+  it("re-syncs draft inputs when the value prop changes externally", () => {
+    // Simulates a slider drag committing a new value while the user
+    // hasn't focused the input — drafts must follow the source of truth.
+    const { rerender } = render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={100}
+        value={[10, 50]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: /price minimum/i })).toHaveValue(
+      "10",
+    );
+
+    rerender(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={100}
+        value={[25, 75]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: /price minimum/i })).toHaveValue(
+      "25",
+    );
+    expect(screen.getByRole("textbox", { name: /price maximum/i })).toHaveValue(
+      "75",
+    );
+  });
+
+  it("defaults showInputs to true when prop is omitted", () => {
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={100}
+        value={[10, 90]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: /price minimum/i }),
+    ).toBeInTheDocument();
+  });
 });
 
 // ─── CascadingSelector ────────────────────────────────────────────────────────
