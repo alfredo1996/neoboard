@@ -182,13 +182,18 @@ test.describe("Parameter widget types", () => {
 
       // NumberRangeSlider exposes its inputs via `showInputs` — fill them
       // directly to drive deterministic values (avoids drag math on the
-      // slider handles).
-      const inputs = page.getByRole("spinbutton");
-      await inputs.first().waitFor({ state: "visible", timeout: 15_000 });
-      await inputs.first().fill("1999");
-      await inputs.first().press("Tab");
-      await inputs.last().fill("2003");
-      await inputs.last().press("Tab");
+      // slider handles). Inputs are `type="text" inputMode="numeric"` so
+      // the user can type partial values ("-", "") without snapping;
+      // accessible role is `textbox` (not `spinbutton`). We target by the
+      // aria-label set by NumberRangeSlider to avoid grabbing unrelated
+      // textboxes on the page.
+      const minInput = page.getByLabel("yr minimum");
+      const maxInput = page.getByLabel("yr maximum");
+      await minInput.waitFor({ state: "visible", timeout: 15_000 });
+      await minInput.fill("1999");
+      await minInput.press("Tab");
+      await maxInput.fill("2003");
+      await maxInput.press("Tab");
 
       // count(m) result renders somewhere on the card; assert a positive
       // integer (movies DB always has at least one movie in 1999–2003).
