@@ -209,7 +209,7 @@ function LineChart({
         axisLabel: { show: !compact },
       },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
-      series: seriesKeys.map(buildSeries),
+      series: seriesKeys.map((key, idx) => buildSeries(key, idx)),
     };
   }, [
     data,
