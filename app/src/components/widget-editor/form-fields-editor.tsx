@@ -81,6 +81,141 @@ function LabeledInput({
   );
 }
 
+/**
+ * Number-range editor: keeps min/max/step as draft strings so the user can
+ * clear the field while typing without it snapping to 0 (which `Number("")`
+ * would otherwise produce). Commits on blur and validates min<max, step>0
+ * with an inline error message.
+ */
+interface NumberRangeFieldsProps {
+  field: FormFieldDef;
+  onUpdate: (id: string, patch: Partial<FormFieldDef>) => void;
+}
+
+function NumberRangeFields({ field, onUpdate }: NumberRangeFieldsProps) {
+  const numType = field.rangeNumberType ?? "integer";
+  const min = field.rangeMin ?? 0;
+  const max = field.rangeMax ?? 100;
+  const step = field.rangeStep ?? 1;
+
+  // Draft strings let the user clear a field or type a partial value without
+  // it snapping back. We resync from props using the React "adjust state in
+  // render" pattern: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [minDraft, setMinDraft] = React.useState(String(min));
+  const [maxDraft, setMaxDraft] = React.useState(String(max));
+  const [stepDraft, setStepDraft] = React.useState(String(step));
+  const [prevMin, setPrevMin] = React.useState(min);
+  const [prevMax, setPrevMax] = React.useState(max);
+  const [prevStep, setPrevStep] = React.useState(step);
+  if (min !== prevMin) {
+    setPrevMin(min);
+    setMinDraft(String(min));
+  }
+  if (max !== prevMax) {
+    setPrevMax(max);
+    setMaxDraft(String(max));
+  }
+  if (step !== prevStep) {
+    setPrevStep(step);
+    setStepDraft(String(step));
+  }
+
+  const coerce = (raw: number) =>
+    numType === "integer" ? Math.round(raw) : raw;
+
+  const commit = (key: "rangeMin" | "rangeMax" | "rangeStep", raw: string) => {
+    const parsed = Number(raw);
+    // Empty / NaN: revert draft to prior committed value.
+    if (raw.trim() === "" || isNaN(parsed)) {
+      if (key === "rangeMin") setMinDraft(String(min));
+      else if (key === "rangeMax") setMaxDraft(String(max));
+      else setStepDraft(String(step));
+      return;
+    }
+    if (key === "rangeStep") {
+      const next =
+        numType === "integer" ? Math.max(1, Math.round(parsed)) : parsed;
+      onUpdate(field.id, { rangeStep: next > 0 ? next : step });
+    } else {
+      onUpdate(field.id, { [key]: coerce(parsed) });
+    }
+  };
+
+  const validationError =
+    min >= max
+      ? "Min must be less than Max"
+      : step <= 0
+        ? "Step must be greater than 0"
+        : null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-muted-foreground">Number Type</label>
+        <select
+          className="text-xs border rounded px-2 py-1 bg-background"
+          value={numType}
+          onChange={(e) => {
+            const next = e.target.value as "integer" | "float";
+            const currentStep = field.rangeStep ?? 1;
+            let nextStep = currentStep;
+            if (next === "float" && currentStep === 1) nextStep = 0.1;
+            else if (next === "integer")
+              nextStep = Math.max(1, Math.round(currentStep));
+            onUpdate(field.id, {
+              rangeNumberType: next,
+              rangeStep: nextStep,
+            });
+          }}
+        >
+          <option value="integer">Integer</option>
+          <option value="float">Float</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Min</Label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={minDraft}
+            onChange={(e) => setMinDraft(e.target.value)}
+            onBlur={(e) => commit("rangeMin", e.target.value)}
+            className="h-7 text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Max</Label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={maxDraft}
+            onChange={(e) => setMaxDraft(e.target.value)}
+            onBlur={(e) => commit("rangeMax", e.target.value)}
+            className="h-7 text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Step</Label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={stepDraft}
+            onChange={(e) => setStepDraft(e.target.value)}
+            onBlur={(e) => commit("rangeStep", e.target.value)}
+            className="h-7 text-xs"
+          />
+        </div>
+      </div>
+      {validationError && (
+        <p className="text-xs text-destructive" role="alert">
+          {validationError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface SortableFieldItemProps {
   field: FormFieldDef;
   index: number;
@@ -255,73 +390,7 @@ function SortableFieldItem({
 
         {/* Range config (for number-range) */}
         {field.parameterType === "number-range" && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground">
-                Number Type
-              </label>
-              <select
-                className="text-xs border rounded px-2 py-1 bg-background"
-                value={field.rangeNumberType ?? "integer"}
-                onChange={(e) => {
-                  const next = e.target.value as "integer" | "float";
-                  const currentStep = field.rangeStep ?? 1;
-                  let nextStep = currentStep;
-                  if (next === "float" && currentStep === 1) nextStep = 0.1;
-                  else if (next === "integer")
-                    nextStep = Math.max(1, Math.round(currentStep));
-                  onUpdate(field.id, {
-                    rangeNumberType: next,
-                    rangeStep: nextStep,
-                  });
-                }}
-              >
-                <option value="integer">Integer</option>
-                <option value="float">Float</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <LabeledInput
-                label="Min"
-                type="number"
-                value={field.rangeMin ?? 0}
-                onChange={(v) => {
-                  const raw = Number(v);
-                  const numType = field.rangeNumberType ?? "integer";
-                  onUpdate(field.id, {
-                    rangeMin: numType === "integer" ? Math.round(raw) : raw,
-                  });
-                }}
-              />
-              <LabeledInput
-                label="Max"
-                type="number"
-                value={field.rangeMax ?? 100}
-                onChange={(v) => {
-                  const raw = Number(v);
-                  const numType = field.rangeNumberType ?? "integer";
-                  onUpdate(field.id, {
-                    rangeMax: numType === "integer" ? Math.round(raw) : raw,
-                  });
-                }}
-              />
-              <LabeledInput
-                label="Step"
-                type="number"
-                value={field.rangeStep ?? 1}
-                onChange={(v) => {
-                  const raw = Number(v);
-                  const numType = field.rangeNumberType ?? "integer";
-                  onUpdate(field.id, {
-                    rangeStep:
-                      numType === "integer"
-                        ? Math.max(1, Math.round(raw))
-                        : raw,
-                  });
-                }}
-              />
-            </div>
-          </div>
+          <NumberRangeFields field={field} onUpdate={onUpdate} />
         )}
 
         {/* Placeholder (for text/select types) */}

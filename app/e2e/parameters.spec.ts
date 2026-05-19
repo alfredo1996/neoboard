@@ -1386,14 +1386,18 @@ test.describe("Number-range parameter widget", () => {
       await expect(maxInput).toHaveValue("2020");
 
       // Change the min input — should trigger parameter set and show Reset button.
+      // Inputs use draft state and only commit on blur/Enter (so the user can
+      // type "-" or partial numbers without snapping); Tab triggers blur.
       // Two "Reset" buttons may appear (slider + parameter bar), so use .first().
       await minInput.fill("1950");
+      await minInput.press("Tab");
       await expect(
         page.getByRole("button", { name: "Reset" }).first(),
       ).toBeVisible({ timeout: 5_000 });
 
       // Change the max input
       await maxInput.fill("2000");
+      await maxInput.press("Tab");
       await expect(maxInput).toHaveValue("2000");
 
       // Click Reset — should clear the range (both slider and parameter bar Reset disappear)

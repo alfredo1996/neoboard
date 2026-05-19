@@ -357,6 +357,7 @@ describe("FormFieldsEditor", () => {
       render(<FormFieldsEditor />);
       const minInput = screen.getByDisplayValue("0");
       fireEvent.change(minInput, { target: { value: "3.7" } });
+      fireEvent.blur(minInput);
       const setCall = mockSetFormFields.mock.calls.at(-1)!;
       const next = setCall[0] as FormFieldDef[];
       const updated = next.find((f) => f.id === "f1")!;
@@ -380,6 +381,7 @@ describe("FormFieldsEditor", () => {
       render(<FormFieldsEditor />);
       const minInput = screen.getByDisplayValue("0");
       fireEvent.change(minInput, { target: { value: "2.5" } });
+      fireEvent.blur(minInput);
       const setCall = mockSetFormFields.mock.calls.at(-1)!;
       const next = setCall[0] as FormFieldDef[];
       const updated = next.find((f) => f.id === "f1")!;
@@ -426,6 +428,7 @@ describe("FormFieldsEditor", () => {
       render(<FormFieldsEditor />);
       const maxInput = screen.getByDisplayValue("10");
       fireEvent.change(maxInput, { target: { value: "12.6" } });
+      fireEvent.blur(maxInput);
       const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
       expect(next.find((f) => f.id === "f1")!.rangeMax).toBe(13);
     });
@@ -447,6 +450,7 @@ describe("FormFieldsEditor", () => {
       render(<FormFieldsEditor />);
       const maxInput = screen.getByDisplayValue("10");
       fireEvent.change(maxInput, { target: { value: "7.25" } });
+      fireEvent.blur(maxInput);
       const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
       expect(next.find((f) => f.id === "f1")!.rangeMax).toBe(7.25);
     });
@@ -468,6 +472,7 @@ describe("FormFieldsEditor", () => {
       render(<FormFieldsEditor />);
       const stepInput = screen.getByDisplayValue("5");
       fireEvent.change(stepInput, { target: { value: "0.3" } });
+      fireEvent.blur(stepInput);
       const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
       // Math.max(1, Math.round(0.3)) === 1
       expect(next.find((f) => f.id === "f1")!.rangeStep).toBe(1);
@@ -490,8 +495,145 @@ describe("FormFieldsEditor", () => {
       render(<FormFieldsEditor />);
       const stepInput = screen.getByDisplayValue("0.5");
       fireEvent.change(stepInput, { target: { value: "0.25" } });
+      fireEvent.blur(stepInput);
       const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
       expect(next.find((f) => f.id === "f1")!.rangeStep).toBe(0.25);
+    });
+
+    it("reverts to prior value when min input is blurred while empty", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 5,
+          rangeMax: 10,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const minInput = screen.getByDisplayValue("5");
+      fireEvent.change(minInput, { target: { value: "" } });
+      fireEvent.blur(minInput);
+      // Regression: previously Number("") was 0 and silently zeroed rangeMin.
+      expect(mockSetFormFields).not.toHaveBeenCalled();
+      // Draft snaps back to prior value.
+      expect((minInput as HTMLInputElement).value).toBe("5");
+    });
+
+    it("reverts to prior value on garbage input", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 7,
+          rangeMax: 10,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const minInput = screen.getByDisplayValue("7");
+      fireEvent.change(minInput, { target: { value: "abc" } });
+      fireEvent.blur(minInput);
+      expect(mockSetFormFields).not.toHaveBeenCalled();
+    });
+
+    it("commits min on blur (does not commit while typing)", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const minInput = screen.getByDisplayValue("0");
+      fireEvent.change(minInput, { target: { value: "3" } });
+      // No commit yet — still typing.
+      expect(mockSetFormFields).not.toHaveBeenCalled();
+      fireEvent.blur(minInput);
+      const next = mockSetFormFields.mock.calls.at(-1)![0] as FormFieldDef[];
+      expect(next.find((f) => f.id === "f1")!.rangeMin).toBe(3);
+    });
+
+    it("shows inline error when min >= max", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 10,
+          rangeMax: 5,
+          rangeStep: 1,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      expect(
+        screen.getByText(/Min must be less than Max/i),
+      ).toBeInTheDocument();
+    });
+
+    it("shows inline error when step is 0 (forced via passthrough)", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "integer",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 0,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      expect(
+        screen.getByText(/Step must be greater than 0/i),
+      ).toBeInTheDocument();
+    });
+
+    it("rejects a step of 0 typed by the user (keeps prior step)", () => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Rating",
+          parameterName: "rating",
+          parameterType: "number-range",
+          required: false,
+          rangeNumberType: "float",
+          rangeMin: 0,
+          rangeMax: 10,
+          rangeStep: 0.5,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      const stepInput = screen.getByDisplayValue("0.5");
+      fireEvent.change(stepInput, { target: { value: "0" } });
+      fireEvent.blur(stepInput);
+      const next = mockSetFormFields.mock.calls.at(-1)?.[0] as
+        | FormFieldDef[]
+        | undefined;
+      if (next) {
+        // If commit did fire, step must have fallen back to the prior value.
+        expect(next.find((f) => f.id === "f1")!.rangeStep).toBe(0.5);
+      }
     });
   });
 
