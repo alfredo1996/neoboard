@@ -18,12 +18,14 @@ describe("ParamNumberRange — store interactions", () => {
       "number-range",
       "selector-widget",
     );
+    // Companions are scalar numbers — typed as "text" (matches the
+    // contract enforced in param-number-range.tsx).
     setParameter(
       "price_min",
       100,
       "Parameter Selector",
       "price_min",
-      "number-range",
+      "text",
       "selector-widget",
     );
     setParameter(
@@ -31,7 +33,7 @@ describe("ParamNumberRange — store interactions", () => {
       500,
       "Parameter Selector",
       "price_max",
-      "number-range",
+      "text",
       "selector-widget",
     );
 
@@ -56,7 +58,7 @@ describe("ParamNumberRange — store interactions", () => {
       100,
       "Parameter Selector",
       "price_min",
-      "number-range",
+      "text",
       "selector-widget",
     );
     setParameter(
@@ -64,7 +66,7 @@ describe("ParamNumberRange — store interactions", () => {
       500,
       "Parameter Selector",
       "price_max",
-      "number-range",
+      "text",
       "selector-widget",
     );
 
@@ -107,5 +109,36 @@ describe("ParamNumberRange — value coercion", () => {
       ? [Number(rawRange[0]), Number(rawRange[1])]
       : null;
     expect(rangeValue).toBeNull();
+  });
+
+  // Regression: NaN-guard on read. Mirrors the parser in
+  // ParamNumberRange so a corrupted tuple cannot become [NaN, NaN] and
+  // crash the slider downstream.
+  function parseRangeValue(raw: unknown): [number, number] | null {
+    if (!Array.isArray(raw) || raw.length < 2) return null;
+    const lo = Number(raw[0]);
+    const hi = Number(raw[1]);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+    return [lo, hi];
+  }
+
+  it("returns null for a non-array stored value", () => {
+    expect(parseRangeValue("100")).toBeNull();
+    expect(parseRangeValue(42)).toBeNull();
+    expect(parseRangeValue(undefined)).toBeNull();
+  });
+
+  it("returns null for a too-short tuple", () => {
+    expect(parseRangeValue([100])).toBeNull();
+  });
+
+  it("returns null when either entry is non-numeric", () => {
+    expect(parseRangeValue([undefined, 5])).toBeNull();
+    expect(parseRangeValue([1, "x"])).toBeNull();
+    expect(parseRangeValue(["x", "y"])).toBeNull();
+  });
+
+  it("coerces numeric strings", () => {
+    expect(parseRangeValue(["1", "5"])).toEqual([1, 5]);
   });
 });
