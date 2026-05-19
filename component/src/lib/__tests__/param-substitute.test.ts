@@ -111,6 +111,20 @@ describe("substituteParams", () => {
       "$param_price_min",
     );
   });
+
+  // ── Additional composite-value edge cases (regression: #862) ────────
+  // Unique cases not already covered by the array/object tests above.
+  it("renders an empty array as the empty string", () => {
+    expect(substituteParams("IN ($param_ids)", { param_ids: [] })).toBe(
+      "IN ()",
+    );
+  });
+
+  it("treats an explicit undefined param value as the empty string", () => {
+    // Object.hasOwn returns true for the key, but the value is undefined —
+    // contrast with a *missing* key, which leaves the placeholder in place.
+    expect(substituteParams("v=$param_a", { param_a: undefined })).toBe("v=");
+  });
 });
 
 describe("substituteParamsInUrl", () => {

@@ -552,6 +552,89 @@ describe("useParameterStore", () => {
       expect(params["x"].sourceWidgetId).toBe("wid-1");
       expect(params["y"].sourceWidgetId).toBeUndefined();
     });
+
+    // ── Failure-path tests (regression: #862) ──────────────────────
+    //
+    // The store's localStorage helpers are wrapped in try/catch and must
+    // degrade silently instead of crashing the dashboard render path.
+    // These tests pin that contract.
+
+    it("degrades silently when localStorage.setItem throws (e.g. quota)", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const setItemSpy = vi
+        .spyOn(globalThis.localStorage, "setItem")
+        .mockImplementation(() => {
+          throw new DOMException("QuotaExceededError");
+        });
+
+      const { setParameter, saveToDashboard } = useParameterStore.getState();
+      setParameter("big", "x".repeat(10), "W", "big");
+
+      // Must not throw.
+      expect(() => saveToDashboard("dash-quota")).not.toThrow();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[parameter-store]"),
+      );
+
+      setItemSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it("degrades silently when localStorage.removeItem throws on empty save", () => {
+      // Empty parameter map triggers the removeItem branch, which can also
+      // throw in restrictive environments (Safari Private Mode, sandboxed iframes).
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const removeSpy = vi
+        .spyOn(globalThis.localStorage, "removeItem")
+        .mockImplementation(() => {
+          throw new Error("storage disabled");
+        });
+
+      const { saveToDashboard } = useParameterStore.getState();
+      // params is empty by virtue of resetStore() in beforeEach
+      expect(() => saveToDashboard("dash-empty-throws")).not.toThrow();
+      expect(warnSpy).toHaveBeenCalled();
+
+      removeSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it("recovers to empty state when restore-time getItem throws", () => {
+      // SecurityError is the typical exception for sandboxed/disabled storage.
+      const getSpy = vi
+        .spyOn(globalThis.localStorage, "getItem")
+        .mockImplementation(() => {
+          throw new DOMException("SecurityError");
+        });
+
+      const { setParameter, restoreFromDashboard } =
+        useParameterStore.getState();
+      setParameter("stale", "value", "W", "stale");
+
+      expect(() => restoreFromDashboard("dash-blocked")).not.toThrow();
+      // Store is reset to empty (mirrors the corrupted-JSON behavior).
+      expect(useParameterStore.getState().parameters).toEqual({});
+
+      getSpy.mockRestore();
+    });
+
+    it("restores valid JSON of the wrong shape without crashing downstream selectors", () => {
+      // The store does not currently validate restored payload shape — these
+      // tests pin the *observed* behavior so any future schema validation
+      // shows up as an intentional diff.
+      localStorage.setItem(
+        "nb-params:dash-wrong-shape",
+        JSON.stringify({ orphan: "just a string, not a ParameterEntry" }),
+      );
+
+      const { restoreFromDashboard } = useParameterStore.getState();
+      expect(() => restoreFromDashboard("dash-wrong-shape")).not.toThrow();
+
+      // deriveValues runs over the restored map — must not throw on
+      // entries missing the expected `.value` field.
+      const params = useParameterStore.getState().parameters;
+      expect(() => deriveValues(params)).not.toThrow();
+    });
   });
 
   describe("type coercion", () => {
