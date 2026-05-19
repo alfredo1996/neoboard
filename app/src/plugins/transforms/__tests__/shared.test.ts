@@ -108,6 +108,14 @@ describe("toSeriesNumber", () => {
     expect(toSeriesNumber("")).toBeNull();
   });
 
+  it("returns null for whitespace-only strings (Number(' ') === 0 otherwise)", () => {
+    // Without this, Number("   ") returns 0 and the value silently masquerades
+    // as a real zero on the chart.
+    expect(toSeriesNumber("   ")).toBeNull();
+    expect(toSeriesNumber("\t")).toBeNull();
+    expect(toSeriesNumber("\n")).toBeNull();
+  });
+
   it("returns null for non-numeric strings instead of silently giving 0", () => {
     expect(toSeriesNumber("not-a-number")).toBeNull();
     expect(toSeriesNumber("NaN")).toBeNull();

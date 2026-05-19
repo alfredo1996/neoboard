@@ -117,10 +117,14 @@ function parseColorToRgb(input: string): [number, number, number] | null {
     ];
   }
   // rgb(r,g,b) / rgba(r,g,b,a) — accept integers or percentages
-  const rgb = /^rgba?\(([^)]+)\)$/i.exec(s);
+  const rgb = /^(rgb|rgba)\(([^)]+)\)$/i.exec(s);
   if (rgb) {
-    const parts = rgb[1].split(",").map((p) => p.trim());
-    if (parts.length < 3) return null;
+    const fn = rgb[1].toLowerCase();
+    const parts = rgb[2].split(",").map((p) => p.trim());
+    // Strict arity: rgb() needs exactly 3 components, rgba() exactly 4 —
+    // anything else (e.g. rgb(1,2,3,4,5)) is malformed and should fall back.
+    if (fn === "rgb" && parts.length !== 3) return null;
+    if (fn === "rgba" && parts.length !== 4) return null;
     const out: number[] = [];
     for (let i = 0; i < 3; i++) {
       const p = parts[i];
@@ -132,6 +136,10 @@ function parseColorToRgb(input: string): [number, number, number] | null {
       }
       if (!Number.isFinite(n)) return null;
       out.push(Math.max(0, Math.min(255, n)));
+    }
+    if (fn === "rgba") {
+      const alpha = Number(parts[3]);
+      if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) return null;
     }
     return [out[0], out[1], out[2]];
   }

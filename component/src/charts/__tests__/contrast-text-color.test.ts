@@ -57,4 +57,25 @@ describe("contrastTextColor", () => {
     expect(contrastTextColor("rgb(0, 0)")).toBe("#000000");
     expect(contrastTextColor("rgb(a, b, c)")).toBe("#000000");
   });
+
+  it("rejects rgb()/rgba() with wrong arity (extra channels are not silently dropped)", () => {
+    // Previously rgb(1,2,3,4,5) parsed the first 3 channels and ignored the
+    // rest, accepting clearly malformed input.
+    expect(contrastTextColor("rgb(1, 2, 3, 4)")).toBe("#000000");
+    expect(contrastTextColor("rgb(1, 2, 3, 4, 5)")).toBe("#000000");
+    expect(contrastTextColor("rgba(1, 2, 3)")).toBe("#000000");
+    expect(contrastTextColor("rgba(1, 2, 3, 0.5, 9)")).toBe("#000000");
+  });
+
+  it("rejects rgba() with alpha outside [0, 1]", () => {
+    expect(contrastTextColor("rgba(0, 0, 0, 2)")).toBe("#000000");
+    expect(contrastTextColor("rgba(0, 0, 0, -0.1)")).toBe("#000000");
+    expect(contrastTextColor("rgba(0, 0, 0, foo)")).toBe("#000000");
+  });
+
+  it("accepts valid rgba() with in-range alpha", () => {
+    // Sanity: the stricter validator must not regress valid inputs.
+    expect(contrastTextColor("rgba(0, 0, 0, 0)")).toBe("#ffffff");
+    expect(contrastTextColor("rgba(255, 255, 255, 1)")).toBe("#000000");
+  });
 });

@@ -74,7 +74,10 @@ export function collectAllKeys(records: Record<string, unknown>[]): string[] {
  * number; ECharts renders nulls as gaps rather than masquerading them as 0.
  */
 export function toSeriesNumber(raw: unknown): number | null {
-  if (raw === null || raw === undefined || raw === "") return null;
+  if (raw === null || raw === undefined) return null;
+  // Whitespace-only strings would otherwise coerce to 0 via Number("   "),
+  // hiding what is really a missing cell behind a fake zero.
+  if (typeof raw === "string" && raw.trim() === "") return null;
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) ? n : null;
 }

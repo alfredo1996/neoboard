@@ -292,7 +292,10 @@ export function TableRenderer({
   // default `pageSize=10`, then immediately re-renders with the dynamic size —
   // which visibly snaps the row count. Render an empty wrapper on the first
   // tick instead so the observer can measure, then commit a single DataGrid.
-  const awaitingHeight = enablePagination && containerHeight === undefined;
+  // Treat 0/negative as "not ready" too — the wrapper can momentarily measure
+  // to 0 before layout settles, which would otherwise trigger the same snap.
+  const hasUsableHeight = containerHeight !== undefined && containerHeight > 0;
+  const awaitingHeight = enablePagination && !hasUsableHeight;
 
   // Derive a screen-reader description from data shape — the underlying
   // <table> has no top-level label and the wrapper is otherwise just a
@@ -320,7 +323,9 @@ export function TableRenderer({
           enableColumnFilters={settings.enableColumnFilters !== false}
           enablePagination={enablePagination}
           pageSize={(settings.pageSize as number) ?? 10}
-          containerHeight={enablePagination ? containerHeight : undefined}
+          containerHeight={
+            enablePagination && hasUsableHeight ? containerHeight : undefined
+          }
           onCellClick={onCellClick}
           clickableColumns={clickableColumns}
           getRowStyle={getRowStyle}
