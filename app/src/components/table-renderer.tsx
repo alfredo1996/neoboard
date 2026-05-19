@@ -294,8 +294,21 @@ export function TableRenderer({
   // tick instead so the observer can measure, then commit a single DataGrid.
   const awaitingHeight = enablePagination && containerHeight === undefined;
 
+  // Derive a screen-reader description from data shape — the underlying
+  // <table> has no top-level label and the wrapper is otherwise just a
+  // scroll container, so AT users hit it with no context.
+  const columnCount = records.length ? Object.keys(records[0]).length : 0;
+  const ariaLabel =
+    (settings.ariaLabel as string | undefined) ??
+    `Table with ${records.length} rows and ${columnCount} columns`;
+
   return (
-    <div ref={containerRef} className="h-full overflow-y-auto">
+    <div
+      ref={containerRef}
+      className="h-full overflow-y-auto"
+      role="region"
+      aria-label={ariaLabel}
+    >
       {awaitingHeight ? null : (
         <DataGrid
           key={enableGrouping ? `grp-${aggregationFn}` : undefined}

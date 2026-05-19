@@ -377,4 +377,37 @@ describe("LineChart", () => {
     expect(optionsCall.series[1].yAxisIndex).toBe(0);
     expect(Array.isArray(optionsCall.yAxis)).toBe(true);
   });
+
+  // --- Accessibility: auto-derived aria description ---
+
+  it("auto-derives a descriptive aria-label from data shape (single series)", () => {
+    // Default "Chart visualization" is unhelpful for screen-reader users.
+    // The container should reflect the actual data — points × series.
+    render(<LineChart data={sampleData} />);
+    expect(
+      screen.getByLabelText(/line chart with 3 points and 1 series/i),
+    ).toBeInTheDocument();
+  });
+
+  it("auto-derived aria-label lists series names for multi-series", () => {
+    render(<LineChart data={multiSeriesData} />);
+    const el = screen.getByTestId("base-chart");
+    const label = el.getAttribute("aria-label") ?? "";
+    expect(label).toMatch(/line chart with 3 points and 2 series/i);
+    expect(label).toContain("revenue");
+    expect(label).toContain("cost");
+  });
+
+  it("explicit ariaDescription prop overrides the auto-derived label", () => {
+    render(
+      <LineChart data={sampleData} ariaDescription="Monthly revenue trend" />,
+    );
+    expect(screen.getByLabelText("Monthly revenue trend")).toBeInTheDocument();
+  });
+
+  it("auto-derived aria-label handles empty data without crashing", () => {
+    render(<LineChart data={[]} />);
+    const el = screen.getByTestId("base-chart");
+    expect(el.getAttribute("aria-label")).toMatch(/line chart/i);
+  });
 });

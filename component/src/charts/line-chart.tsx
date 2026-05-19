@@ -84,6 +84,7 @@ function LineChart({
   paramValues,
   rightAxisSeries,
   rightYAxisLabel,
+  ariaDescription,
   samplingThreshold = 1000,
   samplingMethod = "lttb",
   ...rest
@@ -215,9 +216,32 @@ function LineChart({
     samplingMethod,
   ]);
 
+  // Auto-derive a screen-reader description from the data shape so the
+  // generic "Chart visualization" fallback is only used when the chart is
+  // truly empty. Callers can still pass an explicit ariaDescription to
+  // override (e.g., a widget title that already conveys the meaning).
+  const autoAria = useMemo(() => {
+    if (!data.length) return "Line chart with no data";
+    const seen = new Set<string>();
+    const seriesKeys: string[] = [];
+    for (const row of data) {
+      for (const k of Object.keys(row)) {
+        if (k !== "x" && !seen.has(k)) {
+          seen.add(k);
+          seriesKeys.push(k);
+        }
+      }
+    }
+    const seriesPart = seriesKeys.length
+      ? `${seriesKeys.length} series: ${seriesKeys.join(", ")}`
+      : "0 series";
+    return `Line chart with ${data.length} points and ${seriesPart}`;
+  }, [data]);
+  const effectiveAria = ariaDescription ?? autoAria;
+
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart options={options} {...rest} ariaDescription={effectiveAria} />
     </div>
   );
 }
