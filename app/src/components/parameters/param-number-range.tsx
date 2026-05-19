@@ -24,9 +24,16 @@ export function ParamNumberRange({
   className,
 }: ParamNumberRangeProps) {
   const rawRange = actions.currentEntry?.value;
-  const rangeValue: [number, number] | null = Array.isArray(rawRange)
-    ? [Number(rawRange[0]), Number(rawRange[1])]
-    : null;
+  let rangeValue: [number, number] | null = null;
+  if (Array.isArray(rawRange) && rawRange.length >= 2) {
+    const lo = Number(rawRange[0]);
+    const hi = Number(rawRange[1]);
+    // Drop tuples that don't parse to finite numbers — a corrupt restore would
+    // otherwise leave the slider stuck at [NaN, NaN].
+    if (Number.isFinite(lo) && Number.isFinite(hi)) {
+      rangeValue = [lo, hi];
+    }
+  }
 
   const handleChange = (vals: [number, number]) => {
     const coerced: [number, number] =
