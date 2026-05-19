@@ -67,6 +67,37 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
  * - Below 300px wide: hides axis labels, tightens grid margins
  * - Below 200px tall: hides legend
  */
+/**
+ * Collect series keys (every non-"x" column) in first-seen order across rows.
+ * Lifted out of the options builder so the memo body stays under the
+ * cognitive-complexity budget.
+ */
+function collectSeriesKeys(data: LineChartDataPoint[]): string[] {
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const row of data) {
+    for (const k of Object.keys(row)) {
+      if (k !== "x" && !seen.has(k)) {
+        seen.add(k);
+        keys.push(k);
+      }
+    }
+  }
+  return keys;
+}
+
+/** Find the most recent numeric value for `key`, scanning from the tail. */
+function findLastNumericValue(
+  data: LineChartDataPoint[],
+  key: string,
+): number | undefined {
+  for (let i = data.length - 1; i >= 0; i -= 1) {
+    const candidate = data[i][key];
+    if (typeof candidate === "number") return candidate;
+  }
+  return undefined;
+}
+
 function LineChart({
   data,
   xAxisLabel,
@@ -96,29 +127,21 @@ function LineChart({
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption();
 
-    // Union keys across every row so sparse data (a series missing from the
-    // first row) doesn't get dropped from the chart.
-    const seenKeys = new Set<string>();
-    const seriesKeys: string[] = [];
-    for (const row of data) {
-      for (const k of Object.keys(row)) {
-        if (k !== "x" && !seenKeys.has(k)) {
-          seenKeys.add(k);
-          seriesKeys.push(k);
-        }
-      }
-    }
+    const seriesKeys = collectSeriesKeys(data);
     const effectiveShowLegend = resolveShowLegend(
       showLegend,
       seriesKeys.length,
       hideLegend,
     );
-    const refLines = parseReferenceLines(referenceLinesJson);
-    const markLine = buildMarkLineFromRefs(refLines);
+    const markLine = buildMarkLineFromRefs(
+      parseReferenceLines(referenceLinesJson),
+    );
     const xValues = data.map((d) => d.x);
     const useTimeAxis = isTimeSeriesData(xValues);
     const rightAxisSet = new Set(rightAxisSeries ?? []);
     const useDualAxis = rightAxisSet.size > 0;
+    const useSampling =
+      samplingThreshold > 0 && data.length > samplingThreshold;
 
     const leftYAxis = {
       type: "value" as const,
@@ -138,6 +161,37 @@ function LineChart({
       splitLine: { show: false },
     };
 
+    const buildSeries = (key: string, idx: number) => {
+      const lastValue = findLastNumericValue(data, key);
+      const seriesColor =
+        lastValue !== undefined
+          ? resolveItemColor(lastValue, stylingRules, paramValues)
+          : undefined;
+      return {
+        name: key,
+        type: "line" as const,
+        yAxisIndex: useDualAxis && rightAxisSet.has(key) ? 1 : 0,
+        data: useTimeAxis
+          ? data.map((d) => [d.x, d[key]])
+          : data.map((d) => d[key] as number),
+        smooth,
+        step: stepped ? ("start" as const) : undefined,
+        connectNulls,
+        endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
+        lineStyle: { width: lineWidth, color: seriesColor },
+        itemStyle: seriesColor ? { color: seriesColor } : undefined,
+        showSymbol: showPoints,
+        areaStyle: area ? {} : undefined,
+        emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
+        // LTTB downsampling for large datasets
+        ...(useSampling
+          ? { sampling: samplingMethod as "lttb" | "average" | "max" | "min" }
+          : {}),
+        // Attach reference lines to the first series only
+        ...(idx === 0 && markLine ? { markLine } : {}),
+      };
+    };
+
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
@@ -155,43 +209,7 @@ function LineChart({
         axisLabel: { show: !compact },
       },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
-      series: seriesKeys.map((key, idx) => {
-        let lastValue: number | undefined;
-        for (let i = data.length - 1; i >= 0; i -= 1) {
-          const candidate = data[i][key];
-          if (typeof candidate === "number") {
-            lastValue = candidate;
-            break;
-          }
-        }
-        const seriesColor =
-          lastValue !== undefined
-            ? resolveItemColor(lastValue, stylingRules, paramValues)
-            : undefined;
-        return {
-          name: key,
-          type: "line" as const,
-          yAxisIndex: useDualAxis && rightAxisSet.has(key) ? 1 : 0,
-          data: useTimeAxis
-            ? data.map((d) => [d.x, d[key]])
-            : data.map((d) => d[key] as number),
-          smooth,
-          step: stepped ? ("start" as const) : undefined,
-          connectNulls,
-          endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
-          lineStyle: { width: lineWidth, color: seriesColor },
-          itemStyle: seriesColor ? { color: seriesColor } : undefined,
-          showSymbol: showPoints,
-          areaStyle: area ? {} : undefined,
-          emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
-          // LTTB downsampling for large datasets
-          ...(samplingThreshold > 0 && data.length > samplingThreshold
-            ? { sampling: samplingMethod as "lttb" | "average" | "max" | "min" }
-            : {}),
-          // Attach reference lines to the first series only
-          ...(idx === 0 && markLine ? { markLine } : {}),
-        };
-      }),
+      series: seriesKeys.map(buildSeries),
     };
   }, [
     data,

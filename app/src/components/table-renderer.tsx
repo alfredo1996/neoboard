@@ -306,10 +306,9 @@ export function TableRenderer({
     `Table with ${records.length} rows and ${columnCount} columns`;
 
   return (
-    <div
+    <section
       ref={containerRef}
       className="h-full overflow-y-auto"
-      role="region"
       aria-label={ariaLabel}
     >
       {awaitingHeight ? null : (
@@ -342,6 +341,6 @@ export function TableRenderer({
           )}
         />
       )}
-    </div>
+    </section>
   );
 }

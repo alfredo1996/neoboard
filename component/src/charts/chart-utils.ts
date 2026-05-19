@@ -96,54 +96,56 @@ export function contrastTextColor(color: string): string {
   return lum > 0.179 ? "#000000" : "#ffffff";
 }
 
+function parseHexColor(s: string): [number, number, number] | null {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+  if (!hex) return null;
+  const h = hex[1];
+  if (h.length === 3) {
+    return [
+      Number.parseInt(h[0] + h[0], 16),
+      Number.parseInt(h[1] + h[1], 16),
+      Number.parseInt(h[2] + h[2], 16),
+    ];
+  }
+  return [
+    Number.parseInt(h.slice(0, 2), 16),
+    Number.parseInt(h.slice(2, 4), 16),
+    Number.parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function parseRgbChannel(p: string): number | null {
+  const n = p.endsWith("%") ? (Number(p.slice(0, -1)) / 100) * 255 : Number(p);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(255, n));
+}
+
+function parseRgbFunctionColor(s: string): [number, number, number] | null {
+  const rgb = /^(rgb|rgba)\(([^)]+)\)$/i.exec(s);
+  if (!rgb) return null;
+  const fn = rgb[1].toLowerCase();
+  const parts = rgb[2].split(",").map((p) => p.trim());
+  // Strict arity: rgb() needs exactly 3 components, rgba() exactly 4 —
+  // anything else (e.g. rgb(1,2,3,4,5)) is malformed and should fall back.
+  const expected = fn === "rgb" ? 3 : 4;
+  if (parts.length !== expected) return null;
+  const channels: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    const n = parseRgbChannel(parts[i]);
+    if (n === null) return null;
+    channels.push(n);
+  }
+  if (fn === "rgba") {
+    const alpha = Number(parts[3]);
+    if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) return null;
+  }
+  return [channels[0], channels[1], channels[2]];
+}
+
 function parseColorToRgb(input: string): [number, number, number] | null {
   if (typeof input !== "string") return null;
   const s = input.trim();
-  // #rgb / #rrggbb
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
-  if (hex) {
-    const h = hex[1];
-    if (h.length === 3) {
-      return [
-        parseInt(h[0] + h[0], 16),
-        parseInt(h[1] + h[1], 16),
-        parseInt(h[2] + h[2], 16),
-      ];
-    }
-    return [
-      parseInt(h.slice(0, 2), 16),
-      parseInt(h.slice(2, 4), 16),
-      parseInt(h.slice(4, 6), 16),
-    ];
-  }
-  // rgb(r,g,b) / rgba(r,g,b,a) — accept integers or percentages
-  const rgb = /^(rgb|rgba)\(([^)]+)\)$/i.exec(s);
-  if (rgb) {
-    const fn = rgb[1].toLowerCase();
-    const parts = rgb[2].split(",").map((p) => p.trim());
-    // Strict arity: rgb() needs exactly 3 components, rgba() exactly 4 —
-    // anything else (e.g. rgb(1,2,3,4,5)) is malformed and should fall back.
-    if (fn === "rgb" && parts.length !== 3) return null;
-    if (fn === "rgba" && parts.length !== 4) return null;
-    const out: number[] = [];
-    for (let i = 0; i < 3; i++) {
-      const p = parts[i];
-      let n: number;
-      if (p.endsWith("%")) {
-        n = (Number(p.slice(0, -1)) / 100) * 255;
-      } else {
-        n = Number(p);
-      }
-      if (!Number.isFinite(n)) return null;
-      out.push(Math.max(0, Math.min(255, n)));
-    }
-    if (fn === "rgba") {
-      const alpha = Number(parts[3]);
-      if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) return null;
-    }
-    return [out[0], out[1], out[2]];
-  }
-  return null;
+  return parseHexColor(s) ?? parseRgbFunctionColor(s);
 }
 
 // ---------------------------------------------------------------------------
