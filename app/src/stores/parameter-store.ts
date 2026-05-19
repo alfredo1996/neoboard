@@ -241,7 +241,44 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
   restoreFromDashboard: (dashboardId) => {
     try {
       const stored = localStorage.getItem(`${STORAGE_PREFIX}${dashboardId}`);
-      set({ parameters: stored ? JSON.parse(stored) : {} });
+      if (!stored) {
+        set({ parameters: {} });
+        return;
+      }
+      const parsed: unknown = JSON.parse(stored);
+      // Reject anything that isn't a plain object — tampered localStorage
+      // values could otherwise inject arbitrary shapes into the store and
+      // reach query/url substitution.
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        set({ parameters: {} });
+        return;
+      }
+      const safe: Record<string, ParameterEntry> = {};
+      for (const [name, raw] of Object.entries(
+        parsed as Record<string, unknown>,
+      )) {
+        if (!raw || typeof raw !== "object") continue;
+        const entry = raw as Partial<ParameterEntry>;
+        if (
+          typeof entry.source !== "string" ||
+          typeof entry.field !== "string" ||
+          typeof entry.type !== "string"
+        ) {
+          continue;
+        }
+        const result = coerceValue(entry.value, entry.type as ParameterType);
+        if (!result.ok) continue;
+        safe[name] = {
+          value: result.value,
+          source: entry.source,
+          field: entry.field,
+          type: entry.type as ParameterType,
+          sourceType:
+            (entry.sourceType as ParameterSource | undefined) ?? "click-action",
+          sourceWidgetId: entry.sourceWidgetId,
+        };
+      }
+      set({ parameters: safe });
     } catch {
       set({ parameters: {} });
     }

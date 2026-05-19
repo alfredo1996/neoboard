@@ -52,6 +52,11 @@ const schemas = [
   { name: "parameter-select", schema: parameterSelectSettingsSchema },
 ] as const;
 
+// Schemas that use `.passthrough()` and so preserve unknown keys.
+// `parameter-select` deliberately uses `.strip()` (see #856) to drop unknown
+// keys from dashboards restored across upgrades — covered by its own test below.
+const passthroughSchemas = schemas.filter((s) => s.name !== "parameter-select");
+
 describe("settings schemas — shared behavior", () => {
   it.each(schemas)("$name: parses empty object with defaults", ({ schema }) => {
     const result = schema.parse({});
@@ -59,11 +64,14 @@ describe("settings schemas — shared behavior", () => {
     expect(typeof result).toBe("object");
   });
 
-  it.each(schemas)("$name: passes through unknown keys", ({ schema }) => {
-    const result = schema.parse({ _unknownKey: "hello", _extra: 42 });
-    expect(result).toHaveProperty("_unknownKey", "hello");
-    expect(result).toHaveProperty("_extra", 42);
-  });
+  it.each(passthroughSchemas)(
+    "$name: passes through unknown keys",
+    ({ schema }) => {
+      const result = schema.parse({ _unknownKey: "hello", _extra: 42 });
+      expect(result).toHaveProperty("_unknownKey", "hello");
+      expect(result).toHaveProperty("_extra", 42);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -486,5 +494,20 @@ describe("parameterSelectSettingsSchema", () => {
     expect(result.rangeMin).toBe(10);
     expect(result.rangeMax).toBe(500);
     expect(result.rangeStep).toBe(5);
+  });
+
+  it("strips unknown keys (regression: #856)", () => {
+    // Parameter-select uses `.strip()` rather than `.passthrough()` so that
+    // stale fields from older dashboards don't leak through and shadow new
+    // defaults. See also security note: an attacker editing a dashboard JSON
+    // payload cannot smuggle arbitrary keys into widget settings.
+    const result = parameterSelectSettingsSchema.parse({
+      parameterName: "category",
+      _unknownKey: "hello",
+      _extra: 42,
+    });
+    expect(result).not.toHaveProperty("_unknownKey");
+    expect(result).not.toHaveProperty("_extra");
+    expect(result.parameterName).toBe("category");
   });
 });
