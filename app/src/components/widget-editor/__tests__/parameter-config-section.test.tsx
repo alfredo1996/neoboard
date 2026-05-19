@@ -3,7 +3,13 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@neoboard/components", () => ({}));
 vi.mock("lucide-react", () => {
   const Icon = () => null;
-  return { Calendar: Icon, Type: Icon, ListFilter: Icon };
+  return {
+    Calendar: Icon,
+    Type: Icon,
+    ListFilter: Icon,
+    SlidersHorizontal: Icon,
+    GitBranch: Icon,
+  };
 });
 vi.mock("@/stores/widget-editor-store", () => ({
   useWidgetEditorStore: () => ({}),
@@ -40,6 +46,18 @@ describe("resolveInternalParamType", () => {
   it("maps select with multi to multi-select", () => {
     expect(resolveInternalParamType("select", "single", true)).toBe(
       "multi-select",
+    );
+  });
+
+  it("maps number-range to number-range (regression: #861)", () => {
+    expect(resolveInternalParamType("number-range", "single", false)).toBe(
+      "number-range",
+    );
+  });
+
+  it("maps cascading to cascading-select (regression: #861)", () => {
+    expect(resolveInternalParamType("cascading", "single", false)).toBe(
+      "cascading-select",
     );
   });
 
@@ -109,6 +127,22 @@ describe("reverseParamTypeMapping", () => {
     });
   });
 
+  it("maps number-range back (regression: #861)", () => {
+    expect(reverseParamTypeMapping("number-range")).toEqual({
+      uiType: "number-range",
+      dateSub: "single",
+      multi: false,
+    });
+  });
+
+  it("maps cascading-select back (regression: #861)", () => {
+    expect(reverseParamTypeMapping("cascading-select")).toEqual({
+      uiType: "cascading",
+      dateSub: "single",
+      multi: false,
+    });
+  });
+
   it("roundtrips with resolveInternalParamType", () => {
     const cases = [
       { ui: "date" as const, sub: "single" as const, multi: false },
@@ -117,6 +151,8 @@ describe("reverseParamTypeMapping", () => {
       { ui: "freetext" as const, sub: "single" as const, multi: false },
       { ui: "select" as const, sub: "single" as const, multi: false },
       { ui: "select" as const, sub: "single" as const, multi: true },
+      { ui: "number-range" as const, sub: "single" as const, multi: false },
+      { ui: "cascading" as const, sub: "single" as const, multi: false },
     ];
     for (const { ui, sub, multi } of cases) {
       const internal = resolveInternalParamType(ui, sub, multi);

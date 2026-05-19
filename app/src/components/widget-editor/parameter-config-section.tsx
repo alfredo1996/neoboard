@@ -2,7 +2,13 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { Calendar, Type, ListFilter } from "lucide-react";
+import {
+  Calendar,
+  Type,
+  ListFilter,
+  SlidersHorizontal,
+  GitBranch,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   Button,
@@ -18,7 +24,19 @@ import {
 } from "@neoboard/components";
 
 // ── Parameter type mapping helpers ──────────────────────────────────
-export type ParamUIType = "date" | "freetext" | "select";
+//
+// `ParamUIType` is the editor's UX-facing taxonomy: each value corresponds
+// to a top-level dropdown choice. It's intentionally narrower than the
+// runtime `parameterType` (8 values) — `"date"` collapses 3 sub-modes
+// into one selector + a sub-radio, and `"select"` collapses single vs
+// multi via a checkbox. The remaining runtime types (`number-range`,
+// `cascading-select`) get their own top-level entries.
+export type ParamUIType =
+  | "date"
+  | "freetext"
+  | "select"
+  | "number-range"
+  | "cascading";
 export type DateSubType = "single" | "range" | "relative";
 
 export function resolveInternalParamType(
@@ -34,6 +52,8 @@ export function resolveInternalParamType(
         : "date";
   }
   if (ui === "freetext") return "text";
+  if (ui === "number-range") return "number-range";
+  if (ui === "cascading") return "cascading-select";
   return multi ? "multi-select" : "select";
 }
 
@@ -53,6 +73,10 @@ export function reverseParamTypeMapping(t: string): {
       return { uiType: "freetext", dateSub: "single", multi: false };
     case "multi-select":
       return { uiType: "select", dateSub: "single", multi: true };
+    case "number-range":
+      return { uiType: "number-range", dateSub: "single", multi: false };
+    case "cascading-select":
+      return { uiType: "cascading", dateSub: "single", multi: false };
     default:
       return { uiType: "select", dateSub: "single", multi: false };
   }
@@ -63,6 +87,8 @@ const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> =
     date: { label: "Date Picker", Icon: Calendar },
     freetext: { label: "Freetext", Icon: Type },
     select: { label: "Select", Icon: ListFilter },
+    "number-range": { label: "Number Range", Icon: SlidersHorizontal },
+    cascading: { label: "Cascading Select", Icon: GitBranch },
   };
 
 const paramTypes = Object.keys(paramTypeMeta) as ParamUIType[];
@@ -81,14 +107,18 @@ function SeedQueryInput({
   placeholder: string;
 }) {
   const [draft, setDraft] = useState(value);
+  // Track the prop value so we can detect external updates (e.g. a parent
+  // resetting it) and resync the draft *during render*, per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setDraft(value);
+  }
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
-
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
 
   useEffect(() => {
     if (draft === value) return;
@@ -202,8 +232,89 @@ export function ParameterConfigSection({
         </div>
       )}
 
-      {/* Seed Query (only for select type) */}
-      {paramUIType === "select" && (
+      {/* Number-range bounds (only for number-range) */}
+      {paramUIType === "number-range" && (
+        <div className="space-y-1.5" data-testid="param-number-range-config">
+          <Label>Range Bounds</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="range-min"
+              type="number"
+              aria-label="Range minimum"
+              value={(chartOptions.rangeMin as number | undefined) ?? 0}
+              onChange={(e) =>
+                onChartOptionsChange((prev) => ({
+                  ...prev,
+                  rangeMin: Number(e.target.value),
+                }))
+              }
+              className="w-24"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              id="range-max"
+              type="number"
+              aria-label="Range maximum"
+              value={(chartOptions.rangeMax as number | undefined) ?? 100}
+              onChange={(e) =>
+                onChartOptionsChange((prev) => ({
+                  ...prev,
+                  rangeMax: Number(e.target.value),
+                }))
+              }
+              className="w-24"
+            />
+            <span className="text-xs text-muted-foreground">step</span>
+            <Input
+              id="range-step"
+              type="number"
+              aria-label="Range step"
+              min={0}
+              value={(chartOptions.rangeStep as number | undefined) ?? 1}
+              onChange={(e) =>
+                onChartOptionsChange((prev) => ({
+                  ...prev,
+                  rangeStep: Number(e.target.value),
+                }))
+              }
+              className="w-20"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use <code className="bg-muted px-1 rounded">step</code> ≥ 1 for
+            integers, or a fractional value (e.g. 0.1) for floats.
+          </p>
+        </div>
+      )}
+
+      {/* Cascading parent (only for cascading) */}
+      {paramUIType === "cascading" && (
+        <div className="space-y-1.5" data-testid="param-cascading-config">
+          <Label htmlFor="parent-param-name">Parent Parameter Name</Label>
+          <Input
+            id="parent-param-name"
+            value={(chartOptions.parentParameterName as string) ?? ""}
+            onChange={(e) =>
+              onChartOptionsChange((prev) => ({
+                ...prev,
+                parentParameterName: e.target.value,
+              }))
+            }
+            placeholder="e.g. country"
+          />
+          <p className="text-xs text-muted-foreground">
+            The seed query below can reference the parent via{" "}
+            <code className="bg-muted px-1 rounded">
+              $param_
+              {(chartOptions.parentParameterName as string) || "parent"}
+            </code>
+            . The cascade re-runs whenever the parent value changes.
+          </p>
+        </div>
+      )}
+
+      {/* Seed Query (for select and cascading) */}
+      {(paramUIType === "select" || paramUIType === "cascading") && (
         <div className="space-y-1.5">
           <Label htmlFor="seed-query">
             Seed Query <span className="text-destructive">*</span>
@@ -292,6 +403,18 @@ export function ParameterConfigSection({
                   </code>
                 </p>
               )}
+            {paramUIType === "number-range" && (
+              <p>
+                Number range sub-parameters:{" "}
+                <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+                  $param_{paramWidgetName}_min
+                </code>
+                ,{" "}
+                <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+                  $param_{paramWidgetName}_max
+                </code>
+              </p>
+            )}
           </div>
         </div>
       )}
