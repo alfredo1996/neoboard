@@ -11,6 +11,7 @@ import {
   resolveThresholdColor,
   resolveStylingRuleColor,
   interpolateColor,
+  contrastTextColor,
 } from "@neoboard/components";
 import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -24,20 +25,6 @@ const AGG_SYMBOLS: Record<string, string> = {
   min: "min",
   max: "max",
 };
-
-/** Return black or white text based on background luminance for readability. */
-function contrastTextColor(hex: string): string {
-  const c = hex.replace("#", "");
-  const r = parseInt(c.substring(0, 2), 16) / 255;
-  const g = parseInt(c.substring(2, 4), 16) / 255;
-  const b = parseInt(c.substring(4, 6), 16) / 255;
-  // Relative luminance (WCAG formula)
-  const lum =
-    0.2126 * (r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4) +
-    0.7152 * (g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4) +
-    0.0722 * (b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4);
-  return lum > 0.179 ? "#000000" : "#ffffff";
-}
 
 export interface TableRendererProps {
   data: unknown;
@@ -299,35 +286,44 @@ export function TableRenderer({
     return <EmptyState title={emptyMessage} className="py-6" />;
   }
 
+  // Avoid the pagination "flash" on first render: when pagination is enabled
+  // we depend on the measured container height to compute the page size. If
+  // we render before the ResizeObserver fires, DataGrid mounts with the
+  // default `pageSize=10`, then immediately re-renders with the dynamic size —
+  // which visibly snaps the row count. Render an empty wrapper on the first
+  // tick instead so the observer can measure, then commit a single DataGrid.
+  const awaitingHeight = enablePagination && containerHeight === undefined;
+
   return (
     <div ref={containerRef} className="h-full overflow-y-auto">
-      <DataGrid
-        key={enableGrouping ? `grp-${aggregationFn}` : undefined}
-        columns={columns}
-        data={records as Record<string, unknown>[]}
-        enableSorting={enableSorting}
-        enableColumnResizing={enableColumnResizing}
-        enableSelection={settings.enableSelection as boolean | undefined}
-        enableGlobalFilter={settings.enableGlobalFilter !== false}
-        enableColumnFilters={settings.enableColumnFilters !== false}
-        enablePagination={enablePagination}
-        pageSize={(settings.pageSize as number) ?? 10}
-        containerHeight={enablePagination ? containerHeight : undefined}
-        onCellClick={onCellClick}
-        clickableColumns={clickableColumns}
-        getRowStyle={getRowStyle}
-        getCellStyle={getCellStyle}
-        enableGrouping={enableGrouping}
-        initialGrouping={initialGrouping}
-        pagination={(table) => (
-          <div className="flex items-center gap-2">
-            <DataGridViewOptions table={table} />
-            <div className="flex-1">
-              <DataGridPagination table={table} />
+      {awaitingHeight ? null : (
+        <DataGrid
+          key={enableGrouping ? `grp-${aggregationFn}` : undefined}
+          columns={columns}
+          data={records as Record<string, unknown>[]}
+          enableSorting={enableSorting}
+          enableColumnResizing={enableColumnResizing}
+          enableSelection={settings.enableSelection as boolean | undefined}
+          enableColumnFilters={settings.enableColumnFilters !== false}
+          enablePagination={enablePagination}
+          pageSize={(settings.pageSize as number) ?? 10}
+          containerHeight={enablePagination ? containerHeight : undefined}
+          onCellClick={onCellClick}
+          clickableColumns={clickableColumns}
+          getRowStyle={getRowStyle}
+          getCellStyle={getCellStyle}
+          enableGrouping={enableGrouping}
+          initialGrouping={initialGrouping}
+          pagination={(table) => (
+            <div className="flex items-center gap-2">
+              <DataGridViewOptions table={table} />
+              <div className="flex-1">
+                <DataGridPagination table={table} />
+              </div>
             </div>
-          </div>
-        )}
-      />
+          )}
+        />
+      )}
     </div>
   );
 }

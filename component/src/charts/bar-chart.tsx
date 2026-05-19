@@ -91,7 +91,18 @@ function BarChart({
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption();
 
-    const seriesKeys = Object.keys(data[0]).filter((k) => k !== "label");
+    // Union keys across every row so sparse data (a series missing from the
+    // first row) doesn't get dropped from the chart.
+    const seenKeys = new Set<string>();
+    const seriesKeys: string[] = [];
+    for (const row of data) {
+      for (const k of Object.keys(row)) {
+        if (k !== "label" && !seenKeys.has(k)) {
+          seenKeys.add(k);
+          seriesKeys.push(k);
+        }
+      }
+    }
 
     // Pre-compute row totals for percentage normalization
     const rowTotals = isPercent

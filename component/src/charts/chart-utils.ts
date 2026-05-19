@@ -75,6 +75,70 @@ export function formatNumber(
 }
 
 // ---------------------------------------------------------------------------
+// Contrast text color (WCAG luminance)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pick black or white text for readability against an arbitrary background
+ * color. Accepts `#rgb`, `#rrggbb`, or `rgb()` / `rgba()` strings. Anything
+ * unparseable (named colors, CSS variables, gradients, garbage) falls back to
+ * black — the old call site silently produced invisible white-on-light text
+ * when fed an `rgb()` value.
+ */
+export function contrastTextColor(color: string): string {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return "#000000";
+  const [r, g, b] = rgb.map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.179 ? "#000000" : "#ffffff";
+}
+
+function parseColorToRgb(input: string): [number, number, number] | null {
+  if (typeof input !== "string") return null;
+  const s = input.trim();
+  // #rgb / #rrggbb
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+  if (hex) {
+    const h = hex[1];
+    if (h.length === 3) {
+      return [
+        parseInt(h[0] + h[0], 16),
+        parseInt(h[1] + h[1], 16),
+        parseInt(h[2] + h[2], 16),
+      ];
+    }
+    return [
+      parseInt(h.slice(0, 2), 16),
+      parseInt(h.slice(2, 4), 16),
+      parseInt(h.slice(4, 6), 16),
+    ];
+  }
+  // rgb(r,g,b) / rgba(r,g,b,a) — accept integers or percentages
+  const rgb = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (rgb) {
+    const parts = rgb[1].split(",").map((p) => p.trim());
+    if (parts.length < 3) return null;
+    const out: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const p = parts[i];
+      let n: number;
+      if (p.endsWith("%")) {
+        n = (Number(p.slice(0, -1)) / 100) * 255;
+      } else {
+        n = Number(p);
+      }
+      if (!Number.isFinite(n)) return null;
+      out.push(Math.max(0, Math.min(255, n)));
+    }
+    return [out[0], out[1], out[2]];
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // HTML escaping for tooltip content (prevents XSS via database values)
 // ---------------------------------------------------------------------------
 

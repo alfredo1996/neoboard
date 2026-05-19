@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { toRecords, resolveLabelKey, resolveValueKeys } from "../shared-utils";
+import {
+  toRecords,
+  resolveLabelKey,
+  resolveValueKeys,
+  collectAllKeys,
+  toSeriesNumber,
+} from "../shared-utils";
 
 describe("toRecords", () => {
   it("returns array data unchanged", () => {
@@ -60,5 +66,55 @@ describe("resolveValueKeys", () => {
 
   it("returns empty yAxis array as fallback", () => {
     expect(resolveValueKeys(["a", "b"], "a", { yAxis: [] })).toEqual(["b"]);
+  });
+});
+
+describe("collectAllKeys", () => {
+  it("returns the union of keys across all rows in first-seen order", () => {
+    expect(
+      collectAllKeys([
+        { a: 1, b: 2 },
+        { b: 3, c: 4 },
+        { a: 5, d: 6 },
+      ]),
+    ).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("returns an empty array for an empty record list", () => {
+    expect(collectAllKeys([])).toEqual([]);
+  });
+
+  it("does not duplicate keys that appear in multiple rows", () => {
+    expect(collectAllKeys([{ a: 1 }, { a: 2 }, { a: 3 }])).toEqual(["a"]);
+  });
+});
+
+describe("toSeriesNumber", () => {
+  it("preserves finite numbers including zero and negatives", () => {
+    expect(toSeriesNumber(0)).toBe(0);
+    expect(toSeriesNumber(42)).toBe(42);
+    expect(toSeriesNumber(-3.14)).toBe(-3.14);
+  });
+
+  it("parses numeric strings", () => {
+    expect(toSeriesNumber("10")).toBe(10);
+    expect(toSeriesNumber("0")).toBe(0);
+    expect(toSeriesNumber("-2.5")).toBe(-2.5);
+  });
+
+  it("returns null for null, undefined and empty string (missing data)", () => {
+    expect(toSeriesNumber(null)).toBeNull();
+    expect(toSeriesNumber(undefined)).toBeNull();
+    expect(toSeriesNumber("")).toBeNull();
+  });
+
+  it("returns null for non-numeric strings instead of silently giving 0", () => {
+    expect(toSeriesNumber("not-a-number")).toBeNull();
+    expect(toSeriesNumber("NaN")).toBeNull();
+  });
+
+  it("returns null for Infinity / NaN", () => {
+    expect(toSeriesNumber(Number.POSITIVE_INFINITY)).toBeNull();
+    expect(toSeriesNumber(Number.NaN)).toBeNull();
   });
 });

@@ -2,25 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
-import { formatNumber } from "./chart-utils";
+import { formatNumber, contrastTextColor } from "./chart-utils";
 import type { NumberFormat } from "./chart-utils";
 
 export type { ColorThreshold } from "./color-threshold";
 export type SingleValueFontSize = "sm" | "md" | "lg" | "xl";
 export type SingleValueNumberFormat = NumberFormat;
-
-/** Return black or white text based on background luminance for readability. */
-function contrastTextColor(hex: string): string {
-  const c = hex.replace("#", "");
-  const r = parseInt(c.substring(0, 2), 16) / 255;
-  const g = parseInt(c.substring(2, 4), 16) / 255;
-  const b = parseInt(c.substring(4, 6), 16) / 255;
-  const lum =
-    0.2126 * (r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4) +
-    0.7152 * (g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4) +
-    0.0722 * (b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4);
-  return lum > 0.179 ? "#000000" : "#ffffff";
-}
 
 const FONT_SIZE_CLASS: Record<SingleValueFontSize, string> = {
   sm: "text-xl",
