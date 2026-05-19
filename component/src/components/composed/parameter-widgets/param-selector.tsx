@@ -34,6 +34,15 @@ export interface ParamSelectorOption {
   rawValue?: unknown;
 }
 
+/**
+ * Internal sentinel value used for the disabled "No options available"
+ * placeholder. Namespaced so it cannot collide with a legitimate DB
+ * value (compare with the previously-used bare `__empty__`, which a
+ * real query could plausibly return). Exported for the collision check
+ * in the render path.
+ */
+export const PARAM_SELECTOR_EMPTY_SENTINEL = "__nb_param_selector_empty__";
+
 export interface ParamSelectorProps {
   parameterName: string;
   options: ParamSelectorOption[];
@@ -175,18 +184,30 @@ function ParamSelector({
           <SelectContent>
             {!loading && options.length === 0 && (
               <SelectItem
-                value="__empty__"
+                value={PARAM_SELECTOR_EMPTY_SENTINEL}
                 disabled
                 className="text-muted-foreground text-sm"
               >
                 No options available
               </SelectItem>
             )}
-            {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
+            {options.map((opt) => {
+              if (
+                process.env.NODE_ENV !== "production" &&
+                opt.value === PARAM_SELECTOR_EMPTY_SENTINEL
+              ) {
+                console.warn(
+                  `[ParamSelector] option value collides with the internal ` +
+                    `empty-placeholder sentinel (${PARAM_SELECTOR_EMPTY_SENTINEL}). ` +
+                    `Rename your value to avoid undefined render behavior.`,
+                );
+              }
+              return (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
         {value && (
