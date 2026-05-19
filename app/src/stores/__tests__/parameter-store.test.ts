@@ -3,6 +3,7 @@ import {
   useParameterStore,
   deriveValues,
   shallowEqual,
+  resetDeriveValuesCache,
 } from "../parameter-store";
 import type {
   ParameterType,
@@ -153,12 +154,14 @@ describe("useParameterStore", () => {
       "number-range",
       "selector-widget",
     );
+    // Companions are scalar numbers — typed as "text" (the "number-range"
+    // type is reserved for the [min, max] tuple itself).
     setParameter(
       "price_min",
       10,
       "PriceSlider",
       "price_min",
-      "number-range",
+      "text",
       "selector-widget",
     );
     setParameter(
@@ -166,7 +169,7 @@ describe("useParameterStore", () => {
       500,
       "PriceSlider",
       "price_max",
-      "number-range",
+      "text",
       "selector-widget",
     );
     const params = useParameterStore.getState().parameters;
@@ -258,7 +261,7 @@ describe("useParameterStore", () => {
       date: "2026-01-01",
       "date-range": "2026-01-01",
       "date-relative": "last7",
-      "number-range": 42,
+      "number-range": [0, 42],
       "cascading-select": "val",
     };
     for (const t of types) {
@@ -552,10 +555,53 @@ describe("useParameterStore", () => {
   });
 
   describe("type coercion", () => {
-    it("coerces a numeric string to number for number-range type", () => {
+    it("accepts a tuple of numeric strings for number-range type", () => {
+      // number-range is a tuple by definition (was previously buggy: scalar
+      // values silently slipped past coercion as `number-range`, leaving the
+      // widget to fall back to defaults).
+      const { setParameter } = useParameterStore.getState();
+      setParameter("count", ["10", "42"], "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"].value).toEqual([
+        10, 42,
+      ]);
+    });
+
+    it("rejects a scalar number for number-range type (regression: #858)", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { setParameter } = useParameterStore.getState();
+      setParameter("count", 42, "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it("rejects a scalar string for number-range type (regression: #858)", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const { setParameter } = useParameterStore.getState();
       setParameter("count", "42", "click", "count", "number-range");
-      expect(useParameterStore.getState().parameters["count"].value).toBe(42);
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it("rejects non-finite values inside a number-range tuple", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { setParameter } = useParameterStore.getState();
+      setParameter("count", [NaN, 1], "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      setParameter("count", [Infinity, 1], "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      warnSpy.mockRestore();
+    });
+
+    it("rejects a number-range tuple of wrong length", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { setParameter } = useParameterStore.getState();
+      setParameter("count", [1, 2, 3], "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      setParameter("count", [1], "click", "count", "number-range");
+      expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
+      warnSpy.mockRestore();
     });
 
     it("coerces an ISO string to the same string for date type", () => {
@@ -569,7 +615,7 @@ describe("useParameterStore", () => {
     it("rejects non-parseable string for number-range with console warning", () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const { setParameter } = useParameterStore.getState();
-      setParameter("count", "abc", "click", "count", "number-range");
+      setParameter("count", ["abc", "def"], "click", "count", "number-range");
       // Value should NOT be set
       expect(useParameterStore.getState().parameters["count"]).toBeUndefined();
       expect(warnSpy).toHaveBeenCalledWith(
@@ -616,15 +662,32 @@ describe("useParameterStore", () => {
       expect(shallowEqual({ a: 1, b: 2 }, { a: 1, c: 2 })).toBe(false);
     });
 
-    it("uses reference equality (arrays with same contents not equal)", () => {
+    it("does element-wise compare on arrays (regression: #858)", () => {
+      // multi-select / number-range values are arrays; the old shallowEqual
+      // used `!==`, which busted the deriveValues memo on every render.
       const arr1 = [1, 2];
       const arr2 = [1, 2];
-      expect(shallowEqual({ x: arr1 }, { x: arr2 })).toBe(false);
+      expect(shallowEqual({ x: arr1 }, { x: arr2 })).toBe(true);
       expect(shallowEqual({ x: arr1 }, { x: arr1 })).toBe(true);
+    });
+
+    it("distinguishes arrays with different contents", () => {
+      expect(shallowEqual({ x: [1, 2] }, { x: [1, 3] })).toBe(false);
+      expect(shallowEqual({ x: [1, 2] }, { x: [1, 2, 3] })).toBe(false);
+    });
+
+    it("distinguishes an array from a non-array scalar", () => {
+      expect(shallowEqual({ x: [1] }, { x: 1 })).toBe(false);
     });
   });
 
   describe("deriveValues", () => {
+    // Cache lives in a closure (no longer at module scope) — reset between
+    // tests so a cached value from a prior case can't leak across.
+    beforeEach(() => {
+      resetDeriveValuesCache();
+    });
+
     function entry(value: unknown): ParameterEntry {
       return {
         value,
@@ -673,6 +736,37 @@ describe("useParameterStore", () => {
     it("handles empty parameters", () => {
       const result = deriveValues({});
       expect(result).toEqual({});
+    });
+
+    it("preserves memo across renders for array values (regression: #858)", () => {
+      // multi-select: each render produces a new array reference upstream
+      // (Zustand makes a shallow copy of the params record). With the old
+      // shallowEqual the memo never hit; now it does.
+      const first = deriveValues({ tags: entry(["a", "b"]) });
+      const second = deriveValues({ tags: entry(["a", "b"]) });
+      expect(second).toBe(first);
+    });
+
+    it("preserves memo across renders for number-range tuples (regression: #858)", () => {
+      const first = deriveValues({ price: entry([10, 100]) });
+      const second = deriveValues({ price: entry([10, 100]) });
+      expect(second).toBe(first);
+    });
+
+    it("busts the memo when an array value's contents actually change", () => {
+      const first = deriveValues({ tags: entry(["a"]) });
+      const second = deriveValues({ tags: entry(["a", "b"]) });
+      expect(second).not.toBe(first);
+    });
+
+    it("resetDeriveValuesCache clears cached state for test isolation", () => {
+      const first = deriveValues({ a: entry(1) });
+      resetDeriveValuesCache();
+      // After reset, the memo should not hand back the same reference even
+      // for a structurally-equal input.
+      const second = deriveValues({ a: entry(1) });
+      expect(second).not.toBe(first);
+      expect(second).toEqual({ a: 1 });
     });
   });
 

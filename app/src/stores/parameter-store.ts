@@ -86,25 +86,23 @@ function coerceValue(
 ): { ok: true; value: unknown } | { ok: false; reason: string } {
   switch (type) {
     case "number-range": {
-      if (typeof value === "number") return { ok: true, value };
-      if (typeof value === "string") {
-        const n = Number(value);
-        if (!Number.isNaN(n)) return { ok: true, value: n };
-        return { ok: false, reason: `Cannot coerce "${value}" to number` };
-      }
-      // Validate array shape: must be [number, number]
+      // Number-range is a tuple by definition; accepting a scalar would let
+      // a malformed payload slip past coercion and silently fall back to
+      // defaults downstream. Companion `{name}_min` / `{name}_max` params
+      // are still set as scalars by ParamNumberRange, but those are typed
+      // independently (text/number) — not under the `number-range` branch.
       if (Array.isArray(value)) {
         if (value.length !== 2)
           return { ok: false, reason: "number-range must be [min, max]" };
         const min = Number(value[0]);
         const max = Number(value[1]);
-        if (Number.isNaN(min) || Number.isNaN(max))
+        if (!Number.isFinite(min) || !Number.isFinite(max))
           return { ok: false, reason: "number-range values must be numeric" };
         return { ok: true, value: [min, max] };
       }
       return {
         ok: false,
-        reason: `Invalid number-range value: ${typeof value}`,
+        reason: `Invalid number-range value: expected [min, max] tuple, got ${typeof value}`,
       };
     }
     case "date":
@@ -289,26 +287,69 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
  * Returns just name→value for query substitution.
  * Uses a cached reference that only changes when parameter values
  * actually change, avoiding unnecessary downstream re-renders.
+ *
+ * The cache is held in a closure (not module scope) so tests can reset
+ * via `resetDeriveValuesCache()` and the cache survives HMR reloads of
+ * other modules.
  */
-let cachedValues: Record<string, unknown> = {};
-let cachedParametersRef: Record<string, ParameterEntry> | null = null;
+function createDeriveValues() {
+  let cachedValues: Record<string, unknown> = {};
+  let cachedParametersRef: Record<string, ParameterEntry> | null = null;
+  return {
+    derive(
+      parameters: Record<string, ParameterEntry>,
+    ): Record<string, unknown> {
+      if (parameters === cachedParametersRef) return cachedValues;
+      const next: Record<string, unknown> = {};
+      for (const [k, e] of Object.entries(parameters)) {
+        next[k] = e.value;
+      }
+      if (cachedParametersRef !== null && shallowEqual(cachedValues, next)) {
+        cachedParametersRef = parameters;
+        return cachedValues;
+      }
+      cachedParametersRef = parameters;
+      cachedValues = next;
+      return next;
+    },
+    reset() {
+      cachedValues = {};
+      cachedParametersRef = null;
+    },
+  };
+}
+
+const deriveValuesInstance = createDeriveValues();
 
 /** Visible for testing. */
 export function deriveValues(
   parameters: Record<string, ParameterEntry>,
 ): Record<string, unknown> {
-  if (parameters === cachedParametersRef) return cachedValues;
-  const next: Record<string, unknown> = {};
-  for (const [k, e] of Object.entries(parameters)) {
-    next[k] = e.value;
+  return deriveValuesInstance.derive(parameters);
+}
+
+/** Test-only: clear the derive-values memo cache between cases. */
+export function resetDeriveValuesCache(): void {
+  deriveValuesInstance.reset();
+}
+
+/**
+ * Structural equality for the small `name → value` records that
+ * `deriveValues` produces. Falls back to element-wise compare for tuple
+ * values (number-range = `[min, max]`, multi-select = `string[]`) so the
+ * memo doesn't bust on every render just because a new array reference
+ * was produced upstream.
+ */
+function valueEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
   }
-  if (cachedParametersRef !== null && shallowEqual(cachedValues, next)) {
-    cachedParametersRef = parameters;
-    return cachedValues;
-  }
-  cachedParametersRef = parameters;
-  cachedValues = next;
-  return next;
+  return false;
 }
 
 /** Visible for testing. */
@@ -320,7 +361,7 @@ export function shallowEqual(
   const keysB = Object.keys(b);
   if (keysA.length !== keysB.length) return false;
   for (const key of keysA) {
-    if (a[key] !== b[key]) return false;
+    if (!valueEqual(a[key], b[key])) return false;
   }
   return true;
 }

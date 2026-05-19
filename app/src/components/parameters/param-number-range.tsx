@@ -21,14 +21,19 @@ export function ParamNumberRange({
   className,
 }: ParamNumberRangeProps) {
   const rawRange = actions.currentEntry?.value;
-  const rangeValue: [number, number] | null = Array.isArray(rawRange)
-    ? [Number(rawRange[0]), Number(rawRange[1])]
-    : null;
+  let rangeValue: [number, number] | null = null;
+  if (Array.isArray(rawRange) && rawRange.length >= 2) {
+    const lo = Number(rawRange[0]);
+    const hi = Number(rawRange[1]);
+    if (Number.isFinite(lo) && Number.isFinite(hi)) rangeValue = [lo, hi];
+  }
 
   const handleChange = (vals: [number, number]) => {
     actions.set(vals);
-    actions.setCompanion("min", vals[0], "number-range");
-    actions.setCompanion("max", vals[1], "number-range");
+    // Companions are scalar numbers — typed as "text" so coerceValue
+    // accepts them. "number-range" is reserved for the [min, max] tuple.
+    actions.setCompanion("min", vals[0], "text");
+    actions.setCompanion("max", vals[1], "text");
   };
 
   const handleClear = () => {
