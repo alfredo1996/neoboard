@@ -13,6 +13,7 @@ export {
 } from "./theme";
 export { COLOR_PALETTES, getPaletteColors } from "./palettes";
 export type { ColorPalette } from "./palettes";
+export { contrastTextColor } from "./chart-utils";
 export type { ColorThreshold } from "./color-threshold";
 export { parseColorThresholds, resolveThresholdColor } from "./color-threshold";
 export type {

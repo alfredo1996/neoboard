@@ -48,3 +48,36 @@ export function resolveValueKeys(
   }
   return keys.filter((k) => k !== labelKey);
 }
+
+/**
+ * Collect the union of keys across every record. Using only `Object.keys(records[0])`
+ * silently drops series that happen to be absent from the first row (sparse data).
+ */
+export function collectAllKeys(records: Record<string, unknown>[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const r of records) {
+    for (const k of Object.keys(r)) {
+      if (!seen.has(k)) {
+        seen.add(k);
+        ordered.push(k);
+      }
+    }
+  }
+  return ordered;
+}
+
+/**
+ * Coerce a raw cell value to a numeric series value, preserving the
+ * distinction between "missing" (null) and an actual zero. Returns `null`
+ * for null/undefined inputs and for values that can't be parsed as a finite
+ * number; ECharts renders nulls as gaps rather than masquerading them as 0.
+ */
+export function toSeriesNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  // Whitespace-only strings would otherwise coerce to 0 via Number("   "),
+  // hiding what is really a missing cell behind a fake zero.
+  if (typeof raw === "string" && raw.trim() === "") return null;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) ? n : null;
+}

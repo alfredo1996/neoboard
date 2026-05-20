@@ -37,10 +37,41 @@ describe("transformToBarData", () => {
     expect(result[0].s2).toBe(2);
   });
 
-  it("coerces non-numeric values to 0", () => {
+  it("maps non-numeric values to null (preserved as gap, not 0)", () => {
+    // Previously coerced to 0 — that hid bad data. Returning null lets
+    // ECharts render a gap and keeps the missing-vs-zero distinction.
     const data = [{ cat: "X", value: "not-a-number" }];
-    const result = transformToBarData(data) as Array<{ value: number }>;
+    const result = transformToBarData(data) as Array<{ value: number | null }>;
+    expect(result[0].value).toBeNull();
+  });
+
+  it("preserves numeric zero (regression: zero must not become null)", () => {
+    const data = [{ cat: "X", value: 0 }];
+    const result = transformToBarData(data) as Array<{ value: number | null }>;
     expect(result[0].value).toBe(0);
+  });
+
+  it("maps null/undefined cells to null (missing data, not 0)", () => {
+    const data = [
+      { cat: "A", value: null },
+      { cat: "B", value: undefined },
+    ];
+    const result = transformToBarData(data) as Array<{ value: number | null }>;
+    expect(result[0].value).toBeNull();
+    expect(result[1].value).toBeNull();
+  });
+
+  it("unions series keys across rows so sparse series are not dropped", () => {
+    // s2 is absent from the first row — before the fix, transformToBarData
+    // would only emit { label, s1 } and silently lose the s2 series.
+    const data = [
+      { cat: "X", s1: 1 },
+      { cat: "Y", s1: 2, s2: 9 },
+    ];
+    const result = transformToBarData(data) as Array<Record<string, unknown>>;
+    expect(result[0].s1).toBe(1);
+    expect(result[0].s2).toBeNull();
+    expect(result[1].s2).toBe(9);
   });
 
   it("respects column mapping", () => {

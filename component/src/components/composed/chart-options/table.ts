@@ -18,14 +18,9 @@ export const tableOptions: ChartOptionDef[] = [
     category: "Features",
     description: "Allow selecting individual rows by clicking them.",
   },
-  {
-    key: "enableGlobalFilter",
-    label: "Global Search",
-    type: "boolean",
-    default: true,
-    category: "Features",
-    description: "Show a search box that filters all rows across all columns.",
-  },
+  // NOTE: `enableGlobalFilter` was removed — the schema advertised a "Global
+  // Search" toggle but DataGrid never rendered a search input, so toggling
+  // it had no observable effect. Per-column filters cover the filtering need.
   {
     key: "enableColumnFilters",
     label: "Column Filters",
