@@ -1,8 +1,8 @@
 import { composeUp } from "../lib/docker.js";
 import { waitForHealth } from "../lib/health.js";
-import { isPgReady, isNeo4jReady } from "../lib/docker.js";
+import { isPgReady, isNeo4jReady, isAppReady } from "../lib/docker.js";
 import { readProjectConfig, getMode } from "../lib/config.js";
-import { info, success, warn, banner } from "../lib/output.js";
+import { info, success, warn, banner, error } from "../lib/output.js";
 import { runDoctor, printResults } from "./doctor.js";
 import { runDbMigrate } from "./db/migrate.js";
 
@@ -53,7 +53,8 @@ export async function runStart(opts?: StartOptions): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    throw new Error("PostgreSQL failed to start");
+    failWithHints("PostgreSQL failed to start");
+    return;
   }
 
   try {
@@ -66,7 +67,20 @@ export async function runStart(opts?: StartOptions): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    throw new Error("Neo4j failed to start");
+    failWithHints("Neo4j failed to start");
+    return;
+  }
+
+  // When the full stack is up, the Next.js app container takes another
+  // 30–60s to boot. Poll /api/health so the CLI doesn't go silent and
+  // the user gets a clear "ready" signal before the banner prints.
+  if (full && mode === "docker") {
+    try {
+      await waitForHealth({ check: isAppReady, label: "NeoBoard app" });
+    } catch {
+      failWithHints("NeoBoard app failed to start");
+      return;
+    }
   }
 
   // 4. Run migrations
@@ -81,6 +95,22 @@ export async function runStart(opts?: StartOptions): Promise<void> {
     `App:        ${url}`,
     `Neo4j:      http://localhost:${config.ports.neo4j_http}`,
     `PostgreSQL: localhost:${config.ports.postgres}`,
+    "",
+    `Stop:       neoboard stop`,
+    `Logs:       neoboard logs -f`,
   ]);
   success(`Open ${url} in your browser`);
+}
+
+/**
+ * Print a red ERROR line followed by remediation hints, then mark the
+ * process for a non-zero exit. Centralizes the "what to do next" message
+ * for any docker-mode healthcheck timeout.
+ */
+function failWithHints(reason: string): void {
+  error(reason);
+  console.log("");
+  console.log("  See logs:  neoboard logs -f");
+  console.log("  Diagnose:  neoboard doctor");
+  process.exitCode = 1;
 }

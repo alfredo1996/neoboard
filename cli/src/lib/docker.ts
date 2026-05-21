@@ -116,3 +116,16 @@ export function isNeo4jReady(): boolean {
   );
   return status?.trim() === "healthy";
 }
+
+/**
+ * Probes the Next.js app's /api/health endpoint. Returns true on HTTP 200.
+ * Used after the full-stack docker compose so the CLI can signal "ready"
+ * to the user instead of going silent while the app container boots.
+ */
+export function isAppReady(): boolean {
+  const config = readProjectConfig();
+  const out = runOrNull(
+    `curl -s -o /dev/null -w "%{http_code}" http://localhost:${config.ports.app}/api/health`,
+  );
+  return out === "200";
+}

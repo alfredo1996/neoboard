@@ -38,6 +38,7 @@ import {
   dockerExec,
   isPgReady,
   isNeo4jReady,
+  isAppReady,
 } from "../../lib/docker.js";
 
 const mockRun = vi.mocked(run);
@@ -182,5 +183,33 @@ describe("isNeo4jReady", () => {
   it("returns false when docker inspect reports starting", () => {
     mockRunOrNull.mockReturnValue("starting");
     expect(isNeo4jReady()).toBe(false);
+  });
+});
+
+describe("isAppReady", () => {
+  it("returns true when /api/health returns 200", () => {
+    mockRunOrNull.mockReturnValue("200");
+    expect(isAppReady()).toBe(true);
+    expect(mockRunOrNull).toHaveBeenCalledWith(
+      expect.stringContaining("http://localhost:3000/api/health"),
+    );
+  });
+
+  it("returns false when /api/health returns 503", () => {
+    mockRunOrNull.mockReturnValue("503");
+    expect(isAppReady()).toBe(false);
+  });
+
+  it("returns false when curl fails (network error)", () => {
+    mockRunOrNull.mockReturnValue(null);
+    expect(isAppReady()).toBe(false);
+  });
+
+  it("uses the configured app port", () => {
+    mockRunOrNull.mockReturnValue("200");
+    isAppReady();
+    expect(mockRunOrNull).toHaveBeenCalledWith(
+      expect.stringContaining(":3000/api/health"),
+    );
   });
 });
