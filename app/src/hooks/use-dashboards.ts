@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api/api-client";
+import { SaveError } from "@/lib/dashboard/save-error";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
 export interface ImportDashboardInput {
@@ -106,11 +107,28 @@ export function useUpdateDashboard() {
       /** Optimistic lock — when provided, server returns 409 on mismatch. */
       expectedVersion?: number;
     }) => {
-      const res = await fetch(`/api/dashboards/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, expectedVersion }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`/api/dashboards/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...data, expectedVersion }),
+        });
+      } catch (err) {
+        // Network failure — no status available
+        throw new SaveError(
+          err instanceof Error ? err.message : "Network error",
+          0,
+        );
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const msg =
+          (body && typeof body.error === "string" && body.error) ||
+          (body?.error?.message as string | undefined) ||
+          `Request failed (HTTP ${res.status})`;
+        throw new SaveError(msg, res.status);
+      }
       return unwrapResponse(res);
     },
     onSuccess: (_, variables) => {
