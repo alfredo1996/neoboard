@@ -63,8 +63,10 @@ import {
   ConfirmDialog,
   TimeAgo,
   DashboardMiniPreview,
+  useToast,
 } from "@neoboard/components";
 import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
+import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
 
 // ── Types for import dialog ──────────────────────────────────────────
 
@@ -86,7 +88,10 @@ interface ParsedImport {
 async function triggerExport(id: string, name: string) {
   const res = await fetch(`/api/dashboards/${id}/export`);
   if (!res.ok) {
-    throw new Error(`Failed to export dashboard (${res.status})`);
+    throw new ExportError(
+      `Failed to export dashboard (${res.status})`,
+      res.status,
+    );
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -453,6 +458,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
 export default function DashboardListPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const { toast } = useToast();
   const systemRole = session?.user?.role ?? "creator";
 
   const { data: dashboardList, isLoading } = useDashboards();
@@ -627,6 +633,7 @@ export default function DashboardListPage() {
                 return (
                   <Card
                     key={d.id}
+                    data-testid="dashboard-card"
                     className="flex flex-col cursor-pointer transition-colors hover:bg-accent/50"
                     onClick={() => router.push(`/${d.id}`)}
                   >
@@ -679,6 +686,10 @@ export default function DashboardListPage() {
                                     void triggerExport(d.id, d.name).catch(
                                       (err) => {
                                         console.error("Export failed", err);
+                                        toast({
+                                          ...classifyExportError(err),
+                                          variant: "destructive",
+                                        });
                                       },
                                     );
                                   }}
