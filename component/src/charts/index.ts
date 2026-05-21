@@ -4,6 +4,7 @@ export {
   resolveChartColors,
   useDarkMode,
   exportChartToSvg,
+  exportChartToPng,
 } from "./base-chart";
 export {
   THEME_LIGHT,

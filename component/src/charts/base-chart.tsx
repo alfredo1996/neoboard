@@ -292,9 +292,11 @@ function exportChartToSvg(container: HTMLElement): string | null {
   if (!instance) return null;
 
   const options = instance.getOption();
-  const { width, height } = instance.getDom().getBoundingClientRect();
+  const rect = instance.getDom().getBoundingClientRect();
+  // Round to integers — some SVG viewers handle fractional dimensions inconsistently
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
 
-  // Create an offscreen container for the SVG renderer
   const offscreen = document.createElement("div");
   offscreen.style.width = `${width}px`;
   offscreen.style.height = `${height}px`;
@@ -302,28 +304,43 @@ function exportChartToSvg(container: HTMLElement): string | null {
   offscreen.style.left = "-9999px";
   document.body.appendChild(offscreen);
 
+  let svgInstance: ReturnType<typeof echarts.init> | null = null;
   try {
     const themeName = isDarkMode() ? THEME_DARK : THEME_LIGHT;
-    const svgInstance = echarts.init(offscreen, themeName, {
+    svgInstance = echarts.init(offscreen, themeName, {
       renderer: "svg",
       width,
       height,
     });
     svgInstance.setOption(options);
 
-    // Extract the rendered SVG from the offscreen container
     const svgEl = offscreen.querySelector("svg");
-    if (!svgEl) {
-      svgInstance.dispose();
-      return null;
-    }
+    if (!svgEl) return null;
 
-    const svgString = new XMLSerializer().serializeToString(svgEl);
-    svgInstance.dispose();
-    return svgString;
+    return new XMLSerializer().serializeToString(svgEl);
   } finally {
+    // dispose-in-finally guarantees no leak on any throw path
+    if (svgInstance) svgInstance.dispose();
     document.body.removeChild(offscreen);
   }
+}
+
+/**
+ * Export an ECharts chart to a PNG data URL by reading from the existing
+ * canvas-rendered instance. Background matches the current theme so the
+ * exported image looks like what's on screen.
+ *
+ * @returns PNG data URL (image/png) or null if the chart instance can't be found
+ */
+function exportChartToPng(container: HTMLElement): string | null {
+  const instance = echarts.getInstanceByDom(container);
+  if (!instance) return null;
+  const backgroundColor = isDarkMode() ? "#0a0f1e" : "#ffffff";
+  return instance.getDataURL({
+    type: "png",
+    pixelRatio: 2,
+    backgroundColor,
+  });
 }
 
 export {
@@ -332,4 +349,5 @@ export {
   resolveChartColors,
   useDarkMode,
   exportChartToSvg,
+  exportChartToPng,
 };
