@@ -7,8 +7,10 @@ import {
   buildCsvString,
   triggerDownload,
   triggerSvgDownload,
+  triggerPngDownload,
   buildExportFilename,
   exportChartToSvg,
+  exportChartToPng,
 } from "@neoboard/components";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { buildExportData } from "@/lib/widget/card-utils";
@@ -209,6 +211,18 @@ export function DashboardContainer({
     triggerSvgDownload(svg, filename);
   }
 
+  function exportWidgetPng(widget: DashboardWidget) {
+    const el = document.querySelector(`[data-widget-id="${widget.id}"]`);
+    if (!el) return;
+    const chartEl = el.querySelector<HTMLElement>('[data-testid="base-chart"]');
+    if (!chartEl) return;
+    const dataUrl = exportChartToPng(chartEl);
+    if (!dataUrl) return;
+    const title = (widget.settings?.title as string) || widget.chartType;
+    const filename = buildExportFilename(title, "png", page.title);
+    triggerPngDownload(dataUrl, filename);
+  }
+
   const buildActions = (widget: DashboardWidget) => {
     const actions = [];
 
@@ -220,6 +234,10 @@ export function DashboardContainer({
     }
 
     if (getChartConfig(widget.chartType)?.capabilities.isECharts) {
+      actions.push({
+        label: "Export PNG",
+        onClick: () => exportWidgetPng(widget),
+      });
       actions.push({
         label: "Export SVG",
         onClick: () => exportWidgetSvg(widget),
