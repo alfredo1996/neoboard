@@ -234,14 +234,16 @@ export function DashboardContainer({
     }
 
     if (getChartConfig(widget.chartType)?.capabilities.isECharts) {
-      actions.push({
-        label: "Export PNG",
-        onClick: () => exportWidgetPng(widget),
-      });
-      actions.push({
-        label: "Export SVG",
-        onClick: () => exportWidgetSvg(widget),
-      });
+      actions.push(
+        {
+          label: "Export PNG",
+          onClick: () => exportWidgetPng(widget),
+        },
+        {
+          label: "Export SVG",
+          onClick: () => exportWidgetSvg(widget),
+        },
+      );
     }
 
     if (onSaveAsTemplate) {
