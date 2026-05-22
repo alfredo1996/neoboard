@@ -174,8 +174,10 @@ describe("convertNeoDash", () => {
     { type: "graph3d", expected: "graph" },
     { type: "3d-graph", expected: "graph" },
     { type: "circle_packing", expected: "circle-packing" },
+    { type: "circlePacking", expected: "circle-packing" },
     { type: "choropleth", expected: "choropleth" },
     { type: "areamap", expected: "choropleth" },
+    { type: "text", expected: "markdown" },
     { type: "unknown_type", expected: "json" },
   ])("maps $type → $expected", ({ type, expected }) => {
     const result = convertNeoDash(makeNeoDash({ type }));

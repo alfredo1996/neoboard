@@ -20,6 +20,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   gauge: "gauge",
   sunburst: "sunburst",
   circle_packing: "circle-packing",
+  circlePacking: "circle-packing",
   treemap: "treemap",
   sankey: "sankey",
   radar: "radar",
@@ -29,6 +30,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   gantt: "gantt",
   select: "parameter-select",
   markdown: "markdown",
+  text: "markdown",
   form: "form",
   json: "json",
 };
