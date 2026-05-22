@@ -79,7 +79,7 @@ function convertReportActions(
         type: "set-parameter",
         parameterMapping: {
           parameterName: rule.customizationValue,
-          sourceField: String(rule.field ?? ""),
+          sourceField: typeof rule.field === "string" ? rule.field : "",
         },
       };
     }
