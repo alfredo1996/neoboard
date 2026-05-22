@@ -42,45 +42,38 @@ export async function runStart(opts?: StartOptions): Promise<void> {
     );
   }
 
-  // 3. Wait for health
-  try {
-    await waitForHealth({ check: isPgReady, label: "PostgreSQL" });
-  } catch {
-    if (mode === "local") {
-      warn(
-        `PostgreSQL not reachable on localhost:${config.ports.postgres}. Start it manually or use --mode docker.`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-    failWithHints("PostgreSQL failed to start");
-    return;
-  }
+  // 3. Wait for health (PG, Neo4j, optionally app)
+  const pgOk = await checkHealthOrFail({
+    check: isPgReady,
+    label: "PostgreSQL",
+    failName: "PostgreSQL",
+    localHint: `PostgreSQL not reachable on localhost:${config.ports.postgres}. Start it manually or use --mode docker.`,
+    mode,
+  });
+  if (!pgOk) return;
 
-  try {
-    await waitForHealth({ check: isNeo4jReady, label: "Neo4j" });
-  } catch {
-    if (mode === "local") {
-      warn(
-        `Neo4j not reachable on localhost:${config.ports.neo4j_http}. Start it manually or use --mode docker.`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-    failWithHints("Neo4j failed to start");
-    return;
-  }
+  const neo4jOk = await checkHealthOrFail({
+    check: isNeo4jReady,
+    label: "Neo4j",
+    failName: "Neo4j",
+    localHint: `Neo4j not reachable on localhost:${config.ports.neo4j_http}. Start it manually or use --mode docker.`,
+    mode,
+  });
+  if (!neo4jOk) return;
 
   // When the full stack is up, the Next.js app container takes another
   // 30–60s to boot. Poll /api/health so the CLI doesn't go silent and
   // the user gets a clear "ready" signal before the banner prints.
   if (full && mode === "docker") {
-    try {
-      await waitForHealth({ check: isAppReady, label: "NeoBoard app" });
-    } catch {
-      failWithHints("NeoBoard app failed to start");
-      return;
-    }
+    const appOk = await checkHealthOrFail({
+      check: isAppReady,
+      label: "NeoBoard app",
+      failName: "NeoBoard app",
+      // App poll only runs in docker mode, so localHint is unused
+      localHint: "",
+      mode,
+    });
+    if (!appOk) return;
   }
 
   // 4. Run migrations
@@ -100,6 +93,33 @@ export async function runStart(opts?: StartOptions): Promise<void> {
     `Logs:       neoboard logs -f`,
   ]);
   success(`Open ${url} in your browser`);
+}
+
+/**
+ * Wait for a single readiness probe. On timeout, route to the right error UX:
+ * local mode prints a hint and bails; docker mode prints the failure banner
+ * with neoboard logs/doctor pointers. Returns true on success, false on
+ * failure (caller should `return` to abort the start flow).
+ */
+async function checkHealthOrFail(opts: {
+  check: () => boolean;
+  label: string;
+  failName: string;
+  localHint: string;
+  mode: "docker" | "local";
+}): Promise<boolean> {
+  try {
+    await waitForHealth({ check: opts.check, label: opts.label });
+    return true;
+  } catch {
+    if (opts.mode === "local") {
+      warn(opts.localHint);
+      process.exitCode = 1;
+      return false;
+    }
+    failWithHints(`${opts.failName} failed to start`);
+    return false;
+  }
 }
 
 /**
