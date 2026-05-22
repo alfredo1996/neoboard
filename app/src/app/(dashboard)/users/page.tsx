@@ -582,13 +582,23 @@ export default function UsersPage() {
           ) : !users?.length ? (
             <EmptyState
               icon={<UsersIcon className="h-12 w-12" />}
-              title="No users found"
-              description="Create your first user to get started."
+              title="No users yet"
+              description="Add team members so they can collaborate on dashboards."
               action={
                 <Button onClick={() => setShowCreate(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create User
+                  Create your first user
                 </Button>
+              }
+              secondaryAction={
+                <a
+                  href="https://neoboard.app/docs/getting-started/quick-start/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Read the docs
+                </a>
               }
             />
           ) : (
