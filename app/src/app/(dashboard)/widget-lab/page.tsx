@@ -430,7 +430,23 @@ export default function WidgetLabPage() {
               <EmptyState
                 icon={<FlaskConical className="h-12 w-12" />}
                 title="No templates yet"
-                description='Create a new template or save a widget from any dashboard using the "Save to Widget Lab" action.'
+                description="Reusable widgets you can drop into any dashboard."
+                action={
+                  <Button onClick={handleCreate}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create your first template
+                  </Button>
+                }
+                secondaryAction={
+                  <a
+                    href="https://neoboard.app/docs/getting-started/quick-start/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Read the docs
+                  </a>
+                }
               />
             ) : (
               <EmptyState

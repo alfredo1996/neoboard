@@ -6,6 +6,8 @@ export interface EmptyStateProps {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  /** Optional secondary action (e.g. a "Read the docs" link) rendered below `action`. */
+  secondaryAction?: React.ReactNode;
   className?: string;
 }
 
@@ -14,18 +16,17 @@ function EmptyState({
   title,
   description,
   action,
+  secondaryAction,
   className,
 }: EmptyStateProps) {
   return (
     <div
       className={cn(
         "flex flex-col items-center justify-center py-12 px-4 text-center",
-        className
+        className,
       )}
     >
-      {icon && (
-        <div className="mb-4 text-muted-foreground">{icon}</div>
-      )}
+      {icon && <div className="mb-4 text-muted-foreground">{icon}</div>}
       <h3 className="text-lg font-semibold">{title}</h3>
       {description && (
         <p className="mt-2 text-sm text-muted-foreground max-w-sm">
@@ -33,6 +34,11 @@ function EmptyState({
         </p>
       )}
       {action && <div className="mt-6">{action}</div>}
+      {secondaryAction && (
+        <div className={cn(action ? "mt-3" : "mt-6", "text-sm")}>
+          {secondaryAction}
+        </div>
+      )}
     </div>
   );
 }

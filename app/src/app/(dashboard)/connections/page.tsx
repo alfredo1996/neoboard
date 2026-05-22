@@ -1156,12 +1156,22 @@ export default function ConnectionsPage() {
             <EmptyState
               icon={<Database className="h-12 w-12" />}
               title="No connections yet"
-              description="Add your first database connection to start querying data."
+              description="Connect a database to start building dashboards."
               action={
                 <Button onClick={() => openCreateDialog()}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add your first connection
+                  Create your first connection
                 </Button>
+              }
+              secondaryAction={
+                <a
+                  href="https://neoboard.app/docs/getting-started/quick-start/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Read the docs
+                </a>
               }
             />
           )}
