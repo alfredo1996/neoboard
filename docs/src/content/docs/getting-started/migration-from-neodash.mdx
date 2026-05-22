@@ -7,6 +7,10 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 NeoDash was [deprecated by Neo4j Labs](https://neo4j.com/labs/neodash/) in 2025. NeoBoard is a maintained, modern alternative that supports NeoDash dashboard imports with automatic chart type conversion.
 
+:::tip[Real-world tested]
+The importer has been validated on the [OpenStudyBuilder NeoDash corpus](https://github.com/NovoNordisk-OpenSource/openstudybuilder-solution/tree/main/neo4j-mdr-db/neodash/neodash_reports) — 17 dashboards · 12–46 widgets each · heavy use of parameters, click actions, and rule-based styling. See [Known limitations](#known-limitations) below for the one feature gap surfaced by that testing.
+:::
+
 ## Migration overview
 
 1. Export your dashboard from NeoDash as JSON
@@ -74,11 +78,16 @@ NeoBoard maps NeoDash chart types automatically:
 | Sankey | Sankey | 1:1 mapping |
 | Radar | Radar | 1:1 mapping |
 | Area Chart | Line | Imported as line chart with `area: true` option |
-| iFrame | iFrame | 1:1 mapping |
+| iFrame (`iframe`, `iFrame`) | iFrame | Both casings accepted |
 | Markdown | Markdown | 1:1 mapping |
-| Select | Parameter Select | Converted to NeoBoard's parameter widget |
+| Text (`text`) | Markdown | NeoDash's plain-text widget renders identically to NeoBoard markdown |
+| Select | Parameter Select | Converted to NeoBoard's parameter widget — see [Parameter syntax](#parameter-syntax) |
 | Form | Form | 1:1 mapping |
 | JSON | JSON | 1:1 mapping |
+| Circle Packing (`circle_packing`, `circlePacking`) | Circle Packing | Both snake_case and camelCase accepted |
+| Choropleth (`choropleth`, `areamap`) | Choropleth | `areamap` is a NeoDash alias for the same widget |
+| 3D Graph (`graph3d`, `3d-graph`) | Graph | Rendered as 2D — NeoBoard doesn't have a 3D view |
+| Gantt | Gantt | 1:1 mapping |
 | Unknown types | JSON Viewer | Unsupported types fall back to raw JSON display |
 
 ## Parameter syntax
@@ -103,6 +112,77 @@ RETURN n
 </Tabs>
 
 If you have queries with hardcoded `$neodash_` parameters that the converter missed, find and replace `$neodash_` with `$param_` in the query editor.
+
+## Click actions (Report Actions)
+
+NeoDash's **Report Actions** become NeoBoard's **Click Action** widget setting. The importer recognises both shapes NeoDash emits in real-world exports:
+
+**Object form** — newer NeoDash builds:
+```json
+{
+  "field": "personId",
+  "customization": { "type": "set-parameter", "parameterName": "selected" }
+}
+```
+
+**String form** — older NeoDash builds (commonly seen in field-stored dashboards):
+```json
+{
+  "condition": "Click",
+  "field": "Action ID",
+  "customization": "set variable",
+  "customizationValue": "action_id"
+}
+```
+
+Both convert to the same NeoBoard structure:
+
+```json
+{
+  "type": "set-parameter",
+  "parameterMapping": { "parameterName": "selected", "sourceField": "personId" }
+}
+```
+
+`navigate`-type actions also convert to NeoBoard's `navigate-to-page` action.
+
+## Conditional / rule-based styling
+
+NeoDash's `styleRules` (set per widget) carry over to NeoBoard's `stylingConfig`. Operators map as follows:
+
+| NeoDash operator | NeoBoard operator |
+|---|---|
+| `=` | `==` |
+| `!=` | `!=` |
+| `<` | `<` |
+| `>` | `>` |
+| `<=` | `<=` |
+| `>=` | `>=` |
+| `contains` | `contains` |
+| any other | `==` (default fallback) |
+
+Rules without a `color` value are dropped during import — NeoBoard requires a color per rule.
+
+## Auto-refresh
+
+NeoDash's `settings.refreshRate` (seconds) is converted to NeoBoard's **query caching** settings:
+
+- `refreshRate: 300` (seconds) → `cacheTtlMinutes: 5` (rounded up to at least 1 minute)
+- `refreshRate: 0` or missing → no auto-refresh, no caching
+
+You can override this from the **Auto-refresh** dropdown on the dashboard toolbar after import.
+
+## Known limitations
+
+### Only the first click action rule per widget is converted
+
+NeoDash supports multiple value-conditional rules per widget — for example, clicking a row where the cell value is `"A"` sets one parameter, clicking a row where the value is `"B"` sets a different one. NeoBoard's click-action model represents a single rule per widget, so secondary rules are dropped on import.
+
+If your dashboards rely on multi-rule actions, you'll see fewer click bindings after import than in the original. Tracking this in [issue #882](https://github.com/alfredo1996/neoboard/issues/882) — affected widgets typically have an `actionsRules` array of length > 1 in the source JSON.
+
+### Queries that referenced NeoDash-only built-ins
+
+A small set of NeoDash query helpers (e.g. `$neodash_dashboardTitle`) are not currently mapped. They survive the `$neodash_` → `$param_` rewrite but resolve to empty values at runtime. Workaround: hardcode the value or wire it to a parameter widget.
 
 ## What's different in NeoBoard
 
@@ -154,6 +234,13 @@ done
 **Import fails with "Invalid format"**
 - Ensure the file is valid JSON (try opening it in a text editor)
 - NeoDash exports should have a `pages` array at the root level with `reports` arrays inside each page
+- Some files inside NeoDash projects are *not* dashboards (e.g. schema-update scripts). They'll fail this check — only dashboard JSONs are accepted.
+
+**A widget imported as "JSON Viewer" but the source was a chart**
+- The NeoDash widget `type` may use a casing the importer doesn't recognise. The chart-type table above lists known aliases. If you find a missing one, please [open an issue](https://github.com/alfredo1996/neoboard/issues/new) and include the source widget's `type` value.
+
+**Markdown widgets imported as JSON**
+- This was a bug fixed in v1.0.1 — NeoDash's `text` type now maps to NeoBoard's `markdown` widget. If you imported before upgrading, re-import to get the correct widget type.
 
 **Widgets show "No data"**
 - Check that you mapped the correct connection
@@ -164,6 +251,13 @@ done
 - Verify parameter names were converted from `$neodash_` to `$param_`
 - NeoBoard parameters need a parameter widget on the same dashboard page to provide values
 
+**Click actions on tables don't update parameters**
+- Confirm the imported widget has a `clickAction` configured (visible in the widget editor → Click Action tab)
+- If the source widget had multiple `actionsRules`, only the first one is imported — see [Known limitations](#known-limitations)
+
 **Layout looks wrong**
 - Grid positions are preserved from NeoDash, but NeoBoard uses a 12-column grid
 - Drag and resize widgets in edit mode to adjust
+
+**Save indicator says "saved" but my changes are gone after reload**
+- Was a silent-failure bug fixed in v1.0.1 — auto-save errors now surface a destructive toast that sticks until the next successful save. Upgrade if you're on an older release.
