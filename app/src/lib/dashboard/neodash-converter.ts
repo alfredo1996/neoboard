@@ -66,6 +66,26 @@ function convertReportActions(
 
   // Take the first rule as the primary click action
   const rule = rules[0] as Record<string, unknown>;
+
+  // NeoDash "set variable" string shape: parameter name lives in customizationValue.
+  // Observed in real-world exports (OpenStudyBuilder corpus) — every action used
+  // this shape and was silently dropped by the object-only branch below.
+  if (typeof rule.customization === "string") {
+    if (
+      rule.customization === "set variable" &&
+      typeof rule.customizationValue === "string"
+    ) {
+      return {
+        type: "set-parameter",
+        parameterMapping: {
+          parameterName: rule.customizationValue,
+          sourceField: typeof rule.field === "string" ? rule.field : "",
+        },
+      };
+    }
+    return undefined;
+  }
+
   const customization = rule.customization as
     | Record<string, unknown>
     | undefined;
