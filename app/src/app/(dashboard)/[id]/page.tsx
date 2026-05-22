@@ -55,7 +55,9 @@ import {
   Toolbar,
   ToolbarSection,
   ToolbarSeparator,
+  useToast,
 } from "@neoboard/components";
+import { classifySaveError } from "@/lib/dashboard/save-error";
 
 function formatInterval(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -142,6 +144,7 @@ export default function DashboardViewerPage({
 
   // Detect when another user saves while we're viewing. Compares the
   // server's version to the one we saw on first load (sessionStorage).
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: reacts to external version bump */
   useEffect(() => {
     if (dashboardVersion === undefined) return;
     const key = `__nb_dash_ver_${id}`;
@@ -155,6 +158,7 @@ export default function DashboardViewerPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only fire on version change
   }, [dashboardVersion]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const versionBump = versionBumpMsg;
   const parameters = useParameterStore((s) => s.parameters);
@@ -223,6 +227,9 @@ export default function DashboardViewerPage({
 
   // Promise queue to serialize persist writes and prevent out-of-order saves
   const persistQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  // Track the in-flight save-failure toast so we can dismiss it on next success
+  const saveErrorToastIdRef = useRef<string | null>(null);
+  const { toast, dismiss } = useToast();
 
   const applyInterval = useCallback(
     (seconds: number | "off") => {
@@ -238,16 +245,28 @@ export default function DashboardViewerPage({
         };
         persistQueueRef.current = persistQueueRef.current
           .catch(() => undefined)
-          .then(() => updateDashboard.mutateAsync(payload))
+          .then(async () => {
+            await updateDashboard.mutateAsync(payload);
+            if (saveErrorToastIdRef.current) {
+              dismiss(saveErrorToastIdRef.current);
+              saveErrorToastIdRef.current = null;
+            }
+          })
           .catch((err: unknown) => {
             console.error(
               "[auto-save] Failed to persist dashboard settings:",
               err,
             );
+            const t = toast({
+              ...classifySaveError(err),
+              variant: "destructive",
+              duration: Infinity,
+            });
+            saveErrorToastIdRef.current = t.id;
           });
       }
     },
-    [id, layout, updateDashboard],
+    [id, layout, updateDashboard, toast, dismiss],
   );
 
   const handleIntervalChange = useCallback(
