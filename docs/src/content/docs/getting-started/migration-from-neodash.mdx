@@ -161,13 +161,16 @@ NeoDash's `styleRules` (set per widget) carry over to NeoBoard's `stylingConfig`
 | `contains` | `contains` |
 | any other | `==` (default fallback) |
 
-Rules without a `color` value are dropped during import — NeoBoard requires a color per rule.
+Rules without an explicit `color` are imported with the default `#000000` (black) — you can edit each rule's color in the widget editor after import.
 
 ## Auto-refresh
 
 NeoDash's `settings.refreshRate` (seconds) is converted to NeoBoard's **query caching** settings:
 
-- `refreshRate: 300` (seconds) → `cacheTtlMinutes: 5` (rounded up to at least 1 minute)
+- `cacheTtlMinutes = Math.max(1, Math.round(refreshRate / 60))` — rounded to the nearest minute, never less than 1
+- `refreshRate: 300` (seconds) → `cacheTtlMinutes: 5`
+- `refreshRate: 90` (seconds) → `cacheTtlMinutes: 2` (rounds up from 1.5)
+- `refreshRate: 30` (seconds) → `cacheTtlMinutes: 1` (would round to 0; floored to 1)
 - `refreshRate: 0` or missing → no auto-refresh, no caching
 
 You can override this from the **Auto-refresh** dropdown on the dashboard toolbar after import.
