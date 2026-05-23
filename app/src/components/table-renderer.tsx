@@ -319,7 +319,7 @@ export function TableRenderer({
           enableSorting={enableSorting}
           enableColumnResizing={enableColumnResizing}
           enableSelection={settings.enableSelection as boolean | undefined}
-          enableColumnFilters={settings.enableColumnFilters !== false}
+          enableColumnFilters={settings.enableColumnFilters === true}
           enablePagination={enablePagination}
           pageSize={(settings.pageSize as number) ?? 10}
           containerHeight={

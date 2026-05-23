@@ -25,7 +25,7 @@ export const tableOptions: ChartOptionDef[] = [
     key: "enableColumnFilters",
     label: "Column Filters",
     type: "boolean",
-    default: true,
+    default: false,
     category: "Features",
     description: "Show per-column filter inputs below each column header.",
   },
