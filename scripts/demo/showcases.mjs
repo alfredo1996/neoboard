@@ -40,6 +40,19 @@ export const SHOWCASES = [
     description: "One page per stylable chart, each with 2–3 rules on realistic thresholds.",
     jsonPath: join(__dirname, "rule-based-styling.json"),
   },
+  {
+    key: "chart-playground",
+    label: "Chart Playground",
+    description: "Interactive sandbox — every chart with knobs to fiddle.",
+    jsonPath: join(__dirname, "chart-playground.json"),
+  },
+  {
+    key: "chart-reference",
+    label: "Chart Reference",
+    description:
+      "Exhaustive customization reference — one page per chart type, all options demonstrated.",
+    jsonPath: join(__dirname, "chart-reference.json"),
+  },
 ];
 
 /** Set of valid showcase keys for fast lookup + validation. */

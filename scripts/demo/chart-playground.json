@@ -1,0 +1,1145 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-05-17T00:00:00.000Z",
+  "dashboard": {
+    "name": "Chart Playground",
+    "description": "Interactive sandbox — every chart with knobs to fiddle. Refresh the page to reset all parameters to defaults."
+  },
+  "connections": {
+    "conn_neo4j": {
+      "name": "Neo4j Movies (demo)",
+      "type": "neo4j"
+    },
+    "conn_postgres_read": {
+      "name": "PostgreSQL Ecommerce (demo, read)",
+      "type": "postgresql"
+    },
+    "conn_postgres_write": {
+      "name": "PostgreSQL Ecommerce (demo, write)",
+      "type": "postgresql"
+    }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-overview",
+        "title": "1. Overview",
+        "widgets": [
+          {
+            "id": "ov-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "# Chart Playground\n\nWelcome to the **interactive sandbox**. Each page below shows one or more chart types together with **knobs** you can twiddle to change what the chart shows.\n\n- Query-level knobs (limit, dimension, time-window, metric) flow into the SQL via `$param_*` substitution and update live.\n- For chart options that can't be parameterized (palette, donut on/off, etc.), pages show **two side-by-side variant tiles** with different settings so you can compare.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "ov-kpi-orders",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT COUNT(*)::int AS value FROM neoboard_demo_public.orders",
+            "settings": {
+              "title": "Orders",
+              "chartOptions": {
+                "numberFormat": "comma",
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "ov-kpi-products",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT COUNT(*)::int AS value FROM neoboard_demo_public.products",
+            "settings": {
+              "title": "Products",
+              "chartOptions": {
+                "numberFormat": "comma",
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "ov-kpi-customers",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT COUNT(*)::int AS value FROM neoboard_demo_public.customers",
+            "settings": {
+              "title": "Customers",
+              "chartOptions": {
+                "numberFormat": "comma",
+                "fontSize": "xl"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "ov-md", "x": 0, "y": 0, "w": 12, "h": 5 },
+          { "i": "ov-kpi-orders", "x": 0, "y": 5, "w": 4, "h": 3 },
+          { "i": "ov-kpi-products", "x": 4, "y": 5, "w": 4, "h": 3 },
+          { "i": "ov-kpi-customers", "x": 8, "y": 5, "w": 4, "h": 3 }
+        ]
+      },
+      {
+        "id": "page-categorical",
+        "title": "2. Categorical",
+        "widgets": [
+          {
+            "id": "cat-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Categorical charts — bar & pie\n\nTwiddle the knobs above each chart to see how it responds. The bar's **dimension** and **metric** select rewrite the SQL; the **limit** slider trims the result.\n\nFor options that don't flow through `$param_*` substitution (e.g. orientation, donut), this page shows **two side-by-side variant tiles** with one setting different — that's how to compare.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "cat-dim",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Dimension",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "cat_dimension",
+                "seedQuery": "SELECT 'category' AS value, 'Category' AS label UNION ALL SELECT 'region', 'Region' UNION ALL SELECT 'status', 'Order status'",
+                "defaultValue": "category",
+                "searchable": false,
+                "placeholder": "Pick a dimension…"
+              }
+            }
+          },
+          {
+            "id": "cat-metric",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Metric",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "cat_metric",
+                "seedQuery": "SELECT 'revenue' AS value, 'Revenue' AS label UNION ALL SELECT 'orders', 'Order count'",
+                "defaultValue": "revenue",
+                "searchable": false,
+                "placeholder": "Pick a metric…"
+              }
+            }
+          },
+          {
+            "id": "cat-limit",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Limit (rows)",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "cat_limit",
+                "rangeMin": 3,
+                "rangeMax": 15,
+                "rangeStep": 1,
+                "defaultValue": "8"
+              }
+            }
+          },
+          {
+            "id": "cat-bar-vertical",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue, o.id AS order_id FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, CASE WHEN $param_cat_metric = 'revenue' THEN SUM(line_revenue)::float ELSE COUNT(DISTINCT order_id)::float END AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
+            "settings": {
+              "title": "Vertical bar (rule: value > 5000 → red)",
+              "chartOptions": {
+                "orientation": "vertical",
+                "showValues": true,
+                "showLegend": false,
+                "colorPalette": "deep-ocean",
+                "rules": [
+                  {
+                    "id": "cat-rule-hi",
+                    "operator": ">",
+                    "value": 5000,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "cat-bar-horizontal",
+            "chartType": "bar",
+            "connectionId": "conn_postgres_read",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue, o.id AS order_id FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, CASE WHEN $param_cat_metric = 'revenue' THEN SUM(line_revenue)::float ELSE COUNT(DISTINCT order_id)::float END AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
+            "settings": {
+              "title": "Horizontal bar (same data, no rules)",
+              "chartOptions": {
+                "orientation": "horizontal",
+                "showValues": true,
+                "showLegend": false,
+                "colorPalette": "deep-ocean"
+              }
+            }
+          },
+          {
+            "id": "cat-pie-solid",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, SUM(line_revenue)::float AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
+            "settings": {
+              "title": "Solid pie",
+              "chartOptions": {
+                "donut": false,
+                "showLegend": true,
+                "labelPosition": "outside",
+                "colorPalette": "tableau"
+              }
+            }
+          },
+          {
+            "id": "cat-pie-donut",
+            "chartType": "pie",
+            "connectionId": "conn_postgres_read",
+            "query": "WITH base AS (SELECT CASE WHEN $param_cat_dimension = 'category' THEN parent.name WHEN $param_cat_dimension = 'region' THEN r.name ELSE o.status END AS dim, oi.qty * oi.price AS line_revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id) SELECT dim AS name, SUM(line_revenue)::float AS value FROM base GROUP BY dim ORDER BY value DESC LIMIT $param_cat_limit_max",
+            "settings": {
+              "title": "Donut",
+              "chartOptions": {
+                "donut": true,
+                "donutCenterText": "Total",
+                "showLegend": true,
+                "labelPosition": "outside",
+                "colorPalette": "tableau"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "cat-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "cat-dim", "x": 0, "y": 4, "w": 4, "h": 3 },
+          { "i": "cat-metric", "x": 4, "y": 4, "w": 4, "h": 3 },
+          { "i": "cat-limit", "x": 8, "y": 4, "w": 4, "h": 3 },
+          { "i": "cat-bar-vertical", "x": 0, "y": 7, "w": 6, "h": 6 },
+          { "i": "cat-bar-horizontal", "x": 6, "y": 7, "w": 6, "h": 6 },
+          { "i": "cat-pie-solid", "x": 0, "y": 13, "w": 6, "h": 6 },
+          { "i": "cat-pie-donut", "x": 6, "y": 13, "w": 6, "h": 6 }
+        ]
+      },
+      {
+        "id": "page-timeseries",
+        "title": "3. Time series",
+        "widgets": [
+          {
+            "id": "ts-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Time series — line & gantt\n\nTwiddle the knobs above each chart to see how it responds. The line chart's **time grain**, **metric**, and **window (days)** all rewrite the SQL.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "ts-grain",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Time grain",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ts_grain",
+                "seedQuery": "SELECT 'day' AS value, 'Day' AS label UNION ALL SELECT 'week', 'Week' UNION ALL SELECT 'month', 'Month'",
+                "defaultValue": "week",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "ts-metric",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Metric",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "ts_metric",
+                "seedQuery": "SELECT 'revenue' AS value, 'Revenue' AS label UNION ALL SELECT 'orders', 'Order count'",
+                "defaultValue": "revenue",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "ts-window",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Window (days)",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "ts_window",
+                "rangeMin": 30,
+                "rangeMax": 365,
+                "rangeStep": 30,
+                "defaultValue": "180"
+              }
+            }
+          },
+          {
+            "id": "ts-line-plain",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc($param_ts_grain, created_at), 'YYYY-MM-DD') AS period, CASE WHEN $param_ts_metric = 'revenue' THEN SUM(total)::float ELSE COUNT(*)::float END AS value FROM neoboard_demo_public.orders WHERE created_at >= NOW() - ($param_ts_window_max || ' days')::interval GROUP BY 1 ORDER BY 1",
+            "settings": {
+              "title": "Straight lines, no fill",
+              "chartOptions": {
+                "smooth": false,
+                "area": false,
+                "showLegend": true,
+                "colorPalette": "observable"
+              }
+            }
+          },
+          {
+            "id": "ts-line-smooth",
+            "chartType": "line",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT to_char(date_trunc($param_ts_grain, created_at), 'YYYY-MM-DD') AS period, CASE WHEN $param_ts_metric = 'revenue' THEN SUM(total)::float ELSE COUNT(*)::float END AS value FROM neoboard_demo_public.orders WHERE created_at >= NOW() - ($param_ts_window_max || ' days')::interval GROUP BY 1 ORDER BY 1",
+            "settings": {
+              "title": "Smoothed + area fill",
+              "chartOptions": {
+                "smooth": true,
+                "area": true,
+                "showLegend": true,
+                "colorPalette": "observable"
+              }
+            }
+          },
+          {
+            "id": "ts-gantt-limit",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Gantt — bars",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "ts_gantt_limit",
+                "rangeMin": 5,
+                "rangeMax": 25,
+                "rangeStep": 1,
+                "defaultValue": "12"
+              }
+            }
+          },
+          {
+            "id": "ts-gantt-no-progress",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT $param_ts_gantt_limit_max) sub",
+            "settings": {
+              "title": "Without progress overlay",
+              "chartOptions": {
+                "showTodayLine": true,
+                "showProgress": false,
+                "showGridLines": true,
+                "barBorderRadius": 2
+              }
+            }
+          },
+          {
+            "id": "ts-gantt-with-progress",
+            "chartType": "gantt",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT task, start::text, \"end\"::text, category, progress FROM (SELECT p.name AS task, MIN(o.created_at) AS start, MIN(o.created_at) + INTERVAL '3 days' + INTERVAL '1 day' * (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at))) AS \"end\", CASE WHEN p.price > 50 THEN 'Premium' ELSE 'Standard' END AS category, (ROW_NUMBER() OVER (ORDER BY MIN(o.created_at)) * 7 % 100) / 100.0 AS progress FROM neoboard_demo_public.products p JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY p.name, p.price ORDER BY start LIMIT $param_ts_gantt_limit_max) sub",
+            "settings": {
+              "title": "With progress overlay",
+              "chartOptions": {
+                "showTodayLine": true,
+                "showProgress": true,
+                "showGridLines": true,
+                "barBorderRadius": 2
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "ts-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "ts-grain", "x": 0, "y": 4, "w": 4, "h": 3 },
+          { "i": "ts-metric", "x": 4, "y": 4, "w": 4, "h": 3 },
+          { "i": "ts-window", "x": 8, "y": 4, "w": 4, "h": 3 },
+          { "i": "ts-line-plain", "x": 0, "y": 7, "w": 6, "h": 6 },
+          { "i": "ts-line-smooth", "x": 6, "y": 7, "w": 6, "h": 6 },
+          { "i": "ts-gantt-limit", "x": 0, "y": 13, "w": 12, "h": 3 },
+          { "i": "ts-gantt-no-progress", "x": 0, "y": 16, "w": 6, "h": 7 },
+          { "i": "ts-gantt-with-progress", "x": 6, "y": 16, "w": 6, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-distribution",
+        "title": "4. Distribution & Hierarchy",
+        "widgets": [
+          {
+            "id": "dist-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Three views of the same hierarchy\n\nThe **treemap**, **sunburst**, and **circle-packing** charts all consume the same query — twiddle the knobs to see how each renders the same data. The **dimension** select changes the GROUP BY column; **limit** trims the result.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "dist-dim",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Dimension",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "dist_dim",
+                "seedQuery": "SELECT 'product' AS value, 'Product' AS label UNION ALL SELECT 'category', 'Category' UNION ALL SELECT 'region', 'Region'",
+                "defaultValue": "product",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "dist-limit",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Limit (rows)",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "dist_limit",
+                "rangeMin": 10,
+                "rangeMax": 40,
+                "rangeStep": 5,
+                "defaultValue": "25"
+              }
+            }
+          },
+          {
+            "id": "dist-treemap",
+            "chartType": "treemap",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
+            "settings": {
+              "title": "Treemap",
+              "chartOptions": {
+                "showLabels": true,
+                "showValues": true,
+                "colorSaturation": "medium",
+                "colorPalette": "deep-ocean"
+              }
+            }
+          },
+          {
+            "id": "dist-sunburst",
+            "chartType": "sunburst",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
+            "settings": {
+              "title": "Sunburst",
+              "chartOptions": {
+                "showLabels": true,
+                "sort": "desc",
+                "highlightOnHover": true,
+                "colorPalette": "tableau"
+              }
+            }
+          },
+          {
+            "id": "dist-circle",
+            "chartType": "circle-packing",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
+            "settings": {
+              "title": "Circle packing",
+              "chartOptions": {
+                "showLabels": true,
+                "padding": 3
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "dist-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "dist-dim", "x": 0, "y": 4, "w": 6, "h": 3 },
+          { "i": "dist-limit", "x": 6, "y": 4, "w": 6, "h": 3 },
+          { "i": "dist-treemap", "x": 0, "y": 7, "w": 4, "h": 7 },
+          { "i": "dist-sunburst", "x": 4, "y": 7, "w": 4, "h": 7 },
+          { "i": "dist-circle", "x": 8, "y": 7, "w": 4, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-geographic",
+        "title": "5. Geographic",
+        "widgets": [
+          {
+            "id": "geo-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Maps — Leaflet & Choropleth\n\nTwiddle the knobs above each chart to see how it responds. The **continent** filter and **max markers** both rewrite the map SQL. The choropleth's **metric** switches which aggregate is shaded.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "geo-continent",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Continent filter",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "geo_continent",
+                "seedQuery": "SELECT '%' AS value, 'All continents' AS label UNION ALL SELECT DISTINCT continent AS value, continent AS label FROM neoboard_demo_public.regions ORDER BY 1",
+                "defaultValue": "%",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "geo-max-markers",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Max markers",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "geo_max",
+                "rangeMin": 50,
+                "rangeMax": 500,
+                "rangeStep": 50,
+                "defaultValue": "250"
+              }
+            }
+          },
+          {
+            "id": "geo-map-nocluster",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name, c.city, c.lat, c.lng FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.continent LIKE $param_geo_continent LIMIT $param_geo_max_max",
+            "settings": {
+              "title": "Markers — no clustering",
+              "chartOptions": {
+                "autoFitBounds": true,
+                "clusterMarkers": false,
+                "zoom": 2
+              }
+            }
+          },
+          {
+            "id": "geo-map-cluster",
+            "chartType": "map",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name, c.city, c.lat, c.lng FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.continent LIKE $param_geo_continent LIMIT $param_geo_max_max",
+            "settings": {
+              "title": "Markers — with clustering",
+              "chartOptions": {
+                "autoFitBounds": true,
+                "clusterMarkers": true,
+                "zoom": 2
+              }
+            }
+          },
+          {
+            "id": "geo-choro-metric",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Choropleth metric",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "geo_choro_metric",
+                "seedQuery": "SELECT 'customers' AS value, 'Customers' AS label UNION ALL SELECT 'orders', 'Orders' UNION ALL SELECT 'revenue', 'Revenue'",
+                "defaultValue": "customers",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "geo-choropleth",
+            "chartType": "choropleth",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.country AS name, CASE WHEN $param_geo_choro_metric = 'customers' THEN COUNT(DISTINCT c.id)::float WHEN $param_geo_choro_metric = 'orders' THEN COUNT(DISTINCT o.id)::float ELSE COALESCE(SUM(o.total), 0)::float END AS value FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id LEFT JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY r.country ORDER BY value DESC",
+            "settings": {
+              "title": "Choropleth — by selected metric",
+              "chartOptions": {
+                "showLabels": false,
+                "showVisualMap": true,
+                "roam": true,
+                "minColor": "#e8f4f8",
+                "maxColor": "#08306b"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "geo-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "geo-continent", "x": 0, "y": 4, "w": 6, "h": 3 },
+          { "i": "geo-max-markers", "x": 6, "y": 4, "w": 6, "h": 3 },
+          { "i": "geo-map-nocluster", "x": 0, "y": 7, "w": 6, "h": 7 },
+          { "i": "geo-map-cluster", "x": 6, "y": 7, "w": 6, "h": 7 },
+          { "i": "geo-choro-metric", "x": 0, "y": 14, "w": 12, "h": 3 },
+          { "i": "geo-choropleth", "x": 0, "y": 17, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-network",
+        "title": "6. Network & Flow",
+        "widgets": [
+          {
+            "id": "net-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Network & flow — graph & sankey\n\nTwiddle the knobs above each chart to see how it responds. The graph's **limit** rewrites the Cypher; the sankey's **target dimension** changes the right-hand side of the flow.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "net-graph-limit",
+            "chartType": "parameter-select",
+            "connectionId": "conn_neo4j",
+            "query": "",
+            "settings": {
+              "title": "Graph — relationships",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "net_graph_limit",
+                "rangeMin": 10,
+                "rangeMax": 80,
+                "rangeStep": 5,
+                "defaultValue": "40"
+              }
+            }
+          },
+          {
+            "id": "net-graph",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT $param_net_graph_limit_max",
+            "settings": {
+              "title": "Actors and movies",
+              "chartOptions": {
+                "layout": "force",
+                "showLabels": true
+              }
+            }
+          },
+          {
+            "id": "net-sankey-target",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Sankey — target dimension",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "net_sankey_target",
+                "seedQuery": "SELECT 'status' AS value, 'Order status' AS label UNION ALL SELECT 'continent', 'Continent' UNION ALL SELECT 'month', 'Month'",
+                "defaultValue": "status",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "net-sankey",
+            "chartType": "sankey",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT r.name AS source, CASE WHEN $param_net_sankey_target = 'status' THEN o.status WHEN $param_net_sankey_target = 'continent' THEN r.continent ELSE to_char(o.created_at, 'YYYY-MM') END AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1, 2",
+            "settings": {
+              "title": "Region → selected target",
+              "chartOptions": {
+                "orient": "horizontal",
+                "showLabels": true,
+                "colorPalette": "observable"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "net-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "net-graph-limit", "x": 0, "y": 4, "w": 12, "h": 3 },
+          { "i": "net-graph", "x": 0, "y": 7, "w": 12, "h": 8 },
+          { "i": "net-sankey-target", "x": 0, "y": 15, "w": 12, "h": 3 },
+          { "i": "net-sankey", "x": 0, "y": 18, "w": 12, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-tabular",
+        "title": "7. Single-value, Tabular & Specialty",
+        "widgets": [
+          {
+            "id": "tab-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Single-value, table, gauge, JSON & radar\n\nTwiddle the knobs above each chart to see how it responds. The single-value row shows three variant tiles of the same metric with different formatting. The table pair shows the same query rendered raw vs with a transform.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "tab-sv-metric",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Single-value metric",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "tab_sv_metric",
+                "seedQuery": "SELECT 'revenue' AS value, 'Revenue' AS label UNION ALL SELECT 'orders', 'Orders' UNION ALL SELECT 'customers', 'Customers' UNION ALL SELECT 'aov', 'Avg order value'",
+                "defaultValue": "revenue",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "tab-sv-compact",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT CASE WHEN $param_tab_sv_metric = 'revenue' THEN (SELECT SUM(total)::float FROM neoboard_demo_public.orders) WHEN $param_tab_sv_metric = 'orders' THEN (SELECT COUNT(*)::float FROM neoboard_demo_public.orders) WHEN $param_tab_sv_metric = 'customers' THEN (SELECT COUNT(*)::float FROM neoboard_demo_public.customers) ELSE (SELECT (SUM(total) / NULLIF(COUNT(*), 0))::float FROM neoboard_demo_public.orders) END AS value",
+            "settings": {
+              "title": "Compact + prefix",
+              "chartOptions": {
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "tab-sv-comma",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT CASE WHEN $param_tab_sv_metric = 'revenue' THEN (SELECT SUM(total)::float FROM neoboard_demo_public.orders) WHEN $param_tab_sv_metric = 'orders' THEN (SELECT COUNT(*)::float FROM neoboard_demo_public.orders) WHEN $param_tab_sv_metric = 'customers' THEN (SELECT COUNT(*)::float FROM neoboard_demo_public.customers) ELSE (SELECT (SUM(total) / NULLIF(COUNT(*), 0))::float FROM neoboard_demo_public.orders) END AS value",
+            "settings": {
+              "title": "Comma + medium",
+              "chartOptions": {
+                "numberFormat": "comma",
+                "decimalPlaces": 0,
+                "fontSize": "md"
+              }
+            }
+          },
+          {
+            "id": "tab-sv-plain",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT CASE WHEN $param_tab_sv_metric = 'revenue' THEN (SELECT SUM(total)::float FROM neoboard_demo_public.orders) WHEN $param_tab_sv_metric = 'orders' THEN (SELECT COUNT(*)::float FROM neoboard_demo_public.orders) WHEN $param_tab_sv_metric = 'customers' THEN (SELECT COUNT(*)::float FROM neoboard_demo_public.customers) ELSE (SELECT (SUM(total) / NULLIF(COUNT(*), 0))::float FROM neoboard_demo_public.orders) END AS value",
+            "settings": {
+              "title": "Plain + small",
+              "chartOptions": {
+                "numberFormat": "plain",
+                "decimalPlaces": 2,
+                "fontSize": "sm"
+              }
+            }
+          },
+          {
+            "id": "tab-gauge-target",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Gauge — minimum target %",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "tab_gauge_target",
+                "rangeMin": 50,
+                "rangeMax": 100,
+                "rangeStep": 5,
+                "defaultValue": "75"
+              }
+            }
+          },
+          {
+            "id": "tab-gauge-progress",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivery rate' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders WHERE total >= $param_tab_gauge_target_max",
+            "settings": {
+              "title": "Gauge — progress style",
+              "chartOptions": {
+                "min": 0,
+                "max": 100,
+                "showProgress": true,
+                "showDetail": false
+              }
+            }
+          },
+          {
+            "id": "tab-gauge-detail",
+            "chartType": "gauge",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'Delivery rate' AS name, (COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0))::float AS value FROM neoboard_demo_public.orders WHERE total >= $param_tab_gauge_target_max",
+            "settings": {
+              "title": "Gauge — detail style",
+              "chartOptions": {
+                "min": 0,
+                "max": 100,
+                "showProgress": false,
+                "showDetail": true
+              }
+            }
+          },
+          {
+            "id": "tab-table-min",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Table — min total spend",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "tab_table_min",
+                "rangeMin": 0,
+                "rangeMax": 500,
+                "rangeStep": 50,
+                "defaultValue": "0"
+              }
+            }
+          },
+          {
+            "id": "tab-table-limit",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Table — limit",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "tab_table_limit",
+                "rangeMin": 10,
+                "rangeMax": 100,
+                "rangeStep": 10,
+                "defaultValue": "30"
+              }
+            }
+          },
+          {
+            "id": "tab-table-sort",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Table — sort by",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "tab_table_sort",
+                "seedQuery": "SELECT 'total_spend' AS value, 'Total spend' AS label UNION ALL SELECT 'orders', 'Orders' UNION ALL SELECT 'name', 'Customer name'",
+                "defaultValue": "total_spend",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "tab-table-raw",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min_max ORDER BY CASE WHEN $param_tab_table_sort = 'total_spend' THEN SUM(o.total)::float WHEN $param_tab_table_sort = 'orders' THEN COUNT(o.id)::float ELSE 0 END DESC, CASE WHEN $param_tab_table_sort = 'name' THEN c.name ELSE '' END ASC LIMIT $param_tab_table_limit_max",
+            "settings": {
+              "title": "Raw (server-side sort + filter)",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10,
+                "enableColumnResizing": true
+              }
+            }
+          },
+          {
+            "id": "tab-table-transform",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min_max ORDER BY total_spend DESC LIMIT $param_tab_table_limit_max",
+            "settings": {
+              "title": "Same data — client-side filter transform (orders >= 3)",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10,
+                "enableColumnResizing": true
+              },
+              "transforms": [
+                {
+                  "type": "filter",
+                  "column": "orders",
+                  "operator": ">=",
+                  "value": 3
+                }
+              ]
+            }
+          },
+          {
+            "id": "tab-json-limit",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "JSON viewer — rows",
+              "chartOptions": {
+                "parameterType": "number-range",
+                "parameterName": "tab_json_limit",
+                "rangeMin": 1,
+                "rangeMax": 10,
+                "rangeStep": 1,
+                "defaultValue": "5"
+              }
+            }
+          },
+          {
+            "id": "tab-json",
+            "chartType": "json",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT $param_tab_json_limit_max",
+            "settings": {
+              "title": "Last N orders (raw)",
+              "chartOptions": {
+                "initialExpanded": 2
+              }
+            }
+          },
+          {
+            "id": "tab-radar-region",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Radar — region",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "tab_radar_region",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name",
+                "searchable": true,
+                "placeholder": "Pick a region…"
+              }
+            }
+          },
+          {
+            "id": "tab-radar",
+            "chartType": "radar",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region UNION ALL SELECT 'customers', COUNT(DISTINCT c.id)::float FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region UNION ALL SELECT 'revenue (k)', (COALESCE(SUM(o.total), 0) / 1000.0)::float FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region UNION ALL SELECT 'avg order ($)', COALESCE((SUM(o.total) / NULLIF(COUNT(o.id), 0))::float, 0) FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region",
+            "settings": {
+              "title": "Magnitudes for $param_tab_radar_region",
+              "chartOptions": {
+                "shape": "polygon",
+                "filled": true,
+                "showLegend": true,
+                "colorPalette": "deep-ocean"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "tab-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "tab-sv-metric", "x": 0, "y": 4, "w": 12, "h": 3 },
+          { "i": "tab-sv-compact", "x": 0, "y": 7, "w": 4, "h": 3 },
+          { "i": "tab-sv-comma", "x": 4, "y": 7, "w": 4, "h": 3 },
+          { "i": "tab-sv-plain", "x": 8, "y": 7, "w": 4, "h": 3 },
+          { "i": "tab-gauge-target", "x": 0, "y": 10, "w": 12, "h": 3 },
+          { "i": "tab-gauge-progress", "x": 0, "y": 13, "w": 6, "h": 6 },
+          { "i": "tab-gauge-detail", "x": 6, "y": 13, "w": 6, "h": 6 },
+          { "i": "tab-table-min", "x": 0, "y": 19, "w": 4, "h": 3 },
+          { "i": "tab-table-limit", "x": 4, "y": 19, "w": 4, "h": 3 },
+          { "i": "tab-table-sort", "x": 8, "y": 19, "w": 4, "h": 3 },
+          { "i": "tab-table-raw", "x": 0, "y": 22, "w": 6, "h": 7 },
+          { "i": "tab-table-transform", "x": 6, "y": 22, "w": 6, "h": 7 },
+          { "i": "tab-json-limit", "x": 0, "y": 29, "w": 12, "h": 3 },
+          { "i": "tab-json", "x": 0, "y": 32, "w": 12, "h": 6 },
+          { "i": "tab-radar-region", "x": 0, "y": 38, "w": 12, "h": 3 },
+          { "i": "tab-radar", "x": 2, "y": 41, "w": 8, "h": 7 }
+        ]
+      },
+      {
+        "id": "page-text-interactive",
+        "title": "8. Text & Interactive",
+        "widgets": [
+          {
+            "id": "txt-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "## Text & interactive widgets\n\nTwiddle the knobs above each chart to see how it responds. The **parameter-select** below is wired to a single-value KPI and a markdown widget that interpolates the chosen value. The **form** widget writes to the demo feedback table. The **iframe** URL is parameterized.\n\n> Refresh the page to reset all parameters to defaults."
+              }
+            }
+          },
+          {
+            "id": "txt-region-picker",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Pick a region",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "txt_demo_region",
+                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name",
+                "searchable": true,
+                "placeholder": "Pick a region…"
+              }
+            }
+          },
+          {
+            "id": "txt-region-kpi",
+            "chartType": "single-value",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT COALESCE(SUM(o.total), 0)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_txt_demo_region",
+            "settings": {
+              "title": "Revenue in $param_txt_demo_region",
+              "chartOptions": {
+                "prefix": "$",
+                "numberFormat": "compact",
+                "decimalPlaces": 1,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "txt-region-md",
+            "chartType": "markdown",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "### Markdown substitution\n\nYou picked **$param_txt_demo_region** above. This widget's content updates live as you change the region — markdown substitution is the easiest way to add contextual labels and instructions to a dashboard.\n\n> Try switching regions in the dropdown."
+              }
+            }
+          },
+          {
+            "id": "txt-form",
+            "chartType": "form",
+            "connectionId": "conn_postgres_write",
+            "query": "INSERT INTO neoboard_demo_public.feedback (rating, category, comment) VALUES ($param_pg_rating::int, $param_pg_category, $param_pg_comment) RETURNING id",
+            "settings": {
+              "title": "Submit feedback",
+              "formFields": [
+                {
+                  "id": "pg-ff-rating",
+                  "label": "Rating (1–5)",
+                  "parameterName": "pg_rating",
+                  "parameterType": "number-range",
+                  "rangeMin": 1,
+                  "rangeMax": 5,
+                  "rangeStep": 1
+                },
+                {
+                  "id": "pg-ff-category",
+                  "label": "Category",
+                  "parameterName": "pg_category",
+                  "parameterType": "text",
+                  "placeholder": "e.g. shipping, ui, support"
+                },
+                {
+                  "id": "pg-ff-comment",
+                  "label": "Comment",
+                  "parameterName": "pg_comment",
+                  "parameterType": "text",
+                  "placeholder": "What went well / what could improve?"
+                }
+              ],
+              "chartOptions": {
+                "submitButtonText": "Submit feedback",
+                "successMessage": "Thanks! Feedback saved.",
+                "resetOnSuccess": true
+              }
+            }
+          },
+          {
+            "id": "txt-form-results",
+            "chartType": "table",
+            "connectionId": "conn_postgres_read",
+            "query": "SELECT id, rating, category, comment, to_char(submitted_at, 'YYYY-MM-DD HH24:MI') AS submitted FROM neoboard_demo_public.feedback ORDER BY submitted_at DESC LIMIT 20",
+            "settings": {
+              "title": "Recent feedback",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 10
+              }
+            }
+          },
+          {
+            "id": "txt-iframe-url",
+            "chartType": "parameter-select",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "iframe URL",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "txt_iframe_url",
+                "seedQuery": "SELECT 'https://example.com' AS value, 'example.com' AS label UNION ALL SELECT 'https://en.wikipedia.org/wiki/Data_visualization', 'Wikipedia — Data visualization' UNION ALL SELECT 'https://github.com', 'github.com'",
+                "defaultValue": "https://example.com",
+                "searchable": false
+              }
+            }
+          },
+          {
+            "id": "txt-iframe",
+            "chartType": "iframe",
+            "connectionId": "conn_postgres_read",
+            "query": "",
+            "settings": {
+              "title": "Embedded content",
+              "chartOptions": {
+                "url": "$param_txt_iframe_url",
+                "iframeTitle": "Playground iframe"
+              }
+            }
+          }
+        ],
+        "gridLayout": [
+          { "i": "txt-md", "x": 0, "y": 0, "w": 12, "h": 4 },
+          { "i": "txt-region-picker", "x": 0, "y": 4, "w": 4, "h": 3 },
+          { "i": "txt-region-kpi", "x": 4, "y": 4, "w": 4, "h": 3 },
+          { "i": "txt-region-md", "x": 8, "y": 4, "w": 4, "h": 5 },
+          { "i": "txt-form", "x": 0, "y": 9, "w": 5, "h": 7 },
+          { "i": "txt-form-results", "x": 5, "y": 9, "w": 7, "h": 7 },
+          { "i": "txt-iframe-url", "x": 0, "y": 16, "w": 12, "h": 3 },
+          { "i": "txt-iframe", "x": 0, "y": 19, "w": 12, "h": 8 }
+        ]
+      }
+    ]
+  }
+}
