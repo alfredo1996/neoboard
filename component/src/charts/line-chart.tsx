@@ -4,6 +4,7 @@ import { BaseChart } from "./base-chart";
 import type { BaseChartProps, LineChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
+  buildAutoAriaDescription,
   buildEmptyDataOption,
   getCompactState,
   resolveShowLegend,
@@ -66,6 +67,37 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
  * - Below 300px wide: hides axis labels, tightens grid margins
  * - Below 200px tall: hides legend
  */
+/**
+ * Collect series keys (every non-"x" column) in first-seen order across rows.
+ * Lifted out of the options builder so the memo body stays under the
+ * cognitive-complexity budget.
+ */
+function collectSeriesKeys(data: LineChartDataPoint[]): string[] {
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const row of data) {
+    for (const k of Object.keys(row)) {
+      if (k !== "x" && !seen.has(k)) {
+        seen.add(k);
+        keys.push(k);
+      }
+    }
+  }
+  return keys;
+}
+
+/** Find the most recent numeric value for `key`, scanning from the tail. */
+function findLastNumericValue(
+  data: LineChartDataPoint[],
+  key: string,
+): number | undefined {
+  for (let i = data.length - 1; i >= 0; i -= 1) {
+    const candidate = data[i][key];
+    if (typeof candidate === "number") return candidate;
+  }
+  return undefined;
+}
+
 function LineChart({
   data,
   xAxisLabel,
@@ -84,6 +116,7 @@ function LineChart({
   paramValues,
   rightAxisSeries,
   rightYAxisLabel,
+  ariaDescription,
   samplingThreshold = 1000,
   samplingMethod = "lttb",
   ...rest
@@ -94,18 +127,21 @@ function LineChart({
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption();
 
-    const seriesKeys = Object.keys(data[0]).filter((k) => k !== "x");
+    const seriesKeys = collectSeriesKeys(data);
     const effectiveShowLegend = resolveShowLegend(
       showLegend,
       seriesKeys.length,
       hideLegend,
     );
-    const refLines = parseReferenceLines(referenceLinesJson);
-    const markLine = buildMarkLineFromRefs(refLines);
+    const markLine = buildMarkLineFromRefs(
+      parseReferenceLines(referenceLinesJson),
+    );
     const xValues = data.map((d) => d.x);
     const useTimeAxis = isTimeSeriesData(xValues);
     const rightAxisSet = new Set(rightAxisSeries ?? []);
     const useDualAxis = rightAxisSet.size > 0;
+    const useSampling =
+      samplingThreshold > 0 && data.length > samplingThreshold;
 
     const leftYAxis = {
       type: "value" as const,
@@ -125,6 +161,37 @@ function LineChart({
       splitLine: { show: false },
     };
 
+    const buildSeries = (key: string, idx: number) => {
+      const lastValue = findLastNumericValue(data, key);
+      const seriesColor =
+        lastValue !== undefined
+          ? resolveItemColor(lastValue, stylingRules, paramValues)
+          : undefined;
+      return {
+        name: key,
+        type: "line" as const,
+        yAxisIndex: useDualAxis && rightAxisSet.has(key) ? 1 : 0,
+        data: useTimeAxis
+          ? data.map((d) => [d.x, d[key]])
+          : data.map((d) => d[key] as number),
+        smooth,
+        step: stepped ? ("start" as const) : undefined,
+        connectNulls,
+        endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
+        lineStyle: { width: lineWidth, color: seriesColor },
+        itemStyle: seriesColor ? { color: seriesColor } : undefined,
+        showSymbol: showPoints,
+        areaStyle: area ? {} : undefined,
+        emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
+        // LTTB downsampling for large datasets
+        ...(useSampling
+          ? { sampling: samplingMethod as "lttb" | "average" | "max" | "min" }
+          : {}),
+        // Attach reference lines to the first series only
+        ...(idx === 0 && markLine ? { markLine } : {}),
+      };
+    };
+
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
       legend: effectiveShowLegend ? { bottom: 0 } : undefined,
@@ -142,43 +209,7 @@ function LineChart({
         axisLabel: { show: !compact },
       },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
-      series: seriesKeys.map((key, idx) => {
-        let lastValue: number | undefined;
-        for (let i = data.length - 1; i >= 0; i -= 1) {
-          const candidate = data[i][key];
-          if (typeof candidate === "number") {
-            lastValue = candidate;
-            break;
-          }
-        }
-        const seriesColor =
-          lastValue !== undefined
-            ? resolveItemColor(lastValue, stylingRules, paramValues)
-            : undefined;
-        return {
-          name: key,
-          type: "line" as const,
-          yAxisIndex: useDualAxis && rightAxisSet.has(key) ? 1 : 0,
-          data: useTimeAxis
-            ? data.map((d) => [d.x, d[key]])
-            : data.map((d) => d[key] as number),
-          smooth,
-          step: stepped ? ("start" as const) : undefined,
-          connectNulls,
-          endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
-          lineStyle: { width: lineWidth, color: seriesColor },
-          itemStyle: seriesColor ? { color: seriesColor } : undefined,
-          showSymbol: showPoints,
-          areaStyle: area ? {} : undefined,
-          emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
-          // LTTB downsampling for large datasets
-          ...(samplingThreshold > 0 && data.length > samplingThreshold
-            ? { sampling: samplingMethod as "lttb" | "average" | "max" | "min" }
-            : {}),
-          // Attach reference lines to the first series only
-          ...(idx === 0 && markLine ? { markLine } : {}),
-        };
-      }),
+      series: seriesKeys.map((key, idx) => buildSeries(key, idx)),
     };
   }, [
     data,
@@ -204,9 +235,17 @@ function LineChart({
     samplingMethod,
   ]);
 
+  // Auto-derive a screen-reader description from the data shape so the
+  // generic "Chart visualization" fallback is only used when the chart is
+  // truly empty. Callers can still pass an explicit ariaDescription to
+  // override (e.g., a widget title that already conveys the meaning).
+  const effectiveAria =
+    ariaDescription ??
+    buildAutoAriaDescription("Line chart", data, "x", "points");
+
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart options={options} {...rest} ariaDescription={effectiveAria} />
     </div>
   );
 }

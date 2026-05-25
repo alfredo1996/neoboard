@@ -92,8 +92,87 @@ neoboard config list
   DEFAULT_TENANT_ID  = default
 ```
 
-## Security Notes
+## Credential Encryption
 
-- **`ENCRYPTION_KEY`** is critical. If lost, all stored database credentials become unrecoverable.
-- Never commit `.env.local` to version control.
-- Rotate `NEXTAUTH_SECRET` periodically in production.
+NeoBoard stores database credentials (and SSO client secrets) encrypted at rest using **AES-256-GCM** with `ENCRYPTION_KEY` as the master key. Every encrypted blob carries its own random IV and an authentication tag; tampering or wrong-key decryption fails closed.
+
+### :warning: If you lose `ENCRYPTION_KEY`, every stored credential is unrecoverable
+
+There is no master backdoor. Without the key that encrypted it, ciphertext is indistinguishable from random bytes — neither Anthropic, the maintainers, nor any other party can recover your data.
+
+**Treat `ENCRYPTION_KEY` like a root password:**
+
+- Generate it once with `openssl rand -hex 32` and store it in a secrets manager (AWS Secrets Manager, GCP Secret Manager, Vault, 1Password, etc.) **before** creating any connections.
+- Back it up to at least one offline location your team controls.
+- Document who has access and how it's rotated.
+
+### When to rotate
+
+Rotate proactively in any of these situations:
+
+- A team member with key access leaves.
+- You suspect the key has been exposed (committed accidentally, leaked in logs, copied to a shared chat).
+- Your compliance regime requires periodic rotation (PCI-DSS, SOC 2, internal policy).
+- You're moving to a different secrets manager.
+
+### How to rotate (zero data loss)
+
+Rotation re-encrypts every stored credential (connections + SSO providers) with the new key inside a single transaction. The endpoint is admin-only.
+
+1. **Generate a new key** and keep both keys handy. The old one is needed for one rotation step, then can be discarded.
+
+   ```bash
+   openssl rand -hex 32   # new key
+   ```
+
+2. **Update environment variables** in your deployment:
+
+   ```dotenv
+   ENCRYPTION_KEY="<NEW KEY>"
+   ENCRYPTION_KEY_OLD="<PREVIOUS KEY>"
+   ```
+
+   `ENCRYPTION_KEY_OLD` is what tells the rotation endpoint how to decrypt existing rows. The app falls back to it for reads during the rotation window.
+
+3. **Restart the app** so it picks up both env vars.
+
+4. **Call the rotation endpoint** as an admin:
+
+   ```bash
+   curl -X POST https://your-neoboard.example.com/api/admin/rotate-key \
+     -H "Authorization: Bearer <admin-session-cookie>"
+   ```
+
+   Response on success:
+
+   ```json
+   { "data": { "connections": 12, "ssoProviders": 1 } }
+   ```
+
+   The whole re-encryption runs inside one database transaction. If any row fails, the entire operation rolls back — you can safely re-run.
+
+5. **Remove `ENCRYPTION_KEY_OLD`** from the environment and restart. After this point the old key is no longer needed.
+
+   ```dotenv
+   # ENCRYPTION_KEY_OLD removed
+   ENCRYPTION_KEY="<NEW KEY>"
+   ```
+
+6. **Verify** by opening any connection in the UI and clicking **Test Connection** — successful decryption with the new key confirms rotation worked end-to-end.
+
+### What can go wrong, and what to do
+
+| Symptom | Cause | Recovery |
+| --- | --- | --- |
+| `400 — ENCRYPTION_KEY_OLD must be set` | You hit the endpoint without setting the previous key. | Set `ENCRYPTION_KEY_OLD` and restart, then retry. |
+| `500 — decryption failed` during rotation | Some rows were encrypted with a key that is neither current nor `ENCRYPTION_KEY_OLD`. | The transaction rolled back — no data lost. Find the third key (older rotation history), set it as `ENCRYPTION_KEY_OLD`, retry. |
+| App starts but `Test Connection` fails on every saved connection after a key change | You changed `ENCRYPTION_KEY` without setting `ENCRYPTION_KEY_OLD` or calling the endpoint. | Restore the previous value as `ENCRYPTION_KEY` first, then run the proper rotation. |
+| You **already** lost the original key | No rotation is possible. | Clear `connections.credentials_encrypted` (and `sso_providers.client_secret_encrypted`) in postgres, then re-enter every connection by hand. |
+
+See also: [Troubleshooting Setup → ENCRYPTION_KEY mistakes](/getting-started/troubleshooting#encryption_key-mistakes).
+
+## Other Security Notes
+
+- Never commit `.env.local` to version control. The `.gitignore` already excludes it; double-check before pushing.
+- Rotate `NEXTAUTH_SECRET` periodically in production. Unlike `ENCRYPTION_KEY`, rotating `NEXTAUTH_SECRET` simply invalidates existing sessions — users sign back in, nothing else breaks.
+- Run NeoBoard behind HTTPS in any environment that handles real credentials. The app's auth cookies are marked `Secure` and depend on a trusted TLS terminator in front.

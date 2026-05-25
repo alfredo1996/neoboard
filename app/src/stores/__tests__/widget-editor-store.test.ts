@@ -399,6 +399,44 @@ describe("widget-editor-store", () => {
       expect(getState().paramUIType).toBe("date");
       expect(getState().dateSub).toBe("relative");
     });
+
+    it("loads parameter-select with number-range type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          chartOptions: {
+            parameterType: "number-range",
+            parameterName: "price",
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("number-range");
+      expect(getState().multiSelect).toBe(false);
+      expect(getState().paramWidgetName).toBe("price");
+    });
+
+    it("loads parameter-select with cascading-select type", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          chartOptions: {
+            parameterType: "cascading-select",
+            parameterName: "city",
+          },
+        },
+      });
+
+      expect(getState().paramUIType).toBe("cascading");
+      expect(getState().multiSelect).toBe(false);
+      expect(getState().paramWidgetName).toBe("city");
+    });
   });
 
   describe("loadFromWidget — form widget fields", () => {

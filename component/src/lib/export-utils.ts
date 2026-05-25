@@ -19,16 +19,33 @@ export function escapeCsvCell(value: unknown): string {
 
 /**
  * Build a CSV string from an array of flat record objects.
- * Headers are derived from the keys of the first row.
+ *
+ * Headers are the union of keys across every row, in first-seen order — using
+ * only `Object.keys(data[0])` would silently drop columns that happen to be
+ * absent from the first row (sparse data).
+ *
+ * The output is prefixed with a UTF-8 BOM (`\uFEFF`) so Excel on Windows
+ * detects the encoding and renders non-ASCII content (e.g. "café", emoji)
+ * correctly. Empty input still returns `""` so download helpers can
+ * short-circuit on falsy content.
  */
 export function buildCsvString(data: Record<string, unknown>[]): string {
   if (!data.length) return "";
-  const headers = Object.keys(data[0]);
+  const seen = new Set<string>();
+  const headers: string[] = [];
+  for (const row of data) {
+    for (const k of Object.keys(row)) {
+      if (!seen.has(k)) {
+        seen.add(k);
+        headers.push(k);
+      }
+    }
+  }
   const headerLine = headers.map(escapeCsvCell).join(",");
   const rows = data.map((row) =>
     headers.map((h) => escapeCsvCell(row[h])).join(","),
   );
-  return [headerLine, ...rows].join("\r\n");
+  return "\uFEFF" + [headerLine, ...rows].join("\r\n");
 }
 
 /**

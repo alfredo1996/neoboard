@@ -8,6 +8,8 @@ import {
   DateRelativePicker,
   ParamSelector,
   ParamMultiSelector,
+  NumberRangeSlider,
+  CascadingSelector,
 } from "@neoboard/components";
 import type { ParamUIType, DateSubType } from "./parameter-config-section";
 
@@ -100,6 +102,44 @@ export function ParameterPreview({
             options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
             placeholder={(chartOptions.placeholder as string) || "Select..."}
+          />
+        )}
+        {paramUIType === "number-range" &&
+          (() => {
+            const rawMin = chartOptions.rangeMin;
+            const rawMax = chartOptions.rangeMax;
+            const rawStep = chartOptions.rangeStep;
+            const min = typeof rawMin === "number" ? rawMin : 0;
+            // Always keep max > min so the slider renders even when the user
+            // hasn't typed bounds yet.
+            const maxCandidate = typeof rawMax === "number" ? rawMax : 100;
+            const max = maxCandidate > min ? maxCandidate : min + 1;
+            const step =
+              typeof rawStep === "number" && rawStep > 0 ? rawStep : 1;
+            return (
+              <NumberRangeSlider
+                parameterName={paramWidgetName || "preview"}
+                min={min}
+                max={max}
+                step={step}
+                value={null}
+                onChange={() => {}}
+                onClear={() => {}}
+              />
+            );
+          })()}
+        {paramUIType === "cascading" && (
+          <CascadingSelector
+            parameterName={paramWidgetName || "preview"}
+            value=""
+            onChange={() => {}}
+            options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
+            parentParameterName={
+              (chartOptions.parentParameterName as string) || undefined
+            }
+            parentValue={undefined}
+            loading={seedQueryPending}
+            placeholder={(chartOptions.placeholder as string) || undefined}
           />
         )}
       </div>

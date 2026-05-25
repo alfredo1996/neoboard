@@ -174,8 +174,10 @@ describe("convertNeoDash", () => {
     { type: "graph3d", expected: "graph" },
     { type: "3d-graph", expected: "graph" },
     { type: "circle_packing", expected: "circle-packing" },
+    { type: "circlePacking", expected: "circle-packing" },
     { type: "choropleth", expected: "choropleth" },
     { type: "areamap", expected: "choropleth" },
+    { type: "text", expected: "markdown" },
     { type: "unknown_type", expected: "json" },
   ])("maps $type → $expected", ({ type, expected }) => {
     const result = convertNeoDash(makeNeoDash({ type }));
@@ -503,6 +505,71 @@ describe("convertNeoDash", () => {
 
   it("skips click action when no actionsRules", () => {
     const result = convertNeoDash(makeNeoDash({ dashTitle: "T" }));
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.clickAction).toBeUndefined();
+  });
+
+  it("maps NeoDash 'set variable' string-form action to click action", () => {
+    // Real shape from the OpenStudyBuilder corpus — customization is a string
+    // and the parameter name lives in customizationValue.
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: {
+          actionsRules: [
+            {
+              condition: "Click",
+              field: "Action ID",
+              value: "Action ID",
+              customization: "set variable",
+              customizationValue: "action_id",
+            },
+          ],
+        },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    const action = settings.clickAction as Record<string, unknown>;
+    expect(action.type).toBe("set-parameter");
+    expect(
+      (action.parameterMapping as Record<string, unknown>).parameterName,
+    ).toBe("action_id");
+    expect(
+      (action.parameterMapping as Record<string, unknown>).sourceField,
+    ).toBe("Action ID");
+  });
+
+  it("ignores unknown string-form customization", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: {
+          actionsRules: [{ field: "x", customization: "do something weird" }],
+        },
+      }),
+    );
+    const settings = result.layout.pages[0].widgets[0].settings as Record<
+      string,
+      unknown
+    >;
+    expect(settings.clickAction).toBeUndefined();
+  });
+
+  it("ignores 'set variable' without customizationValue", () => {
+    const result = convertNeoDash(
+      makeNeoDash({
+        dashTitle: "T",
+        settings: {
+          actionsRules: [{ field: "x", customization: "set variable" }],
+        },
+      }),
+    );
     const settings = result.layout.pages[0].widgets[0].settings as Record<
       string,
       unknown

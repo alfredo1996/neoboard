@@ -4,6 +4,43 @@ All notable changes to NeoBoard are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+NeoBoard versioning resets at **1.0.0** to mark the first public release. The 2.0.0 entry below documents the pre-public development cycle and is kept for historical reference.
+
+## [1.0.0] — 2026-05-17 — First public release
+
+The polish cycle on top of `2.0.0` ahead of v1.0 going public. Focuses on first-time-user experience: clearer errors, actionable hints, troubleshooting docs, and fail-fast configuration.
+
+### Added
+
+- `neoboard logs` and `neoboard plugin` unit test coverage (#793, #794)
+- Actionable error classification for `neoboard db migrate` failures with connection/lock/schema/unknown buckets and per-bucket recovery hints (#795)
+- Comprehensive setup troubleshooting guide covering npm install, Docker port conflicts, DB connection refusals, migration drift, ENCRYPTION_KEY mistakes — plus runbooks for Apple Silicon Docker issues, OAuth redirect mismatches behind a reverse proxy, and production ENCRYPTION_KEY loss recovery (#796)
+- Documentation for ENCRYPTION_KEY rotation and credential-loss semantics (#797)
+- Advanced `defineChartPlugin` API documentation (#798)
+- Actionable hints for plugin validator failures pointing at the authoring docs (#799)
+- Connection test error classification (`auth` / `network` / `bad_uri`) with hint surface in the UI (#800)
+- HTTP `Retry-After` header for transient query failures so clients back off correctly (#802)
+- Healthcheck for the `neoboard` service in the full-stack Docker compose (#803)
+- "Administration" section in the docs sidebar — deployment checklist, monitoring, and backup-restore pages are now navigable
+- Fail-fast environment validation at cold start — required vars (`ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `DATABASE_URL`) are checked in `register()` and surface a clear stderr listing instead of cryptic runtime errors. `SKIP_ENV_VALIDATION=1` is the build-script escape hatch.
+- Reader-role empty-dashboard state CTA — first-time readers now see a "Read the docs" button instead of a dead-end message
+- `@neoboard/cli` published to npm — `npx @neoboard/cli setup` is the recommended install path
+
+### Changed
+
+- Comprehensive annotations on `app/.env.example` covering every variable, required/optional status, generation commands, and rotation warnings (#801)
+- `REGISTRATION_ENABLED` default flipped to `false` so production deployments don't accidentally ship an open `/signup` endpoint. Dev and demo flows enable it explicitly.
+- README quick start leads with `npx @neoboard/cli setup`; the cloned-repo path remains for contributors
+- Workspace versions reset from `2.0.0` to `1.0.0` to match the first-public-release branding
+
+### Fixed
+
+- E2E suite updated to assert the new `408 + Retry-After` behavior for transient query failures introduced by #802
+
+### Security
+
+- Cold-start env validation refuses to boot when required secrets are missing or malformed, preventing the app from running with weak defaults
+
 ## [2.0.0] — 2026-05-02
 
 ### Added
@@ -139,4 +176,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - AES-256-GCM credential encryption
 - Multi-tenant architecture with tenant_id isolation
 
+[1.0.0]: https://github.com/alfredo1996/neoboard/releases/tag/v1.0.0
 [2.0.0]: https://github.com/alfredo1996/neoboard/releases/tag/v2.0.0

@@ -8,6 +8,7 @@ import {
   validateBody,
   sanitizeErrorMessage,
 } from "@/lib/api/api-utils";
+import { classifyConnectionError } from "@/lib/connector/connection-error-classifier";
 
 export async function POST(request: Request) {
   try {
@@ -44,11 +45,14 @@ export async function POST(request: Request) {
         testError instanceof Error
           ? testError.message
           : "Connection test failed";
+      // Classify BEFORE sanitization — the classifier needs the raw driver
+      // text to bucket reliably; the sanitizer strips that detail for display.
+      const code = classifyConnectionError(rawMessage);
       const message = sanitizeErrorMessage(
         rawMessage,
         "Connection test failed",
       );
-      return apiSuccess({ success: false, error: message });
+      return apiSuccess({ success: false, code, error: message });
     }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");

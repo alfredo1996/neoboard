@@ -22,24 +22,21 @@ test.describe("Login — uncovered states", () => {
     await expect(page.getByText("Sign in to your account")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Sign in" })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
   });
 });
 
 test.describe("Role-based dashboard visibility", () => {
-  test("reader should see only assigned dashboards with viewer badge, no create button", async ({
+  test("reader should see public dashboards with viewer badge and no create button", async ({
     authPage,
     page,
   }) => {
-    // Create a reader user via API
+    // Create a reader user via admin
     await authPage.login(ALICE.email, ALICE.password);
     const timestamp = Date.now();
     const readerEmail = `reader-${timestamp}@example.com`;
 
-    // Create reader user via admin
     await page.goto("/users");
     await expect(page.getByText("alice@example.com")).toBeVisible({
       timeout: 10_000,
@@ -49,7 +46,6 @@ test.describe("Role-based dashboard visibility", () => {
     await dialog.locator("#user-name").fill("Test Reader");
     await dialog.locator("#user-email").fill(readerEmail);
     await dialog.locator("#user-password").fill("password123");
-    // Set role to reader
     await dialog.locator("#user-role").click();
     await page.getByRole("option", { name: "Reader" }).click();
     await dialog.getByRole("button", { name: "Create" }).click();
@@ -61,15 +57,20 @@ test.describe("Role-based dashboard visibility", () => {
     await authPage.login(readerEmail, "password123");
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
-    // Reader should NOT see "New Dashboard" button
+    // Reader should NOT see the "New Dashboard" create button
     await expect(
-      page.getByRole("button", { name: /New Dashboard/i })
+      page.getByRole("button", { name: /New Dashboard/i }),
     ).not.toBeVisible();
 
-    // Reader with no assignments should see the correct empty message
-    await expect(
-      page.getByText("No dashboards have been assigned to you yet")
-    ).toBeVisible({ timeout: 10_000 });
+    // Reader inherits read-only access to Public dashboards seeded by Alice.
+    // Assert they can see at least one Public dashboard and that it carries
+    // the "viewer" role badge — confirming read-only access propagation.
+    await expect(page.getByText("Movie Analytics")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("viewer").first()).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("admin should see role badge on dashboard cards", async ({
@@ -122,8 +123,12 @@ test.describe("Users page — role enforcement", () => {
     // Navigate to users page
     await page.goto("/users", { waitUntil: "networkidle" });
     // Wait for the loading overlay to disappear before asserting content
-    await expect(page.getByText("Loading users...")).not.toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Loading users...")).not.toBeVisible({
+      timeout: 30_000,
+    });
     // Non-admin should see forbidden message
-    await expect(page.getByText("Admin access required")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Admin access required")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

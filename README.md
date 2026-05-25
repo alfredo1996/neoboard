@@ -34,16 +34,30 @@
 
 ## Quick Start
 
-### Development
+### Fastest path — `neoboard` CLI
+
+```bash
+npx @neoboard/cli setup    # init + docker up + migrate
+npx @neoboard/cli demo     # optional: seed showcase dashboards
+# → http://localhost:3000
+```
+
+The CLI handles port conflicts, regenerates `.env.local`, and prints actionable hints when a step fails (`neoboard doctor` for diagnostics, `neoboard status` for service health). All commands accept `--help`.
+
+### From the cloned repo
+
+If you'd rather work from source (contributing, custom builds):
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
 scripts/setup.sh   # Installs deps, starts Docker, runs migrations
-npm run dev         # http://localhost:3000
+npm run dev        # http://localhost:3000
 ```
 
 Create your first admin at `/signup` using the bootstrap token printed during setup.
+
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see the [Troubleshooting Setup](https://neoboard.app/docs/getting-started/troubleshooting/) guide.
 
 ### Demo showcases
 

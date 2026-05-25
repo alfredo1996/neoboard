@@ -36,6 +36,7 @@ import {
   EmptyState,
   ColumnMappingOverlay,
   substituteParams,
+  substituteParamsInUrl,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
 
@@ -427,7 +428,7 @@ export function CardContainer({
       );
     }
     if (typeof chartOptions.url === "string") {
-      resolvedContentOptions.url = substituteParams(
+      resolvedContentOptions.url = substituteParamsInUrl(
         chartOptions.url,
         allParamValues,
       );

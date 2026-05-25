@@ -175,6 +175,7 @@ describe("signup", () => {
   });
 
   it("creates creator when DB is non-empty", async () => {
+    process.env.REGISTRATION_ENABLED = "true";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[]]); // tx: email not taken (no admin re-check for creator)
     const res = await signup(
@@ -184,6 +185,7 @@ describe("signup", () => {
   });
 
   it("returns error when email is already taken", async () => {
+    process.env.REGISTRATION_ENABLED = "true";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[{ id: "u2" }]]); // tx: email already taken
     const res = await signup(
@@ -236,8 +238,20 @@ describe("signup", () => {
     expect(res.success).toBe(true);
   });
 
-  it("allows signup when REGISTRATION_ENABLED is not set", async () => {
+  it("rejects signup when REGISTRATION_ENABLED is not set (closed by default in v1.0)", async () => {
     delete process.env.REGISTRATION_ENABLED;
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+    const res = await signup(
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+    );
+    expect(res.success).toBe(false);
+    expect((res as { error: string }).error).toBe(
+      "Registration is currently disabled.",
+    );
+  });
+
+  it("allows signup when REGISTRATION_ENABLED=true", async () => {
+    process.env.REGISTRATION_ENABLED = "true";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[]]); // tx: email not taken
     const res = await signup(
@@ -246,8 +260,8 @@ describe("signup", () => {
     expect(res.success).toBe(true);
   });
 
-  it("allows signup when REGISTRATION_ENABLED=true", async () => {
-    process.env.REGISTRATION_ENABLED = "true";
+  it("allows signup when REGISTRATION_ENABLED=True (case-insensitive)", async () => {
+    process.env.REGISTRATION_ENABLED = "True";
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
     setupTx([[]]); // tx: email not taken
     const res = await signup(
