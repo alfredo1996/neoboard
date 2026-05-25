@@ -49,9 +49,10 @@ export async function signup(formData: FormData): Promise<SignupResult> {
 
   const { name, email, password } = parsed.data;
 
-  // Allow bootstrap (first admin) even when registration is disabled
+  // Allow bootstrap (first admin) even when registration is disabled.
+  // Closed by default — operators must explicitly set REGISTRATION_ENABLED=true.
   const isEmpty = await areUsersEmpty();
-  if (!isEmpty && process.env.REGISTRATION_ENABLED?.toLowerCase() === "false") {
+  if (!isEmpty && process.env.REGISTRATION_ENABLED?.toLowerCase() !== "true") {
     return { success: false, error: "Registration is currently disabled." };
   }
   let role: "admin" | "creator" = "creator";

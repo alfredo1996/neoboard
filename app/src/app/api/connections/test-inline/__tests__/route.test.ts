@@ -195,6 +195,7 @@ describe("POST /api/connections/test-inline", () => {
     const body = await res.json();
     expect(body.data.success).toBe(false);
     expect(body.data.error).toBe("Connection test failed");
+    expect(body.data.code).toBe("unknown");
   });
 
   it("returns success:false with error message when testConnection throws", async () => {
@@ -214,5 +215,65 @@ describe("POST /api/connections/test-inline", () => {
     const body = await res.json();
     expect(body.data.success).toBe(false);
     expect(body.data.error).toBe("Refused");
+    expect(body.data.code).toBe("unknown");
+  });
+
+  it("classifies auth failures with code:auth_failed", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockTestConnection.mockRejectedValue(
+      new Error('password authentication failed for user "neo4j"'),
+    );
+    const res = await POST(
+      makeRequest({
+        type: "neo4j",
+        config: {
+          uri: "bolt://localhost",
+          username: "neo4j",
+          password: "wrong",
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("auth_failed");
+  });
+
+  it("classifies network failures with code:network", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockTestConnection.mockRejectedValue(
+      new Error("connect ECONNREFUSED 127.0.0.1:7687"),
+    );
+    const res = await POST(
+      makeRequest({
+        type: "neo4j",
+        config: {
+          uri: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "pass",
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("network");
+  });
+
+  it("classifies malformed URI failures with code:bad_uri", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockTestConnection.mockRejectedValue(
+      new Error("Invalid URI scheme: 'http'"),
+    );
+    const res = await POST(
+      makeRequest({
+        type: "neo4j",
+        config: { uri: "http://oops", username: "u", password: "p" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("bad_uri");
   });
 });

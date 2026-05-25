@@ -7,6 +7,8 @@ import {
   resolveLabelKey,
   resolveValueKeys,
   normalizeValue,
+  collectAllKeys,
+  toSeriesNumber,
   type ColumnMapping,
 } from "../transforms/shared-utils";
 
@@ -14,6 +16,11 @@ import {
  * Transform to line chart format: [{ x, series1, series2 }]
  * When mapping is provided, uses mapped columns; otherwise uses positional defaults.
  * Always applies normalizeValue to x-axis values for consistent type handling.
+ *
+ * Series keys are collected from the *union* of all rows so sparse data
+ * (where some series only appear in later rows) isn't silently dropped.
+ * Cell values use `toSeriesNumber` to preserve missing-vs-zero distinction;
+ * downstream `connectNulls` controls whether gaps are bridged.
  */
 export function transformToLineData(
   data: unknown,
@@ -21,7 +28,7 @@ export function transformToLineData(
 ): unknown {
   const records = toRecords(data);
   if (!records.length) return [];
-  const keys = Object.keys(records[0]);
+  const keys = collectAllKeys(records);
   if (keys.length < 2) return [];
 
   const xKey = resolveLabelKey(keys, mapping);
@@ -30,7 +37,7 @@ export function transformToLineData(
   return records.map((r) => {
     const point: Record<string, unknown> = { x: normalizeValue(r[xKey]) };
     for (const k of seriesKeys) {
-      point[k] = Number(r[k]) || 0;
+      point[k] = toSeriesNumber(r[k]);
     }
     return point;
   });
@@ -43,7 +50,7 @@ export function transformToLineData(
 export function validateLineData(data: unknown): string | null {
   const records = toRecords(data);
   if (!records.length) return null;
-  const cols = Object.keys(records[0]).length;
+  const cols = collectAllKeys(records).length;
   if (cols < 2)
     return `Line chart requires at least 2 columns: first column for x-axis values (dates, numbers, or labels) and one or more columns for numeric series. Your query returned only ${cols} column(s). Example: \`SELECT date, revenue FROM ...\``;
   return null;

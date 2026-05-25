@@ -13,6 +13,31 @@ export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Fail fast on missing/invalid required env vars (ENCRYPTION_KEY,
+  // NEXTAUTH_SECRET, DATABASE_URL). Previously these only surfaced at
+  // request time as cryptic decryption / JWT errors. Escape hatch:
+  // SKIP_ENV_VALIDATION=1 for one-off scripts and build pipelines.
+  if (process.env.SKIP_ENV_VALIDATION !== "1") {
+    const { validateEnvConfig } = await import("@/lib/env-config");
+    const result = validateEnvConfig();
+    if (result.status === "error") {
+      // Write to stderr directly — the structured logger may not be
+      // configured yet, and we want this to be the first thing operators
+      // see when the container fails to start.
+      process.stderr.write(
+        "\n✗ NeoBoard cannot start — required environment variables are missing or invalid:\n\n",
+      );
+      for (const issue of result.errors) {
+        process.stderr.write(`  • ${issue.message}\n`);
+      }
+      process.stderr.write(
+        "\nFix the values above (see app/.env.example) and restart.\n" +
+          "To bypass for build/migration scripts: SKIP_ENV_VALIDATION=1\n\n",
+      );
+      process.exit(1);
+    }
+  }
+
   const { logger, authLogger } = await import("@/lib/logger");
 
   // Register built-in query middleware (audit logging, etc.) before any

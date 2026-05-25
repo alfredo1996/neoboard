@@ -4,6 +4,7 @@ import { BaseChart } from "./base-chart";
 import type { BaseChartProps, BarChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
+  buildAutoAriaDescription,
   buildEmptyDataOption,
   getCompactState,
   resolveShowLegend,
@@ -77,6 +78,7 @@ function BarChart({
   referenceLines: referenceLinesJson,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: BarChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -91,7 +93,18 @@ function BarChart({
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption();
 
-    const seriesKeys = Object.keys(data[0]).filter((k) => k !== "label");
+    // Union keys across every row so sparse data (a series missing from the
+    // first row) doesn't get dropped from the chart.
+    const seenKeys = new Set<string>();
+    const seriesKeys: string[] = [];
+    for (const row of data) {
+      for (const k of Object.keys(row)) {
+        if (k !== "label" && !seenKeys.has(k)) {
+          seenKeys.add(k);
+          seriesKeys.push(k);
+        }
+      }
+    }
 
     // Pre-compute row totals for percentage normalization
     const rowTotals = isPercent
@@ -215,9 +228,17 @@ function BarChart({
     hideLegend,
   ]);
 
+  // Auto-derive a screen-reader description from the data shape so the
+  // generic "Chart visualization" fallback is only used when the chart is
+  // truly empty. Callers can still pass an explicit ariaDescription to
+  // override (e.g., a widget title that already conveys the meaning).
+  const effectiveAria =
+    ariaDescription ??
+    buildAutoAriaDescription("Bar chart", data, "label", "categories");
+
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart options={options} {...rest} ariaDescription={effectiveAria} />
     </div>
   );
 }

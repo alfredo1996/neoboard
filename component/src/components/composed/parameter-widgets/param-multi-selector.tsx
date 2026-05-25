@@ -143,12 +143,18 @@ function ParamMultiSelector({
         </PopoverTrigger>
         <PopoverContent className="w-full min-w-[200px] p-0" align="start">
           <Command>
-            <CommandInput
-              placeholder="Search…"
-              onValueChange={
-                searchable ? (term) => onSearch?.(term) : undefined
-              }
-            />
+            {/*
+              CommandInput only renders when `searchable` is true. The
+              previous version always rendered the input but stripped its
+              `onValueChange` when non-searchable — leaving a visible-but-
+              inert search field that did nothing to the option list.
+            */}
+            {searchable && (
+              <CommandInput
+                placeholder="Search…"
+                onValueChange={(term) => onSearch?.(term)}
+              />
+            )}
             <CommandList>
               <CommandEmpty>No options found.</CommandEmpty>
               <CommandGroup>

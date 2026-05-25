@@ -108,8 +108,14 @@ test.describe("Design system — Deep Ocean palette & accessibility", () => {
 
     const chartEl = preview.locator("[data-testid='base-chart']");
     await expect(chartEl).toHaveAttribute("role", "img");
-    // ECharts AriaComponent auto-generates a descriptive label from chart data
-    await expect(chartEl).toHaveAttribute("aria-label", /This is a chart/);
+    // BarChart auto-derives an aria-label that names the chart kind plus
+    // the underlying data shape — categories × series — so AT users get
+    // something more useful than the generic "Chart visualization" or
+    // ECharts' default "This is a chart" template.
+    await expect(chartEl).toHaveAttribute(
+      "aria-label",
+      /Bar chart with \d+ categories and \d+ series/,
+    );
   });
 
   // ── Colorblind mode toggle ────────────────────────────────────────────

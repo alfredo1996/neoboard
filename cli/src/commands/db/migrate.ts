@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
-import { run } from "../../lib/exec.js";
+import { run, ExecError } from "../../lib/exec.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
-import { info, success, warn, createSpinner } from "../../lib/output.js";
+import {
+  info,
+  success,
+  warn,
+  error as logError,
+  createSpinner,
+} from "../../lib/output.js";
 
 /**
  * Resolve the DATABASE_URL for migrations.
@@ -110,11 +116,129 @@ export async function runDbMigrate(opts: {
   // Resolve DATABASE_URL: use .env.local if set, otherwise build from config.
   // This works regardless of where the DB runs (Docker, local, remote).
   const dbUrl = resolveDatabaseUrl();
-  run("npx drizzle-kit migrate", {
-    cwd: paths.appDir,
-    env: { ...process.env, DATABASE_URL: dbUrl },
-  });
+  try {
+    run("npx drizzle-kit migrate", {
+      cwd: paths.appDir,
+      env: { ...process.env, DATABASE_URL: dbUrl },
+    });
+  } catch (err) {
+    spinner.fail("Migration failed");
+    reportMigrateFailure(err);
+    process.exitCode = 1;
+    return;
+  }
 
   spinner.succeed("Migrations applied");
   success("Database is up to date");
+}
+
+type MigrateErrorKind = "connection" | "lock" | "schema" | "unknown";
+
+/**
+ * Classify a drizzle-kit / postgres failure by inspecting stderr text.
+ * Kept simple on purpose — the goal is to point the user at the right
+ * troubleshooting bucket, not to be exhaustive.
+ */
+export function classifyMigrateError(stderr: string): MigrateErrorKind {
+  const s = stderr.toLowerCase();
+  if (
+    s.includes("econnrefused") ||
+    s.includes("connection refused") ||
+    s.includes("password authentication failed") ||
+    s.includes("no pg_hba.conf entry") ||
+    s.includes("getaddrinfo") ||
+    s.includes("connect etimedout") ||
+    s.includes("self signed certificate") ||
+    s.includes("ssl")
+  ) {
+    return "connection";
+  }
+  if (
+    s.includes("advisory lock") ||
+    s.includes("could not obtain lock") ||
+    s.includes("lock timeout") ||
+    s.includes("deadlock detected")
+  ) {
+    return "lock";
+  }
+  if (
+    s.includes("already exists") ||
+    s.includes("does not exist") ||
+    s.includes("syntax error") ||
+    s.includes("violates") ||
+    s.includes("constraint")
+  ) {
+    return "schema";
+  }
+  return "unknown";
+}
+
+/**
+ * Strip credential-bearing patterns from stderr before surfacing it to the
+ * user (CLI output is commonly pasted into issues / shared logs).
+ * Covers postgres DSNs and `password=...` / `access_token=...` query patterns.
+ */
+export function redactSensitiveDetails(text: string): string {
+  return text
+    .replace(/(postgres(?:ql)?:\/\/[^:\s]+:)([^@\s]+)(@)/gi, "$1***$3")
+    .replace(/(\b(?:password|access_token)\s*=\s*)(\S+)/gi, "$1***");
+}
+
+function extractStderr(err: unknown): string {
+  if (err instanceof ExecError) return err.stderr;
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+function reportMigrateFailure(err: unknown): void {
+  const stderr = extractStderr(err);
+  const kind = classifyMigrateError(stderr);
+
+  switch (kind) {
+    case "connection":
+      logError("Database connection problem detected.");
+      logError("  • Confirm DATABASE_URL points at a reachable server.");
+      logError(
+        "  • If using Docker: `docker compose ps` — is postgres running and healthy?",
+      );
+      logError(
+        "  • If using `neoboard start`: wait a few seconds for the DB to finish booting, then retry.",
+      );
+      logError(
+        "  • Check credentials in .env.local match neoboard.config.json.",
+      );
+      break;
+    case "lock":
+      logError("Migration is blocked by another process holding the lock.");
+      logError(
+        "  • Another `neoboard db migrate` may be running — wait for it to finish.",
+      );
+      logError(
+        "  • If nothing else is running, an earlier crash may have left a stale lock; restart postgres or contact your DBA.",
+      );
+      break;
+    case "schema":
+      logError("Schema conflict: the migration cannot apply cleanly.");
+      logError(
+        "  • NeoBoard migrations are forward-only — manual schema edits cause drift.",
+      );
+      logError(
+        "  • Pre-launch only: `neoboard db reset` wipes data and re-applies all migrations.",
+      );
+      logError(
+        "  • Production: revert manual changes, or write a new migration that reconciles the drift.",
+      );
+      break;
+    case "unknown":
+      logError("Migration failed with an unrecognized error.");
+      logError("See `neoboard db migrate --status` for current state.");
+      break;
+  }
+
+  // Always surface the underlying message so users have something to grep / paste in issues.
+  if (stderr.trim()) {
+    logError("");
+    logError("Underlying error:");
+    logError(redactSensitiveDetails(stderr.trim()));
+  }
 }

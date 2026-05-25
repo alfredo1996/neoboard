@@ -54,9 +54,14 @@ describe("DataGrid", () => {
   it("calls onCellClick with column and value when a cell is clicked", async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
-    render(<DataGrid columns={columns} data={data} onCellClick={onCellClick} />);
+    render(
+      <DataGrid columns={columns} data={data} onCellClick={onCellClick} />,
+    );
     await user.click(screen.getByText("Alice"));
-    expect(onCellClick).toHaveBeenCalledWith({ column: "name", value: "Alice" });
+    expect(onCellClick).toHaveBeenCalledWith({
+      column: "name",
+      value: "Alice",
+    });
   });
 
   it("enables sorting when enableSorting is true", () => {
@@ -84,14 +89,18 @@ describe("DataGrid", () => {
       },
     ];
     render(
-      <DataGrid columns={sortableColumns} data={data} enableSorting={false} />
+      <DataGrid columns={sortableColumns} data={data} enableSorting={false} />,
     );
     // Column headers should be plain text with no sort button
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Email")).toBeInTheDocument();
     // No sort-trigger buttons should appear in the header
-    expect(screen.queryByRole("button", { name: /name/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /email/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /name/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /email/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders sort buttons when enableSorting is true", () => {
@@ -112,7 +121,7 @@ describe("DataGrid", () => {
       },
     ];
     render(
-      <DataGrid columns={sortableColumns} data={data} enableSorting={true} />
+      <DataGrid columns={sortableColumns} data={data} enableSorting={true} />,
     );
     // Column headers should render as buttons (dropdown triggers for sorting)
     expect(screen.getByRole("button", { name: /name/i })).toBeInTheDocument();
@@ -137,7 +146,7 @@ describe("DataGrid", () => {
         columns={columns}
         data={data}
         toolbar={() => <div data-testid="custom-toolbar">Toolbar</div>}
-      />
+      />,
     );
     expect(screen.getByTestId("custom-toolbar")).toBeInTheDocument();
   });
@@ -173,7 +182,7 @@ describe("DataGrid", () => {
         data={data}
         enableSelection
         onSelectionChange={onSelectionChange}
-      />
+      />,
     );
     const checkboxes = screen.getAllByRole("checkbox");
     // Click the first row checkbox (index 1, since 0 is "select all")
@@ -183,7 +192,7 @@ describe("DataGrid", () => {
 
   it("wraps clickable cells in a badge span when onCellClick is provided", () => {
     const { container } = render(
-      <DataGrid columns={columns} data={data} onCellClick={() => {}} />
+      <DataGrid columns={columns} data={data} onCellClick={() => {}} />,
     );
     const tbody = container.querySelector("tbody");
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
@@ -199,9 +208,7 @@ describe("DataGrid", () => {
   });
 
   it("does not wrap cells in a badge span when onCellClick is not provided", () => {
-    const { container } = render(
-      <DataGrid columns={columns} data={data} />
-    );
+    const { container } = render(<DataGrid columns={columns} data={data} />);
     const tbody = container.querySelector("tbody");
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
     expect(cells.length).toBeGreaterThan(0);
@@ -220,7 +227,7 @@ describe("DataGrid", () => {
         data={data}
         onCellClick={() => {}}
         clickableColumns={["name"]}
-      />
+      />,
     );
     const tbody = container.querySelector("tbody");
     const rows = Array.from(tbody?.querySelectorAll("tr") ?? []);
@@ -249,14 +256,17 @@ describe("DataGrid", () => {
         data={data}
         onCellClick={onCellClick}
         clickableColumns={["name"]}
-      />
+      />,
     );
     // Click email cell — should NOT trigger handler
     await user.click(screen.getByText("alice@example.com"));
     expect(onCellClick).not.toHaveBeenCalled();
     // Click name cell — should trigger handler
     await user.click(screen.getByText("Alice"));
-    expect(onCellClick).toHaveBeenCalledWith({ column: "name", value: "Alice" });
+    expect(onCellClick).toHaveBeenCalledWith({
+      column: "name",
+      value: "Alice",
+    });
   });
 
   it("wraps all cells with badge span when clickableColumns is empty", () => {
@@ -266,7 +276,7 @@ describe("DataGrid", () => {
         data={data}
         onCellClick={() => {}}
         clickableColumns={[]}
-      />
+      />,
     );
     const tbody = container.querySelector("tbody");
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
@@ -281,11 +291,7 @@ describe("DataGrid", () => {
 
   it("wraps all cells with badge span when clickableColumns is undefined", () => {
     const { container } = render(
-      <DataGrid
-        columns={columns}
-        data={data}
-        onCellClick={() => {}}
-      />
+      <DataGrid columns={columns} data={data} onCellClick={() => {}} />,
     );
     const tbody = container.querySelector("tbody");
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
@@ -299,7 +305,7 @@ describe("DataGrid", () => {
 
   it("applies custom className", () => {
     const { container } = render(
-      <DataGrid columns={columns} data={data} className="custom-class" />
+      <DataGrid columns={columns} data={data} className="custom-class" />,
     );
     expect(container.firstChild).toHaveClass("custom-class");
   });
@@ -332,7 +338,9 @@ describe("DataGrid", () => {
         if (columnId === "status") return { backgroundColor: "#22c55e" };
         return undefined;
       };
-      render(<DataGrid columns={columns} data={data} getCellStyle={getCellStyle} />);
+      render(
+        <DataGrid columns={columns} data={data} getCellStyle={getCellStyle} />,
+      );
       // All status cells should have the background color
       const rows = screen.getAllByRole("row").slice(1); // skip header
       for (const row of rows) {
@@ -349,7 +357,9 @@ describe("DataGrid", () => {
         if (columnId === "name") return { fontWeight: "bold" };
         return undefined;
       };
-      render(<DataGrid columns={columns} data={data} getCellStyle={getCellStyle} />);
+      render(
+        <DataGrid columns={columns} data={data} getCellStyle={getCellStyle} />,
+      );
       const rows = screen.getAllByRole("row").slice(1);
       for (const row of rows) {
         const cells = row.querySelectorAll("td");
@@ -364,13 +374,79 @@ describe("DataGrid", () => {
         return undefined;
       };
       render(
-        <DataGrid columns={columns} data={data} getRowStyle={getRowStyle} getCellStyle={getCellStyle} />
+        <DataGrid
+          columns={columns}
+          data={data}
+          getRowStyle={getRowStyle}
+          getCellStyle={getCellStyle}
+        />,
       );
       const rows = screen.getAllByRole("row").slice(1);
       // Row has background, cell has text color
       expect(rows[0].style.backgroundColor).toBe("rgb(238, 238, 238)");
       const statusCell = rows[0].querySelectorAll("td")[2];
       expect(statusCell.style.color).toBe("red");
+    });
+  });
+
+  describe("per-column filters (enableColumnFilters)", () => {
+    it("does NOT render the filter row by default", () => {
+      render(<DataGrid columns={columns} data={data} />);
+      expect(
+        screen.queryByTestId("data-grid-filter-row"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Filter Name")).not.toBeInTheDocument();
+    });
+
+    it("renders an Input under every filterable column header when enabled", () => {
+      render(<DataGrid columns={columns} data={data} enableColumnFilters />);
+      expect(screen.getByTestId("data-grid-filter-row")).toBeInTheDocument();
+      expect(screen.getByLabelText("Filter Name")).toBeInTheDocument();
+      expect(screen.getByLabelText("Filter Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Filter Status")).toBeInTheDocument();
+    });
+
+    it("filters visible rows as the user types", async () => {
+      const user = userEvent.setup();
+      render(<DataGrid columns={columns} data={data} enableColumnFilters />);
+      // Sanity: all three rows visible.
+      expect(screen.getByText("Alice")).toBeInTheDocument();
+      expect(screen.getByText("Bob")).toBeInTheDocument();
+      expect(screen.getByText("Charlie")).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText("Filter Name"), "al");
+      // Only Alice survives a case-insensitive contains on "al".
+      expect(screen.getByText("Alice")).toBeInTheDocument();
+      expect(screen.queryByText("Bob")).not.toBeInTheDocument();
+      expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+    });
+
+    it("clearing the filter restores all rows", async () => {
+      const user = userEvent.setup();
+      render(<DataGrid columns={columns} data={data} enableColumnFilters />);
+      const input = screen.getByLabelText("Filter Name") as HTMLInputElement;
+      await user.type(input, "Bob");
+      expect(screen.queryByText("Alice")).not.toBeInTheDocument();
+      expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+      await user.clear(input);
+      expect(screen.getByText("Alice")).toBeInTheDocument();
+      expect(screen.getByText("Bob")).toBeInTheDocument();
+      expect(screen.getByText("Charlie")).toBeInTheDocument();
+    });
+
+    it("does not render a filter input under the select checkbox column", () => {
+      render(
+        <DataGrid
+          columns={columns}
+          data={data}
+          enableColumnFilters
+          enableSelection
+        />,
+      );
+      // Select column should not be filterable.
+      expect(screen.queryByLabelText("Filter select")).not.toBeInTheDocument();
+      // But data columns still get filters.
+      expect(screen.getByLabelText("Filter Name")).toBeInTheDocument();
     });
   });
 });

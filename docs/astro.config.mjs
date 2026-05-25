@@ -32,6 +32,10 @@ export default defineConfig({
           autogenerate: { directory: "concepts" },
         },
         {
+          label: "Administration",
+          autogenerate: { directory: "administration" },
+        },
+        {
           label: "Developer Guide",
           autogenerate: { directory: "developer" },
         },

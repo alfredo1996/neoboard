@@ -153,6 +153,131 @@ interface ChartOptionDef {
 - `transform` returns `null`
 - No click action or styling
 
+## Advanced Plugin Options
+
+The four fields below are optional but used by every built-in chart that needs more than a static transform. Source of truth: [`app/src/lib/plugin/chart-plugin-registry.ts`](https://github.com/alfredo1996/neoboard/blob/main/app/src/lib/plugin/chart-plugin-registry.ts).
+
+### `transformWithMapping(data, mapping)`
+
+**Signature**
+```ts
+transformWithMapping?: (
+  data: unknown,
+  mapping: ColumnMapping,   // { xAxis?: string; yAxis?: string[]; groupBy?: string }
+) => unknown;
+```
+
+**When it's called.** The widget editor lets users override auto-detected axis columns via the Column Mapping overlay (Bar/Line/Pie). When a mapping exists on the widget, the registry calls `transformWithMapping(rows, mapping)` in place of `transform(rows)`. If `transformWithMapping` is not defined, mappings are silently ignored.
+
+**Return shape.** Same shape your `transform` returns — the renderer doesn't care which path produced the data.
+
+**Working example.** The bar plugin uses one transform for both paths:
+
+```ts
+// app/src/plugins/bar/transform.ts
+export function transformToBarData(
+  data: unknown,
+  mapping?: ColumnMapping,
+): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  const labelKey = resolveLabelKey(keys, mapping);          // mapping.xAxis wins
+  const valueKeys = resolveValueKeys(keys, labelKey, mapping); // mapping.yAxis wins
+  return records.map((r) => ({
+    label: String(normalizeValue(r[labelKey]) ?? ""),
+    ...Object.fromEntries(valueKeys.map((k) => [k, Number(r[k]) || 0])),
+  }));
+}
+```
+
+The same function is registered under both keys: `transform: transformToBarData, transformWithMapping: transformToBarData`.
+
+See: `app/src/plugins/bar/component.tsx`, `app/src/plugins/line/component.tsx`, `app/src/plugins/pie/component.tsx`.
+
+### `validate(data)`
+
+**Signature**
+```ts
+validate?: (data: unknown) => string | null;
+```
+
+**When it's called.** After `transform` runs but before the chart renders. The widget shows the returned string as an "Incompatible data" message in place of the chart. Returning `null` means the data is valid — including the empty case. An empty array should resolve to `null` so the widget renders its "No data" state, not an error.
+
+**What the UI does with it.** The error string is shown verbatim inside the widget body — so write it as user-facing copy with at least one concrete column requirement and ideally an example query.
+
+**Working example.**
+
+```ts
+// app/src/plugins/bar/transform.ts
+export function validateBarData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null; // empty -> "No data" state, not an error
+  const cols = Object.keys(records[0]).length;
+  if (cols < 2) {
+    return `Bar chart requires at least 2 columns: first for labels, one or more for values. Your query returned ${cols} column(s). Example: SELECT category, count FROM ...`;
+  }
+  return null;
+}
+```
+
+See: every chart plugin (`pie`, `line`, `gauge`, `sankey`, …) wires a similarly shaped `validate*` helper.
+
+### `enrichClickEvent(event, row)`
+
+**Signature**
+```ts
+enrichClickEvent?: (
+  event: Record<string, unknown>,
+  row: Record<string, unknown>,
+) => Record<string, unknown>;
+```
+
+**When it's called.** Right before a click action fires — the registry hands the raw ECharts event and the original data row to the plugin, lets the plugin attach chart-specific fields, then dispatches the enriched event to click-action handlers (set-parameter, navigate page) and to rule-based styling resolution.
+
+**Why it exists.** Some chart types collapse the source row before rendering (e.g. pie aggregates by category), so the click handler would otherwise lose access to the underlying field. Enriching the event re-attaches those fields under stable names that click-action templates and styling rules can reference.
+
+**Currently used by.** None of the built-in plugins need this yet — the default behavior of forwarding `row` as-is is enough for every shipping chart. The hook is provided for plugin authors whose chart aggregates or re-keys data before rendering. Recipe:
+
+```ts
+enrichClickEvent: (event, row) => ({
+  ...event,
+  // Surface the original aggregation key under a stable name the click-action
+  // template can reference, e.g. {{event.bucketKey}}.
+  bucketKey: row.bucket,
+  rawCount: row.count,
+}),
+```
+
+### `stylingTargets`
+
+**Signature**
+```ts
+stylingTargets?: { value: string; label: string }[];
+```
+
+**What it controls.** Rule-based styling lets users set values like color or font weight based on data conditions (e.g. "if value > 100, color = red"). `stylingTargets` is the list of *what* a rule can set on this chart. Each entry becomes an option in the rule editor's "Target" dropdown.
+
+**How it maps to the chart-options-panel.** Targets are surfaced in the Advanced → Conditional Styling section of the Chart Settings panel (`component/src/components/composed/chart-settings-panel.tsx`). The plugin component is responsible for reading resolved rules from its `stylingRules` prop and applying the matched target value at render time.
+
+**Capabilities side-effect.** When `stylingTargets` is non-empty, `defineChartPlugin` flips `capabilities.supportsStyling` to `true` automatically. You only need to set the capability explicitly when you want to *disable* styling on a chart that does have targets (rare).
+
+**Working examples.**
+
+```ts
+// Single target — most common
+stylingTargets: [{ value: "color", label: "Bar Color" }],         // bar
+stylingTargets: [{ value: "color", label: "Line Color" }],        // line
+
+// Multi-target — value cell vs. background
+stylingTargets: [
+  { value: "valueColor",      label: "Value Color" },
+  { value: "backgroundColor", label: "Background Color" },
+],                                                                // single-value
+```
+
+See: `app/src/plugins/bar/component.tsx`, `app/src/plugins/single-value/component.tsx`, `app/src/plugins/table/component.tsx`.
+
 ## Example: Adding a Heatmap
 
 ```tsx

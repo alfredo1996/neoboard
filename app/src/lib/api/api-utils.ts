@@ -2,6 +2,7 @@ import type { ZodSchema } from "zod";
 import { apiError } from "./api-response";
 import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
+import { isTransientQueryError } from "@/lib/query/transient-error-classifier";
 import { apiLogger } from "@/lib/logger";
 
 /**
@@ -117,6 +118,21 @@ export function handleRouteError(
     return apiError("REQUEST_TIMEOUT", error.message, undefined, {
       "Retry-After": "5",
     });
+  }
+  // Driver-level transient failures (statement_timeout, ETIMEDOUT,
+  // ECONNRESET, dropped connections). These look like 500s but a quick
+  // retry usually succeeds, so respond with 408 + Retry-After so the
+  // client can transparently retry once before showing the user an
+  // error. Permanent failures (syntax errors, missing tables, auth) are
+  // excluded by the classifier — those still hit the regular 500 path.
+  if (isTransientQueryError(error)) {
+    const transientMsg = (error as Error).message;
+    return apiError(
+      "REQUEST_TIMEOUT",
+      options?.safeMessage ? fallbackMsg : transientMsg,
+      undefined,
+      { "Retry-After": "3" },
+    );
   }
   const message = error instanceof Error ? error.message : fallbackMsg;
   if (message.includes("Unauthorized") || message.includes("session")) {

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
@@ -40,8 +41,8 @@ export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
  * Fixed layout heights used when computing the dynamic page size from a
  * known container height.  Keep in sync with the actual rendered heights.
  */
-export const DATA_GRID_HEADER_HEIGHT = 40;   // px — table <thead> row
-export const DATA_GRID_ROW_HEIGHT = 36;       // px — single data <tr>
+export const DATA_GRID_HEADER_HEIGHT = 40; // px — table <thead> row
+export const DATA_GRID_ROW_HEIGHT = 36; // px — single data <tr>
 export const DATA_GRID_PAGINATION_HEIGHT = 52; // px — pagination control bar
 
 /**
@@ -56,7 +57,10 @@ export function calcDynamicPageSize(
   toolbarHeight = 0,
 ): number {
   const availableForRows =
-    containerHeight - toolbarHeight - DATA_GRID_HEADER_HEIGHT - DATA_GRID_PAGINATION_HEIGHT;
+    containerHeight -
+    toolbarHeight -
+    DATA_GRID_HEADER_HEIGHT -
+    DATA_GRID_PAGINATION_HEIGHT;
   return Math.max(1, Math.floor(availableForRows / DATA_GRID_ROW_HEIGHT));
 }
 
@@ -92,7 +96,10 @@ export interface DataGridProps<TData> {
   /** Optional function to compute a row's inline style (e.g. background color from threshold). */
   getRowStyle?: (row: TData) => React.CSSProperties | undefined;
   /** Optional function to compute a cell's inline style for conditional formatting. */
-  getCellStyle?: (row: TData, columnId: string) => React.CSSProperties | undefined;
+  getCellStyle?: (
+    row: TData,
+    columnId: string,
+  ) => React.CSSProperties | undefined;
   /** Enable row grouping. When true, columns with `enableGrouping` can be used for grouping. */
   enableGrouping?: boolean;
   /** Column IDs to group by initially. Requires `enableGrouping`. */
@@ -125,11 +132,16 @@ function DataGrid<TData>({
   className,
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  );
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const [grouping, setGrouping] = React.useState<GroupingState>(initialGrouping ?? []);
+  const [grouping, setGrouping] = React.useState<GroupingState>(
+    initialGrouping ?? [],
+  );
   const [expanded, setExpanded] = React.useState<ExpandedState>(true);
 
   // Sync grouping state when initialGrouping prop changes
@@ -177,6 +189,7 @@ function DataGrid<TData>({
       ),
       enableSorting: false,
       enableHiding: false,
+      enableColumnFilter: false,
     };
     return [selectColumn, ...columns];
   }, [columns, enableSelection]);
@@ -187,14 +200,19 @@ function DataGrid<TData>({
     getCoreRowModel: getCoreRowModel(),
     enableSorting,
     enableColumnResizing,
-    columnResizeMode: enableColumnResizing ? "onChange" as const : undefined,
+    columnResizeMode: enableColumnResizing ? ("onChange" as const) : undefined,
     defaultColumn: enableColumnResizing ? { minSize: 50 } : undefined,
     enableGrouping,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel: (enableGlobalFilter || enableColumnFilters) ? getFilteredRowModel() : undefined,
+    getFilteredRowModel:
+      enableGlobalFilter || enableColumnFilters
+        ? getFilteredRowModel()
+        : undefined,
     getFacetedRowModel: enableColumnFilters ? getFacetedRowModel() : undefined,
-    getFacetedUniqueValues: enableColumnFilters ? getFacetedUniqueValues() : undefined,
+    getFacetedUniqueValues: enableColumnFilters
+      ? getFacetedUniqueValues()
+      : undefined,
     getGroupedRowModel: enableGrouping ? getGroupedRowModel() : undefined,
     getExpandedRowModel: enableGrouping ? getExpandedRowModel() : undefined,
     onSortingChange: setSorting,
@@ -236,7 +254,8 @@ function DataGrid<TData>({
 
   // Whether to render the built-in pagination bar.  The caller-supplied
   // `pagination` render prop always takes priority.
-  const showBuiltInPagination = enablePagination && !pagination && table.getPageCount() > 1;
+  const showBuiltInPagination =
+    enablePagination && !pagination && table.getPageCount() > 1;
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -269,36 +288,80 @@ function DataGrid<TData>({
         <UITable>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className="relative group/header"
-                    style={enableColumnResizing ? { width: header.getSize() } : undefined}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                    {enableColumnResizing && header.column.getCanResize() && (
-                      <div
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
-                        onDoubleClick={() => header.column.resetSize()}
-                        className={cn(
-                          "absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none",
-                          header.column.getIsResizing()
-                            ? "bg-primary opacity-100"
-                            : "bg-border opacity-0 group-hover/header:opacity-50 hover:opacity-100"
-                        )}
-                      />
-                    )}
-                  </TableHead>
-                ))}
-              </TableRow>
+              <React.Fragment key={headerGroup.id}>
+                <TableRow>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className="relative group/header"
+                      style={
+                        enableColumnResizing
+                          ? { width: header.getSize() }
+                          : undefined
+                      }
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                      {enableColumnResizing && header.column.getCanResize() && (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          onDoubleClick={() => header.column.resetSize()}
+                          className={cn(
+                            "absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none",
+                            header.column.getIsResizing()
+                              ? "bg-primary opacity-100"
+                              : "bg-border opacity-0 group-hover/header:opacity-50 hover:opacity-100",
+                          )}
+                        />
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+                {enableColumnFilters && (
+                  <TableRow data-testid="data-grid-filter-row">
+                    {headerGroup.headers.map((header) => {
+                      const canFilter =
+                        !header.isPlaceholder && header.column.getCanFilter();
+                      const columnLabel =
+                        typeof header.column.columnDef.header === "string"
+                          ? (header.column.columnDef.header as string)
+                          : header.column.id;
+                      return (
+                        <TableHead
+                          key={`${header.id}-filter`}
+                          colSpan={header.colSpan}
+                          className="py-1"
+                        >
+                          {canFilter && (
+                            <Input
+                              type="text"
+                              value={
+                                (header.column.getFilterValue() as
+                                  | string
+                                  | undefined) ?? ""
+                              }
+                              onChange={(e) =>
+                                header.column.setFilterValue(
+                                  e.target.value || undefined,
+                                )
+                              }
+                              placeholder="Filter…"
+                              aria-label={`Filter ${columnLabel}`}
+                              className="h-7 text-xs"
+                            />
+                          )}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                )}
+              </React.Fragment>
             ))}
           </TableHeader>
           <TableBody>
@@ -306,84 +369,117 @@ function DataGrid<TData>({
               table.getRowModel().rows.map((row) => {
                 const isGrouped = row.getIsGrouped();
                 return (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  style={!isGrouped ? getRowStyle?.(row.original) : undefined}
-                  className={isGrouped ? "bg-muted/50 font-medium" : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const isDataCell = cell.column.id !== "select";
-                    const isInClickableColumns = !clickableColumns?.length || clickableColumns.includes(cell.column.id);
-                    const cellClickable = !isGrouped && onCellClick && isDataCell && isInClickableColumns;
-                    // Grouped cell: show expand toggle + group value + count
-                    if (cell.getIsGrouped()) {
-                      return (
-                        <TableCell key={cell.id} colSpan={1}>
-                          <button
-                            type="button"
-                            className="flex items-center gap-1 text-left"
-                            onClick={() => row.toggleExpanded()}
-                            aria-label="Toggle group"
-                          >
-                            {row.getIsExpanded() ? (
-                              <ChevronDown className="h-4 w-4 shrink-0" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 shrink-0" />
-                            )}
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            <span className="text-muted-foreground text-xs ml-1">
-                              ({row.getLeafRows().length})
-                            </span>
-                          </button>
-                        </TableCell>
-                      );
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    style={!isGrouped ? getRowStyle?.(row.original) : undefined}
+                    className={
+                      isGrouped ? "bg-muted/50 font-medium" : undefined
                     }
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isDataCell = cell.column.id !== "select";
+                      const isInClickableColumns =
+                        !clickableColumns?.length ||
+                        clickableColumns.includes(cell.column.id);
+                      const cellClickable =
+                        !isGrouped &&
+                        onCellClick &&
+                        isDataCell &&
+                        isInClickableColumns;
+                      // Grouped cell: show expand toggle + group value + count
+                      if (cell.getIsGrouped()) {
+                        return (
+                          <TableCell key={cell.id} colSpan={1}>
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 text-left"
+                              onClick={() => row.toggleExpanded()}
+                              aria-label="Toggle group"
+                            >
+                              {row.getIsExpanded() ? (
+                                <ChevronDown className="h-4 w-4 shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 shrink-0" />
+                              )}
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                              <span className="text-muted-foreground text-xs ml-1">
+                                ({row.getLeafRows().length})
+                              </span>
+                            </button>
+                          </TableCell>
+                        );
+                      }
 
-                    // Aggregated cell: show aggregated value
-                    if (cell.getIsAggregated()) {
+                      // Aggregated cell: show aggregated value
+                      if (cell.getIsAggregated()) {
+                        return (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.aggregatedCell ??
+                                cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </TableCell>
+                        );
+                      }
+
+                      // Placeholder cell in grouped rows
+                      if (cell.getIsPlaceholder()) {
+                        return <TableCell key={cell.id} />;
+                      }
+
+                      // Normal data cell
                       return (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.aggregatedCell ?? cell.column.columnDef.cell,
-                            cell.getContext(),
+                        <TableCell
+                          key={cell.id}
+                          className={
+                            cellClickable ? "cursor-pointer" : undefined
+                          }
+                          style={getCellStyle?.(
+                            row.original as TData,
+                            cell.column.id,
+                          )}
+                          onClick={
+                            cellClickable
+                              ? (e) => {
+                                  e.stopPropagation();
+                                  onCellClick({
+                                    column: cell.column.id,
+                                    value: cell.getValue(),
+                                  });
+                                }
+                              : undefined
+                          }
+                        >
+                          {cellClickable ? (
+                            <span className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 text-primary hover:bg-primary/15 transition-colors">
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </span>
+                          ) : (
+                            flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )
                           )}
                         </TableCell>
                       );
-                    }
-
-                    // Placeholder cell in grouped rows
-                    if (cell.getIsPlaceholder()) {
-                      return <TableCell key={cell.id} />;
-                    }
-
-                    // Normal data cell
-                    return (
-                    <TableCell
-                      key={cell.id}
-                      className={cellClickable ? "cursor-pointer" : undefined}
-                      style={getCellStyle?.(row.original as TData, cell.column.id)}
-                      onClick={cellClickable ? (e) => {
-                        e.stopPropagation();
-                        onCellClick({ column: cell.column.id, value: cell.getValue() });
-                      } : undefined}
-                    >
-                      {cellClickable ? (
-                        <span className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 text-primary hover:bg-primary/15 transition-colors">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </span>
-                      ) : (
-                        flexRender(cell.column.columnDef.cell, cell.getContext())
-                      )}
-                    </TableCell>
-                    );
-                  })}
-                </TableRow>
+                    })}
+                  </TableRow>
                 );
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={allColumns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={allColumns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -391,43 +487,41 @@ function DataGrid<TData>({
           </TableBody>
         </UITable>
       </div>
-      {pagination ? (
-        pagination(table)
-      ) : (
-        showBuiltInPagination && (
-          <div className="flex items-center justify-end space-x-2">
-            <div className="flex-1 text-sm text-muted-foreground">
-              {enableSelection &&
-                table.getFilteredSelectedRowModel().rows.length > 0 && (
-                  <>
-                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                    {table.getFilteredRowModel().rows.length} row(s) selected.
-                  </>
-                )}
+      {pagination
+        ? pagination(table)
+        : showBuiltInPagination && (
+            <div className="flex items-center justify-end space-x-2">
+              <div className="flex-1 text-sm text-muted-foreground">
+                {enableSelection &&
+                  table.getFilteredSelectedRowModel().rows.length > 0 && (
+                    <>
+                      {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                      {table.getFilteredRowModel().rows.length} row(s) selected.
+                    </>
+                  )}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Page {table.getState().pagination.pageIndex + 1} of{" "}
+                {table.getPageCount()}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                Next
+              </Button>
             </div>
-            <div className="text-sm text-muted-foreground">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
-          </div>
-        )
-      )}
+          )}
     </div>
   );
 }

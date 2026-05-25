@@ -1,21 +1,43 @@
 {
   "name": "@neoboard/cli",
-  "version": "2.0.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "Install, run, and manage NeoBoard — open-source dashboards for Neo4j + PostgreSQL.",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/alfredo1996/neoboard.git"
+    "url": "https://github.com/alfredo1996/neoboard.git",
+    "directory": "cli"
   },
+  "homepage": "https://github.com/alfredo1996/neoboard#readme",
+  "bugs": {
+    "url": "https://github.com/alfredo1996/neoboard/issues"
+  },
+  "keywords": [
+    "neoboard",
+    "neo4j",
+    "postgresql",
+    "dashboard",
+    "cli"
+  ],
   "type": "module",
   "bin": {
     "neoboard": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
     "test": "SKIP_INTEGRATION=1 vitest run",
     "test:integration": "vitest run src/__tests__/integration",
     "test:watch": "vitest",

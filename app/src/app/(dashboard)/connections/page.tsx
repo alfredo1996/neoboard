@@ -40,6 +40,7 @@ import {
   type ConnectorType,
   CONNECTOR_LABELS,
 } from "@/lib/connector/connector-types";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 import {
   parseOptionalInt,
   mapConfigToEditForm,
@@ -76,6 +77,7 @@ export default function ConnectionsPage() {
   const [inlineTestResult, setInlineTestResult] = useState<{
     success: boolean;
     error?: string;
+    code?: "auth_failed" | "network" | "bad_uri" | "unknown";
   } | null>(null);
 
   // Dialog state
@@ -662,9 +664,23 @@ export default function ConnectionsPage() {
                   variant={inlineTestResult.success ? "default" : "destructive"}
                 >
                   <AlertDescription>
-                    {inlineTestResult.success
-                      ? "Connection successful!"
-                      : inlineTestResult.error || "Connection failed"}
+                    {inlineTestResult.success ? (
+                      "Connection successful!"
+                    ) : (
+                      <>
+                        <div>
+                          {inlineTestResult.error || "Connection failed"}
+                        </div>
+                        {inlineTestResult.code &&
+                          inlineTestResult.code !== "unknown" && (
+                            <div className="mt-1 text-sm opacity-90">
+                              {hintForConnectionErrorCode(
+                                inlineTestResult.code,
+                              )}
+                            </div>
+                          )}
+                      </>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
@@ -1140,12 +1156,22 @@ export default function ConnectionsPage() {
             <EmptyState
               icon={<Database className="h-12 w-12" />}
               title="No connections yet"
-              description="Add your first database connection to start querying data."
+              description="Connect a database to start building dashboards."
               action={
                 <Button onClick={() => openCreateDialog()}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add your first connection
+                  Create your first connection
                 </Button>
+              }
+              secondaryAction={
+                <a
+                  href="https://neoboard.app/docs/getting-started/quick-start/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Read the docs
+                </a>
               }
             />
           )}

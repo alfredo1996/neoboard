@@ -1,7 +1,7 @@
 {
   "name": "neoboard",
   "private": true,
-  "license": "Elastic-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "workspaces": [
     "app",

@@ -24,10 +24,41 @@ describe("transformToLineData", () => {
     expect(transformToLineData([{ x: 1 }])).toEqual([]);
   });
 
-  it("coerces non-numeric series values to 0", () => {
+  it("maps non-numeric series values to null (preserved as gap, not 0)", () => {
+    // Previously coerced to 0 — that hid bad data. Returning null lets
+    // ECharts render a gap and keeps the missing-vs-zero distinction.
     const data = [{ x: "Jan", y: "bad" }];
-    const result = transformToLineData(data) as Array<{ y: number }>;
+    const result = transformToLineData(data) as Array<{ y: number | null }>;
+    expect(result[0].y).toBeNull();
+  });
+
+  it("preserves numeric zero (regression: zero must not become null)", () => {
+    const data = [{ x: "Jan", y: 0 }];
+    const result = transformToLineData(data) as Array<{ y: number | null }>;
     expect(result[0].y).toBe(0);
+  });
+
+  it("maps null/undefined cells to null (missing data, not 0)", () => {
+    const data = [
+      { x: "Jan", y: null },
+      { x: "Feb", y: undefined },
+    ];
+    const result = transformToLineData(data) as Array<{ y: number | null }>;
+    expect(result[0].y).toBeNull();
+    expect(result[1].y).toBeNull();
+  });
+
+  it("unions series keys across rows so sparse series are not dropped", () => {
+    // y2 only appears in the second row — before the fix, transformToLineData
+    // would only emit { x, y1 } and silently lose the y2 series.
+    const data = [
+      { x: "Jan", y1: 1 },
+      { x: "Feb", y1: 2, y2: 9 },
+    ];
+    const result = transformToLineData(data) as Array<Record<string, unknown>>;
+    expect(result[0].y1).toBe(1);
+    expect(result[0].y2).toBeNull();
+    expect(result[1].y2).toBe(9);
   });
 
   it("converts Date objects in x-axis", () => {

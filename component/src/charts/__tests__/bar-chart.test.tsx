@@ -233,4 +233,41 @@ describe("BarChart", () => {
     expect(opts.series[0].data[0]).toBe(0);
     expect(opts.series[1].data[0]).toBe(0);
   });
+
+  it("auto-derives a descriptive aria-label from data shape (single series)", () => {
+    // Default "Chart visualization" is unhelpful for screen-reader users.
+    // The container should reflect the actual data — categories × series.
+    render(<BarChart data={sampleData} />);
+    expect(
+      screen.getByLabelText(/bar chart with 3 categories and 1 series/i),
+    ).toBeInTheDocument();
+  });
+
+  it("auto-derived aria-label lists series names for multi-series", () => {
+    render(<BarChart data={stackedData} />);
+    const el = screen.getByTestId("base-chart");
+    const label = el.getAttribute("aria-label") ?? "";
+    expect(label).toMatch(/bar chart with 3 categories and 2 series/i);
+    expect(label).toContain("sales");
+    expect(label).toContain("returns");
+  });
+
+  it("explicit ariaDescription prop overrides the auto-derived label", () => {
+    render(
+      <BarChart
+        data={sampleData}
+        ariaDescription="Quarterly product revenue"
+      />,
+    );
+    expect(
+      screen.getByLabelText("Quarterly product revenue"),
+    ).toBeInTheDocument();
+  });
+
+  it("auto-derived aria-label handles empty data without crashing", () => {
+    render(<BarChart data={[]} />);
+    const el = screen.getByTestId("base-chart");
+    // Empty charts should still have a meaningful label
+    expect(el.getAttribute("aria-label")).toMatch(/bar chart/i);
+  });
 });

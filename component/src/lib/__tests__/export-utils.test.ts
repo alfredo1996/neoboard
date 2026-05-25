@@ -73,7 +73,7 @@ describe("buildCsvString", () => {
     ];
     const csv = buildCsvString(data);
     const lines = csv.split("\r\n");
-    expect(lines[0]).toBe("name,age");
+    expect(lines[0]).toBe("\uFEFFname,age");
     expect(lines[1]).toBe("Alice,30");
     expect(lines[2]).toBe("Bob,25");
   });
@@ -105,7 +105,7 @@ describe("buildCsvString", () => {
   it("handles null and undefined values", () => {
     const data = [{ a: null, b: undefined, c: 1 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe("a,b,c\r\n,,1");
+    expect(csv).toBe("\uFEFFa,b,c\r\n,,1");
   });
 
   it("handles nested objects by JSON-stringifying them", () => {
@@ -117,13 +117,13 @@ describe("buildCsvString", () => {
   it("escapes headers that contain commas", () => {
     const data = [{ "col,a": 1 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe('"col,a"\r\n1');
+    expect(csv).toBe('\uFEFF"col,a"\r\n1');
   });
 
   it("escapes headers that contain double quotes", () => {
     const data = [{ 'col"b': 2 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe('"col""b"\r\n2');
+    expect(csv).toBe('\uFEFF"col""b"\r\n2');
   });
 
   it("escapes headers that contain newlines", () => {
@@ -137,25 +137,49 @@ describe("buildCsvString", () => {
     const data = [{ "col\ra": 1 }];
     const csv = buildCsvString(data);
     const headerLine = csv.split("\r\n")[0];
-    expect(headerLine).toBe('"col\ra"');
+    expect(headerLine).toBe('\uFEFF"col\ra"');
   });
 
   it("handles single row with single column", () => {
     const data = [{ value: 42 }];
     const csv = buildCsvString(data);
-    expect(csv).toBe("value\r\n42");
+    expect(csv).toBe("\uFEFFvalue\r\n42");
   });
 
-  it("uses first row keys for all rows even if later rows have different keys", () => {
+  it("collects the union of keys across every row so sparse columns are not dropped", () => {
+    // Earlier behavior used Object.keys(data[0]) which silently dropped any
+    // column that happened to be missing from the first row.
     const data: Record<string, unknown>[] = [
       { a: 1, b: 2 },
       { a: 3, c: 4 },
     ];
     const csv = buildCsvString(data);
     const lines = csv.split("\r\n");
-    expect(lines[0]).toBe("a,b");
-    // second row: a=3, b=undefined → empty
-    expect(lines[2]).toBe("3,");
+    expect(lines[0]).toBe("\uFEFFa,b,c");
+    expect(lines[1]).toBe("1,2,");
+    expect(lines[2]).toBe("3,,4");
+  });
+
+  it("preserves first-seen column order when unioning keys", () => {
+    const data: Record<string, unknown>[] = [
+      { id: 1, name: "a" },
+      { name: "b", extra: true, id: 2 },
+    ];
+    const csv = buildCsvString(data);
+    expect(csv.split("\r\n")[0]).toBe("\uFEFFid,name,extra");
+  });
+
+  it("prepends a UTF-8 BOM so Excel reads non-ASCII content correctly", () => {
+    const data = [{ name: "café", emoji: "✓" }];
+    const csv = buildCsvString(data);
+    // Without the BOM, Excel on Windows mojibakes UTF-8 cells like "café"
+    expect(csv.startsWith("\uFEFF")).toBe(true);
+  });
+
+  it("returns empty string (no BOM) for empty data", () => {
+    // Empty CSVs should stay byte-for-byte empty so the download helper
+    // can short-circuit on falsy content.
+    expect(buildCsvString([])).toBe("");
   });
 });
 

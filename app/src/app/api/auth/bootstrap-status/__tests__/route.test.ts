@@ -21,26 +21,27 @@ describe("GET /api/auth/bootstrap-status", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    delete process.env.REGISTRATION_ENABLED;
     const mod = await import("../route");
     GET = mod.GET;
   });
 
-  it("returns bootstrapRequired: true when no users exist", async () => {
+  it("returns bootstrapRequired: true when no users exist (registration closed by default)", async () => {
     mockAreUsersEmpty.mockResolvedValue(true);
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.bootstrapRequired).toBe(true);
-    expect(body.data.registrationEnabled).toBe(true);
+    expect(body.data.registrationEnabled).toBe(false);
   });
 
-  it("returns bootstrapRequired: false when users exist", async () => {
+  it("returns bootstrapRequired: false when users exist (registration closed by default)", async () => {
     mockAreUsersEmpty.mockResolvedValue(false);
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.bootstrapRequired).toBe(false);
-    expect(body.data.registrationEnabled).toBe(true);
+    expect(body.data.registrationEnabled).toBe(false);
   });
 
   it("returns registrationEnabled: false when REGISTRATION_ENABLED=false", async () => {
@@ -67,12 +68,12 @@ describe("GET /api/auth/bootstrap-status", () => {
     delete process.env.REGISTRATION_ENABLED;
   });
 
-  it("returns registrationEnabled: true when REGISTRATION_ENABLED is not set", async () => {
+  it("returns registrationEnabled: false when REGISTRATION_ENABLED is not set (closed by default)", async () => {
     delete process.env.REGISTRATION_ENABLED;
     mockAreUsersEmpty.mockResolvedValue(false);
     const res = await GET();
     const body = await res.json();
-    expect(body.data.registrationEnabled).toBe(true);
+    expect(body.data.registrationEnabled).toBe(false);
   });
 
   it("returns registrationEnabled: true when REGISTRATION_ENABLED=true", async () => {

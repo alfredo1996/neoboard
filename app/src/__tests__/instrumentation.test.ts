@@ -21,10 +21,15 @@ describe("register (instrumentation hook)", () => {
   const savedRuntime = process.env.NEXT_RUNTIME;
   const savedEmail = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const savedPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const savedSkip = process.env.SKIP_ENV_VALIDATION;
 
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // Most tests in this file don't care about env validation — opt them
+    // all out so they exercise only the bootstrap path. The env-validation
+    // block below clears this flag and tests the fail-fast behavior.
+    process.env.SKIP_ENV_VALIDATION = "1";
     vi.doMock("@/lib/auth/bootstrap", () => ({
       bootstrapAdmin: mockBootstrapAdmin,
     }));
@@ -43,6 +48,9 @@ describe("register (instrumentation hook)", () => {
     if (savedPassword === undefined)
       delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
     else process.env.BOOTSTRAP_ADMIN_PASSWORD = savedPassword;
+
+    if (savedSkip === undefined) delete process.env.SKIP_ENV_VALIDATION;
+    else process.env.SKIP_ENV_VALIDATION = savedSkip;
   });
 
   it("skips bootstrap when NEXT_RUNTIME is not nodejs", async () => {
@@ -104,5 +112,96 @@ describe("register (instrumentation hook)", () => {
     delete process.env.BOOTSTRAP_ADMIN_EMAIL;
     delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
     await expect(mod.register()).resolves.toBeUndefined();
+  });
+});
+
+// ─── Cold-start env validation (fail-fast on missing required vars) ────────
+
+describe("register — env validation", () => {
+  const saved = {
+    runtime: process.env.NEXT_RUNTIME,
+    skip: process.env.SKIP_ENV_VALIDATION,
+    encryption: process.env.ENCRYPTION_KEY,
+    secret: process.env.NEXTAUTH_SECRET,
+    dburl: process.env.DATABASE_URL,
+  };
+
+  const restore = (key: string, value: string | undefined) => {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  };
+
+  afterEach(() => {
+    restore("NEXT_RUNTIME", saved.runtime);
+    restore("SKIP_ENV_VALIDATION", saved.skip);
+    restore("ENCRYPTION_KEY", saved.encryption);
+    restore("NEXTAUTH_SECRET", saved.secret);
+    restore("DATABASE_URL", saved.dburl);
+  });
+
+  it("calls process.exit(1) when required vars are missing", async () => {
+    vi.resetModules();
+    process.env.NEXT_RUNTIME = "nodejs";
+    delete process.env.SKIP_ENV_VALIDATION;
+    delete process.env.ENCRYPTION_KEY;
+    delete process.env.NEXTAUTH_SECRET;
+    delete process.env.DATABASE_URL;
+
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
+      // Throw to short-circuit register() so the subsequent code (logger
+      // import) isn't reached after the simulated exit.
+      throw new Error("__exit__");
+    }) as never);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+
+    const mod = await import("../instrumentation");
+    await expect(mod.register()).rejects.toThrow("__exit__");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const stderrOutput = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    expect(stderrOutput).toContain("ENCRYPTION_KEY");
+    expect(stderrOutput).toContain("NEXTAUTH_SECRET");
+    expect(stderrOutput).toContain("DATABASE_URL");
+
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
+
+  it("does not exit when SKIP_ENV_VALIDATION=1 even with missing vars", async () => {
+    vi.resetModules();
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.SKIP_ENV_VALIDATION = "1";
+    delete process.env.ENCRYPTION_KEY;
+    delete process.env.NEXTAUTH_SECRET;
+    delete process.env.DATABASE_URL;
+
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation((() => undefined) as never);
+    const mod = await import("../instrumentation");
+    await mod.register();
+    expect(exitSpy).not.toHaveBeenCalled();
+    exitSpy.mockRestore();
+  });
+
+  it("does not exit when all required vars are set with valid values", async () => {
+    vi.resetModules();
+    process.env.NEXT_RUNTIME = "nodejs";
+    delete process.env.SKIP_ENV_VALIDATION;
+    process.env.DATABASE_URL = "postgres://x:y@z/db";
+    process.env.ENCRYPTION_KEY = "0".repeat(64);
+    process.env.NEXTAUTH_SECRET = "a".repeat(32);
+    delete process.env.BOOTSTRAP_ADMIN_EMAIL;
+    delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
+
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation((() => undefined) as never);
+    const mod = await import("../instrumentation");
+    await mod.register();
+    expect(exitSpy).not.toHaveBeenCalled();
+    exitSpy.mockRestore();
   });
 });
