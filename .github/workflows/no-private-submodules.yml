@@ -1,0 +1,35 @@
+name: No private submodules
+
+on:
+  pull_request:
+    branches: [main, dev, 'release/*']
+  push:
+    branches: [main, dev, 'release/*']
+
+jobs:
+  check:
+    name: Reject private submodules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (no submodules)
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - name: Fail if .gitmodules exists
+        run: |
+          if [ -f .gitmodules ]; then
+            echo "::error file=.gitmodules::.gitmodules must not exist on the public repo — it leaks private-submodule pointers and breaks 'git clone --recurse-submodules' for external users."
+            cat .gitmodules
+            exit 1
+          fi
+
+      - name: Fail if any gitlink (submodule entry) is present in the tree
+        run: |
+          # Mode 160000 in git ls-tree is a gitlink (submodule pointer)
+          GITLINKS=$(git ls-tree -r HEAD | awk '$1 == "160000" { print $4 }')
+          if [ -n "$GITLINKS" ]; then
+            echo "::error::Found gitlink(s) in the tree — submodule pointers are not allowed on the public repo:"
+            echo "$GITLINKS"
+            exit 1
+          fi
