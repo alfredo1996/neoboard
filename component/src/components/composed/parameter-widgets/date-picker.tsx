@@ -45,7 +45,10 @@ function DatePickerParameter({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Label
+        id={labelId}
+        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+      >
         {parameterName}
       </Label>
       <div className="flex items-center gap-1">
@@ -56,7 +59,7 @@ function DatePickerParameter({
               aria-labelledby={labelId}
               className={cn(
                 "flex-1 justify-start text-left font-normal",
-                !selected && "text-muted-foreground"
+                !selected && "text-muted-foreground",
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
@@ -68,7 +71,7 @@ function DatePickerParameter({
               mode="single"
               selected={selected}
               onSelect={handleSelect}
-              initialFocus
+              autoFocus
             />
           </PopoverContent>
         </Popover>
