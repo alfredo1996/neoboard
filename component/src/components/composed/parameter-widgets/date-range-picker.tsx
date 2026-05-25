@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { format, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import {
+  format,
+  subDays,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+} from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Label } from "@/components/ui/label";
@@ -44,11 +51,17 @@ const DATE_PRESETS = [
   },
   {
     label: "This month",
-    getValue: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }),
+    getValue: () => ({
+      from: startOfMonth(new Date()),
+      to: endOfMonth(new Date()),
+    }),
   },
   {
     label: "This year",
-    getValue: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }),
+    getValue: () => ({
+      from: startOfYear(new Date()),
+      to: endOfYear(new Date()),
+    }),
   },
 ];
 
@@ -91,7 +104,10 @@ function DateRangeParameter({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Label
+        id={labelId}
+        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+      >
         {parameterName}
       </Label>
       <div className="flex items-center gap-1">
@@ -102,14 +118,15 @@ function DateRangeParameter({
               aria-labelledby={labelId}
               className={cn(
                 "flex-1 justify-start text-left font-normal",
-                !hasValue && "text-muted-foreground"
+                !hasValue && "text-muted-foreground",
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
               {fromDate ? (
                 toDate ? (
                   <>
-                    {format(fromDate, "MMM d, yyyy")} – {format(toDate, "MMM d, yyyy")}
+                    {format(fromDate, "MMM d, yyyy")} –{" "}
+                    {format(toDate, "MMM d, yyyy")}
                   </>
                 ) : (
                   format(fromDate, "MMM d, yyyy")
@@ -136,7 +153,7 @@ function DateRangeParameter({
                 ))}
               </div>
               <Calendar
-                initialFocus
+                autoFocus
                 mode="range"
                 defaultMonth={fromDate}
                 selected={rangeValue}
