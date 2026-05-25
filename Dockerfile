@@ -22,9 +22,15 @@ WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy all node_modules (root hoisted deps + any workspace-specific deps)
+# Copy all node_modules (root hoisted deps + any workspace-specific deps
+# that npm chose not to hoist because of version conflicts between siblings).
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/app/node_modules ./app/node_modules
+# Some deps (e.g. lucide-react, react-day-picker) live only in the
+# component workspace because app pins different major versions; without
+# this copy `next build` can't resolve them through the @neoboard/components
+# symlink at runtime.
+COPY --from=deps /app/component/node_modules ./component/node_modules
 
 # Copy all source
 COPY . .
