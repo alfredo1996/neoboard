@@ -105,6 +105,11 @@ describe("proxy", () => {
       const res = await proxy(makeRequest("/api/openapi.json"));
       expect(res.status).toBe(200);
     });
+
+    it("passes through /api/health (so LBs and the CLI ready-check can probe it)", async () => {
+      const res = await proxy(makeRequest("/api/health"));
+      expect(res.status).toBe(200);
+    });
   });
 
   describe("unauthenticated requests", () => {

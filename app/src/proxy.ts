@@ -11,6 +11,10 @@ const publicExact = new Set([
   "/signup",
   "/change-password",
   "/api/docs",
+  // /api/health returns env-config status + DB ping (with secrets redacted).
+  // Meant for load balancers and the CLI ready-check (#876, #879) — must be
+  // reachable without a session.
+  "/api/health",
 ]);
 
 /**
