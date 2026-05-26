@@ -137,10 +137,21 @@ describe("applyConnectionMapping", () => {
     expect(widgets[1].connectionId).toBe("real-pg-id");
   });
 
-  it("leaves empty connectionId unchanged", () => {
+  it("leaves empty connectionId unchanged when no empty-string key in mapping", () => {
     const result = applyConnectionMapping(layout, mapping);
     const widgets = result.pages[0].widgets;
     expect(widgets[2].connectionId).toBe("");
+  });
+
+  it("maps empty connectionId to the chosen default when mapping has an empty-string key (NeoDash flow)", () => {
+    const result = applyConnectionMapping(layout, {
+      ...mapping,
+      "": "neo4j-default-id",
+    });
+    const widgets = result.pages[0].widgets;
+    expect(widgets[0].connectionId).toBe("real-neo4j-id");
+    expect(widgets[1].connectionId).toBe("real-pg-id");
+    expect(widgets[2].connectionId).toBe("neo4j-default-id");
   });
 
   it("does not mutate the original layout", () => {

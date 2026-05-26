@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  makeInsertChain,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -8,7 +11,12 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // ---------------------------------------------------------------------------
 
 const mockRequireSession = vi.fn<
-  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
 >();
 
 const mockDb = {
@@ -38,7 +46,12 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "tenant-1" };
+const SESSION = {
+  userId: "user-1",
+  role: "creator",
+  canWrite: true,
+  tenantId: "tenant-1",
+};
 
 const VALID_PAYLOAD = {
   formatVersion: 1,
@@ -54,7 +67,12 @@ const VALID_PAYLOAD = {
         id: "p1",
         title: "Page 1",
         widgets: [
-          { id: "w1", chartType: "bar", connectionId: "conn_0", query: "MATCH (n) RETURN n" },
+          {
+            id: "w1",
+            chartType: "bar",
+            connectionId: "conn_0",
+            query: "MATCH (n) RETURN n",
+          },
         ],
         gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
       },
@@ -103,13 +121,21 @@ describe("POST /api/dashboards/import", () => {
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireSession.mockRejectedValue(new UnauthorizedError());
-    const res = await POST(makeRequest({ payload: VALID_PAYLOAD, connectionMapping: {} }));
+    const res = await POST(
+      makeRequest({ payload: VALID_PAYLOAD, connectionMapping: {} }),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns 403 for reader role", async () => {
-    mockRequireSession.mockResolvedValue({ ...SESSION, role: "reader", canWrite: false });
-    const res = await POST(makeRequest({ payload: VALID_PAYLOAD, connectionMapping: {} }));
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      role: "reader",
+      canWrite: false,
+    });
+    const res = await POST(
+      makeRequest({ payload: VALID_PAYLOAD, connectionMapping: {} }),
+    );
     expect(res.status).toBe(403);
   });
 
@@ -117,14 +143,18 @@ describe("POST /api/dashboards/import", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { formatVersion: _fv, ...noVersion } = VALID_PAYLOAD;
-    const res = await POST(makeRequest({ payload: noVersion, connectionMapping: {} }));
+    const res = await POST(
+      makeRequest({ payload: noVersion, connectionMapping: {} }),
+    );
     expect(res.status).toBe(400);
   });
 
   it("imports a valid NeoBoard export and returns 201", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Connection ownership check returns 1 allowed connection
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "real-conn-id" }]));
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([{ id: "real-conn-id" }]),
+    );
     // No existing dashboard with same name
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const created = {
@@ -138,7 +168,10 @@ describe("POST /api/dashboards/import", () => {
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 
     const res = await POST(
-      makeRequest({ payload: VALID_PAYLOAD, connectionMapping: { conn_0: "real-conn-id" } })
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -148,17 +181,82 @@ describe("POST /api/dashboards/import", () => {
   it("auto-converts NeoDash format and returns 201", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
-    const created = { id: "nd-dash", name: "NeoDash Dashboard", userId: "user-1", tenantId: "tenant-1", createdAt: new Date(), updatedAt: new Date() };
+    const created = {
+      id: "nd-dash",
+      name: "NeoDash Dashboard",
+      userId: "user-1",
+      tenantId: "tenant-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 
-    const res = await POST(makeRequest({ payload: NEODASH_PAYLOAD, connectionMapping: {} }));
+    const res = await POST(
+      makeRequest({ payload: NEODASH_PAYLOAD, connectionMapping: {} }),
+    );
     expect(res.status).toBe(201);
+  });
+
+  it("applies the chosen Neo4j connection to all NeoDash widgets via the empty-string mapping key", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // Connection ownership check finds the chosen Neo4j connection
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "neo4j-prod" }]));
+    // No existing dashboard with same name
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+
+    let insertedLayout: unknown = null;
+    mockDb.insert.mockImplementation(() => ({
+      values: (v: { layoutJson: unknown }) => {
+        insertedLayout = v.layoutJson;
+        return {
+          returning: () => [
+            {
+              id: "nd-dash",
+              name: "NeoDash Dashboard",
+              userId: "user-1",
+              tenantId: "tenant-1",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        };
+      },
+    }));
+
+    const res = await POST(
+      makeRequest({
+        payload: NEODASH_PAYLOAD,
+        connectionMapping: { "": "neo4j-prod" },
+      }),
+    );
+    expect(res.status).toBe(201);
+
+    const layout = insertedLayout as {
+      pages: { widgets: { connectionId: string }[] }[];
+    };
+    expect(layout.pages[0].widgets[0].connectionId).toBe("neo4j-prod");
+  });
+
+  it("rejects NeoDash import when the chosen connection does not belong to the caller", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // Connection ownership check returns empty → mapping rejected
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+
+    const res = await POST(
+      makeRequest({
+        payload: NEODASH_PAYLOAD,
+        connectionMapping: { "": "someone-elses-conn" },
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("appends (imported) to name when dashboard with same name already exists", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Connection ownership check returns 1 allowed connection
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "real-conn-id" }]));
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([{ id: "real-conn-id" }]),
+    );
     // Existing dashboard found
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "existing" }]));
     const created = {
@@ -172,7 +270,10 @@ describe("POST /api/dashboards/import", () => {
     mockDb.insert.mockReturnValue(makeInsertChain([created]));
 
     const res = await POST(
-      makeRequest({ payload: VALID_PAYLOAD, connectionMapping: { conn_0: "real-conn-id" } })
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();

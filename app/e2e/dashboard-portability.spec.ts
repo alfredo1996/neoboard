@@ -162,10 +162,12 @@ test.describe("NeoDash legacy import", () => {
     await expect(dialog.getByText("E2E NeoDash Import Test")).toBeVisible();
     await expect(dialog.getByText("8 widgets")).toBeVisible();
 
-    // No connection mapping should appear (NeoDash skips it)
-    await expect(dialog.getByText("Map each connection")).not.toBeVisible();
-
-    // Import button should be enabled immediately
+    // Neo4j connection picker appears for NeoDash imports
+    await expect(
+      dialog.getByText(/All widgets in this dashboard will use/i),
+    ).toBeVisible();
+    // Alice has exactly one Neo4j connection seeded, so the picker auto-selects it
+    // and the Import button enables without further interaction.
     const importBtn = dialog.getByRole("button", { name: "Import" }).last();
     await expect(importBtn).toBeEnabled({ timeout: 5_000 });
     await importBtn.click();
@@ -179,9 +181,19 @@ test.describe("NeoDash legacy import", () => {
       timeout: 15_000,
     });
 
-    // Clean up imported dashboard
+    // Verify the auto-mapped connectionId persisted to the dashboard layout.
     const importedId = page.url().split("/").pop();
     if (importedId) {
+      const dashRes = await page.request.fetch(`/api/dashboards/${importedId}`);
+      const dashBody = await dashRes.json();
+      const widgets = dashBody.data.layoutJson.pages.flatMap(
+        (p: { widgets: { connectionId: string }[] }) => p.widgets,
+      );
+      // Every widget should now reference a real connection id (no empty strings)
+      for (const w of widgets) {
+        expect(w.connectionId).not.toBe("");
+      }
+
       await page.request.delete(`/api/dashboards/${importedId}`);
     }
   });
