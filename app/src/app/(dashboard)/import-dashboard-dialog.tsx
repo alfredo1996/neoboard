@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -21,7 +21,10 @@ import {
 } from "@neoboard/components";
 import { useConnections } from "@/hooks/use-connections";
 import { useImportDashboard } from "@/hooks/use-dashboards";
-import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
+import {
+  collectNeoDashDatabases,
+  isNeoDashFormat,
+} from "@/lib/dashboard/neodash-converter";
 
 interface ConnectionInfo {
   name: string;
@@ -34,6 +37,9 @@ interface ParsedImport {
   widgetCount: number;
   isNeoDash: boolean;
   connections: Record<string, ConnectionInfo>;
+  /** NeoDash database names found in the payload (one mapping row per entry).
+   *  Empty string represents "no database specified" for those reports. */
+  neodashDatabases: string[];
 }
 
 interface ImportDashboardDialogProps {
@@ -53,6 +59,25 @@ export function ImportDashboardDialog({
 
   const { data: availableConnections = [] } = useConnections();
   const importDashboard = useImportDashboard();
+
+  const neo4jConnections = availableConnections.filter(
+    (c) => c.type === "neo4j",
+  );
+
+  // Auto-pick the single Neo4j connection for any NeoDash database the user
+  // hasn't explicitly mapped. Derived during render so the auto-pick still
+  // applies if useConnections() resolves after the file was uploaded — without
+  // this the dialog would freeze on a disabled submit until the user touched
+  // the picker.
+  const effectiveMapping = useMemo(() => {
+    if (!parsed?.isNeoDash || neo4jConnections.length !== 1) return mapping;
+    const onlyId = neo4jConnections[0].id;
+    const next: Record<string, string> = { ...mapping };
+    for (const db of parsed.neodashDatabases) {
+      if (!next[db]) next[db] = onlyId;
+    }
+    return next;
+  }, [mapping, parsed, neo4jConnections]);
 
   function reset() {
     setParsed(null);
@@ -83,13 +108,18 @@ export function ImportDashboardDialog({
             (sum: number, p) => sum + (p.reports?.length ?? 0),
             0,
           ) ?? 0;
+        const databases = collectNeoDashDatabases(json);
         const neo4jConnections = availableConnections.filter(
           (c) => c.type === "neo4j",
         );
-        // Pre-select when there's exactly one Neo4j connection.
+        // Pre-pick every row when there's exactly one Neo4j connection.
         const defaultId =
           neo4jConnections.length === 1 ? neo4jConnections[0].id : "";
-        setMapping({ "": defaultId });
+        const initialMapping: Record<string, string> = {};
+        for (const db of databases) {
+          initialMapping[db] = defaultId;
+        }
+        setMapping(initialMapping);
         setParsed({
           payload: json,
           dashboardName:
@@ -97,6 +127,7 @@ export function ImportDashboardDialog({
           widgetCount: widgetCount,
           isNeoDash: true,
           connections: {},
+          neodashDatabases: databases,
         });
       } else if (json.formatVersion === 1) {
         const connections = (json.connections ?? {}) as Record<
@@ -119,6 +150,7 @@ export function ImportDashboardDialog({
           widgetCount,
           isNeoDash: false,
           connections,
+          neodashDatabases: [],
         });
       } else {
         setFileError(
@@ -137,7 +169,7 @@ export function ImportDashboardDialog({
     try {
       const result = await importDashboard.mutateAsync({
         payload: parsed.payload,
-        connectionMapping: mapping,
+        connectionMapping: effectiveMapping,
       });
       handleOpenChange(false);
       router.push(`/${result.id}`);
@@ -150,13 +182,10 @@ export function ImportDashboardDialog({
 
   const hasConnections =
     parsed && !parsed.isNeoDash && Object.keys(parsed.connections).length > 0;
-  const neo4jConnections = availableConnections.filter(
-    (c) => c.type === "neo4j",
-  );
   const needsNeoDashConnection = parsed?.isNeoDash === true;
   const allMapped =
     (!hasConnections && !needsNeoDashConnection) ||
-    Object.values(mapping).every((v) => v !== "");
+    Object.values(effectiveMapping).every((v) => v !== "");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -199,28 +228,33 @@ export function ImportDashboardDialog({
 
             {needsNeoDashConnection && (
               <div className="space-y-3">
-                <Label htmlFor="neodash-connection">Neo4j connection</Label>
                 {neo4jConnections.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    NeoDash dashboards run on Neo4j. You don&apos;t have a Neo4j
-                    connection yet —{" "}
-                    <Link
-                      href="/connections"
-                      className="text-primary underline"
-                    >
-                      add a connection
-                    </Link>{" "}
-                    to continue.
-                  </p>
-                ) : (
                   <>
+                    <Label>Neo4j connection</Label>
+                    <p className="text-sm text-muted-foreground">
+                      NeoDash dashboards run on Neo4j. You don&apos;t have a
+                      Neo4j connection yet —{" "}
+                      <Link
+                        href="/connections"
+                        className="text-primary underline"
+                      >
+                        add a connection
+                      </Link>{" "}
+                      to continue.
+                    </p>
+                  </>
+                ) : parsed.neodashDatabases.length === 1 ? (
+                  <>
+                    <Label htmlFor="neodash-connection">Neo4j connection</Label>
                     <p className="text-xs text-muted-foreground">
                       All widgets in this dashboard will use the selected
                       connection.
                     </p>
                     <Select
-                      value={mapping[""] ?? ""}
-                      onValueChange={(val) => setMapping({ "": val })}
+                      value={effectiveMapping[parsed.neodashDatabases[0]] ?? ""}
+                      onValueChange={(val) =>
+                        setMapping({ [parsed.neodashDatabases[0]]: val })
+                      }
                     >
                       <SelectTrigger id="neodash-connection">
                         <SelectValue placeholder="Select Neo4j connection" />
@@ -233,6 +267,50 @@ export function ImportDashboardDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                  </>
+                ) : (
+                  <>
+                    <Label>Map NeoDash databases to connections</Label>
+                    <p className="text-xs text-muted-foreground">
+                      This dashboard references {parsed.neodashDatabases.length}{" "}
+                      databases. Pick a Neo4j connection for each. Widgets keep
+                      their per-card database so one connection can serve
+                      multiple databases.
+                    </p>
+                    {parsed.neodashDatabases.map((db) => (
+                      <div
+                        key={db || "__default__"}
+                        className="grid grid-cols-2 gap-2 items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-mono truncate">
+                            {db || "Default database"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {db
+                              ? "NeoDash database name"
+                              : "Reports with no database set"}
+                          </p>
+                        </div>
+                        <Select
+                          value={effectiveMapping[db] ?? ""}
+                          onValueChange={(val) =>
+                            setMapping((prev) => ({ ...prev, [db]: val }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Neo4j connection" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {neo4jConnections.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
                   </>
                 )}
               </div>

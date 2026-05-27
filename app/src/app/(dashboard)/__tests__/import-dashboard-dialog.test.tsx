@@ -297,3 +297,149 @@ describe("ImportDashboardDialog — NeoDash connection picker", () => {
     expect(arg.connectionMapping).toEqual({ "": "neo4j-1" });
   });
 });
+
+describe("ImportDashboardDialog — multi-database NeoDash mapping", () => {
+  const MULTI_DB_PAYLOAD = {
+    title: "Multi-DB",
+    version: "2.4",
+    pages: [
+      {
+        title: "Page 1",
+        reports: [
+          {
+            id: "r1",
+            title: "Movies",
+            type: "table",
+            query: "MATCH (m:Movie) RETURN m",
+            database: "movies",
+            x: 0,
+            y: 0,
+            width: 6,
+            height: 4,
+            settings: {},
+            parameters: {},
+          },
+          {
+            id: "r2",
+            title: "Tenants",
+            type: "bar",
+            query: "MATCH (t) RETURN t",
+            database: "tenants",
+            x: 6,
+            y: 0,
+            width: 6,
+            height: 4,
+            settings: {},
+            parameters: {},
+          },
+        ],
+      },
+    ],
+  };
+
+  async function uploadMultiDb() {
+    const input = screen.getByLabelText(
+      "Dashboard file (.json)",
+    ) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [makeFile(MULTI_DB_PAYLOAD)] },
+    });
+    await waitFor(() =>
+      expect(screen.getByText(/NeoDash format/)).toBeDefined(),
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders one picker row per distinct NeoDash database", async () => {
+    mockUseConnections.mockReturnValue({
+      data: [{ id: "neo4j-1", name: "Neo4j", type: "neo4j" }],
+    });
+    render(<ImportDashboardDialog open onOpenChange={() => {}} />);
+
+    await uploadMultiDb();
+
+    expect(screen.getByText("movies")).toBeDefined();
+    expect(screen.getByText("tenants")).toBeDefined();
+    expect(screen.getAllByTestId("select")).toHaveLength(2);
+  });
+
+  it("auto-picks each row when there is exactly one Neo4j connection", async () => {
+    mockUseConnections.mockReturnValue({
+      data: [{ id: "neo4j-1", name: "Neo4j", type: "neo4j" }],
+    });
+    mockMutateAsync.mockResolvedValue({ id: "new-dash" });
+    render(<ImportDashboardDialog open onOpenChange={() => {}} />);
+
+    await uploadMultiDb();
+
+    const selects = screen.getAllByTestId("select") as HTMLSelectElement[];
+    expect(selects[0].value).toBe("neo4j-1");
+    expect(selects[1].value).toBe("neo4j-1");
+    expect(
+      (screen.getByTestId("submit-button") as HTMLButtonElement).disabled,
+    ).toBe(false);
+
+    fireEvent.click(screen.getByTestId("submit-button"));
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+    expect(mockMutateAsync.mock.calls[0][0].connectionMapping).toEqual({
+      movies: "neo4j-1",
+      tenants: "neo4j-1",
+    });
+  });
+
+  it("keeps submit disabled until every database row has a connection", async () => {
+    mockUseConnections.mockReturnValue({
+      data: [
+        { id: "neo4j-a", name: "Cluster A", type: "neo4j" },
+        { id: "neo4j-b", name: "Cluster B", type: "neo4j" },
+      ],
+    });
+    render(<ImportDashboardDialog open onOpenChange={() => {}} />);
+
+    await uploadMultiDb();
+
+    expect(
+      (screen.getByTestId("submit-button") as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    const selects = screen.getAllByTestId("select") as HTMLSelectElement[];
+    fireEvent.change(selects[0], { target: { value: "neo4j-a" } });
+    expect(
+      (screen.getByTestId("submit-button") as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    fireEvent.change(selects[1], { target: { value: "neo4j-b" } });
+    expect(
+      (screen.getByTestId("submit-button") as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("submits per-database mapping so each widget can land on its own connection", async () => {
+    mockUseConnections.mockReturnValue({
+      data: [
+        { id: "neo4j-a", name: "Cluster A", type: "neo4j" },
+        { id: "neo4j-b", name: "Cluster B", type: "neo4j" },
+      ],
+    });
+    mockMutateAsync.mockResolvedValue({ id: "new-dash" });
+    render(<ImportDashboardDialog open onOpenChange={() => {}} />);
+
+    await uploadMultiDb();
+
+    const selects = screen.getAllByTestId("select") as HTMLSelectElement[];
+    // "movies" is alphabetically first → row 0
+    fireEvent.change(selects[0], { target: { value: "neo4j-a" } });
+    fireEvent.change(selects[1], { target: { value: "neo4j-b" } });
+
+    fireEvent.click(screen.getByTestId("submit-button"));
+
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+    expect(mockMutateAsync.mock.calls[0][0].connectionMapping).toEqual({
+      movies: "neo4j-a",
+      tenants: "neo4j-b",
+    });
+  });
+});

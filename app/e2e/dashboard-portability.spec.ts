@@ -272,4 +272,105 @@ test.describe("NeoDash legacy import", () => {
       }
     }
   });
+
+  test("multi-database NeoDash import maps each database independently and preserves per-card db", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const multiDbDashboard = {
+      title: "Multi-DB E2E",
+      version: "2.4",
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "Movies report",
+              type: "table",
+              query: "RETURN 1",
+              database: "movies",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+            {
+              id: "r2",
+              title: "Tenants report",
+              type: "bar",
+              query: "RETURN 1",
+              database: "tenants",
+              x: 6,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    const tmpFile = path.join(os.tmpdir(), `neodash-multi-${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, JSON.stringify(multiDbDashboard));
+
+    try {
+      await page.getByRole("button", { name: "Import" }).click();
+      const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
+      await expect(dialog).toBeVisible({ timeout: 5_000 });
+
+      await dialog.locator("#import-file").setInputFiles(tmpFile);
+      await expect(dialog.getByText(/NeoDash format/)).toBeVisible({
+        timeout: 5_000,
+      });
+
+      // Multi-DB UI: one row per distinct database
+      await expect(
+        dialog.getByText(/Map NeoDash databases to connections/i),
+      ).toBeVisible();
+      await expect(dialog.getByText("movies", { exact: true })).toBeVisible();
+      await expect(dialog.getByText("tenants", { exact: true })).toBeVisible();
+
+      // Alice has 1 Neo4j connection → both rows auto-pick it, submit enables
+      const importBtn = dialog.getByRole("button", { name: "Import" }).last();
+      await expect(importBtn).toBeEnabled({ timeout: 5_000 });
+      await importBtn.click();
+
+      await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
+      const importedId = page.url().split("/").pop();
+      expect(importedId).toBeTruthy();
+
+      // Persisted widgets: each kept its NeoDash database as the per-card db,
+      // and both landed on the chosen Neo4j connection.
+      const dashRes = await page.request.fetch(`/api/dashboards/${importedId}`);
+      const dashBody = await dashRes.json();
+      const widgets = dashBody.data.layoutJson.pages.flatMap(
+        (p: { widgets: { connectionId: string; database?: string }[] }) =>
+          p.widgets,
+      );
+      const byDb = Object.fromEntries(
+        widgets.map((w: { connectionId: string; database?: string }) => [
+          w.database,
+          w.connectionId,
+        ]),
+      );
+      expect(byDb["movies"]).toBe("conn-neo4j-001");
+      expect(byDb["tenants"]).toBe("conn-neo4j-001");
+
+      await page.request.delete(`/api/dashboards/${importedId}`);
+    } finally {
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {
+        // ignore
+      }
+    }
+  });
 });
