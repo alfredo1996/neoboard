@@ -145,6 +145,13 @@ test.describe("NeoDash legacy import", () => {
     test.setTimeout(60_000);
     await authPage.login(ALICE.email, ALICE.password);
 
+    // Wait for the connections list to load (the parent page pre-warms it)
+    // so the NeoDash auto-pick has data ready by the time we upload.
+    await page.waitForResponse(
+      (r) => r.url().includes("/api/connections") && r.status() === 200,
+      { timeout: 15_000 },
+    );
+
     await page.getByRole("button", { name: "Import" }).click();
     const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -206,6 +213,11 @@ test.describe("NeoDash legacy import", () => {
   }) => {
     test.setTimeout(60_000);
     await authPage.login(ALICE.email, ALICE.password);
+
+    await page.waitForResponse(
+      (r) => r.url().includes("/api/connections") && r.status() === 200,
+      { timeout: 15_000 },
+    );
 
     // Create a NeoDash JSON with an unknown chart type
     const neodashWithUnknown = {
@@ -281,6 +293,11 @@ test.describe("NeoDash legacy import", () => {
   }) => {
     test.setTimeout(60_000);
     await authPage.login(ALICE.email, ALICE.password);
+
+    await page.waitForResponse(
+      (r) => r.url().includes("/api/connections") && r.status() === 200,
+      { timeout: 15_000 },
+    );
 
     const multiDbDashboard = {
       title: "Multi-DB E2E",

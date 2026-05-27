@@ -26,6 +26,7 @@ import {
   useDeleteDashboard,
   useDuplicateDashboard,
 } from "@/hooks/use-dashboards";
+import { useConnections } from "@/hooks/use-connections";
 import {
   Button,
   Input,
@@ -215,6 +216,10 @@ export default function DashboardListPage() {
   const createDashboard = useCreateDashboard();
   const deleteDashboard = useDeleteDashboard();
   const duplicateDashboard = useDuplicateDashboard();
+  // Pre-warm the connections query so ImportDashboardDialog has cached data
+  // ready when the user opens it — without this, opening the dialog kicks off
+  // a fresh fetch and the NeoDash auto-pick races the file upload.
+  useConnections();
   const [newName, setNewName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);

@@ -57,7 +57,8 @@ export function ImportDashboardDialog({
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const { data: availableConnections = [] } = useConnections();
+  const { data: availableConnections = [], isLoading: connectionsLoading } =
+    useConnections();
   const importDashboard = useImportDashboard();
 
   const neo4jConnections = availableConnections.filter(
@@ -228,7 +229,17 @@ export function ImportDashboardDialog({
 
             {needsNeoDashConnection && (
               <div className="space-y-3">
-                {neo4jConnections.length === 0 ? (
+                {connectionsLoading ? (
+                  <>
+                    <Label>Neo4j connection</Label>
+                    <p
+                      className="text-sm text-muted-foreground"
+                      data-testid="neodash-connections-loading"
+                    >
+                      Loading connections…
+                    </p>
+                  </>
+                ) : neo4jConnections.length === 0 ? (
                   <>
                     <Label>Neo4j connection</Label>
                     <p className="text-sm text-muted-foreground">
