@@ -235,7 +235,7 @@ export function collectNeoDashDatabases(json: unknown): string[] {
       seen.add(report.database ?? fallback);
     }
   }
-  return [...seen].sort();
+  return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
 export function isNeoDashFormat(json: unknown): boolean {

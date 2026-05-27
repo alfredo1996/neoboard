@@ -169,7 +169,9 @@ test.describe("NeoDash legacy import", () => {
     // Alice has exactly one Neo4j connection seeded, so the picker auto-selects it
     // and the Import button enables without further interaction.
     const importBtn = dialog.getByRole("button", { name: "Import" }).last();
-    await expect(importBtn).toBeEnabled({ timeout: 5_000 });
+    // 15s gives CI's cold prod build time to resolve /api/connections so the
+    // auto-pick can run.
+    await expect(importBtn).toBeEnabled({ timeout: 15_000 });
     await importBtn.click();
 
     // Should redirect to the imported dashboard
@@ -247,7 +249,7 @@ test.describe("NeoDash legacy import", () => {
       });
 
       const importBtn = dialog.getByRole("button", { name: "Import" }).last();
-      await expect(importBtn).toBeEnabled();
+      await expect(importBtn).toBeEnabled({ timeout: 15_000 });
       await importBtn.click();
 
       // Should import without crashing — unknown type falls back to JSON viewer.
@@ -340,7 +342,7 @@ test.describe("NeoDash legacy import", () => {
 
       // Alice has 1 Neo4j connection → both rows auto-pick it, submit enables
       const importBtn = dialog.getByRole("button", { name: "Import" }).last();
-      await expect(importBtn).toBeEnabled({ timeout: 5_000 });
+      await expect(importBtn).toBeEnabled({ timeout: 15_000 });
       await importBtn.click();
 
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
