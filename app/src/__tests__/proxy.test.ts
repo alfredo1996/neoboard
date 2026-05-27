@@ -231,7 +231,7 @@ describe("proxy", () => {
       expect(res.headers.get("location")).toBe("https://example.com/dashboard");
     });
 
-    it("redirects HTTP to HTTPS when FORCE_HTTPS=TRUE (case-insensitive)", async () => {
+    it("does NOT redirect when FORCE_HTTPS=TRUE (uppercase) — must match HSTS gating exactly", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "TRUE");
       const res = await proxy(
@@ -239,7 +239,7 @@ describe("proxy", () => {
           "x-forwarded-proto": "http",
         }),
       );
-      expect(res.status).toBe(301);
+      expect(res.status).not.toBe(301);
     });
 
     it("does NOT redirect when already HTTPS even with FORCE_HTTPS=true", async () => {

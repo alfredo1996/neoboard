@@ -44,7 +44,7 @@ export async function proxy(req: NextRequest) {
   // next.config.ts — both gated on the same env var).
   if (
     process.env.NODE_ENV === "production" &&
-    process.env.FORCE_HTTPS?.toLowerCase() === "true"
+    process.env.FORCE_HTTPS === "true"
   ) {
     const host = req.nextUrl.hostname;
     const isLocal =
