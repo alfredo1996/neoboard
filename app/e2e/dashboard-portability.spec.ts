@@ -173,12 +173,17 @@ test.describe("NeoDash legacy import", () => {
     await expect(
       dialog.getByText(/All widgets in this dashboard will use/i),
     ).toBeVisible();
-    // Alice has exactly one Neo4j connection seeded, so the picker auto-selects it
-    // and the Import button enables without further interaction.
+    // Explicitly pick the seeded Neo4j connection. The auto-pick only fires
+    // when Alice has exactly one Neo4j connection, but prior tests in shard 2
+    // (connections.spec.ts) may have created extras that survive cleanup, so
+    // we pick manually for robustness.
+    await dialog.locator("#neodash-connection").click();
+    await page
+      .getByRole("option", { name: "Movies Graph (Neo4j)" })
+      .first()
+      .click();
     const importBtn = dialog.getByRole("button", { name: "Import" }).last();
-    // 15s gives CI's cold prod build time to resolve /api/connections so the
-    // auto-pick can run.
-    await expect(importBtn).toBeEnabled({ timeout: 15_000 });
+    await expect(importBtn).toBeEnabled({ timeout: 5_000 });
     await importBtn.click();
 
     // Should redirect to the imported dashboard
@@ -260,8 +265,15 @@ test.describe("NeoDash legacy import", () => {
         timeout: 5_000,
       });
 
+      // Pick a Neo4j connection explicitly (shard may have extra Neo4j
+      // connections lingering from other tests, which would block auto-pick).
+      await dialog.locator("#neodash-connection").click();
+      await page
+        .getByRole("option", { name: "Movies Graph (Neo4j)" })
+        .first()
+        .click();
       const importBtn = dialog.getByRole("button", { name: "Import" }).last();
-      await expect(importBtn).toBeEnabled({ timeout: 15_000 });
+      await expect(importBtn).toBeEnabled({ timeout: 5_000 });
       await importBtn.click();
 
       // Should import without crashing — unknown type falls back to JSON viewer.
@@ -357,9 +369,24 @@ test.describe("NeoDash legacy import", () => {
       await expect(dialog.getByText("movies", { exact: true })).toBeVisible();
       await expect(dialog.getByText("tenants", { exact: true })).toBeVisible();
 
-      // Alice has 1 Neo4j connection → both rows auto-pick it, submit enables
+      // Pick the seeded Neo4j connection for each database row. Auto-pick
+      // would handle this when Alice has exactly one Neo4j connection, but
+      // shard cohabitation can leave extras around — picking explicitly keeps
+      // the test reliable regardless.
+      const triggers = dialog.getByRole("combobox");
+      await triggers.nth(0).click();
+      await page
+        .getByRole("option", { name: "Movies Graph (Neo4j)" })
+        .first()
+        .click();
+      await triggers.nth(1).click();
+      await page
+        .getByRole("option", { name: "Movies Graph (Neo4j)" })
+        .first()
+        .click();
+
       const importBtn = dialog.getByRole("button", { name: "Import" }).last();
-      await expect(importBtn).toBeEnabled({ timeout: 15_000 });
+      await expect(importBtn).toBeEnabled({ timeout: 5_000 });
       await importBtn.click();
 
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
