@@ -212,9 +212,21 @@ describe("proxy", () => {
       } as unknown as NextRequest;
     }
 
-    it("redirects HTTP to HTTPS in production", async () => {
+    it("does NOT redirect HTTP to HTTPS by default in production (FORCE_HTTPS unset)", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("redirects HTTP to HTTPS when FORCE_HTTPS=true (opt-in)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("FORCE_HTTPS", "true");
       const res = await proxy(
         makeFullRequest("http://example.com/dashboard", {
           "x-forwarded-proto": "http",
@@ -224,9 +236,20 @@ describe("proxy", () => {
       expect(res.headers.get("location")).toBe("https://example.com/dashboard");
     });
 
-    it("does NOT redirect when already HTTPS", async () => {
+    it("does NOT redirect when FORCE_HTTPS=TRUE (uppercase) — must match HSTS gating exactly", async () => {
       vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("FORCE_HTTPS", "");
+      vi.stubEnv("FORCE_HTTPS", "TRUE");
+      const res = await proxy(
+        makeFullRequest("http://example.com/dashboard", {
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).not.toBe(301);
+    });
+
+    it("does NOT redirect when already HTTPS even with FORCE_HTTPS=true", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("FORCE_HTTPS", "true");
       mockGetToken.mockResolvedValue({ sub: "user-1" });
       const res = await proxy(
         makeFullRequest("https://example.com/dashboard", {
@@ -236,9 +259,9 @@ describe("proxy", () => {
       expect(res.status).not.toBe(301);
     });
 
-    it("does NOT redirect in development", async () => {
+    it("does NOT redirect in development even with FORCE_HTTPS=true", async () => {
       vi.stubEnv("NODE_ENV", "development");
-      vi.stubEnv("FORCE_HTTPS", "");
+      vi.stubEnv("FORCE_HTTPS", "true");
       mockGetToken.mockResolvedValue({ sub: "user-1" });
       const res = await proxy(
         makeFullRequest("http://example.com/dashboard", {
@@ -248,7 +271,7 @@ describe("proxy", () => {
       expect(res.status).not.toBe(301);
     });
 
-    it("does NOT redirect when FORCE_HTTPS=false", async () => {
+    it("does NOT redirect when FORCE_HTTPS=false (explicit opt-out, same as default)", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "false");
       mockGetToken.mockResolvedValue({ sub: "user-1" });
@@ -260,21 +283,9 @@ describe("proxy", () => {
       expect(res.status).not.toBe(301);
     });
 
-    it("does NOT redirect when FORCE_HTTPS=FALSE (case-insensitive)", async () => {
+    it("does NOT redirect for localhost even with FORCE_HTTPS=true", async () => {
       vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("FORCE_HTTPS", "FALSE");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
-      const res = await proxy(
-        makeFullRequest("http://example.com/dashboard", {
-          "x-forwarded-proto": "http",
-        }),
-      );
-      expect(res.status).not.toBe(301);
-    });
-
-    it("does NOT redirect for localhost", async () => {
-      vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("FORCE_HTTPS", "");
+      vi.stubEnv("FORCE_HTTPS", "true");
       mockGetToken.mockResolvedValue({ sub: "user-1" });
       const res = await proxy(
         makeFullRequest("http://localhost:3000/dashboard", {
@@ -284,9 +295,9 @@ describe("proxy", () => {
       expect(res.status).not.toBe(301);
     });
 
-    it("does NOT redirect for 127.0.0.1", async () => {
+    it("does NOT redirect for 127.0.0.1 even with FORCE_HTTPS=true", async () => {
       vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("FORCE_HTTPS", "");
+      vi.stubEnv("FORCE_HTTPS", "true");
       mockGetToken.mockResolvedValue({ sub: "user-1" });
       const res = await proxy(
         makeFullRequest("http://127.0.0.1:3000/dashboard", {
@@ -296,9 +307,9 @@ describe("proxy", () => {
       expect(res.status).not.toBe(301);
     });
 
-    it("preserves path and query string in redirect", async () => {
+    it("preserves path and query string when redirecting (FORCE_HTTPS=true)", async () => {
       vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("FORCE_HTTPS", "");
+      vi.stubEnv("FORCE_HTTPS", "true");
       const res = await proxy(
         makeFullRequest("http://example.com/dashboard?tab=overview&id=42", {
           "x-forwarded-proto": "http",

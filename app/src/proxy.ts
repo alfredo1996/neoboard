@@ -41,10 +41,14 @@ export async function proxy(req: NextRequest) {
   // headers — route handlers read it via `headers().get("x-request-id")`.
   req.headers.set("x-request-id", requestId);
 
-  // --- HTTPS redirect (production only) ---
+  // --- HTTPS redirect (opt-in, production only) ---
+  // Default OFF: fresh deploys, demos, and reverse-proxy setups that
+  // terminate TLS upstream don't get force-redirected to HTTPS. Opt in
+  // with FORCE_HTTPS=true (matches the HSTS header behaviour in
+  // next.config.ts — both gated on the same env var).
   if (
     process.env.NODE_ENV === "production" &&
-    process.env.FORCE_HTTPS?.toLowerCase() !== "false"
+    process.env.FORCE_HTTPS === "true"
   ) {
     const host = req.nextUrl.hostname;
     const isLocal =
