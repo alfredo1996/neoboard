@@ -32,7 +32,13 @@ function setNestedValue(
     "ports.neo4j_http",
     "ports.neo4j_bolt",
   ];
-  const parsed = numericKeys.includes(key) ? parseInt(value, 10) : value;
+  const isNumeric = numericKeys.includes(key);
+  const parsed = isNumeric ? parseInt(value, 10) : value;
+  if (isNumeric && isNaN(parsed as number)) {
+    throw new Error(
+      `Invalid port value for ${key}: "${value}" is not a number`,
+    );
+  }
   return {
     ...obj,
     [section]: {

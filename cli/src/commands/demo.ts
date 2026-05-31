@@ -71,6 +71,7 @@ export async function runDemoSeed(opts?: { only?: string }): Promise<void> {
     spinner.succeed("Showcases seeded");
   } catch (err) {
     spinner.fail("Seed failed");
+    process.exitCode = 1;
     throw err;
   }
 }
@@ -135,6 +136,7 @@ export async function runDemoReset(opts?: { force?: boolean }): Promise<void> {
     spinner.succeed("Demo state reset");
   } catch (err) {
     spinner.fail("Reset failed");
+    process.exitCode = 1;
     throw err;
   }
 }

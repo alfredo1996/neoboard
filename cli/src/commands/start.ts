@@ -81,18 +81,25 @@ export async function runStart(opts?: StartOptions): Promise<void> {
 
   // 5. Done
   const url = `http://localhost:${config.ports.app}`;
+  const appRunning = full && mode === "docker";
   banner([
-    "NeoBoard is running!",
+    appRunning ? "NeoBoard is running!" : "Databases are ready!",
     "",
     `Mode:       ${mode}${full ? " (full stack)" : ""}`,
-    `App:        ${url}`,
+    ...(appRunning
+      ? [`App:        ${url}`]
+      : [`App:        not started — run: neoboard dev`]),
     `Neo4j:      http://localhost:${config.ports.neo4j_http}`,
     `PostgreSQL: localhost:${config.ports.postgres}`,
     "",
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,
   ]);
-  success(`Open ${url} in your browser`);
+  if (appRunning) {
+    success(`Open ${url} in your browser`);
+  } else {
+    success(`Run 'neoboard dev' to start the app`);
+  }
 }
 
 /**

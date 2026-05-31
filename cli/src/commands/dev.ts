@@ -13,6 +13,7 @@ export async function runDev(): Promise<void> {
     info(
       "In Docker mode, the app runs inside the container. Use 'neoboard start' and visit http://localhost:3000.",
     );
+    process.exitCode = 1;
     return;
   }
 

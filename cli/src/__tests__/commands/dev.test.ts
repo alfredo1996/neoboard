@@ -46,6 +46,7 @@ const mockGetMode = vi.mocked(getMode);
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("local");
+  process.exitCode = 0;
 });
 
 describe("runDev", () => {
@@ -54,6 +55,12 @@ describe("runDev", () => {
     await runDev();
     expect(info).toHaveBeenCalledWith(expect.stringContaining("Docker mode"));
     expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
+  it("sets exitCode=1 in docker mode", async () => {
+    mockGetMode.mockReturnValue("docker");
+    await runDev();
+    expect(process.exitCode).toBe(1);
   });
 
   it("spawns npm run dev in local mode", async () => {
