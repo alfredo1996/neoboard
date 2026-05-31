@@ -30,7 +30,8 @@
     "record:journeys": "node scripts/record-journeys/record.mjs",
     "neoboard": "node cli/dist/index.js",
     "cli:build": "npm -w cli run build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)"
   },
   "lint-staged": {
     "app/**/*.{ts,tsx}": [

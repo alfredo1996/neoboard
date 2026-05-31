@@ -15,6 +15,7 @@ vi.mock("../../../lib/config.js", () => ({
 
 vi.mock("../../../lib/output.js", () => ({
   success: vi.fn(),
+  error: vi.fn(),
   createSpinner: vi.fn(() => ({
     start: vi.fn(),
     succeed: vi.fn(),
@@ -28,17 +29,20 @@ vi.mock("node:fs", () => ({
 }));
 
 import { run } from "../../../lib/exec.js";
-import { getMode } from "../../../lib/config.js";
+import { getMode, readProjectConfig } from "../../../lib/config.js";
+import { error as logError } from "../../../lib/output.js";
 import { writeFileSync } from "node:fs";
 import { runDbDump } from "../../../commands/db/dump.js";
 
 const mockRun = vi.mocked(run);
 const mockGetMode = vi.mocked(getMode);
 const mockWriteFileSync = vi.mocked(writeFileSync);
+const mockReadProjectConfig = vi.mocked(readProjectConfig);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("docker");
+  process.exitCode = 0;
 });
 
 describe("runDbDump", () => {
@@ -86,5 +90,42 @@ describe("runDbDump", () => {
       expect.any(String),
       "-- SQL dump",
     );
+  });
+
+  it("calls spinner.fail, logs error, and sets exitCode=1 when run throws", async () => {
+    mockRun.mockImplementationOnce(() => {
+      throw new Error("pg_dump failed");
+    });
+    await runDbDump({});
+    expect(logError).toHaveBeenCalledWith("pg_dump failed");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("calls spinner.fail and sets exitCode=1 when writeFileSync throws", async () => {
+    mockWriteFileSync.mockImplementationOnce(() => {
+      throw new Error("ENOSPC: no space left");
+    });
+    await runDbDump({});
+    expect(logError).toHaveBeenCalledWith("ENOSPC: no space left");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("rejects unsafe postgres.user and sets exitCode=1", async () => {
+    mockReadProjectConfig.mockReturnValueOnce({
+      ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+      postgres: {
+        user: "bad;user",
+        password: "neoboard",
+        database: "neoboard",
+      },
+      neo4j: { user: "neo4j", password: "password" },
+      seed: { script: "scripts/seed.mjs", neo4j_cypher: "" },
+    });
+    await runDbDump({});
+    expect(logError).toHaveBeenCalledWith(
+      expect.stringContaining("Unsafe characters"),
+    );
+    expect(process.exitCode).toBe(1);
+    expect(mockRun).not.toHaveBeenCalled();
   });
 });

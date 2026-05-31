@@ -19,17 +19,17 @@ neoboard --help
 
 ## Common commands
 
-| Command                                       | What it does                                                                    |
-| --------------------------------------------- | ------------------------------------------------------------------------------- |
-| `neoboard setup`                              | Full first-time setup (Docker mode by default; `--mode local` for your own DBs) |
-| `neoboard start` / `stop`                     | Start or stop NeoBoard services                                                 |
-| `neoboard dev`                                | Next.js dev server with hot reload (auto-starts DBs)                            |
-| `neoboard status`                             | Health of Postgres, Neo4j, and the app                                          |
-| `neoboard doctor`                             | Diagnose common setup problems with actionable hints                            |
-| `neoboard db migrate`                         | Apply pending database migrations                                               |
-| `neoboard demo`                               | Seed showcase dashboards demonstrating every chart type                         |
-| `neoboard plugin add <pkg>`                   | Install and register a chart or connector plugin                                |
-| `neoboard logs [--service <name>] [--tail N]` | Tail container logs                                                             |
+| Command                               | What it does                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| `neoboard setup`                      | Full first-time setup (Docker mode by default; `--mode local` for your own DBs) |
+| `neoboard start` / `stop`             | Start or stop NeoBoard services                                                 |
+| `neoboard dev`                        | Next.js dev server with hot reload (auto-starts DBs)                            |
+| `neoboard status`                     | Health of Postgres, Neo4j, and the app                                          |
+| `neoboard doctor`                     | Diagnose common setup problems with actionable hints                            |
+| `neoboard db migrate`                 | Apply pending database migrations                                               |
+| `neoboard demo`                       | Seed showcase dashboards demonstrating every chart type                         |
+| `neoboard plugin add <pkg>`           | Install and register a chart or connector plugin                                |
+| `neoboard logs [-f] [-n N] [service]` | Tail container logs                                                             |
 
 Run `neoboard <command> --help` for flags and details on any command.
 

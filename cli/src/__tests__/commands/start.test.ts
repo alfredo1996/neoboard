@@ -121,6 +121,30 @@ describe("runStart", () => {
     expect(lines.some((l) => l.startsWith("Logs:"))).toBe(true);
   });
 
+  it("DB-only mode shows 'Databases are ready!' and neoboard dev hint", async () => {
+    await runStart({ full: false });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines[0]).toBe("Databases are ready!");
+    expect(lines.some((l) => l.includes("neoboard dev"))).toBe(true);
+    expect(lines.some((l) => l.includes("http://localhost:3000"))).toBe(false);
+  });
+
+  it("full mode shows 'NeoBoard is running!' and app URL", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines[0]).toBe("NeoBoard is running!");
+    expect(lines.some((l) => l.includes("http://localhost:3000"))).toBe(true);
+    expect(lines.some((l) => l.includes("neoboard dev"))).toBe(false);
+  });
+
+  it("local mode shows 'Databases are ready!' (app not started by start)", async () => {
+    mockGetMode.mockReturnValue("local");
+    await runStart();
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines[0]).toBe("Databases are ready!");
+    expect(lines.some((l) => l.includes("neoboard dev"))).toBe(true);
+  });
+
   it("on healthcheck timeout in docker mode, prints error+hints and exits 1", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     mockWaitForHealth.mockRejectedValueOnce(
