@@ -31,7 +31,7 @@
     "neoboard": "node cli/dist/index.js",
     "cli:build": "npm -w cli run build",
     "prepare": "husky",
-    "postinstall": "[ -n \"$CI\" ] || (npm -w cli run build && npm link ./cli)"
+    "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)"
   },
   "lint-staged": {
     "app/**/*.{ts,tsx}": [
