@@ -3,6 +3,7 @@ import {
   isNeoDashFormat,
   convertNeoDash,
   convertNeoDashWithNotes,
+  collectNeoDashDatabases,
 } from "@/lib/dashboard/neodash-converter";
 
 const NEODASH_SIMPLE = {
@@ -212,13 +213,111 @@ describe("convertNeoDash", () => {
     expect(item.i).toBeTruthy();
   });
 
-  it("sets connectionId to empty string for all widgets", () => {
+  it("sets connectionId to empty string when no database is specified", () => {
     const result = convertNeoDash(NEODASH_SIMPLE);
     for (const page of result.layout.pages) {
       for (const widget of page.widgets) {
         expect(widget.connectionId).toBe("");
       }
     }
+  });
+
+  it("threads report.database into widget.connectionId and widget.database", () => {
+    const json = {
+      title: "Multi-DB Dashboard",
+      version: "2.4",
+      pages: [
+        {
+          title: "Page 1",
+          reports: [
+            {
+              id: "r1",
+              title: "Movies",
+              type: "table",
+              query: "MATCH (m:Movie) RETURN m",
+              database: "movies",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+            {
+              id: "r2",
+              title: "Tenants",
+              type: "bar",
+              query: "MATCH (t:Tenant) RETURN t",
+              database: "tenants",
+              x: 6,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(json);
+    const widgets = result.layout.pages[0].widgets;
+    expect(widgets[0].connectionId).toBe("movies");
+    expect((widgets[0] as { database?: string }).database).toBe("movies");
+    expect(widgets[1].connectionId).toBe("tenants");
+    expect((widgets[1] as { database?: string }).database).toBe("tenants");
+  });
+
+  it("falls back to dashboard-level database when a report has none", () => {
+    const json = {
+      title: "Top-level DB",
+      version: "2.4",
+      database: "movies",
+      pages: [
+        {
+          title: "P1",
+          reports: [
+            {
+              id: "r1",
+              title: "No override",
+              type: "table",
+              query: "MATCH (n) RETURN n",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+            {
+              id: "r2",
+              title: "Overrides",
+              type: "bar",
+              query: "MATCH (n) RETURN n",
+              database: "tenants",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const result = convertNeoDash(json);
+    const widgets = result.layout.pages[0].widgets;
+    expect(widgets[0].connectionId).toBe("movies");
+    expect((widgets[0] as { database?: string }).database).toBe("movies");
+    expect(widgets[1].connectionId).toBe("tenants");
+    expect((widgets[1] as { database?: string }).database).toBe("tenants");
+  });
+
+  it("leaves widget.database unset when no NeoDash database is provided", () => {
+    const result = convertNeoDash(NEODASH_SIMPLE);
+    const widget = result.layout.pages[0].widgets[0] as { database?: string };
+    expect(widget.database).toBeUndefined();
   });
 
   it("assigns fresh UUIDs to each widget (i matches widget.id)", () => {
@@ -721,5 +820,96 @@ describe("convertNeoDash", () => {
   it("returns empty notes when all types map directly", () => {
     const { notes } = convertNeoDashWithNotes(makeNeoDash({ dashTitle: "T" }));
     expect(notes).toEqual([]);
+  });
+});
+
+describe("collectNeoDashDatabases", () => {
+  function dash(reports: Array<{ database?: string }>, topDb?: string) {
+    return {
+      title: "x",
+      ...(topDb ? { database: topDb } : {}),
+      pages: [
+        {
+          title: "p",
+          reports: reports.map((r, i) => ({
+            id: `r${i}`,
+            title: `r${i}`,
+            type: "table",
+            query: "",
+            x: 0,
+            y: 0,
+            width: 4,
+            height: 4,
+            settings: {},
+            parameters: {},
+            ...r,
+          })),
+        },
+      ],
+    };
+  }
+
+  it("returns [''] when no databases are set anywhere", () => {
+    expect(collectNeoDashDatabases(dash([{}, {}]))).toEqual([""]);
+  });
+
+  it("returns distinct, sorted databases from reports", () => {
+    expect(
+      collectNeoDashDatabases(
+        dash([{ database: "tenants" }, { database: "movies" }]),
+      ),
+    ).toEqual(["movies", "tenants"]);
+  });
+
+  it("uses the dashboard-level database as the fallback for reports with none", () => {
+    expect(
+      collectNeoDashDatabases(dash([{}, { database: "tenants" }], "movies")),
+    ).toEqual(["movies", "tenants"]);
+  });
+
+  it("collects across multiple pages", () => {
+    const json = {
+      title: "x",
+      pages: [
+        {
+          title: "p1",
+          reports: [
+            {
+              id: "a",
+              title: "a",
+              type: "table",
+              query: "",
+              x: 0,
+              y: 0,
+              width: 4,
+              height: 4,
+              database: "movies",
+            },
+          ],
+        },
+        {
+          title: "p2",
+          reports: [
+            {
+              id: "b",
+              title: "b",
+              type: "table",
+              query: "",
+              x: 0,
+              y: 0,
+              width: 4,
+              height: 4,
+              database: "tenants",
+            },
+          ],
+        },
+      ],
+    };
+    expect(collectNeoDashDatabases(json)).toEqual(["movies", "tenants"]);
+  });
+
+  it("returns [] for non-NeoDash payloads", () => {
+    expect(collectNeoDashDatabases({})).toEqual([]);
+    expect(collectNeoDashDatabases(null)).toEqual([]);
   });
 });

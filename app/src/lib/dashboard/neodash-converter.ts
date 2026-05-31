@@ -190,6 +190,7 @@ interface NeoDashReport {
   y: number;
   width: number;
   height: number;
+  database?: string;
   settings?: Record<string, unknown>;
   parameters?: Record<string, unknown>;
 }
@@ -203,6 +204,7 @@ interface NeoDashJson {
   title?: string;
   description?: string;
   version?: string;
+  database?: string;
   pages: NeoDashPage[];
 }
 
@@ -215,6 +217,26 @@ export interface ConversionResult {
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/**
+ * Distinct NeoDash database names across all reports, sorted.
+ *
+ * Empty string represents "no database specified" — those widgets fall back to
+ * the connection's default database after mapping. Returns `[]` for payloads
+ * that are not in NeoDash format.
+ */
+export function collectNeoDashDatabases(json: unknown): string[] {
+  if (!isNeoDashFormat(json)) return [];
+  const nd = json as NeoDashJson;
+  const fallback = nd.database ?? "";
+  const seen = new Set<string>();
+  for (const page of nd.pages) {
+    for (const report of page.reports) {
+      seen.add(report.database ?? fallback);
+    }
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
 
 export function isNeoDashFormat(json: unknown): boolean {
   if (!json || typeof json !== "object" || Array.isArray(json)) return false;
@@ -274,12 +296,14 @@ export function convertNeoDashWithNotes(json: unknown): ConversionResult {
       const refreshSettings = convertRefreshRate(reportSettings);
       const paramDefaults = convertParameterDefaults(reportSettings);
 
+      const reportDatabase = report.database ?? nd.database ?? "";
       widgets.push({
         id: widgetId,
         chartType,
-        connectionId: "",
+        connectionId: reportDatabase,
         query: convertParamSyntax(report.query ?? ""),
         params: report.parameters ?? {},
+        ...(reportDatabase ? { database: reportDatabase } : {}),
         settings: {
           ...reportSettings,
           // Preserve report title as widget title

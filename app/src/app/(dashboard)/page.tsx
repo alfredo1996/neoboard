@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -25,7 +25,6 @@ import {
   useCreateDashboard,
   useDeleteDashboard,
   useDuplicateDashboard,
-  useImportDashboard,
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import {
@@ -49,11 +48,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -65,23 +59,8 @@ import {
   DashboardMiniPreview,
   useToast,
 } from "@neoboard/components";
-import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
-
-// ── Types for import dialog ──────────────────────────────────────────
-
-interface ConnectionInfo {
-  name: string;
-  type: string;
-}
-
-interface ParsedImport {
-  payload: unknown;
-  dashboardName: string;
-  widgetCount: number;
-  isNeoDash: boolean;
-  connections: Record<string, ConnectionInfo>;
-}
+import { ImportDashboardDialog } from "./import-dashboard-dialog";
 
 // ── triggerExport helper ─────────────────────────────────────────────
 
@@ -104,234 +83,6 @@ async function triggerExport(id: string, name: string) {
   a.download = `dashboard-${slug}.json`;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-// ── ImportDashboardDialog ─────────────────────────────────────────────
-
-interface ImportDashboardDialogProps {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-}
-
-function ImportDashboardDialog({
-  open,
-  onOpenChange,
-}: ImportDashboardDialogProps) {
-  const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [parsed, setParsed] = useState<ParsedImport | null>(null);
-  const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [fileError, setFileError] = useState<string | null>(null);
-
-  const { data: availableConnections = [] } = useConnections();
-  const importDashboard = useImportDashboard();
-
-  function reset() {
-    setParsed(null);
-    setMapping({});
-    setFileError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function handleOpenChange(isOpen: boolean) {
-    if (!isOpen) reset();
-    onOpenChange(isOpen);
-  }
-
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setFileError(null);
-    setParsed(null);
-    setMapping({});
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text);
-
-      if (isNeoDashFormat(json)) {
-        // NeoDash — no connection mapping needed
-        const widgetCount =
-          (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
-            (sum: number, p) => sum + (p.reports?.length ?? 0),
-            0,
-          ) ?? 0;
-        setParsed({
-          payload: json,
-          dashboardName:
-            (json as { title?: string }).title ?? "Imported Dashboard",
-          widgetCount: widgetCount,
-          isNeoDash: true,
-          connections: {},
-        });
-      } else if (json.formatVersion === 1) {
-        // NeoBoard export
-        const connections = (json.connections ?? {}) as Record<
-          string,
-          ConnectionInfo
-        >;
-        const widgetCount =
-          (json.layout?.pages as Array<{ widgets?: unknown[] }>)?.reduce(
-            (sum: number, p) => sum + (p.widgets?.length ?? 0),
-            0,
-          ) ?? 0;
-        const initialMapping: Record<string, string> = {};
-        for (const key of Object.keys(connections)) {
-          initialMapping[key] = "";
-        }
-        setMapping(initialMapping);
-        setParsed({
-          payload: json,
-          dashboardName: json.dashboard?.name ?? "Imported Dashboard",
-          widgetCount,
-          isNeoDash: false,
-          connections,
-        });
-      } else {
-        setFileError(
-          "Unrecognised file format. Expected a NeoBoard or NeoDash export.",
-        );
-      }
-    } catch {
-      setFileError("Failed to parse file. Make sure it is a valid JSON file.");
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!parsed) return;
-
-    try {
-      const result = await importDashboard.mutateAsync({
-        payload: parsed.payload,
-        connectionMapping: mapping,
-      });
-      handleOpenChange(false);
-      router.push(`/${result.id}`);
-    } catch (error) {
-      setFileError(
-        error instanceof Error ? error.message : "Failed to import dashboard.",
-      );
-    }
-  }
-
-  const hasConnections =
-    parsed && !parsed.isNeoDash && Object.keys(parsed.connections).length > 0;
-  const allMapped =
-    !hasConnections || Object.values(mapping).every((v) => v !== "");
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Import Dashboard</DialogTitle>
-          </DialogHeader>
-
-          <div className="py-4 space-y-4">
-            <div>
-              <Label htmlFor="import-file">Dashboard file (.json)</Label>
-              <Input
-                id="import-file"
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleFile}
-                className="mt-2 cursor-pointer"
-              />
-              {fileError && (
-                <p className="text-sm text-destructive mt-1">{fileError}</p>
-              )}
-            </div>
-
-            {parsed && (
-              <div className="rounded-md border p-3 bg-muted/40 space-y-1">
-                <p className="text-sm font-medium truncate">
-                  {parsed.dashboardName}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {parsed.widgetCount} widget
-                  {parsed.widgetCount === 1 ? "" : "s"}
-                  {parsed.isNeoDash
-                    ? " · NeoDash format"
-                    : " · NeoBoard format"}
-                </p>
-              </div>
-            )}
-
-            {hasConnections && (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Map each connection placeholder to a local connection:
-                </p>
-                {Object.entries(parsed.connections).map(([key, info]) => {
-                  const compatible = availableConnections.filter(
-                    (c) => c.type === info.type,
-                  );
-                  return (
-                    <div
-                      key={key}
-                      className="grid grid-cols-2 gap-2 items-center"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {info.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {info.type}
-                        </p>
-                      </div>
-                      <Select
-                        value={mapping[key] ?? ""}
-                        onValueChange={(val) =>
-                          setMapping((prev) => ({ ...prev, [key]: val }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select connection" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {compatible.length === 0 ? (
-                            <SelectItem value="__none__" disabled>
-                              No {info.type} connections
-                            </SelectItem>
-                          ) : (
-                            compatible.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <LoadingButton
-              type="submit"
-              loading={importDashboard.isPending}
-              loadingText="Importing..."
-              disabled={!parsed || !allMapped}
-            >
-              Import
-            </LoadingButton>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 // ── GettingStartedGuide ──────────────────────────────────────────────
@@ -465,6 +216,10 @@ export default function DashboardListPage() {
   const createDashboard = useCreateDashboard();
   const deleteDashboard = useDeleteDashboard();
   const duplicateDashboard = useDuplicateDashboard();
+  // Pre-warm the connections query so ImportDashboardDialog has cached data
+  // ready when the user opens it — without this, opening the dialog kicks off
+  // a fresh fetch and the NeoDash auto-pick races the file upload.
+  useConnections();
   const [newName, setNewName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);

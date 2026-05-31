@@ -158,7 +158,7 @@ export function applyConnectionMapping(
       widgets: page.widgets.map((widget) => ({
         ...widget,
         connectionId:
-          widget.connectionId && mapping[widget.connectionId] !== undefined
+          mapping[widget.connectionId] !== undefined
             ? mapping[widget.connectionId]
             : widget.connectionId,
       })),
