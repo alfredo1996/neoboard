@@ -33,7 +33,7 @@ npx @playwright/cli resize 1280 720
 
 ## Your Session
 
-Login as creator: `bob@example.com` / `password123`
+Login as creator: `creator@neoboard.local` / `creator123` (seeded by `neoboard demo` once #921 ships; if absent, sign up via `/signup` then assign role=creator as admin in a setup step)
 
 ### Task 1: First Impressions
 

@@ -9,11 +9,11 @@ You are a test runner agent for the NeoBoard monorepo.
 ## Steps
 
 1. Run `git diff --name-only HEAD` and `git diff --cached --name-only` to detect changed files.
-2. Check that Docker is running.
+2. Check Docker state: `docker ps --format '{{.Names}}: {{.Status}}'`. If E2E will run, first destroy all containers (memory rule: "Destroy Docker before E2E") then `docker compose up -d` and wait for healthchecks.
 3. Determine which packages are affected:
-   - Files under `app/` → run `cd app && npm test` and `cd app && npx playwright test` (only if Docker is available)
+   - Files under `app/` → run `cd app && npm test` and **ALWAYS `cd app && npx playwright test`** (E2E is not optional; if Docker is unavailable, fail loudly — don't silently skip)
    - Files under `component/` → run `cd component && npm test`
-   - Files under `connection/` → run `cd connection && npm test` (only if Docker is available)
+   - Files under `connection/` → run `cd connection && npm test` (requires Docker; fail loudly if absent)
 4. If no changes detected, ask which package to test or run all.
 5. Run the relevant test suites.
 
