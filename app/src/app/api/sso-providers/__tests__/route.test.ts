@@ -87,7 +87,7 @@ describe("GET /api/sso-providers", () => {
     GET = mod.GET;
   });
 
-  it("returns 403 when NEOBOARD_EDITION is not enterprise", async () => {
+  it("returns 402 ENTERPRISE_REQUIRED when NEOBOARD_EDITION is not enterprise", async () => {
     vi.stubEnv("NEOBOARD_EDITION", "");
     // Re-import to pick up the env change
     vi.resetModules();
@@ -102,9 +102,10 @@ describe("GET /api/sso-providers", () => {
     }));
     const mod = await import("../route");
     const res = await mod.GET();
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(402);
     const body = await res.json();
-    expect(body.error.message).toMatch(/enterprise/i);
+    expect(body.error.code).toBe("ENTERPRISE_REQUIRED");
+    expect(body.error.message).toMatch(/sso|enterprise/i);
   });
 
   it("returns 401 when unauthenticated", async () => {

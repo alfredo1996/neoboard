@@ -25,6 +25,31 @@ vi.mock("@/hooks/use-sso-providers", () => ({
   }),
 }));
 
+// FeatureGate: default to rendering children (feature enabled). Override
+// `mockSsoEnabled = false` to test the disabled path.
+let mockSsoEnabled: boolean | undefined = true;
+vi.mock("@/components/feature-gate", () => ({
+  FeatureGate: ({
+    children,
+    fallback,
+  }: {
+    feature: string;
+    children: React.ReactNode;
+    fallback?: React.ReactNode;
+  }) => {
+    if (mockSsoEnabled === true) return <>{children}</>;
+    return <>{fallback ?? null}</>;
+  },
+}));
+
+vi.mock("@/components/enterprise-required-empty-state", () => ({
+  EnterpriseRequiredEmptyState: ({ feature }: { feature: string }) => (
+    <div data-testid="enterprise-required" data-feature={feature}>
+      Enterprise feature required: {feature}
+    </div>
+  ),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => "/settings/authentication",
@@ -181,6 +206,23 @@ vi.mock("@neoboard/components", () => ({
 describe("AuthenticationPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSsoEnabled = true;
+  });
+
+  it("renders enterprise-required empty state on community edition", async () => {
+    mockSsoEnabled = false;
+    mockUseSsoProviders.mockReturnValue({ data: undefined, isLoading: false });
+
+    const { default: Page } = await import("../page");
+    render(<Page />);
+
+    expect(screen.getByTestId("enterprise-required")).toBeInTheDocument();
+    expect(screen.getByTestId("enterprise-required")).toHaveAttribute(
+      "data-feature",
+      "sso",
+    );
+    // The community page must NOT render the SSO management UI
+    expect(screen.queryByText("Add SSO Provider")).not.toBeInTheDocument();
   });
 
   it("shows loading spinner when fetching", async () => {

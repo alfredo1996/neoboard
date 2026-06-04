@@ -40,6 +40,8 @@ import type {
   SsoProviderListItem,
   CreateSsoProviderInput,
 } from "@/hooks/use-sso-providers";
+import { FeatureGate } from "@/components/feature-gate";
+import { EnterpriseRequiredEmptyState } from "@/components/enterprise-required-empty-state";
 
 // ---------------------------------------------------------------------------
 // Add Provider Dialog
@@ -388,6 +390,21 @@ function ProviderRow({
 // ---------------------------------------------------------------------------
 
 export default function AuthenticationPage() {
+  return (
+    <FeatureGate
+      feature="sso"
+      fallback={
+        <div className="p-6">
+          <EnterpriseRequiredEmptyState feature="sso" />
+        </div>
+      }
+    >
+      <AuthenticationPageContent />
+    </FeatureGate>
+  );
+}
+
+function AuthenticationPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const { data: providers = [], isLoading } = useSsoProviders();
   const deleteMutation = useDeleteSsoProvider();

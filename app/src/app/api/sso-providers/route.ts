@@ -4,19 +4,12 @@ import { db } from "@/lib/db";
 import { ssoProviders } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { encrypt } from "@/lib/crypto/crypto";
-import { validateBody, handleRouteError, forbidden } from "@/lib/api/api-utils";
+import { validateBody, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { invalidateProviderCache } from "@/lib/auth/sso/provider-cache";
+import { requireFeature } from "@/lib/features/require-feature";
 
 const MAX_PROVIDERS_PER_TENANT = 5;
-
-/** SSO management requires NEOBOARD_EDITION=enterprise. */
-function requireEnterprise() {
-  if (process.env.NEOBOARD_EDITION !== "enterprise") {
-    return forbidden("SSO requires NEOBOARD_EDITION=enterprise");
-  }
-  return null;
-}
 
 const claimMappingSchema = z.object({
   claimKey: z.string().min(1),
@@ -54,9 +47,8 @@ const updateProviderSchema = z.object({
 });
 
 export async function GET() {
-  const gate = requireEnterprise();
-  if (gate) return gate;
   try {
+    requireFeature("sso");
     const { tenantId } = await requireAdmin();
 
     const rows = await db
@@ -85,9 +77,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const gate = requireEnterprise();
-  if (gate) return gate;
   try {
+    requireFeature("sso");
     const { tenantId } = await requireAdmin();
 
     const body = await request.json();
@@ -174,9 +165,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const gate = requireEnterprise();
-  if (gate) return gate;
   try {
+    requireFeature("sso");
     const { tenantId } = await requireAdmin();
 
     const url = new URL(request.url);
@@ -203,9 +193,8 @@ export async function DELETE(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const gate = requireEnterprise();
-  if (gate) return gate;
   try {
+    requireFeature("sso");
     const { tenantId } = await requireAdmin();
 
     const body = await request.json();

@@ -4,15 +4,24 @@ import { ssoProviders } from "@/lib/db/schema";
 import { loadEnvSsoProvider } from "@/lib/auth/sso/env-provider";
 import { apiSuccess } from "@/lib/api/api-response";
 import { handleRouteError } from "@/lib/api/api-utils";
+import { hasFeature } from "@/lib/features/registry";
 
 /**
  * Public endpoint — returns only id + name of enabled SSO providers.
  * Merges the env-based provider (if configured) with DB-based providers.
  * Used by the login page to render SSO buttons.
  * No auth required (falls under /api/auth/ public prefix).
+ *
+ * Defense in depth: on community edition this short-circuits to an empty
+ * response even if the sso_provider table has rows (e.g. legacy data from
+ * an earlier enterprise install). The sign-in flow relies on enterprise
+ * code anyway, so listing them on community would be a dead-end.
  */
 export async function GET() {
   try {
+    if (!hasFeature("sso")) {
+      return apiSuccess([], 200, { enforceSso: false });
+    }
     const tenantId = process.env.TENANT_ID ?? "default";
 
     const rows = await db
