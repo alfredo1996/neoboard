@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToHierarchicalData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { treemapSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const TreemapChart = dynamic(
   () =>
@@ -27,7 +28,7 @@ function TreemapPluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = treemapSettingsSchema.parse(raw);
+  const settings = safeParseSettings(treemapSettingsSchema, raw, "treemap");
   return (
     <TreemapChart
       data={(data as TreemapDataItem[]) ?? []}

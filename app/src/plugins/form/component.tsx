@@ -10,13 +10,14 @@ import { FormWidgetRenderer } from "@/components/form-widget-renderer";
 import { defineChartPlugin } from "../registry";
 import { type PluginProps } from "../utils";
 import { formSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 function FormPluginComponent({
   settings: raw,
   connectionId,
   query,
 }: PluginProps) {
-  const settings = formSettingsSchema.parse(raw);
+  const settings = safeParseSettings(formSettingsSchema, raw, "form");
   return (
     <FormWidgetRenderer
       connectionId={connectionId ?? ""}

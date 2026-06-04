@@ -10,9 +10,10 @@ import { defineChartPlugin } from "../registry";
 import { transformToJsonData } from "./transform";
 import { type PluginProps } from "../utils";
 import { jsonSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 function JsonPluginComponent({ data, settings: raw }: PluginProps) {
-  const settings = jsonSettingsSchema.parse(raw);
+  const settings = safeParseSettings(jsonSettingsSchema, raw, "json");
   return (
     <div className="h-full overflow-auto">
       <JsonViewer data={data} initialExpanded={settings.initialExpanded} />
