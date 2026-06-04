@@ -2,11 +2,25 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { User, KeyRound, Shield } from "lucide-react";
+import { useFeature, type FeatureId } from "@/hooks/use-features";
 
-const tabs = [
+interface Tab {
+  href: string;
+  label: string;
+  icon: typeof User;
+  /** When set, the tab is only rendered if this feature is enabled. */
+  requiresFeature?: FeatureId;
+}
+
+const tabs: Tab[] = [
   { href: "/settings/profile", label: "Profile", icon: User },
   { href: "/settings/api-keys", label: "API Keys", icon: KeyRound },
-  { href: "/settings/authentication", label: "Authentication", icon: Shield },
+  {
+    href: "/settings/authentication",
+    label: "Authentication",
+    icon: Shield,
+    requiresFeature: "sso",
+  },
 ];
 
 export default function SettingsLayout({
@@ -16,12 +30,23 @@ export default function SettingsLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  // Subscribe to features once at layout level; useFeature returns undefined
+  // during the initial load — we hide gated tabs in that window to avoid a
+  // flicker of enterprise UI on community installs.
+  const ssoEnabled = useFeature("sso");
+
+  const visibleTabs = tabs.filter((t) => {
+    if (!t.requiresFeature) return true;
+    if (t.requiresFeature === "sso") return ssoEnabled === true;
+    // Unknown feature gate: hide by default (safer than leak).
+    return false;
+  });
 
   return (
     <div className="flex flex-col">
       <nav className="border-b px-6">
         <div className="flex gap-4">
-          {tabs.map(({ href, label, icon: Icon }) => {
+          {visibleTabs.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <button
