@@ -204,6 +204,51 @@ interface NeoDashJson {
   description?: string;
   version?: string;
   pages: NeoDashPage[];
+  /**
+   * NeoDash stores dashboard-wide parameters here. NeoBoard models
+   * parameters as outputs of explicit parameter-select widgets, so the
+   * converter auto-generates one widget per *referenced* parameter
+   * (unreferenced ones are dropped with a note).
+   */
+  settings?: {
+    parameters?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Inferred parameter-select `parameterType` from a NeoDash default value.
+ *
+ * NeoDash didn't track the parameter type — the value shape is the only
+ * hint we have. The user can change the type in the widget editor.
+ */
+type ParameterSelectType = "select" | "text" | "multi-select" | "number-range";
+
+export function inferParameterType(value: unknown): ParameterSelectType {
+  if (Array.isArray(value)) return "multi-select";
+  if (typeof value === "number" && Number.isFinite(value))
+    return "number-range";
+  if (typeof value === "string" && value === "") return "text";
+  // "Y" / "N" / arbitrary string / null / undefined / object — default to select
+  return "select";
+}
+
+/**
+ * Extract every `$param_<name>` reference from a list of widget queries.
+ * Returns the set of unique parameter names (without the `$param_` prefix).
+ *
+ * Run AFTER convertParamSyntax has rewritten `$neodash_*` → `$param_*`.
+ */
+export function extractParamReferences(queries: string[]): Set<string> {
+  const names = new Set<string>();
+  const re = /\$param_(\w+)/g;
+  for (const q of queries) {
+    if (!q) continue;
+    for (const match of q.matchAll(re)) {
+      names.add(match[1]);
+    }
+  }
+  return names;
 }
 
 export interface ConversionResult {
@@ -290,11 +335,19 @@ export function convertNeoDashWithNotes(
       const refreshSettings = convertRefreshRate(reportSettings);
       const paramDefaults = convertParameterDefaults(reportSettings);
 
+      // Markdown widget content lives in `settings.content`, not `query`.
+      // NeoDash stored markdown body in `report.query`; route it correctly
+      // and leave the widget's query empty (markdown is content-only).
+      const isMarkdown = chartType === "markdown";
+      if (isMarkdown && report.query) {
+        notes.push('Imported markdown content for "' + report.title + '"');
+      }
+
       widgets.push({
         id: widgetId,
         chartType,
         connectionId: defaultConnectionId,
-        query: convertParamSyntax(report.query ?? ""),
+        query: isMarkdown ? "" : convertParamSyntax(report.query ?? ""),
         params: report.parameters ?? {},
         settings: {
           ...reportSettings,
@@ -302,6 +355,8 @@ export function convertNeoDashWithNotes(
           ...(report.title ? { title: report.title } : {}),
           // Set area mode for NeoDash "area" chart type
           ...(originalType === "area" ? { chartOptions: { area: true } } : {}),
+          // Markdown: content moved out of report.query
+          ...(isMarkdown ? { content: report.query ?? "" } : {}),
           // Mapped settings
           ...(clickAction ? { clickAction } : {}),
           ...(stylingConfig ? { stylingConfig } : {}),
@@ -327,6 +382,90 @@ export function convertNeoDashWithNotes(
     };
   });
 
+  // Auto-generate parameter-select widgets for every $param_* referenced
+  // in widget queries. NeoDash's dashboard-wide params don't map to a
+  // NeoBoard concept directly; the closest is a parameter-select widget
+  // that produces the value when rendered. We tile them onto a new
+  // "Filters" page (page 1) so they're visible before the data pages.
+  const ndParams = (nd.settings?.parameters ?? {}) as Record<string, unknown>;
+  const referenced = extractParamReferences(
+    pages.flatMap((p) => p.widgets.map((w) => w.query ?? "")),
+  );
+
+  // Union: referenced ∪ defined-in-NeoDash. Each gets a different note.
+  const definedNames = new Set(Object.keys(ndParams));
+  const filtersWidgets: DashboardWidget[] = [];
+  const filtersGridLayout: GridLayoutItem[] = [];
+
+  // 1. Iterate defined params: create if referenced, drop if not.
+  for (const rawName of Object.keys(ndParams)) {
+    const value = ndParams[rawName];
+    // Strip the legacy "neodash_" prefix from the param name so the
+    // widget produces $param_<name> matching what queries reference
+    // (convertParamSyntax already rewrote $neodash_X → $param_X in queries).
+    const paramName = rawName.startsWith("neodash_")
+      ? rawName.slice("neodash_".length)
+      : rawName;
+
+    if (!referenced.has(paramName)) {
+      notes.push(
+        "Parameter $param_" +
+          paramName +
+          " was defined in NeoDash but never referenced in any query — skipped",
+      );
+      continue;
+    }
+
+    const paramType = inferParameterType(value);
+    addFilterWidget(
+      filtersWidgets,
+      filtersGridLayout,
+      paramName,
+      paramType,
+      value,
+    );
+    notes.push(
+      "Created parameter-select widget for $param_" +
+        paramName +
+        " (type: " +
+        paramType +
+        ")",
+    );
+  }
+
+  // 2. Referenced but never defined: create with no default + warn.
+  for (const paramName of referenced) {
+    // skip if already created via the defined-params loop
+    if (
+      definedNames.has(paramName) ||
+      definedNames.has("neodash_" + paramName)
+    ) {
+      continue;
+    }
+    addFilterWidget(
+      filtersWidgets,
+      filtersGridLayout,
+      paramName,
+      "select",
+      undefined,
+    );
+    notes.push(
+      "Created parameter-select widget for $param_" +
+        paramName +
+        " with no default (referenced in query but not defined in NeoDash settings)",
+    );
+  }
+
+  // 3. If we created any filter widgets, prepend a "Filters" page.
+  if (filtersWidgets.length > 0) {
+    pages.unshift({
+      id: crypto.randomUUID(),
+      title: "Filters",
+      widgets: filtersWidgets,
+      gridLayout: filtersGridLayout,
+    });
+  }
+
   const layout: DashboardLayoutV2 = {
     version: 2,
     pages,
@@ -345,4 +484,47 @@ export function convertNeoDashWithNotes(
     },
     notes,
   };
+}
+
+/**
+ * Tile a new parameter-select widget into the Filters page grid.
+ * Layout: 4 widgets per row at w=3, h=2 (Filters page is 12 cols wide).
+ */
+function addFilterWidget(
+  widgets: DashboardWidget[],
+  gridLayout: GridLayoutItem[],
+  parameterName: string,
+  parameterType: ParameterSelectType,
+  defaultValue: unknown,
+): void {
+  const id = crypto.randomUUID();
+  const index = widgets.length;
+  const x = (index % 4) * 3;
+  const y = Math.floor(index / 4) * 2;
+
+  const settings: Record<string, unknown> = {
+    title: parameterName,
+    parameterName,
+    parameterType,
+  };
+  // Pre-populate the default when we know it. We don't try to reverse-engineer
+  // the seed query for select-typed params from a hard-coded default; the user
+  // can wire the seed query in the editor.
+  if (defaultValue !== undefined) {
+    settings.defaultValue = defaultValue;
+  }
+  if (parameterType === "number-range" && typeof defaultValue === "number") {
+    settings.rangeMin = 0;
+    settings.rangeMax = Math.max(defaultValue, 100);
+  }
+
+  widgets.push({
+    id,
+    chartType: "parameter-select",
+    connectionId: "",
+    query: "",
+    params: {},
+    settings,
+  });
+  gridLayout.push({ i: id, x, y, w: 3, h: 2 });
 }
