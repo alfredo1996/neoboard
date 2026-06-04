@@ -152,7 +152,10 @@ test.describe("Dashboard import validation", () => {
     await expect(importBtn).toBeEnabled({ timeout: 5_000 });
     await importBtn.click();
 
-    // Should redirect to the imported dashboard
+    // Post-success view replaces the form — click "View dashboard"
+    await page
+      .getByRole("button", { name: "View dashboard" })
+      .click({ timeout: 15_000 });
     await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
     // Dashboard should render with the imported widgets
