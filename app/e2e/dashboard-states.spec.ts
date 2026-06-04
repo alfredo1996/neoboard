@@ -65,7 +65,9 @@ test.describe("Dashboard viewer — uncovered states", () => {
     // Create a fresh dashboard
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.locator("#dashboard-name").fill("Self-Save Test");
+    await dialog
+      .locator("#dashboard-name")
+      .fill(`Self-Save Test ${Date.now()}`);
     await Promise.all([
       page.waitForResponse(
         (r) =>
@@ -78,10 +80,13 @@ test.describe("Dashboard viewer — uncovered states", () => {
     ]);
     await page.waitForURL(/\/edit/, { timeout: 15_000 });
 
-    // Save (no edits required — just trigger the version bump path).
-    // The PUT bumps version from 1 → 2 server-side; the hook's onSuccess
-    // must update sessionStorage so the subsequent visit doesn't see a stale
-    // baseline.
+    // Capture the dashboard id for later assertions / cleanup.
+    const editUrl = page.url();
+    const dashboardId = editUrl.split("/").slice(-2, -1)[0];
+
+    // Save — bumps version 1 → 2 server-side. With #904's fix, the hook's
+    // onSuccess writes the new version to sessionStorage so the subsequent
+    // view-mode load sees a fresh baseline and doesn't fire the banner.
     await Promise.all([
       page.waitForResponse(
         (r) =>
@@ -93,21 +98,22 @@ test.describe("Dashboard viewer — uncovered states", () => {
       page.getByRole("button", { name: "Save" }).click(),
     ]);
 
-    // Leave dashboard (back to list)
+    // Leave edit → view mode (the route where the version-bump effect runs)
     await page.getByRole("button", { name: /Back/ }).click();
-    await page.waitForURL(/\/dashboards/, { timeout: 10_000 });
-
-    // Re-open the same dashboard
-    await page.getByText("Self-Save Test", { exact: true }).click();
+    // Back goes to /<id>, not /dashboards
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    // Wait briefly for any version-bump effect to settle. The banner would
-    // appear in the same paint as the dashboard content if the bug were
-    // present, so a short stability window is sufficient.
+    // Wait briefly for the version-bump effect to settle. Banner would
+    // appear in the same paint if the bug were present.
     await page.waitForTimeout(500);
 
     // Critical assertion: NO "Dashboard updated by" banner
     await expect(page.getByText(/Dashboard updated by/i)).toHaveCount(0);
+
+    // Clean up to avoid polluting other tests
+    if (dashboardId) {
+      await page.request.delete(`/api/dashboards/${dashboardId}`);
+    }
   });
 });
 
