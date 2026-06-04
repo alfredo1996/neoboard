@@ -176,8 +176,31 @@ describe("POST /api/sso-providers", () => {
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+    // Pin enterprise so these tests are deterministic; community-mode is
+    // exercised by the dedicated 402 contract tests below.
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     const mod = await import("../route");
     POST = mod.POST;
+  });
+
+  it("returns 402 ENTERPRISE_REQUIRED on community edition", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "");
+    vi.resetModules();
+    vi.doMock("@/lib/auth/session", () => ({
+      requireAdmin: mockRequireAdmin,
+    }));
+    vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    const mod = await import("../route");
+    const res = await mod.POST(makeRequest(validProvider));
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error.code).toBe("ENTERPRISE_REQUIRED");
+    expect(body.error.message).toMatch(/sso|enterprise/i);
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -395,6 +418,27 @@ describe("DELETE /api/sso-providers", () => {
     DELETE = mod.DELETE;
   });
 
+  it("returns 402 ENTERPRISE_REQUIRED on community edition", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "");
+    vi.resetModules();
+    vi.doMock("@/lib/auth/session", () => ({
+      requireAdmin: mockRequireAdmin,
+    }));
+    vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    const mod = await import("../route");
+    const res = await mod.DELETE(
+      makeRequest(null, "http://localhost/api/sso-providers?id=sso-1"),
+    );
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error.code).toBe("ENTERPRISE_REQUIRED");
+  });
+
   it("returns 401 when unauthenticated", async () => {
     mockRequireAdmin.mockRejectedValue(new UnauthorizedError());
     const res = await DELETE(
@@ -453,8 +497,29 @@ describe("PATCH /api/sso-providers", () => {
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
       invalidateProviderCache: mockInvalidateCache,
     }));
+    // Pin enterprise so admin-path tests are deterministic.
+    vi.stubEnv("NEOBOARD_EDITION", "enterprise");
     const mod = await import("../route");
     PATCH = mod.PATCH;
+  });
+
+  it("returns 402 ENTERPRISE_REQUIRED on community edition", async () => {
+    vi.stubEnv("NEOBOARD_EDITION", "");
+    vi.resetModules();
+    vi.doMock("@/lib/auth/session", () => ({
+      requireAdmin: mockRequireAdmin,
+    }));
+    vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
+    vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/sso/provider-cache", () => ({
+      invalidateProviderCache: mockInvalidateCache,
+    }));
+    const mod = await import("../route");
+    const res = await mod.PATCH(makeRequest({ id: "sso-1", name: "X" }));
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error.code).toBe("ENTERPRISE_REQUIRED");
   });
 
   it("returns 403 for non-admin", async () => {

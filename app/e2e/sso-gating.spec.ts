@@ -43,9 +43,14 @@ test.describe("SSO gating — community edition", () => {
   });
 
   test("/api/sso-providers returns 402 ENTERPRISE_REQUIRED", async ({
-    request,
+    page,
   }) => {
-    const res = await request.get("/api/sso-providers");
+    // Use page.request so this rides the authenticated session set up in
+    // beforeEach + the page's connection pool (avoids the global request
+    // context occasionally racing with server startup → ECONNRESET on first
+    // call). The route gates on requireFeature("sso") before auth checks,
+    // so this 402 is independent of the session identity.
+    const res = await page.request.get("/api/sso-providers");
     expect(res.status()).toBe(402);
     const body = await res.json();
     expect(body.error?.code).toBe("ENTERPRISE_REQUIRED");
