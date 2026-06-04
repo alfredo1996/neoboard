@@ -108,7 +108,11 @@ test.describe("Dashboard import", () => {
       await expect(importBtn).toBeEnabled({ timeout: 5_000 });
       await importBtn.click();
 
-      // Should redirect to the imported dashboard
+      // Post-success view replaces the form (no auto-redirect). Click
+      // "View dashboard" to navigate to the imported one.
+      await page
+        .getByRole("button", { name: "View dashboard" })
+        .click({ timeout: 15_000 });
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
       // The dashboard should render content
@@ -162,15 +166,21 @@ test.describe("NeoDash legacy import", () => {
     await expect(dialog.getByText("E2E NeoDash Import Test")).toBeVisible();
     await expect(dialog.getByText("8 widgets")).toBeVisible();
 
-    // No connection mapping should appear (NeoDash skips it)
-    await expect(dialog.getByText("Map each connection")).not.toBeVisible();
+    // NeoDash imports now synthesize a single Neo4j placeholder that needs
+    // to be mapped or skipped. Skip it here — this test asserts chart-type
+    // conversion, not connection wiring (widgets render whether or not they
+    // have a real connection).
+    await dialog.locator('label:has-text("Skip")').first().click();
 
-    // Import button should be enabled immediately
+    // Import button should be enabled once the only placeholder is skipped
     const importBtn = dialog.getByRole("button", { name: "Import" }).last();
     await expect(importBtn).toBeEnabled({ timeout: 5_000 });
     await importBtn.click();
 
-    // Should redirect to the imported dashboard
+    // Post-success view replaces the form — click "View dashboard"
+    await page
+      .getByRole("button", { name: "View dashboard" })
+      .click({ timeout: 15_000 });
     await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
     // Verify 6 widget cards rendered — includes gantt and graph3d→graph
@@ -234,6 +244,10 @@ test.describe("NeoDash legacy import", () => {
         timeout: 5_000,
       });
 
+      // Skip the synthesized Neo4j placeholder — this test cares about the
+      // fallback chart-type behavior, not the connection wiring.
+      await dialog.locator('label:has-text("Skip")').first().click();
+
       const importBtn = dialog.getByRole("button", { name: "Import" }).last();
       await expect(importBtn).toBeEnabled();
       await importBtn.click();
@@ -242,6 +256,9 @@ test.describe("NeoDash legacy import", () => {
       // Assert the widget card renders (proves import succeeded and the fallback
       // chart type didn't blow up). We don't look for "JSON Viewer" text because
       // the chart type label isn't always rendered as visible text on the card.
+      await page
+        .getByRole("button", { name: "View dashboard" })
+        .click({ timeout: 15_000 });
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
       await expect(
         page.locator("[data-testid='widget-card']").first(),
