@@ -4,17 +4,17 @@ import type { ReactNode } from "react";
 import { useFeature, type FeatureId } from "@/hooks/use-features";
 
 interface FeatureGateProps {
-  feature: FeatureId;
+  readonly feature: FeatureId;
   /** Rendered when the feature is enabled. */
-  children: ReactNode;
+  readonly children: ReactNode;
   /** Rendered when the feature is NOT enabled or still loading. Defaults to nothing. */
-  fallback?: ReactNode;
+  readonly fallback?: ReactNode;
   /**
    * When true, render the fallback during the initial load (recommended for
    * UI that would flash an enterprise-only surface before the features list
    * loads). Default: true.
    */
-  hideOnLoading?: boolean;
+  readonly hideOnLoading?: boolean;
 }
 
 /**

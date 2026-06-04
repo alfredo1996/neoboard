@@ -5,13 +5,13 @@ import { EmptyState, Button } from "@neoboard/components";
 import type { FeatureId } from "@/hooks/use-features";
 
 interface EnterpriseRequiredEmptyStateProps {
-  feature: FeatureId;
+  readonly feature: FeatureId;
   /** Override the auto-generated title (defaults to the feature label). */
-  title?: string;
+  readonly title?: string;
   /** Override the auto-generated description. */
-  description?: string;
+  readonly description?: string;
   /** Override the upgrade link target. */
-  upgradeUrl?: string;
+  readonly upgradeUrl?: string;
 }
 
 /**
