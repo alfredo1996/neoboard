@@ -38,6 +38,7 @@ import {
   CardTitle,
   CardDescription,
   CardFooter,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -113,6 +114,17 @@ interface ImportDashboardDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * Synthesized placeholder key used for NeoDash imports. Must match the
+ * server's NEODASH_PLACEHOLDER_KEY in app/src/app/api/dashboards/import/route.ts.
+ */
+const NEODASH_PLACEHOLDER_KEY = "neodash-default";
+
+interface ImportSuccessState {
+  id: string;
+  notes: string[];
+}
+
 function ImportDashboardDialog({
   open,
   onOpenChange,
@@ -121,7 +133,13 @@ function ImportDashboardDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [fileError, setFileError] = useState<string | null>(null);
+  // Post-import state: dialog replaces the form with a notes summary and
+  // View / Stay buttons. Cleared on reset / dialog close.
+  const [successState, setSuccessState] = useState<ImportSuccessState | null>(
+    null,
+  );
 
   const { data: availableConnections = [] } = useConnections();
   const importDashboard = useImportDashboard();
@@ -129,7 +147,9 @@ function ImportDashboardDialog({
   function reset() {
     setParsed(null);
     setMapping({});
+    setSkipped(new Set());
     setFileError(null);
+    setSuccessState(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -138,10 +158,25 @@ function ImportDashboardDialog({
     onOpenChange(isOpen);
   }
 
+  function toggleSkip(key: string) {
+    setSkipped((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+        // Clear any selection — skipping clears the mapping value
+        setMapping((m) => ({ ...m, [key]: "" }));
+      }
+      return next;
+    });
+  }
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setFileError(null);
     setParsed(null);
     setMapping({});
+    setSkipped(new Set());
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -150,19 +185,29 @@ function ImportDashboardDialog({
       const json = JSON.parse(text);
 
       if (isNeoDashFormat(json)) {
-        // NeoDash — no connection mapping needed
+        // NeoDash — synthesize a single placeholder for the whole dashboard.
+        // NeoDash always pointed at one global Neo4j; surface that as one
+        // required mapping in the UI.
         const widgetCount =
           (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
             (sum: number, p) => sum + (p.reports?.length ?? 0),
             0,
           ) ?? 0;
+        const title =
+          (json as { title?: string }).title ?? "Imported Dashboard";
+        const synthesized: Record<string, ConnectionInfo> = {
+          [NEODASH_PLACEHOLDER_KEY]: {
+            name: "Neo4j connection (" + title + ")",
+            type: "neo4j",
+          },
+        };
+        setMapping({ [NEODASH_PLACEHOLDER_KEY]: "" });
         setParsed({
           payload: json,
-          dashboardName:
-            (json as { title?: string }).title ?? "Imported Dashboard",
+          dashboardName: title,
           widgetCount: widgetCount,
           isNeoDash: true,
-          connections: {},
+          connections: synthesized,
         });
       } else if (json.formatVersion === 1) {
         // NeoBoard export
@@ -205,9 +250,10 @@ function ImportDashboardDialog({
       const result = await importDashboard.mutateAsync({
         payload: parsed.payload,
         connectionMapping: mapping,
+        skippedConnections: Array.from(skipped),
       });
-      handleOpenChange(false);
-      router.push(`/${result.id}`);
+      // Don't redirect — replace the form with notes + View/Stay buttons.
+      setSuccessState({ id: result.id, notes: result.notes ?? [] });
     } catch (error) {
       setFileError(
         error instanceof Error ? error.message : "Failed to import dashboard.",
@@ -215,10 +261,62 @@ function ImportDashboardDialog({
     }
   }
 
-  const hasConnections =
-    parsed && !parsed.isNeoDash && Object.keys(parsed.connections).length > 0;
+  const hasConnections = parsed && Object.keys(parsed.connections).length > 0;
   const allMapped =
-    !hasConnections || Object.values(mapping).every((v) => v !== "");
+    !hasConnections ||
+    Object.entries(mapping).every(([key, v]) => skipped.has(key) || v !== "");
+
+  // Post-success view: replace the form with notes + View/Stay buttons.
+  if (successState) {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dashboard imported</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="rounded-md border p-3 bg-muted/40">
+              <p className="text-sm font-medium truncate">
+                {parsed?.dashboardName ?? "Imported dashboard"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Imported successfully.
+              </p>
+            </div>
+            {successState.notes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Import notes</p>
+                <ul className="list-disc pl-5 space-y-1 max-h-60 overflow-y-auto text-sm text-muted-foreground">
+                  {successState.notes.map((note, i) => (
+                    <li key={i}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+            >
+              Stay here
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const id = successState.id;
+                handleOpenChange(false);
+                router.push(`/${id}`);
+              }}
+            >
+              View dashboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -262,48 +360,81 @@ function ImportDashboardDialog({
             {hasConnections && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Map each connection placeholder to a local connection:
+                  Map each connection placeholder to a local connection, or
+                  check &ldquo;Skip&rdquo; to import without one (widgets will
+                  need a connection assigned before they can load data).
                 </p>
                 {Object.entries(parsed.connections).map(([key, info]) => {
                   const compatible = availableConnections.filter(
                     (c) => c.type === info.type,
                   );
+                  const isSkipped = skipped.has(key);
+                  const hasNoCompatible = compatible.length === 0;
                   return (
                     <div
                       key={key}
-                      className="grid grid-cols-2 gap-2 items-center"
+                      className="rounded-md border p-3 space-y-2 bg-card"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {info.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {info.type}
-                        </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {info.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {info.type}
+                          </p>
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer shrink-0">
+                          <Checkbox
+                            checked={isSkipped}
+                            onCheckedChange={() => toggleSkip(key)}
+                          />
+                          Skip
+                        </label>
                       </div>
-                      <Select
-                        value={mapping[key] ?? ""}
-                        onValueChange={(val) =>
-                          setMapping((prev) => ({ ...prev, [key]: val }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select connection" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {compatible.length === 0 ? (
-                            <SelectItem value="__none__" disabled>
-                              No {info.type} connections
-                            </SelectItem>
-                          ) : (
-                            compatible.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
-                              </SelectItem>
-                            ))
+                      {!isSkipped && (
+                        <>
+                          <Select
+                            value={mapping[key] ?? ""}
+                            onValueChange={(val) =>
+                              setMapping((prev) => ({ ...prev, [key]: val }))
+                            }
+                            disabled={hasNoCompatible}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select connection" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {hasNoCompatible ? (
+                                <SelectItem value="__none__" disabled>
+                                  No {info.type} connections
+                                </SelectItem>
+                              ) : (
+                                compatible.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {hasNoCompatible && (
+                            <p className="text-xs text-muted-foreground">
+                              No compatible {info.type} connections in your
+                              tenant.{" "}
+                              <a
+                                href="/connections"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline-offset-4 hover:underline"
+                              >
+                                Create one
+                              </a>{" "}
+                              or check &ldquo;Skip&rdquo; to import without.
+                            </p>
                           )}
-                        </SelectContent>
-                      </Select>
+                        </>
+                      )}
                     </div>
                   );
                 })}

@@ -8,6 +8,21 @@ import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 export interface ImportDashboardInput {
   payload: unknown;
   connectionMapping: Record<string, string>;
+  /**
+   * Connection placeholder keys the user explicitly chose to skip. Widgets
+   * referencing a skipped key are imported with `connectionId=""` and surfaced
+   * in the response notes.
+   */
+  skippedConnections?: string[];
+}
+
+/**
+ * Import response shape. Existing callers that only read `id` continue to
+ * work; new callers can render the notes list (mapping summary, chart-type
+ * downgrades, skipped connections, etc.).
+ */
+export interface ImportDashboardResult extends DashboardDetail {
+  notes: string[];
 }
 
 export interface WidgetPreviewItem {
@@ -207,7 +222,7 @@ export function useImportDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      return unwrapResponse<DashboardDetail>(res);
+      return unwrapResponse<ImportDashboardResult>(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });

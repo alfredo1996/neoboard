@@ -226,11 +226,27 @@ export function isNeoDashFormat(json: unknown): boolean {
   });
 }
 
-export function convertNeoDash(json: unknown): NeoboardExport {
-  return convertNeoDashWithNotes(json).export;
+/**
+ * Convert a NeoDash dashboard JSON to NeoBoard's export envelope.
+ *
+ * Pass `defaultConnectionId` to assign every widget to that connection.
+ * Omit to retain the legacy empty-string behavior (caller must fix up the
+ * connection later, or the dashboard will render with broken widgets).
+ *
+ * The single-connection model matches NeoDash's actual semantics — a NeoDash
+ * dashboard always pointed at one global Neo4j instance.
+ */
+export function convertNeoDash(
+  json: unknown,
+  defaultConnectionId = "",
+): NeoboardExport {
+  return convertNeoDashWithNotes(json, defaultConnectionId).export;
 }
 
-export function convertNeoDashWithNotes(json: unknown): ConversionResult {
+export function convertNeoDashWithNotes(
+  json: unknown,
+  defaultConnectionId = "",
+): ConversionResult {
   const nd = json as NeoDashJson;
   const notes: string[] = [];
 
@@ -277,7 +293,7 @@ export function convertNeoDashWithNotes(json: unknown): ConversionResult {
       widgets.push({
         id: widgetId,
         chartType,
-        connectionId: "",
+        connectionId: defaultConnectionId,
         query: convertParamSyntax(report.query ?? ""),
         params: report.parameters ?? {},
         settings: {
