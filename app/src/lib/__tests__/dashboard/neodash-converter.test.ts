@@ -199,7 +199,9 @@ describe("convertNeoDash", () => {
         query: "MATCH (n) WHERE n.name = $neodash_userName RETURN n",
       }),
     );
-    expect(result.layout.pages[0].widgets[0].query).toBe(
+    // Referencing $param_userName triggers a Filters page being prepended
+    // (auto-generated parameter-select for the undefined param). Original at index 1.
+    expect(result.layout.pages[1].widgets[0].query).toBe(
       "MATCH (n) WHERE n.name = $param_userName RETURN n",
     );
   });
@@ -438,7 +440,8 @@ describe("convertNeoDash", () => {
           "MATCH (n) WHERE n.name = $neodash_name AND n.age > $neodash_minAge RETURN n",
       }),
     );
-    expect(result.layout.pages[0].widgets[0].query).toBe(
+    // Two referenced params → Filters page prepended; original page at index 1.
+    expect(result.layout.pages[1].widgets[0].query).toBe(
       "MATCH (n) WHERE n.name = $param_name AND n.age > $param_minAge RETURN n",
     );
   });

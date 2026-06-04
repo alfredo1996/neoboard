@@ -242,6 +242,13 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     expect(s.parameterType).toBe("number-range");
     expect(s.defaultValue).toBe(2024);
     expect(notes.some((n) => n.includes("$param_year"))).toBe(true);
+
+    // Verify the original widget's query was rewritten from $neodash_year
+    // → $param_year (CR finding: the test asserted filter creation but not
+    // the parallel query-syntax conversion).
+    const originalWidget = exp.layout.pages[1].widgets[0];
+    expect(originalWidget.query).toContain("$param_year");
+    expect(originalWidget.query).not.toContain("$neodash_year");
   });
 
   it("skips parameters that are defined but never referenced", () => {
@@ -255,9 +262,12 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
   });
 
   it("creates parameter-select for referenced-but-undefined params with a warning note", () => {
+    // Use realistic NeoDash syntax — convertParamSyntax rewrites it to $param_,
+    // and the extractor sees the rewritten form (CR finding: tests should
+    // exercise the conversion path, not bypass it).
     const nd = makeNeoDash([
       makeReport({
-        query: "MATCH (n) WHERE n.name = $param_undeclared RETURN n",
+        query: "MATCH (n) WHERE n.name = $neodash_undeclared RETURN n",
       }),
     ]);
 
@@ -274,10 +284,13 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
   });
 
   it("infers types correctly per default value", () => {
+    // Use real NeoDash $neodash_ syntax so the conversion path is exercised
+    // (CR finding: pre-converted $param_ bypasses convertParamSyntax).
     const nd = makeNeoDash(
       [
         makeReport({
-          query: "$param_str $param_emp $param_arr $param_num $param_yn",
+          query:
+            "$neodash_str $neodash_emp $neodash_arr $neodash_num $neodash_yn",
         }),
       ],
       {
@@ -329,7 +342,7 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const queryParts: string[] = [];
     for (let i = 0; i < 6; i++) {
       params[`neodash_p${i}`] = `v${i}`;
-      queryParts.push(`$param_p${i}`);
+      queryParts.push(`$neodash_p${i}`);
     }
     const nd = makeNeoDash([makeReport({ query: queryParts.join(" ") })], {
       parameters: params,
@@ -348,10 +361,15 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     expect(filtersGrid.every((g) => g.w === 3 && g.h === 2)).toBe(true);
   });
 
-  it("number-range pre-populates rangeMin=0 and rangeMax=max(default, 100)", () => {
-    const nd = makeNeoDash([makeReport({ query: "$param_small $param_big" })], {
-      parameters: { neodash_small: 5, neodash_big: 500 },
-    });
+  it("number-range pre-populates rangeMin=min(default, 0) and rangeMax=max(default, 100)", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({
+          query: "$neodash_small $neodash_big $neodash_neg",
+        }),
+      ],
+      { parameters: { neodash_small: 5, neodash_big: 500, neodash_neg: -10 } },
+    );
 
     const { export: exp } = convertNeoDashWithNotes(nd);
     const byName = Object.fromEntries(
@@ -364,6 +382,9 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     expect(byName.small.rangeMax).toBe(100); // max(5, 100)
     expect(byName.big.rangeMin).toBe(0);
     expect(byName.big.rangeMax).toBe(500);
+    // CR caught: negative defaults need rangeMin to widen below 0
+    expect(byName.neg.rangeMin).toBe(-10);
+    expect(byName.neg.rangeMax).toBe(100);
   });
 });
 

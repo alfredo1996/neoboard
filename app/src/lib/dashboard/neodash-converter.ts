@@ -385,85 +385,11 @@ export function convertNeoDashWithNotes(
   // Auto-generate parameter-select widgets for every $param_* referenced
   // in widget queries. NeoDash's dashboard-wide params don't map to a
   // NeoBoard concept directly; the closest is a parameter-select widget
-  // that produces the value when rendered. We tile them onto a new
-  // "Filters" page (page 1) so they're visible before the data pages.
-  const ndParams = (nd.settings?.parameters ?? {}) as Record<string, unknown>;
-  const referenced = extractParamReferences(
-    pages.flatMap((p) => p.widgets.map((w) => w.query ?? "")),
-  );
-
-  // Union: referenced ∪ defined-in-NeoDash. Each gets a different note.
-  const definedNames = new Set(Object.keys(ndParams));
-  const filtersWidgets: DashboardWidget[] = [];
-  const filtersGridLayout: GridLayoutItem[] = [];
-
-  // 1. Iterate defined params: create if referenced, drop if not.
-  for (const rawName of Object.keys(ndParams)) {
-    const value = ndParams[rawName];
-    // Strip the legacy "neodash_" prefix from the param name so the
-    // widget produces $param_<name> matching what queries reference
-    // (convertParamSyntax already rewrote $neodash_X → $param_X in queries).
-    const paramName = rawName.startsWith("neodash_")
-      ? rawName.slice("neodash_".length)
-      : rawName;
-
-    if (!referenced.has(paramName)) {
-      notes.push(
-        "Parameter $param_" +
-          paramName +
-          " was defined in NeoDash but never referenced in any query — skipped",
-      );
-      continue;
-    }
-
-    const paramType = inferParameterType(value);
-    addFilterWidget(
-      filtersWidgets,
-      filtersGridLayout,
-      paramName,
-      paramType,
-      value,
-    );
-    notes.push(
-      "Created parameter-select widget for $param_" +
-        paramName +
-        " (type: " +
-        paramType +
-        ")",
-    );
-  }
-
-  // 2. Referenced but never defined: create with no default + warn.
-  for (const paramName of referenced) {
-    // skip if already created via the defined-params loop
-    if (
-      definedNames.has(paramName) ||
-      definedNames.has("neodash_" + paramName)
-    ) {
-      continue;
-    }
-    addFilterWidget(
-      filtersWidgets,
-      filtersGridLayout,
-      paramName,
-      "select",
-      undefined,
-    );
-    notes.push(
-      "Created parameter-select widget for $param_" +
-        paramName +
-        " with no default (referenced in query but not defined in NeoDash settings)",
-    );
-  }
-
-  // 3. If we created any filter widgets, prepend a "Filters" page.
-  if (filtersWidgets.length > 0) {
-    pages.unshift({
-      id: crypto.randomUUID(),
-      title: "Filters",
-      widgets: filtersWidgets,
-      gridLayout: filtersGridLayout,
-    });
+  // that produces the value when rendered. Prepend them as a "Filters"
+  // page so they're visible before the data pages.
+  const filtersPage = buildFiltersPage(nd.settings?.parameters, pages, notes);
+  if (filtersPage) {
+    pages.unshift(filtersPage);
   }
 
   const layout: DashboardLayoutV2 = {
@@ -483,6 +409,86 @@ export function convertNeoDashWithNotes(
       layout,
     },
     notes,
+  };
+}
+
+/**
+ * Build the auto-generated "Filters" page from NeoDash's dashboard-wide
+ * parameters. Returns null when no widgets would be created (no params
+ * referenced in any query, or no params at all).
+ *
+ * Walks two sets:
+ *   1. Defined in `nd.settings.parameters` → create widget if referenced;
+ *      skip with note otherwise
+ *   2. Referenced in queries but not defined → create with no default + warn
+ */
+function buildFiltersPage(
+  ndParams: Record<string, unknown> | undefined,
+  pages: { widgets: DashboardWidget[] }[],
+  notes: string[],
+): {
+  id: string;
+  title: string;
+  widgets: DashboardWidget[];
+  gridLayout: GridLayoutItem[];
+} | null {
+  const params = ndParams ?? {};
+  const referenced = extractParamReferences(
+    pages.flatMap((p) => p.widgets.map((w) => w.query ?? "")),
+  );
+  const definedNames = new Set(Object.keys(params));
+  const widgets: DashboardWidget[] = [];
+  const gridLayout: GridLayoutItem[] = [];
+
+  // 1. Iterate defined params: create if referenced, drop if not.
+  for (const rawName of Object.keys(params)) {
+    const value = params[rawName];
+    const paramName = rawName.startsWith("neodash_")
+      ? rawName.slice("neodash_".length)
+      : rawName;
+
+    if (!referenced.has(paramName)) {
+      notes.push(
+        "Parameter $param_" +
+          paramName +
+          " was defined in NeoDash but never referenced in any query — skipped",
+      );
+      continue;
+    }
+
+    const paramType = inferParameterType(value);
+    addFilterWidget(widgets, gridLayout, paramName, paramType, value);
+    notes.push(
+      "Created parameter-select widget for $param_" +
+        paramName +
+        " (type: " +
+        paramType +
+        ")",
+    );
+  }
+
+  // 2. Referenced but never defined: create with no default + warn.
+  for (const paramName of referenced) {
+    if (
+      definedNames.has(paramName) ||
+      definedNames.has("neodash_" + paramName)
+    ) {
+      continue;
+    }
+    addFilterWidget(widgets, gridLayout, paramName, "select", undefined);
+    notes.push(
+      "Created parameter-select widget for $param_" +
+        paramName +
+        " with no default (referenced in query but not defined in NeoDash settings)",
+    );
+  }
+
+  if (widgets.length === 0) return null;
+  return {
+    id: crypto.randomUUID(),
+    title: "Filters",
+    widgets,
+    gridLayout,
   };
 }
 
@@ -514,7 +520,11 @@ function addFilterWidget(
     settings.defaultValue = defaultValue;
   }
   if (parameterType === "number-range" && typeof defaultValue === "number") {
-    settings.rangeMin = 0;
+    // rangeMin/rangeMax must include defaultValue. CodeRabbit caught the
+    // negative-default bug: a default of -5 with rangeMin=0 would be outside
+    // the range. min(default, 0) keeps the floor at 0 for non-negative
+    // defaults (common case) while widening for negatives.
+    settings.rangeMin = Math.min(defaultValue, 0);
     settings.rangeMax = Math.max(defaultValue, 100);
   }
 
