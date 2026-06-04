@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToMapData, validateMapData } from "./transform";
 import { type PluginProps } from "../utils";
 import { mapSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 // Leaflet relies on window/document — must be loaded client-side only.
 const MapChart = dynamic(
@@ -34,7 +35,7 @@ function MapPluginComponent({
   onChartClick,
 }: PluginProps) {
   const markers = (data ?? []) as MapMarker[];
-  const settings = mapSettingsSchema.parse(raw);
+  const settings = safeParseSettings(mapSettingsSchema, raw, "map");
   return (
     <MapChart
       markers={markers}

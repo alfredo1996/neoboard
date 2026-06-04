@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToGaugeData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { gaugeSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const GaugeChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.GaugeChart })),
@@ -26,7 +27,7 @@ function GaugePluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = gaugeSettingsSchema.parse(raw);
+  const settings = safeParseSettings(gaugeSettingsSchema, raw, "gauge");
   return (
     <GaugeChart
       data={(data as GaugeDataPoint[]) ?? []}

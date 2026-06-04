@@ -11,6 +11,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToChoroplethData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { choroplethSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const ChoroplethChart = dynamic(
   () =>
@@ -26,7 +27,11 @@ function ChoroplethPluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = choroplethSettingsSchema.parse(raw);
+  const settings = safeParseSettings(
+    choroplethSettingsSchema,
+    raw,
+    "choropleth",
+  );
   return (
     <ChoroplethChart
       data={(data as ChoroplethDataItem[]) ?? []}

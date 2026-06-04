@@ -15,6 +15,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToGraphData, validateGraphData } from "./transform";
 import { type PluginProps } from "../utils";
 import { graphSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 // NVL (WebGL) is heavy — lazy load so it's only bundled when a graph widget renders.
 const GraphChart = dynamic(
@@ -33,7 +34,7 @@ function GraphPluginComponent({
   resultId,
   autoFit,
 }: PluginProps) {
-  const settings = graphSettingsSchema.parse(raw);
+  const settings = safeParseSettings(graphSettingsSchema, raw, "graph");
   const graphData = (data ?? { nodes: [], edges: [] }) as {
     nodes: GraphNode[];
     edges: GraphEdge[];

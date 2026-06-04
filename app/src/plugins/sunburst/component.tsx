@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToHierarchicalData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { sunburstSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const SunburstChart = dynamic(
   () =>
@@ -27,7 +28,7 @@ function SunburstPluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = sunburstSettingsSchema.parse(raw);
+  const settings = safeParseSettings(sunburstSettingsSchema, raw, "sunburst");
   return (
     <SunburstChart
       data={(data as SunburstDataItem[]) ?? []}

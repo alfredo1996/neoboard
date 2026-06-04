@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const graphSettingsSchema = z
   .object({
-    layout: z.enum(["force", "circular"]).default("force"),
+    layout: z.enum(["force", "circular", "hierarchical"]).default("force"),
     showLabels: z.boolean().default(true),
   })
   .passthrough();

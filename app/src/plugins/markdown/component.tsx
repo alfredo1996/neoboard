@@ -10,6 +10,7 @@ import { MarkdownWidget, getChartOptions } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
 import { type PluginProps } from "../utils";
 import { markdownSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 /**
  * Component adapter — extracts the `content` field from settings and
@@ -17,7 +18,7 @@ import { markdownSettingsSchema } from "./settings";
  * settings object to the component as `settings` prop.
  */
 function MarkdownPluginComponent({ settings: raw }: PluginProps) {
-  const settings = markdownSettingsSchema.parse(raw);
+  const settings = safeParseSettings(markdownSettingsSchema, raw, "markdown");
   return <MarkdownWidget content={settings.content} />;
 }
 

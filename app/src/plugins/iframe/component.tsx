@@ -8,9 +8,10 @@ import { IframeWidget, getChartOptions } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
 import { type PluginProps } from "../utils";
 import { iframeSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 function IframePluginComponent({ settings: raw }: PluginProps) {
-  const settings = iframeSettingsSchema.parse(raw);
+  const settings = safeParseSettings(iframeSettingsSchema, raw, "iframe");
   return (
     <IframeWidget
       url={settings.url}

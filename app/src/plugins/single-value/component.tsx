@@ -14,6 +14,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToValueData, validateValueData } from "./transform";
 import { type PluginProps } from "../utils";
 import { singleValueSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const SingleValueChart = dynamic(
   () =>
@@ -29,10 +30,11 @@ function SingleValuePluginComponent({
   stylingRules,
   paramValues,
 }: PluginProps) {
-  const parsed = singleValueSettingsSchema.safeParse(raw);
-  const settings = parsed.success
-    ? parsed.data
-    : singleValueSettingsSchema.parse({});
+  const settings = safeParseSettings(
+    singleValueSettingsSchema,
+    raw,
+    "single-value",
+  );
   const rawData = data ?? 0;
   const val =
     typeof rawData === "number" || typeof rawData === "string"

@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToSankeyData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { sankeySettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const SankeyChart = dynamic(
   () =>
@@ -27,7 +28,7 @@ function SankeyPluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = sankeySettingsSchema.parse(raw);
+  const settings = safeParseSettings(sankeySettingsSchema, raw, "sankey");
   const sankeyData = (data as SankeyChartData) ?? { nodes: [], links: [] };
   return (
     <SankeyChart
