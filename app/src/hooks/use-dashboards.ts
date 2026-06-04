@@ -146,7 +146,28 @@ export function useUpdateDashboard() {
       }
       return unwrapResponse(res);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
+      // Update the version-bump baseline in sessionStorage BEFORE invalidating
+      // the cache. The dashboard detail page (`[id]/page.tsx`) compares the
+      // refetched server version to this stored value to decide whether to
+      // show the "Dashboard updated by X" banner. Without this, a successful
+      // self-save would always trigger that banner on the user's own next
+      // visit (the refetch sees version N+1, sessionStorage still says N →
+      // banner fires with the user's own name).
+      //
+      // TanStack Query guarantees onSuccess runs before invalidateQueries'
+      // refetch lands, so the sessionStorage write is in place by the time
+      // the detail page's effect reads it.
+      if (typeof window !== "undefined") {
+        const newVersion = (result as { version?: unknown } | undefined)
+          ?.version;
+        if (typeof newVersion === "number") {
+          sessionStorage.setItem(
+            `__nb_dash_ver_${variables.id}`,
+            String(newVersion),
+          );
+        }
+      }
       queryClient.invalidateQueries({
         queryKey: ["dashboards", variables.id],
       });

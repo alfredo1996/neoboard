@@ -58,6 +58,57 @@ test.describe("Dashboard viewer — uncovered states", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await expect(page.getByText("Movie Analytics")).toBeVisible();
   });
+
+  test("does NOT show 'Dashboard updated by' banner after a self-save + revisit (#904)", async ({
+    page,
+  }) => {
+    // Create a fresh dashboard
+    await page.getByRole("button", { name: /New Dashboard/i }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.locator("#dashboard-name").fill("Self-Save Test");
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST" &&
+          r.status() === 201,
+        { timeout: 10_000 },
+      ),
+      dialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+
+    // Save (no edits required — just trigger the version bump path).
+    // The PUT bumps version from 1 → 2 server-side; the hook's onSuccess
+    // must update sessionStorage so the subsequent visit doesn't see a stale
+    // baseline.
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          /\/api\/dashboards\/[\w-]+$/.test(r.url()) &&
+          r.request().method() === "PUT" &&
+          r.status() === 200,
+        { timeout: 10_000 },
+      ),
+      page.getByRole("button", { name: "Save" }).click(),
+    ]);
+
+    // Leave dashboard (back to list)
+    await page.getByRole("button", { name: /Back/ }).click();
+    await page.waitForURL(/\/dashboards/, { timeout: 10_000 });
+
+    // Re-open the same dashboard
+    await page.getByText("Self-Save Test", { exact: true }).click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+
+    // Wait briefly for any version-bump effect to settle. The banner would
+    // appear in the same paint as the dashboard content if the bug were
+    // present, so a short stability window is sufficient.
+    await page.waitForTimeout(500);
+
+    // Critical assertion: NO "Dashboard updated by" banner
+    await expect(page.getByText(/Dashboard updated by/i)).toHaveCount(0);
+  });
 });
 
 test.describe("Dashboard editor — uncovered states", () => {

@@ -12,6 +12,7 @@ const {
   useDashboards,
   useDashboard,
   useCreateDashboard,
+  useUpdateDashboard,
   useDeleteDashboard,
   useDuplicateDashboard,
   useImportDashboard,
@@ -163,6 +164,94 @@ describe("use-dashboards", () => {
       await expect(config.mutationFn({ name: "" })).rejects.toThrow(
         "Validation error",
       );
+    });
+  });
+
+  // ── useUpdateDashboard ──────────────────────────────────────────────
+  describe("useUpdateDashboard mutationFn + onSuccess", () => {
+    it("PUTs to /api/dashboards/:id with body + expectedVersion", async () => {
+      const input = {
+        id: "d-abc",
+        name: "Renamed",
+        expectedVersion: 7,
+      };
+      const updated = { id: "d-abc", name: "Renamed", version: 8 };
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(updated),
+      );
+      const config = useUpdateDashboard() as unknown as {
+        mutationFn: (i: typeof input) => Promise<unknown>;
+      };
+      const result = await config.mutationFn(input);
+      expect(result).toEqual(updated);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/dashboards/d-abc",
+        expect.objectContaining({ method: "PUT" }),
+      );
+    });
+
+    // Helper: stub both `window` (for the gate) and the bare `sessionStorage`
+    // global (which the hook calls directly, matching the codebase's usage in
+    // `[id]/page.tsx`). Node test env doesn't provide either.
+    function withMockSessionStorage(
+      run: (setItem: ReturnType<typeof vi.fn>) => void,
+    ) {
+      const setItem = vi.fn();
+      vi.stubGlobal("window", {
+        sessionStorage: { setItem, getItem: vi.fn(), removeItem: vi.fn() },
+      });
+      vi.stubGlobal("sessionStorage", {
+        setItem,
+        getItem: vi.fn(),
+        removeItem: vi.fn(),
+      });
+      try {
+        run(setItem);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    }
+
+    it("onSuccess writes new version to sessionStorage", () => {
+      withMockSessionStorage((setItem) => {
+        const config = useUpdateDashboard() as unknown as {
+          onSuccess: (
+            result: { version: number },
+            variables: { id: string },
+          ) => void;
+        };
+        config.onSuccess({ version: 42 }, { id: "d-xyz" });
+        expect(setItem).toHaveBeenCalledWith("__nb_dash_ver_d-xyz", "42");
+      });
+    });
+
+    it("onSuccess skips sessionStorage write when result has no version", () => {
+      withMockSessionStorage((setItem) => {
+        const config = useUpdateDashboard() as unknown as {
+          onSuccess: (
+            result: { version?: number },
+            variables: { id: string },
+          ) => void;
+        };
+        config.onSuccess({}, { id: "d-no-version" });
+        expect(setItem).not.toHaveBeenCalled();
+      });
+    });
+
+    it("onSuccess skips sessionStorage write when version is not a number", () => {
+      withMockSessionStorage((setItem) => {
+        const config = useUpdateDashboard() as unknown as {
+          onSuccess: (
+            result: { version: unknown },
+            variables: { id: string },
+          ) => void;
+        };
+        config.onSuccess(
+          { version: "8" as unknown as number },
+          { id: "d-bad" },
+        );
+        expect(setItem).not.toHaveBeenCalled();
+      });
     });
   });
 
