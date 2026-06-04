@@ -195,9 +195,13 @@ function ImportDashboardDialog({
           ) ?? 0;
         const title =
           (json as { title?: string }).title ?? "Imported Dashboard";
+        // Placeholder name intentionally avoids repeating the dashboard title
+        // — the title is already shown above in the parsed-preview box, and
+        // duplicating it caused strict-mode locator collisions in E2E tests
+        // (the same text would resolve to 2 elements in the dialog).
         const synthesized: Record<string, ConnectionInfo> = {
           [NEODASH_PLACEHOLDER_KEY]: {
-            name: "Neo4j connection (" + title + ")",
+            name: "Neo4j connection",
             type: "neo4j",
           },
         };
