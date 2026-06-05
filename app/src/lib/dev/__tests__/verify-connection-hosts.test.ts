@@ -36,9 +36,9 @@ describe("extractHostname", () => {
 // ---------------------------------------------------------------------------
 
 describe("verifyConnectionHostsImpl", () => {
-  let warn: ReturnType<typeof vi.fn>;
+  let warn: ReturnType<typeof vi.fn<(message: string) => void>>;
   beforeEach(() => {
-    warn = vi.fn();
+    warn = vi.fn<(message: string) => void>();
   });
 
   it("does nothing when there are no seeded connections", async () => {
