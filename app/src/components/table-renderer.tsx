@@ -322,6 +322,15 @@ export function TableRenderer({
           enableColumnFilters={settings.enableColumnFilters === true}
           enablePagination={enablePagination}
           pageSize={(settings.pageSize as number) ?? 10}
+          numberFormat={
+            settings.numberFormat as
+              | "comma"
+              | "compact"
+              | "percent"
+              | "plain"
+              | undefined
+          }
+          decimalPlaces={settings.decimalPlaces as number | undefined}
           containerHeight={
             enablePagination && hasUsableHeight ? containerHeight : undefined
           }
