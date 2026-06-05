@@ -19,30 +19,30 @@ export const THEME_DARK = "neoboard-dark";
  * Similar hues (e.g. Orange/Amber, Green/Teal) are placed far apart.
  */
 export const DEEP_OCEAN_LIGHT = [
-  "hsl(217, 91%, 60%)",  // 1  Blue
-  "hsl(38, 92%, 50%)",   // 2  Amber
-  "hsl(347, 77%, 50%)",  // 3  Rose
-  "hsl(160, 84%, 39%)",  // 4  Teal
-  "hsl(271, 81%, 56%)",  // 5  Purple
-  "hsl(24, 90%, 48%)",   // 6  Orange
-  "hsl(142, 71%, 45%)",  // 7  Green
-  "hsl(199, 89%, 48%)",  // 8  Sky
-  "hsl(326, 78%, 42%)",  // 9  Wine
-  "hsl(55, 70%, 45%)",   // 10 Olive
+  "hsl(217, 91%, 60%)", // 1  Blue
+  "hsl(38, 92%, 50%)", // 2  Amber
+  "hsl(347, 77%, 50%)", // 3  Rose
+  "hsl(160, 84%, 39%)", // 4  Teal
+  "hsl(271, 81%, 56%)", // 5  Purple
+  "hsl(24, 90%, 48%)", // 6  Orange
+  "hsl(142, 71%, 45%)", // 7  Green
+  "hsl(199, 89%, 48%)", // 8  Sky
+  "hsl(326, 78%, 42%)", // 9  Wine
+  "hsl(55, 70%, 45%)", // 10 Olive
 ];
 
 /** 10-color colorblind-safe "Deep Ocean" palette — dark mode. */
 export const DEEP_OCEAN_DARK = [
-  "hsl(217, 91%, 65%)",  // 1  Blue
-  "hsl(38, 92%, 56%)",   // 2  Amber
-  "hsl(347, 77%, 55%)",  // 3  Rose
-  "hsl(160, 70%, 50%)",  // 4  Teal
-  "hsl(271, 81%, 65%)",  // 5  Purple
-  "hsl(24, 90%, 55%)",   // 6  Orange
-  "hsl(142, 71%, 50%)",  // 7  Green
-  "hsl(199, 89%, 55%)",  // 8  Sky
-  "hsl(326, 78%, 50%)",  // 9  Wine
-  "hsl(55, 70%, 52%)",   // 10 Olive
+  "hsl(217, 91%, 65%)", // 1  Blue
+  "hsl(38, 92%, 56%)", // 2  Amber
+  "hsl(347, 77%, 55%)", // 3  Rose
+  "hsl(160, 70%, 50%)", // 4  Teal
+  "hsl(271, 81%, 65%)", // 5  Purple
+  "hsl(24, 90%, 55%)", // 6  Orange
+  "hsl(142, 71%, 50%)", // 7  Green
+  "hsl(199, 89%, 55%)", // 8  Sky
+  "hsl(326, 78%, 50%)", // 9  Wine
+  "hsl(55, 70%, 52%)", // 10 Olive
 ];
 
 /**
@@ -68,11 +68,17 @@ export function registerNeoboardThemes(
   registerTheme(THEME_LIGHT, {
     color: DEEP_OCEAN_LIGHT,
     backgroundColor: "transparent",
-    textStyle: { color: "#1e293b" },           // foreground hsl(222,47%,11%) ≈ #1e293b
+    textStyle: { color: "#1e293b" }, // foreground hsl(222,47%,11%) ≈ #1e293b
     title: { textStyle: { color: "#1e293b" } },
     categoryAxis: lightAxis,
     valueAxis: lightAxis,
     legend: { textStyle: { color: "#657084" } }, // muted-foreground
+    // Gauge series ignores textStyle for `detail` (the big center number)
+    // — it defaults to `'auto'` which picks up axis colors. Force foreground.
+    gauge: {
+      detail: { color: "#1e293b" },
+      title: { color: "#657084" },
+    },
   });
 
   // Dark axis: border hsl(217,33%,17%) ≈ #1d2a3f, muted-fg hsl(215,20%,65%) ≈ #94a3b8
@@ -80,10 +86,14 @@ export function registerNeoboardThemes(
   registerTheme(THEME_DARK, {
     color: DEEP_OCEAN_DARK,
     backgroundColor: "transparent",
-    textStyle: { color: "#f8fafc" },           // foreground hsl(210,40%,98%) ≈ #f8fafc
+    textStyle: { color: "#f8fafc" }, // foreground hsl(210,40%,98%) ≈ #f8fafc
     title: { textStyle: { color: "#f8fafc" } },
     categoryAxis: darkAxis,
     valueAxis: darkAxis,
     legend: { textStyle: { color: "#94a3b8" } }, // muted-foreground
+    gauge: {
+      detail: { color: "#f8fafc" },
+      title: { color: "#94a3b8" },
+    },
   });
 }

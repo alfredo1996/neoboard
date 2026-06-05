@@ -211,7 +211,6 @@ function GanttChart({
               formatter: "Today",
               position: "insideStartTop" as const,
               fontSize: 10,
-              color: "inherit",
             },
             data: [{ xAxis: Date.now() }],
           },
