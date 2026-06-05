@@ -64,6 +64,30 @@ export const tableOptions: ChartOptionDef[] = [
     description: "Text displayed when the query returns no rows.",
   },
   {
+    key: "numberFormat",
+    label: "Number Format",
+    type: "select",
+    default: "comma",
+    category: "Display",
+    description:
+      "How numeric cells are formatted across the whole table. Use Plain to opt out of formatting (raw JS precision).",
+    options: [
+      { label: "Comma (1,234.56)", value: "comma" },
+      { label: "Compact (1.2K)", value: "compact" },
+      { label: "Percent (12%)", value: "percent" },
+      { label: "Plain (1234.56)", value: "plain" },
+    ],
+  },
+  {
+    key: "decimalPlaces",
+    label: "Decimal Places",
+    type: "number",
+    default: 2,
+    category: "Display",
+    description:
+      "Number of decimal places shown for numeric cells. Applies table-wide.",
+  },
+  {
     key: "enableGrouping",
     label: "Enable Row Grouping",
     type: "boolean",
