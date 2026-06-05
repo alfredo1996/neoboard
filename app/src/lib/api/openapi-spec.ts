@@ -25,17 +25,38 @@ function jsonResponse(description: string, schemaRef: string) {
   };
 }
 
-/** Array JSON response pointing to a $ref schema */
-function arrayResponse(description: string, schemaRef: string) {
+/**
+ * Paginated list JSON response (#908). Wraps the item schema in the standard
+ * `{data, error, meta}` envelope that the runtime's `apiList()` emits, so
+ * Swagger UI shows the meta.total / meta.limit / meta.offset fields and
+ * generated clients can page through results.
+ */
+function paginatedResponse(description: string, itemSchemaRef: string) {
   return {
     description,
     content: {
       "application/json": {
-        schema: { type: "array" as const, items: { $ref: schemaRef } },
+        schema: {
+          type: "object" as const,
+          properties: {
+            data: {
+              type: "array" as const,
+              items: { $ref: itemSchemaRef },
+            },
+            error: { $ref: "#/components/schemas/EnvelopeError" },
+            meta: { $ref: "#/components/schemas/PaginationMeta" },
+          },
+        },
       },
     },
   };
 }
+
+/** Standard limit + offset parameter references, shared by all list GETs. */
+const PAGINATION_PARAMS = [
+  { $ref: "#/components/parameters/LimitParam" },
+  { $ref: "#/components/parameters/OffsetParam" },
+] as const;
 
 // Shorthand aliases for common $ref responses
 const R = {
@@ -80,9 +101,10 @@ const SPEC = {
         tags: ["Connections"],
         summary: "List connections",
         description: "Returns all connections owned by the authenticated user.",
+        parameters: [...PAGINATION_PARAMS],
         responses: {
-          200: arrayResponse(
-            "Array of connection summaries (credentials excluded)",
+          200: paginatedResponse(
+            "Paginated list of connection summaries (credentials excluded)",
             "#/components/schemas/ConnectionSummary",
           ),
           401: R.unauthorized,
@@ -205,9 +227,10 @@ const SPEC = {
         description:
           "Returns dashboards visible to the authenticated user: owned, shared, and public. " +
           "Admins see all dashboards in the tenant.",
+        parameters: [...PAGINATION_PARAMS],
         responses: {
-          200: arrayResponse(
-            "Array of dashboard summaries",
+          200: paginatedResponse(
+            "Paginated list of dashboard summaries",
             "#/components/schemas/DashboardSummary",
           ),
           401: R.unauthorized,
@@ -402,8 +425,12 @@ const SPEC = {
         tags: ["Users"],
         summary: "List users",
         description: "Returns all users. **Admin only.**",
+        parameters: [...PAGINATION_PARAMS],
         responses: {
-          200: arrayResponse("Array of users", "#/components/schemas/User"),
+          200: paginatedResponse(
+            "Paginated list of users",
+            "#/components/schemas/User",
+          ),
           401: R.unauthorized,
           403: R.forbidden,
         },
@@ -459,6 +486,7 @@ const SPEC = {
         tags: ["Widget Templates"],
         summary: "List widget templates",
         parameters: [
+          ...PAGINATION_PARAMS,
           {
             name: "chartType",
             in: "query",
@@ -473,8 +501,8 @@ const SPEC = {
           },
         ],
         responses: {
-          200: arrayResponse(
-            "Array of widget templates",
+          200: paginatedResponse(
+            "Paginated list of widget templates",
             "#/components/schemas/WidgetTemplate",
           ),
           401: R.unauthorized,
@@ -616,6 +644,22 @@ const SPEC = {
         schema: { type: "string" },
         description: "Resource identifier",
       },
+      LimitParam: {
+        name: "limit",
+        in: "query",
+        required: false,
+        schema: { type: "integer", minimum: 1, maximum: 1000, default: 25 },
+        description:
+          "Maximum number of rows to return. Defaults to 25, capped at 1000.",
+      },
+      OffsetParam: {
+        name: "offset",
+        in: "query",
+        required: false,
+        schema: { type: "integer", minimum: 0, default: 0 },
+        description:
+          "Number of rows to skip. Combine with `limit` to page through results.",
+      },
     },
     responses: {
       Unauthorized: jsonResponse(
@@ -652,6 +696,16 @@ const SPEC = {
       SuccessResult: {
         type: "object",
         properties: { success: { type: "boolean" } },
+      },
+      PaginationMeta: {
+        type: "object",
+        description:
+          "Pagination metadata returned by every list endpoint. `total` is the unfiltered row count for the current query.",
+        properties: {
+          total: { type: "integer", minimum: 0 },
+          limit: { type: "integer", minimum: 1, maximum: 1000 },
+          offset: { type: "integer", minimum: 0 },
+        },
       },
       EnvelopeError: {
         type: "object",
