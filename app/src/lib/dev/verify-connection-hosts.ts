@@ -84,7 +84,12 @@ export async function verifyConnectionHostsImpl(
         unresolvable.length +
         " seeded connection(s) reference unreachable hosts:\n" +
         unresolvable
-          .map((c) => `   - "${c.name}" (${c.type}): ${c.uri}`)
+          .map((c) => {
+            // Log host only — decrypted URIs may carry `user:password@host`
+            // and we must never write credentials to logs.
+            const host = extractHostname(c.uri) ?? "<invalid-uri>";
+            return `   - "${c.name}" (${c.type}): host=${host}`;
+          })
           .join("\n") +
         "\n   Fix: " +
         PROMPT_HINT,
@@ -103,20 +108,24 @@ export async function verifyConnectionHostsImpl(
 export async function verifyConnectionHosts(): Promise<void> {
   if (process.env.NODE_ENV !== "development") return;
   try {
-    const [{ db }, schema, crypto] = await Promise.all([
+    const [{ db }, schema, crypto, { eq }] = await Promise.all([
       import("@/lib/db"),
       import("@/lib/db/schema"),
       import("@/lib/crypto/crypto"),
+      import("drizzle-orm"),
     ]);
+    const tenantId = process.env.TENANT_ID ?? "default";
     await verifyConnectionHostsImpl({
       fetchConnections: async () => {
+        // Every DB query must include tenant scoping, even diagnostics.
         const rows = await db
           .select({
             name: schema.connections.name,
             type: schema.connections.type,
             configEncrypted: schema.connections.configEncrypted,
           })
-          .from(schema.connections);
+          .from(schema.connections)
+          .where(eq(schema.connections.tenantId, tenantId));
         const out: SeededConnection[] = [];
         for (const r of rows) {
           try {

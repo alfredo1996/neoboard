@@ -89,8 +89,29 @@ describe("verifyConnectionHostsImpl", () => {
     expect(msg).toContain("2 seeded connection(s)");
     expect(msg).toContain('"Neo4j"');
     expect(msg).toContain('"PG2"');
+    expect(msg).toContain("host=neoboard-neo4j");
+    expect(msg).toContain("host=neoboard-postgres");
     expect(msg).not.toContain('"PG"'); // resolvable, not listed
     expect(msg).toMatch(/seed-demo\.mjs/);
+  });
+
+  it("never logs credentials embedded in connection URIs", async () => {
+    await verifyConnectionHostsImpl({
+      fetchConnections: async () => [
+        {
+          name: "PG",
+          type: "postgresql",
+          uri: "postgresql://admin:supersecret@unreachable-host:5432/db",
+        },
+      ],
+      resolve: vi.fn().mockRejectedValue(new Error("ENOTFOUND")),
+      warn,
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    const msg = warn.mock.calls[0][0] as string;
+    expect(msg).toContain("host=unreachable-host");
+    expect(msg).not.toContain("admin");
+    expect(msg).not.toContain("supersecret");
   });
 
   it("skips entries with malformed URIs (extractHostname returns null)", async () => {
