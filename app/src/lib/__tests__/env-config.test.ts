@@ -10,6 +10,7 @@ describe("validateEnvConfig", () => {
     process.env.ENCRYPTION_KEY = "a".repeat(64);
     process.env.NEXTAUTH_SECRET = "b".repeat(32);
     process.env.NEXTAUTH_URL = "http://localhost:3000";
+    process.env.API_KEY_HMAC_SECRET = "c".repeat(64);
   });
 
   afterEach(() => {
@@ -102,6 +103,24 @@ describe("validateEnvConfig", () => {
     process.env.OIDC_CLIENT_SECRET = "secret-456";
     const result = await loadAndValidate();
     expect(result.status).toBe("ok");
+  });
+
+  it("returns error when API_KEY_HMAC_SECRET is missing", async () => {
+    delete process.env.API_KEY_HMAC_SECRET;
+    const result = await loadAndValidate();
+    expect(result.status).toBe("error");
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ key: "API_KEY_HMAC_SECRET", level: "error" }),
+    );
+  });
+
+  it("returns error when API_KEY_HMAC_SECRET is too short", async () => {
+    process.env.API_KEY_HMAC_SECRET = "short";
+    const result = await loadAndValidate();
+    expect(result.status).toBe("error");
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ key: "API_KEY_HMAC_SECRET", level: "error" }),
+    );
   });
 
   it("returns error when NEXTAUTH_SECRET is too short", async () => {
