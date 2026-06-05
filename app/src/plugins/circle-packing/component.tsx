@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToHierarchicalData } from "../sunburst/transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { circlePackingSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const CirclePackingChart = dynamic(
   () =>
@@ -29,7 +30,11 @@ function CirclePackingPluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = circlePackingSettingsSchema.parse(raw);
+  const settings = safeParseSettings(
+    circlePackingSettingsSchema,
+    raw,
+    "circle-packing",
+  );
   return (
     <CirclePackingChart
       data={(data as CirclePackingDataItem[]) ?? []}

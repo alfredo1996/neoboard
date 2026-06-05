@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToLineData, validateLineData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { lineSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const LineChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.LineChart })),
@@ -26,7 +27,7 @@ function LinePluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = lineSettingsSchema.parse(raw);
+  const settings = safeParseSettings(lineSettingsSchema, raw, "line");
   // Parse comma-separated rightAxisSeries string into string array
   const rightAxisSeries = settings.rightAxisSeries
     ? settings.rightAxisSeries

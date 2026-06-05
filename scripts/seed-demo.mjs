@@ -220,9 +220,18 @@ async function main() {
     }
 
     // 2. Create connectors (idempotent by name)
-    // Connection URIs default to localhost (dev). Override via env for Docker.
-    const neo4jHost = process.env.NEO4J_HOST ?? "localhost";
-    const pgHost = process.env.PG_HOST ?? "localhost";
+    // Connection URIs are always seeded with `localhost`. Docker compose
+    // publishes Postgres/Neo4j ports to the host, so both the host dev
+    // server and any container-app reach them the same way. Previously this
+    // honored NEO4J_HOST/PG_HOST env vars; when the seed ran inside the
+    // docker-app container those env vars baked container hostnames
+    // (`neoboard-neo4j`, `neoboard-postgres`) into the encrypted config,
+    // which then broke any `npm run dev` on the host (#898).
+    //
+    // To target non-localhost connections, edit them in the Connections UI
+    // after seeding.
+    const neo4jHost = "localhost";
+    const pgHost = "localhost";
     const neo4jConfig = {
       uri: `bolt://${neo4jHost}:7687`,
       username: "neo4j",

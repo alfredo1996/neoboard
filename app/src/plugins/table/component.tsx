@@ -13,6 +13,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToTableData } from "./transform";
 import { type PluginProps } from "../utils";
 import { tableSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 function TablePluginComponent({
   data,
@@ -23,7 +24,7 @@ function TablePluginComponent({
   clickableColumns,
   onChartClick,
 }: PluginProps) {
-  const settings = tableSettingsSchema.parse(raw);
+  const settings = safeParseSettings(tableSettingsSchema, raw, "table");
   return (
     <TableRenderer
       data={data}

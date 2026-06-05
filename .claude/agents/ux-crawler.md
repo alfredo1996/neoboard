@@ -53,7 +53,7 @@ Test with these personas in order. Close and reopen the browser between personas
 
 ### Persona 2: Creator (standard user)
 
-- Login: `bob@example.com` / `password123`
+- Login: `creator@neoboard.local` / `creator123` (seeded by `neoboard demo`; if absent, sign up via `/signup` then assign role=creator as admin in a setup step)
 - Tests: Dashboard CRUD, widget editing, query execution
 
 ### Persona 3: Unauthorized (no session)

@@ -14,7 +14,11 @@ Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then 
 1. Run `git diff` and `git diff --cached` to get all changes.
 2. Read each changed file to understand full context.
 3. Check against the rules below.
-4. After code review, run `cd app && npm test` and `cd component && npm test` to verify tests pass.
+4. After code review, run tests:
+   - `cd app && npm test` (unit)
+   - `cd component && npm test` (unit)
+   - **`cd app && npx playwright test`** (E2E — ALWAYS, per memory rule; not optional)
+   - Run `cd connection && npm test` if connection/ changed (needs Docker).
 5. Check external review feedback:
    - CodeRabbit: `gh pr view --comments | grep -A10 'coderabbitai'`
    - SonarCloud: `gh pr checks` — verify quality gate passes

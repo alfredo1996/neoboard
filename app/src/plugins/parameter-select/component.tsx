@@ -14,13 +14,18 @@ import { defineChartPlugin } from "../registry";
 import { transformToSelectData } from "./transform";
 import { type PluginProps } from "../utils";
 import { parameterSelectSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 function ParameterSelectPluginComponent({
   settings: raw,
   connectionId,
   widgetId,
 }: PluginProps) {
-  const settings = parameterSelectSettingsSchema.parse(raw);
+  const settings = safeParseSettings(
+    parameterSelectSettingsSchema,
+    raw,
+    "parameter-select",
+  );
   if (!settings.parameterName) {
     return (
       <EmptyState

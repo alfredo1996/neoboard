@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToPieData, validatePieData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { pieSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const PieChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.PieChart })),
@@ -26,7 +27,7 @@ function PiePluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = pieSettingsSchema.parse(raw);
+  const settings = safeParseSettings(pieSettingsSchema, raw, "pie");
   return (
     <PieChart
       data={(data as PieChartDataPoint[]) ?? []}

@@ -1,18 +1,16 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { paths, readProjectConfig, getMode } from "../lib/config.js";
-import {
-  info,
-  success,
-  error as logError,
-  banner,
-} from "../lib/output.js";
+import { info, success, error as logError, banner } from "../lib/output.js";
 
 const REQUIRED_VARS = [
   "DATABASE_URL",
   "ENCRYPTION_KEY",
   "NEXTAUTH_SECRET",
   "NEXTAUTH_URL",
+  // API_KEY_HMAC_SECRET is required for the community API-keys feature; the
+  // server fails at startup without it. Auto-generated alongside other secrets.
+  "API_KEY_HMAC_SECRET",
 ];
 
 function generateSecret(): string {
@@ -54,6 +52,10 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
   const encryptionKey = generateSecret();
   const nextauthSecret = generateSecret();
   const bootstrapToken = generateSecret();
+  // API_KEY_HMAC_SECRET — required by the community API-keys feature. Server
+  // fails at startup without it. Generated alongside the other secrets so a
+  // fresh `neoboard setup` produces a fully-working install.
+  const apiKeyHmacSecret = generateSecret();
 
   const lines = [
     `DATABASE_URL=${dbUrl}`,
@@ -61,6 +63,7 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
     `NEXTAUTH_SECRET=${nextauthSecret}`,
     `NEXTAUTH_URL=http://localhost:${config.ports.app}`,
     `ADMIN_BOOTSTRAP_TOKEN=${bootstrapToken}`,
+    `API_KEY_HMAC_SECRET=${apiKeyHmacSecret}`,
     "",
   ];
 

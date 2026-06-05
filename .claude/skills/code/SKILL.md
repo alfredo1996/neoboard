@@ -42,6 +42,13 @@ Do NOT write implementation before the test. Do NOT skip this for "small" change
 cd app && npx next lint --fix
 npm run build
 cd app && npm test
+cd app && npx playwright test          # ALWAYS run E2E — not optional
 ```
+
+## Branching
+
+- Default base: `dev`
+- **Exception**: when a `release/X.Y` branch is active (see [memory](../../../.claude/projects/-Users-alfredorubin-Desktop-public/memory/project_release_1_1_active.md) or check `git branch -r | grep 'origin/release/'`), branch from and PR into the active release branch instead of `dev`.
+- Verify base with: `git ls-remote --heads origin 'release/*' | head -1`
 
 $ARGUMENTS = task description or issue number.

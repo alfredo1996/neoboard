@@ -29,11 +29,18 @@ If $ARGUMENTS is a number, use that issue instead of picking.
 
 ```bash
 gh issue edit <number> --add-assignee @me
-git checkout dev && git pull origin dev
+
+# Detect the active base branch: release/X.Y if one exists, else dev
+BASE=$(git ls-remote --heads origin 'release/*' 2>/dev/null | awk -F/ '{print $NF}' | sort -V | tail -1)
+BASE="${BASE:-dev}"
+git fetch origin "$BASE" && git checkout "$BASE" && git pull origin "$BASE"
 git checkout -b <type>/<short-description>
+echo "Branched from: $BASE (target this base in your PR)"
 ```
 
 Branch prefix from labels: bug → fix/, enhancement → feat/, security → security/, docs → docs/.
+
+PR base = same `$BASE` detected above (release/X.Y when active, else dev).
 
 ## Step 3 — Run /drill
 

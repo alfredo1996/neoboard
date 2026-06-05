@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToBarData, validateBarData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { barSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const BarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.BarChart })),
@@ -26,7 +27,7 @@ function BarPluginComponent({
   paramValues,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = barSettingsSchema.parse(raw);
+  const settings = safeParseSettings(barSettingsSchema, raw, "bar");
 
   return (
     <BarChart

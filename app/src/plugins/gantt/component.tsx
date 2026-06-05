@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToGanttData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { ganttSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const GanttChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.GanttChart })),
@@ -26,7 +27,7 @@ function GanttPluginComponent({
   onChartClick,
 }: PluginProps) {
   const onClick = useEChartsClick(onChartClick, data);
-  const settings = ganttSettingsSchema.parse(raw);
+  const settings = safeParseSettings(ganttSettingsSchema, raw, "gantt");
   return (
     <GanttChart
       data={(data as GanttDataItem[]) ?? []}

@@ -96,7 +96,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 - **Exception**: when a `release/X.Y` branch is active, branch from and target it instead of `dev`.
 - PRs target `dev` (integration) before merging to `main`.
 - Do not push if tests are failing.
-- PRs need labels: type + package + area. See `/github` skill.
+- PRs need labels: type + package + area. See `/github-workflow` skill.
 - After finishing: PR targeting `dev`, correct milestone/labels, link issue via `Closes #N`.
 
 **PR reviews:**
@@ -184,7 +184,7 @@ Agents work together in a pipeline. Each stage gates the next:
 1. **`project-architect`** — Plans features (impact analysis, risk, task breakdown)
 2. **`/code` skill** — Implements the plan
 3. **`test-runner`** + **`lint-fix`** — Verify code compiles, lints, tests pass
-4. **`code-reviewer`** — Reviews code for security, architecture, quality. Runs tests.
+4. **`code-reviewer`** — Reviews code for security, architecture, quality. Runs unit + E2E tests.
 5. **`feature-reviewer`** — Opens the browser (Playwright CLI), tests the feature UX + functionality
 6. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
 

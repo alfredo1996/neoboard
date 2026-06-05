@@ -12,6 +12,7 @@ import { defineChartPlugin } from "../registry";
 import { transformToRadarData } from "./transform";
 import { type PluginProps } from "../utils";
 import { radarSettingsSchema } from "./settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const RadarChart = dynamic(
   () => import("@neoboard/components").then((m) => ({ default: m.RadarChart })),
@@ -28,7 +29,7 @@ function RadarPluginComponent({
     indicators: [],
     series: [],
   };
-  const settings = radarSettingsSchema.parse(raw);
+  const settings = safeParseSettings(radarSettingsSchema, raw, "radar");
   return (
     <RadarChart
       data={radarData}
