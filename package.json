@@ -30,6 +30,8 @@
     "record:journeys": "node scripts/record-journeys/record.mjs",
     "neoboard": "node cli/dist/index.js",
     "cli:build": "npm -w cli run build",
+    "setup:enterprise": "bash scripts/setup-enterprise.sh",
+    "dev:enterprise": "bash scripts/setup-enterprise.sh && npm run dev",
     "prepare": "husky",
     "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)"
   },
