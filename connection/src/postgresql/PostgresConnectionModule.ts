@@ -262,7 +262,14 @@ export class PostgresConnectionModule extends ConnectionModule {
 
   /**
    * Checks if the database connection is active and healthy.
-   * @returns true if connection is valid, false otherwise
+   *
+   * Throws a wrapped `ConnectorError` on any failure so the API route can
+   * classify the cause (auth_failed / network / bad_uri / unknown) — see
+   * `app/src/lib/connector/connection-error-classifier.ts`. Returning a
+   * bare `false` would leave the UI with the useless "Connection check
+   * returned false" message (#900). This matches the Neo4j contract.
+   *
+   * @returns Promise<true> on success; throws ConnectorError on failure.
    */
   async checkConnection(
     _connectionConfig?: ConnectionConfig,
@@ -270,14 +277,7 @@ export class PostgresConnectionModule extends ConnectionModule {
     try {
       const pool = this.authModule.getPool();
       if (!pool) {
-        // Try to authenticate first — only swallow auth errors
-        const authenticated = await this.authModule
-          .verifyAuthentication()
-          .catch((err) => {
-            if (isAuthenticationError(err)) return false;
-            throw err;
-          });
-        if (!authenticated) return false;
+        await this.authModule.verifyAuthentication();
       }
 
       const client = await this.authModule.getPool()!.connect();
@@ -290,8 +290,8 @@ export class PostgresConnectionModule extends ConnectionModule {
     } catch (error) {
       const wrapped = wrapError(error, "postgresql");
       // Log only error type — never the full error which may contain connection details
-      console.error("Connection check failed:", wrapped.type);
-      return false;
+      console.warn("Connection check failed:", wrapped.type);
+      throw wrapped;
     }
   }
 
