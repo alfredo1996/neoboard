@@ -119,7 +119,6 @@ function TreemapChart({
           upperLabel: {
             show: true,
             height: 22,
-            color: "inherit",
           },
           itemStyle: {
             borderColor: "rgba(128, 128, 128, 0.25)",

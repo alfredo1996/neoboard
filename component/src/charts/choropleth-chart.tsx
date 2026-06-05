@@ -141,7 +141,7 @@ function ChoroplethChart({
             inRange: {
               color: [minColor, "#a6cee3", "#4292c6", "#2171b5", maxColor],
             },
-            textStyle: { color: "inherit", fontSize: 10 },
+            textStyle: { fontSize: 10 },
             itemWidth: 12,
             itemHeight: 12,
             itemGap: 4,
@@ -162,7 +162,6 @@ function ChoroplethChart({
           label: {
             show: showLabels,
             fontSize: 9,
-            color: "inherit",
           },
           emphasis: {
             label: {
