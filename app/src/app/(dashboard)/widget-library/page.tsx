@@ -205,7 +205,7 @@ function TemplateCard({
   );
 }
 
-export default function WidgetLabPage() {
+export default function WidgetLibraryPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.id ?? "";
@@ -359,7 +359,7 @@ export default function WidgetLabPage() {
   return (
     <div className="p-6">
       <PageHeader
-        title="Widget Lab"
+        title="Widget Library"
         description="Reusable widget templates you can apply to any dashboard"
         actions={
           <Button onClick={handleCreate} className="gap-2">

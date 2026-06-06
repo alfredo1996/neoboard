@@ -235,7 +235,7 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("sidebar-item-Dashboards")).toBeDefined();
     expect(screen.getByTestId("sidebar-item-Connections")).toBeDefined();
     expect(screen.getByTestId("sidebar-item-Users")).toBeDefined();
-    expect(screen.getByTestId("sidebar-item-Widget Lab")).toBeDefined();
+    expect(screen.getByTestId("sidebar-item-Widget Library")).toBeDefined();
     expect(screen.getByTestId("sidebar-item-Settings")).toBeDefined();
     expect(screen.getByTestId("sidebar-item-Sign out")).toBeDefined();
     expect(screen.getByTestId("sidebar-item-Theme")).toBeDefined();

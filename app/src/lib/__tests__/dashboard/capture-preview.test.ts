@@ -7,7 +7,7 @@ import { capturePreview } from "@/lib/dashboard/capture-preview";
  * logic here: chart type → correct capture strategy → returns undefined when
  * no real DOM is present.
  *
- * Full visual capture is verified via Playwright E2E (widget-lab.spec.ts).
+ * Full visual capture is verified via Playwright E2E (widget-library.spec.ts).
  */
 describe("capturePreview", () => {
   // Minimal stub that satisfies HTMLElement shape for querySelector

@@ -142,6 +142,17 @@ const nextConfig: NextConfig = {
 
     return config;
   },
+  async redirects() {
+    return [
+      {
+        // #914 — Widget Lab renamed to Widget Library. Permanent 308 so
+        // bookmarked URLs survive and SEO carries to the new path.
+        source: "/widget-lab",
+        destination: "/widget-library",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

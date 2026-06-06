@@ -87,7 +87,7 @@ export function SaveTemplateDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Save to Widget Lab</DialogTitle>
+          <DialogTitle>Save to Widget Library</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

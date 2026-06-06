@@ -8,7 +8,7 @@ import {
   Database,
   Users,
   LogOut,
-  FlaskConical,
+  Library,
   Moon,
   Sun,
   Monitor,
@@ -172,11 +172,11 @@ export default function DashboardLayout({
             />
           )}
           <SidebarItem
-            icon={<FlaskConical className="h-4 w-4" />}
-            label="Widget Lab"
-            active={pathname === "/widget-lab"}
+            icon={<Library className="h-4 w-4" />}
+            label="Widget Library"
+            active={pathname === "/widget-library"}
             collapsed={collapsed}
-            onClick={() => router.push("/widget-lab")}
+            onClick={() => router.push("/widget-library")}
           />
           <SidebarItem
             icon={<Settings className="h-4 w-4" />}
