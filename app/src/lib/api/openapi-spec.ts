@@ -788,10 +788,6 @@ const SPEC = {
                 enum: ["owner", "editor", "viewer", "admin"],
               },
               widgetCount: { type: "integer" },
-              preview: {
-                type: "array",
-                items: { $ref: "#/components/schemas/WidgetPreviewItem" },
-              },
             },
           },
         ],
@@ -807,17 +803,6 @@ const SPEC = {
             },
           },
         ],
-      },
-      WidgetPreviewItem: {
-        type: "object",
-        properties: {
-          x: { type: "integer" },
-          y: { type: "integer" },
-          w: { type: "integer" },
-          h: { type: "integer" },
-          chartType: { type: "string" },
-          thumbnailUrl: { type: "string", nullable: true },
-        },
       },
       CreateDashboardRequest: {
         type: "object",
