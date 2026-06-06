@@ -109,15 +109,24 @@ test.describe("Widget Library", () => {
     test("can save a widget as a template and see it in Widget Library", async ({
       page,
     }) => {
-      // Open widget actions menu → "Save to Widget Library"
+      // #913: Save-as-template moved into the widget editor modal.
+      // Flow: widget actions → Edit Widget → modal footer "Save as new template" → fill dialog.
       const widgetCard = page.locator("[data-testid='widget-card']").first();
       await widgetCard.hover();
       await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-      await page
-        .getByRole("menuitem", { name: "Save to Widget Library" })
+      await page.getByRole("menuitem", { name: "Edit Widget" }).click();
+
+      // Editor modal opens
+      const editorModal = page.getByRole("dialog", { name: "Edit Widget" });
+      await expect(editorModal).toBeVisible();
+
+      // Click the footer "Save as new template" button
+      await editorModal
+        .getByRole("button", { name: "Save as new template" })
         .click();
 
-      // Save Template dialog should appear
+      // Editor closes; SaveTemplateDialog opens
+      await expect(editorModal).not.toBeVisible();
       const saveDialog = page.getByRole("dialog", {
         name: "Save to Widget Library",
       });
@@ -635,116 +644,10 @@ test.describe("Widget Library", () => {
     });
   });
 
-  // ── Save to Widget Library from view mode ─────────────────────────────
-
-  test.describe("Save to Widget Library from view mode", () => {
-    test("action is visible on widget menu in view mode", async ({
-      authPage,
-      page,
-    }) => {
-      await authPage.login(ALICE.email, ALICE.password);
-
-      // Navigate to Movie Analytics dashboard (view mode, not edit)
-      const res = await page.request.get("/api/dashboards");
-      const dashboards = (await res.json()).data;
-      const movieAnalytics = (
-        dashboards as { id: string; name: string }[]
-      ).find((d) => d.name === "Movie Analytics");
-      expect(movieAnalytics).toBeTruthy();
-      await page.goto(`/${movieAnalytics!.id}`);
-
-      // Open widget actions menu
-      const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await expect(widgetCard).toBeVisible({ timeout: 15_000 });
-      await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-
-      await expect(
-        page.getByRole("menuitem", { name: "Save to Widget Library" }),
-      ).toBeVisible();
-    });
-
-    test("can save a widget from view mode and see it in Widget Library", async ({
-      authPage,
-      page,
-    }) => {
-      test.setTimeout(60_000);
-      await authPage.login(ALICE.email, ALICE.password);
-
-      const res = await page.request.get("/api/dashboards");
-      const dashboards = (await res.json()).data;
-      const movieAnalytics = (
-        dashboards as { id: string; name: string }[]
-      ).find((d) => d.name === "Movie Analytics");
-      expect(movieAnalytics).toBeTruthy();
-      await page.goto(`/${movieAnalytics!.id}`);
-
-      // Open widget actions → Save to Widget Library
-      const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await expect(widgetCard).toBeVisible({ timeout: 15_000 });
-      await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-      await page
-        .getByRole("menuitem", { name: "Save to Widget Library" })
-        .click();
-
-      // Fill and submit
-      const saveDialog = page.getByRole("dialog", {
-        name: "Save to Widget Library",
-      });
-      await expect(saveDialog).toBeVisible();
-
-      const templateName = `View Mode Template ${Date.now()}`;
-      await saveDialog.getByLabel("Name").fill(templateName);
-      await saveDialog.getByRole("button", { name: "Save Template" }).click();
-      await expect(saveDialog).not.toBeVisible();
-
-      // Verify in Widget Library
-      await page.goto("/widget-library");
-      await expect(page.getByText(templateName)).toBeVisible({
-        timeout: 10_000,
-      });
-
-      // Clean up
-      const templatesRes = await page.request.get("/api/widget-templates");
-      const templates = (await templatesRes.json()).data;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const saved = templates.find((t: any) => t.name === templateName);
-      if (saved) {
-        await page.request.delete(`/api/widget-templates/${saved.id}`);
-      }
-    });
-
-    test("reader role does not see Save to Widget Library action", async ({
-      authPage,
-      page,
-    }) => {
-      test.setTimeout(60_000);
-      await authPage.login(CAROL.email, CAROL.password);
-
-      // Navigate to Movie Analytics (shared/public dashboard)
-      const res = await page.request.get("/api/dashboards");
-      const dashboards = (await res.json()).data;
-      const movieAnalytics = (
-        dashboards as { id: string; name: string }[]
-      ).find((d) => d.name === "Movie Analytics");
-      expect(movieAnalytics).toBeTruthy();
-      await page.goto(`/${movieAnalytics!.id}`);
-
-      const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await expect(widgetCard).toBeVisible({ timeout: 15_000 });
-      await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-
-      // Export CSV should be visible, but Save to Widget Library should NOT
-      await expect(
-        page.getByRole("menuitem", { name: "Export CSV" }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("menuitem", { name: "Save to Widget Library" }),
-      ).not.toBeVisible();
-    });
-  });
+  // #913: "Save to Widget Library" moved from the widget action dropdown into
+  // the widget editor modal footer. The old "from view mode" tests are no
+  // longer applicable — view-mode users must enter Edit to access the action.
+  // Reader role still can't reach it: they can't open the editor either.
 
   // ── Widget Library consumption: duplicate, filter, search ───────────────
 

@@ -167,4 +167,85 @@ describe("ModalFooter", () => {
     render(<ModalFooter {...baseProps} />);
     expect(screen.getByText("Add Widget")).toBeDisabled();
   });
+
+  // ── Save as new template (#913) ─────────────────────────────────────
+  describe("Save as new template", () => {
+    it("does not render in add mode", () => {
+      const onSaveAsTemplate = vi.fn();
+      render(
+        <ModalFooter
+          {...baseProps}
+          mode="add"
+          onSaveAsTemplate={onSaveAsTemplate}
+        />,
+      );
+      expect(screen.queryByText("Save as new template")).toBeNull();
+    });
+
+    it("does not render in lab-edit or lab-create mode", () => {
+      const onSaveAsTemplate = vi.fn();
+      const { rerender } = render(
+        <ModalFooter
+          {...baseProps}
+          mode="lab-edit"
+          onSaveAsTemplate={onSaveAsTemplate}
+        />,
+      );
+      expect(screen.queryByText("Save as new template")).toBeNull();
+      rerender(
+        <ModalFooter
+          {...baseProps}
+          mode="lab-create"
+          onSaveAsTemplate={onSaveAsTemplate}
+        />,
+      );
+      expect(screen.queryByText("Save as new template")).toBeNull();
+    });
+
+    it("does not render in edit mode when callback is omitted", () => {
+      render(<ModalFooter {...baseProps} mode="edit" />);
+      expect(screen.queryByText("Save as new template")).toBeNull();
+    });
+
+    it("renders in edit mode when callback is provided", () => {
+      const onSaveAsTemplate = vi.fn();
+      render(
+        <ModalFooter
+          {...baseProps}
+          mode="edit"
+          onSaveAsTemplate={onSaveAsTemplate}
+        />,
+      );
+      expect(screen.getByText("Save as new template")).toBeInTheDocument();
+    });
+
+    it("fires the callback when clicked", () => {
+      const onSaveAsTemplate = vi.fn();
+      render(
+        <ModalFooter
+          {...baseProps}
+          mode="edit"
+          onSaveAsTemplate={onSaveAsTemplate}
+        />,
+      );
+      fireEvent.click(screen.getByText("Save as new template"));
+      expect(onSaveAsTemplate).toHaveBeenCalledOnce();
+    });
+
+    it("hides the button when labError is also set", () => {
+      const onSaveAsTemplate = vi.fn();
+      render(
+        <ModalFooter
+          {...baseProps}
+          mode="edit"
+          labError="Something went wrong"
+          onSaveAsTemplate={onSaveAsTemplate}
+        />,
+      );
+      // The error message takes the left slot; suppress the button to keep
+      // a single mr-auto element.
+      expect(screen.queryByText("Save as new template")).toBeNull();
+      expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    });
+  });
 });

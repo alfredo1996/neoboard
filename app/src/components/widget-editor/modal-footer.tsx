@@ -12,6 +12,13 @@ export interface ModalFooterProps {
   onCancel: () => void;
   onSave: () => void;
   onLabSave: () => void;
+  /**
+   * Optional. When provided in "edit" mode, renders a left-aligned
+   * "Save as new template" secondary button that fires this callback (#913).
+   * The button clones the current widget config into a new template via the
+   * parent's SaveTemplateDialog flow.
+   */
+  onSaveAsTemplate?: () => void;
 }
 
 export function ModalFooter({
@@ -23,6 +30,7 @@ export function ModalFooter({
   onCancel,
   onSave,
   onLabSave,
+  onSaveAsTemplate,
 }: ModalFooterProps) {
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
@@ -36,10 +44,25 @@ export function ModalFooter({
   const isForm = chartType === "form";
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
+  // #913: "Save as new template" is offered only when editing an existing
+  // dashboard widget — add mode has nothing saved yet, lab modes are already
+  // template flows.
+  const canSaveAsTemplate = mode === "edit" && onSaveAsTemplate !== undefined;
+
   return (
     <DialogFooter>
       {labError && (
         <p className="text-sm text-destructive mr-auto">{labError}</p>
+      )}
+      {canSaveAsTemplate && !labError && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onSaveAsTemplate}
+          className="mr-auto"
+        >
+          Save as new template
+        </Button>
       )}
       <Button type="button" variant="outline" onClick={onCancel}>
         Cancel

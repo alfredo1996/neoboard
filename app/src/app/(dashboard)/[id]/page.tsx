@@ -10,7 +10,6 @@ import React, {
   useTransition,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   Filter,
@@ -26,9 +25,6 @@ import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
-import { SaveTemplateDialog } from "@/components/save-template-dialog";
-import { useConnections } from "@/hooks/use-connections";
-import type { DashboardWidget } from "@/lib/db/schema";
 import { PageTabs } from "@/components/page-tabs";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -78,8 +74,6 @@ export default function DashboardViewerPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data: session } = useSession();
-  const canWrite = session?.user?.canWrite !== false;
   const saveToDashboard = useParameterStore((s) => s.saveToDashboard);
   const restoreFromDashboard = useParameterStore((s) => s.restoreFromDashboard);
   const prevDashboardId = useRef<string | null>(null);
@@ -179,10 +173,8 @@ export default function DashboardViewerPage({
   // null = auto mode (show when params exist), boolean = user override
   const [barOverride, setBarOverride] = useState<boolean | null>(null);
   const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
-  const [templateWidget, setTemplateWidget] = useState<
-    DashboardWidget | undefined
-  >();
-  const { data: connectionsData } = useConnections();
+  // Save-as-template moved to the widget editor modal (#913) — view mode
+  // no longer fetches connections to power its old SaveTemplateDialog.
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
     () => new Set([0]),
@@ -572,7 +564,6 @@ export default function DashboardViewerPage({
                   refetchInterval={refetchInterval}
                   actions={{
                     onNavigateToPage: handleNavigateToPage,
-                    ...(canWrite && { onSaveAsTemplate: setTemplateWidget }),
                   }}
                   showParameterBar={effectiveShowBar}
                   parameterSourceMap={parameterSourceMap}
@@ -582,25 +573,6 @@ export default function DashboardViewerPage({
           })}
         </div>
       </DashboardErrorBoundary>
-
-      {templateWidget &&
-        (() => {
-          const conn = (connectionsData ?? []).find(
-            (c: { id: string }) => c.id === templateWidget.connectionId,
-          );
-          const connectorType = (conn?.type ??
-            "neo4j") as import("@/lib/connector/connector-types").ConnectorType;
-          return (
-            <SaveTemplateDialog
-              open
-              onOpenChange={(open) => {
-                if (!open) setTemplateWidget(undefined);
-              }}
-              widget={templateWidget}
-              connectorType={connectorType}
-            />
-          );
-        })()}
     </div>
   );
 }

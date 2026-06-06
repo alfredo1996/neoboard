@@ -100,6 +100,12 @@ export interface WidgetEditorModalProps {
   initialPreviewData?: { data: unknown; resultId: string };
   /** Whether the current user has write permission. Controls visibility of the write toggle. */
   canWrite?: boolean;
+  /**
+   * Called when the user clicks "Save as new template" in the modal footer
+   * (#913). Parent is responsible for opening the SaveTemplateDialog with the
+   * widget. Only rendered when `mode === "edit"`.
+   */
+  onSaveAsTemplate?: (widget: DashboardWidget) => void;
 }
 
 export function WidgetEditorModal({
@@ -115,6 +121,7 @@ export function WidgetEditorModal({
   initialTemplate,
   initialPreviewData,
   canWrite = false,
+  onSaveAsTemplate,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
@@ -571,6 +578,16 @@ export function WidgetEditorModal({
 
   const labSaving = createTemplate.isPending || updateTemplate.isPending;
 
+  // Footer "Save as new template" handler (#913). Uses the *current*
+  // editor state (buildWidgetForSave) so unsaved edits in the open modal
+  // are captured in the template payload, not the last-saved widget.
+  const handleSaveAsTemplate = useCallback(() => {
+    if (!onSaveAsTemplate) return;
+    const current = buildWidgetForSave();
+    onOpenChange(false);
+    onSaveAsTemplate(current);
+  }, [onSaveAsTemplate, buildWidgetForSave, onOpenChange]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -900,6 +917,9 @@ export function WidgetEditorModal({
               onCancel={() => onOpenChange(false)}
               onSave={handleSave}
               onLabSave={handleLabSave}
+              onSaveAsTemplate={
+                onSaveAsTemplate ? handleSaveAsTemplate : undefined
+              }
             />
           </>
         )}
