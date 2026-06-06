@@ -127,7 +127,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {actions.map((action, index) => (
-                      <React.Fragment key={index}>
+                      <React.Fragment key={`${action.label}-${index}`}>
                         {action.destructive && index > 0 && (
                           <DropdownMenuSeparator />
                         )}
@@ -143,9 +143,9 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                               {action.label}
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
-                              {action.children.map((child, childIndex) => (
+                              {action.children.map((child) => (
                                 <DropdownMenuItem
-                                  key={childIndex}
+                                  key={child.label}
                                   onClick={
                                     child.disabled ? undefined : child.onClick
                                   }

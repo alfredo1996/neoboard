@@ -578,6 +578,17 @@ export function WidgetEditorModal({
 
   const labSaving = createTemplate.isPending || updateTemplate.isPending;
 
+  // Footer "Save as new template" handler (#913). Extracted so the JSX
+  // expression stays simple and Sonar's cognitive-complexity check on this
+  // function doesn't trip over the inline conditional.
+  const handleSaveAsTemplate =
+    widget && onSaveAsTemplate
+      ? () => {
+          onOpenChange(false);
+          onSaveAsTemplate(widget);
+        }
+      : undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -907,16 +918,7 @@ export function WidgetEditorModal({
               onCancel={() => onOpenChange(false)}
               onSave={handleSave}
               onLabSave={handleLabSave}
-              onSaveAsTemplate={
-                widget && onSaveAsTemplate
-                  ? () => {
-                      // Close the modal and let the parent open the
-                      // SaveTemplateDialog with the (last-saved) widget.
-                      onOpenChange(false);
-                      onSaveAsTemplate(widget);
-                    }
-                  : undefined
-              }
+              onSaveAsTemplate={handleSaveAsTemplate}
             />
           </>
         )}
