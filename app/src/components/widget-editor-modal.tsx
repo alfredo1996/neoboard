@@ -578,16 +578,15 @@ export function WidgetEditorModal({
 
   const labSaving = createTemplate.isPending || updateTemplate.isPending;
 
-  // Footer "Save as new template" handler (#913). Extracted so the JSX
-  // expression stays simple and Sonar's cognitive-complexity check on this
-  // function doesn't trip over the inline conditional.
-  const handleSaveAsTemplate =
-    widget && onSaveAsTemplate
-      ? () => {
-          onOpenChange(false);
-          onSaveAsTemplate(widget);
-        }
-      : undefined;
+  // Footer "Save as new template" handler (#913). Uses the *current*
+  // editor state (buildWidgetForSave) so unsaved edits in the open modal
+  // are captured in the template payload, not the last-saved widget.
+  const handleSaveAsTemplate = useCallback(() => {
+    if (!onSaveAsTemplate) return;
+    const current = buildWidgetForSave();
+    onOpenChange(false);
+    onSaveAsTemplate(current);
+  }, [onSaveAsTemplate, buildWidgetForSave, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -918,7 +917,9 @@ export function WidgetEditorModal({
               onCancel={() => onOpenChange(false)}
               onSave={handleSave}
               onLabSave={handleLabSave}
-              onSaveAsTemplate={handleSaveAsTemplate}
+              onSaveAsTemplate={
+                onSaveAsTemplate ? handleSaveAsTemplate : undefined
+              }
             />
           </>
         )}

@@ -293,17 +293,21 @@ describe("WidgetCard", () => {
       expect(onCsv).toHaveBeenCalledOnce();
     });
 
-    it("renders a flat menu item when action has no children (backwards compat)", () => {
-      const actions = [{ label: "Edit", onClick: vi.fn() }];
-      const { container } = render(
+    it("renders a flat menu item (not a submenu trigger) when action has no children", async () => {
+      const user = userEvent.setup();
+      const onClick = vi.fn();
+      const actions = [{ label: "Edit", onClick }];
+      render(
         <WidgetCard title="Sales" actions={actions}>
           Content
         </WidgetCard>,
       );
-      // No submenu trigger characters
-      expect(
-        container.querySelector('[data-state][role="menuitem"]'),
-      ).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Widget actions" }));
+      const item = await screen.findByRole("menuitem", { name: "Edit" });
+      // SubTrigger items get aria-haspopup="menu"; flat MenuItem doesn't.
+      expect(item.getAttribute("aria-haspopup")).toBeNull();
+      await user.click(item);
+      expect(onClick).toHaveBeenCalledOnce();
     });
   });
 });
