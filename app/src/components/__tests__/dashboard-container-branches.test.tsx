@@ -29,11 +29,22 @@ vi.mock("@neoboard/components", () => ({
   }: {
     children: React.ReactNode;
     title: string;
-    actions?: Array<{ label: string; onClick?: () => void }>;
+    actions?: Array<{
+      label: string;
+      onClick?: () => void;
+      children?: Array<{ label: string; onClick?: () => void }>;
+    }>;
     onRefresh?: () => void;
     headerExtra?: React.ReactNode;
   }) => {
     widgetCardProps.push({ title, actions, onRefresh });
+    // Flatten parent + submenu children into a single set of buttons so tests
+    // can `getByTestId("action-csv")` regardless of whether CSV is a flat
+    // entry ("Export CSV") or a submenu child ("Export ▸ CSV"). The testid
+    // is derived from the *leaf* label only.
+    const flatActions = (actions ?? []).flatMap((a) =>
+      a.children && a.children.length > 0 ? a.children : [a],
+    );
     return (
       <div data-testid="widget-card-inner" data-title={title}>
         <div data-testid="widget-header-extra">{headerExtra}</div>
@@ -42,7 +53,7 @@ vi.mock("@neoboard/components", () => ({
             refresh
           </button>
         )}
-        {actions?.map((a) => (
+        {flatActions.map((a) => (
           <button
             key={a.label}
             data-testid={`action-${a.label.toLowerCase().replace(/\s+/g, "-")}`}
@@ -301,7 +312,7 @@ describe("DashboardContainer — buildActions", () => {
     renderWithProviders(
       <DashboardContainer page={makePage()} editable={false} />,
     );
-    expect(screen.queryByTestId("action-export-csv")).toBeNull();
+    expect(screen.queryByTestId("action-csv")).toBeNull();
   });
 
   it("adds Export CSV for data widgets", () => {
@@ -309,7 +320,7 @@ describe("DashboardContainer — buildActions", () => {
     renderWithProviders(
       <DashboardContainer page={makePage()} editable={false} />,
     );
-    expect(screen.getByTestId("action-export-csv")).toBeDefined();
+    expect(screen.getByTestId("action-csv")).toBeDefined();
   });
 
   it("omits Edit/Duplicate/Remove when editable=false", () => {
@@ -348,17 +359,12 @@ describe("DashboardContainer — buildActions", () => {
     expect(onRemoveWidget).toHaveBeenCalledWith("w-1");
   });
 
-  it("includes 'Save to Widget Library' when onSaveAsTemplate is provided", () => {
-    const onSaveAsTemplate = vi.fn();
+  it("no longer offers 'Save to Widget Library' in the action menu (#913)", () => {
+    // The save-as-template action moved to the widget editor modal footer.
     renderWithProviders(
-      <DashboardContainer
-        page={makePage()}
-        editable={false}
-        actions={{ onSaveAsTemplate }}
-      />,
+      <DashboardContainer page={makePage()} editable={false} />,
     );
-    fireEvent.click(screen.getByTestId("action-save-to-widget-library"));
-    expect(onSaveAsTemplate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("action-save-to-widget-library")).toBeNull();
   });
 
   it("adds Sync/Detach actions only when widget.templateId + outdated", () => {
@@ -484,7 +490,7 @@ describe("DashboardContainer — CSV export", () => {
     mockBuildExportData.mockReturnValue([{ a: 1 }, { a: 2 }]);
     renderWithProviders(<DashboardContainer page={makePage()} />);
 
-    fireEvent.click(screen.getByTestId("action-export-csv"));
+    fireEvent.click(screen.getByTestId("action-csv"));
 
     expect(mockBuildExportData).toHaveBeenCalled();
     expect(mockBuildCsv).toHaveBeenCalledWith([{ a: 1 }, { a: 2 }]);
@@ -504,7 +510,7 @@ describe("DashboardContainer — CSV export", () => {
     mockBuildExportData.mockReturnValue([]);
     renderWithProviders(<DashboardContainer page={makePage()} />);
 
-    fireEvent.click(screen.getByTestId("action-export-csv"));
+    fireEvent.click(screen.getByTestId("action-csv"));
 
     expect(mockBuildCsv).not.toHaveBeenCalled();
     expect(mockTriggerDownload).not.toHaveBeenCalled();
@@ -518,7 +524,7 @@ describe("DashboardContainer — CSV export", () => {
         page={makePage([makeWidget({ settings: {}, chartType: "pie" })])}
       />,
     );
-    fireEvent.click(screen.getByTestId("action-export-csv"));
+    fireEvent.click(screen.getByTestId("action-csv"));
     expect(mockBuildFilename).toHaveBeenCalledWith(
       "pie",
       "csv",
