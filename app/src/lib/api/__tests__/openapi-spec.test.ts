@@ -27,7 +27,7 @@ interface OAParam {
 
 interface OARoute {
   get?: {
-    parameters?: OAParam[];
+    parameters?: readonly OAParam[];
     responses?: Record<
       string,
       { content?: Record<string, { schema?: unknown }> }
@@ -35,7 +35,7 @@ interface OARoute {
   };
 }
 
-function paramNames(refs: OAParam[] | undefined): string[] {
+function paramNames(refs: readonly OAParam[] | undefined): string[] {
   if (!refs) return [];
   return refs
     .map((p) =>
@@ -54,7 +54,7 @@ describe("openapi-spec.ts pagination declarations (#908)", () => {
   it.each(PAGINATED_OFFSET_ROUTES)(
     "%s GET advertises limit + offset query params",
     (route) => {
-      const path = (SPEC.paths as Record<string, OARoute>)[route];
+      const path = (SPEC.paths as unknown as Record<string, OARoute>)[route];
       expect(path, `expected ${route} to be documented`).toBeDefined();
       const names = paramNames(path?.get?.parameters);
       expect(names).toContain("LimitParam");
@@ -65,7 +65,7 @@ describe("openapi-spec.ts pagination declarations (#908)", () => {
   it.each(PAGINATED_OFFSET_ROUTES)(
     "%s GET 200 response includes the paginated envelope (data + meta with total)",
     (route) => {
-      const path = (SPEC.paths as Record<string, OARoute>)[route];
+      const path = (SPEC.paths as unknown as Record<string, OARoute>)[route];
       const response200 = path?.get?.responses?.[200];
       expect(
         response200,

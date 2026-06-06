@@ -94,7 +94,7 @@ export interface WidgetEditorModalProps {
   onLabSaved?: () => void;
   /** Dashboard layout — used for page list and parameter name suggestions */
   layout?: DashboardLayoutV2;
-  /** Template to auto-apply when opening in add mode (from Widget Lab "Use in Dashboard") */
+  /** Template to auto-apply when opening in add mode (from Widget Library "Use in Dashboard") */
   initialTemplate?: WidgetTemplate;
   /** Cached query data from the dashboard — shown as preview immediately without re-running */
   initialPreviewData?: { data: unknown; resultId: string };
@@ -402,7 +402,7 @@ export function WidgetEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, widget, templateProp]);
 
-  // Auto-apply a template when opening in add mode with initialTemplate (Widget Lab → Dashboard flow)
+  // Auto-apply a template when opening in add mode with initialTemplate (Widget Library → Dashboard flow)
   const initialTemplateAppliedRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (

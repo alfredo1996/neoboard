@@ -69,7 +69,7 @@ export interface WidgetActions {
   ) => void;
   /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
-  /** Called when the user chooses "Save to Widget Lab" for a widget. */
+  /** Called when the user chooses "Save to Widget Library" for a widget. */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
   onSyncWidget?: (widget: DashboardWidget) => void;
   onDetachWidget?: (widgetId: string) => void;
@@ -248,7 +248,7 @@ export function DashboardContainer({
 
     if (onSaveAsTemplate) {
       actions.push({
-        label: "Save to Widget Lab",
+        label: "Save to Widget Library",
         onClick: () => onSaveAsTemplate(widget),
       });
     }

@@ -348,7 +348,7 @@ describe("DashboardContainer — buildActions", () => {
     expect(onRemoveWidget).toHaveBeenCalledWith("w-1");
   });
 
-  it("includes 'Save to Widget Lab' when onSaveAsTemplate is provided", () => {
+  it("includes 'Save to Widget Library' when onSaveAsTemplate is provided", () => {
     const onSaveAsTemplate = vi.fn();
     renderWithProviders(
       <DashboardContainer
@@ -357,7 +357,7 @@ describe("DashboardContainer — buildActions", () => {
         actions={{ onSaveAsTemplate }}
       />,
     );
-    fireEvent.click(screen.getByTestId("action-save-to-widget-lab"));
+    fireEvent.click(screen.getByTestId("action-save-to-widget-library"));
     expect(onSaveAsTemplate).toHaveBeenCalledTimes(1);
   });
 
