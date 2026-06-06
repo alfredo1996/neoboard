@@ -396,12 +396,16 @@ test.describe("Form widget", () => {
     await formDialog.getByPlaceholder("e.g. Movie Title").fill("Name");
     await formDialog.getByPlaceholder("e.g. title").fill("name");
 
-    // Go to Advanced tab and enable refresh for the table widget
+    // Go to Advanced tab and pick "Refresh Target" from the MultiSelect (#902).
     await formDialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(formDialog.getByText("Refresh Target")).toBeVisible({
+    await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
-    await formDialog.getByRole("checkbox", { name: "Refresh Target" }).click();
+    // Open the MultiSelect popover (combobox) then toggle the target widget.
+    await formDialog.getByRole("combobox").last().click();
+    await page.getByRole("option", { name: /Refresh Target/ }).click();
+    // Close the popover by clicking the dialog title area.
+    await formDialog.getByRole("tab", { name: "Advanced" }).click();
 
     await formDialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(formDialog).not.toBeVisible();

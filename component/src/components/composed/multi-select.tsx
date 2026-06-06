@@ -36,6 +36,12 @@ export interface MultiSelectProps {
   className?: string;
   disabled?: boolean;
   maxDisplay?: number;
+  /**
+   * Optional per-option renderer for the dropdown list — useful for adding
+   * inline badges or secondary text (e.g. widget title + chart-type badge).
+   * Falls back to `option.label` when not provided.
+   */
+  renderOption?: (option: MultiSelectOption) => React.ReactNode;
 }
 
 function MultiSelect({
@@ -48,6 +54,7 @@ function MultiSelect({
   className,
   disabled,
   maxDisplay = 3,
+  renderOption,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -73,10 +80,7 @@ function MultiSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn(
-            "w-[300px] justify-between h-auto min-h-10",
-            className
-          )}
+          className={cn("w-[300px] justify-between h-auto min-h-10", className)}
         >
           <div className="flex flex-wrap gap-1 flex-1">
             {selectedOptions.length === 0 && (
@@ -85,11 +89,7 @@ function MultiSelect({
               </span>
             )}
             {selectedOptions.slice(0, maxDisplay).map((option) => (
-              <Badge
-                key={option.value}
-                variant="secondary"
-                className="text-xs"
-              >
+              <Badge key={option.value} variant="secondary" className="text-xs">
                 {option.label}
                 <button
                   type="button"
@@ -127,14 +127,14 @@ function MultiSelect({
                       "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
                       value.includes(option.value)
                         ? "bg-primary text-primary-foreground"
-                        : "opacity-50"
+                        : "opacity-50",
                     )}
                   >
                     {value.includes(option.value) && (
                       <Check className="h-3 w-3" />
                     )}
                   </div>
-                  {option.label}
+                  {renderOption ? renderOption(option) : option.label}
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -2,7 +2,8 @@
 
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import { Checkbox, Label, Button, Badge } from "@neoboard/components";
+import { Badge, Button, MultiSelect } from "@neoboard/components";
+import type { MultiSelectOption } from "@neoboard/components";
 
 export interface AdvancedFormRefreshSectionProps {
   otherWidgets: { id: string; title: string; chartType: string }[];
@@ -15,6 +16,15 @@ export function AdvancedFormRefreshSection({
   const setRefreshWidgetIds = useWidgetEditorStore(
     (s) => s.setRefreshWidgetIds,
   );
+
+  const options: MultiSelectOption[] = otherWidgets.map((w) => ({
+    value: w.id,
+    label: w.title || "(untitled)",
+  }));
+
+  const allSelected =
+    otherWidgets.length > 0 &&
+    otherWidgets.every((w) => refreshWidgetIds.includes(w.id));
 
   return (
     <div className="space-y-4">
@@ -36,45 +46,42 @@ export function AdvancedFormRefreshSection({
               size="sm"
               className="h-6 text-xs px-2"
               onClick={() => {
-                const allSelected = otherWidgets.every((w) =>
-                  refreshWidgetIds.includes(w.id),
-                );
                 setRefreshWidgetIds(
                   allSelected ? [] : otherWidgets.map((w) => w.id),
                 );
               }}
             >
-              {otherWidgets.every((w) => refreshWidgetIds.includes(w.id))
-                ? "Deselect all"
-                : "Select all"}
+              {allSelected ? "Deselect all" : "Select all"}
             </Button>
           </div>
-          {otherWidgets.map((w) => (
-            <div key={w.id} className="flex items-center gap-2">
-              <Checkbox
-                id={`refresh-widget-${w.id}`}
-                checked={refreshWidgetIds.includes(w.id)}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    setRefreshWidgetIds([...refreshWidgetIds, w.id]);
-                  } else {
-                    setRefreshWidgetIds(
-                      refreshWidgetIds.filter((id: string) => id !== w.id),
-                    );
-                  }
-                }}
-              />
-              <Label
-                htmlFor={`refresh-widget-${w.id}`}
-                className="text-sm flex items-center gap-1.5"
-              >
-                {w.title || "(untitled)"}
-                <Badge variant="outline" className="text-xs font-normal">
-                  {getChartConfig(w.chartType)?.label ?? w.chartType}
-                </Badge>
-              </Label>
-            </div>
-          ))}
+          <MultiSelect
+            options={options}
+            value={refreshWidgetIds}
+            onChange={setRefreshWidgetIds}
+            placeholder="Select widgets to refresh…"
+            searchPlaceholder="Search widgets…"
+            emptyText="No widgets match."
+            className="w-full"
+            renderOption={(opt) => {
+              const widget = otherWidgets.find((w) => w.id === opt.value);
+              const chartTypeLabel = widget
+                ? (getChartConfig(widget.chartType)?.label ?? widget.chartType)
+                : "";
+              return (
+                <span className="flex flex-1 items-center gap-1.5">
+                  <span className="truncate">{opt.label}</span>
+                  {chartTypeLabel && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-normal shrink-0"
+                    >
+                      {chartTypeLabel}
+                    </Badge>
+                  )}
+                </span>
+              );
+            }}
+          />
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
