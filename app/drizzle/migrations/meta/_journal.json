@@ -57,6 +57,13 @@
       "when": 1778862299752,
       "tag": "0007_free_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780771098846,
+      "tag": "0008_classy_polaris",
+      "breakpoints": true
     }
   ]
 }

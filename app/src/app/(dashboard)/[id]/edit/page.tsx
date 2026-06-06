@@ -12,11 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  useDashboard,
-  useUpdateDashboard,
-  useUpdateDashboardThumbnails,
-} from "@/hooks/use-dashboards";
+import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useParameterStore } from "@/stores/parameter-store";
@@ -38,7 +34,6 @@ import type {
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import { captureDashboardThumbnails } from "@/lib/dashboard/capture-dashboard-thumbnails";
 import {
   Button,
   Skeleton,
@@ -129,8 +124,6 @@ export default function DashboardEditorPage({
   const { data: dashboard, isLoading } = useDashboard(id);
   const { data: connections } = useConnections();
   const updateDashboard = useUpdateDashboard();
-  const updateThumbnails = useUpdateDashboardThumbnails();
-  const gridContainerRef = useRef<HTMLDivElement>(null);
   const layout = useDashboardStore((s) => s.layout);
   const activePageIndex = useDashboardStore((s) => s.activePageIndex);
   const setLayout = useDashboardStore((s) => s.setLayout);
@@ -286,43 +279,12 @@ export default function DashboardEditorPage({
         expectedVersion: dashboard?.version,
       });
       markSaved();
-
-      // Fire-and-forget: capture widget thumbnails from the active page's live DOM.
-      // Uses a short delay to let ECharts finish rendering after any layout changes.
-      const container = gridContainerRef.current;
-      const currentPage = activePage;
-      if (container && currentPage?.widgets.length) {
-        setTimeout(async () => {
-          try {
-            const thumbnails = await captureDashboardThumbnails(
-              container,
-              currentPage.widgets.map((w) => ({
-                id: w.id,
-                chartType: w.chartType,
-              })),
-            );
-            if (Object.keys(thumbnails).length > 0) {
-              updateThumbnails.mutate({ id, thumbnailJson: thumbnails });
-            }
-          } catch {
-            // Thumbnail capture failure is non-critical — silently ignore
-          }
-        }, 500);
-      }
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Failed to save dashboard",
       );
     }
-  }, [
-    id,
-    layout,
-    activePage,
-    updateDashboard,
-    updateThumbnails,
-    markSaved,
-    dashboard,
-  ]);
+  }, [id, layout, updateDashboard, markSaved, dashboard]);
 
   function openAddWidget() {
     setEditorMode("add");
@@ -581,10 +543,7 @@ export default function DashboardEditorPage({
               );
             })()}
 
-          <div
-            ref={gridContainerRef}
-            className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full"
-          >
+          <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
             {layout.pages.map((page, index) => {
               const isActive = index === activePageIndex;
               if (page.widgets.length === 0 && isActive) {

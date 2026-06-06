@@ -33,7 +33,6 @@ import {
   Input,
   Badge,
   Card,
-  CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -63,7 +62,6 @@ import {
   LoadingOverlay,
   ConfirmDialog,
   TimeAgo,
-  DashboardMiniPreview,
   useToast,
 } from "@neoboard/components";
 import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
@@ -865,10 +863,7 @@ export default function DashboardListPage() {
                         </CardDescription>
                       )}
                     </CardHeader>
-                    <CardContent className="flex-1 p-4 pt-0">
-                      <DashboardMiniPreview widgets={d.preview ?? []} />
-                    </CardContent>
-                    <CardFooter className="pt-0 text-xs text-muted-foreground justify-between">
+                    <CardFooter className="pt-2 text-xs text-muted-foreground justify-between">
                       <span className="flex items-center gap-1 truncate">
                         <TimeAgo date={d.updatedAt} />
                         {d.updatedByName && (

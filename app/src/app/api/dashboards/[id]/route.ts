@@ -44,9 +44,6 @@ const dashboardSettingsSchema = z.object({
   refreshIntervalSeconds: z.number().min(5).optional(),
 });
 
-/** Each thumbnail must be a data-URI under 50 KB. */
-const thumbnailValueSchema = z.string().startsWith("data:image/").max(50_000);
-
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -58,7 +55,6 @@ const updateDashboardSchema = z.object({
     })
     .optional(),
   isPublic: z.boolean().optional(),
-  thumbnailJson: z.record(thumbnailValueSchema).optional(),
   /** Optimistic lock — must match the server's current version. */
   expectedVersion: z.number().int().positive().optional(),
 });
