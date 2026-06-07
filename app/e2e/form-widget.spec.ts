@@ -401,12 +401,13 @@ test.describe("Form widget", () => {
     await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
-    // Scope the combobox lookup to the "After Submit" section so a future
-    // Advanced-tab addition doesn't shift `.last()` onto the wrong control.
-    const refreshTrigger = formDialog
-      .getByRole("button", { name: /Select widgets to refresh/ })
-      .first();
-    await refreshTrigger.click();
+    // The MultiSelect renders as a <button role="combobox"> but its
+    // accessible name isn't reliably the placeholder (the chevron icon
+    // disrupts AT name computation). `.last()` on the Advanced tab is the
+    // simplest stable selector — there's only one combobox in the After
+    // Submit section today. If another combobox is added to the Advanced
+    // tab below this one, switch to a data-testid on the section.
+    await formDialog.getByRole("combobox").last().click();
     await page.getByRole("option", { name: /Refresh Target/ }).click();
     // Close the popover by clicking the dialog title area.
     await formDialog.getByRole("tab", { name: "Advanced" }).click();
