@@ -92,27 +92,35 @@ describe("MultiSelect", () => {
 
   it("uses renderOption to draw each row when provided (#902)", async () => {
     // cmdk's Command list calls scrollIntoView on focus — jsdom doesn't
-    // implement it. Polyfill for this test only.
+    // implement it. Polyfill for this test only and restore on teardown so
+    // we don't leak the stub into sibling tests.
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = vi.fn();
-    const user = (await import("@testing-library/user-event")).default.setup();
-    const renderOption = vi.fn((opt: { value: string; label: string }) => (
-      <span>
-        {opt.label}
-        <span data-testid={`badge-${opt.value}`}>BADGE</span>
-      </span>
-    ));
-    render(
-      <MultiSelect
-        options={options.slice(0, 2)}
-        value={[]}
-        renderOption={renderOption}
-      />,
-    );
-    // Open the popover so the list items render
-    await user.click(screen.getByRole("combobox"));
-    // renderOption fires for every option in the list (React may re-render)
-    expect(renderOption).toHaveBeenCalled();
-    expect(screen.getByTestId("badge-react")).toBeInTheDocument();
-    expect(screen.getByTestId("badge-vue")).toBeInTheDocument();
+    try {
+      const user = (
+        await import("@testing-library/user-event")
+      ).default.setup();
+      const renderOption = vi.fn((opt: { value: string; label: string }) => (
+        <span>
+          {opt.label}
+          <span data-testid={`badge-${opt.value}`}>BADGE</span>
+        </span>
+      ));
+      render(
+        <MultiSelect
+          options={options.slice(0, 2)}
+          value={[]}
+          renderOption={renderOption}
+        />,
+      );
+      // Open the popover so the list items render
+      await user.click(screen.getByRole("combobox"));
+      // renderOption fires for every option in the list (React may re-render)
+      expect(renderOption).toHaveBeenCalled();
+      expect(screen.getByTestId("badge-react")).toBeInTheDocument();
+      expect(screen.getByTestId("badge-vue")).toBeInTheDocument();
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    }
   });
 });

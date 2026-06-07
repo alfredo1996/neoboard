@@ -401,8 +401,12 @@ test.describe("Form widget", () => {
     await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
-    // Open the MultiSelect popover (combobox) then toggle the target widget.
-    await formDialog.getByRole("combobox").last().click();
+    // Scope the combobox lookup to the "After Submit" section so a future
+    // Advanced-tab addition doesn't shift `.last()` onto the wrong control.
+    const refreshTrigger = formDialog
+      .getByRole("button", { name: /Select widgets to refresh/ })
+      .first();
+    await refreshTrigger.click();
     await page.getByRole("option", { name: /Refresh Target/ }).click();
     // Close the popover by clicking the dialog title area.
     await formDialog.getByRole("tab", { name: "Advanced" }).click();
