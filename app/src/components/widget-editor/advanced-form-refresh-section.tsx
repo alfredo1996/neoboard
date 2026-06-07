@@ -68,12 +68,17 @@ export function AdvancedFormRefreshSection({
                 ? (getChartConfig(widget.chartType)?.label ?? widget.chartType)
                 : "";
               return (
-                <span className="flex flex-1 items-center gap-1.5">
-                  <span className="truncate">{opt.label}</span>
+                // min-w-0 on the wrapper + flex-1 min-w-0 on the truncating
+                // label is what actually lets `truncate` kick in inside a
+                // flex row. Without it the label expands to fit content and
+                // shoves the badge (and the checkbox to its left) out of
+                // view on long titles.
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className="min-w-0 flex-1 truncate">{opt.label}</span>
                   {chartTypeLabel && (
                     <Badge
                       variant="outline"
-                      className="text-xs font-normal shrink-0"
+                      className="shrink-0 whitespace-nowrap text-xs font-normal"
                     >
                       {chartTypeLabel}
                     </Badge>
