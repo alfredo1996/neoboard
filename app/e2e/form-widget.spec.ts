@@ -396,12 +396,20 @@ test.describe("Form widget", () => {
     await formDialog.getByPlaceholder("e.g. Movie Title").fill("Name");
     await formDialog.getByPlaceholder("e.g. title").fill("name");
 
-    // Go to Advanced tab and enable refresh for the table widget
+    // Go to Advanced tab and pick "Refresh Target" from the MultiSelect (#902).
     await formDialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(formDialog.getByText("Refresh Target")).toBeVisible({
+    await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
-    await formDialog.getByRole("checkbox", { name: "Refresh Target" }).click();
+    // Scope the combobox lookup to the "After Submit" section so a future
+    // Advanced-tab addition doesn't shift `.last()` onto the wrong control.
+    const refreshTrigger = formDialog
+      .getByRole("button", { name: /Select widgets to refresh/ })
+      .first();
+    await refreshTrigger.click();
+    await page.getByRole("option", { name: /Refresh Target/ }).click();
+    // Close the popover by clicking the dialog title area.
+    await formDialog.getByRole("tab", { name: "Advanced" }).click();
 
     await formDialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(formDialog).not.toBeVisible();
