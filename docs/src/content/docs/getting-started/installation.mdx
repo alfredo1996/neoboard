@@ -3,52 +3,52 @@ title: Installation
 description: Install NeoBoard using Docker Compose, the CLI, or from source.
 ---
 
-Pick one of three installation paths. Docker is the fastest.
+Pick one of two installation paths. The first is fastest; the second is for contributors who want to hack on the source.
 
-## Option 1: Docker (Recommended)
+## Option 1: Bundled setup script (Recommended)
 
-Clone the repo and start everything in one command:
-
-```bash
-git clone https://github.com/alfredo1996/neoboard.git
-cd neoboard
-neoboard demo
-```
-
-This starts NeoBoard on `http://localhost:3000`, PostgreSQL on port 5432, and Neo4j on ports 7474/7687.
-
-## Option 2: Local Mode (CLI)
-
-If you have the NeoBoard CLI installed:
-
-```bash
-neoboard setup --mode local
-```
-
-The CLI creates a `.env.local` file, starts database containers, runs migrations, and opens the app.
-
-## Option 3: Manual Setup
-
-For full control or development:
+The `scripts/setup.sh` script bootstraps the bundled `neoboard` CLI, starts the database containers via Docker Compose, runs migrations, and prints the next-step commands:
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
+bash scripts/setup.sh
+```
 
-# Start database containers
-docker compose up -d postgres neo4j
+After it finishes, NeoBoard is running on `http://localhost:3000`, PostgreSQL on port 5432, and Neo4j on ports 7474/7687.
 
-# Install dependencies
-npm ci --prefix connection
-npm ci --prefix component
-npm ci --prefix app
+Optional next steps:
 
-# Run migrations and start dev server
+```bash
+neoboard demo     # seed the showcase dashboards
+neoboard doctor   # health-check all services
+neoboard --help   # full command list
+```
+
+## Option 2: Manual setup (contributors)
+
+For full control or active development against the source:
+
+```bash
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+
+# Install dependencies (npm workspaces — single command from root)
+npm install
+
+# Start the dev database containers
+docker compose -f docker/docker-compose.yml up -d
+
+# Configure environment + generate secrets
+cp app/.env.example app/.env.local
+neoboard env init   # generates ENCRYPTION_KEY, NEXTAUTH_SECRET, API_KEY_HMAC_SECRET
+
+# Run migrations and start the dev server
 npm run db:migrate
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000`.
+The app will be available at `http://localhost:3000`. See [DEVELOPMENT.md](https://github.com/alfredo1996/neoboard/blob/dev/DEVELOPMENT.md) for the full contributor workflow.
 
 ## First-Time Setup
 
