@@ -34,30 +34,22 @@
 
 ## Quick Start
 
-### Fastest path — `neoboard` CLI
-
-```bash
-npx @neoboard/cli setup    # init + docker up + migrate
-npx @neoboard/cli demo     # optional: seed showcase dashboards
-# → http://localhost:3000
-```
-
-The CLI handles port conflicts, regenerates `.env.local`, and prints actionable hints when a step fails (`neoboard doctor` for diagnostics, `neoboard status` for service health). All commands accept `--help`.
-
-### From the cloned repo
-
-If you'd rather work from source (contributing, custom builds):
-
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-scripts/setup.sh   # Installs deps, starts Docker, runs migrations
-npm run dev        # http://localhost:3000
+bash install.sh   # installs deps, starts Docker, runs migrations
+# → http://localhost:3000
 ```
 
-Create your first admin at `/signup` using the bootstrap token printed during setup.
+`install.sh` bootstraps the bundled `neoboard` CLI, brings up Postgres + Neo4j in Docker, runs migrations, and prints the next-step commands. After it finishes:
 
-If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see the [Troubleshooting Setup](https://neoboard.app/docs/getting-started/troubleshooting/) guide.
+- Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed during setup
+- Run `neoboard demo` to seed the showcase dashboards (optional, see below)
+- Run `neoboard doctor` to check service health if anything looks off; `neoboard --help` for the full command list
+
+> **Note:** an `npx @neoboard/cli` standalone install path is on the roadmap but the package is not on npm yet — clone the repo for now.
+
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](docs/src/content/docs/getting-started/troubleshooting.mdx).
 
 ### Demo showcases
 
@@ -95,7 +87,7 @@ docker compose -f docker/docker-compose.prod.yml up
 
 See [`app/.env.example`](app/.env.example) for required environment variables.
 
-> 🎥 **No time to install?** Watch the [2-minute walkthrough](https://github.com/alfredo1996/neoboard/wiki/Demo) or browse the [screenshots](#screenshots) below.
+Browse the [screenshots](#screenshots) below for a feel of the UI without installing.
 
 ## Features
 
