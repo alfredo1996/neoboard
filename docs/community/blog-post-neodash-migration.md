@@ -50,7 +50,7 @@ This means you get proper multi-user support, role-based access (admin/creator/r
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-scripts/setup.sh
+bash install.sh
 npm run dev
 ```
 

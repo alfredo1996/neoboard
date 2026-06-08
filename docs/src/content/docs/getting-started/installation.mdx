@@ -7,12 +7,12 @@ Pick one of two installation paths. The first is fastest; the second is for cont
 
 ## Option 1: Bundled setup script (Recommended)
 
-The `scripts/setup.sh` script bootstraps the bundled `neoboard` CLI, starts the database containers via Docker Compose, runs migrations, and prints the next-step commands:
+The root-level `install.sh` script bootstraps the bundled `neoboard` CLI, starts the database containers via Docker Compose, runs migrations, and prints the next-step commands:
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-bash scripts/setup.sh
+bash install.sh
 ```
 
 After it finishes, NeoBoard is running on `http://localhost:3000`, PostgreSQL on port 5432, and Neo4j on ports 7474/7687.

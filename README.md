@@ -37,11 +37,11 @@
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-bash scripts/setup.sh   # installs deps, starts Docker, runs migrations
+bash install.sh   # installs deps, starts Docker, runs migrations
 # → http://localhost:3000
 ```
 
-`scripts/setup.sh` bootstraps the bundled `neoboard` CLI, brings up Postgres + Neo4j in Docker, runs migrations, and prints the next-step commands. After it finishes:
+`install.sh` bootstraps the bundled `neoboard` CLI, brings up Postgres + Neo4j in Docker, runs migrations, and prints the next-step commands. After it finishes:
 
 - Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed during setup
 - Run `neoboard demo` to seed the showcase dashboards (optional, see below)
