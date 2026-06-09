@@ -1,0 +1,7 @@
+# Convenience entry point so `docker compose up` from the repo root works.
+# Canonical compose file lives in docker/docker-compose.prod.yml.
+#
+# Requires Docker Compose v2.20+ for the `include` directive.
+# Verify with: docker compose version
+include:
+  - docker/docker-compose.prod.yml

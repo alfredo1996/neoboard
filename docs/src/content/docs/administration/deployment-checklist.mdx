@@ -9,13 +9,17 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 
 ### Environment
 
-- [ ] `DATABASE_URL` points to the production PostgreSQL instance
+- [ ] `DATABASE_URL` points to the production PostgreSQL instance (bundled or BYO)
+- [ ] `NEO4J_URI` set when using BYO Neo4j; bundled stack uses the default `bolt://neo4j:7687`
+- [ ] `NEO4J_PASSWORD` generated (required for both bundled and BYO modes; compose refuses to start without it)
 - [ ] `ENCRYPTION_KEY` generated and stored securely (secrets manager or encrypted vault)
 - [ ] `NEXTAUTH_SECRET` generated (minimum 32 characters)
 - [ ] `NEXTAUTH_URL` set to the public URL (e.g., `https://neoboard.example.com`)
 - [ ] `API_KEY_HMAC_SECRET` generated (if using API keys)
 - [ ] `REGISTRATION_ENABLED` left unset or `false` (closed by default since v1.0 — set to `true` only if open signup is desired)
 - [ ] `FORCE_HTTPS` set to `true` (default in production)
+
+Tip: `neoboard env init` generates `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, and `NEO4J_PASSWORD` in one shot.
 
 ### Infrastructure
 
@@ -92,8 +96,8 @@ If a deployment fails:
 
 2. **Restore the previous image:**
    ```bash
-   docker compose -f docker/docker-compose.prod.yml up -d --force-recreate \
-     -e NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version
+   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
+     docker compose -f docker/docker-compose.prod.yml up -d --force-recreate
    ```
 
 3. **If database was migrated, restore from backup:**

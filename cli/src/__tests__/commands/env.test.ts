@@ -92,7 +92,20 @@ describe("generateEnvFile", () => {
     expect(content).toContain("DATABASE_URL=");
     expect(content).toContain("ENCRYPTION_KEY=");
     expect(content).toContain("NEXTAUTH_SECRET=");
+    expect(content).toContain("NEO4J_PASSWORD=");
     expect(content).toContain("ADMIN_BOOTSTRAP_TOKEN=");
+  });
+
+  it("generates a non-empty NEO4J_PASSWORD so docker compose can boot", () => {
+    mockExistsSync.mockReturnValue(false);
+    generateEnvFile();
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    const line = content
+      .split("\n")
+      .find((l) => l.startsWith("NEO4J_PASSWORD="));
+    expect(line).toBeDefined();
+    const value = line!.split("=")[1];
+    expect(value.length).toBeGreaterThan(8);
   });
 
   it("skips when file exists and no regenerate flag", () => {

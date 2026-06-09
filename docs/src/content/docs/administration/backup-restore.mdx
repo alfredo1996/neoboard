@@ -165,7 +165,7 @@ To migrate NeoBoard from one server to another:
    ```bash
    # Use the SAME ENCRYPTION_KEY as the source
    cp .env.source app/.env.local
-   docker compose -f docker/docker-compose.prod-full.yml up -d
+   docker compose -f docker/docker-compose.prod.yml up -d
    ```
 
 4. **Restore the database:**

@@ -3,45 +3,130 @@ title: Installation
 description: Install NeoBoard using Docker Compose, the CLI, or from source.
 ---
 
-Pick one of three installation paths. Docker is the fastest.
+NeoBoard ships as a single bundled Docker Compose stack — app, PostgreSQL, and
+Neo4j in one network — so a clean install is two commands. Three other paths
+exist for development, local Node.js mode, and bring-your-own (BYO) databases.
 
-## Option 1: Docker (Recommended)
+## Option 1: Production install (recommended)
 
-Clone the repo and start everything in one command:
+The canonical production deployment. Bundles a managed Postgres + Neo4j inside
+the same compose project so a single `docker compose up` is enough.
 
-```bash
-git clone https://github.com/alfredo1996/neoboard.git
-cd neoboard
-neoboard demo
-```
+### Prerequisites
 
-This starts NeoBoard on `http://localhost:3000`, PostgreSQL on port 5432, and Neo4j on ports 7474/7687.
+- **Docker Engine 24+** and **Compose v2.20+** (the root `docker-compose.yml`
+  uses the `include` directive, added in v2.20). Verify with
+  `docker compose version`.
+- 4 GB free RAM (Neo4j alone reserves 2 GB).
+- Ports 3000, 5432, 7474, 7687 free (override with `PORT`, `POSTGRES_PORT`,
+  `NEO4J_HTTP_PORT`, `NEO4J_BOLT_PORT`).
+- The NeoBoard CLI for secret generation: `npx @neoboard/cli env init`.
 
-## Option 2: Local Mode (CLI)
-
-If you have the NeoBoard CLI installed:
-
-```bash
-neoboard setup --mode local
-```
-
-The CLI creates a `.env.local` file, starts database containers, runs migrations, and opens the app.
-
-## Option 3: Manual Setup
-
-For full control or development:
+### Steps
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
+npx @neoboard/cli env init     # writes ENCRYPTION_KEY, NEXTAUTH_SECRET, NEO4J_PASSWORD
+docker compose up -d           # boots app + postgres + neo4j
+```
 
-# Start database containers
-docker compose up -d postgres neo4j
+Open `http://localhost:3000`. The first user signs up at `/signup` and becomes
+the admin automatically.
 
-# Install dependencies
-npm ci --prefix connection
-npm ci --prefix component
-npm ci --prefix app
+### What `env init` generates
+
+Three secrets the bundled compose **refuses to start without**:
+
+| Variable          | Purpose                                                  | Rotation impact                                     |
+| ----------------- | -------------------------------------------------------- | --------------------------------------------------- |
+| `ENCRYPTION_KEY`  | AES-256-GCM envelope key for stored DB credentials.      | **Loss = all stored credentials unrecoverable.**    |
+| `NEXTAUTH_SECRET` | Auth.js session JWT signing key.                         | Signs every user out immediately.                   |
+| `NEO4J_PASSWORD`  | Password for the bundled Neo4j instance (`neo4j` user).  | Must match if you reuse the existing `neo4j_data` volume. |
+
+Back the `ENCRYPTION_KEY` up to a secrets manager before going to production —
+there is no recovery path.
+
+### Volumes and what they hold
+
+| Volume        | Contents                                                           |
+| ------------- | ------------------------------------------------------------------ |
+| `pgdata`      | NeoBoard metadata: users, dashboards, connections, settings.       |
+| `neo4j_data`  | Bundled Neo4j graph database (only used if you store data in it).  |
+| `neo4j_logs`  | Neo4j operational logs — safe to discard.                          |
+
+`docker compose down` keeps volumes. `docker compose down -v` deletes them.
+
+### Backups
+
+The dashboards, users, and stored credentials live in `pgdata`. Back it up with
+a regular `pg_dump`:
+
+```bash
+docker compose exec postgres pg_dump -U neoboard neoboard > neoboard-$(date +%F).sql
+```
+
+If you use the bundled Neo4j to store your graph, snapshot it too:
+
+```bash
+docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/data/backups
+docker compose cp neo4j:/data/backups/neo4j.dump ./neo4j-$(date +%F).dump
+```
+
+See [Backup & Restore](/administration/backup-restore) for the full runbook.
+
+### Upgrading
+
+```bash
+git pull
+docker compose pull          # fetches the new image tag
+docker compose up -d         # rolls the app, leaves DBs running
+```
+
+Migrations run automatically on app start. Always `pg_dump` before upgrading a
+release that includes schema changes.
+
+### Switching to bring-your-own (BYO) databases
+
+If you already operate Postgres and Neo4j, skip the bundled DBs by starting
+only the `neoboard` service and overriding the connection URLs:
+
+```bash
+DATABASE_URL=postgresql://user:pass@db.example.com:5432/neoboard \
+NEO4J_URI=neo4j+s://graph.example.com:7687 \
+NEO4J_USER=neo4j \
+NEO4J_PASSWORD=*** \
+docker compose up -d neoboard
+```
+
+The bundled `postgres` and `neo4j` services have `depends_on.required: false`,
+so naming just `neoboard` on the up command skips them. Volume claims are not
+created either.
+
+## Option 2: Local Node.js (CLI)
+
+For development against your own running Postgres + Neo4j:
+
+```bash
+npx @neoboard/cli setup --mode local
+```
+
+The CLI creates `app/.env.local`, installs dependencies, runs migrations, and
+starts the Next.js dev server.
+
+## Option 3: Manual setup from source
+
+For contributors:
+
+```bash
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+
+# Start dev DB containers (different compose file — see docker/docker-compose.yml)
+docker compose -f docker/docker-compose.yml up -d postgres neo4j
+
+# Install workspaces
+npm ci
 
 # Run migrations and start dev server
 npm run db:migrate
@@ -50,15 +135,14 @@ npm run dev
 
 The app will be available at `http://localhost:3000`.
 
-## First-Time Setup
+## First-time setup
 
-1. Go to `http://localhost:3000/signup`
-2. Create the first admin account
-3. The first user automatically gets the **admin** role
+1. Go to `http://localhost:3000/signup`.
+2. Create the first admin account — it automatically gets the **admin** role.
+3. From **Settings → Connections**, add a Neo4j or PostgreSQL connection and
+   test it.
 
-## Verify Installation
-
-Run the doctor command to check that all services are healthy:
+## Verify the install
 
 ```bash
 neoboard doctor
@@ -77,8 +161,14 @@ Expected output:
   All checks passed.
 ```
 
-If you see the dashboard list page after signing in, NeoBoard is running correctly.
+You can also hit the health endpoint directly:
 
-## When Something Goes Wrong
+```bash
+curl http://localhost:3000/api/health
+```
 
-See [Troubleshooting Setup](/getting-started/troubleshooting) for the common first-run failure modes (port conflicts, DB connection refused, migration errors, lost `ENCRYPTION_KEY`) and the exact commands to recover from each.
+## When something goes wrong
+
+See [Troubleshooting Setup](/getting-started/troubleshooting) for common
+first-run failures: port conflicts, DB connection refused, migration errors,
+lost `ENCRYPTION_KEY`, OIDC redirect mismatches.

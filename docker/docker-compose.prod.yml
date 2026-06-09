@@ -1,26 +1,175 @@
-# Production NeoBoard container.
-# Required env vars: DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET
-# See ../.env.example for documentation on each variable.
+# ─────────────────────────────────────────────────────────────────────────────
+# NeoBoard — canonical production compose (bundled stack).
 #
-# Usage:
-#   docker compose -f docker/docker-compose.prod.yml up
+# Requires Docker Compose v2.20+ (for the `include` directive in the root
+# docker-compose.yml that points here).
+#
+# Default flow ("just works"):
+#
+#   neoboard env init                    # generates required secrets in .env
+#   docker compose up -d                 # boots app + postgres + neo4j
+#   open http://localhost:3000
+#
+# Bring-your-own (BYO) databases — point at an external Postgres and/or Neo4j
+# by starting only the `neoboard` service and overriding the connection URLs:
+#
+#   DATABASE_URL=postgresql://user:pass@db.example.com:5432/neoboard \
+#   NEO4J_URI=neo4j+s://graph.example.com:7687 \
+#   NEO4J_PASSWORD=*** \
+#   docker compose up -d neoboard
+#
+# Because `depends_on.required` is `false` for the bundled DBs, naming only
+# `neoboard` on the up command starts the app without spinning up postgres or
+# neo4j. The same pattern with `COMPOSE_PROFILES= ...` also works once the
+# operator has set `COMPOSE_PROFILES=bundled` in their `.env`.
+#
+# Required env vars (no defaults — compose fails fast with a clear error if
+# they are unset):
+#   ENCRYPTION_KEY      — 32-byte hex; losing this loses ALL stored credentials
+#   NEXTAUTH_SECRET     — Auth.js session secret
+#   NEO4J_PASSWORD      — password for the bundled neo4j instance
+#
+# Generate all three with `neoboard env init`.
+#
+# See README.md (Quick Start) and docs/getting-started/installation for the
+# full operator guide (backups, upgrades, switching to BYO).
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
   neoboard:
+    image: ${NEOBOARD_IMAGE:-ghcr.io/alfredo1996/neoboard:latest}
     build:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # Database connections — defaults point at the bundled services. Override
+      # to BYO by exporting DATABASE_URL / NEO4J_URI before `docker compose up`.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://neoboard:neoboard@postgres:5432/neoboard}
+      NEO4J_URI: ${NEO4J_URI:-bolt://neo4j:7687}
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?NEO4J_PASSWORD is required — run 'neoboard env init'}
+
+      # Required secrets — no defaults, fail fast if missing.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required — run 'neoboard env init'}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required — run 'neoboard env init'}
+
+      # Auth / app settings.
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:-}
+      ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+
+      # Bootstrap admin (optional — auto-creates first admin on initial start).
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
+      BOOTSTRAP_ADMIN_TENANT: ${BOOTSTRAP_ADMIN_TENANT:-}
+
+      # Enterprise / SSO (optional).
+      NEOBOARD_EDITION: ${NEOBOARD_EDITION:-community}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      OIDC_CLAIM_KEY: ${OIDC_CLAIM_KEY:-}
+      OIDC_ADMIN_VALUE: ${OIDC_ADMIN_VALUE:-}
+      OIDC_CREATOR_VALUE: ${OIDC_CREATOR_VALUE:-}
+      OIDC_READER_VALUE: ${OIDC_READER_VALUE:-}
+      OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-}
+      OIDC_DEFAULT_ROLE: ${OIDC_DEFAULT_ROLE:-}
+      OIDC_ENFORCE_SSO: ${OIDC_ENFORCE_SSO:-}
+    depends_on:
+      # `required: false` so naming only `neoboard` on `docker compose up`
+      # (BYO mode) does not trigger the bundled postgres / neo4j services.
+      postgres:
+        condition: service_healthy
+        required: false
+      neo4j:
+        condition: service_healthy
+        required: false
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000/api/health"]
       interval: 30s
-      timeout: 5s
-      start_period: 10s
+      timeout: 10s
       retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-neoboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neoboard}
+      POSTGRES_DB: ${POSTGRES_DB:-neoboard}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-neoboard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required — run 'neoboard env init'}
+      NEO4J_server_default__advertised__address: neo4j
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u ${NEO4J_USER:-neo4j} -p \"$${NEO4J_PASSWORD}\" 'RETURN 1'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  neo4j_data:
+  neo4j_logs:

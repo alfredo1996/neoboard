@@ -10,6 +10,8 @@ on:
       - 'cli/**'
       - 'sonar-project.properties'
       - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'docker/**'
       - '.github/workflows/ci.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -22,6 +24,8 @@ on:
       - 'cli/**'
       - 'sonar-project.properties'
       - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'docker/**'
       - '.github/workflows/ci.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -347,6 +351,157 @@ jobs:
           sleep 3
           docker logs neoboard-test 2>&1 | head -20 || true
           docker stop neoboard-test 2>/dev/null || true
+
+  # ── Job 2d: Bundled prod compose smoke ──────────────────────────────────────
+  # Boots `docker compose -f docker/docker-compose.prod.yml up` end-to-end
+  # (app + bundled postgres + neo4j) and waits for /api/health to return 200.
+  # Closes the regression where `docker compose up` failed because postgres /
+  # neo4j weren't bundled.
+  compose-smoke-bundled:
+    name: Compose Smoke — Bundled
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: docker-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Verify Docker Compose v2.20+
+        run: |
+          docker compose version
+          # The root docker-compose.yml uses `include`, added in v2.20.
+          VERSION=$(docker compose version --short)
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          if [ "$MAJOR" -lt 2 ] || { [ "$MAJOR" -eq 2 ] && [ "$MINOR" -lt 20 ]; }; then
+            echo "Docker Compose $VERSION is too old (need >= 2.20 for include)" >&2
+            exit 1
+          fi
+
+      - name: Generate secrets
+        id: secrets
+        run: |
+          {
+            echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+            echo "NEXTAUTH_SECRET=$(openssl rand -base64 32 | tr -d '\n')"
+            echo "NEO4J_PASSWORD=$(openssl rand -hex 16)"
+          } >> "$GITHUB_ENV"
+
+      - name: Build & start bundled stack
+        run: docker compose -f docker/docker-compose.prod.yml up -d --build
+        env:
+          ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
+          NEXTAUTH_SECRET: ${{ env.NEXTAUTH_SECRET }}
+          NEO4J_PASSWORD: ${{ env.NEO4J_PASSWORD }}
+
+      - name: Wait for /api/health
+        run: |
+          DEADLINE=$(( $(date +%s) + 300 ))
+          until curl -sf http://localhost:3000/api/health >/dev/null; do
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "Timed out waiting for /api/health" >&2
+              docker compose -f docker/docker-compose.prod.yml ps
+              docker compose -f docker/docker-compose.prod.yml logs --tail=200 neoboard
+              exit 1
+            fi
+            sleep 5
+          done
+          curl -s http://localhost:3000/api/health | head -200
+
+      - name: Dump compose state on success
+        if: success()
+        run: docker compose -f docker/docker-compose.prod.yml ps
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose -f docker/docker-compose.prod.yml logs --tail=500
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/docker-compose.prod.yml down -v
+
+  # ── Job 2e: BYO prod compose smoke ──────────────────────────────────────────
+  # Boots only the `neoboard` service against an external postgres service
+  # container. Validates the BYO override path: skipping bundled postgres/neo4j
+  # by naming the app service explicitly + overriding DATABASE_URL/NEO4J_URI.
+  compose-smoke-byo:
+    name: Compose Smoke — BYO
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: docker-build
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: neoboard
+          POSTGRES_PASSWORD: neoboard
+          POSTGRES_DB: neoboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Generate secrets
+        run: |
+          {
+            echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+            echo "NEXTAUTH_SECRET=$(openssl rand -base64 32 | tr -d '\n')"
+            # NEO4J_PASSWORD is required by compose-level validation even when
+            # we are not pointing at a real neo4j — set to a throwaway value.
+            echo "NEO4J_PASSWORD=$(openssl rand -hex 16)"
+          } >> "$GITHUB_ENV"
+
+      - name: Start neoboard only (BYO postgres, no neo4j)
+        run: |
+          docker compose -f docker/docker-compose.prod.yml up -d --build neoboard
+        env:
+          DATABASE_URL: postgresql://neoboard:neoboard@172.17.0.1:5432/neoboard
+          # Point at a sink that resolves but never connects — the app must
+          # still come up and /api/health must report DB ok (neo4j is optional
+          # at boot, only used when a graph connection is created).
+          NEO4J_URI: bolt://172.17.0.1:7687
+          ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
+          NEXTAUTH_SECRET: ${{ env.NEXTAUTH_SECRET }}
+          NEO4J_PASSWORD: ${{ env.NEO4J_PASSWORD }}
+
+      - name: Confirm bundled DBs were skipped
+        run: |
+          if docker compose -f docker/docker-compose.prod.yml ps --status running --services | grep -E '^(postgres|neo4j)$'; then
+            echo "BYO mode should NOT have started bundled postgres/neo4j" >&2
+            docker compose -f docker/docker-compose.prod.yml ps
+            exit 1
+          fi
+
+      - name: Wait for /api/health
+        run: |
+          DEADLINE=$(( $(date +%s) + 180 ))
+          until curl -sf http://localhost:3000/api/health >/dev/null; do
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "Timed out waiting for /api/health" >&2
+              docker compose -f docker/docker-compose.prod.yml ps
+              docker compose -f docker/docker-compose.prod.yml logs --tail=200 neoboard
+              exit 1
+            fi
+            sleep 5
+          done
+          curl -s http://localhost:3000/api/health | head -200
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose -f docker/docker-compose.prod.yml logs --tail=500
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/docker-compose.prod.yml down -v
 
   # ── Job 3: SonarCloud scan (no test execution) ─────────────────────────────
   # Downloads coverage artifacts from unit-tests + e2e and runs the scan.

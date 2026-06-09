@@ -1,12 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { paths, readProjectConfig, getMode } from "../lib/config.js";
-import {
-  info,
-  success,
-  error as logError,
-  banner,
-} from "../lib/output.js";
+import { info, success, error as logError, banner } from "../lib/output.js";
 
 const REQUIRED_VARS = [
   "DATABASE_URL",
@@ -54,11 +49,16 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
   const encryptionKey = generateSecret();
   const nextauthSecret = generateSecret();
   const bootstrapToken = generateSecret();
+  // The bundled docker-compose.prod.yml refuses to start without
+  // NEO4J_PASSWORD set — generate one so `neoboard env` users get a
+  // working production stack out of the box.
+  const neo4jPassword = generateSecret();
 
   const lines = [
     `DATABASE_URL=${dbUrl}`,
     `ENCRYPTION_KEY=${encryptionKey}`,
     `NEXTAUTH_SECRET=${nextauthSecret}`,
+    `NEO4J_PASSWORD=${neo4jPassword}`,
     `NEXTAUTH_URL=http://localhost:${config.ports.app}`,
     `ADMIN_BOOTSTRAP_TOKEN=${bootstrapToken}`,
     "",

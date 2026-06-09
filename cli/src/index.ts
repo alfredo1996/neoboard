@@ -154,7 +154,7 @@ demo
     await runDemoReset({ force: opts.force });
   });
 
-program
+const env = program
   .command("env")
   .description(
     "Generate or validate app/.env.local\n" +
@@ -166,6 +166,22 @@ program
   .action(async (opts) => {
     const { runEnv } = await import("./commands/env.js");
     await runEnv({ regenerate: opts.regenerate, validate: opts.validate });
+  });
+
+// `neoboard env init` is the production-install entry point — it generates
+// ENCRYPTION_KEY, NEXTAUTH_SECRET, and NEO4J_PASSWORD so the bundled
+// docker-compose.prod.yml can start. Behaves the same as bare `neoboard env`
+// when no .env.local exists; with --regenerate, overwrites existing secrets.
+env
+  .command("init")
+  .description(
+    "Generate required secrets for production docker compose\n" +
+      "  --regenerate   Overwrite existing .env.local with fresh secrets",
+  )
+  .option("--regenerate", "Force regenerate all secrets")
+  .action(async (opts) => {
+    const { runEnv } = await import("./commands/env.js");
+    await runEnv({ regenerate: opts.regenerate });
   });
 
 // config subcommand group
