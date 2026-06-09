@@ -152,4 +152,25 @@ describe("runEnv", () => {
     await runEnv({});
     expect(mockWriteFileSync).toHaveBeenCalled();
   });
+
+  it("docker mode + force=true bypasses the early return and generates", async () => {
+    mockGetMode.mockReturnValue("docker");
+    mockExistsSync.mockReturnValue(false);
+    await runEnv({ force: true });
+    expect(mockWriteFileSync).toHaveBeenCalled();
+  });
+
+  it("docker mode without force is still a no-op", async () => {
+    mockGetMode.mockReturnValue("docker");
+    mockExistsSync.mockReturnValue(false);
+    await runEnv({ force: false });
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it("docker mode + force respects regenerate flag", async () => {
+    mockGetMode.mockReturnValue("docker");
+    mockExistsSync.mockReturnValue(true);
+    await runEnv({ force: true, regenerate: true });
+    expect(mockWriteFileSync).toHaveBeenCalled();
+  });
 });

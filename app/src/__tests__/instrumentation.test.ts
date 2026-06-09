@@ -5,7 +5,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // ---------------------------------------------------------------------------
 
 const mockBootstrapAdmin =
-  vi.fn<(opts: { email: string; password: string }) => Promise<void>>();
+  vi.fn<
+    (opts: {
+      email: string;
+      password: string;
+      name?: string;
+      tenantId?: string;
+    }) => Promise<void>
+  >();
 
 vi.mock("@/lib/auth/bootstrap", () => ({
   bootstrapAdmin: mockBootstrapAdmin,
@@ -21,6 +28,8 @@ describe("register (instrumentation hook)", () => {
   const savedRuntime = process.env.NEXT_RUNTIME;
   const savedEmail = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const savedPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const savedName = process.env.BOOTSTRAP_ADMIN_NAME;
+  const savedTenant = process.env.BOOTSTRAP_ADMIN_TENANT;
   const savedSkip = process.env.SKIP_ENV_VALIDATION;
 
   beforeEach(async () => {
@@ -48,6 +57,12 @@ describe("register (instrumentation hook)", () => {
     if (savedPassword === undefined)
       delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
     else process.env.BOOTSTRAP_ADMIN_PASSWORD = savedPassword;
+
+    if (savedName === undefined) delete process.env.BOOTSTRAP_ADMIN_NAME;
+    else process.env.BOOTSTRAP_ADMIN_NAME = savedName;
+
+    if (savedTenant === undefined) delete process.env.BOOTSTRAP_ADMIN_TENANT;
+    else process.env.BOOTSTRAP_ADMIN_TENANT = savedTenant;
 
     if (savedSkip === undefined) delete process.env.SKIP_ENV_VALIDATION;
     else process.env.SKIP_ENV_VALIDATION = savedSkip;
@@ -81,11 +96,31 @@ describe("register (instrumentation hook)", () => {
     process.env.NEXT_RUNTIME = "nodejs";
     process.env.BOOTSTRAP_ADMIN_EMAIL = "admin@example.com";
     process.env.BOOTSTRAP_ADMIN_PASSWORD = "password123";
+    delete process.env.BOOTSTRAP_ADMIN_NAME;
+    delete process.env.BOOTSTRAP_ADMIN_TENANT;
     mockBootstrapAdmin.mockResolvedValue(undefined);
     await register();
     expect(mockBootstrapAdmin).toHaveBeenCalledWith({
       email: "admin@example.com",
       password: "password123",
+      name: undefined,
+      tenantId: undefined,
+    });
+  });
+
+  it("plumbs BOOTSTRAP_ADMIN_NAME and BOOTSTRAP_ADMIN_TENANT into bootstrapAdmin", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.BOOTSTRAP_ADMIN_EMAIL = "admin@example.com";
+    process.env.BOOTSTRAP_ADMIN_PASSWORD = "password123";
+    process.env.BOOTSTRAP_ADMIN_NAME = "Founder";
+    process.env.BOOTSTRAP_ADMIN_TENANT = "tenant-42";
+    mockBootstrapAdmin.mockResolvedValue(undefined);
+    await register();
+    expect(mockBootstrapAdmin).toHaveBeenCalledWith({
+      email: "admin@example.com",
+      password: "password123",
+      name: "Founder",
+      tenantId: "tenant-42",
     });
   });
 

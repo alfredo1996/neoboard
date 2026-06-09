@@ -3,10 +3,14 @@
  * Used to bootstrap the first admin user when the database is empty.
  *
  * Configure via environment variables:
- *   BOOTSTRAP_ADMIN_EMAIL    — email of the initial admin user
- *   BOOTSTRAP_ADMIN_PASSWORD — password (min 6 chars) of the initial admin user
+ *   BOOTSTRAP_ADMIN_EMAIL    — email of the initial admin user (required)
+ *   BOOTSTRAP_ADMIN_PASSWORD — password (min 8 chars) of the initial admin
+ *                              user (required)
+ *   BOOTSTRAP_ADMIN_NAME     — optional display name (defaults to "Admin")
+ *   BOOTSTRAP_ADMIN_TENANT   — optional tenant id (defaults to TENANT_ID
+ *                              env, then "default")
  *
- * If either var is absent the bootstrap step is silently skipped.
+ * If EMAIL or PASSWORD is absent the bootstrap step is silently skipped.
  * Once any user exists in the database the function is permanently a no-op.
  */
 export async function register() {
@@ -69,12 +73,14 @@ export async function register() {
   // Bootstrap the first admin user when the database is empty.
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const name = process.env.BOOTSTRAP_ADMIN_NAME;
+  const tenantId = process.env.BOOTSTRAP_ADMIN_TENANT;
 
   if (!email || !password) return;
 
   try {
     const { bootstrapAdmin } = await import("@/lib/auth/bootstrap");
-    await bootstrapAdmin({ email, password });
+    await bootstrapAdmin({ email, password, name, tenantId });
   } catch (err) {
     // Log but never crash the server — a missing DB at startup is recoverable
     authLogger.error(

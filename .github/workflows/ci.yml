@@ -362,10 +362,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: docker-build
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Verify Docker Compose v2.20+
         run: |
@@ -430,6 +434,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: docker-build
+    permissions:
+      contents: read
 
     services:
       postgres:
@@ -440,8 +446,13 @@ jobs:
           POSTGRES_DB: neoboard
         ports:
           - 5432:5432
+        # The default `pg_isready` invocation (no `-U`) falls back to the
+        # runner's $USER (`root` on ubuntu-latest), which fails with
+        # "role \"root\" does not exist" and never marks the service healthy.
+        # Pin the user/db explicitly so the health check matches the role
+        # we actually created above.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U neoboard -d neoboard"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -449,6 +460,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Generate secrets
         run: |
@@ -461,8 +474,13 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Start neoboard only (BYO postgres, no neo4j)
+        # `--no-deps` forces Compose to skip the bundled postgres / neo4j
+        # services entirely. Belt-and-suspenders alongside
+        # `depends_on.required: false` — without it, older compose versions
+        # would still try to start the bundled DBs and collide on the
+        # host's 5432 port (already held by the GHA postgres service).
         run: |
-          docker compose -f docker/docker-compose.prod.yml up -d --build neoboard
+          docker compose -f docker/docker-compose.prod.yml up -d --build --no-deps neoboard
         env:
           DATABASE_URL: postgresql://neoboard:neoboard@172.17.0.1:5432/neoboard
           # Point at a sink that resolves but never connects — the app must

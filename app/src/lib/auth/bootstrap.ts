@@ -13,9 +13,21 @@ import { authLogger } from "@/lib/logger";
 export async function bootstrapAdmin({
   email,
   password,
+  name,
+  tenantId,
 }: {
   email: string;
   password: string;
+  /**
+   * Optional display name for the bootstrapped admin. Falls back to "Admin"
+   * when not provided or empty.
+   */
+  name?: string;
+  /**
+   * Optional tenant identifier. Overrides the TENANT_ID env var. Falls back
+   * to TENANT_ID, then to "default" when neither is set or both are empty.
+   */
+  tenantId?: string;
 }) {
   if (
     password.length < 8 ||
@@ -38,13 +50,17 @@ export async function bootstrapAdmin({
 
       const passwordHash = await bcrypt.hash(password, 12);
 
-      const tenantId = process.env.TENANT_ID ?? "default";
+      const resolvedName = name && name.length > 0 ? name : "Admin";
+      const resolvedTenantId =
+        tenantId && tenantId.length > 0
+          ? tenantId
+          : (process.env.TENANT_ID ?? "default");
       await tx.insert(users).values({
-        name: "Admin",
+        name: resolvedName,
         email,
         passwordHash,
         role: "admin",
-        tenantId,
+        tenantId: resolvedTenantId,
       });
 
       authLogger.info(

@@ -72,6 +72,15 @@ describe("CLI program", () => {
     expect(opts).toContain("--validate");
   });
 
+  it("env has an `init` subcommand with --regenerate option", () => {
+    const envCmd = program.commands.find((c) => c.name() === "env");
+    expect(envCmd).toBeDefined();
+    const initSub = envCmd!.commands.find((c) => c.name() === "init");
+    expect(initSub).toBeDefined();
+    const opts = initSub!.options.map((o) => o.long);
+    expect(opts).toContain("--regenerate");
+  });
+
   it("db migrate has --status, --to, --dry-run options", () => {
     const dbCmd = program.commands.find((c) => c.name() === "db");
     const migrateCmd = dbCmd!.commands.find((c) => c.name() === "migrate");
@@ -101,5 +110,43 @@ describe("CLI program", () => {
     const stopCmd = program.commands.find((c) => c.name() === "stop");
     const opts = stopCmd!.options.map((o) => o.long);
     expect(opts).toContain("--volumes");
+  });
+});
+
+describe("CLI `env init` dispatch", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("invokes runEnv with force=true so docker-mode is bypassed", async () => {
+    const runEnv = vi.fn(async () => undefined);
+    vi.doMock("../commands/env.js", () => ({ runEnv }));
+    const mod = await import("../index.js");
+
+    await mod.program.parseAsync(["node", "neoboard", "env", "init"]);
+
+    expect(runEnv).toHaveBeenCalledTimes(1);
+    expect(runEnv).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true }),
+    );
+  });
+
+  it("forwards --regenerate alongside force=true", async () => {
+    const runEnv = vi.fn(async () => undefined);
+    vi.doMock("../commands/env.js", () => ({ runEnv }));
+    const mod = await import("../index.js");
+
+    await mod.program.parseAsync([
+      "node",
+      "neoboard",
+      "env",
+      "init",
+      "--regenerate",
+    ]);
+
+    expect(runEnv).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true, regenerate: true }),
+    );
   });
 });

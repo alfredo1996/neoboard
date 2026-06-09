@@ -179,9 +179,18 @@ env
       "  --regenerate   Overwrite existing .env.local with fresh secrets",
   )
   .option("--regenerate", "Force regenerate all secrets")
-  .action(async (opts) => {
+  .action(async function (this: import("commander").Command, opts) {
     const { runEnv } = await import("./commands/env.js");
-    await runEnv({ regenerate: opts.regenerate });
+    // The parent `env` command also declares `--regenerate`, and Commander
+    // routes that flag to the *parent* (not the subcommand) when both are
+    // declared. Merge parent opts so `env init --regenerate` works either
+    // way: `neoboard env init --regenerate` and the older
+    // `neoboard env --regenerate init`.
+    const parentOpts = this.parent?.opts() ?? {};
+    const regenerate = opts.regenerate ?? parentOpts.regenerate;
+    // `env init` is the production-install entry point — force-bypass the
+    // docker-mode no-op so secrets always get generated.
+    await runEnv({ regenerate, force: true });
   });
 
 // config subcommand group

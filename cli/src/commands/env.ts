@@ -77,8 +77,14 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
 export async function runEnv(opts: {
   regenerate?: boolean;
   validate?: boolean;
+  /**
+   * Bypass the docker-mode early return. Used by `neoboard env init`, which
+   * is the production-install entry point and must always generate secrets
+   * (those secrets feed `docker-compose.prod.yml`'s `${VAR:?...}` guards).
+   */
+  force?: boolean;
 }): Promise<void> {
-  if (getMode() === "docker") {
+  if (getMode() === "docker" && !opts.force) {
     info(
       "In Docker mode, environment is managed by docker-compose. Not needed.",
     );

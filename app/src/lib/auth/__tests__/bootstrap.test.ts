@@ -124,4 +124,77 @@ describe("bootstrapAdmin", () => {
       expect.objectContaining({ tenantId: "tenant-xyz" }),
     );
   });
+
+  it("falls back to name 'Admin' when no name is provided", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    mockInsertValues.mockResolvedValue(undefined);
+
+    await bootstrapAdmin({ email: "a@b.c", password: "secret12" });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Admin" }),
+    );
+  });
+
+  it("uses the provided name when supplied", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    mockInsertValues.mockResolvedValue(undefined);
+
+    await bootstrapAdmin({
+      email: "a@b.c",
+      password: "secret12",
+      name: "Founder McFounderface",
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Founder McFounderface" }),
+    );
+  });
+
+  it("uses the provided tenantId over TENANT_ID env var", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    mockInsertValues.mockResolvedValue(undefined);
+    process.env.TENANT_ID = "env-tenant";
+
+    await bootstrapAdmin({
+      email: "a@b.c",
+      password: "secret12",
+      tenantId: "explicit-tenant",
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "explicit-tenant" }),
+    );
+  });
+
+  it("ignores empty-string name (falls back to default)", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    mockInsertValues.mockResolvedValue(undefined);
+
+    await bootstrapAdmin({
+      email: "a@b.c",
+      password: "secret12",
+      name: "",
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Admin" }),
+    );
+  });
+
+  it("ignores empty-string tenantId (falls back to env/default)", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    mockInsertValues.mockResolvedValue(undefined);
+    process.env.TENANT_ID = "env-tenant";
+
+    await bootstrapAdmin({
+      email: "a@b.c",
+      password: "secret12",
+      tenantId: "",
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "env-tenant" }),
+    );
+  });
 });
