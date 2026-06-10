@@ -1,4 +1,4 @@
-import { NeodashRecordParser } from '../generalized/NeodashRecordParser';
+import { NeodashRecordParser } from "../generalized/NeodashRecordParser";
 import {
   isInt,
   Record as Neo4jRecord,
@@ -13,8 +13,8 @@ import {
   Duration,
   PathSegment,
   Point,
-} from 'neo4j-driver';
-import { NeodashRecord } from '../generalized/NeodashRecord';
+} from "neo4j-driver";
+import { NeodashRecord } from "../generalized/NeodashRecord";
 
 /**
  * Neo4jRecordParser
@@ -33,15 +33,24 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param _record - A single Neo4j record to parse.
    * @returns A parsed JavaScript object representing the record.
    */
-  _parse(_record: Record<string, unknown> | NeodashRecord | Neo4jRecord<PropertyKey, Record<string, unknown>>): NeodashRecord {
+  _parse(
+    _record:
+      | Record<string, unknown>
+      | NeodashRecord
+      | Neo4jRecord<Record<string, unknown>>,
+  ): NeodashRecord {
     // Parsing the record twice should return the same record
     if (_record instanceof NeodashRecord) {
       return _record;
     }
+    // Everything that reaches this point comes from the driver and has the
+    // Neo4j Record shape (keys + get) — the plain-object arm of the union
+    // exists only for already-parsed pass-through inputs, which share it.
+    const record = _record as Neo4jRecord<Record<string, unknown>>;
     const parsed: Record<string, unknown> = {};
 
-    for (const key of _record.keys) {
-      const value = _record.get(key);
+    for (const key of record.keys) {
+      const value = record.get(key);
       parsed[key as string] = this.__neo4jToNative(value);
     }
     return new NeodashRecord(parsed);
@@ -67,7 +76,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       return this.parseGraphObject(value);
     } else if (Array.isArray(value)) {
       return value.map((item) => this.__neo4jToNative(item));
-    } else if (typeof value === 'object') {
+    } else if (typeof value === "object") {
       return this.neo4jConvertPlainObject(value);
     }
 
@@ -85,7 +94,12 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @returns {boolean} True if the value is a Neo4j Integer or a JS primitive type used in Neo4j responses.
    */
   isPrimitive(value: unknown): boolean {
-    return isInt(value) || typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number';
+    return (
+      isInt(value) ||
+      typeof value === "boolean" ||
+      typeof value === "string" ||
+      typeof value === "number"
+    );
   }
 
   /**
@@ -102,11 +116,17 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       return value.inSafeRange() ? value.toNumber() : value.toBigInt();
     }
 
-    if (typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number') {
+    if (
+      typeof value === "boolean" ||
+      typeof value === "string" ||
+      typeof value === "number"
+    ) {
       return value;
     }
 
-    throw new Error(`Unexpected value passed to parsePrimitive: ${typeof value}`);
+    throw new Error(
+      `Unexpected value passed to parsePrimitive: ${typeof value}`,
+    );
   }
 
   /**
@@ -116,7 +136,15 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {any} value - The value to check.
    * @returns {boolean} True if the value is a known Neo4j temporal type.
    */
-  isTemporal(value: unknown): boolean {
+  isTemporal(
+    value: unknown,
+  ): value is
+    | Neo4jDate
+    | Time
+    | LocalTime
+    | DateTime
+    | LocalDateTime
+    | Duration {
     return (
       value instanceof Neo4jDate ||
       value instanceof Time ||
@@ -138,11 +166,13 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @param {object} value - A temporal value from Neo4j, possibly with fields like year, month, hour, etc.
    * @returns {Date|string|object} A native JS object or string, depending on the type.
    */
-  parseTemporal(value: Neo4jDate | Time | LocalTime | DateTime | LocalDateTime | Duration): unknown {
+  parseTemporal(
+    value: Neo4jDate | Time | LocalTime | DateTime | LocalDateTime | Duration,
+  ): unknown {
     if (value instanceof Neo4jDate) {
       const y = value.year.toNumber();
-      const m = String(value.month.toNumber()).padStart(2, '0');
-      const d = String(value.day.toNumber()).padStart(2, '0');
+      const m = String(value.month.toNumber()).padStart(2, "0");
+      const d = String(value.day.toNumber()).padStart(2, "0");
       return `${y}-${m}-${d}`;
     }
 
@@ -150,13 +180,15 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       const offsetSeconds = value.timeZoneOffsetSeconds.toNumber();
       const offsetHours = Math.floor(Math.abs(offsetSeconds) / 3600);
       const offsetMinutes = Math.floor((Math.abs(offsetSeconds) % 3600) / 60);
-      const sign = offsetSeconds >= 0 ? '+' : '-';
+      const sign = offsetSeconds >= 0 ? "+" : "-";
 
-      const pad = (num: number | string) => String(num).padStart(2, '0');
+      // Accepts neo4j Integer too — String() routes through its toString().
+      const pad = (num: number | string | { toString(): string }) =>
+        String(num).padStart(2, "0");
 
       return `${pad(value.hour)}:${pad(value.minute)}:${pad(value.second)}.${value.nanosecond
         .toString()
-        .padStart(9, '0')}${sign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
+        .padStart(9, "0")}${sign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
     }
 
     if (value instanceof LocalTime) {
@@ -164,7 +196,8 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     }
 
     if (value instanceof DateTime) {
-      const pad = (num: { toNumber: () => number }) => String(num.toNumber()).padStart(2, '0');
+      const pad = (num: { toNumber: () => number }) =>
+        String(num.toNumber()).padStart(2, "0");
       const y = value.year.toNumber();
       const mo = pad(value.month);
       const d = pad(value.day);
@@ -182,7 +215,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
         value.hour.toNumber(),
         value.minute.toNumber(),
         value.second.toNumber(),
-        Math.floor(value.nanosecond.toNumber() / 1e6)
+        Math.floor(value.nanosecond.toNumber() / 1e6),
       );
     }
 
@@ -255,14 +288,14 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     }
 
     if (value instanceof Point) {
-      const point = {
+      const point: { srid: unknown; x: unknown; y: unknown; z?: unknown } = {
         srid: this.__neo4jToNative(value.srid),
         x: this.__neo4jToNative(value.x),
         y: this.__neo4jToNative(value.y),
       };
 
       if (value.z !== undefined) {
-        point['z'] = this.__neo4jToNative(value.z);
+        point.z = this.__neo4jToNative(value.z);
       }
 
       return point;
