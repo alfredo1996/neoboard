@@ -26,7 +26,10 @@ export function useUsers() {
   return useQuery<UserListItem[]>({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await fetch("/api/users");
+      // limit=1000 (API MAX_LIMIT): the users page has no pagination UI yet
+      // (#839), so fetching only the default page (25) made newly created
+      // users invisible to admins (#1000). Proper pagination replaces this.
+      const res = await fetch("/api/users?limit=1000");
       return unwrapResponse<UserListItem[]>(res);
     },
     // Don't retry permission errors — retrying a 403 won't help.
