@@ -58,8 +58,12 @@ export function composePs(): ContainerInfo[] {
   }
 }
 
-export function dockerExec(container: string, cmd: string): string {
-  return execInContainer(container, cmd);
+export function dockerExec(
+  container: string,
+  cmd: string,
+  opts?: { env?: Record<string, string> },
+): string {
+  return execInContainer(container, cmd, opts);
 }
 
 /** Check if a TCP port is accepting connections. */

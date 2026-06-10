@@ -5,15 +5,6 @@ import { dockerExec } from "../../lib/docker.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
 import { success, createSpinner } from "../../lib/output.js";
 
-/** Validate a config value contains no shell-special characters. */
-function assertSafeValue(value: string, label: string): void {
-  if (/[;&|`$"'\\<>(){}!\n\r]/.test(value)) {
-    throw new Error(
-      `Unsafe characters in ${label}: "${value}". Check neoboard.config.json.`,
-    );
-  }
-}
-
 /** Validate a seed script path stays within the project root. */
 function assertSafePath(scriptPath: string, label: string): void {
   const resolved = resolve(paths.root, scriptPath);
@@ -25,13 +16,23 @@ function assertSafePath(scriptPath: string, label: string): void {
   }
 }
 
+function neo4jEnv(config: ReturnType<typeof readProjectConfig>): Record<string, string> {
+  return {
+    NEO4J_USERNAME: config.neo4j.user,
+    NEO4J_PASSWORD: config.neo4j.password,
+  };
+}
+
 function getNeo4jNodeCount(): number {
   const config = readProjectConfig();
-  assertSafeValue(config.neo4j.user, "neo4j.user");
-  assertSafeValue(config.neo4j.password, "neo4j.password");
+  // Credentials go via environment (cypher-shell reads NEO4J_USERNAME /
+  // NEO4J_PASSWORD) — never into argv, where `ps` and error messages can
+  // expose them (#967). This also lifts the shell-safe charset restriction
+  // on passwords.
   const out = dockerExec(
     "neoboard-neo4j",
-    `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} "MATCH (n) RETURN count(n) AS c"`,
+    `cypher-shell "MATCH (n) RETURN count(n) AS c"`,
+    { env: neo4jEnv(config) },
   );
   const match = out.match(/(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
@@ -48,11 +49,10 @@ export async function seedNeo4j(): Promise<void> {
   }
 
   const config = readProjectConfig();
-  assertSafeValue(config.neo4j.user, "neo4j.user");
-  assertSafeValue(config.neo4j.password, "neo4j.password");
   dockerExec(
     "neoboard-neo4j",
-    `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} -f /var/lib/neo4j/import/init.cypher`,
+    `cypher-shell -f /var/lib/neo4j/import/init.cypher`,
+    { env: neo4jEnv(config) },
   );
   spinner.succeed("Neo4j seeded with demo data");
 }
