@@ -287,6 +287,20 @@ describe("PATCH /api/connections/[id]", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 for readers — must not update connection credentials/URIs (#971)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      role: "reader",
+      canWrite: false,
+    });
+    const res = await PATCH(
+      makeRequest({ config: { uri: "postgresql://10.0.0.1:5432/db" } }),
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when connection not owned", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.update.mockReturnValue(makeUpdateChain([]));

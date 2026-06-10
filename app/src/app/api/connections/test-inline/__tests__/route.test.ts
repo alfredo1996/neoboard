@@ -52,6 +52,26 @@ describe("POST /api/connections/test-inline", () => {
     expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
+  it("returns 403 for readers — inline test is an arbitrary host:port probe (#971)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      role: "reader",
+      canWrite: false,
+    });
+    const res = await POST(
+      makeRequest({
+        type: "postgresql",
+        config: {
+          uri: "postgresql://10.0.0.1:5432/db",
+          username: "u",
+          password: "p",
+        },
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(mockTestConnection).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for invalid body (missing type)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const res = await POST(

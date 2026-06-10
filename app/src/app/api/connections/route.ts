@@ -2,6 +2,7 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { encryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
 import { createConnectionSchema } from "@/lib/shared/schemas";
@@ -47,7 +48,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, role } = await requireSession();
+    assertCanManageConnections(role);
     const body = await request.json();
     const result = validateBody(createConnectionSchema, body);
     if (!result.success) return result.response;

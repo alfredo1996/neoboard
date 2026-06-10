@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/session";
+import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { testConnection } from "@/lib/query/query-executor";
 import type { DbType } from "@/lib/query/query-executor";
 import { testInlineSchema } from "@/lib/shared/schemas";
@@ -12,7 +13,8 @@ import { classifyConnectionError } from "@/lib/connector/connection-error-classi
 
 export async function POST(request: Request) {
   try {
-    await requireSession();
+    const { role } = await requireSession();
+    assertCanManageConnections(role);
     const body = await request.json();
     const validation = validateBody(testInlineSchema, body);
 
