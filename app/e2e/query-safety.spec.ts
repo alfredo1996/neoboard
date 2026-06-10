@@ -16,9 +16,10 @@ import type { APIRequestContext } from "@playwright/test";
  *
  * Findings that shape these tests (documented in the PR body):
  *
- * 1. Default query timeout is 2000 ms, not 30s. See
- *    connection/src/generalized/interfaces.ts:84 — the CLAUDE.md claim of
- *    30s is stale. Tests use the real 2s default.
+ * 1. Default query timeout is 30s (#973 — it was 2s for years). The
+ *    timeout tests create their own connections with explicit short
+ *    timeouts, which doubles as end-to-end proof that UI-configured
+ *    statementTimeout/queryTimeout actually reach the driver.
  *
  * 2. Row cap is 5000 by default, user-configurable per connection via
  *    `credentials.maxRows` (#499 fix). The driver signals truncation by
@@ -89,15 +90,36 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   test("PG query exceeding the timeout returns a user-facing error", async ({
     page,
   }) => {
+    // Dedicated connection with a 2s pg-specific statementTimeout — the
+    // package default is 30s (#973), and this also proves the UI-exposed
+    // statementTimeout option reaches the driver end-to-end.
+    const createRes = await page.request.post("/api/connections", {
+      data: {
+        name: `e2e-pg-timeout-${Date.now()}`,
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${process.env.TEST_PG_PORT ?? "5432"}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+          statementTimeout: 2000,
+        },
+      },
+    });
+    expect(createRes.ok()).toBeTruthy();
+    const shortTimeoutConnId = (await createRes.json()).data.id as string;
+
     const t0 = Date.now();
     const res = await page.request.post("/api/query", {
       data: {
-        connectionId: PG_CONNECTION_ID,
-        // pg_sleep(3) far exceeds the 2s driver-level statement timeout.
+        connectionId: shortTimeoutConnId,
+        // pg_sleep(3) far exceeds the 2s statement timeout configured above.
         query: "SELECT pg_sleep(3)",
       },
     });
     const elapsed = Date.now() - t0;
+
+    await page.request.delete(`/api/connections/${shortTimeoutConnId}`);
 
     // The driver/route must fail fast, not hang the full 3s. Allow some
     // overhead for round-trip + error handling — 5s is a generous ceiling.
@@ -132,10 +154,27 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   test("Cypher query exceeding the timeout returns a user-facing error", async ({
     page,
   }) => {
+    // Dedicated connection with a 2s generic queryTimeout (#973 — default
+    // is 30s); proves the queryTimeout option reaches Neo4j's tx timeout.
+    const createRes = await page.request.post("/api/connections", {
+      data: {
+        name: `e2e-neo4j-timeout-${Date.now()}`,
+        type: "neo4j",
+        config: {
+          uri: process.env.TEST_NEO4J_BOLT_URL ?? "bolt://localhost:7687",
+          username: "neo4j",
+          password: "neoboard123",
+          queryTimeout: 2000,
+        },
+      },
+    });
+    expect(createRes.ok()).toBeTruthy();
+    const shortTimeoutConnId = (await createRes.json()).data.id as string;
+
     const t0 = Date.now();
     const res = await page.request.post("/api/query", {
       data: {
-        connectionId: NEO4J_CONNECTION_ID,
+        connectionId: shortTimeoutConnId,
         query:
           "UNWIND range(1, 5000000) AS x " +
           "UNWIND range(1, 1000) AS y " +
@@ -143,6 +182,8 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       },
     });
     const elapsed = Date.now() - t0;
+
+    await page.request.delete(`/api/connections/${shortTimeoutConnId}`);
 
     // Cypher's cancel cycle plus APOC plugin overhead is slower than PG —
     // allow up to 10s for the driver to abort and the route to respond.

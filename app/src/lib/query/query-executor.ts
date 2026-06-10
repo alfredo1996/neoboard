@@ -148,17 +148,27 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
   return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}|${advancedKey}`;
 }
 
+function effectiveQueryTimeout(
+  type: DbType,
+  credentials: ConnectionCredentials,
+): number | undefined {
+  if (type === "postgresql") {
+    return credentials.statementTimeout ?? credentials.queryTimeout;
+  }
+  return credentials.queryTimeout;
+}
+
 function buildAdvancedOptions(credentials: ConnectionCredentials) {
+  // Per-query timeouts are NOT advanced options — they flow through
+  // config.timeout in executeQuery (#973). Only pool/connection-level
+  // settings that the auth modules read at construction belong here.
   return {
     neo4jConnectionTimeout: credentials.connectionTimeout,
-    neo4jQueryTimeout: credentials.queryTimeout,
     neo4jMaxPoolSize: credentials.maxPoolSize,
     neo4jAcquisitionTimeout: credentials.connectionAcquisitionTimeout,
     pgConnectionTimeoutMillis: credentials.connectionTimeout,
     pgIdleTimeoutMillis: credentials.idleTimeout,
     pgMaxPoolSize: credentials.maxPoolSize,
-    pgStatementTimeout:
-      credentials.statementTimeout ?? credentials.queryTimeout,
     pgSslRejectUnauthorized: credentials.sslRejectUnauthorized,
   };
 }
@@ -228,7 +238,12 @@ export async function executeQuery(
     database: credentials.database,
     rowLimit: effectiveRowLimit,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
-    ...(credentials.queryTimeout ? { timeout: credentials.queryTimeout } : {}),
+    // pg-specific statementTimeout wins over the generic queryTimeout for
+    // PostgreSQL; Neo4j only honors queryTimeout (#973). When neither is
+    // set, DEFAULT_CONNECTION_CONFIG.timeout (30s) applies via the spread.
+    ...(effectiveQueryTimeout(type, credentials)
+      ? { timeout: effectiveQueryTimeout(type, credentials) }
+      : {}),
     ...(credentials.connectionTimeout
       ? { connectionTimeout: credentials.connectionTimeout }
       : {}),
