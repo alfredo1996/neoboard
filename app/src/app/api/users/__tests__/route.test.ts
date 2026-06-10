@@ -176,7 +176,12 @@ describe("POST /api/users", () => {
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
     vi.doMock("next/server", () => nextResponseMockFactory());
-    vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+    // doMock, not mock — vi.mock is only hoisted at module top level;
+    // inside beforeEach it bypasses the resetModules pattern (CR on #1002).
+    vi.doMock("@/lib/auth/errors", () => ({
+      UnauthorizedError,
+      ForbiddenError,
+    }));
     const mod = await import("../route");
     POST = mod.POST;
   });
