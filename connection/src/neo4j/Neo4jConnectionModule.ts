@@ -107,9 +107,12 @@ export class Neo4jConnectionModule extends ConnectionModule {
       callbacks.setStatus?.(
         determineQueryStatus(result.length, config.rowLimit),
       );
-      const limitedResult = toTruncate
+      // The driver's Record generics don't unify with the parser's
+      // Record<string, unknown>[] input even though the runtime shape is
+      // exactly that — bridge the identities once at the result boundary.
+      const limitedResult = (toTruncate
         ? result.slice(0, config.rowLimit)
-        : result;
+        : result) as unknown as Record<string, unknown>[];
       const parsedResult = config.parseToNeodashRecord
         ? this.parser.bulkParse(limitedResult)
         : limitedResult;
@@ -118,13 +121,15 @@ export class Neo4jConnectionModule extends ConnectionModule {
       // that don't need to reset fields after each result.
       if (callbacks.setFields) {
         if (parsedResult.length > 0) {
-          const parsed = this.parser.bulkParse([result[0]]);
+          const parsed = this.parser.bulkParse([
+            result[0] as unknown as Record<string, unknown>,
+          ]);
           callbacks.setFields(parsed[0].getFields(config.useNodePropsAsFields));
         } else {
           callbacks.setFields([]);
         }
       }
-      callbacks.onSuccess?.(parsedResult);
+      callbacks.onSuccess?.(parsedResult as T);
     } catch (err: unknown) {
       const wrapped = wrapError(err, "neo4j");
       callbacks.setStatus?.(

@@ -64,7 +64,11 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
       pool.on("error", (err) => {
         // Only log error code/type if this is not a shutdown error — never log the full error
         if (!err.message?.includes("terminating connection")) {
-          console.error("Pool error:", err.code ?? "unknown");
+          // pg errors carry a `code` (SQLSTATE) that plain Error doesn't declare
+          console.error(
+            "Pool error:",
+            (err as Error & { code?: string }).code ?? "unknown",
+          );
         }
       });
 

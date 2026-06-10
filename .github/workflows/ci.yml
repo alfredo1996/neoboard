@@ -54,7 +54,6 @@ jobs:
 
       - name: Build connection package
         run: npm -w connection run build
-        continue-on-error: true
 
       - name: Type-check component
         run: npm -w component exec tsc -- --noEmit
@@ -137,7 +136,6 @@ jobs:
 
       - name: Build connection package
         run: npm -w connection run build
-        continue-on-error: true
 
       - name: Run all tests in parallel
         run: |
@@ -242,7 +240,6 @@ jobs:
 
       - name: Build connection package
         run: npm -w connection run build
-        continue-on-error: true
 
       - name: Build Next.js
         working-directory: app
