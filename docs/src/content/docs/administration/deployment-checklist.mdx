@@ -15,7 +15,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 - [ ] `NEXTAUTH_URL` set to the public URL (e.g., `https://neoboard.example.com`)
 - [ ] `API_KEY_HMAC_SECRET` generated (if using API keys)
 - [ ] `REGISTRATION_ENABLED` left unset or `false` (closed by default since v1.0 — set to `true` only if open signup is desired)
-- [ ] `FORCE_HTTPS` set to `true` (default in production)
+- [ ] `FORCE_HTTPS` left unset (HTTPS redirect is **on by default** in production) — set to `false` only if TLS terminates at a reverse proxy or load balancer that does not forward `X-Forwarded-Proto`
 
 ### Infrastructure
 
@@ -92,8 +92,10 @@ If a deployment fails:
 
 2. **Restore the previous image:**
    ```bash
-   docker compose -f docker/docker-compose.prod.yml up -d --force-recreate \
-     -e NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version
+   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
+     docker compose -f docker/docker-compose.prod.yml pull neoboard
+   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
+     docker compose -f docker/docker-compose.prod.yml up -d --force-recreate
    ```
 
 3. **If database was migrated, restore from backup:**

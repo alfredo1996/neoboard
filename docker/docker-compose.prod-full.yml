@@ -1,16 +1,32 @@
 # Full-stack NeoBoard: app + PostgreSQL in a single compose.
-# For single-server deployments where you don't have an external PostgreSQL.
+# This is the recommended production entry point for single-server
+# deployments. For BYO-database deployments (RDS, Cloud SQL, ...),
+# use docker-compose.prod.yml instead.
+#
+# Required env vars: POSTGRES_PASSWORD, ENCRYPTION_KEY, NEXTAUTH_SECRET
+# See ../app/.env.example for documentation on every variable.
 #
 # Usage:
-#   cp ../.env.example .env
-#   # Fill in ENCRYPTION_KEY, NEXTAUTH_SECRET, NEXTAUTH_URL
+#   cp ../app/.env.example .env
+#   # Set POSTGRES_PASSWORD, ENCRYPTION_KEY, NEXTAUTH_SECRET (at minimum)
 #   docker compose -f docker/docker-compose.prod-full.yml up -d
+#
+# Optional Neo4j data source (adds a neo4j service):
+#   docker compose -f docker/docker-compose.prod-full.yml --profile neo4j up -d
+#
+# Rollback to a previous release:
+#   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z \
+#     docker compose -f docker/docker-compose.prod-full.yml pull neoboard
+#   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z \
+#     docker compose -f docker/docker-compose.prod-full.yml up -d --force-recreate
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-neoboard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neoboard}
+      # No default on purpose — a production stack must not boot with a
+      # publicly-known database password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — generate with `openssl rand -hex 16`}
       POSTGRES_DB: ${POSTGRES_DB:-neoboard}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -22,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
     logging:
       driver: json-file
@@ -31,29 +47,104 @@ services:
         max-file: "3"
     restart: unless-stopped
 
+  # Optional Neo4j data source for dashboards. Started only with
+  # `--profile neo4j`. Connect from NeoBoard with URI neo4j://neo4j:7687.
+  #
+  # NEO4J_PASSWORD is required when this profile is enabled. It cannot use
+  # compose's `:?` required syntax because interpolation runs even when the
+  # profile is inactive — instead the container fails fast at boot with
+  # "Invalid value for NEO4J_AUTH" if the password is missing.
+  neo4j:
+    image: neo4j:5.26-community
+    profiles: ["neo4j"]
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-}
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    volumes:
+      - neo4jdata:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:7474",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
   neoboard:
+    # Released images are published by .github/workflows/release.yml on each
+    # version tag. When the image is not available locally or remotely (e.g.
+    # before the first release), compose builds from source instead.
+    image: ${NEOBOARD_IMAGE:-ghcr.io/alfredo1996/neoboard:latest}
     build:
       context: ..
       dockerfile: Dockerfile
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-neoboard}:${POSTGRES_PASSWORD:-neoboard}@postgres:5432/${POSTGRES_DB:-neoboard}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # ── Required ──
+      DATABASE_URL: postgresql://${POSTGRES_USER:-neoboard}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-neoboard}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required — generate with `openssl rand -hex 32`}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required — generate with `openssl rand -base64 32`}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      # ── Auth ──
+      ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:-}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      SESSION_MAX_AGE: ${SESSION_MAX_AGE:-}
+      TENANT_ID: ${TENANT_ID:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      # ── Security ──
+      # HTTPS redirect is ON by default in production. Set to "false" only
+      # when TLS terminates upstream without forwarding X-Forwarded-Proto.
+      FORCE_HTTPS: ${FORCE_HTTPS:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      # ── Enterprise / SSO ──
+      NEOBOARD_EDITION: ${NEOBOARD_EDITION:-community}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      OIDC_CLAIM_KEY: ${OIDC_CLAIM_KEY:-}
+      OIDC_ADMIN_VALUE: ${OIDC_ADMIN_VALUE:-}
+      OIDC_CREATOR_VALUE: ${OIDC_CREATOR_VALUE:-}
+      OIDC_READER_VALUE: ${OIDC_READER_VALUE:-}
+      OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-}
+      OIDC_DEFAULT_ROLE: ${OIDC_DEFAULT_ROLE:-}
+      OIDC_ENFORCE_SSO: ${OIDC_ENFORCE_SSO:-}
+      # ── Key rotation (see app/.env.example for the runbook) ──
+      ENCRYPTION_KEY_OLD: ${ENCRYPTION_KEY_OLD:-}
     depends_on:
       postgres:
         condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
     logging:
       driver: json-file
@@ -70,3 +161,4 @@ services:
 
 volumes:
   pgdata:
+  neo4jdata:
