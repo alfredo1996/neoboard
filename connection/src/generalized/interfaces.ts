@@ -79,9 +79,11 @@ export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig = {
   accessMode: "READ",
 
   /**
-   * Timeout (ms) for Cypher query execution.
+   * Timeout (ms) for query execution. 30s matches the documented default;
+   * it was 2s for years, silently killing any slow query whose connection
+   * had no explicit queryTimeout configured (#973).
    */
-  timeout: 2 * 1000,
+  timeout: 30 * 1000,
 
   /**
    * Maximum number of records to return before truncating.
@@ -227,7 +229,6 @@ export interface BaseAdvancedOptions {}
 /** Neo4j-specific advanced connection options. */
 export interface Neo4jAdvancedOptions extends BaseAdvancedOptions {
   neo4jConnectionTimeout?: number;
-  neo4jQueryTimeout?: number;
   neo4jMaxPoolSize?: number;
   neo4jAcquisitionTimeout?: number;
 }
@@ -237,7 +238,6 @@ export interface PostgresAdvancedOptions extends BaseAdvancedOptions {
   pgConnectionTimeoutMillis?: number;
   pgIdleTimeoutMillis?: number;
   pgMaxPoolSize?: number;
-  pgStatementTimeout?: number;
   pgSslRejectUnauthorized?: boolean;
 }
 
