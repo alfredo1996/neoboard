@@ -38,6 +38,27 @@ export async function register() {
     }
   }
 
+  // Apply pending schema migrations before anything touches the database
+  // (admin bootstrap below needs the tables to exist). Opt-in via
+  // MIGRATE_ON_START — set by the production Docker image, which has no
+  // other way to migrate. A failed migration must not serve traffic.
+  {
+    const { shouldMigrateOnBoot, migrateOnBoot } =
+      await import("@/lib/db/migrate-on-boot");
+    if (shouldMigrateOnBoot()) {
+      try {
+        await migrateOnBoot();
+      } catch (err) {
+        process.stderr.write(
+          `\n✗ NeoBoard cannot start — database migration failed:\n\n  ${
+            err instanceof Error ? err.message : String(err)
+          }\n\nFix the database (see logs above) and restart. To boot without\nmigrating (emergency debugging only): MIGRATE_ON_START=0\n\n`,
+        );
+        process.exit(1);
+      }
+    }
+  }
+
   const { logger, authLogger } = await import("@/lib/logger");
 
   // Register built-in query middleware (audit logging, etc.) before any
