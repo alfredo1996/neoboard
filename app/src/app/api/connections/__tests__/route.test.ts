@@ -10,15 +10,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 const mockEncryptJson = vi.fn((v: unknown) => `enc:${JSON.stringify(v)}`);
 const mockPrefetchSchema = vi.fn();
 
@@ -185,6 +184,28 @@ describe("POST /api/connections", () => {
       }),
     );
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for readers — lowest-privilege role must not create connections (SSRF surface, #971)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "reader-1",
+      role: "reader",
+      canWrite: false,
+      tenantId: "default",
+    });
+    const res = await POST(
+      makeRequest({
+        name: "Probe",
+        type: "postgresql",
+        config: {
+          uri: "postgresql://internal-host:5432/db",
+          username: "u",
+          password: "p",
+        },
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it("returns 400 for invalid body (missing name)", async () => {

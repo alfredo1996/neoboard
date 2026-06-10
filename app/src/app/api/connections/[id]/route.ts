@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { encryptJson, decryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
 import { closeConnection } from "@/lib/query/query-executor";
@@ -91,7 +92,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, role } = await requireSession();
+    assertCanManageConnections(role);
     const { id } = await params;
     const body = await request.json();
     const result = validateBody(updateConnectionSchema, body);
