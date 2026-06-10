@@ -276,7 +276,9 @@ test.describe.serial("Force password change", () => {
     // Fill the change password form
     const newPassword = "newSecurePass123";
     await page.getByLabel("Current Password").fill(password);
-    await page.getByLabel("New Password").fill(newPassword);
+    // exact: true — bare "New Password" also substring-matches the
+    // "Confirm New Password" label and trips strict mode.
+    await page.getByLabel("New Password", { exact: true }).fill(newPassword);
     await page.getByLabel("Confirm New Password").fill(newPassword);
     await page.getByRole("button", { name: "Change Password" }).click();
 

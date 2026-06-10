@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { unstable_update } from "@/lib/auth/config";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
 const passwordSchema = z.object({
@@ -66,6 +67,18 @@ export async function PUT(req: Request) {
       passwordChangedAt: new Date(),
     })
     .where(eq(users.id, session.userId));
+
+  // Re-issue the session cookie in this response. The proxy decodes the raw
+  // JWT cookie (getToken never hits the DB), so without this the stale
+  // forcePasswordChange=true claim bounces the user straight back to
+  // /change-password after the redirect. The jwt callback re-fetches the
+  // user from the DB, so an empty update is enough to refresh every claim.
+  try {
+    await unstable_update({});
+  } catch {
+    // Best-effort: the password change itself succeeded. The cookie will
+    // refresh on the next session poll.
+  }
 
   return NextResponse.json({ data: { success: true } });
 }

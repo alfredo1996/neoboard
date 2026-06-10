@@ -60,7 +60,12 @@ export default function ChangePasswordPage() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Change Password</CardTitle>
+          <CardTitle className="text-2xl">
+            {/* CardTitle renders a div; the page's main title must be a real
+                heading for assistive tech (Tailwind preflight keeps the h1
+                visually inheriting CardTitle's styles). */}
+            <h1>Change Password</h1>
+          </CardTitle>
           <CardDescription>
             You must change your password before continuing.
           </CardDescription>
