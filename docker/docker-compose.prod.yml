@@ -1,26 +1,94 @@
-# Production NeoBoard container.
+# Production NeoBoard — app container only (BYO database).
+#
+# ⚠ This file does NOT include PostgreSQL or Neo4j. DATABASE_URL must point
+# at a PostgreSQL instance you operate (RDS, Cloud SQL, your own server).
+# For a self-contained single-server stack, use docker-compose.prod-full.yml
+# instead — that is the recommended production entry point.
+#
 # Required env vars: DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET
-# See ../.env.example for documentation on each variable.
+# See ../app/.env.example for documentation on every variable.
 #
 # Usage:
-#   docker compose -f docker/docker-compose.prod.yml up
+#   docker compose -f docker/docker-compose.prod.yml up -d
+#
+# Rollback to a previous release:
+#   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z \
+#     docker compose -f docker/docker-compose.prod.yml pull neoboard
+#   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z \
+#     docker compose -f docker/docker-compose.prod.yml up -d --force-recreate
 services:
   neoboard:
+    # Released images are published by .github/workflows/release.yml on each
+    # version tag. When the image is not available locally or remotely (e.g.
+    # before the first release), compose builds from source instead.
+    image: ${NEOBOARD_IMAGE:-ghcr.io/alfredo1996/neoboard:latest}
     build:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # ── Required ──
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required — point it at your PostgreSQL instance}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required — generate with `openssl rand -hex 32`}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required — generate with `openssl rand -base64 32`}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # ── Auth ──
+      ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:-}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      SESSION_MAX_AGE: ${SESSION_MAX_AGE:-}
+      TENANT_ID: ${TENANT_ID:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      # ── Security ──
+      # HTTPS redirect is ON by default in production. Set to "false" only
+      # when TLS terminates upstream without forwarding X-Forwarded-Proto.
+      FORCE_HTTPS: ${FORCE_HTTPS:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      # ── Enterprise / SSO ──
+      NEOBOARD_EDITION: ${NEOBOARD_EDITION:-community}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      OIDC_CLAIM_KEY: ${OIDC_CLAIM_KEY:-}
+      OIDC_ADMIN_VALUE: ${OIDC_ADMIN_VALUE:-}
+      OIDC_CREATOR_VALUE: ${OIDC_CREATOR_VALUE:-}
+      OIDC_READER_VALUE: ${OIDC_READER_VALUE:-}
+      OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-}
+      OIDC_DEFAULT_ROLE: ${OIDC_DEFAULT_ROLE:-}
+      OIDC_ENFORCE_SSO: ${OIDC_ENFORCE_SSO:-}
+      # ── Key rotation (see app/.env.example for the runbook) ──
+      ENCRYPTION_KEY_OLD: ${ENCRYPTION_KEY_OLD:-}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/api/health",
+        ]
       interval: 30s
-      timeout: 5s
-      start_period: 10s
+      timeout: 10s
+      # Next.js cold start with migration verification can exceed the
+      # Dockerfile default of 10s — don't flap during boot.
+      start_period: 30s
       retries: 3
     restart: unless-stopped
