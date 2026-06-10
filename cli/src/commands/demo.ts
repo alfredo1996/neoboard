@@ -20,7 +20,14 @@ import { runDbSeed } from "./db/seed.js";
 export async function runDemo(opts?: {
   mode?: "docker" | "local";
 }): Promise<void> {
-  await runSetup({ ...opts, full: true });
+  const ok = await runSetup({ ...opts, full: true });
+  if (!ok) {
+    // Setup already printed the failure + remediation hints. Seeding (or
+    // advertising login credentials) against a stack that never came up
+    // would be a lie — bail with a non-zero exit instead.
+    process.exitCode = 1;
+    return;
+  }
   await runDbSeed({ neo4j: true, demo: true, dockerNetwork: true });
 
   banner([

@@ -90,6 +90,7 @@ const mockGetMode = vi.mocked(getMode);
 beforeEach(() => {
   vi.clearAllMocks();
   process.exitCode = 0;
+  mockRunSetup.mockResolvedValue(true);
 });
 
 describe("runDemo", () => {
@@ -117,6 +118,14 @@ describe("runDemo", () => {
     expect(banner).toHaveBeenCalledWith(
       expect.arrayContaining([expect.stringContaining("admin@neoboard.local")]),
     );
+  });
+
+  it("aborts without seeding or credentials banner when setup fails", async () => {
+    mockRunSetup.mockResolvedValue(false);
+    await runDemo();
+    expect(mockRunDbSeed).not.toHaveBeenCalled();
+    expect(banner).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 });
 
