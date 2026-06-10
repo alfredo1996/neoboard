@@ -80,7 +80,9 @@ export default function SignupPage() {
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">NeoBoard</CardTitle>
+            <CardTitle className="text-2xl">
+              <h1>NeoBoard</h1>
+            </CardTitle>
             <CardDescription>Registration Disabled</CardDescription>
           </CardHeader>
           <CardContent>
@@ -107,7 +109,9 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">NeoBoard</CardTitle>
+          <CardTitle className="text-2xl">
+            <h1>NeoBoard</h1>
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Visual dashboards for Neo4j &amp; PostgreSQL
           </p>

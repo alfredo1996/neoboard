@@ -33,6 +33,11 @@ vi.mock("bcryptjs", () => ({
   },
 }));
 
+const mockUnstableUpdate = vi.fn().mockResolvedValue(null);
+vi.mock("@/lib/auth/config", () => ({
+  unstable_update: mockUnstableUpdate,
+}));
+
 import bcrypt from "bcryptjs";
 
 describe("PUT /api/users/me/password", () => {
@@ -144,5 +149,49 @@ describe("PUT /api/users/me/password", () => {
     const res = await PUT(req);
     expect(res.status).toBe(200);
     expect(capturedFields.passwordChangedAt).toBeInstanceOf(Date);
+  });
+
+  it("refreshes the session cookie after a successful change", async () => {
+    // Without this the proxy keeps reading forcePasswordChange=true from
+    // the stale JWT cookie and bounces the user back to /change-password.
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: "old123",
+        newPassword: "newPass1",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(200);
+    expect(mockUnstableUpdate).toHaveBeenCalled();
+  });
+
+  it("does not refresh the session cookie when the current password is wrong", async () => {
+    vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: "wrong",
+        newPassword: "newPass1",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    await PUT(req);
+    expect(mockUnstableUpdate).not.toHaveBeenCalled();
+  });
+
+  it("still returns 200 when the cookie refresh fails", async () => {
+    mockUnstableUpdate.mockRejectedValueOnce(new Error("cookie store gone"));
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: "old123",
+        newPassword: "newPass1",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(200);
   });
 });
