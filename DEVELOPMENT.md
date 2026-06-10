@@ -84,6 +84,9 @@ npm -w connection run test        # requires Docker
 
 # End-to-end (requires Docker + running app)
 npm run test:e2e
+# Runs at 2 workers by default — higher parallelism causes login-timeout
+# flakes from server/DB contention on a single machine (see #994).
+# Experiment with: npx playwright test --workers=N
 
 # Lint all packages
 npm run lint
