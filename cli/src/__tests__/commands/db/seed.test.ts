@@ -62,7 +62,21 @@ describe("seedNeo4j", () => {
     expect(mockDockerExec).toHaveBeenLastCalledWith(
       "neoboard-neo4j",
       expect.stringContaining("-f /var/lib/neo4j/import/init.cypher"),
+      expect.objectContaining({
+        env: { NEO4J_USERNAME: "neo4j", NEO4J_PASSWORD: "neoboard123" },
+      }),
     );
+  });
+
+  it("never puts the Neo4j password in the command line (#967)", async () => {
+    mockDockerExec.mockReturnValueOnce("c\n0");
+    mockDockerExec.mockReturnValueOnce("ok");
+
+    await seedNeo4j();
+    for (const call of mockDockerExec.mock.calls) {
+      expect(String(call[1])).not.toContain("neoboard123");
+      expect(String(call[1])).not.toMatch(/-p\s/);
+    }
   });
 
   it("skips when database has nodes", async () => {

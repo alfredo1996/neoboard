@@ -156,6 +156,7 @@ describe("dockerExec", () => {
     expect(mockDockerExec).toHaveBeenCalledWith(
       "neoboard-postgres",
       "pg_isready",
+      undefined,
     );
   });
 });
