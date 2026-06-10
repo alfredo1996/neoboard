@@ -250,7 +250,12 @@ export function GraphExplorationWrapper({
   // Without this, the inline callback would be rebuilt every render,
   // causing GraphChart to see a new prop identity each time.
   const explorationRef = useRef(exploration);
-  explorationRef.current = exploration;
+  useEffect(() => {
+    // Latest-ref pattern: assigned in an effect because writing refs
+    // during render is forbidden by the React compiler (#975). Event
+    // handlers only read it after effects have run.
+    explorationRef.current = exploration;
+  }, [exploration]);
 
   const handleNodeSelect = useCallback(
     (ids: string[]) => {

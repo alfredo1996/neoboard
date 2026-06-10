@@ -62,6 +62,29 @@ jobs:
       - name: Type-check app
         run: npm -w app exec tsc -- --noEmit
 
+  # ── Job 0b: Lint ────────────────────────────────────────────────────────────
+  # Husky/lint-staged is bypassable with --no-verify; gate errors in CI (#975).
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint all packages
+        run: npm run lint
+
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
   # All three packages run in parallel within a single job.
   # Connection integration tests use GitHub service containers.
