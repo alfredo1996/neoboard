@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("../../lib/docker-env.js", () => ({
+  ensureDockerEnvFile: vi.fn(() => "/project/docker/.env"),
+}));
+
 vi.mock("../../lib/exec.js", () => ({
   run: vi.fn(),
   runOrNull: vi.fn(),
@@ -97,10 +101,10 @@ describe("composeUp", () => {
     );
   });
 
-  it("uses full compose file when full=true", () => {
+  it("uses full compose file with the generated env-file when full=true (#970)", () => {
     composeUp({ full: true });
     expect(mockRun).toHaveBeenCalledWith(
-      "docker compose -f /project/docker/docker-compose.full.yml up -d --build",
+      "docker compose -f /project/docker/docker-compose.full.yml --env-file /project/docker/.env up -d --build",
       { cwd: "/project" },
     );
   });

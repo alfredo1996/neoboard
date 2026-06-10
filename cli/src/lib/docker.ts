@@ -1,6 +1,7 @@
 import { createConnection } from "node:net";
 import { run, runOrNull, dockerExec as execInContainer } from "./exec.js";
 import { paths, readProjectConfig, getMode } from "./config.js";
+import { ensureDockerEnvFile } from "./docker-env.js";
 import { join } from "node:path";
 
 export function isDockerRunning(): boolean {
@@ -19,6 +20,15 @@ export function composeFile(full = false): string {
 
 export function composeUp(opts?: { full?: boolean }): void {
   const file = composeFile(opts?.full);
+  if (opts?.full) {
+    // The full stack needs per-install secrets (#970); generated once,
+    // reused forever. OS env still overrides --env-file values (CI).
+    const envFile = ensureDockerEnvFile();
+    run(`docker compose -f ${file} --env-file ${envFile} up -d --build`, {
+      cwd: paths.root,
+    });
+    return;
+  }
   run(`docker compose -f ${file} up -d --build`, { cwd: paths.root });
 }
 
