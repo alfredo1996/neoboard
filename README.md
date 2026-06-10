@@ -178,7 +178,7 @@ Feature and fix branches target `dev` by default, or the active `release/X.Y` br
 
 ## Migrating from NeoDash
 
-NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. The `neoboard migrate` CLI command converts your NeoDash JSON exports into NeoBoard-compatible dashboards, mapping chart types, parameters, and layout automatically. See the [NeoDash Migration Guide](docs/NEODASH_MIGRATION_GUIDE.md) for step-by-step instructions and a list of supported widget mappings.
+NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/getting-started/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
 
 ## API Documentation
 
