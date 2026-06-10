@@ -331,15 +331,17 @@ export function FormWidgetRenderer({
   query,
   settings = {},
 }: FormWidgetRendererProps) {
+  // Plain dependency variables — the React compiler cannot preserve manual
+  // memoization keyed on optional-chained member expressions (#975).
+  const formFieldsSetting = settings.formFields;
+  const chartOptionsSetting = settings.chartOptions;
   const fields = useMemo(
-    () => (settings?.formFields as FormFieldDef[] | undefined) ?? [],
-
-    [settings?.formFields],
+    () => (formFieldsSetting as FormFieldDef[] | undefined) ?? [],
+    [formFieldsSetting],
   );
   const chartOptions = useMemo(
-    () => (settings.chartOptions ?? {}) as Record<string, unknown>,
-
-    [settings.chartOptions],
+    () => (chartOptionsSetting ?? {}) as Record<string, unknown>,
+    [chartOptionsSetting],
   );
 
   const [localValues, setLocalValues] = useState<Record<string, unknown>>({});
