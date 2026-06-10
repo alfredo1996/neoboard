@@ -43,7 +43,10 @@ describe("use-users", () => {
       };
       const result = await config.queryFn();
       expect(result).toEqual(users);
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/users");
+      // limit=1000 (API MAX_LIMIT): the users page has no pagination UI yet
+      // (#839) — fetching only the default page (25) made newly created
+      // users invisible to admins (#1000).
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/users?limit=1000");
     });
 
     it("returns envelope data when response uses envelope format", async () => {
