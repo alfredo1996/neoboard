@@ -170,12 +170,12 @@ test.describe("Signup", () => {
   });
 });
 
-// Skip on CI: JWT forcePasswordChange propagation has timing sensitivity
-// that causes flakes in the production build. The proxy redirect works
-// (verified locally and by user-sim agents) but the E2E timing is unreliable.
+// Previously skipped on CI as a "JWT timing flake" — the real cause was a
+// deterministic redirect loop (#989): the proxy read the stale
+// forcePasswordChange claim from the raw JWT cookie. Fixed in #990 by
+// re-issuing the session cookie from the password route, so the group is
+// CI-enabled again (#995).
 test.describe.serial("Force password change", () => {
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip(!!process.env.CI, "JWT timing flake on CI — verified manually");
   /**
    * Helper: login as ALICE, create a user with forcePasswordChange=true via API,
    * log out, then return the new user's credentials.
