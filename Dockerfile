@@ -61,6 +61,11 @@ COPY --from=build --chown=nextjs:nodejs /app/app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/app/.next/static ./app/.next/static
 COPY --from=build --chown=nextjs:nodejs /app/app/public ./app/public
 
+# Schema migrations, applied at boot by instrumentation (MIGRATE_ON_START).
+# The image has no drizzle-kit — this journal + the programmatic migrator
+# are the only way a pure-Docker deployment can create its schema.
+COPY --from=build --chown=nextjs:nodejs /app/app/drizzle ./app/drizzle
+
 # Strip any .env files that leaked via standalone output tracing.
 # Secrets must be passed as runtime environment variables, never baked in.
 RUN find . -name ".env" -o -name ".env.*" | xargs rm -f 2>/dev/null; true
@@ -71,6 +76,11 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# Apply pending DB migrations at boot (advisory-locked, idempotent).
+# Override with MIGRATE_ON_START=0 for emergency debugging only.
+ENV MIGRATE_ON_START=1
+ENV MIGRATIONS_DIR=/app/app/drizzle/migrations
 
 # All config is via runtime env vars:
 #   DATABASE_URL          — PostgreSQL connection string

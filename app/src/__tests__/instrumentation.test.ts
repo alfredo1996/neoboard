@@ -115,6 +115,79 @@ describe("register (instrumentation hook)", () => {
   });
 });
 
+// ─── Migrate-on-boot (#985) ─────────────────────────────────────────────────
+
+describe("register — migrate on boot", () => {
+  const mockMigrateOnBoot = vi.fn(async () => {});
+
+  const savedMigrate = process.env.MIGRATE_ON_START;
+
+  async function loadRegister() {
+    vi.resetModules();
+    process.env.SKIP_ENV_VALIDATION = "1";
+    vi.doMock("@/lib/auth/bootstrap", () => ({
+      bootstrapAdmin: mockBootstrapAdmin,
+    }));
+    vi.doMock("@/lib/db/migrate-on-boot", async () => {
+      const actual = await vi.importActual<
+        typeof import("@/lib/db/migrate-on-boot")
+      >("@/lib/db/migrate-on-boot");
+      return { ...actual, migrateOnBoot: mockMigrateOnBoot };
+    });
+    const mod = await import("../instrumentation");
+    return mod.register;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_RUNTIME = "nodejs";
+  });
+
+  afterEach(() => {
+    if (savedMigrate === undefined) delete process.env.MIGRATE_ON_START;
+    else process.env.MIGRATE_ON_START = savedMigrate;
+  });
+
+  it("does not migrate when MIGRATE_ON_START is unset", async () => {
+    delete process.env.MIGRATE_ON_START;
+    const register = await loadRegister();
+    await register();
+    expect(mockMigrateOnBoot).not.toHaveBeenCalled();
+  });
+
+  it("migrates before bootstrapping the admin when MIGRATE_ON_START=1", async () => {
+    process.env.MIGRATE_ON_START = "1";
+    process.env.BOOTSTRAP_ADMIN_EMAIL = "admin@example.com";
+    process.env.BOOTSTRAP_ADMIN_PASSWORD = "password123";
+    const register = await loadRegister();
+    await register();
+    expect(mockMigrateOnBoot).toHaveBeenCalledTimes(1);
+    expect(mockBootstrapAdmin).toHaveBeenCalledTimes(1);
+    expect(mockMigrateOnBoot.mock.invocationCallOrder[0]).toBeLessThan(
+      mockBootstrapAdmin.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("exits the process when migration fails", async () => {
+    process.env.MIGRATE_ON_START = "1";
+    mockMigrateOnBoot.mockRejectedValueOnce(new Error("DDL exploded"));
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("process.exit called");
+    }) as never);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+
+    const register = await loadRegister();
+    await expect(register()).rejects.toThrow("process.exit called");
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(mockBootstrapAdmin).not.toHaveBeenCalled();
+
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
+});
+
 // ─── Cold-start env validation (fail-fast on missing required vars) ────────
 
 describe("register — env validation", () => {
