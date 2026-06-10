@@ -50,6 +50,65 @@ npm run dev
 
 The app will be available at `http://localhost:3000`.
 
+## Production Deployment
+
+The three options above set up a **development** stack. For production, use the dedicated compose files in `docker/`:
+
+| File                                          | Use when                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| `docker-compose.prod-full.yml` (recommended)  | Single-server deployment — bundles PostgreSQL, with optional Neo4j        |
+| `docker-compose.prod.yml`                     | You bring your own PostgreSQL (RDS, Cloud SQL, an existing server)        |
+
+Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall back to building from source when no image is available. Pin a specific release with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z`.
+
+### 1. Generate secrets
+
+```bash
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
+export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+export NEXTAUTH_URL=https://neoboard.example.com   # the public URL users hit
+```
+
+Store these in a secrets manager or an `.env` file next to the compose file. The compose files **refuse to boot** when a required secret is missing — they will not fall back to insecure defaults.
+
+:::caution
+Losing `ENCRYPTION_KEY` makes every stored connection credential unrecoverable. Back it up with the same care as the database itself — see [Backup & Restore](/administration/backup-restore).
+:::
+
+### 2. Start the stack
+
+```bash
+docker compose -f docker/docker-compose.prod-full.yml up -d
+```
+
+To also run the optional bundled Neo4j data source:
+
+```bash
+export NEO4J_PASSWORD=$(openssl rand -hex 16)
+docker compose -f docker/docker-compose.prod-full.yml --profile neo4j up -d
+```
+
+Connect to it from NeoBoard with the URI `neo4j://neo4j:7687`.
+
+### 3. Create the first admin
+
+Two paths:
+
+- **Bootstrap token** (recommended for production): set `ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)` before boot, then use the token on the `/signup` page.
+- **Bootstrap admin env vars** (dev/demo convenience): set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` before first boot and the admin account is created automatically.
+
+### 4. Verify
+
+```bash
+curl -fsS http://localhost:3000/api/health        # status "ok"
+docker compose -f docker/docker-compose.prod-full.yml ps   # services "healthy"
+```
+
+### 5. Put it behind TLS
+
+The HTTPS redirect is **on by default** in production. Terminate TLS at your reverse proxy and make sure it forwards `X-Forwarded-Proto`; set `FORCE_HTTPS=false` only if it cannot. Then work through the [Deployment Checklist](/administration/deployment-checklist) — resource limits, log rotation, backups, and monitoring — before going live.
+
 ## First-Time Setup
 
 1. Go to `http://localhost:3000/signup`

@@ -1,12 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { paths, readProjectConfig, getMode } from "../lib/config.js";
-import {
-  info,
-  success,
-  error as logError,
-  banner,
-} from "../lib/output.js";
+import { info, success, error as logError, banner } from "../lib/output.js";
 
 const REQUIRED_VARS = [
   "DATABASE_URL",
@@ -54,6 +49,9 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
   const encryptionKey = generateSecret();
   const nextauthSecret = generateSecret();
   const bootstrapToken = generateSecret();
+  // Optional at startup, but required the moment someone creates an API key
+  // from Settings (#907) — generate it up front so the feature just works.
+  const apiKeyHmacSecret = generateSecret();
 
   const lines = [
     `DATABASE_URL=${dbUrl}`,
@@ -61,6 +59,7 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
     `NEXTAUTH_SECRET=${nextauthSecret}`,
     `NEXTAUTH_URL=http://localhost:${config.ports.app}`,
     `ADMIN_BOOTSTRAP_TOKEN=${bootstrapToken}`,
+    `API_KEY_HMAC_SECRET=${apiKeyHmacSecret}`,
     "",
   ];
 

@@ -88,12 +88,16 @@ Demo login: `admin@neoboard.local` / `admin123`
 
 ### Docker (Production)
 
+All Compose files live in [`docker/`](docker/) — there is intentionally no root-level `docker-compose.yml`, so pass `-f`:
+
 ```bash
-cp app/.env.example app/.env.local   # Fill in your secrets
-docker compose -f docker/docker-compose.prod.yml up
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)     # lost key = stored credentials unrecoverable
+export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+docker compose -f docker/docker-compose.prod-full.yml up -d
 ```
 
-See [`app/.env.example`](app/.env.example) for required environment variables.
+`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/getting-started/installation.mdx) for first-admin bootstrap, health verification, and TLS, and [`app/.env.example`](app/.env.example) for every variable.
 
 > 🎥 **No time to install?** Watch the [2-minute walkthrough](https://github.com/alfredo1996/neoboard/wiki/Demo) or browse the [screenshots](#screenshots) below.
 
