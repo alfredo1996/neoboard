@@ -105,6 +105,16 @@ describe("proxy", () => {
       const res = await proxy(makeRequest("/api/openapi.json"));
       expect(res.status).toBe(200);
     });
+
+    it("passes through /api/health without authentication", async () => {
+      const res = await proxy(makeRequest("/api/health"));
+      expect(res.status).toBe(200);
+    });
+
+    it("does not treat /api/health sub-paths as public", async () => {
+      const res = await proxy(makeRequest("/api/health/internal"));
+      expect(res.status).toBe(401);
+    });
   });
 
   describe("unauthenticated requests", () => {

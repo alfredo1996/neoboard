@@ -180,4 +180,20 @@ describe("runStart", () => {
 
     logSpy.mockRestore();
   });
+
+  it("returns true when everything starts", async () => {
+    await expect(runStart({ full: true })).resolves.toBe(true);
+  });
+
+  it("returns false when a healthcheck times out", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockWaitForHealth.mockRejectedValueOnce(new Error("Timeout"));
+    await expect(runStart()).resolves.toBe(false);
+    logSpy.mockRestore();
+  });
+
+  it("returns false when doctor finds failures in docker mode", async () => {
+    mockPrintResults.mockReturnValue(true);
+    await expect(runStart()).resolves.toBe(false);
+  });
 });

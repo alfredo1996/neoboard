@@ -15,7 +15,12 @@ export interface StartOptions {
   full?: boolean;
 }
 
-export async function runStart(opts?: StartOptions): Promise<void> {
+/**
+ * Returns true when the requested stack is up and healthy, false on any
+ * failure (doctor, healthcheck timeout). Callers like `runSetup` use the
+ * return value to abort follow-up steps instead of reporting success.
+ */
+export async function runStart(opts?: StartOptions): Promise<boolean> {
   const mode = getMode();
   const config = readProjectConfig();
   const full = opts?.full ?? false;
@@ -25,7 +30,7 @@ export async function runStart(opts?: StartOptions): Promise<void> {
   const hasFailure = printResults(results);
   if (hasFailure && mode === "docker") {
     process.exitCode = 1;
-    return;
+    return false;
   }
 
   // 2. Start containers (only in Docker mode)
@@ -50,7 +55,7 @@ export async function runStart(opts?: StartOptions): Promise<void> {
     localHint: `PostgreSQL not reachable on localhost:${config.ports.postgres}. Start it manually or use --mode docker.`,
     mode,
   });
-  if (!pgOk) return;
+  if (!pgOk) return false;
 
   const neo4jOk = await checkHealthOrFail({
     check: isNeo4jReady,
@@ -59,7 +64,7 @@ export async function runStart(opts?: StartOptions): Promise<void> {
     localHint: `Neo4j not reachable on localhost:${config.ports.neo4j_http}. Start it manually or use --mode docker.`,
     mode,
   });
-  if (!neo4jOk) return;
+  if (!neo4jOk) return false;
 
   // When the full stack is up, the Next.js app container takes another
   // 30–60s to boot. Poll /api/health so the CLI doesn't go silent and
@@ -73,7 +78,7 @@ export async function runStart(opts?: StartOptions): Promise<void> {
       localHint: "",
       mode,
     });
-    if (!appOk) return;
+    if (!appOk) return false;
   }
 
   // 4. Run migrations
@@ -100,6 +105,7 @@ export async function runStart(opts?: StartOptions): Promise<void> {
   } else {
     success(`Run 'neoboard dev' to start the app`);
   }
+  return true;
 }
 
 /**
