@@ -1,5 +1,5 @@
 /**
- * Shared Tailwind CSS preset — NeoBoard Deep Ocean theme.
+ * Shared Tailwind CSS preset — NeoBoard Graphite & Citrine theme.
  *
  * Imported by app/tailwind.config.ts and component/tailwind.config.js
  * to avoid duplicating the theme.extend block.
@@ -34,7 +34,15 @@ module.exports = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          // Alpha-baked citrine tint — use directly (bg-accent-soft), no
+          // hsl() wrapping since the token carries its own alpha.
+          soft: "var(--accent-soft)",
         },
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          2: "hsl(var(--surface-2))",
+        },
+        "border-strong": "hsl(var(--border-strong))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -60,6 +68,14 @@ module.exports = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      // Elevation scale (#823): shadow-sm/md/lg utilities emit the
+      // warm-tinted token values so all existing class usage upgrades
+      // without component changes.
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
       },
       keyframes: {
         "accordion-down": {
