@@ -28,17 +28,26 @@ This starts PostgreSQL 16 (port 5432) and Neo4j (port 7687) containers.
 
 ### 3. Configure environment
 
+Generate `app/.env.local` with all required secrets in one step (the `neoboard` CLI is linked automatically by `npm install`):
+
 ```bash
-cp app/.env.example app/.env.local
+neoboard env init
 ```
 
-Generate the required secrets:
+This writes `DATABASE_URL`, a generated `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`, and an `ADMIN_BOOTSTRAP_TOKEN` for first signup.
+
+Prefer manual control? Copy the template and generate each value yourself:
 
 ```bash
+cp app/.env.example app/.env.local
+
 # ENCRYPTION_KEY (AES-256-GCM — lost key = unrecoverable credentials)
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 # NEXTAUTH_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# API_KEY_HMAC_SECRET (needed to create API keys from Settings)
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 

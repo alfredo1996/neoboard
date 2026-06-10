@@ -93,6 +93,8 @@ describe("generateEnvFile", () => {
     expect(content).toContain("ENCRYPTION_KEY=");
     expect(content).toContain("NEXTAUTH_SECRET=");
     expect(content).toContain("ADMIN_BOOTSTRAP_TOKEN=");
+    // Without it, creating an API key from Settings dead-ends (#907/#952)
+    expect(content).toContain("API_KEY_HMAC_SECRET=");
   });
 
   it("skips when file exists and no regenerate flag", () => {
