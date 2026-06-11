@@ -22,6 +22,7 @@ import {
   Sidebar,
   SidebarItem,
   SidebarSectionLabel,
+  Wordmark,
   Badge,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -77,15 +78,7 @@ export default function DashboardLayout({
         <Sidebar
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
-          header={
-            !collapsed ? (
-              <span className="font-display text-lg font-semibold tracking-tight">
-                NeoBoard
-              </span>
-            ) : (
-              <span className="text-lg font-bold">N</span>
-            )
-          }
+          header={<Wordmark collapsed={collapsed} />}
           footer={
             <>
               {userName && (

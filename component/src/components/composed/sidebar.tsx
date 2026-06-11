@@ -28,23 +28,17 @@ function Sidebar({
     <aside
       className={cn(
         "flex flex-col h-full border-r bg-background transition-[width] duration-200",
-        className
+        className,
       )}
       style={{ width: collapsed ? collapsedWidth : width }}
     >
       {header && (
-        <div className="flex items-center border-b px-3 py-3">
-          {header}
-        </div>
+        <div className="flex items-center border-b px-4 py-4">{header}</div>
       )}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
         {children}
       </nav>
-      {footer && (
-        <div className="border-t px-3 py-3">
-          {footer}
-        </div>
-      )}
+      {footer && <div className="border-t px-3 py-3">{footer}</div>}
       {onCollapsedChange && (
         <div className="border-t px-2 py-2">
           <Button

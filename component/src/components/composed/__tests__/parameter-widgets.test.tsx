@@ -141,9 +141,10 @@ describe("ParamSelector", () => {
         loading
       />,
     );
-    // Loading state renders skeleton elements (animate-pulse class from Skeleton component)
+    // Loading state renders skeleton elements (#833: shimmer skeletons
+    // share the bg-primary/10 base class)
     expect(
-      container.querySelectorAll('[class*="animate-pulse"]').length,
+      container.querySelectorAll('[class*="bg-primary/10"]').length,
     ).toBeGreaterThan(0);
     // The select trigger should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
@@ -1259,8 +1260,9 @@ describe("CascadingSelector", () => {
     // The select combobox should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
     // Skeleton placeholders should be rendered (animate-pulse divs)
+    // #833: shimmer skeletons share the bg-primary/10 base class
     expect(
-      container.querySelectorAll(".animate-pulse").length,
+      container.querySelectorAll('[class*="bg-primary/10"]').length,
     ).toBeGreaterThanOrEqual(2);
   });
 

@@ -21,15 +21,22 @@ const DENSITY_PADDING: Record<CardDensity, string> = {
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   density?: CardDensity;
+  /**
+   * Hover lift for clickable cards (#833) — static display cards must NOT
+   * set this. Subtle translate + deeper shadow on the standard ease.
+   */
+  interactive?: boolean;
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, density = "default", ...props }, ref) => (
+  ({ className, density = "default", interactive = false, ...props }, ref) => (
     <CardDensityContext.Provider value={density}>
       <div
         ref={ref}
         className={cn(
           "rounded-md border bg-card text-card-foreground shadow-md",
+          interactive &&
+            "transition-all ease-standard hover:-translate-y-px hover:shadow-lg",
           className,
         )}
         {...props}
