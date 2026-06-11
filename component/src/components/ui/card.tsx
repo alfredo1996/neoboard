@@ -19,7 +19,7 @@ const DENSITY_PADDING: Record<CardDensity, string> = {
   tight: "p-3",
 };
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   density?: CardDensity;
   /**
    * Hover lift for clickable cards (#833) — static display cards must NOT
