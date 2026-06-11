@@ -10,6 +10,10 @@ export interface ConnectionListItem {
   type: ConnectorType;
   /** When true, widgets can override the connection's default database per-card. */
   allowPerCardDb: boolean;
+  /** "shared" connections are queryable by every user in the tenant (#901). */
+  visibility: "private" | "shared";
+  /** True when the current user owns the connection — gates edit/delete UI. */
+  isOwner: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -147,6 +151,8 @@ export function useReassignConnection() {
 export interface UpdateConnectionInput {
   id: string;
   name?: string;
+  /** Admin-only: toggle tenant-wide sharing (#901). */
+  visibility?: "private" | "shared";
   config?: Partial<{
     uri: string;
     username: string;

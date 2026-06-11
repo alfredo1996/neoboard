@@ -71,15 +71,20 @@ async function handleReadQuery(request: Request): Promise<Response> {
       return forbidden("Tenant mismatch");
     }
 
-    // 1. Fast path: direct ownership (tenant-scoped)
+    // 1. Fast path: direct ownership or tenant-shared connection (#901).
+    //    Shared connections are first-class queryable for every tenant
+    //    user — that's the 'admin provisions, all use' model.
     let [connection] = await db
       .select()
       .from(connections)
       .where(
         and(
           eq(connections.id, connectionId),
-          eq(connections.userId, userId),
           eq(connections.tenantId, sessionTenantId),
+          or(
+            eq(connections.userId, userId),
+            eq(connections.visibility, "shared"),
+          ),
         ),
       )
       .limit(1);

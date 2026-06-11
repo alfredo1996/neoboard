@@ -1,5 +1,14 @@
-import { Database, MoreVertical, Pencil, Trash2, RefreshCw, Copy } from "lucide-react";
+import {
+  Database,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  RefreshCw,
+  Copy,
+  Users,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +33,11 @@ export interface ConnectionCardProps {
   onTest?: () => void;
   onDuplicate?: () => void;
   onClick?: () => void;
+  /** Renders a "Shared" badge — the connection is workspace-visible. */
+  shared?: boolean;
+  /** Menu action to toggle sharing; label comes from toggleVisibilityLabel. */
+  onToggleVisibility?: () => void;
+  toggleVisibilityLabel?: string;
   className?: string;
 }
 
@@ -39,6 +53,9 @@ function ConnectionCard({
   onTest,
   onDuplicate,
   onClick,
+  shared = false,
+  onToggleVisibility,
+  toggleVisibilityLabel = "Share with workspace",
   className,
 }: ConnectionCardProps) {
   return (
@@ -47,7 +64,7 @@ function ConnectionCard({
         "transition-colors",
         active && "border-primary",
         onClick && "cursor-pointer hover:bg-accent/50",
-        className
+        className,
       )}
       onClick={onClick}
     >
@@ -62,13 +79,23 @@ function ConnectionCard({
               status={status}
               errorMessage={status === "error" ? statusText : undefined}
             />
+            {shared && (
+              <Badge variant="secondary" className="gap-1 text-xs">
+                <Users className="h-3 w-3" />
+                Shared
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground truncate">
             {host}
             {database && ` / ${database}`}
           </p>
         </div>
-        {(onEdit || onDelete || onTest || onDuplicate) && (
+        {(onEdit ||
+          onDelete ||
+          onTest ||
+          onDuplicate ||
+          onToggleVisibility) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -98,6 +125,12 @@ function ConnectionCard({
                 <DropdownMenuItem onClick={onEdit}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit
+                </DropdownMenuItem>
+              )}
+              {onToggleVisibility && (
+                <DropdownMenuItem onClick={onToggleVisibility}>
+                  <Users className="mr-2 h-4 w-4" />
+                  {toggleVisibilityLabel}
                 </DropdownMenuItem>
               )}
               {onDelete && (
