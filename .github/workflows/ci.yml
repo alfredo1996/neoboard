@@ -108,7 +108,7 @@ jobs:
           --health-retries 5
 
       neo4j:
-        image: neo4j:5-community
+        image: neo4j:5.26-community
         env:
           NEO4J_AUTH: neo4j/neoboard123
         ports:
@@ -204,7 +204,7 @@ jobs:
           NPM_PID=$!
           docker pull postgres:16-alpine  &
           PG_PID=$!
-          docker pull neo4j:5-community   &
+          docker pull neo4j:5.26-community   &
           NEO4J_PID=$!
 
           FAIL=0
@@ -329,8 +329,23 @@ jobs:
       - name: Merge coverage files
         run: |
           mkdir -p app/coverage-e2e
-          find coverage-shards -name "lcov.info" -exec cat {} + > app/coverage-e2e/lcov.info || true
+          # Proper lcov merge (not cat): concatenation produced duplicate
+          # SF: records that distort Sonar's per-file coverage (#982).
+          # lcov --add-tracefile sums hit counts across shards correctly.
+          ARGS=""
+          for f in $(find coverage-shards -name "lcov.info"); do
+            ARGS="$ARGS --add-tracefile $f"
+          done
           SHARD_COUNT=$(find coverage-shards -name "lcov.info" | wc -l)
+          if [ "$SHARD_COUNT" -gt 0 ]; then
+            sudo apt-get update && sudo apt-get install -y lcov
+            lcov $ARGS --output-file app/coverage-e2e/lcov.info \
+              --ignore-errors inconsistent,corrupt,format || \
+              find coverage-shards -name "lcov.info" -exec cat {} + \
+                > app/coverage-e2e/lcov.info
+          else
+            : > app/coverage-e2e/lcov.info
+          fi
           echo "Merged coverage from $SHARD_COUNT shards"
           wc -l app/coverage-e2e/lcov.info
 

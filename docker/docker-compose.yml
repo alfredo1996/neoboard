@@ -21,7 +21,7 @@ services:
       retries: 5
 
   neo4j:
-    image: neo4j:5-community
+    image: neo4j:5.26-community
     container_name: neoboard-neo4j
     environment:
       NEO4J_AUTH: neo4j/neoboard123
