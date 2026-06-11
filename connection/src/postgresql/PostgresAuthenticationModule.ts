@@ -1,7 +1,7 @@
 import { AuthenticationModule } from "../generalized/AuthenticationModule";
 import { AuthConfig, PostgresAdvancedOptions } from "../generalized/interfaces";
 import { Pool } from "pg";
-import { isAuthenticationError } from "./utils";
+import { isAuthenticationError, attachClientErrorGuard } from "./utils";
 
 /**
  * PostgreSQL Authentication Module
@@ -107,10 +107,12 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
       }
 
       const client = await this.pool.connect();
+      const releaseErrorGuard = attachClientErrorGuard(client);
       try {
         await client.query("SELECT 1");
         return true;
       } finally {
+        releaseErrorGuard();
         client.release();
       }
     } catch (error: unknown) {

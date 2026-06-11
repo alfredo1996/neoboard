@@ -152,3 +152,23 @@ describe("PostgreSQL Utils", () => {
     });
   });
 });
+
+describe("attachClientErrorGuard (#999)", () => {
+  const { attachClientErrorGuard } = require("../../src/postgresql/utils");
+  const { EventEmitter } = require("node:events");
+
+  test("absorbs 'error' events on checked-out clients", () => {
+    const client = new EventEmitter();
+    attachClientErrorGuard(client);
+    // Without a listener this would throw (unhandled 'error' event)
+    expect(() => client.emit("error", new Error("57P01"))).not.toThrow();
+  });
+
+  test("cleanup removes the listener so pooled clients don't accumulate them", () => {
+    const client = new EventEmitter();
+    const cleanup = attachClientErrorGuard(client);
+    expect(client.listenerCount("error")).toBe(1);
+    cleanup();
+    expect(client.listenerCount("error")).toBe(0);
+  });
+});

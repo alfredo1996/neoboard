@@ -1,4 +1,5 @@
 import { ConnectionModule } from "../generalized/ConnectionModule";
+import { attachClientErrorGuard } from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import {
   AuthConfig,
@@ -93,6 +94,7 @@ export class PostgresConnectionModule extends ConnectionModule {
     // Pool is guaranteed to exist — runQuery ensures authentication before calling this method
     const pool = this.authModule.getPool()!;
     const client = await pool.connect();
+    const releaseErrorGuard = attachClientErrorGuard(client);
 
     try {
       // Start transaction based on access mode
@@ -182,6 +184,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       );
       callbacks.onFail?.(wrapped);
     } finally {
+      releaseErrorGuard();
       client.release();
     }
   }
@@ -217,12 +220,14 @@ export class PostgresConnectionModule extends ConnectionModule {
       }
       const pool = this.authModule.getPool()!;
       const client = await pool.connect();
+      const releaseErrorGuard = attachClientErrorGuard(client);
       try {
         const result = await client.query(
           "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
         );
         return result.rows.map((row: { datname: string }) => row.datname);
       } finally {
+        releaseErrorGuard();
         client.release();
       }
     } catch {
@@ -245,6 +250,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       }
       const pool = this.authModule.getPool()!;
       const client = await pool.connect();
+      const releaseErrorGuard = attachClientErrorGuard(client);
       try {
         const result = await client.query(
           "SELECT schema_name FROM information_schema.schemata WHERE schema_name <> 'information_schema' AND schema_name NOT LIKE 'pg\\_%' ORDER BY schema_name",
@@ -253,6 +259,7 @@ export class PostgresConnectionModule extends ConnectionModule {
           (row: { schema_name: string }) => row.schema_name,
         );
       } finally {
+        releaseErrorGuard();
         client.release();
       }
     } catch {
@@ -281,10 +288,12 @@ export class PostgresConnectionModule extends ConnectionModule {
       }
 
       const client = await this.authModule.getPool()!.connect();
+      const releaseErrorGuard = attachClientErrorGuard(client);
       try {
         await client.query("SELECT 1");
         return true;
       } finally {
+        releaseErrorGuard();
         client.release();
       }
     } catch (error) {
