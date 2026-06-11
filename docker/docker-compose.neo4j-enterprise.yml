@@ -1,0 +1,35 @@
+# Standalone Neo4j Enterprise container pre-loaded with the Movies database.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.neo4j-enterprise.yml up
+#
+# Neo4j Browser:  http://localhost:7474  (neo4j / movies123)
+# Bolt:           bolt://localhost:7687
+#
+# NOTE: NEO4J_ACCEPT_LICENSE_AGREEMENT=eval is for development/evaluation only.
+#       Replace with "yes" and supply a valid license for production use.
+services:
+  neo4j-enterprise:
+    image: neo4j:5.26-enterprise
+    container_name: neo4j-enterprise-movies
+    entrypoint: ["/bin/bash", "/startup/init.sh"]
+    environment:
+      NEO4J_AUTH: neo4j/movies123
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: eval
+      NEO4J_server_default__advertised__address: localhost
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_enterprise_data:/data
+      - ./neo4j/init.cypher:/var/lib/neo4j/import/init.cypher:ro
+      - ./neo4j/init.sh:/startup/init.sh:ro
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "movies123", "RETURN 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+volumes:
+  neo4j_enterprise_data:

@@ -46,6 +46,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # need all tags to compute the highest version
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -57,15 +59,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `latest` must only move forward — back-publishing an older patch
+      # (e.g. v1.0.1 after v1.1.0) must NOT steal it (#982). Compare the
+      # pushed tag against the highest semver tag in the repo.
+      - name: Determine if this is the newest release
+        id: newest
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          HIGHEST=$(git tag -l 'v*' | sort -V | tail -n1)
+          if [ "$TAG" = "$HIGHEST" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$TAG is not the highest tag ($HIGHEST) — 'latest' will not move."
+          fi
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
+          # latest=false here; the conditional type=raw below owns it.
+          flavor: |
+            latest=false
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ steps.newest.outputs.is_latest == 'true' }}
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -94,22 +114,31 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Verify CLI version matches tag
+      # App and CLI versions are independent — a CLI mismatch should SKIP
+      # the npm publish, not FAIL the whole release (#982). Releasing app
+      # v1.1.0 without bumping the CLI is legitimate.
+      - name: Check CLI version against tag
+        id: cli
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
           PKG=$(node -p "require('./cli/package.json').version")
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::Tag v$TAG does not match cli/package.json version $PKG"
-            exit 1
+          if [ "$TAG" = "$PKG" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tag v$TAG != cli/package.json $PKG — skipping CLI publish."
           fi
 
       - name: Install workspace dependencies
+        if: steps.cli.outputs.publish == 'true'
         run: npm ci
 
       - name: Build CLI
+        if: steps.cli.outputs.publish == 'true'
         run: npm run build --workspace=@neoboard/cli
 
       - name: Publish to npm
+        if: steps.cli.outputs.publish == 'true'
         run: npm publish --workspace=@neoboard/cli --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
