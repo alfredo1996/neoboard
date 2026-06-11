@@ -102,6 +102,19 @@ module.exports = {
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
       },
+      // Motion vocabulary (#833): the standard ease becomes the default
+      // timing function for every transition-* utility.
+      transitionTimingFunction: {
+        DEFAULT: "var(--ease-standard)",
+        standard: "var(--ease-standard)",
+        emphasized: "var(--ease-emphasized)",
+      },
+      transitionDuration: {
+        DEFAULT: "var(--duration-normal)",
+        fast: "var(--duration-fast)",
+        normal: "var(--duration-normal)",
+        slow: "var(--duration-slow)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -111,10 +124,14 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-down": "accordion-down 0.2s var(--ease-standard)",
+        "accordion-up": "accordion-up 0.2s var(--ease-standard)",
+        shimmer: "shimmer 1.6s var(--ease-standard) infinite",
       },
     },
   },

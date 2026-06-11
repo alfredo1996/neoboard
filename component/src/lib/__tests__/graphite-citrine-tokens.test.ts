@@ -124,3 +124,15 @@ describe("radius scale (#831)", () => {
     expect(tokenValue(light, "--radius")).toBe("var(--radius-md)");
   });
 });
+
+describe("motion tokens (#833)", () => {
+  it.each([
+    ["--ease-standard", "cubic-bezier(0.2, 0, 0, 1)"],
+    ["--ease-emphasized", "cubic-bezier(0.3, 0, 0, 1)"],
+    ["--duration-fast", "150ms"],
+    ["--duration-normal", "200ms"],
+    ["--duration-slow", "300ms"],
+  ])("%s = %s", (token, value) => {
+    expect(tokenValue(light, token)).toBe(value);
+  });
+});

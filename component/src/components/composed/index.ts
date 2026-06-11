@@ -48,8 +48,10 @@ export { Sidebar, type SidebarProps } from "./sidebar";
 export {
   SidebarItem,
   SidebarSectionLabel,
+  Wordmark,
   type SidebarItemProps,
   type SidebarSectionLabelProps,
+  type WordmarkProps,
 } from "./sidebar-item";
 export {
   Toolbar,

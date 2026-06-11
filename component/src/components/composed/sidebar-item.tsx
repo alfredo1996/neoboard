@@ -120,3 +120,39 @@ const SidebarSectionLabel = ({
 };
 
 export { SidebarSectionLabel };
+
+export interface WordmarkProps extends React.HTMLAttributes<HTMLSpanElement> {
+  /** Icon-only form for collapsed sidebars. */
+  collapsed?: boolean;
+}
+
+/**
+ * NeoBoard text wordmark (#834): Geist Sans, dual weight (Neo medium /
+ * Board semibold), tight tracking, anchored by a citrine square. The
+ * collapsed form keeps just the mark + "N".
+ */
+const Wordmark = ({ collapsed = false, className, ...rest }: WordmarkProps) => (
+  <span
+    className={cn(
+      "inline-flex items-center gap-2 font-display text-lg tracking-tight",
+      collapsed && "justify-center",
+      className,
+    )}
+    {...rest}
+  >
+    <span
+      aria-hidden
+      className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-[hsl(var(--ring))]"
+    />
+    {collapsed ? (
+      <span className="font-semibold">N</span>
+    ) : (
+      <span>
+        <span className="font-medium">Neo</span>
+        <span className="font-semibold">Board</span>
+      </span>
+    )}
+  </span>
+);
+
+export { Wordmark };

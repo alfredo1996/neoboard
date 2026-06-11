@@ -66,6 +66,13 @@
   --radius-lg: 0.75rem;
   --radius-pill: 9999px;
   --radius: var(--radius-md);
+  /* Motion vocabulary (#833): standard for general transitions,
+     emphasized for significant entrances/exits. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
   --primary: 220 13% 9%;
   --primary-foreground: 220 14% 98%;
   --secondary: 220 14% 94%;
