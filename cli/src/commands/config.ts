@@ -1,5 +1,10 @@
-import { readProjectConfig, writeProjectConfig, paths } from "../lib/config.js";
-import { info, success, error as logError } from "../lib/output.js";
+import {
+  readProjectConfig,
+  writeProjectConfig,
+  paths,
+  getMode,
+} from "../lib/config.js";
+import { warn, info, success, error as logError } from "../lib/output.js";
 import type { ProjectConfig } from "../lib/config.js";
 
 type FlatKey =
@@ -96,4 +101,15 @@ export function runConfigSet(key: string, value: string): void {
   const updated = setNestedValue(config, key as FlatKey, value);
   writeProjectConfig(updated);
   success(`Set ${key} = ${value}`);
+
+  // Port changes are honored by the CLI's probes/banners, but the Docker
+  // compose files publish fixed host ports — so in Docker mode the new
+  // value is partially fictional (#998). Warn rather than silently mislead.
+  if (key.startsWith("ports.") && getMode() === "docker") {
+    warn(
+      `Docker mode publishes fixed ports from docker/docker-compose.yml — ` +
+        `${key} won't change the container's published port. ` +
+        `Edit the compose file (or use local mode) to remap it.`,
+    );
+  }
 }

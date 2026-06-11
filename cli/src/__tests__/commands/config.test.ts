@@ -11,11 +11,13 @@ vi.mock("../../lib/config.js", () => ({
   paths: { projectConfig: "/project/neoboard.config.json" },
   readProjectConfig: vi.fn(() => ({ ...mockConfig })),
   writeProjectConfig: vi.fn(),
+  getMode: vi.fn(() => "local"),
 }));
 
 vi.mock("../../lib/output.js", () => ({
   info: vi.fn(),
   success: vi.fn(),
+  warn: vi.fn(),
   error: vi.fn(),
 }));
 

@@ -24,18 +24,24 @@ export function composeUp(opts?: { full?: boolean }): void {
     // The full stack needs per-install secrets (#970); generated once,
     // reused forever. OS env still overrides --env-file values (CI).
     const envFile = ensureDockerEnvFile();
-    run(`docker compose -f ${file} --env-file ${envFile} up -d --build`, {
+    run(`docker compose -f "${file}" --env-file "${envFile}" up -d --build`, {
       cwd: paths.root,
     });
     return;
   }
-  run(`docker compose -f ${file} up -d --build`, { cwd: paths.root });
+  run(`docker compose -f "${file}" up -d --build`, { cwd: paths.root });
 }
 
 export function composeDown(opts?: { volumes?: boolean }): void {
   const file = composeFile();
   const flags = opts?.volumes ? " -v" : "";
-  run(`docker compose -f ${file} down${flags}`, { cwd: paths.root });
+  // --remove-orphans sweeps containers that belong to the project but
+  // aren't in this compose file — e.g. the app container started by the
+  // full stack (`demo`/`setup --full`), which the DB-only file otherwise
+  // leaves orphaned (#992).
+  run(`docker compose -f "${file}" down --remove-orphans${flags}`, {
+    cwd: paths.root,
+  });
 }
 
 export interface ContainerInfo {
