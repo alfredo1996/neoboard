@@ -26,7 +26,7 @@ import {
   registerNeoboardThemes,
   THEME_LIGHT,
   THEME_DARK,
-  DEEP_OCEAN_LIGHT,
+  CITRINE_LIGHT,
 } from "./theme";
 import { getPaletteColors } from "./palettes";
 
@@ -84,7 +84,7 @@ const CHART_COLOR_VARS = [
   "--chart-9",
   "--chart-10",
 ];
-const CHART_COLORS_FALLBACK = DEEP_OCEAN_LIGHT;
+const CHART_COLORS_FALLBACK = CITRINE_LIGHT;
 
 /** Detect whether the document is currently in dark mode. */
 function isDarkMode(): boolean {

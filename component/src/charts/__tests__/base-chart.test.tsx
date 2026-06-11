@@ -115,7 +115,7 @@ describe("BaseChart", () => {
     render(<BaseChart options={{ title: { text: "Test" } }} />);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
       }),
       { notMerge: true },
     );
@@ -158,10 +158,10 @@ describe("BaseChart", () => {
 
   it("uses default palette colors when no colorPalette is specified", () => {
     render(<BaseChart options={{ title: { text: "Test" } }} />);
-    // Default uses resolveChartColors() which falls back to DEEP_OCEAN_LIGHT
+    // Default uses resolveChartColors() which falls back to CITRINE_LIGHT
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
       }),
       { notMerge: true },
     );
@@ -177,7 +177,7 @@ describe("BaseChart", () => {
     // deep-ocean triggers the default CSS-var path (same as unset)
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
       }),
       { notMerge: true },
     );
@@ -213,7 +213,7 @@ describe("BaseChart", () => {
     // getPaletteColors returns undefined for unknown IDs → falls back to resolveChartColors
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(217, 91%, 60%)"]),
+        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
       }),
       { notMerge: true },
     );

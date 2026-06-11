@@ -9,8 +9,11 @@ export {
 export {
   THEME_LIGHT,
   THEME_DARK,
+  CITRINE_LIGHT,
+  CITRINE_DARK,
   DEEP_OCEAN_LIGHT,
   DEEP_OCEAN_DARK,
+  formatAxisCompact,
 } from "./theme";
 export { COLOR_PALETTES, getPaletteColors } from "./palettes";
 export type { ColorPalette } from "./palettes";

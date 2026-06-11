@@ -64,6 +64,22 @@ describe("LineChart", () => {
     expect(optionsCall.series[1].name).toBe("cost");
   });
 
+  it("defaults to smooth, fine 1.5px lines with a subtle area fill (#822)", () => {
+    render(<LineChart data={sampleData} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].smooth).toBe(true);
+    expect(optionsCall.series[0].lineStyle.width).toBe(1.5);
+    expect(optionsCall.series[0].areaStyle).toBeDefined();
+    expect(optionsCall.series[0].areaStyle.opacity).toBeLessThanOrEqual(0.15);
+  });
+
+  it("can disable smoothing and area fill explicitly", () => {
+    render(<LineChart data={sampleData} smooth={false} area={false} />);
+    const optionsCall = mockSetOption.mock.calls[0][0];
+    expect(optionsCall.series[0].smooth).toBe(false);
+    expect(optionsCall.series[0].areaStyle).toBeUndefined();
+  });
+
   it("enables smooth mode", () => {
     render(<LineChart data={sampleData} smooth />);
     const optionsCall = mockSetOption.mock.calls[0][0];
@@ -130,10 +146,10 @@ describe("LineChart", () => {
     expect(optionsCall.series[0].lineStyle.width).toBe(4);
   });
 
-  it("defaults line width to 2", () => {
+  it("defaults line width to 1.5 (#822)", () => {
     render(<LineChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].lineStyle.width).toBe(2);
+    expect(optionsCall.series[0].lineStyle.width).toBe(1.5);
   });
 
   it("shows grid lines by default", () => {

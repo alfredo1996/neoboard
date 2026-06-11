@@ -10,8 +10,8 @@ describe("COLOR_PALETTES", () => {
     expect(Object.keys(COLOR_PALETTES).length).toBeGreaterThanOrEqual(5);
   });
 
-  it("contains 'deep-ocean' as the default palette", () => {
-    expect(COLOR_PALETTES["deep-ocean"]).toBeDefined();
+  it("contains 'citrine' as the default palette (#821)", () => {
+    expect(COLOR_PALETTES["citrine"]).toBeDefined();
   });
 
   it("every palette has a label string", () => {
@@ -39,8 +39,15 @@ describe("COLOR_PALETTES", () => {
     }
   });
 
-  it("'deep-ocean' palette label contains 'Default'", () => {
-    expect(COLOR_PALETTES["deep-ocean"].label).toContain("Default");
+  it("'citrine' palette label contains 'Default'", () => {
+    expect(COLOR_PALETTES["citrine"].label).toContain("Default");
+  });
+
+  it("no palette except citrine claims to be the default", () => {
+    for (const [id, palette] of Object.entries(COLOR_PALETTES)) {
+      if (id === "citrine") continue;
+      expect(palette.label, id).not.toContain("Default");
+    }
   });
 
   it("contains 'tableau' palette", () => {
@@ -71,10 +78,15 @@ describe("COLOR_PALETTES", () => {
     );
   });
 
-  it("deep-ocean colors match DEEP_OCEAN_LIGHT from theme", () => {
-    const deepOcean = COLOR_PALETTES["deep-ocean"];
-    expect(deepOcean.colors[0]).toBe("hsl(217, 91%, 60%)"); // Blue
-    expect(deepOcean.colors[1]).toBe("hsl(38, 92%, 50%)"); // Amber
+  it("citrine colors match CITRINE_LIGHT from theme, amber first (#821)", () => {
+    const citrine = COLOR_PALETTES["citrine"];
+    expect(citrine.colors[0]).toBe("hsl(38, 95%, 55%)"); // Citrine amber anchor
+  });
+
+  it("legacy 'deep-ocean' id aliases to the citrine default (#821)", () => {
+    expect(getPaletteColors("deep-ocean")).toEqual(
+      COLOR_PALETTES["citrine"].colors,
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import { DEEP_OCEAN_LIGHT } from "./theme";
+import { CITRINE_LIGHT } from "./theme";
 
 export interface ColorPalette {
   label: string;
@@ -20,9 +20,9 @@ export interface ColorPalette {
  * - Monochrome: neutral grey scale for professional contexts
  */
 export const COLOR_PALETTES: Record<string, ColorPalette> = {
-  "deep-ocean": {
-    label: "Deep Ocean (Default)",
-    colors: DEEP_OCEAN_LIGHT,
+  citrine: {
+    label: "Citrine (Default)",
+    colors: CITRINE_LIGHT,
   },
   tableau: {
     label: "Tableau 10",
@@ -154,6 +154,9 @@ const PALETTE_ALIASES: Record<string, string> = {
   "warm-sunset": "warm",
   "cool-breeze": "cool",
   neon: "observable",
+  // v1.1 redesign (#821): the default palette is Citrine; dashboards saved
+  // with the old default keep working.
+  "deep-ocean": "citrine",
 };
 
 /**

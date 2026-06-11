@@ -102,11 +102,13 @@ function LineChart({
   data,
   xAxisLabel,
   yAxisLabel,
-  smooth = false,
-  area = false,
+  // v1.1 defaults (#822): smooth fine lines with a subtle area fill make
+  // charts look deliberately styled out of the box. Both opt-outable.
+  smooth = true,
+  area = true,
   showLegend,
   showPoints = false,
-  lineWidth = 2,
+  lineWidth = 1.5,
   showGridLines = true,
   stepped = false,
   connectNulls = false,
@@ -181,7 +183,27 @@ function LineChart({
         lineStyle: { width: lineWidth, color: seriesColor },
         itemStyle: seriesColor ? { color: seriesColor } : undefined,
         showSymbol: showPoints,
-        areaStyle: area ? {} : undefined,
+        // Subtle fill (#822): a soft gradient when the series color is
+        // known, otherwise a low flat opacity (ECharts applies the series
+        // color automatically).
+        areaStyle: area
+          ? seriesColor
+            ? {
+                opacity: 0.15,
+                color: {
+                  type: "linear" as const,
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [
+                    { offset: 0, color: seriesColor },
+                    { offset: 1, color: "rgba(255,255,255,0)" },
+                  ],
+                },
+              }
+            : { opacity: 0.12 }
+          : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // LTTB downsampling for large datasets
         ...(useSampling
