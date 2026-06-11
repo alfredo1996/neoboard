@@ -21,6 +21,7 @@ import {
   AppShell,
   Sidebar,
   SidebarItem,
+  SidebarSectionLabel,
   Badge,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -150,6 +151,7 @@ export default function DashboardLayout({
             </>
           }
         >
+          <SidebarSectionLabel label="Workspace" collapsed={collapsed} />
           <SidebarItem
             icon={<LayoutDashboard className="h-4 w-4" />}
             label="Dashboards"
@@ -164,15 +166,6 @@ export default function DashboardLayout({
             collapsed={collapsed}
             onClick={() => router.push("/connections")}
           />
-          {userRole === "admin" && (
-            <SidebarItem
-              icon={<Users className="h-4 w-4" />}
-              label="Users"
-              active={pathname === "/users"}
-              collapsed={collapsed}
-              onClick={() => router.push("/users")}
-            />
-          )}
           <SidebarItem
             icon={<FlaskConical className="h-4 w-4" />}
             label="Widget Lab"
@@ -187,6 +180,18 @@ export default function DashboardLayout({
             collapsed={collapsed}
             onClick={() => router.push("/settings/profile")}
           />
+          {userRole === "admin" && (
+            <>
+              <SidebarSectionLabel label="Admin" collapsed={collapsed} />
+              <SidebarItem
+                icon={<Users className="h-4 w-4" />}
+                label="Users"
+                active={pathname === "/users"}
+                collapsed={collapsed}
+                onClick={() => router.push("/users")}
+              />
+            </>
+          )}
         </Sidebar>
       }
     >

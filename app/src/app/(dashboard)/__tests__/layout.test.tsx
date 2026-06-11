@@ -70,6 +70,9 @@ vi.mock("@neoboard/components", () => ({
       {label}
     </button>
   ),
+  SidebarSectionLabel: ({ label }: { label: string }) => (
+    <div data-testid={`sidebar-section-${label}`}>{label}</div>
+  ),
   Badge: ({
     children,
     className,

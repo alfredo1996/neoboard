@@ -5,7 +5,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,9 +46,12 @@ const SidebarItem = React.forwardRef<HTMLButtonElement, SidebarItemProps>(
         type="button"
         onClick={onClick}
         className={cn(
-          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-          "hover:bg-accent hover:text-accent-foreground",
-          active && "bg-accent text-accent-foreground font-medium",
+          // 2px transparent left border in every state so activation never
+          // shifts layout — only the border/background colors change (#826).
+          "flex w-full items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors",
+          "hover:bg-accent-soft hover:text-foreground",
+          active &&
+            "border-[hsl(var(--ring))] bg-accent-soft font-medium text-foreground",
           collapsed && "justify-center px-0",
           className,
         )}
@@ -60,12 +62,10 @@ const SidebarItem = React.forwardRef<HTMLButtonElement, SidebarItemProps>(
           <>
             <span className="flex-1 truncate text-left">{label}</span>
             {badge != null && (
-              <Badge
-                variant="secondary"
-                className="ml-auto h-5 min-w-[20px] px-1 text-xs"
-              >
+              // Subdued right-aligned count — quieter than a filled badge (#826)
+              <span className="ml-auto text-xs tabular-nums text-muted-foreground">
                 {badge}
-              </Badge>
+              </span>
             )}
           </>
         )}
@@ -88,3 +88,35 @@ const SidebarItem = React.forwardRef<HTMLButtonElement, SidebarItemProps>(
 );
 
 export { SidebarItem };
+
+export interface SidebarSectionLabelProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Section heading, conventionally short and shouty: WORKSPACE, ADMIN. */
+  label: string;
+  /** Hidden entirely when the sidebar is collapsed to icons. */
+  collapsed?: boolean;
+}
+
+/**
+ * Small uppercase group label separating sidebar nav sections (#826).
+ */
+const SidebarSectionLabel = ({
+  label,
+  collapsed = false,
+  className,
+  ...rest
+}: SidebarSectionLabelProps) => {
+  if (collapsed) return null;
+  return (
+    <div
+      className={cn(
+        "px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground/70",
+        className,
+      )}
+      {...rest}
+    >
+      {label}
+    </div>
+  );
+};
+
+export { SidebarSectionLabel };

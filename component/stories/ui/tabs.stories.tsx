@@ -1,28 +1,35 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const meta = {
-  title: 'UI/Tabs',
+  title: "UI/Tabs",
   component: Tabs,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     defaultValue: {
-      control: 'text',
-      description: 'The default active tab value',
+      control: "text",
+      description: "The default active tab value",
     },
     orientation: {
-      control: 'radio',
-      options: ['horizontal', 'vertical'],
-      description: 'The orientation of the tabs',
+      control: "radio",
+      options: ["horizontal", "vertical"],
+      description: "The orientation of the tabs",
     },
   },
   args: {
-    defaultValue: 'account',
+    defaultValue: "account",
   },
 } satisfies Meta<typeof Tabs>;
 
@@ -40,6 +47,23 @@ export const Default: Story = {
         Make changes to your account here.
       </TabsContent>
       <TabsContent value="password">Change your password here.</TabsContent>
+    </Tabs>
+  ),
+};
+
+export const PillVariant: Story = {
+  render: () => (
+    <Tabs defaultValue="data" className="w-[400px]">
+      <TabsList variant="pill">
+        <TabsTrigger value="data">Data</TabsTrigger>
+        <TabsTrigger value="style">Style</TabsTrigger>
+        <TabsTrigger value="advanced">Advanced</TabsTrigger>
+      </TabsList>
+      <TabsContent value="data">
+        Pill style preserved for dense toolbars.
+      </TabsContent>
+      <TabsContent value="style">Style content</TabsContent>
+      <TabsContent value="advanced">Advanced content</TabsContent>
     </Tabs>
   ),
 };
