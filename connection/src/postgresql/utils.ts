@@ -69,3 +69,23 @@ export function isAuthenticationError(error: unknown): boolean {
     code === "28001" // invalid_password (GSSAPI)
   );
 }
+
+/**
+ * node-postgres emits 'error' on CHECKED-OUT clients directly — the
+ * pool-level handler does not cover them. Without a listener, a backend
+ * dying mid-checkout (server restart, pg_terminate_backend, container
+ * teardown) raises an unhandled 'error' event that can kill the whole
+ * process (#999). The in-flight query still rejects through the normal
+ * await path; the guard just absorbs the event. Returns a cleanup to call
+ * before release so listeners don't accumulate on pooled clients.
+ */
+export function attachClientErrorGuard(client: {
+  on(event: "error", listener: (err: Error) => void): unknown;
+  removeListener(event: "error", listener: (err: Error) => void): unknown;
+}): () => void {
+  const onClientError = () => {};
+  client.on("error", onClientError);
+  return () => {
+    client.removeListener("error", onClientError);
+  };
+}
