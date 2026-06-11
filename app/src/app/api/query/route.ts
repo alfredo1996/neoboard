@@ -16,6 +16,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { layoutsAllowQuery } from "@/lib/query/dashboard-query-binding";
 import { logRoute } from "@/lib/api/log-route";
 import type { QueryPriority } from "@/lib/query/scheduler";
 
@@ -98,14 +99,27 @@ async function handleReadQuery(request: Request): Promise<Response> {
     }
 
     // 3. Dashboard-access fallback: user owns or has a share for a dashboard
-    //    that references this connectionId in its layout
+    //    that references this connectionId in its layout. View-level access
+    //    (public dashboards, viewer shares) is BOUND to the queries the
+    //    dashboard actually contains (#972) — otherwise sharing a dashboard
+    //    would share arbitrary read access to its entire connection.
+    //    Edit-level access (dashboard owner, editor share) is unbound:
+    //    authoring widgets requires running novel queries.
     if (!connection) {
-      const hasAccess = await userHasDashboardAccessToConnection(
+      const access = await dashboardAccessToConnection(
         userId,
         connectionId,
         sessionTenantId,
       );
-      if (hasAccess) {
+      if (access.level !== "none") {
+        if (
+          access.level === "view" &&
+          !layoutsAllowQuery(access.layouts, query)
+        ) {
+          return forbidden(
+            "Query is not part of any dashboard shared with you",
+          );
+        }
         [connection] = await db
           .select()
           .from(connections)
@@ -187,13 +201,29 @@ async function handleReadQuery(request: Request): Promise<Response> {
  * references the given connectionId. This grants query-execution access
  * only — no credential exposure or connection editing.
  */
-async function userHasDashboardAccessToConnection(
+type DashboardConnectionAccess =
+  | { level: "none" }
+  | { level: "edit" }
+  | { level: "view"; layouts: unknown[] };
+
+/**
+ * What claim does this user have on the connection via dashboards that
+ * reference it? "edit" (dashboard owner or editor share) grants unbound
+ * query access; "view" (public dashboard or viewer share) grants access
+ * bound to the referencing dashboards' own queries (#972). Admins never
+ * reach this fallback — they match the tenant-wide path above.
+ */
+async function dashboardAccessToConnection(
   userId: string,
   connectionId: string,
   tenantId: string,
-): Promise<boolean> {
-  const [result] = await db
-    .select({ id: dashboards.id })
+): Promise<DashboardConnectionAccess> {
+  const rows = await db
+    .select({
+      layoutJson: dashboards.layoutJson,
+      ownerId: dashboards.userId,
+      shareRole: dashboardShares.role,
+    })
     .from(dashboards)
     .leftJoin(
       dashboardShares,
@@ -217,7 +247,10 @@ async function userHasDashboardAccessToConnection(
           WHERE widget->>'connectionId' = ${connectionId}
         )`,
       ),
-    )
-    .limit(1);
-  return !!result;
+    );
+  if (rows.length === 0) return { level: "none" };
+  if (rows.some((r) => r.ownerId === userId || r.shareRole === "editor")) {
+    return { level: "edit" };
+  }
+  return { level: "view", layouts: rows.map((r) => r.layoutJson) };
 }

@@ -287,7 +287,7 @@ describe("POST /api/query", () => {
     expect(mockDb.select).toHaveBeenCalledTimes(2);
   });
 
-  it("non-admin with dashboard share can execute query on unowned connection", async () => {
+  it("non-admin with an EDITOR share can run arbitrary queries (edit level, #972)", async () => {
     mockRequireSession.mockResolvedValue({
       ...defaultSession,
       role: "creator",
@@ -299,11 +299,15 @@ describe("POST /api/query", () => {
       userId: "other-user",
     };
     // 1st call: ownership check -> not found
-    // 2nd call: dashboard-access check (join) -> found a matching dashboard
+    // 2nd call: dashboard-access check (join) -> editor share found
     // 3rd call: fetch the connection by id
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
-      .mockReturnValueOnce(drizzleJoinChain([{ id: "d1" }]))
+      .mockReturnValueOnce(
+        drizzleJoinChain([
+          { ownerId: "other-user", shareRole: "editor", layoutJson: null },
+        ]),
+      )
       .mockReturnValueOnce(drizzleSelectChain([conn]));
     mockDecryptJson.mockReturnValue({
       uri: "postgres://localhost",
@@ -338,7 +342,7 @@ describe("POST /api/query", () => {
     expect(body.error.message).toMatch(/not found/i);
   });
 
-  it("non-admin with public dashboard can execute query on unowned connection", async () => {
+  it("non-admin viewing a public dashboard can run ITS queries (view level, bound, #972)", async () => {
     mockRequireSession.mockResolvedValue({
       ...defaultSession,
       role: "creator",
@@ -350,11 +354,22 @@ describe("POST /api/query", () => {
       userId: "other-user",
     };
     // 1st call: ownership check -> not found
-    // 2nd call: dashboard-access check (join) -> found a public dashboard
+    // 2nd call: dashboard-access check (join) -> public dashboard whose
+    //           layout contains exactly this query
     // 3rd call: fetch the connection by id
     mockDb.select
       .mockReturnValueOnce(drizzleSelectChain([]))
-      .mockReturnValueOnce(drizzleJoinChain([{ id: "d1" }]))
+      .mockReturnValueOnce(
+        drizzleJoinChain([
+          {
+            ownerId: "other-user",
+            shareRole: null,
+            layoutJson: {
+              pages: [{ widgets: [{ connectionId: "c1", query: "SELECT 1" }] }],
+            },
+          },
+        ]),
+      )
       .mockReturnValueOnce(drizzleSelectChain([conn]));
     mockDecryptJson.mockReturnValue({
       uri: "postgres://localhost",
@@ -368,6 +383,128 @@ describe("POST /api/query", () => {
     );
     expect(res.status).toBe(200);
     expect(mockDb.select).toHaveBeenCalledTimes(3);
+  });
+
+  it("viewer of a public dashboard CANNOT run arbitrary queries (#972)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...defaultSession,
+      role: "reader",
+    });
+    // 1st call: ownership check -> not found
+    // 2nd call: dashboard-access check -> view-level dashboard whose layout
+    //           does NOT contain the submitted query
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(
+        drizzleJoinChain([
+          {
+            ownerId: "other-user",
+            shareRole: "viewer",
+            layoutJson: {
+              pages: [
+                {
+                  widgets: [
+                    {
+                      connectionId: "c1",
+                      query: "SELECT category FROM orders",
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT * FROM pg_shadow" }),
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/not part of any dashboard/i);
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  it("viewer binding accepts param-select seed queries (#972)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...defaultSession,
+      role: "reader",
+    });
+    const conn = {
+      id: "c1",
+      type: "postgresql",
+      configEncrypted: "enc",
+      userId: "other-user",
+    };
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(
+        drizzleJoinChain([
+          {
+            ownerId: "other-user",
+            shareRole: "viewer",
+            layoutJson: {
+              pages: [
+                {
+                  widgets: [
+                    {
+                      connectionId: "c1",
+                      settings: { seedQuery: "SELECT DISTINCT region FROM t" },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ]),
+      )
+      .mockReturnValueOnce(drizzleSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({
+      uri: "postgres://localhost",
+      username: "u",
+      password: "p",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "SELECT DISTINCT  region\n FROM t",
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("DASHBOARD owner referencing an unowned connection runs novel queries (edit level, #972)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...defaultSession,
+      role: "creator",
+    });
+    const conn = {
+      id: "c1",
+      type: "postgresql",
+      configEncrypted: "enc",
+      userId: "other-user",
+    };
+    mockDb.select
+      .mockReturnValueOnce(drizzleSelectChain([]))
+      .mockReturnValueOnce(
+        drizzleJoinChain([
+          { ownerId: "user-1", shareRole: null, layoutJson: { pages: [] } },
+        ]),
+      )
+      .mockReturnValueOnce(drizzleSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({
+      uri: "postgres://localhost",
+      username: "u",
+      password: "p",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT something_new FROM t" }),
+    );
+    expect(res.status).toBe(200);
   });
 
   it("owner still works without any fallback (regression)", async () => {
