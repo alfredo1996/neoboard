@@ -5,6 +5,7 @@ import { loadEnvSsoProvider } from "@/lib/auth/sso/env-provider";
 import { apiSuccess } from "@/lib/api/api-response";
 import { handleRouteError } from "@/lib/api/api-utils";
 import { hasFeature } from "@/lib/features/registry";
+import { withPublicAuthRateLimit } from "@/lib/api/with-rate-limit";
 
 /**
  * Public endpoint — returns only id + name of enabled SSO providers.
@@ -17,7 +18,8 @@ import { hasFeature } from "@/lib/features/registry";
  * an earlier enterprise install). The sign-in flow relies on enterprise
  * code anyway, so listing them on community would be a dead-end.
  */
-export async function GET() {
+// Rate-limited per IP (#819) — public, DB-hitting, unauthenticated.
+export const GET = withPublicAuthRateLimit(async () => {
   try {
     if (!hasFeature("sso")) {
       return apiSuccess([], 200, { enforceSso: false });
@@ -57,4 +59,4 @@ export async function GET() {
   } catch (e) {
     return handleRouteError(e);
   }
-}
+});

@@ -17,9 +17,14 @@ vi.mock("next/server", () => nextResponseMockFactory());
 // Tests — GET /api/auth/sso-providers (public, no auth required)
 // ---------------------------------------------------------------------------
 
+const authReq = () =>
+  new Request("http://localhost/api/auth", {
+    headers: { "x-forwarded-for": "test-ip-" + Math.random() },
+  });
+
 describe("GET /api/auth/sso-providers", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let GET: () => Promise<any>;
+  let GET: (req: Request) => Promise<any>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -35,7 +40,7 @@ describe("GET /api/auth/sso-providers", () => {
 
   it("returns empty array when no providers configured", async () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
-    const res = await GET();
+    const res = await GET(authReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual([]);
@@ -47,7 +52,7 @@ describe("GET /api/auth/sso-providers", () => {
       { id: "sso-2", name: "Google Workspace" },
     ];
     mockDb.select.mockReturnValue(makeSelectChain(rows));
-    const res = await GET();
+    const res = await GET(authReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(2);
@@ -61,7 +66,7 @@ describe("GET /api/auth/sso-providers", () => {
   it("does not require authentication", async () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     // If this handler required auth, it would throw — it should not
-    const res = await GET();
+    const res = await GET(authReq());
     expect(res.status).toBe(200);
   });
 
@@ -77,7 +82,7 @@ describe("GET /api/auth/sso-providers", () => {
       ]),
     );
     const mod = await import("../route");
-    const res = await mod.GET();
+    const res = await mod.GET(authReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual([]);
@@ -95,7 +100,7 @@ describe("GET /api/auth/sso-providers", () => {
       makeSelectChain([{ id: "sso-1", name: "Okta", enforceSso: false }]),
     );
     const mod = await import("../route");
-    const res = await mod.GET();
+    const res = await mod.GET(authReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual([{ id: "sso-1", name: "Okta" }]);
