@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
+import { connections } from "@/lib/db/schema";
+import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { requireSession } from "@/lib/auth/session";
 import { buildExportPayload } from "@/lib/dashboard/dashboard-export";
 import { notFound, handleRouteError } from "@/lib/api/api-utils";
@@ -14,37 +15,20 @@ export async function GET(
     const { userId, tenantId, role } = await requireSession();
     const { id } = await params;
 
-    // Fetch the dashboard with tenant scoping
-    const [dashboard] = await db
-      .select()
-      .from(dashboards)
-      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
-      .limit(1);
+    // Export is viewer-level: owners, shared users (viewer/editor), public
+    // dashboards, and admins all qualify — via the shared ACL helper (#979).
+    const access = await resolveDashboardAccess({
+      dashboardId: id,
+      userId,
+      tenantId,
+      userRole: role,
+      required: "viewer",
+    });
 
-    if (!dashboard) {
+    if (!access) {
       return notFound("Dashboard not found");
     }
-
-    // Access control: admin can export any dashboard in the tenant;
-    // owners and shared users (viewer or editor) can export;
-    // public dashboards are exportable by any tenant user.
-    if (role !== "admin" && dashboard.userId !== userId) {
-      const [share] = await db
-        .select({ id: dashboardShares.id })
-        .from(dashboardShares)
-        .where(
-          and(
-            eq(dashboardShares.dashboardId, id),
-            eq(dashboardShares.userId, userId),
-            eq(dashboardShares.tenantId, tenantId),
-          ),
-        )
-        .limit(1);
-
-      if (!share && !dashboard.isPublic) {
-        return notFound("Dashboard not found");
-      }
-    }
+    const dashboard = access.dashboard;
 
     const layout = dashboard.layoutJson as DashboardLayoutV2 | null;
 

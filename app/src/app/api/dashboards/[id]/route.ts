@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares, users } from "@/lib/db/schema";
+import { dashboards, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
+import {
+  resolveDashboardAccess,
+  type DashboardAccessRole,
+} from "@/lib/dashboard/access";
 import {
   validateBody,
   forbidden,
@@ -63,8 +67,6 @@ const updateDashboardSchema = z.object({
   expectedVersion: z.number().int().positive().optional(),
 });
 
-type DashboardAccessRole = "owner" | "editor" | "viewer" | "admin";
-
 async function canAccess(
   dashboardId: string,
   userId: string,
@@ -75,45 +77,14 @@ async function canAccess(
   dashboard: typeof dashboards.$inferSelect;
   role: DashboardAccessRole;
 } | null> {
-  const [dashboard] = await db
-    .select()
-    .from(dashboards)
-    .where(
-      and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)),
-    )
-    .limit(1);
-
-  if (!dashboard) return null;
-
-  // Admins bypass per-dashboard ACL
-  if (userRole === "admin") return { dashboard, role: "admin" };
-
-  if (dashboard.userId === userId) return { dashboard, role: "owner" };
-
-  const [share] = await db
-    .select()
-    .from(dashboardShares)
-    .where(
-      and(
-        eq(dashboardShares.dashboardId, dashboardId),
-        eq(dashboardShares.userId, userId),
-        eq(dashboardShares.tenantId, tenantId),
-      ),
-    )
-    .limit(1);
-
-  if (!share) {
-    // Public dashboards grant read-only access to any authenticated tenant user
-    if (dashboard.isPublic && requiredRole === "viewer") {
-      return { dashboard, role: "viewer" as const };
-    }
-    return null;
-  }
-
-  if (requiredRole === "owner") return null;
-  if (requiredRole === "editor" && share.role === "viewer") return null;
-
-  return { dashboard, role: share.role };
+  // Delegates to the shared helper (#979) — single source of truth.
+  return resolveDashboardAccess({
+    dashboardId,
+    userId,
+    tenantId,
+    userRole,
+    required: requiredRole,
+  });
 }
 
 export async function GET(
