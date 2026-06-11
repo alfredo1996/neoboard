@@ -85,13 +85,16 @@ describe("GET /api/connections", () => {
 
   it("returns connections in envelope with pagination meta for non-admin", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    const createdAt = new Date();
     const rows = [
       {
         id: "c1",
         name: "My DB",
         type: "postgresql",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt,
+        updatedAt: createdAt,
+        visibility: "private",
+        ownerId: "user-1",
       },
     ];
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
@@ -100,9 +103,35 @@ describe("GET /api/connections", () => {
     const res = await GET(makeRequest({}, "http://localhost/api/connections"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toEqual(rows);
+    // ownerId never leaves the server — it becomes the isOwner boolean (#901)
+    expect(body.data[0].isOwner).toBe(true);
+    expect(body.data[0].ownerId).toBeUndefined();
+    expect(body.data[0].visibility).toBe("private");
     expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
     expect(body.error).toBeNull();
+  });
+
+  it("marks tenant-shared connections not owned by the caller (#901)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const rows = [
+      {
+        id: "c-shared",
+        name: "Admin Postgres",
+        type: "postgresql",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        visibility: "shared",
+        ownerId: "admin-1",
+      },
+    ];
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain(rows));
+
+    const res = await GET(makeRequest({}, "http://localhost/api/connections"));
+    const body = await res.json();
+    expect(body.data[0].isOwner).toBe(false);
+    expect(body.data[0].visibility).toBe("shared");
+    expect(body.data[0].ownerId).toBeUndefined();
   });
 
   it("admin sees all connections in tenant", async () => {

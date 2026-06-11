@@ -99,6 +99,11 @@ export const connectionTypeEnum = pgEnum("connection_type", [
   "postgresql",
 ]);
 
+export const connectionVisibilityEnum = pgEnum("connection_visibility", [
+  "private",
+  "shared",
+]);
+
 export const connections = pgTable("connection", {
   id: text("id")
     .primaryKey()
@@ -112,6 +117,15 @@ export const connections = pgTable("connection", {
   configEncrypted: text("configEncrypted").notNull(),
   /** When true, widget editors can override the connection's default database per-card. */
   allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
+  /**
+   * Connection sharing model (#901): "private" = owner + admins only;
+   * "shared" = every user in the tenant may query it and build dashboards
+   * on it. Credentials are never exposed either way; editing stays
+   * owner/admin-only.
+   */
+  visibility: connectionVisibilityEnum("visibility")
+    .notNull()
+    .default("private"),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
 });

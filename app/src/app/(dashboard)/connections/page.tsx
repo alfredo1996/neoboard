@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Database, Plus, ChevronDown } from "lucide-react";
 import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
@@ -67,6 +68,8 @@ const DEFAULT_FORM = {
 };
 
 export default function ConnectionsPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const { data: connections, isLoading } = useConnections();
   const createConnection = useCreateConnection();
   const updateConnection = useUpdateConnection();
@@ -1138,10 +1141,47 @@ export default function ConnectionsPage() {
                               )
                           : undefined
                       }
-                      onTest={() => handleTest(c.id)}
-                      onEdit={() => openEditDialog(c)}
-                      onDelete={() => setDeleteTarget(c.id)}
-                      onDuplicate={() => handleDuplicate(c)}
+                      onTest={
+                        c.isOwner || isAdmin
+                          ? () => handleTest(c.id)
+                          : undefined
+                      }
+                      shared={c.visibility === "shared"}
+                      // Management actions only for the owner (or admin —
+                      // who can reach any connection via the API): shared
+                      // connections render read-only for everyone else (#901).
+                      onEdit={
+                        c.isOwner || isAdmin
+                          ? () => openEditDialog(c)
+                          : undefined
+                      }
+                      onDelete={
+                        c.isOwner || isAdmin
+                          ? () => setDeleteTarget(c.id)
+                          : undefined
+                      }
+                      onDuplicate={
+                        c.isOwner || isAdmin
+                          ? () => handleDuplicate(c)
+                          : undefined
+                      }
+                      onToggleVisibility={
+                        isAdmin && c.isOwner
+                          ? () =>
+                              updateConnection.mutate({
+                                id: c.id,
+                                visibility:
+                                  c.visibility === "shared"
+                                    ? "private"
+                                    : "shared",
+                              })
+                          : undefined
+                      }
+                      toggleVisibilityLabel={
+                        c.visibility === "shared"
+                          ? "Make private"
+                          : "Share with workspace"
+                      }
                     />
                     {expandedErrorId === c.id && testErrors[c.id] && (
                       <Alert variant="destructive" className="mt-1">

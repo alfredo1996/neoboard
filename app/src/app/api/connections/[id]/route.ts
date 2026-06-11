@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -12,6 +12,7 @@ import type { ConnectorType } from "@/lib/connector/connector-types";
 import {
   validateBody,
   notFound,
+  forbidden,
   handleRouteError,
   badRequest,
 } from "@/lib/api/api-utils";
@@ -26,7 +27,8 @@ export async function GET(
     const { userId, tenantId, role } = await requireSession();
     const { id } = await params;
 
-    // Owner check first (tenant-scoped)
+    // Owner-or-shared check first (tenant-scoped, #901). Password is
+    // stripped below either way; shared users get metadata only.
     let [connection] = await db
       .select({
         id: connections.id,
@@ -35,13 +37,18 @@ export async function GET(
         configEncrypted: connections.configEncrypted,
         createdAt: connections.createdAt,
         updatedAt: connections.updatedAt,
+        visibility: connections.visibility,
+        ownerId: connections.userId,
       })
       .from(connections)
       .where(
         and(
           eq(connections.id, id),
-          eq(connections.userId, userId),
           eq(connections.tenantId, tenantId),
+          or(
+            eq(connections.userId, userId),
+            eq(connections.visibility, "shared"),
+          ),
         ),
       )
       .limit(1);
@@ -56,6 +63,8 @@ export async function GET(
           configEncrypted: connections.configEncrypted,
           createdAt: connections.createdAt,
           updatedAt: connections.updatedAt,
+          visibility: connections.visibility,
+          ownerId: connections.userId,
         })
         .from(connections)
         .where(and(eq(connections.id, id), eq(connections.tenantId, tenantId)))
@@ -66,8 +75,10 @@ export async function GET(
       return notFound("Connection not found");
     }
 
-    // Decrypt config and strip password before returning
-    const { configEncrypted, ...metadata } = connection;
+    // Decrypt config and strip password before returning. ownerId never
+    // leaves the server — the UI gates editing on isOwner (#901).
+    const { configEncrypted, ownerId, ...metadata } = connection;
+    const shapedMetadata = { ...metadata, isOwner: ownerId === userId };
     let config: Record<string, unknown> | undefined;
     if (configEncrypted) {
       try {
@@ -81,7 +92,7 @@ export async function GET(
       }
     }
 
-    return apiSuccess({ ...metadata, config });
+    return apiSuccess({ ...shapedMetadata, config });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch connection");
   }
@@ -101,6 +112,16 @@ export async function PATCH(
 
     const updates: Record<string, unknown> = {};
     if (result.data.name) updates.name = result.data.name;
+
+    // Visibility changes are admin-only (#901 'admin provisions' model) —
+    // and the update where-clause below keeps them owner-scoped, so an
+    // admin shares connections they own.
+    if (result.data.visibility) {
+      if (role !== "admin") {
+        return forbidden("Only admins can change connection visibility");
+      }
+      updates.visibility = result.data.visibility;
+    }
 
     // Fetch the existing row — needed for password merge and cache eviction.
     let oldCredentials: ConnectionCredentials | null = null;

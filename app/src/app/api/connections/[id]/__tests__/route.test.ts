@@ -116,20 +116,47 @@ describe("GET /api/connections/[id]", () => {
 
   it("returns connection metadata in envelope (owner)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    const createdAt = new Date();
     const conn = {
       id: "c1",
       name: "My DB",
       type: "postgresql",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt,
+      updatedAt: createdAt,
+      visibility: "private",
+      ownerId: "user-1",
     };
     mockDb.select.mockReturnValue(makeSelectChain([conn]));
 
     const res = await GET(makeRequest({}), makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toEqual(conn);
+    // ownerId is replaced by the isOwner boolean (#901)
+    expect(body.data.id).toBe("c1");
+    expect(body.data.isOwner).toBe(true);
+    expect(body.data.ownerId).toBeUndefined();
     expect(body.error).toBeNull();
+  });
+
+  it("non-owner can read a tenant-shared connection's metadata, never the owner id (#901)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const conn = {
+      id: "c-shared",
+      name: "Admin Postgres",
+      type: "postgresql",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      visibility: "shared",
+      ownerId: "admin-1",
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+
+    const res = await GET(makeRequest({}), makeParams("c-shared"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.isOwner).toBe(false);
+    expect(body.data.ownerId).toBeUndefined();
+    expect(body.data.visibility).toBe("shared");
   });
 
   it("admin can view any connection in tenant", async () => {
@@ -299,6 +326,45 @@ describe("PATCH /api/connections/[id]", () => {
     );
     expect(res.status).toBe(403);
     expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects visibility changes from non-admins (#901)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const res = await PATCH(
+      makeRequest({ visibility: "shared" }),
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("admin can share an owned connection tenant-wide (#901)", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    let captured: Record<string, unknown> = {};
+    const mockSet = vi.fn().mockImplementation((fields) => {
+      captured = fields;
+      return {
+        where: () => ({
+          returning: () =>
+            Promise.resolve([
+              {
+                id: "c1",
+                name: "DB",
+                type: "postgresql",
+                visibility: "shared",
+              },
+            ]),
+        }),
+      };
+    });
+    mockDb.update.mockReturnValue({ set: mockSet });
+
+    const res = await PATCH(
+      makeRequest({ visibility: "shared" }),
+      makeParams("c1"),
+    );
+    expect(res.status).toBe(200);
+    expect(captured.visibility).toBe("shared");
   });
 
   it("returns 404 when connection not owned", async () => {
