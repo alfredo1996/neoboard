@@ -21,7 +21,6 @@ import {
   ToolbarSection,
   ToolbarSeparator,
 } from "@/components/composed/toolbar";
-import { DashboardGrid } from "@/components/composed/dashboard-grid";
 import { WidgetCard } from "@/components/composed/widget-card";
 import { LineChart } from "@/charts/line-chart";
 import { BarChart } from "@/charts/bar-chart";
@@ -131,15 +130,6 @@ export const Default: Story = {
     );
   },
 };
-
-const dashboardLayout = [
-  { i: "stat-1", x: 0, y: 0, w: 3, h: 2 },
-  { i: "stat-2", x: 3, y: 0, w: 3, h: 2 },
-  { i: "stat-3", x: 6, y: 0, w: 3, h: 2 },
-  { i: "stat-4", x: 9, y: 0, w: 3, h: 2 },
-  { i: "line", x: 0, y: 2, w: 8, h: 4 },
-  { i: "bar", x: 8, y: 2, w: 4, h: 4 },
-];
 
 export const FullDashboard: Story = {
   args: { children: null },
