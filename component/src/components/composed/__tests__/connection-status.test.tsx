@@ -26,32 +26,41 @@ describe("ConnectionStatus", () => {
 
   it("renders a colored dot indicator", () => {
     const { container } = render(<ConnectionStatus status="connected" />);
-    const dot = container.querySelector(".rounded-full");
+    // Badges are pill-shaped since #831, so .rounded-full matches the badge
+    // root too — select the dot by its fixed size classes.
+    const dot = container.querySelector(".h-2.w-2.rounded-full");
     expect(dot).toBeInTheDocument();
     expect(dot).toHaveClass("bg-green-500");
   });
 
   it("applies pulse animation for connecting status", () => {
     const { container } = render(<ConnectionStatus status="connecting" />);
-    const dot = container.querySelector(".rounded-full");
+    const dot = container.querySelector(".h-2.w-2.rounded-full");
     expect(dot).toHaveClass("animate-pulse");
   });
 
   it("uses destructive variant for error status", () => {
     render(<ConnectionStatus status="error" />);
-    const badge = screen.getByText("Error").closest("[data-slot='badge']") ?? screen.getByText("Error").parentElement;
+    const badge =
+      screen.getByText("Error").closest("[data-slot='badge']") ??
+      screen.getByText("Error").parentElement;
     expect(badge).toBeInTheDocument();
   });
 
   it("applies custom className", () => {
     const { container } = render(
-      <ConnectionStatus status="connected" className="custom-class" />
+      <ConnectionStatus status="connected" className="custom-class" />,
     );
     expect(container.firstChild).toHaveClass("custom-class");
   });
 
   it("renders all four states correctly", () => {
-    const states: ConnectionState[] = ["connected", "disconnected", "connecting", "error"];
+    const states: ConnectionState[] = [
+      "connected",
+      "disconnected",
+      "connecting",
+      "error",
+    ];
     const labels = ["Connected", "Disconnected", "Connecting...", "Error"];
     states.forEach((status, i) => {
       const { unmount } = render(<ConnectionStatus status={status} />);
@@ -66,7 +75,9 @@ describe("ConnectionStatus", () => {
   });
 
   it("renders tooltip trigger when errorMessage is provided", () => {
-    render(<ConnectionStatus status="error" errorMessage="Connection refused" />);
+    render(
+      <ConnectionStatus status="error" errorMessage="Connection refused" />,
+    );
     // Badge is still present
     expect(screen.getByText("Error")).toBeInTheDocument();
   });
@@ -74,7 +85,12 @@ describe("ConnectionStatus", () => {
   it("shows tooltip content on hover when errorMessage is provided", async () => {
     const { userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
-    render(<ConnectionStatus status="error" errorMessage="Connection refused at port 7687" />);
+    render(
+      <ConnectionStatus
+        status="error"
+        errorMessage="Connection refused at port 7687"
+      />,
+    );
     const badge = screen.getByText("Error");
     await user.hover(badge);
     // Tooltip content is rendered in a portal — check for the message text

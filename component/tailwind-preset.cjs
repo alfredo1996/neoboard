@@ -64,10 +64,35 @@ module.exports = {
           10: "hsl(var(--chart-10))",
         },
       },
+      fontFamily: {
+        display: "var(--font-display)",
+        body: "var(--font-body)",
+      },
+      // Heading scale (#830): size, leading, and tracking travel together.
+      // Pair with `font-display` for the Geist Sans family.
+      fontSize: {
+        display: [
+          "2.25rem",
+          { lineHeight: "2.5rem", letterSpacing: "-0.025em", fontWeight: "600" },
+        ],
+        h1: [
+          "1.875rem",
+          { lineHeight: "2.25rem", letterSpacing: "-0.02em", fontWeight: "600" },
+        ],
+        h2: [
+          "1.5rem",
+          { lineHeight: "2rem", letterSpacing: "-0.015em", fontWeight: "600" },
+        ],
+        h3: [
+          "1.25rem",
+          { lineHeight: "1.75rem", letterSpacing: "-0.01em", fontWeight: "600" },
+        ],
+      },
+      // Radius scale (#831): rounded-sm/md/lg map 1:1 to the tokens.
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
       },
       // Elevation scale (#823): shadow-sm/md/lg utilities emit the
       // warm-tinted token values so all existing class usage upgrades

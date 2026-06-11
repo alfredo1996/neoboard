@@ -12,6 +12,27 @@
  * Shadows are warm-tinted (hue 30) rather than pure black — see --shadow-*.
  */
 
+/*
+ * Self-hosted variable fonts (#830) — Geist Sans for display/headings,
+ * Inter for body. font-display: swap keeps text visible with the system
+ * fallback while the woff2 loads (graceful, no invisible text).
+ */
+@font-face {
+  font-family: "Geist Sans";
+  src: url("./fonts/geist-sans-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/inter-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: 220 14% 98%;
   --foreground: 220 13% 9%;
@@ -37,7 +58,14 @@
   --border-strong: 220 13% 84%;
   --input: 220 13% 84%;
   --ring: 38 95% 55%;
-  --radius: 0.5rem;
+  --font-display: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Radius scale (#831): precise small controls, softer large containers. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-pill: 9999px;
+  --radius: var(--radius-md);
   --primary: 220 13% 9%;
   --primary-foreground: 220 14% 98%;
   --secondary: 220 14% 94%;

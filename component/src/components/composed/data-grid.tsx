@@ -436,9 +436,12 @@ function DataGrid<TData>({
                       return (
                         <TableCell
                           key={cell.id}
-                          className={
-                            cellClickable ? "cursor-pointer" : undefined
-                          }
+                          className={cn(
+                            // Tabular figures keep digit columns aligned (#830)
+                            typeof cell.getValue() === "number" &&
+                              "tabular-nums",
+                            cellClickable && "cursor-pointer",
+                          )}
                           style={getCellStyle?.(
                             row.original as TData,
                             cell.column.id,
