@@ -91,3 +91,36 @@ describe("elevation scale (#823)", () => {
     }
   });
 });
+
+describe("typography tokens (#830)", () => {
+  it("defines display and body font custom properties", () => {
+    expect(tokenValue(light, "--font-display")).toMatch(/^"Geist Sans"/);
+    expect(tokenValue(light, "--font-body")).toMatch(/^"Inter"/);
+    expect(tokenValue(light, "--font-display")).toMatch(/system-ui/);
+  });
+
+  it("self-hosts both variable fonts via @font-face", () => {
+    expect(css).toMatch(
+      /@font-face[\s\S]*?Geist Sans[\s\S]*?geist-sans-variable\.woff2/,
+    );
+    expect(css).toMatch(/@font-face[\s\S]*?Inter[\s\S]*?inter-variable\.woff2/);
+    // variable fonts: full weight range, graceful fallback
+    expect(css).toMatch(/font-weight:\s*100 900/);
+    expect(css).toMatch(/font-display:\s*swap/);
+  });
+});
+
+describe("radius scale (#831)", () => {
+  it.each([
+    ["--radius-sm", "0.375rem"],
+    ["--radius-md", "0.5rem"],
+    ["--radius-lg", "0.75rem"],
+    ["--radius-pill", "9999px"],
+  ])("%s = %s", (token, value) => {
+    expect(tokenValue(light, token)).toBe(value);
+  });
+
+  it("keeps --radius as a backward-compatible alias of --radius-md", () => {
+    expect(tokenValue(light, "--radius")).toBe("var(--radius-md)");
+  });
+});

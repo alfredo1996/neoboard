@@ -78,7 +78,9 @@ export default function DashboardLayout({
           onCollapsedChange={setCollapsed}
           header={
             !collapsed ? (
-              <span className="text-lg font-bold">NeoBoard</span>
+              <span className="font-display text-lg font-semibold tracking-tight">
+                NeoBoard
+              </span>
             ) : (
               <span className="text-lg font-bold">N</span>
             )

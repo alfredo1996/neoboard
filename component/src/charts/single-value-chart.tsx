@@ -160,7 +160,10 @@ function SingleValueChart({
         ) : (
           <>
             <div
-              className={cn(valueSizeClass, "font-bold tracking-tight")}
+              className={cn(
+                valueSizeClass,
+                "font-display font-bold tracking-tight tabular-nums",
+              )}
               style={{ color: thresholdColor ?? autoContrast ?? undefined }}
             >
               {prefix}
