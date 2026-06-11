@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   writeFileSync: vi.fn(),
+  readFileSync: vi.fn(),
 }));
 
 vi.mock("node:crypto", () => ({
@@ -20,11 +21,12 @@ vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
 }));
 
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync } from "node:fs";
 import { ensureDockerEnvFile, DOCKER_ENV_PATH } from "../../lib/docker-env.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
+const mockReadFileSync = vi.mocked(readFileSync);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -48,5 +50,25 @@ describe("ensureDockerEnvFile", () => {
     const path = ensureDockerEnvFile();
     expect(path).toBe("/project/docker/.env");
     expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+});
+
+describe("readDockerEnvSecrets (#969)", () => {
+  it("returns {} when docker/.env does not exist", async () => {
+    const { readDockerEnvSecrets } = await import("../../lib/docker-env.js");
+    mockExistsSync.mockReturnValue(false);
+    expect(readDockerEnvSecrets()).toEqual({});
+  });
+
+  it("parses key=value lines, skipping comments and blanks", async () => {
+    const { readDockerEnvSecrets } = await import("../../lib/docker-env.js");
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "# comment\n\nENCRYPTION_KEY=abc123\nNEXTAUTH_SECRET=def456\n",
+    );
+    expect(readDockerEnvSecrets()).toEqual({
+      ENCRYPTION_KEY: "abc123",
+      NEXTAUTH_SECRET: "def456",
+    });
   });
 });

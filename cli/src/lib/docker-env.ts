@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { paths } from "./config.js";
@@ -36,4 +36,24 @@ export function ensureDockerEnvFile(): string {
   writeFileSync(envPath, lines.join("\n"));
   info(`Generated per-install secrets in ${DOCKER_ENV_PATH}`);
   return envPath;
+}
+
+/**
+ * Read the per-install secrets from docker/.env (#969). Used by the
+ * host-side demo seed so it encrypts connector credentials with the SAME
+ * ENCRYPTION_KEY the app container uses — otherwise seeded connectors
+ * can't be decrypted at runtime. Returns {} if the file doesn't exist.
+ */
+export function readDockerEnvSecrets(): Record<string, string> {
+  const envPath = join(paths.root, DOCKER_ENV_PATH);
+  if (!existsSync(envPath)) return {};
+  const out: Record<string, string> = {};
+  for (const line of readFileSync(envPath, "utf-8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    out[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+  }
+  return out;
 }
