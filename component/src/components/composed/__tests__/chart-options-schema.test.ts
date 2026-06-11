@@ -417,12 +417,12 @@ describe("colorPalette option", () => {
     expect(opt?.category).toBe("Appearance");
   });
 
-  it("colorPalette select options include 'deep-ocean' and 'tableau'", () => {
+  it("colorPalette select options include 'citrine' and 'tableau'", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorPalette");
     expect(opt?.options).toBeDefined();
     expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
-      "deep-ocean",
+      "citrine",
     );
     expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
       "tableau",

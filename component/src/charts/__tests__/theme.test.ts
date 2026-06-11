@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  DEEP_OCEAN_LIGHT,
-  DEEP_OCEAN_DARK,
+  CITRINE_LIGHT,
+  CITRINE_DARK,
   THEME_LIGHT,
   THEME_DARK,
   registerNeoboardThemes,
@@ -9,29 +9,29 @@ import {
 
 describe("chart theme", () => {
   describe("palette constants", () => {
-    it("DEEP_OCEAN_LIGHT has 10 colors", () => {
-      expect(DEEP_OCEAN_LIGHT).toHaveLength(10);
+    it("CITRINE_LIGHT has 10 colors", () => {
+      expect(CITRINE_LIGHT).toHaveLength(10);
     });
 
-    it("DEEP_OCEAN_DARK has 10 colors", () => {
-      expect(DEEP_OCEAN_DARK).toHaveLength(10);
+    it("CITRINE_DARK has 10 colors", () => {
+      expect(CITRINE_DARK).toHaveLength(10);
     });
 
     it("all light colors are valid hsl() strings", () => {
-      for (const c of DEEP_OCEAN_LIGHT) {
+      for (const c of CITRINE_LIGHT) {
         expect(c).toMatch(/^hsl\(\d+,\s*\d+%,\s*\d+%\)$/);
       }
     });
 
     it("all dark colors are valid hsl() strings", () => {
-      for (const c of DEEP_OCEAN_DARK) {
+      for (const c of CITRINE_DARK) {
         expect(c).toMatch(/^hsl\(\d+,\s*\d+%,\s*\d+%\)$/);
       }
     });
 
     it("light and dark palettes have no duplicate colors", () => {
-      expect(new Set(DEEP_OCEAN_LIGHT).size).toBe(10);
-      expect(new Set(DEEP_OCEAN_DARK).size).toBe(10);
+      expect(new Set(CITRINE_LIGHT).size).toBe(10);
+      expect(new Set(CITRINE_DARK).size).toBe(10);
     });
   });
 
@@ -52,11 +52,11 @@ describe("chart theme", () => {
       expect(mockRegister).toHaveBeenCalledTimes(2);
       expect(mockRegister).toHaveBeenCalledWith(
         THEME_LIGHT,
-        expect.objectContaining({ color: DEEP_OCEAN_LIGHT }),
+        expect.objectContaining({ color: CITRINE_LIGHT }),
       );
       expect(mockRegister).toHaveBeenCalledWith(
         THEME_DARK,
-        expect.objectContaining({ color: DEEP_OCEAN_DARK }),
+        expect.objectContaining({ color: CITRINE_DARK }),
       );
     });
 

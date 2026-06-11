@@ -8,10 +8,10 @@ import {
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
-// Design system — Deep Ocean palette, accessibility, colorblind mode
+// Design system — Graphite & Citrine palette, accessibility, colorblind mode
 // ---------------------------------------------------------------------------
 
-test.describe("Design system — Deep Ocean palette & accessibility", () => {
+test.describe("Design system — Graphite & Citrine palette & accessibility", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
   test.beforeEach(async ({ authPage, page }) => {
@@ -63,9 +63,9 @@ test.describe("Design system — Deep Ocean palette & accessibility", () => {
     return dialog;
   }
 
-  // ── Deep Ocean palette ────────────────────────────────────────────────
+  // ── Citrine palette ───────────────────────────────────────────────────
 
-  test("Deep Ocean CSS custom properties are defined (10 chart colors)", async ({
+  test("Citrine CSS custom properties are defined (10 chart colors)", async ({
     page,
   }) => {
     // Read --chart-1 through --chart-10 from the document root
@@ -82,19 +82,17 @@ test.describe("Design system — Deep Ocean palette & accessibility", () => {
       expect(colors[i]).toMatch(/\d+\s+\d+%\s+\d+%/);
     }
 
-    // First color should be Blue (hue ~217)
-    expect(colors[0]).toContain("217");
+    // First color is the Citrine amber brand accent (#821)
+    expect(colors[0]).toBe("38 95% 55%");
   });
 
-  test("Deep Ocean neutrals have blue tint (not pure gray)", async ({
-    page,
-  }) => {
+  test("Graphite neutrals have cool tint (not pure gray)", async ({ page }) => {
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement)
         .getPropertyValue("--background")
         .trim(),
     );
-    // Deep Ocean light: hue ~210, not 0
+    // Graphite & Citrine light background: hue 220, not 0 (#820)
     expect(bg).toMatch(/^2\d+\s/);
   });
 
