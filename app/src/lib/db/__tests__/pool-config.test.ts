@@ -7,7 +7,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * users/form flows timed out — the "late-suite failure cluster".
  */
 
-const mockPostgres = vi.fn(() => ({}) as unknown);
+// Signature declared via the generic so mock.calls carries the (uri,
+// options) tuple — a zero-arg vi.fn() makes calls[0][1] a tuple-index
+// type error under tsc (this broke the release/1.1 post-merge typecheck).
+const mockPostgres = vi.fn<
+  (uri?: string, options?: { max?: number }) => unknown
+>(() => ({}));
 vi.mock("postgres", () => ({ default: mockPostgres }));
 vi.mock("drizzle-orm/postgres-js", () => ({ drizzle: vi.fn(() => ({})) }));
 
@@ -24,14 +29,14 @@ describe("app DB pool sizing (#1004)", () => {
 
   it("defaults to a real pool, not a single serialized connection", async () => {
     await import("../index");
-    const options = mockPostgres.mock.calls[0]?.[1] as { max?: number };
+    const options = mockPostgres.mock.calls[0]?.[1];
     expect(options?.max).toBeGreaterThanOrEqual(5);
   });
 
   it("honors the DB_POOL_MAX override", async () => {
     vi.stubEnv("DB_POOL_MAX", "25");
     await import("../index");
-    const options = mockPostgres.mock.calls[0]?.[1] as { max?: number };
+    const options = mockPostgres.mock.calls[0]?.[1];
     expect(options?.max).toBe(25);
   });
 });
