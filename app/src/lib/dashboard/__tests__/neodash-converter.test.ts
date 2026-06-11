@@ -418,3 +418,76 @@ describe("convertNeoDashWithNotes — defaultConnectionId", () => {
     expect(exp.layout.pages[0].widgets[0].connectionId).toBe("");
   });
 });
+
+describe("convertNeoDashWithNotes — multi-rule click actions (#882)", () => {
+  it("imports the first action rule and notes the dropped ones", () => {
+    const nd = makeNeoDash([
+      makeReport({
+        type: "table",
+        title: "Standard selection",
+        query: "MATCH (n) RETURN n",
+        settings: {
+          actionsRules: [
+            {
+              condition: "Click",
+              field: "Select",
+              value: "SponsorModelIg",
+              customization: "set variable",
+              customizationValue: "sponsor_model",
+            },
+            {
+              condition: "Click",
+              field: "Select",
+              value: "15",
+              customization: "set variable",
+              customizationValue: "sponsor_version_number",
+            },
+          ],
+        },
+      }),
+    ]);
+
+    const { export: exp, notes } = convertNeoDashWithNotes(nd);
+    const widget = exp.layout.pages[0].widgets[0];
+    const action = (widget.settings as Record<string, unknown>)
+      .clickAction as Record<string, unknown>;
+
+    // First rule imported as the single click action
+    expect(action?.type).toBe("set-parameter");
+    expect(
+      (action.parameterMapping as Record<string, unknown>).parameterName,
+    ).toBe("sponsor_model");
+
+    // The dropped second rule is surfaced as a non-blocking note
+    expect(
+      notes.some(
+        (n) =>
+          n.includes("Standard selection") &&
+          /dropped 1 .*click action/i.test(n),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not add a dropped-rule note for a single-rule action", () => {
+    const nd = makeNeoDash([
+      makeReport({
+        type: "table",
+        title: "Single",
+        query: "MATCH (n) RETURN n",
+        settings: {
+          actionsRules: [
+            {
+              condition: "Click",
+              field: "Select",
+              value: "x",
+              customization: "set variable",
+              customizationValue: "p",
+            },
+          ],
+        },
+      }),
+    ]);
+    const { notes } = convertNeoDashWithNotes(nd);
+    expect(notes.some((n) => /dropped.*click action/i.test(n))).toBe(false);
+  });
+});
