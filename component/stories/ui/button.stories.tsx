@@ -1,41 +1,48 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { ArrowUpIcon, MailIcon, Loader2Icon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import type { Meta, StoryObj } from "@storybook/react";
+import { ArrowUpIcon, MailIcon, Loader2Icon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const meta = {
-  title: 'UI/Button',
+  title: "UI/Button",
   component: Button,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     variant: {
-      control: 'select',
-      options: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'],
-      description: 'The visual style variant of the button',
+      control: "select",
+      options: [
+        "default",
+        "destructive",
+        "outline",
+        "secondary",
+        "ghost",
+        "link",
+      ],
+      description: "The visual style variant of the button",
     },
     size: {
-      control: 'select',
-      options: ['default', 'sm', 'lg', 'icon'],
-      description: 'The size of the button',
+      control: "select",
+      options: ["default", "sm", "lg", "icon"],
+      description: "The size of the button",
     },
     disabled: {
-      control: 'boolean',
-      description: 'Whether the button is disabled',
+      control: "boolean",
+      description: "Whether the button is disabled",
     },
     asChild: {
-      control: 'boolean',
-      description: 'Render as a child element using Radix Slot',
+      control: "boolean",
+      description: "Render as a child element using Radix Slot",
     },
     children: {
-      control: 'text',
-      description: 'Button content',
+      control: "text",
+      description: "Button content",
     },
   },
   args: {
-    variant: 'default',
-    size: 'default',
+    variant: "default",
+    size: "default",
     disabled: false,
-    children: 'Button',
+    children: "Button",
   },
 } satisfies Meta<typeof Button>;
 
@@ -48,6 +55,7 @@ export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">
       <Button>Default</Button>
+      <Button variant="tonal">Tonal</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="destructive">Destructive</Button>
       <Button variant="outline">Outline</Button>
@@ -55,6 +63,13 @@ export const AllVariants: Story = {
       <Button variant="link">Link</Button>
     </div>
   ),
+};
+
+export const Tonal: Story = {
+  args: {
+    variant: "tonal",
+    children: "Tonal action",
+  },
 };
 
 export const Sizes: Story = {
@@ -96,8 +111,8 @@ export const Loading: Story = {
 
 export const IconButton: Story = {
   args: {
-    variant: 'outline',
-    size: 'icon',
+    variant: "outline",
+    size: "icon",
     children: undefined,
   },
   render: (args) => (
@@ -109,7 +124,7 @@ export const IconButton: Story = {
 
 export const Disabled: Story = {
   args: {
-    children: 'Disabled',
+    children: "Disabled",
     disabled: true,
   },
 };
