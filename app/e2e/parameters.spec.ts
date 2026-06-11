@@ -847,16 +847,16 @@ test.describe("Clickable columns restriction", () => {
       const titleCell = page.locator("td").filter({ hasText: "Apollo 13" });
       await expect(titleCell.first()).toBeVisible({ timeout: 30_000 });
 
-      // Title cells should have clickable styling (cursor-pointer on td, badge span inside)
-      await expect(titleCell.first()).toHaveClass(/cursor-pointer/);
-      // The badge span inside the title cell should have text-primary
-      const badge = titleCell.first().locator("span.rounded-md");
-      await expect(badge).toBeVisible();
+      // Title cells expose a clickable button (#980 — keyboard reachable).
+      const titleButton = titleCell.first().locator("button.rounded-md");
+      await expect(titleButton).toBeVisible();
 
-      // Released cells (year numbers) should NOT have clickable styling.
+      // Released cells (year numbers) are NOT clickable — no button inside.
       // Find a released cell in the same row as "Apollo 13" — the year is 1995.
       const releasedCell = page.locator("td").filter({ hasText: "1995" });
-      await expect(releasedCell.first()).not.toHaveClass(/cursor-pointer/);
+      await expect(
+        releasedCell.first().locator("button.rounded-md"),
+      ).toHaveCount(0);
 
       // Click the released cell — should NOT set a parameter
       await releasedCell.first().click();
@@ -960,13 +960,12 @@ test.describe("Multi-rule click actions", () => {
       const titleCell = page.locator("td").filter({ hasText: "Apollo 13" });
       await expect(titleCell.first()).toBeVisible({ timeout: 15_000 });
 
-      // Both title and released columns should have badge styling
-      await expect(titleCell.first()).toHaveClass(/cursor-pointer/);
-      const titleBadge = titleCell.first().locator("span.rounded-md");
+      // Both title and released columns expose clickable buttons (#980)
+      const titleBadge = titleCell.first().locator("button.rounded-md");
       await expect(titleBadge).toBeVisible();
 
       const yearCell = page.locator("td").filter({ hasText: "1995" });
-      await expect(yearCell.first()).toHaveClass(/cursor-pointer/);
+      await expect(yearCell.first().locator("button.rounded-md")).toBeVisible();
 
       // Click title column — should set param_movie
       await titleCell.first().click();

@@ -440,31 +440,39 @@ function DataGrid<TData>({
                             // Tabular figures keep digit columns aligned (#830)
                             typeof cell.getValue() === "number" &&
                               "tabular-nums",
-                            cellClickable && "cursor-pointer",
+                            // Clickable cells: drop padding so the inner
+                            // button fills the whole cell, preserving the
+                            // full-cell click target (#980).
+                            cellClickable && "p-0",
                           )}
                           style={getCellStyle?.(
                             row.original as TData,
                             cell.column.id,
                           )}
-                          onClick={
-                            cellClickable
-                              ? (e) => {
-                                  e.stopPropagation();
-                                  onCellClick({
-                                    column: cell.column.id,
-                                    value: cell.getValue(),
-                                  });
-                                }
-                              : undefined
-                          }
                         >
                           {cellClickable ? (
-                            <span className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 text-primary hover:bg-primary/15 transition-colors">
+                            // Real <button> so the click action is keyboard-
+                            // reachable and announced to assistive tech (#980).
+                            // w-full + cell padding makes it fill the cell, so
+                            // a click anywhere in the cell still activates it.
+                            // stopPropagation keeps the row handler from also
+                            // firing.
+                            <button
+                              type="button"
+                              className="flex h-full w-full items-center rounded-md bg-primary/5 px-4 py-2 text-left text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-soft"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCellClick({
+                                  column: cell.column.id,
+                                  value: cell.getValue(),
+                                });
+                              }}
+                            >
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext(),
                               )}
-                            </span>
+                            </button>
                           ) : (
                             flexRender(
                               cell.column.columnDef.cell,
