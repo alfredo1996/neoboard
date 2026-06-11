@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares } from "@/lib/db/schema";
+import { dashboards } from "@/lib/db/schema";
+import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { requireSession } from "@/lib/auth/session";
 import { forbidden, notFound, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
@@ -22,38 +22,22 @@ export async function POST(
       return forbidden();
     }
 
-    // Verify the caller can view the source dashboard (scoped to tenant)
-    const [source] = await db
-      .select()
-      .from(dashboards)
-      .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
-      .limit(1);
+    // Duplicating is for dashboards the caller owns or is shared on — NOT
+    // anything merely public (allowPublic: false), preserving prior
+    // behavior via the shared ACL helper (#979).
+    const access = await resolveDashboardAccess({
+      dashboardId: id,
+      userId,
+      tenantId,
+      userRole,
+      required: "viewer",
+      allowPublic: false,
+    });
 
-    if (!source) {
+    if (!access) {
       return notFound();
     }
-
-    // Non-admin Creators can only duplicate dashboards they own or are assigned to
-    if (userRole !== "admin") {
-      const isOwner = source.userId === userId;
-      if (!isOwner) {
-        const [share] = await db
-          .select({ id: dashboardShares.id })
-          .from(dashboardShares)
-          .where(
-            and(
-              eq(dashboardShares.dashboardId, id),
-              eq(dashboardShares.userId, userId),
-              eq(dashboardShares.tenantId, tenantId),
-            ),
-          )
-          .limit(1);
-
-        if (!share) {
-          return notFound();
-        }
-      }
-    }
+    const source = access.dashboard;
 
     const [copy] = await db
       .insert(dashboards)

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares, users } from "@/lib/db/schema";
+import { dashboardShares, users } from "@/lib/db/schema";
+import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { requireSession } from "@/lib/auth/session";
 import {
   validateBody,
@@ -26,30 +27,17 @@ async function requireShareAccess(
   isAdmin: boolean,
   tenantId: string,
 ) {
-  if (isAdmin) {
-    const [dashboard] = await db
-      .select()
-      .from(dashboards)
-      .where(
-        and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)),
-      )
-      .limit(1);
-    return dashboard ?? null;
-  }
-
-  const [dashboard] = await db
-    .select()
-    .from(dashboards)
-    .where(
-      and(
-        eq(dashboards.id, dashboardId),
-        eq(dashboards.userId, userId),
-        eq(dashboards.tenantId, tenantId),
-      ),
-    )
-    .limit(1);
-
-  return dashboard ?? null;
+  // Managing shares requires owner (or admin) level — delegate to the
+  // shared ACL helper (#979). userRole "admin" makes isAdmin redundant
+  // but we keep the param for call-site compatibility.
+  const access = await resolveDashboardAccess({
+    dashboardId,
+    userId,
+    tenantId,
+    userRole: isAdmin ? "admin" : "creator",
+    required: "owner",
+  });
+  return access?.dashboard ?? null;
 }
 
 export async function GET(
