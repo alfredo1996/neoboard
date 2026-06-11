@@ -8,8 +8,20 @@ import {
 import type { ConnectionFieldConfig } from "../connection-form";
 
 const minimalFields: ConnectionFieldConfig[] = [
-  { name: "host", label: "Host", type: "text", placeholder: "localhost", defaultValue: "localhost" },
-  { name: "port", label: "Port", type: "text", placeholder: "5432", defaultValue: "5432" },
+  {
+    name: "host",
+    label: "Host",
+    type: "text",
+    placeholder: "localhost",
+    defaultValue: "localhost",
+  },
+  {
+    name: "port",
+    label: "Port",
+    type: "text",
+    placeholder: "5432",
+    defaultValue: "5432",
+  },
 ];
 
 describe("ConnectionForm", () => {
@@ -41,12 +53,21 @@ describe("ConnectionForm", () => {
       { name: "pass", label: "Password", type: "password" },
     ];
     render(<ConnectionForm fields={fields} />);
-    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText("Password")).toHaveAttribute(
+      "type",
+      "password",
+    );
   });
 
   it("renders select fields", () => {
     const fields: ConnectionFieldConfig[] = [
-      { name: "mode", label: "Mode", type: "select", options: ["optionA", "optionB"], defaultValue: "optionA" },
+      {
+        name: "mode",
+        label: "Mode",
+        type: "select",
+        options: ["optionA", "optionB"],
+        defaultValue: "optionA",
+      },
     ];
     render(<ConnectionForm fields={fields} />);
     expect(screen.getByRole("combobox", { name: "Mode" })).toBeInTheDocument();
@@ -54,7 +75,9 @@ describe("ConnectionForm", () => {
 
   it("renders Connect submit button by default", () => {
     render(<ConnectionForm fields={minimalFields} />);
-    expect(screen.getByRole("button", { name: /connect/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /connect/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders custom submit and test labels", () => {
@@ -72,18 +95,24 @@ describe("ConnectionForm", () => {
 
   it("renders Test Connection button when onTest is provided", () => {
     render(<ConnectionForm fields={minimalFields} onTest={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /test connection/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /test connection/i }),
+    ).toBeInTheDocument();
   });
 
   it("does not render Test Connection button when onTest is not provided", () => {
     render(<ConnectionForm fields={minimalFields} />);
-    expect(screen.queryByRole("button", { name: /test connection/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /test connection/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("calls onSubmit with form values", () => {
     const onSubmit = vi.fn();
     render(<ConnectionForm fields={minimalFields} onSubmit={onSubmit} />);
-    fireEvent.submit(screen.getByRole("button", { name: /connect/i }).closest("form")!);
+    fireEvent.submit(
+      screen.getByRole("button", { name: /connect/i }).closest("form")!,
+    );
     expect(onSubmit).toHaveBeenCalledWith({ host: "localhost", port: "5432" });
   });
 
@@ -102,7 +131,9 @@ describe("ConnectionForm", () => {
   });
 
   it("applies custom className", () => {
-    const { container } = render(<ConnectionForm fields={minimalFields} className="custom-form" />);
+    const { container } = render(
+      <ConnectionForm fields={minimalFields} className="custom-form" />,
+    );
     expect(container.querySelector("form")).toHaveClass("custom-form");
   });
 
@@ -133,6 +164,86 @@ describe("ConnectionForm", () => {
     expect(screen.getByLabelText("Username")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     // SSL Mode select
-    expect(screen.getByRole("combobox", { name: "SSL Mode" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "SSL Mode" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("ConnectionForm validation (#981)", () => {
+  const portFields: ConnectionFieldConfig[] = [
+    { name: "host", label: "Host", type: "text", defaultValue: "localhost" },
+    { name: "port", label: "Port", type: "text", defaultValue: "5432" },
+  ];
+
+  it("blocks submit and shows an error when the port is non-numeric", () => {
+    const onSubmit = vi.fn();
+    render(<ConnectionForm fields={portFields} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("Port"), {
+      target: { value: "abc" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/valid port/i)).toBeInTheDocument();
+  });
+
+  it("blocks submit when the port is out of range", () => {
+    const onSubmit = vi.fn();
+    render(<ConnectionForm fields={portFields} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("Port"), {
+      target: { value: "99999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits when the port is valid", () => {
+    const onSubmit = vi.fn();
+    render(<ConnectionForm fields={portFields} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("Port"), {
+      target: { value: "5433" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ port: "5433" }),
+    );
+  });
+
+  it("renders an external error pushed via the errors prop", () => {
+    render(
+      <ConnectionForm
+        fields={portFields}
+        errors={{ host: "Connection refused" }}
+      />,
+    );
+    expect(screen.getByText("Connection refused")).toBeInTheDocument();
+  });
+
+  it("runs a custom field validator and blocks submit", () => {
+    const onSubmit = vi.fn();
+    const fields: ConnectionFieldConfig[] = [
+      {
+        name: "host",
+        label: "Host",
+        type: "text",
+        defaultValue: "",
+        validate: (v) => (v.includes(" ") ? "No spaces allowed" : undefined),
+      },
+    ];
+    render(<ConnectionForm fields={fields} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("Host"), {
+      target: { value: "bad host" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText("No spaces allowed")).toBeInTheDocument();
+  });
+});
+
+describe("postgres sslmode default (#981)", () => {
+  it("defaults sslmode to 'prefer', not 'disable'", () => {
+    const ssl = postgresConnectionFields.find((f) => f.name === "sslmode");
+    expect(ssl?.defaultValue).toBe("prefer");
+    expect(ssl?.options).toContain("prefer");
   });
 });
