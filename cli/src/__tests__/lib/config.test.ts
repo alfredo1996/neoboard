@@ -56,6 +56,15 @@ describe("findProjectRoot", () => {
       "Could not find NeoBoard project root",
     );
   });
+
+  it("terminates instead of looping when run from a Windows drive root (#991)", () => {
+    // dirname("C:\\") === "C:\\" — the old `while (dir !== "/")` loop
+    // never terminated. The fixed loop stops when dirname stops changing.
+    mockExistsSync.mockReturnValue(false);
+    expect(() => findProjectRoot("C:\\")).toThrow(
+      "Could not find NeoBoard project root",
+    );
+  });
 });
 
 describe("readProjectConfig", () => {

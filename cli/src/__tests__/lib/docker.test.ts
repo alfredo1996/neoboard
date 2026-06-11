@@ -96,7 +96,7 @@ describe("composeUp", () => {
   it("runs docker compose up with dev file", () => {
     composeUp();
     expect(mockRun).toHaveBeenCalledWith(
-      "docker compose -f /project/docker/docker-compose.yml up -d --build",
+      'docker compose -f "/project/docker/docker-compose.yml" up -d --build',
       { cwd: "/project" },
     );
   });
@@ -104,7 +104,7 @@ describe("composeUp", () => {
   it("uses full compose file with the generated env-file when full=true (#970)", () => {
     composeUp({ full: true });
     expect(mockRun).toHaveBeenCalledWith(
-      "docker compose -f /project/docker/docker-compose.full.yml --env-file /project/docker/.env up -d --build",
+      'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d --build',
       { cwd: "/project" },
     );
   });
@@ -114,7 +114,7 @@ describe("composeDown", () => {
   it("runs docker compose down", () => {
     composeDown();
     expect(mockRun).toHaveBeenCalledWith(
-      "docker compose -f /project/docker/docker-compose.yml down",
+      'docker compose -f "/project/docker/docker-compose.yml" down --remove-orphans',
       { cwd: "/project" },
     );
   });
@@ -122,7 +122,7 @@ describe("composeDown", () => {
   it("adds -v flag when volumes=true", () => {
     composeDown({ volumes: true });
     expect(mockRun).toHaveBeenCalledWith(
-      "docker compose -f /project/docker/docker-compose.yml down -v",
+      'docker compose -f "/project/docker/docker-compose.yml" down --remove-orphans -v',
       { cwd: "/project" },
     );
   });

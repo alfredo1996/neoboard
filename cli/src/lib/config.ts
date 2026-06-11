@@ -22,7 +22,9 @@ export interface LocalConfig {
 // Project root detection
 export function findProjectRoot(startDir?: string): string {
   let dir = startDir ?? dirname(fileURLToPath(import.meta.url));
-  while (dir !== "/") {
+  // Terminate when dirname stops changing — "/" on POSIX, "C:\\" on Windows.
+  // The old `while (dir !== "/")` looped forever on Windows (#991).
+  for (;;) {
     const pkgPath = join(dir, "package.json");
     if (existsSync(pkgPath)) {
       try {
@@ -32,7 +34,9 @@ export function findProjectRoot(startDir?: string): string {
         /* skip */
       }
     }
-    dir = dirname(dir);
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
   throw new Error(
     "Could not find NeoBoard project root (package.json with name 'neoboard')",

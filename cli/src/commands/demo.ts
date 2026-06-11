@@ -37,7 +37,9 @@ export async function runDemo(opts?: {
     "  Email:    admin@neoboard.local",
     "  Password: admin123",
   ]);
-  success("Open http://localhost:3000 to get started");
+  const { readProjectConfig } = await import("../lib/config.js");
+  const appPort = readProjectConfig().ports.app;
+  success(`Open http://localhost:${appPort} to get started`);
 }
 
 /**

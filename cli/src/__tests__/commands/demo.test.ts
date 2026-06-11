@@ -31,6 +31,7 @@ vi.mock("../../lib/prompt.js", () => ({
 vi.mock("../../lib/config.js", () => ({
   paths: { root: "/repo" },
   getMode: vi.fn(() => "local"),
+  readProjectConfig: vi.fn(() => ({ ports: { app: 3000 } })),
 }));
 
 vi.mock("../../lib/showcases.js", () => ({
