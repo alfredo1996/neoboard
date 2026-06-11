@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { readDockerEnvSecrets } from "../../lib/docker-env.js";
 import { resolve, normalize } from "node:path";
 import { run } from "../../lib/exec.js";
 import { dockerExec } from "../../lib/docker.js";
@@ -65,13 +66,29 @@ export async function seedPostgres(dockerNetwork = false): Promise<void> {
 
   // When the app runs inside Docker, seed with Docker-internal hostnames
   // so the stored connection URIs resolve inside the container network.
-  const env = dockerNetwork
-    ? {
-        ...process.env,
-        NEO4J_HOST: "neoboard-neo4j",
-        PG_HOST: "neoboard-postgres",
+  let env: NodeJS.ProcessEnv = process.env;
+  if (dockerNetwork) {
+    env = {
+      ...process.env,
+      NEO4J_HOST: "neoboard-neo4j",
+      PG_HOST: "neoboard-postgres",
+    };
+    // In Docker mode there's no app/.env.local. The host-side seed needs
+    // a localhost DSN to reach the published Postgres port, and the SAME
+    // ENCRYPTION_KEY the app container uses (from docker/.env) so seeded
+    // connector credentials decrypt at runtime (#969). Only fill values
+    // the caller hasn't already provided.
+    const { user, password, database } = config.postgres;
+    env.DATABASE_URL =
+      env.DATABASE_URL ??
+      `postgresql://${user}:${password}@localhost:${config.ports.postgres}/${database}`;
+    if (!env.ENCRYPTION_KEY) {
+      const dockerSecrets = readDockerEnvSecrets();
+      if (dockerSecrets.ENCRYPTION_KEY) {
+        env.ENCRYPTION_KEY = dockerSecrets.ENCRYPTION_KEY;
       }
-    : process.env;
+    }
+  }
 
   run(`node ${paths.root}/${config.seed.script}`, {
     cwd: paths.root,

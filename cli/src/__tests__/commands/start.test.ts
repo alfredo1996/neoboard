@@ -121,11 +121,12 @@ describe("runStart", () => {
     expect(lines.some((l) => l.startsWith("Logs:"))).toBe(true);
   });
 
-  it("DB-only mode shows 'Databases are ready!' and neoboard dev hint", async () => {
+  it("DB-only Docker mode shows 'neoboard start --full' hint, not 'dev' (#968)", async () => {
+    // getMode is "docker" by default in this suite's beforeEach.
     await runStart({ full: false });
     const lines = mockBanner.mock.calls[0][0];
     expect(lines[0]).toBe("Databases are ready!");
-    expect(lines.some((l) => l.includes("neoboard dev"))).toBe(true);
+    expect(lines.some((l) => l.includes("neoboard start --full"))).toBe(true);
     expect(lines.some((l) => l.includes("http://localhost:3000"))).toBe(false);
   });
 

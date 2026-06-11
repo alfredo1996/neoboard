@@ -17,11 +17,17 @@ vi.mock("../../../lib/config.js", () => ({
   paths: { root: "/project" },
   readProjectConfig: vi.fn(() => ({
     neo4j: { user: "neo4j", password: "neoboard123" },
+    postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+    ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
     seed: {
       script: "scripts/seed-demo.mjs",
       neo4j_cypher: "docker/neo4j/init.cypher",
     },
   })),
+}));
+
+vi.mock("../../../lib/docker-env.js", () => ({
+  readDockerEnvSecrets: vi.fn(() => ({ ENCRYPTION_KEY: "docker-key-abc" })),
 }));
 
 vi.mock("../../../lib/output.js", () => ({
@@ -108,6 +114,16 @@ describe("seedPostgres", () => {
         }),
       },
     );
+  });
+
+  it("threads a localhost DSN + docker/.env ENCRYPTION_KEY in Docker mode (#969)", async () => {
+    await seedPostgres(true);
+    const env = mockRun.mock.calls[0]?.[1]?.env as Record<string, string>;
+    expect(env.DATABASE_URL).toBe(
+      "postgresql://neoboard:neoboard@localhost:5432/neoboard",
+    );
+    // Same key the app container uses, so seeded connectors decrypt at runtime
+    expect(env.ENCRYPTION_KEY).toBe("docker-key-abc");
   });
 });
 

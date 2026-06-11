@@ -47,12 +47,13 @@ program
   .command("start")
   .description(
     "Start NeoBoard services, run migrations\n" +
-      "  Docker mode: starts containers via docker compose\n" +
+      "  Docker mode: starts database containers (add --full for the app)\n" +
       "  Local mode: connects to your running PostgreSQL + Neo4j",
   )
-  .action(async () => {
+  .option("--full", "Docker mode: also start the app container (#968)", false)
+  .action(async (opts) => {
     const { runStart } = await import("./commands/start.js");
-    await runStart();
+    await runStart({ full: opts.full });
   });
 
 program
@@ -85,7 +86,9 @@ program
   .option("--mode <mode>", "Set mode: docker or local", "docker")
   .action(async (opts) => {
     const { runSetup } = await import("./commands/setup.js");
-    await runSetup({ mode: opts.mode });
+    // Docker mode brings up the full stack (app + DBs) so `setup` actually
+    // lands on a running app — not the old DB-only dead-end (#968).
+    await runSetup({ mode: opts.mode, full: opts.mode !== "local" });
   });
 
 program

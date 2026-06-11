@@ -87,13 +87,18 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   // 5. Done
   const url = `http://localhost:${config.ports.app}`;
   const appRunning = full && mode === "docker";
+  // The "start the app" hint must match the mode: `dev` only works in local
+  // mode; Docker mode needs `start --full` (#968). The old banner always
+  // said `neoboard dev`, which dead-ended Docker users.
+  const startAppHint =
+    mode === "docker" ? "neoboard start --full" : "neoboard dev";
   banner([
     appRunning ? "NeoBoard is running!" : "Databases are ready!",
     "",
     `Mode:       ${mode}${full ? " (full stack)" : ""}`,
     ...(appRunning
       ? [`App:        ${url}`]
-      : [`App:        not started — run: neoboard dev`]),
+      : [`App:        not started — run: ${startAppHint}`]),
     `Neo4j:      http://localhost:${config.ports.neo4j_http}`,
     `PostgreSQL: localhost:${config.ports.postgres}`,
     "",
@@ -103,7 +108,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   if (appRunning) {
     success(`Open ${url} in your browser`);
   } else {
-    success(`Run 'neoboard dev' to start the app`);
+    success(`Run '${startAppHint}' to start the app`);
   }
   return true;
 }
