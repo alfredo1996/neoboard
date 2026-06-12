@@ -37,10 +37,12 @@ export function buildSeedEnv(config: SeedConfig): NodeJS.ProcessEnv {
     PG_HOST: "neoboard-postgres",
   };
 
+  // Encode DSN components — a password like "pa:ss@word" must not break the
+  // URI (CodeRabbit, PR #1062).
   const { user, password, database } = config.postgres;
   env.DATABASE_URL =
     env.DATABASE_URL ??
-    `postgresql://${user}:${password}@localhost:${config.ports.postgres}/${database}`;
+    `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@localhost:${config.ports.postgres}/${encodeURIComponent(database)}`;
 
   if (!env.ENCRYPTION_KEY) {
     const secrets = readDockerEnvSecrets();

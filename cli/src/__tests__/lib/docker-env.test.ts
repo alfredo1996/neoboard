@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
@@ -86,6 +86,24 @@ describe("readDockerEnvSecrets (#969)", () => {
 });
 
 describe("buildSeedEnv (#1039)", () => {
+  // buildSeedEnv only reads docker/.env when the caller hasn't already set
+  // these — clear them so ambient CI env can't make the assertions flaky.
+  let ambient: { ENCRYPTION_KEY?: string; DATABASE_URL?: string };
+  beforeEach(() => {
+    ambient = {
+      ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+      DATABASE_URL: process.env.DATABASE_URL,
+    };
+    delete process.env.ENCRYPTION_KEY;
+    delete process.env.DATABASE_URL;
+  });
+  afterEach(() => {
+    for (const k of ["ENCRYPTION_KEY", "DATABASE_URL"] as const) {
+      if (ambient[k] === undefined) delete process.env[k];
+      else process.env[k] = ambient[k];
+    }
+  });
+
   it("threads Docker hostnames, a localhost DSN, and the docker/.env ENCRYPTION_KEY in Docker mode", () => {
     mockGetMode.mockReturnValue("docker");
     mockExistsSync.mockReturnValue(true);
@@ -100,6 +118,24 @@ describe("buildSeedEnv (#1039)", () => {
     );
     // Same key the app container uses, so seeded connectors decrypt at runtime.
     expect(env.ENCRYPTION_KEY).toBe("docker-key-abc");
+  });
+
+  it("URL-encodes DSN components so special characters in credentials survive", () => {
+    mockGetMode.mockReturnValue("docker");
+    mockExistsSync.mockReturnValue(false);
+
+    const env = buildSeedEnv({
+      postgres: {
+        user: "neo board",
+        password: "pa:ss@word",
+        database: "neoboard",
+      },
+      ports: { postgres: 5432 },
+    });
+
+    expect(env.DATABASE_URL).toBe(
+      "postgresql://neo%20board:pa%3Ass%40word@localhost:5432/neoboard",
+    );
   });
 
   it("returns process.env unchanged in local mode", () => {
