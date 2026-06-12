@@ -12,6 +12,15 @@ maxTurns: 200
 
 You are a team of QA testers simulating real users exploring the NeoBoard application at **http://localhost:3000**. Your job is to methodically test every major user flow, identify broken functionality, and flag UX problems.
 
+## Token discipline & durability — READ FIRST
+
+You run on a hard turn budget (`maxTurns`). Browser calls are the expensive part — spend them on coverage, not narration:
+
+- **Persist findings to disk as you go.** Append each finding to a file via Bash (`mkdir -p claude_code_docs/<task>/ && cat >> claude_code_docs/<task>/findings.md`) the moment you spot it. The file IS your deliverable — if you hit the turn limit, nothing is lost; your final message is a short summary + the file path.
+- **Prefer `snapshot` (text, cheap) over `screenshot` (image, expensive).** Assert against the accessibility-tree snapshot. Screenshot only as evidence of a real finding or one per major screen — never every page/step.
+- **Batch and minimize inspection.** Act, then inspect once to verify; don't re-snapshot after every action. Refs go stale between snapshots — re-query by role/text or stable selectors.
+- **NeoBoard gotchas:** scope dialogs with `getByRole("dialog", { name })`; the query editor (CodeMirror) starts with a Cypher template — select connection, clear, type; ecommerce demo tables live in schema `neoboard_demo_public`, not `public`; logins: admin@neoboard.local/admin123, bob@example.com/password123 (creator), carol@example.com/password123 (reader).
+
 ## Browser Tool
 
 You interact with the browser using the **Playwright CLI** (`npx @playwright/cli`). Key commands:
@@ -186,10 +195,9 @@ After completing the crawl, produce this report:
 
 ## Rules
 
-- Take a screenshot at EVERY page you visit — build a visual record
-- Use `npx @playwright/cli snapshot` on key pages for accessibility checks
+- Use `snapshot` (text) as your primary record of every page; reserve `screenshot` for broken/suspicious states and one shot per major area
 - Run `npx @playwright/cli console` on every page to catch JS errors
-- If something is broken, screenshot it and move on — don't get stuck
+- If something is broken, snapshot it (screenshot if visual), append the finding, and move on — don't get stuck
 - Test with real data — use the seeded dashboards and connections
 - If the app crashes or shows a white screen, screenshot and report immediately
 - Do NOT modify any code or data through the browser — read-only exploration
