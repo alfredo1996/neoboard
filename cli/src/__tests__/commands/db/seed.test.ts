@@ -15,6 +15,7 @@ vi.mock("../../../lib/docker.js", () => ({
 
 vi.mock("../../../lib/config.js", () => ({
   paths: { root: "/project" },
+  getMode: vi.fn(() => "docker"),
   readProjectConfig: vi.fn(() => ({
     neo4j: { user: "neo4j", password: "neoboard123" },
     postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
@@ -26,8 +27,10 @@ vi.mock("../../../lib/config.js", () => ({
   })),
 }));
 
+// seedPostgres delegates env construction to buildSeedEnv; the env-content
+// logic is unit-tested in docker-env.test.ts. Here we assert delegation.
 vi.mock("../../../lib/docker-env.js", () => ({
-  readDockerEnvSecrets: vi.fn(() => ({ ENCRYPTION_KEY: "docker-key-abc" })),
+  buildSeedEnv: vi.fn(() => ({ SEED_ENV: "from-buildSeedEnv" })),
 }));
 
 vi.mock("../../../lib/output.js", () => ({
@@ -43,6 +46,7 @@ vi.mock("../../../lib/output.js", () => ({
 
 import { run } from "../../../lib/exec.js";
 import { dockerExec } from "../../../lib/docker.js";
+import { buildSeedEnv } from "../../../lib/docker-env.js";
 import {
   seedNeo4j,
   seedPostgres,
@@ -51,6 +55,7 @@ import {
 
 const mockRun = vi.mocked(run);
 const mockDockerExec = vi.mocked(dockerExec);
+const mockBuildSeedEnv = vi.mocked(buildSeedEnv);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -94,36 +99,19 @@ describe("seedNeo4j", () => {
 });
 
 describe("seedPostgres", () => {
-  it("runs seed script with host env", async () => {
+  it("runs the seed script with the environment from buildSeedEnv (#1039)", async () => {
     await seedPostgres();
+    expect(mockBuildSeedEnv).toHaveBeenCalledOnce();
     expect(mockRun).toHaveBeenCalledWith(
       "node /project/scripts/seed-demo.mjs",
-      { cwd: "/project", env: process.env },
+      { cwd: "/project", env: { SEED_ENV: "from-buildSeedEnv" } },
     );
   });
 
-  it("passes Docker hostnames when dockerNetwork is true", async () => {
-    await seedPostgres(true);
-    expect(mockRun).toHaveBeenCalledWith(
-      "node /project/scripts/seed-demo.mjs",
-      {
-        cwd: "/project",
-        env: expect.objectContaining({
-          NEO4J_HOST: "neoboard-neo4j",
-          PG_HOST: "neoboard-postgres",
-        }),
-      },
-    );
-  });
-
-  it("threads a localhost DSN + docker/.env ENCRYPTION_KEY in Docker mode (#969)", async () => {
-    await seedPostgres(true);
-    const env = mockRun.mock.calls[0]?.[1]?.env as Record<string, string>;
-    expect(env.DATABASE_URL).toBe(
-      "postgresql://neoboard:neoboard@localhost:5432/neoboard",
-    );
-    // Same key the app container uses, so seeded connectors decrypt at runtime
-    expect(env.ENCRYPTION_KEY).toBe("docker-key-abc");
+  it("takes no dockerNetwork argument — docker vs local is derived inside buildSeedEnv", () => {
+    // Regression guard for #1039: the old signature let callers (db seed,
+    // db reset) forget the flag and silently skip the encryption key.
+    expect(seedPostgres.length).toBe(0);
   });
 });
 
@@ -148,5 +136,12 @@ describe("runDbSeed", () => {
     expect(mockRun).toHaveBeenCalled();
     // No Neo4j exec calls
     expect(mockDockerExec).not.toHaveBeenCalled();
+  });
+
+  it("routes the PG seed through buildSeedEnv so db seed / db reset get the key (#1039)", async () => {
+    await runDbSeed({ demo: true });
+    expect(mockBuildSeedEnv).toHaveBeenCalledOnce();
+    const env = mockRun.mock.calls[0]?.[1]?.env;
+    expect(env).toEqual({ SEED_ENV: "from-buildSeedEnv" });
   });
 });

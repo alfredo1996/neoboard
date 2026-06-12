@@ -14,6 +14,7 @@ vi.mock("node:crypto", () => ({
 
 vi.mock("../../lib/config.js", () => ({
   paths: { root: "/project" },
+  getMode: vi.fn(() => "docker"),
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -22,11 +23,22 @@ vi.mock("../../lib/output.js", () => ({
 }));
 
 import { existsSync, writeFileSync, readFileSync } from "node:fs";
-import { ensureDockerEnvFile, DOCKER_ENV_PATH } from "../../lib/docker-env.js";
+import {
+  ensureDockerEnvFile,
+  DOCKER_ENV_PATH,
+  buildSeedEnv,
+} from "../../lib/docker-env.js";
+import { getMode } from "../../lib/config.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockReadFileSync = vi.mocked(readFileSync);
+const mockGetMode = vi.mocked(getMode);
+
+const SEED_CONFIG = {
+  postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+  ports: { postgres: 5432 },
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,5 +82,50 @@ describe("readDockerEnvSecrets (#969)", () => {
       ENCRYPTION_KEY: "abc123",
       NEXTAUTH_SECRET: "def456",
     });
+  });
+});
+
+describe("buildSeedEnv (#1039)", () => {
+  it("threads Docker hostnames, a localhost DSN, and the docker/.env ENCRYPTION_KEY in Docker mode", () => {
+    mockGetMode.mockReturnValue("docker");
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue("ENCRYPTION_KEY=docker-key-abc\n");
+
+    const env = buildSeedEnv(SEED_CONFIG);
+
+    expect(env.NEO4J_HOST).toBe("neoboard-neo4j");
+    expect(env.PG_HOST).toBe("neoboard-postgres");
+    expect(env.DATABASE_URL).toBe(
+      "postgresql://neoboard:neoboard@localhost:5432/neoboard",
+    );
+    // Same key the app container uses, so seeded connectors decrypt at runtime.
+    expect(env.ENCRYPTION_KEY).toBe("docker-key-abc");
+  });
+
+  it("returns process.env unchanged in local mode", () => {
+    mockGetMode.mockReturnValue("local");
+    const env = buildSeedEnv(SEED_CONFIG);
+    expect(env).toBe(process.env);
+  });
+
+  it("does not override a pre-set ENCRYPTION_KEY or DATABASE_URL", () => {
+    mockGetMode.mockReturnValue("docker");
+    const prev = {
+      ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+      DATABASE_URL: process.env.DATABASE_URL,
+    };
+    process.env.ENCRYPTION_KEY = "caller-key";
+    process.env.DATABASE_URL = "postgres://caller/db";
+    try {
+      const env = buildSeedEnv(SEED_CONFIG);
+      expect(env.ENCRYPTION_KEY).toBe("caller-key");
+      expect(env.DATABASE_URL).toBe("postgres://caller/db");
+    } finally {
+      // restore
+      if (prev.ENCRYPTION_KEY === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = prev.ENCRYPTION_KEY;
+      if (prev.DATABASE_URL === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = prev.DATABASE_URL;
+    }
   });
 });

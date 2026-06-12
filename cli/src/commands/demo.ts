@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { run } from "../lib/exec.js";
-import { paths, getMode } from "../lib/config.js";
+import { paths, readProjectConfig } from "../lib/config.js";
+import { buildSeedEnv } from "../lib/docker-env.js";
 import {
   success,
   banner,
@@ -28,7 +29,7 @@ export async function runDemo(opts?: {
     process.exitCode = 1;
     return;
   }
-  await runDbSeed({ neo4j: true, demo: true, dockerNetwork: true });
+  await runDbSeed({ neo4j: true, demo: true });
 
   banner([
     "Demo environment ready!",
@@ -37,7 +38,6 @@ export async function runDemo(opts?: {
     "  Email:    admin@neoboard.local",
     "  Password: admin123",
   ]);
-  const { readProjectConfig } = await import("../lib/config.js");
   const appPort = readProjectConfig().ports.app;
   success(`Open http://localhost:${appPort} to get started`);
 }
@@ -75,7 +75,7 @@ export async function runDemoSeed(opts?: { only?: string }): Promise<void> {
   try {
     run(`node ${scriptPath}${onlyArg}`, {
       cwd: paths.root,
-      env: dockerEnv(),
+      env: buildSeedEnv(readProjectConfig()),
     });
     spinner.succeed("Showcases seeded");
   } catch (err) {
@@ -83,21 +83,6 @@ export async function runDemoSeed(opts?: { only?: string }): Promise<void> {
     process.exitCode = 1;
     throw err;
   }
-}
-
-/**
- * In Docker mode, the app container can't reach "localhost" — the
- * Postgres and Neo4j services are at "neoboard-postgres" and
- * "neoboard-neo4j" respectively. seed-demo.mjs honors these env vars
- * when building the stored connection URIs.
- */
-function dockerEnv(): NodeJS.ProcessEnv {
-  if (getMode() !== "docker") return process.env;
-  return {
-    ...process.env,
-    NEO4J_HOST: "neoboard-neo4j",
-    PG_HOST: "neoboard-postgres",
-  };
 }
 
 /**
@@ -140,7 +125,7 @@ export async function runDemoReset(opts?: { force?: boolean }): Promise<void> {
   try {
     run(`node ${scriptPath} --reset`, {
       cwd: paths.root,
-      env: dockerEnv(),
+      env: buildSeedEnv(readProjectConfig()),
     });
     spinner.succeed("Demo state reset");
   } catch (err) {
