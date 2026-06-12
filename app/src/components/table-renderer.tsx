@@ -9,13 +9,13 @@ import {
   DataGridPagination,
   parseColorThresholds,
   resolveThresholdColor,
-  resolveStylingRuleColor,
   interpolateColor,
   contrastTextColor,
 } from "@neoboard/components";
 import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
+import { resolveStylingRuleRowStyle } from "@/lib/widget/table-styling";
 
 const AGG_SYMBOLS: Record<string, string> = {
   sum: "Σ",
@@ -165,44 +165,8 @@ export function TableRenderer({
     if (stylingRules?.length) {
       // Fallback column for rules without an explicit column
       const defaultCol = thresholdColumn || fallbackThresholdColumn;
-      return (
-        row: Record<string, unknown>,
-      ): React.CSSProperties | undefined => {
-        const style: React.CSSProperties = {};
-        let hasStyle = false;
-
-        // Process all rules in order — later rules override earlier ones
-        // (last matching rule wins, giving higher-priority rules precedence
-        // when placed later in the list)
-        for (const rule of stylingRules) {
-          const ruleCol = rule.column || defaultCol;
-          if (!ruleCol || !(ruleCol in row)) continue;
-          const val = row[ruleCol];
-          const color = resolveStylingRuleColor(val, [rule], paramValues);
-          if (!color) continue;
-          const target = rule.target || "backgroundColor";
-          if (target === "backgroundColor") {
-            style.backgroundColor = color;
-            hasStyle = true;
-          }
-          if (target === "textColor") {
-            style.color = color;
-            hasStyle = true;
-          }
-          if (rule.bold) {
-            style.fontWeight = "bold";
-            hasStyle = true;
-          }
-        }
-        // Auto-set text color for contrast when background is set but no explicit text color rule matched
-        if (
-          style.backgroundColor &&
-          !stylingRules.some((r) => r.target === "textColor")
-        ) {
-          style.color = contrastTextColor(style.backgroundColor as string);
-        }
-        return hasStyle ? style : undefined;
-      };
+      return (row: Record<string, unknown>): React.CSSProperties | undefined =>
+        resolveStylingRuleRowStyle(stylingRules, row, defaultCol, paramValues);
     }
     if (thresholds.length > 0) {
       return (
