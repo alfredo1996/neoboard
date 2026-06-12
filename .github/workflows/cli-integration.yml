@@ -49,7 +49,7 @@ jobs:
         run: npm -w connection run build
         continue-on-error: true
 
-      - name: Generate app/.env.local
+      - name: Generate env files (app/.env.local + docker/.env)
         run: |
           cat > app/.env.local <<'ENVEOF'
           DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
@@ -60,6 +60,18 @@ jobs:
           ENVEOF
           # Remove leading whitespace from heredoc
           sed -i 's/^          //' app/.env.local
+          # docker-compose.full.yml interpolates these from docker/.env (the
+          # file `neoboard start`/`demo` generates). CI starts the stack with
+          # raw `docker compose up`, so generate it here with the SAME secrets
+          # as app/.env.local — otherwise compose fails on the required
+          # ${API_KEY_HMAC_SECRET:?} interpolation and seeded connectors would
+          # be encrypted with a divergent key (#1039).
+          cat > docker/.env <<'ENVEOF'
+          ENCRYPTION_KEY=b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9
+          NEXTAUTH_SECRET=d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65
+          API_KEY_HMAC_SECRET=7f3b9c2a5e8d4f1b0a6c9e8d7f2a4b1c5e8d7f2a4b1c5e8d7f2a4b1c5e8d7f2a
+          ENVEOF
+          sed -i 's/^          //' docker/.env
 
       - name: Build Docker image
         run: docker build -t neoboard:integration-test .
