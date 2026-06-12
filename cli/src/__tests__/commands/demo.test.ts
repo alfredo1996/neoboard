@@ -34,6 +34,12 @@ vi.mock("../../lib/config.js", () => ({
   readProjectConfig: vi.fn(() => ({ ports: { app: 3000 } })),
 }));
 
+// runDemoSeed / runDemoReset delegate env construction to buildSeedEnv; its
+// content logic is unit-tested in docker-env.test.ts. Here we assert delegation.
+vi.mock("../../lib/docker-env.js", () => ({
+  buildSeedEnv: vi.fn(() => ({ SEED_ENV: "from-buildSeedEnv" })),
+}));
+
 vi.mock("../../lib/showcases.js", () => ({
   loadShowcases: vi.fn(async () => ({
     SHOWCASES: [
@@ -72,7 +78,7 @@ import { runDbSeed } from "../../commands/db/seed.js";
 import { banner, error as logError, info } from "../../lib/output.js";
 import { run as execRun } from "../../lib/exec.js";
 import { confirm } from "../../lib/prompt.js";
-import { getMode } from "../../lib/config.js";
+import { buildSeedEnv } from "../../lib/docker-env.js";
 import {
   runDemo,
   runDemoSeed,
@@ -86,7 +92,7 @@ const mockExecRun = vi.mocked(execRun);
 const mockConfirm = vi.mocked(confirm);
 const mockLogError = vi.mocked(logError);
 const mockInfo = vi.mocked(info);
-const mockGetMode = vi.mocked(getMode);
+const mockBuildSeedEnv = vi.mocked(buildSeedEnv);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -107,10 +113,11 @@ describe("runDemo", () => {
 
   it("seeds both neo4j and demo data", async () => {
     await runDemo();
+    // No dockerNetwork flag — docker vs local is derived inside the seed
+    // path via getMode (#1039).
     expect(mockRunDbSeed).toHaveBeenCalledWith({
       neo4j: true,
       demo: true,
-      dockerNetwork: true,
     });
   });
 
@@ -224,22 +231,12 @@ describe("runDemoReset", () => {
   });
 });
 
-describe("dockerEnv (via runDemoSeed)", () => {
-  it("passes docker host env vars when mode is docker", async () => {
-    mockGetMode.mockReturnValue("docker");
+describe("buildSeedEnv (via runDemoSeed)", () => {
+  it("seeds with the environment from buildSeedEnv so the encryption key is threaded (#1039)", async () => {
     await runDemoSeed();
+    expect(mockBuildSeedEnv).toHaveBeenCalled();
     const callEnv = mockExecRun.mock.calls[0]?.[1]?.env;
-    expect(callEnv).toMatchObject({
-      NEO4J_HOST: "neoboard-neo4j",
-      PG_HOST: "neoboard-postgres",
-    });
-  });
-
-  it("uses process.env when mode is local", async () => {
-    mockGetMode.mockReturnValue("local");
-    await runDemoSeed();
-    const callEnv = mockExecRun.mock.calls[0]?.[1]?.env;
-    expect(callEnv).toBe(process.env);
+    expect(callEnv).toEqual({ SEED_ENV: "from-buildSeedEnv" });
   });
 });
 

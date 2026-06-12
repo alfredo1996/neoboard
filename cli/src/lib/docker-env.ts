@@ -1,10 +1,56 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { paths } from "./config.js";
+import { paths, getMode } from "./config.js";
 import { info } from "./output.js";
 
 export const DOCKER_ENV_PATH = "docker/.env";
+
+/** Minimal slice of the project config needed to build the seed environment. */
+interface SeedConfig {
+  postgres: { user: string; password: string; database: string };
+  ports: { postgres: number };
+}
+
+/**
+ * Build the environment for the host-side demo seed (`scripts/seed-demo.mjs`).
+ *
+ * In Docker mode three things must hold so seeded connectors work at runtime:
+ *   - stored connection URIs use Docker service names (NEO4J_HOST / PG_HOST),
+ *   - the host-side seed reaches the published Postgres port via localhost,
+ *   - credentials are encrypted with the SAME ENCRYPTION_KEY the app container
+ *     uses (from docker/.env) — otherwise they can't be decrypted (#969, #1039).
+ *
+ * In local mode `seed-demo.mjs` reads `app/.env.local` itself, so the unchanged
+ * `process.env` is returned.
+ *
+ * Centralised here, and keyed on `getMode()` rather than a per-call flag, so no
+ * seed entry point (`neoboard demo`, `demo seed`, `db seed`, `db reset`) can
+ * silently forget the key.
+ */
+export function buildSeedEnv(config: SeedConfig): NodeJS.ProcessEnv {
+  if (getMode() !== "docker") return process.env;
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    NEO4J_HOST: "neoboard-neo4j",
+    PG_HOST: "neoboard-postgres",
+  };
+
+  // Encode DSN components — a password like "pa:ss@word" must not break the
+  // URI (CodeRabbit, PR #1062).
+  const { user, password, database } = config.postgres;
+  env.DATABASE_URL =
+    env.DATABASE_URL ??
+    `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@localhost:${config.ports.postgres}/${encodeURIComponent(database)}`;
+
+  if (!env.ENCRYPTION_KEY) {
+    const secrets = readDockerEnvSecrets();
+    if (secrets.ENCRYPTION_KEY) env.ENCRYPTION_KEY = secrets.ENCRYPTION_KEY;
+  }
+
+  return env;
+}
 
 /**
  * Per-install secrets for the full-stack compose (#970). The compose file
