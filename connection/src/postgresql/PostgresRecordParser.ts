@@ -1,5 +1,5 @@
-import { NeodashRecordParser } from '../generalized/NeodashRecordParser';
-import { NeodashRecord } from '../generalized/NeodashRecord';
+import { NeodashRecordParser } from "../generalized/NeodashRecordParser";
+import { NeodashRecord } from "../generalized/NeodashRecord";
 
 /**
  * PostgreSQL Record Parser
@@ -30,15 +30,22 @@ export class PostgresRecordParser extends NeodashRecordParser {
 
   /**
    * Converts PostgreSQL data types to native JavaScript types.
-   * The pg driver already returns native JS types for primitives and temporals,
-   * so this only needs to handle nulls, arrays, and plain objects.
+   * The pg driver already returns native JS types for primitives and temporals;
+   * this handles nulls, arrays, temporals (preserved as Date), and plain objects.
    * @param value - Value from PostgreSQL result
    * @returns Value converted to JavaScript native type
    */
   private _pgToNative(value: unknown): unknown {
     if (value == null) return value;
-    if (Array.isArray(value)) return value.map((item) => this._pgToNative(item));
-    if (typeof value === 'object') return this.pgConvertPlainObject(value as object);
+    if (Array.isArray(value))
+      return value.map((item) => this._pgToNative(item));
+    // Temporals (timestamp/timestamptz/date) arrive as native Date instances.
+    // A Date is `typeof === 'object'`, so it must be handled BEFORE the
+    // plain-object branch — otherwise pgConvertPlainObject copies its (zero)
+    // enumerable own properties and flattens it to {}. (#1054)
+    if (this.isTemporal(value)) return this.parseTemporal(value);
+    if (typeof value === "object")
+      return this.pgConvertPlainObject(value as object);
     return value;
   }
 
@@ -47,7 +54,12 @@ export class PostgresRecordParser extends NeodashRecordParser {
    */
   isPrimitive(value: unknown): boolean {
     const type = typeof value;
-    return type === 'boolean' || type === 'string' || type === 'number' || type === 'bigint';
+    return (
+      type === "boolean" ||
+      type === "string" ||
+      type === "number" ||
+      type === "bigint"
+    );
   }
 
   /**
