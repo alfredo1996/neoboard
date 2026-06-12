@@ -408,7 +408,7 @@ export default function ConnectionsPage() {
           if (!open) closeCreateDialog();
         }}
       >
-        <DialogContent>
+        <DialogContent className="flex flex-col overflow-hidden">
           {dialogStep === "pick-type" ? (
             <>
               <DialogHeader>
@@ -444,13 +444,16 @@ export default function ConnectionsPage() {
               </div>
             </>
           ) : (
-            <form onSubmit={handleCreate}>
+            <form
+              onSubmit={handleCreate}
+              className="flex min-h-0 flex-col overflow-hidden"
+            >
               <DialogHeader>
                 <DialogTitle>
                   New {CONNECTOR_LABELS[form.type]} Connection
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -687,7 +690,7 @@ export default function ConnectionsPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <DialogFooter>
+              <DialogFooter className="mt-4 shrink-0 border-t pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -725,8 +728,11 @@ export default function ConnectionsPage() {
           if (!open) setEditTarget(null);
         }}
       >
-        <DialogContent>
-          <form onSubmit={handleEdit}>
+        <DialogContent className="flex flex-col overflow-hidden">
+          <form
+            onSubmit={handleEdit}
+            className="flex min-h-0 flex-col overflow-hidden"
+          >
             <DialogHeader>
               <DialogTitle>Edit {editTarget?.name}</DialogTitle>
             </DialogHeader>
@@ -735,7 +741,7 @@ export default function ConnectionsPage() {
                 <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
             ) : (
-              <div className="space-y-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
                 <p className="text-sm text-muted-foreground">
                   Update your connection settings. Leave password blank to keep
                   the existing one.
@@ -927,7 +933,7 @@ export default function ConnectionsPage() {
                 <AlertDescription>{editError}</AlertDescription>
               </Alert>
             )}
-            <DialogFooter>
+            <DialogFooter className="mt-4 shrink-0 border-t pt-4">
               <Button
                 type="button"
                 variant="outline"
