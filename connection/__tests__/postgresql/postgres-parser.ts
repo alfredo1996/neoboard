@@ -109,6 +109,8 @@ describe("PostgreSQL Record Parser", () => {
   test("should return existing NeodashRecord unchanged in _parse", () => {
     const existingRecord = new NeodashRecord({ id: 1, name: "Test" });
 
+    // `any` cast: _parse's signature takes a raw driver row; passing an
+    // already-parsed NeodashRecord on purpose to verify the pass-through guard.
     const result = parser["_parse"](existingRecord as any);
 
     expect(result).toBe(existingRecord);
