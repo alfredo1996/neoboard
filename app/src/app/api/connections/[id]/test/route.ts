@@ -30,9 +30,24 @@ export async function POST(
       return notFound("Connection not found");
     }
 
-    const credentials = decryptJson<ConnectionCredentials>(
-      connection.configEncrypted,
-    );
+    // Decrypt failures are an expected operational state (rotated/lost
+    // ENCRYPTION_KEY, or seeding with a mismatched key) — surface them as an
+    // actionable test result, not an unhandled 500 (#1040). Recovery path:
+    // re-entering credentials in the edit dialog re-encrypts with the
+    // current key.
+    let credentials: ConnectionCredentials;
+    try {
+      credentials = decryptJson<ConnectionCredentials>(
+        connection.configEncrypted,
+      );
+    } catch {
+      return apiSuccess({
+        success: false,
+        code: "decrypt_failed",
+        error:
+          "Stored credentials can't be decrypted (encryption key changed?). Edit the connection and re-enter its credentials.",
+      });
+    }
 
     try {
       const success = await testConnection(
