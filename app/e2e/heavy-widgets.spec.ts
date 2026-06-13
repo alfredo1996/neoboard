@@ -256,3 +256,85 @@ test.describe("Heavy widget rendering", () => {
     ).not.toBeVisible();
   });
 });
+
+test.describe("Graph-dense dashboard — WebGL context management (#1052)", () => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await cleanup?.();
+  });
+
+  test("off-screen graphs lazy-mount and no WebGL context-loss errors fire", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const webglErrors: string[] = [];
+    page.on("console", (msg) => {
+      const t = msg.text();
+      if (/context lost|too many active webgl/i.test(t)) webglErrors.push(t);
+    });
+
+    const { id, cleanup: c } = await createTestDashboard(
+      page.request,
+      `Graph Dense ${Date.now()}`,
+    );
+    cleanup = c;
+
+    // Several tall graph widgets stacked vertically — most start below the fold.
+    const N = 4;
+    const query =
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10";
+    const widgets = Array.from({ length: N }, (_, i) => ({
+      id: `g${i}`,
+      chartType: "graph",
+      connectionId: "conn-neo4j-001",
+      query,
+      settings: { title: `Graph ${i}` },
+    }));
+    const gridLayout = Array.from({ length: N }, (_, i) => ({
+      i: `g${i}`,
+      x: 0,
+      y: i * 12,
+      w: 12,
+      h: 12,
+    }));
+    await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [{ id: "p1", title: "Main", widgets, gridLayout }],
+        },
+      },
+    });
+
+    await page.goto(`/${id}`);
+
+    const fitButtons = page.getByRole("button", { name: "Fit graph" });
+    // The first graph (in view) mounts and NVL renders its toolbar.
+    await expect(fitButtons.first()).toBeVisible({ timeout: 45_000 });
+
+    // Off-screen graphs are gated — not all N are mounted at once. This bounds
+    // how many WebGL contexts are live regardless of how many graph widgets the
+    // dashboard has.
+    expect(await fitButtons.count()).toBeLessThan(N);
+
+    // The bottom graph isn't mounted yet (it's below the fold).
+    const lastCard = page.locator("[data-testid='widget-card']").last();
+    await expect(
+      lastCard.getByRole("button", { name: "Fit graph" }),
+    ).toHaveCount(0);
+
+    // Scrolling it into view mounts it (earlier graphs may unmount to free
+    // their contexts — the live count stays bounded).
+    await lastCard.scrollIntoViewIfNeeded();
+    await expect(
+      lastCard.getByRole("button", { name: "Fit graph" }),
+    ).toBeVisible({ timeout: 45_000 });
+
+    // Never exhausted the browser's WebGL contexts.
+    expect(webglErrors, webglErrors.join("\n")).toHaveLength(0);
+  });
+});

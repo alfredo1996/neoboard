@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { GraphNode, GraphEdge, StylingRule } from "@neoboard/components";
 import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper";
+import { LazyVisible } from "@/components/lazy-visible";
 import { defineChartPlugin } from "../registry";
 import { transformToGraphData, validateGraphData } from "./transform";
 import { type PluginProps } from "../utils";
@@ -39,21 +40,18 @@ function GraphPluginComponent({
     nodes: GraphNode[];
     edges: GraphEdge[];
   };
-  if (connectionId) {
-    return (
-      <GraphExplorationWrapper
-        widgetId={widgetId ?? connectionId}
-        nodes={graphData.nodes ?? []}
-        edges={graphData.edges ?? []}
-        connectionId={connectionId}
-        settings={raw}
-        onChartClick={onChartClick}
-        resultId={resultId}
-        autoFit={autoFit}
-      />
-    );
-  }
-  return (
+  const graph = connectionId ? (
+    <GraphExplorationWrapper
+      widgetId={widgetId ?? connectionId}
+      nodes={graphData.nodes ?? []}
+      edges={graphData.edges ?? []}
+      connectionId={connectionId}
+      settings={raw}
+      onChartClick={onChartClick}
+      resultId={resultId}
+      autoFit={autoFit}
+    />
+  ) : (
     <GraphChart
       nodes={graphData.nodes ?? []}
       edges={graphData.edges ?? []}
@@ -70,6 +68,17 @@ function GraphPluginComponent({
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
     />
+  );
+
+  // Only keep the WebGL-backed graph mounted while it's on/near screen, so a
+  // graph-dense dashboard doesn't exhaust the browser's WebGL contexts (#1052).
+  return (
+    <LazyVisible
+      className="w-full h-full"
+      fallback={<Skeleton className="w-full h-full" />}
+    >
+      {graph}
+    </LazyVisible>
   );
 }
 
