@@ -139,7 +139,12 @@ export default function DashboardLayout({
                 icon={<LogOut className="h-4 w-4" />}
                 label="Sign out"
                 collapsed={collapsed}
-                onClick={() => signOut()}
+                // Explicit logout lands on a CLEAN /login — no callbackUrl.
+                // Otherwise the next user to sign in on this machine inherits
+                // the previous user's last location (#1037). The proxy still
+                // adds callbackUrl on mid-task session expiry, which is the
+                // case that param is for.
+                onClick={() => signOut({ callbackUrl: "/login" })}
               />
             </>
           }

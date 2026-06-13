@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, CAROL } from "./fixtures";
 
 test.describe("Authentication", () => {
   test("should redirect unauthenticated users to login", async ({ page }) => {
@@ -58,6 +58,32 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL("/");
     await authPage.logout();
     await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+  });
+
+  test("explicit logout clears callbackUrl — next login lands on default page (#1037)", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(45_000);
+    // Admin works at /users, then explicitly signs out.
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.goto("/users");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Users" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await authPage.logout();
+
+    // Explicit logout must land on a CLEAN login URL — no callbackUrl
+    // pointing at the previous user's last location.
+    await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+    expect(new URL(page.url()).searchParams.get("callbackUrl")).toBeNull();
+
+    // The next user signing in on this machine lands on the default page,
+    // not the previous admin's /users.
+    await page.getByLabel("Email").fill(CAROL.email);
+    await page.getByLabel("Password").fill(CAROL.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
   });
 });
 
