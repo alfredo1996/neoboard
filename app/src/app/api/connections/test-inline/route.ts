@@ -4,15 +4,11 @@ import { testConnection } from "@/lib/query/query-executor";
 import type { DbType } from "@/lib/query/query-executor";
 import { testInlineSchema } from "@/lib/shared/schemas";
 import { apiSuccess } from "@/lib/api/api-response";
+import { handleRouteError, validateBody } from "@/lib/api/api-utils";
 import {
-  handleRouteError,
-  validateBody,
-  sanitizeErrorMessage,
-} from "@/lib/api/api-utils";
-import {
-  classifyConnectionError,
-  CONNECTION_CHECK_FALSE_MESSAGE,
-} from "@/lib/connector/connection-error-classifier";
+  connectionCheckFalseResult,
+  connectionTestErrorResult,
+} from "@/lib/connector/connection-test-result";
 
 export async function POST(request: Request) {
   try {
@@ -41,28 +37,13 @@ export async function POST(request: Request) {
         statementTimeout: config.statementTimeout,
         sslRejectUnauthorized: config.sslRejectUnauthorized,
       });
-      if (!success) {
-        // No thrown error to classify — give an actionable fallback (#1043).
-        return apiSuccess({
-          success: false,
-          code: "unknown",
-          error: CONNECTION_CHECK_FALSE_MESSAGE,
-        });
-      }
-      return apiSuccess({ success: true });
-    } catch (testError) {
-      const rawMessage =
-        testError instanceof Error
-          ? testError.message
-          : "Connection test failed";
-      // Classify BEFORE sanitization — the classifier needs the raw driver
-      // text to bucket reliably; the sanitizer strips that detail for display.
-      const code = classifyConnectionError(rawMessage);
-      const message = sanitizeErrorMessage(
-        rawMessage,
-        "Connection test failed",
+      // Shared helper builds the false/thrown result identically to the
+      // [id]/test route (#1043).
+      return apiSuccess(
+        success ? { success: true } : connectionCheckFalseResult(),
       );
-      return apiSuccess({ success: false, code, error: message });
+    } catch (testError) {
+      return apiSuccess(connectionTestErrorResult(testError));
     }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");

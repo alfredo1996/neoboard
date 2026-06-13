@@ -6,15 +6,11 @@ import { decryptJson } from "@/lib/crypto/crypto";
 import { testConnection } from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
 import { apiSuccess } from "@/lib/api/api-response";
+import { notFound, handleRouteError } from "@/lib/api/api-utils";
 import {
-  notFound,
-  handleRouteError,
-  sanitizeErrorMessage,
-} from "@/lib/api/api-utils";
-import {
-  classifyConnectionError,
-  CONNECTION_CHECK_FALSE_MESSAGE,
-} from "@/lib/connector/connection-error-classifier";
+  connectionCheckFalseResult,
+  connectionTestErrorResult,
+} from "@/lib/connector/connection-test-result";
 
 export async function POST(
   _request: Request,
@@ -58,30 +54,13 @@ export async function POST(
         connection.type as DbType,
         credentials,
       );
-      if (!success) {
-        // The driver returned false without throwing — no message to
-        // classify, so give an actionable fallback instead of the old
-        // non-actionable "Connection check returned false" (#1043).
-        return apiSuccess({
-          success: false,
-          code: "unknown",
-          error: CONNECTION_CHECK_FALSE_MESSAGE,
-        });
-      }
-      return apiSuccess({ success: true });
-    } catch (testError) {
-      const rawMessage =
-        testError instanceof Error
-          ? testError.message
-          : "Connection test failed";
-      // Classify BEFORE sanitization so the UI can show a targeted hint
-      // (mirrors the test-inline route) (#1043).
-      const code = classifyConnectionError(rawMessage);
-      const message = sanitizeErrorMessage(
-        rawMessage,
-        "Connection test failed",
+      // A false result (no throw) gets an actionable fallback; a thrown error
+      // is classified for a targeted hint. Both via the shared helper (#1043).
+      return apiSuccess(
+        success ? { success: true } : connectionCheckFalseResult(),
       );
-      return apiSuccess({ success: false, code, error: message });
+    } catch (testError) {
+      return apiSuccess(connectionTestErrorResult(testError));
     }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");
