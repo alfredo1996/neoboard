@@ -62,7 +62,6 @@ import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
 import { useBuildWidgetForSave } from "./widget-editor/use-widget-save";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
 import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
-import { FormWritePermissionNote } from "./widget-editor/form-write-permission-note";
 import { ParameterConfigSection } from "./widget-editor/parameter-config-section";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
@@ -739,15 +738,10 @@ export function WidgetEditorModal({
                           />
                         )}
 
-                      {/* Form fields editor (form type only). The note warns
-                          at config time that form submissions require write
-                          permission + connection ownership (#1051). */}
-                      {isForm && (
-                        <>
-                          <FormWritePermissionNote />
-                          <FormFieldsEditor />
-                        </>
-                      )}
+                      {/* Form fields editor (form type only). The editor
+                          itself renders the config-time write-permission note
+                          (#1051). */}
+                      {isForm && <FormFieldsEditor />}
                     </div>
                   }
                   styleTab={

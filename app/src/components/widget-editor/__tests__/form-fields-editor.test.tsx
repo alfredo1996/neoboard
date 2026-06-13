@@ -125,6 +125,14 @@ vi.mock("lucide-react", () => {
   return { GripVertical: Icon, Plus: Icon, Trash2: Icon };
 });
 
+// The note has its own dedicated test; stub it here so this suite stays
+// focused on field CRUD and doesn't need Alert/Info in the mocks (#1051).
+vi.mock("../form-write-permission-note", () => ({
+  FormWritePermissionNote: () => (
+    <div data-testid="form-write-permission-note" />
+  ),
+}));
+
 const mockSetFormFields = vi.fn();
 let mockFormFields: FormFieldDef[] = [];
 
@@ -153,6 +161,13 @@ describe("FormFieldsEditor", () => {
   it("renders Add Field button", () => {
     render(<FormFieldsEditor />);
     expect(screen.getByText("Add Field")).toBeInTheDocument();
+  });
+
+  it("renders the write-permission note above the fields (#1051)", () => {
+    render(<FormFieldsEditor />);
+    expect(
+      screen.getByTestId("form-write-permission-note"),
+    ).toBeInTheDocument();
   });
 
   it("calls setFormFields when Add Field is clicked", () => {
