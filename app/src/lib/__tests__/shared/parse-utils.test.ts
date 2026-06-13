@@ -119,4 +119,19 @@ describe("mapConfigToEditForm", () => {
 
     expect(result.connectionTimeout).toBe("0");
   });
+
+  // mapConfigToEditForm feeds both the edit dialog and the Duplicate prefill
+  // (#1042) — its output must never carry a password, even if a (defensive)
+  // password key appears in the payload.
+  it("never includes a password key in its output", () => {
+    const result = mapConfigToEditForm({
+      uri: "bolt://localhost:7687",
+      username: "neo4j",
+      password: "hunter2",
+    });
+
+    expect(Object.keys(result)).not.toContain("password");
+    expect(result.uri).toBe("bolt://localhost:7687");
+    expect(result.username).toBe("neo4j");
+  });
 });

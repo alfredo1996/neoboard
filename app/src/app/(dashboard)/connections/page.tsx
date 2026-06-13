@@ -103,6 +103,8 @@ export default function ConnectionsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
   const editTargetIdRef = useRef<string | null>(null);
+  // Stale-response guard for the Duplicate prefill fetch (#1042)
+  const duplicateSourceIdRef = useRef<string | null>(null);
 
   // Edit dialog state — only advanced settings are editable
   const [editTarget, setEditTarget] = useState<{
@@ -292,7 +294,12 @@ export default function ConnectionsPage() {
     }
   }
 
-  function handleDuplicate(conn: { name: string; type: ConnectorType }) {
+  async function handleDuplicate(conn: {
+    id: string;
+    name: string;
+    type: ConnectorType;
+  }) {
+    duplicateSourceIdRef.current = conn.id;
     setForm({
       ...DEFAULT_FORM,
       type: conn.type,
@@ -302,6 +309,26 @@ export default function ConnectionsPage() {
     setCreateError(null);
     setInlineTestResult(null);
     setShowCreate(true);
+
+    // Prefill the non-secret config (URI, username, database, advanced
+    // settings) from the source connection — the whole point of Duplicate
+    // (#1042). The API never returns the password, so it stays blank and the
+    // user re-enters it. Guard against races: if another Duplicate starts
+    // before this fetch resolves, discard the stale response.
+    try {
+      const res = await fetch(`/api/connections/${conn.id}`);
+      if (duplicateSourceIdRef.current !== conn.id) return; // stale response
+      const body = await res.json();
+      const config = body?.data?.config;
+      if (config) {
+        setForm((prev) => ({
+          ...prev,
+          ...mapConfigToEditForm(config),
+        }));
+      }
+    } catch {
+      // Non-critical — the dialog still works; user fills fields manually
+    }
   }
 
   async function openEditDialog(conn: {

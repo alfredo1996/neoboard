@@ -159,6 +159,15 @@ test.describe("Connections", () => {
     await expect(nameInput).toBeVisible();
     const nameValue = await nameInput.inputValue();
     expect(nameValue).toContain("(copy)");
+
+    // Duplicate prefills the source's non-secret config (#1042): URI and
+    // username arrive async from GET /api/connections/{id}.
+    await expect(dialog.locator("#conn-uri")).not.toHaveValue("", {
+      timeout: 5_000,
+    });
+    await expect(dialog.locator("#conn-username")).not.toHaveValue("");
+    // The password is NEVER carried over — secrets don't round-trip.
+    await expect(dialog.locator("#conn-password")).toHaveValue("");
   });
 
   test("clicking an error card shows error details inline", async ({
