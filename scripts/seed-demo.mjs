@@ -373,10 +373,11 @@ async function upsertDashboard(
     SELECT id FROM "dashboard" WHERE name = ${name} AND "userId" = ${userId}
   `;
   if (existing.length > 0) {
-    // Update existing dashboard layout so re-running refreshes the demo data
+    // Update existing dashboard layout so re-running refreshes the demo data.
+    // Set updated_by so seeded dashboards show "by {name}" like edited ones (#1048).
     await sql`
       UPDATE "dashboard"
-      SET "layoutJson" = ${sql.json(layout)}, "isPublic" = ${isPublic}, "updatedAt" = NOW()
+      SET "layoutJson" = ${sql.json(layout)}, "isPublic" = ${isPublic}, "updatedAt" = NOW(), "updated_by" = ${userId}
       WHERE id = ${existing[0].id}
     `;
     console.log(`    Dashboard "${name}" already exists — layout updated.`);
@@ -384,9 +385,11 @@ async function upsertDashboard(
   }
 
   const id = uuid();
+  // Populate updated_by so the card attribution ("by {name}") renders for
+  // seeded dashboards, not just user-edited ones (#1048).
   await sql`
-    INSERT INTO "dashboard" (id, "userId", tenant_id, name, description, "layoutJson", "isPublic", "createdAt", "updatedAt")
-    VALUES (${id}, ${userId}, ${"default"}, ${name}, ${description}, ${sql.json(layout)}, ${isPublic}, NOW(), NOW())
+    INSERT INTO "dashboard" (id, "userId", tenant_id, name, description, "layoutJson", "isPublic", "createdAt", "updatedAt", "updated_by")
+    VALUES (${id}, ${userId}, ${"default"}, ${name}, ${description}, ${sql.json(layout)}, ${isPublic}, NOW(), NOW(), ${userId})
   `;
   console.log(`    Dashboard "${name}" created.`);
   return id;

@@ -76,6 +76,24 @@ test.describe("Dashboard viewer — uncovered states", () => {
     await expect(page.getByText("Movie Analytics")).toBeVisible();
   });
 
+  test("search filters the dashboards list and shows an empty state (#1048)", async ({
+    page,
+  }) => {
+    const search = page.getByRole("searchbox", { name: "Search dashboards" });
+    await expect(page.getByText("Movie Analytics")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Narrowing the search keeps the matching card visible.
+    await search.fill("Movie");
+    await expect(page.getByText("Movie Analytics")).toBeVisible();
+
+    // A query that matches nothing shows the empty-result message.
+    await search.fill("zzz-no-such-dashboard");
+    await expect(page.getByText(/No dashboards match/i)).toBeVisible();
+    await expect(page.getByText("Movie Analytics")).not.toBeVisible();
+  });
+
   test("does NOT show 'Dashboard updated by' banner after a self-save + revisit (#904)", async ({
     page,
   }) => {

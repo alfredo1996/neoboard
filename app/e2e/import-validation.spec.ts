@@ -59,8 +59,9 @@ test.describe("Dashboard import validation", () => {
     // Submit — server-side Zod validation rejects the incomplete payload
     await importBtn.click();
 
-    // Error message should appear in the dialog (not an alert)
-    await expect(dialog.locator(".text-destructive")).toBeVisible({
+    // The error names the offending field instead of a bare "Required",
+    // and renders near the preview rather than under the file picker (#1048).
+    await expect(dialog.getByText(/Invalid dashboard file/i)).toBeVisible({
       timeout: 10_000,
     });
   });

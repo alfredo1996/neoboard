@@ -71,6 +71,10 @@ import {
 import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
 import { dashboardListSubtitle } from "./dashboard-list-subtitle";
+import {
+  filterDashboardsByName,
+  isDuplicateDashboardName,
+} from "@/lib/dashboard/dashboard-list-helpers";
 
 // ── Types for import dialog ──────────────────────────────────────────
 
@@ -138,6 +142,9 @@ function ImportDashboardDialog({
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [fileError, setFileError] = useState<string | null>(null);
+  // Server-side validation errors render near the preview, not the file
+  // picker — they're about the file's *contents*, not picking it (#1048).
+  const [submitError, setSubmitError] = useState<string | null>(null);
   // Post-import state: dialog replaces the form with a notes summary and
   // View / Stay buttons. Cleared on reset / dialog close.
   const [successState, setSuccessState] = useState<ImportSuccessState | null>(
@@ -152,6 +159,7 @@ function ImportDashboardDialog({
     setMapping({});
     setSkipped(new Set());
     setFileError(null);
+    setSubmitError(null);
     setSuccessState(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
@@ -177,6 +185,7 @@ function ImportDashboardDialog({
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setFileError(null);
+    setSubmitError(null);
     setParsed(null);
     setMapping({});
     setSkipped(new Set());
@@ -252,6 +261,7 @@ function ImportDashboardDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!parsed) return;
+    setSubmitError(null);
 
     try {
       const result = await importDashboard.mutateAsync({
@@ -262,7 +272,8 @@ function ImportDashboardDialog({
       // Don't redirect — replace the form with notes + View/Stay buttons.
       setSuccessState({ id: result.id, notes: result.notes ?? [] });
     } catch (error) {
-      setFileError(
+      // Contents/validation error — show it by the preview, not the picker.
+      setSubmitError(
         error instanceof Error ? error.message : "Failed to import dashboard.",
       );
     }
@@ -362,6 +373,12 @@ function ImportDashboardDialog({
                     : " · NeoBoard format"}
                 </p>
               </div>
+            )}
+
+            {submitError && (
+              <p className="text-sm text-destructive" role="alert">
+                {submitError}
+              </p>
             )}
 
             {hasConnections && (
@@ -619,8 +636,15 @@ export default function DashboardListPage() {
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [search, setSearch] = useState("");
 
   const canCreate = systemRole === "admin" || systemRole === "creator";
+
+  // Client-side name filter for the list (#1048).
+  const filteredDashboards = filterDashboardsByName(
+    dashboardList ?? [],
+    search,
+  );
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -723,6 +747,12 @@ export default function DashboardListPage() {
                   className="text-xs text-destructive mt-1"
                 >
                   {nameError}
+                </p>
+              ) : isDuplicateDashboardName(newName, dashboardList ?? []) ? (
+                // Non-blocking warning — duplicate names are allowed (#1048).
+                <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                  A dashboard named “{newName.trim()}” already exists. You can
+                  still create another with this name.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -872,147 +902,169 @@ export default function DashboardListPage() {
               />
             )
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {dashboardList.map((d) => {
-                const canEdit =
-                  d.role === "owner" ||
-                  d.role === "editor" ||
-                  d.role === "admin";
-                const canDelete = d.role === "owner" || d.role === "admin";
-                const canDuplicate = systemRole !== "reader";
+            <>
+              {/* Name search/filter for the list at scale (#1048). */}
+              <div className="mb-4 max-w-sm">
+                <Input
+                  type="search"
+                  placeholder="Search dashboards…"
+                  aria-label="Search dashboards"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              {filteredDashboards.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No dashboards match “{search.trim()}”.
+                </p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredDashboards.map((d) => {
+                    const canEdit =
+                      d.role === "owner" ||
+                      d.role === "editor" ||
+                      d.role === "admin";
+                    const canDelete = d.role === "owner" || d.role === "admin";
+                    const canDuplicate = systemRole !== "reader";
 
-                return (
-                  <Card
-                    key={d.id}
-                    data-testid="dashboard-card"
-                    className="flex flex-col cursor-pointer transition-colors hover:bg-accent/50"
-                    onClick={() => router.push(`/${d.id}`)}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base truncate">
-                          {d.name}
-                        </CardTitle>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {(canEdit || canDuplicate || canDelete) && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">
-                                    Dashboard options
-                                  </span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {canEdit && (
-                                  <DropdownMenuItem
-                                    onClick={() => router.push(`/${d.id}/edit`)}
-                                  >
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                )}
-                                {canEdit && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      openRename({ id: d.id, name: d.name })
-                                    }
-                                  >
-                                    <TextCursorInput className="mr-2 h-4 w-4" />
-                                    Rename
-                                  </DropdownMenuItem>
-                                )}
-                                {canDuplicate && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      duplicateDashboard.mutate(d.id)
-                                    }
-                                    disabled={duplicateDashboard.isPending}
-                                  >
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    Duplicate
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    void triggerExport(d.id, d.name).catch(
-                                      (err) => {
-                                        console.error("Export failed", err);
-                                        toast({
-                                          ...classifyExportError(err),
-                                          variant: "destructive",
-                                        });
-                                      },
-                                    );
-                                  }}
-                                >
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Export
-                                </DropdownMenuItem>
-                                {canDelete && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() =>
-                                        setDeleteTarget({
-                                          id: d.id,
-                                          name: d.name,
-                                        })
-                                      }
+                    return (
+                      <Card
+                        key={d.id}
+                        data-testid="dashboard-card"
+                        className="flex flex-col cursor-pointer transition-colors hover:bg-accent/50"
+                        onClick={() => router.push(`/${d.id}`)}
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-base truncate">
+                              {d.name}
+                            </CardTitle>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {(canEdit || canDuplicate || canDelete) && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
+                                      <MoreVertical className="h-4 w-4" />
+                                      <span className="sr-only">
+                                        Dashboard options
+                                      </span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {canEdit && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          router.push(`/${d.id}/edit`)
+                                        }
+                                      >
+                                        <Pencil className="mr-2 h-4 w-4" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canEdit && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          openRename({ id: d.id, name: d.name })
+                                        }
+                                      >
+                                        <TextCursorInput className="mr-2 h-4 w-4" />
+                                        Rename
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canDuplicate && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          duplicateDashboard.mutate(d.id)
+                                        }
+                                        disabled={duplicateDashboard.isPending}
+                                      >
+                                        <Copy className="mr-2 h-4 w-4" />
+                                        Duplicate
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        void triggerExport(d.id, d.name).catch(
+                                          (err) => {
+                                            console.error("Export failed", err);
+                                            toast({
+                                              ...classifyExportError(err),
+                                              variant: "destructive",
+                                            });
+                                          },
+                                        );
+                                      }}
+                                    >
+                                      <Download className="mr-2 h-4 w-4" />
+                                      Export
                                     </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                    {canDelete && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive"
+                                          onClick={() =>
+                                            setDeleteTarget({
+                                              id: d.id,
+                                              name: d.name,
+                                            })
+                                          }
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                              {d.isPublic && (
+                                <Globe
+                                  className="h-3.5 w-3.5 text-muted-foreground"
+                                  aria-label="Public"
+                                />
+                              )}
+                              <Badge variant="secondary">{d.role}</Badge>
+                            </div>
+                          </div>
+                          {d.description && (
+                            <CardDescription className="line-clamp-2">
+                              {d.description}
+                            </CardDescription>
                           )}
-                          {d.isPublic && (
-                            <Globe
-                              className="h-3.5 w-3.5 text-muted-foreground"
-                              aria-label="Public"
-                            />
-                          )}
-                          <Badge variant="secondary">{d.role}</Badge>
-                        </div>
-                      </div>
-                      {d.description && (
-                        <CardDescription className="line-clamp-2">
-                          {d.description}
-                        </CardDescription>
-                      )}
-                    </CardHeader>
-                    <CardContent className="flex-1 p-4 pt-0">
-                      <DashboardMiniPreview widgets={d.preview ?? []} />
-                    </CardContent>
-                    <CardFooter className="pt-0 text-xs text-muted-foreground justify-between">
-                      <span className="flex items-center gap-1 truncate">
-                        <TimeAgo date={d.updatedAt} />
-                        {d.updatedByName && (
-                          <span className="truncate">by {d.updatedByName}</span>
-                        )}
-                      </span>
-                      <span className="flex items-center gap-1 shrink-0">
-                        <Grid2X2 className="h-3 w-3" />
-                        {d.widgetCount ?? 0} widget
-                        {(d.widgetCount ?? 0) !== 1 ? "s" : ""}
-                      </span>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-            </div>
+                        </CardHeader>
+                        <CardContent className="flex-1 p-4 pt-0">
+                          <DashboardMiniPreview widgets={d.preview ?? []} />
+                        </CardContent>
+                        <CardFooter className="pt-0 text-xs text-muted-foreground justify-between">
+                          <span className="flex items-center gap-1 truncate">
+                            <TimeAgo date={d.updatedAt} />
+                            {d.updatedByName && (
+                              <span className="truncate">
+                                by {d.updatedByName}
+                              </span>
+                            )}
+                          </span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            <Grid2X2 className="h-3 w-3" />
+                            {d.widgetCount ?? 0} widget
+                            {(d.widgetCount ?? 0) !== 1 ? "s" : ""}
+                          </span>
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </LoadingOverlay>
       </div>

@@ -5,6 +5,7 @@ import { AlertCircle, Play } from "lucide-react";
 import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
 import { mapPreviewError } from "@/lib/query/preview-error";
+import { isRunDisabled } from "./preview-run-state";
 import type { StylingConfig } from "@/lib/db/schema";
 import type { Transform } from "@/lib/query/data-transforms";
 import type { ParamUIType, DateSubType } from "@/stores/widget-editor-store";
@@ -293,7 +294,11 @@ export function WidgetPreviewPanel({
             variant="outline"
             size="sm"
             onClick={onRunPreview}
-            disabled={!connectionId || !query.trim() || previewQuery.isPending}
+            disabled={isRunDisabled(
+              connectionId,
+              query,
+              previewQuery.isPending,
+            )}
           >
             {previewQuery.isPending ? (
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
