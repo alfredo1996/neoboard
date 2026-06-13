@@ -738,7 +738,9 @@ export function WidgetEditorModal({
                           />
                         )}
 
-                      {/* Form fields editor (form type only) */}
+                      {/* Form fields editor (form type only). The editor
+                          itself renders the config-time write-permission note
+                          (#1051). */}
                       {isForm && <FormFieldsEditor />}
                     </div>
                   }

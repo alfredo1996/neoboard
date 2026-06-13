@@ -42,6 +42,7 @@ import type {
 } from "@/lib/widget/form-field-def";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
+import { FormWritePermissionNote } from "./form-write-permission-note";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- props kept empty; FormFieldsEditor reads from widget-editor store
 interface FormFieldsEditorProps {}
@@ -375,6 +376,7 @@ export function FormFieldsEditor(_props: FormFieldsEditorProps) {
 
   return (
     <div className="space-y-3">
+      <FormWritePermissionNote />
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
           Form Fields
