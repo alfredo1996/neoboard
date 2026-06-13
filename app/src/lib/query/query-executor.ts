@@ -197,6 +197,22 @@ function getOrCreateModule(
   return connModule;
 }
 
+/** Access mode as the connection library's config expects it (uppercase). */
+export type ConnectorAccessMode = "READ" | "WRITE";
+
+/**
+ * Map the pipeline's lowercase access mode (`QueryContext.accessMode`) to the
+ * connector library's uppercase one. The single source of truth so the route's
+ * intent actually reaches the connector — previously the route set a lowercase
+ * value that was never consumed, and read-only enforcement rode entirely on
+ * `DEFAULT_CONNECTION_CONFIG.accessMode` (#1044).
+ */
+export function toConnectorAccessMode(
+  mode: "read" | "write",
+): ConnectorAccessMode {
+  return mode === "write" ? "WRITE" : "READ";
+}
+
 /**
  * Execute a query against a database connection.
  *
@@ -215,7 +231,7 @@ export async function executeQuery(
   type: DbType,
   credentials: ConnectionCredentials,
   queryParams: { query: string; params?: Record<string, unknown> },
-  options?: { accessMode?: "READ" | "WRITE" },
+  options?: { accessMode?: ConnectorAccessMode },
 ): Promise<{
   data: unknown;
   fields?: unknown;
