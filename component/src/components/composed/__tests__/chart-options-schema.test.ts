@@ -446,10 +446,11 @@ describe("markdown chart options", () => {
     expect(options.map((o) => o.key)).toContain("content");
   });
 
-  it("content option is text type with empty default", () => {
+  it("content option is multiline textarea type with empty default", () => {
     const options = getChartOptions("markdown");
     const content = options.find((o) => o.key === "content");
-    expect(content?.type).toBe("text");
+    // textarea, not text — markdown content is multiline (#1049)
+    expect(content?.type).toBe("textarea");
     expect(content?.default).toBe("");
     expect(content?.category).toBe("Content");
   });

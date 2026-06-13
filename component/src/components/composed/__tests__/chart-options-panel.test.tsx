@@ -240,6 +240,23 @@ describe("ChartOptionsPanel", () => {
     expect(screen.getByText("Select columns…")).toBeInTheDocument();
   });
 
+  it("pre-selects a column-multi-select from an existing comma-separated value", () => {
+    // Exercises the csv-truthy branch (split/trim/filter) — only reached when
+    // the option already has a value, which the empty-state tests don't cover.
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{ enableGrouping: true, groupBy: "country, city" }}
+        onSettingsChange={vi.fn()}
+        columns={["country", "city", "population"]}
+      />,
+    );
+    expandAllCategories();
+    // The two saved columns render as selected chips inside the MultiSelect.
+    expect(screen.getByText("country")).toBeInTheDocument();
+    expect(screen.getByText("city")).toBeInTheDocument();
+  });
+
   it("renders text fallback for column-multi-select when no columns are provided", () => {
     render(
       <ChartOptionsPanel
@@ -276,6 +293,32 @@ describe("ChartOptionsPanel", () => {
     fireEvent.click(cityOption);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ groupBy: "city" }),
+    );
+  });
+
+  // The markdown widget's content is multiline by nature — its option must
+  // render a textarea that preserves newlines, not a single-line input (#1049).
+  it("renders a multiline textarea for the markdown content option", () => {
+    const onChange = vi.fn();
+    render(
+      <ChartOptionsPanel
+        chartType="markdown"
+        settings={{}}
+        onSettingsChange={onChange}
+      />,
+    );
+    // The markdown panel's single category starts expanded — only expand
+    // collapsed sections if any exist.
+    screen
+      .queryAllByRole("button", { expanded: false })
+      .forEach((btn) => fireEvent.click(btn));
+    const field = screen.getByLabelText("Markdown Content");
+    expect(field.tagName).toBe("TEXTAREA");
+
+    const multiline = "# Heading\n- item one\n- item two";
+    fireEvent.change(field, { target: { value: multiline } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ content: multiline }),
     );
   });
 });

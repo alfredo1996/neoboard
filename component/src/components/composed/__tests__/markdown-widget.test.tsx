@@ -24,6 +24,19 @@ describe("MarkdownWidget", () => {
     expect(heading).toHaveTextContent("Main Heading");
   });
 
+  it("renders multiline content with a heading and a list (#1049)", () => {
+    // Now that the editor preserves newlines (textarea), real multiline
+    // markdown must render structurally — heading + list items.
+    render(<MarkdownWidget content={"# Title\n- item one\n- item two"} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Title",
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("item one");
+    expect(items[1]).toHaveTextContent("item two");
+  });
+
   it("renders paragraphs", () => {
     render(<MarkdownWidget content="Hello world" />);
     expect(screen.getByText("Hello world")).toBeInTheDocument();
