@@ -199,6 +199,4 @@ Agents work together in a pipeline. Each stage gates the next:
 | `feature-reviewer` | Browser-based feature testing | sonnet | After implementing UI |
 | `ux-crawler` | Full app UX audit | sonnet | Before releases, major changes |
 
-### Playwright CLI (for browser agents)
-
-`feature-reviewer`, `ux-crawler`, `user-sim-admin`, and `user-sim-creator` use `npx @playwright/cli` to interact with the running app at `http://localhost:3000`. Ensure Docker is running before invoking them.
+The browser agents (`feature-reviewer`, `ux-crawler`, `user-sim-admin`, `user-sim-creator`) drive the running app via `npx @playwright/cli` — ensure Docker is up before invoking them. Their CLI usage, token-discipline rules, and NeoBoard browser gotchas live in each agent's own definition, not here.
