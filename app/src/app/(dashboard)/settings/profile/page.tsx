@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -109,16 +109,23 @@ export default function ProfilePage() {
       if (!res.ok) {
         const body = await res.json();
         setPasswordError(body.error ?? "Failed to change password");
+        setSavingPassword(false);
       } else {
+        // The change bumps passwordChangedAt, which the auth layer uses to
+        // invalidate the current session. Rather than leave the user in a
+        // fragile/dead session that strands the next request on a raw
+        // "Unauthorized" (#1035), sign out cleanly and send them to login
+        // with a clear message.
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
         setPasswordSuccess(true);
         toast({ title: "Password changed" });
+        await signOut({ redirect: false });
+        window.location.href = "/login?passwordChanged=1";
       }
     } catch {
       setPasswordError("Something went wrong.");
-    } finally {
       setSavingPassword(false);
     }
   }

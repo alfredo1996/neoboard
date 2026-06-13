@@ -69,32 +69,42 @@ test.describe("Settings — Profile", () => {
     await expect(page.getByText("New passwords do not match")).toBeVisible();
   });
 
-  test("successful password change shows success and keeps user logged in", async ({
+  test("successful password change signs out and redirects to login (#1035)", async ({
+    authPage,
     page,
   }) => {
-    const tempPassword = "tempPass999";
+    test.setTimeout(45_000);
+    // Use a throwaway signed-up user so the change doesn't invalidate ALICE's
+    // password for the rest of the suite.
+    const email = `pwchange-${Date.now()}@example.com`;
+    const oldPw = "password123";
+    const newPw = "newpass123456";
+    await authPage.signup("PW Change User", email, oldPw);
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
 
-    // Change to temporary password
-    await page.locator("#current-password").fill(ALICE.password);
-    await page.locator("#new-password").fill(tempPassword);
-    await page.locator("#confirm-password").fill(tempPassword);
+    await page.goto("/settings/profile");
+    await page.locator("#current-password").fill(oldPw);
+    await page.locator("#new-password").fill(newPw);
+    await page.locator("#confirm-password").fill(newPw);
     await page.getByRole("button", { name: "Change Password" }).click();
-    await expect(page.getByText("Password changed successfully")).toBeVisible({
-      timeout: 5_000,
-    });
 
-    // User should still be on the settings page (not kicked out)
-    await expect(page).toHaveURL(/\/settings\/profile/);
-    await expect(page.getByText("Account", { exact: true })).toBeVisible();
-
-    // Change back to original password
-    await page.locator("#current-password").fill(tempPassword);
-    await page.locator("#new-password").fill(ALICE.password);
-    await page.locator("#confirm-password").fill(ALICE.password);
-    await page.getByRole("button", { name: "Change Password" }).click();
-    await expect(page.getByText("Password changed successfully")).toBeVisible({
-      timeout: 5_000,
+    // Changing the password invalidates the session — the app sends the user
+    // to a clean login with a clear message instead of stranding them on a
+    // dead session that 401s the next request with a raw "Unauthorized".
+    await expect(page).toHaveURL(/\/login\?passwordChanged=1/, {
+      timeout: 15_000,
     });
+    await expect(
+      page.getByText(
+        "Password changed. Please sign in with your new password.",
+      ),
+    ).toBeVisible();
+
+    // The new password works; the user is back in cleanly.
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(newPw);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
   });
 
   test("can switch to API Keys tab", async ({ page }) => {
