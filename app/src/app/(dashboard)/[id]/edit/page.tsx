@@ -57,6 +57,7 @@ import {
   Toolbar,
   ToolbarSection,
   ToolbarSeparator,
+  useToast,
 } from "@neoboard/components";
 
 export default function DashboardEditorPage({
@@ -145,6 +146,7 @@ export default function DashboardEditorPage({
   const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
   const duplicateWidget = useDashboardStore((s) => s.duplicateWidget);
   const markSaved = useDashboardStore((s) => s.markSaved);
+  const { toast } = useToast();
 
   const {
     showNavWarning,
@@ -286,6 +288,9 @@ export default function DashboardEditorPage({
         expectedVersion: dashboard?.version,
       });
       markSaved();
+      // Explicit Save (button / Cmd+S) gets explicit confirmation (#1046);
+      // the failure path already has its own sticky error toast (#836).
+      toast({ title: "Dashboard saved" });
 
       // Fire-and-forget: capture widget thumbnails from the active page's live DOM.
       // Uses a short delay to let ECharts finish rendering after any layout changes.
@@ -322,6 +327,7 @@ export default function DashboardEditorPage({
     updateThumbnails,
     markSaved,
     dashboard,
+    toast,
   ]);
 
   function openAddWidget() {

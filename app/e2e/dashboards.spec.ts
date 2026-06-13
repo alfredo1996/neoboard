@@ -100,7 +100,24 @@ test.describe("Dashboard CRUD", () => {
     await page.getByRole("menuitem", { name: "Delete" }).click();
     // Confirm deletion in the confirmation dialog
     await page.getByRole("button", { name: "Delete" }).click();
+    // Destructive actions confirm success (#1046) — exact match to avoid the
+    // aria-live announcement duplicate.
+    await expect(
+      page.getByText("Dashboard deleted", { exact: true }),
+    ).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("To Delete Dashboard")).not.toBeVisible();
+  });
+
+  test("explicit Save confirms with a toast (#1046)", async ({ page }) => {
+    await page.getByText("Movie Analytics", { exact: true }).click();
+    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(
+      page.getByText("Dashboard saved", { exact: true }),
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test("should duplicate a dashboard via card dropdown", async ({ page }) => {
