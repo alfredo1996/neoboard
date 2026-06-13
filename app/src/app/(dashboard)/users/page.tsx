@@ -398,10 +398,15 @@ export default function UsersPage() {
         title="Users"
         description="Manage application users"
         actions={
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create User
-          </Button>
+          // Same gate as the table's denial state — non-admins must not see
+          // admin affordances (#1036). Server-side enforcement already exists;
+          // this is the UI half.
+          isAdmin ? (
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create User
+            </Button>
+          ) : undefined
         }
       />
 

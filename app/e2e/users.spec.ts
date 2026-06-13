@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, CAROL } from "./fixtures";
 
 test.describe("User management", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
@@ -245,5 +245,24 @@ test.describe("can_write toggle", () => {
     // Reader always shows No and the switch is disabled
     await expect(row.getByText("No")).toBeVisible();
     await expect(row.getByRole("switch")).toBeDisabled();
+  });
+});
+
+test.describe("User management — non-admin access", () => {
+  test("reader sees the denial state without any admin affordances (#1036)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(CAROL.email, CAROL.password);
+    await page.goto("/users");
+
+    // Server-side gate renders the denial state…
+    await expect(page.getByText("Admin access required")).toBeVisible({
+      timeout: 10_000,
+    });
+    // …and no admin-only affordances leak into the header (UI gate, #1036).
+    await expect(
+      page.getByRole("button", { name: "Create User" }),
+    ).not.toBeVisible();
   });
 });
