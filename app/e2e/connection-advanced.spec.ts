@@ -1,4 +1,10 @@
-import { test, expect, ALICE, TEST_NEO4J_BOLT_URL, TEST_PG_PORT } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  TEST_NEO4J_BOLT_URL,
+  TEST_PG_PORT,
+} from "./fixtures";
 
 test.describe("Connection Advanced Settings", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
@@ -6,7 +12,9 @@ test.describe("Connection Advanced Settings", () => {
     await sidebarPage.navigateTo("Connections");
   });
 
-  test("should expand and show Neo4j-specific advanced fields", async ({ page }) => {
+  test("should expand and show Neo4j-specific advanced fields", async ({
+    page,
+  }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
@@ -29,7 +37,9 @@ test.describe("Connection Advanced Settings", () => {
     await expect(dialog.locator("#conn-statement-timeout")).not.toBeVisible();
   });
 
-  test("should expand and show PostgreSQL-specific advanced fields", async ({ page }) => {
+  test("should expand and show PostgreSQL-specific advanced fields", async ({
+    page,
+  }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-postgresql").click();
@@ -49,7 +59,9 @@ test.describe("Connection Advanced Settings", () => {
     await expect(dialog.locator("#conn-acquisition-timeout")).not.toBeVisible();
   });
 
-  test("should create Neo4j connection with custom timeout", async ({ page }) => {
+  test("should create Neo4j connection with custom timeout", async ({
+    page,
+  }) => {
     const name = `Adv Neo4j ${Date.now()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
@@ -72,7 +84,9 @@ test.describe("Connection Advanced Settings", () => {
     await expect(page.getByText(name)).toBeVisible();
   });
 
-  test("should create PostgreSQL connection with custom pool settings", async ({ page }) => {
+  test("should create PostgreSQL connection with custom pool settings", async ({
+    page,
+  }) => {
     const name = `Adv PG ${Date.now()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
@@ -80,7 +94,9 @@ test.describe("Connection Advanced Settings", () => {
 
     // Fill basic fields
     await dialog.locator("#conn-name").fill(name);
-    await dialog.locator("#conn-uri").fill(`postgresql://localhost:${TEST_PG_PORT}`);
+    await dialog
+      .locator("#conn-uri")
+      .fill(`postgresql://localhost:${TEST_PG_PORT}`);
     await dialog.locator("#conn-username").fill("neoboard");
     await dialog.locator("#conn-password").fill("neoboard");
     await dialog.locator("#conn-database").fill("movies");
@@ -97,7 +113,9 @@ test.describe("Connection Advanced Settings", () => {
     await expect(page.getByText(name)).toBeVisible();
   });
 
-  test("should test inline connection with advanced settings", async ({ page }) => {
+  test("should test inline connection with advanced settings", async ({
+    page,
+  }) => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
@@ -131,5 +149,30 @@ test.describe("Connection Advanced Settings", () => {
     // Collapse
     await dialog.getByText("Advanced Settings").click();
     await expect(dialog.locator("#conn-connection-timeout")).not.toBeVisible();
+  });
+
+  test("footer stays in viewport with Advanced Settings expanded (#1041)", async ({
+    page,
+  }) => {
+    // A short laptop viewport — the height where the tall dialog overflows.
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    // PostgreSQL has the tallest advanced section (incl. SSL + statement timeout)
+    await dialog.getByTestId("pick-postgresql").click();
+    await dialog.getByText("Advanced Settings").click();
+    await expect(dialog.locator("#conn-statement-timeout")).toBeVisible();
+
+    // The action buttons must be reachable WITHOUT scrolling the page: the
+    // dialog body scrolls, the footer is pinned inside the viewport.
+    await expect(
+      dialog.getByRole("button", { name: "Create" }),
+    ).toBeInViewport();
+    await expect(
+      dialog.getByRole("button", { name: "Test Connection" }),
+    ).toBeInViewport();
+    await expect(
+      dialog.getByRole("button", { name: "Cancel" }),
+    ).toBeInViewport();
   });
 });
