@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
+import { mapPreviewError } from "@/lib/query/preview-error";
 import type { StylingConfig } from "@/lib/db/schema";
 import type { Transform } from "@/lib/query/data-transforms";
 import type { ParamUIType, DateSubType } from "@/stores/widget-editor-store";
@@ -164,13 +165,21 @@ function renderChart(props: {
         </div>
       )}
       {previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
-        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-          <AlertCircle className="h-8 w-8 text-destructive" />
-          <p className="text-sm font-medium text-destructive">Query failed</p>
-          <p className="text-xs max-w-xs text-center">
-            {previewQuery.error?.message}
-          </p>
-        </div>
+        (() => {
+          // Map blocked-write driver errors to a clear message (#1043).
+          const writeMsg = mapPreviewError(previewQuery.error?.message);
+          return (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+              <p className="text-sm font-medium text-destructive">
+                {writeMsg ? "Writes not allowed" : "Query failed"}
+              </p>
+              <p className="text-xs max-w-xs text-center">
+                {writeMsg ?? previewQuery.error?.message}
+              </p>
+            </div>
+          );
+        })()
       ) : previewQuery.data || initialPreviewData ? (
         <CardContainer
           widget={{

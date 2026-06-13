@@ -184,7 +184,7 @@ describe("POST /api/connections/test-inline", () => {
     );
   });
 
-  it("returns success:false when testConnection returns false", async () => {
+  it("returns success:false with actionable message + code when testConnection returns false (#1043)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockTestConnection.mockResolvedValue(false);
     const res = await POST(
@@ -196,6 +196,9 @@ describe("POST /api/connections/test-inline", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("unknown");
+    expect(body.data.error).not.toMatch(/check returned false/i);
+    expect(body.data.error).toMatch(/verify the host, port, credentials/i);
   });
 
   it("returns success:false with fallback message for non-Error throws", async () => {

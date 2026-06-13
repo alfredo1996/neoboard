@@ -9,7 +9,10 @@ import {
   validateBody,
   sanitizeErrorMessage,
 } from "@/lib/api/api-utils";
-import { classifyConnectionError } from "@/lib/connector/connection-error-classifier";
+import {
+  classifyConnectionError,
+  CONNECTION_CHECK_FALSE_MESSAGE,
+} from "@/lib/connector/connection-error-classifier";
 
 export async function POST(request: Request) {
   try {
@@ -38,10 +41,15 @@ export async function POST(request: Request) {
         statementTimeout: config.statementTimeout,
         sslRejectUnauthorized: config.sslRejectUnauthorized,
       });
-      return apiSuccess({
-        success,
-        ...(!success ? { error: "Connection check returned false" } : {}),
-      });
+      if (!success) {
+        // No thrown error to classify — give an actionable fallback (#1043).
+        return apiSuccess({
+          success: false,
+          code: "unknown",
+          error: CONNECTION_CHECK_FALSE_MESSAGE,
+        });
+      }
+      return apiSuccess({ success: true });
     } catch (testError) {
       const rawMessage =
         testError instanceof Error

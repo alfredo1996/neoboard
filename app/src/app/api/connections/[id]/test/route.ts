@@ -11,6 +11,10 @@ import {
   handleRouteError,
   sanitizeErrorMessage,
 } from "@/lib/api/api-utils";
+import {
+  classifyConnectionError,
+  CONNECTION_CHECK_FALSE_MESSAGE,
+} from "@/lib/connector/connection-error-classifier";
 
 export async function POST(
   _request: Request,
@@ -54,20 +58,30 @@ export async function POST(
         connection.type as DbType,
         credentials,
       );
-      return apiSuccess({
-        success,
-        ...(!success ? { error: "Connection check returned false" } : {}),
-      });
+      if (!success) {
+        // The driver returned false without throwing — no message to
+        // classify, so give an actionable fallback instead of the old
+        // non-actionable "Connection check returned false" (#1043).
+        return apiSuccess({
+          success: false,
+          code: "unknown",
+          error: CONNECTION_CHECK_FALSE_MESSAGE,
+        });
+      }
+      return apiSuccess({ success: true });
     } catch (testError) {
       const rawMessage =
         testError instanceof Error
           ? testError.message
           : "Connection test failed";
+      // Classify BEFORE sanitization so the UI can show a targeted hint
+      // (mirrors the test-inline route) (#1043).
+      const code = classifyConnectionError(rawMessage);
       const message = sanitizeErrorMessage(
         rawMessage,
         "Connection test failed",
       );
-      return apiSuccess({ success: false, error: message });
+      return apiSuccess({ success: false, code, error: message });
     }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");

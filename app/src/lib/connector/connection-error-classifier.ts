@@ -17,6 +17,14 @@ export type ConnectionErrorCode =
   | "bad_uri"
   | "unknown";
 
+/**
+ * Shown when a connector's check returns false *without* throwing — there's no
+ * driver message to classify, so the old "Connection check returned false" was
+ * a dead end. This points at the knobs to check instead (#1043).
+ */
+export const CONNECTION_CHECK_FALSE_MESSAGE =
+  "The database rejected the connection check without reporting why. Verify the host, port, credentials, and that the database is running and reachable.";
+
 // Keyword lists are lowercased; the matcher lowercases input once.
 const BAD_URI_KEYWORDS = [
   "invalid uri",
