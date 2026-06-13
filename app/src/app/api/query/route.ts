@@ -170,19 +170,16 @@ async function handleReadQuery(request: Request): Promise<Response> {
     };
 
     const queryStart = performance.now();
-    const result = await runPipeline(ctx, async (pipelineCtx) =>
-      executeQuery(
+    const result = await runPipeline(ctx, async (pipelineCtx) => {
+      // Pass the route's intent through to the connector instead of relying on
+      // the connection-config default (#1044). This route is read-only.
+      return executeQuery(
         pipelineCtx.connectionType,
         effectiveCredentials,
-        {
-          query: pipelineCtx.query,
-          params: pipelineCtx.params,
-        },
-        // Pass the route's intent through to the connector instead of relying
-        // on the connection-config default (#1044). This route is read-only.
+        { query: pipelineCtx.query, params: pipelineCtx.params },
         { accessMode: toConnectorAccessMode(pipelineCtx.accessMode) },
-      ),
-    );
+      );
+    });
     const serverDurationMs = Math.round(performance.now() - queryStart);
 
     // Deterministic query hash: same connection + normalized query + params
