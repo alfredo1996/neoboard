@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   MoreVertical,
   Pencil,
+  TextCursorInput,
   Copy,
   Trash2,
   Grid2X2,
@@ -25,6 +26,7 @@ import {
   useCreateDashboard,
   useDeleteDashboard,
   useDuplicateDashboard,
+  useUpdateDashboard,
   useImportDashboard,
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
@@ -600,6 +602,7 @@ export default function DashboardListPage() {
   const createDashboard = useCreateDashboard();
   const deleteDashboard = useDeleteDashboard();
   const duplicateDashboard = useDuplicateDashboard();
+  const updateDashboard = useUpdateDashboard();
   const [newName, setNewName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -607,6 +610,13 @@ export default function DashboardListPage() {
     id: string;
     name: string;
   } | null>(null);
+  // Rename dialog state (#1045) — reuses the create dialog's name validation.
+  const [renameTarget, setRenameTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   const canCreate = systemRole === "admin" || systemRole === "creator";
@@ -622,6 +632,35 @@ export default function DashboardListPage() {
     setNewName("");
     setShowCreate(false);
     router.push(`/${dashboard.id}/edit`);
+  }
+
+  function openRename(d: { id: string; name: string }) {
+    setRenameTarget(d);
+    setRenameValue(d.name);
+    setRenameError(null);
+  }
+
+  async function handleRename(e: React.FormEvent) {
+    e.preventDefault();
+    if (!renameTarget) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenameError("Name is required");
+      return;
+    }
+    if (trimmed === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    try {
+      await updateDashboard.mutateAsync({ id: renameTarget.id, name: trimmed });
+      toast({ title: "Dashboard renamed" });
+      setRenameTarget(null);
+    } catch (err) {
+      setRenameError(
+        err instanceof Error ? err.message : "Failed to rename dashboard",
+      );
+    }
   }
 
   return (
@@ -704,6 +743,66 @@ export default function DashboardListPage() {
                 loadingText="Creating..."
               >
                 Create
+              </LoadingButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null);
+            setRenameError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={handleRename}>
+            <DialogHeader>
+              <DialogTitle>Rename Dashboard</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="dashboard-rename">Name</Label>
+              <Input
+                id="dashboard-rename"
+                value={renameValue}
+                onChange={(e) => {
+                  setRenameValue(e.target.value);
+                  if (renameError) setRenameError(null);
+                }}
+                placeholder="Dashboard name"
+                className={`mt-2 ${renameError ? "border-destructive" : ""}`}
+                autoFocus
+                aria-invalid={renameError ? "true" : undefined}
+                aria-describedby={
+                  renameError ? "dashboard-rename-error" : undefined
+                }
+              />
+              {renameError && (
+                <p
+                  id="dashboard-rename-error"
+                  className="text-xs text-destructive mt-1"
+                >
+                  {renameError}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRenameTarget(null)}
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                type="submit"
+                loading={updateDashboard.isPending}
+                loadingText="Saving..."
+              >
+                Save
               </LoadingButton>
             </DialogFooter>
           </form>
@@ -819,6 +918,16 @@ export default function DashboardListPage() {
                                   >
                                     <Pencil className="mr-2 h-4 w-4" />
                                     Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {canEdit && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      openRename({ id: d.id, name: d.name })
+                                    }
+                                  >
+                                    <TextCursorInput className="mr-2 h-4 w-4" />
+                                    Rename
                                   </DropdownMenuItem>
                                 )}
                                 {canDuplicate && (
