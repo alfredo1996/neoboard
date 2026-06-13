@@ -64,6 +64,13 @@
       "when": 1781144139217,
       "tag": "0008_lumpy_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781383285524,
+      "tag": "0009_dazzling_stranger",
+      "breakpoints": true
     }
   ]
 }

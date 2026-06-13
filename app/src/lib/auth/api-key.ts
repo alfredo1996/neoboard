@@ -17,11 +17,23 @@ function getHmacSecret(): string {
   return secret;
 }
 
-/** Generate a new API key. Returns { plaintext, hash }. */
-export function generateApiKey(): { plaintext: string; hash: string } {
+/** Number of leading characters kept as a non-secret display prefix. */
+export const API_KEY_PREFIX_LENGTH = 11; // "nb_" + 8 hex chars
+
+/** Derive the non-secret display prefix (e.g. "nb_1a2b3c4d") from a key. */
+export function apiKeyPrefix(plaintext: string): string {
+  return plaintext.slice(0, API_KEY_PREFIX_LENGTH);
+}
+
+/** Generate a new API key. Returns { plaintext, hash, prefix }. */
+export function generateApiKey(): {
+  plaintext: string;
+  hash: string;
+  prefix: string;
+} {
   const plaintext = "nb_" + randomBytes(32).toString("hex");
   const hash = hashApiKey(plaintext);
-  return { plaintext, hash };
+  return { plaintext, hash, prefix: apiKeyPrefix(plaintext) };
 }
 
 /** Hash a plaintext API key with HMAC-SHA256 using a server-side secret. */

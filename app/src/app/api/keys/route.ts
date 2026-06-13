@@ -20,6 +20,7 @@ export async function GET() {
       .select({
         id: apiKeys.id,
         name: apiKeys.name,
+        keyPrefix: apiKeys.keyPrefix,
         lastUsedAt: apiKeys.lastUsedAt,
         expiresAt: apiKeys.expiresAt,
         createdAt: apiKeys.createdAt,
@@ -48,8 +49,9 @@ export async function POST(request: Request) {
 
     let plaintext: string;
     let hash: string;
+    let prefix: string;
     try {
-      ({ plaintext, hash } = generateApiKey());
+      ({ plaintext, hash, prefix } = generateApiKey());
     } catch {
       // generateApiKey throws when API_KEY_HMAC_SECRET is missing
       const msg =
@@ -72,12 +74,14 @@ export async function POST(request: Request) {
         userId,
         tenantId,
         keyHash: hash,
+        keyPrefix: prefix,
         name,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
       })
       .returning({
         id: apiKeys.id,
         name: apiKeys.name,
+        keyPrefix: apiKeys.keyPrefix,
         expiresAt: apiKeys.expiresAt,
         createdAt: apiKeys.createdAt,
       });

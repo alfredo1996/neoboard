@@ -14,6 +14,7 @@ const mockRequireSession = vi.fn();
 const mockGenerateApiKey = vi.fn(() => ({
   plaintext: "nb_" + "a".repeat(64),
   hash: "hash_" + "a".repeat(59),
+  prefix: "nb_aaaaaaaa",
 }));
 
 const mockDb = {
@@ -151,6 +152,7 @@ describe("POST /api/keys", () => {
     mockGenerateApiKey.mockReturnValue({
       plaintext: "nb_" + "a".repeat(64),
       hash: "hash_" + "a".repeat(59),
+      prefix: "nb_aaaaaaaa",
     });
     vi.doMock("@/lib/auth/session", () => ({
       requireSession: mockRequireSession,
@@ -286,6 +288,8 @@ describe("POST /api/keys", () => {
     expect(capturedValues).not.toBeNull();
     // The inserted row must contain keyHash (the hash), NOT the plaintext key
     expect(capturedValues!.keyHash).toBe("hash_" + "a".repeat(59));
+    // The non-secret display prefix is stored for the key list (#1038)
+    expect(capturedValues!.keyPrefix).toBe("nb_aaaaaaaa");
     // Plaintext key must NOT be stored in the DB row
     expect(capturedValues!).not.toHaveProperty("key");
     expect(Object.values(capturedValues!)).not.toContain(
