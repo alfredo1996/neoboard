@@ -210,6 +210,58 @@ test.describe("Widget without connection", () => {
       timeout: 15_000,
     });
   });
+
+  test("view-mode query error shows a generic message, not the raw driver error (#1050)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Broken Query ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+
+    // A real PG connection + a deliberately invalid query → the driver returns
+    // a raw syntax error that must NOT reach a viewer.
+    await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "p1",
+              title: "Main",
+              widgets: [
+                {
+                  id: "w1",
+                  chartType: "table",
+                  connectionId: "conn-pg-001",
+                  query:
+                    "SELECT zzz_no_such_column FROM definitely_not_a_table",
+                  settings: { title: "Broken Widget" },
+                },
+              ],
+              gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 5 }],
+            },
+          ],
+        },
+      },
+    });
+
+    // View mode (not /edit).
+    await page.goto(`/${id}`);
+
+    await expect(page.getByText("Query Failed")).toBeVisible({
+      timeout: 15_000,
+    });
+    // Generic, sanitized copy — no raw driver/relation details.
+    await expect(page.getByText(/couldn.t load its data/i)).toBeVisible();
+    await expect(
+      page.getByText(/definitely_not_a_table|does not exist|syntax error/i),
+    ).toHaveCount(0);
+  });
 });
 
 test.describe("Refresh button", () => {
