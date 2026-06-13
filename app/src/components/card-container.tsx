@@ -575,13 +575,33 @@ export function CardContainer({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Query Failed</AlertTitle>
           <AlertDescription className="space-y-1">
-            <p>{widgetQuery.error.message}</p>
-            <p
-              className="text-xs font-mono opacity-70 truncate"
-              title={widget.query}
-            >
-              {widget.query}
-            </p>
+            {isEditMode ? (
+              // Editors can fix the query, so they get the raw driver error and
+              // the query text to debug with.
+              <>
+                <p>{widgetQuery.error.message}</p>
+                <p
+                  className="text-xs font-mono opacity-70 truncate"
+                  title={widget.query}
+                >
+                  {widget.query}
+                </p>
+              </>
+            ) : (
+              // Viewers (incl. readers on someone else's dashboard) get a clean
+              // message — the raw DB driver error leaks engine/dialect/schema
+              // fragments and is useless to someone who can't edit (#1050).
+              <>
+                <p>This widget couldn&apos;t load its data. Try again.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => widgetQuery.refetch()}
+                >
+                  Retry
+                </Button>
+              </>
+            )}
           </AlertDescription>
         </Alert>
       </div>
