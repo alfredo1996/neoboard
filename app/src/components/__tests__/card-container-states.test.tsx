@@ -210,7 +210,8 @@ describe("CardContainer", () => {
 
   // ----- Error state -----
 
-  it("hides the raw driver error from viewers; shows a generic message (#1050)", () => {
+  it("hides the raw driver error from viewers; shows a generic message + working Retry (#1050)", () => {
+    const refetch = vi.fn();
     mockUseWidgetQuery.mockReturnValue({
       isPending: false,
       fetchStatus: "idle",
@@ -220,6 +221,7 @@ describe("CardContainer", () => {
       ),
       data: undefined,
       missingParams: [],
+      refetch,
     });
 
     // Default render = view mode (isEditMode falsy) — e.g. a reader on someone
@@ -228,10 +230,12 @@ describe("CardContainer", () => {
 
     expect(screen.getByText("Query Failed")).toBeDefined();
     expect(screen.getByText(/couldn.t load its data/i)).toBeDefined();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeDefined();
     // The raw driver string and the query text must NOT be in the DOM.
     expect(screen.queryByText(/Invalid input 'INVALID'/)).toBeNull();
     expect(screen.queryByText(/MATCH \(n\) RETURN/)).toBeNull();
+    // Retry re-runs the query.
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("shows the raw driver error + query to editors who can fix it (#1050)", () => {
