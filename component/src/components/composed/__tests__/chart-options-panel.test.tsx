@@ -240,6 +240,23 @@ describe("ChartOptionsPanel", () => {
     expect(screen.getByText("Select columns…")).toBeInTheDocument();
   });
 
+  it("pre-selects a column-multi-select from an existing comma-separated value", () => {
+    // Exercises the csv-truthy branch (split/trim/filter) — only reached when
+    // the option already has a value, which the empty-state tests don't cover.
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{ enableGrouping: true, groupBy: "country, city" }}
+        onSettingsChange={vi.fn()}
+        columns={["country", "city", "population"]}
+      />,
+    );
+    expandAllCategories();
+    // The two saved columns render as selected chips inside the MultiSelect.
+    expect(screen.getByText("country")).toBeInTheDocument();
+    expect(screen.getByText("city")).toBeInTheDocument();
+  });
+
   it("renders text fallback for column-multi-select when no columns are provided", () => {
     render(
       <ChartOptionsPanel
