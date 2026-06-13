@@ -135,4 +135,32 @@ describe("POST /api/connections/[id]/test", () => {
     expect(body.data.success).toBe(false);
     expect(body.data.error).toBe("Connection refused");
   });
+
+  // Lost/rotated ENCRYPTION_KEY is a documented operational failure mode —
+  // it must surface as an actionable test result, not an unhandled 500 (#1040).
+  it("returns a structured decrypt_failed result when stored credentials can't be decrypted", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const conn = {
+      id: "c1",
+      userId: "user-1",
+      type: "postgresql",
+      configEncrypted: "enc-with-wrong-key",
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+    // AES-GCM auth failure — exactly what Decipheriv.final throws
+    mockDecryptJson.mockImplementation(() => {
+      throw new Error("Unsupported state or unable to authenticate data");
+    });
+
+    const res = await POST({} as Request, makeParams("c1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("decrypt_failed");
+    // Actionable: names the likely cause and the recovery path
+    expect(body.data.error).toMatch(/can't be decrypted/i);
+    expect(body.data.error).toMatch(/re-enter/i);
+    // The connector must never be called with garbage credentials
+    expect(mockTestConnection).not.toHaveBeenCalled();
+  });
 });
