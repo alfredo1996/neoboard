@@ -721,7 +721,25 @@ export default function DashboardListPage() {
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) {
-            deleteDashboard.mutate(deleteTarget.id);
+            // Success feedback for a destructive action (#1046) — matches the
+            // users-page convention (name-free description: the name in a
+            // toast would linger after the card disappears and read as stale).
+            deleteDashboard.mutate(deleteTarget.id, {
+              onSuccess: () =>
+                toast({
+                  title: "Dashboard deleted",
+                  description: "The dashboard has been removed.",
+                }),
+              onError: (err) =>
+                toast({
+                  title: "Failed to delete dashboard",
+                  description:
+                    err instanceof Error
+                      ? err.message
+                      : "Something went wrong.",
+                  variant: "destructive",
+                }),
+            });
             setDeleteTarget(null);
           }
         }}
