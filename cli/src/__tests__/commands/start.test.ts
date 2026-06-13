@@ -121,6 +121,22 @@ describe("runStart", () => {
     expect(lines.some((l) => l.startsWith("Logs:"))).toBe(true);
   });
 
+  it("banner gives first-run admin-account guidance when app is running (#1038)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(
+      lines.some((l) => l.startsWith("First run:") && /admin account/i.test(l)),
+    ).toBe(true);
+  });
+
+  it("banner gives first-run admin-account guidance when app not yet started (#1038)", async () => {
+    await runStart({ full: false });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(
+      lines.some((l) => l.startsWith("First run:") && /admin account/i.test(l)),
+    ).toBe(true);
+  });
+
   it("DB-only Docker mode shows 'neoboard start --full' hint, not 'dev' (#968)", async () => {
     // getMode is "docker" by default in this suite's beforeEach.
     await runStart({ full: false });

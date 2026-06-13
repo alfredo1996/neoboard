@@ -52,15 +52,7 @@ import {
 } from "@neoboard/components";
 import { useToast } from "@neoboard/components";
 import type { ColumnDef } from "@tanstack/react-table";
-
-const ROLE_VARIANTS: Record<
-  UserRole,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  admin: "destructive",
-  creator: "default",
-  reader: "secondary",
-};
+import { RoleCell } from "./role-cell";
 
 type CanWriteCellProps = Readonly<{
   id: string;
@@ -246,52 +238,17 @@ export default function UsersPage() {
         accessorKey: "role",
         header: "Role",
         cell: ({ row }) => {
-          const r = row.original.role;
           const isSelf = row.original.id === currentUserId;
           const displayName = row.original.name ?? row.original.email ?? "User";
-
-          if (!isAdmin) {
-            return (
-              <Badge variant={ROLE_VARIANTS[r]} className="capitalize">
-                {r}
-              </Badge>
-            );
-          }
-
-          if (isSelf) {
-            return (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-not-allowed">
-                    <Badge
-                      variant={ROLE_VARIANTS[r]}
-                      className="capitalize opacity-60"
-                    >
-                      {r}
-                    </Badge>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>You cannot change your own role</TooltipContent>
-              </Tooltip>
-            );
-          }
-
           return (
-            <Select
-              value={r}
-              onValueChange={(val) =>
+            <RoleCell
+              role={row.original.role}
+              isSelf={isSelf}
+              isAdmin={isAdmin}
+              onChange={(val) =>
                 handleRoleUpdate(row.original.id, val, displayName)
               }
-            >
-              <SelectTrigger className="h-7 w-28 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="creator">Creator</SelectItem>
-                <SelectItem value="reader">Reader</SelectItem>
-              </SelectContent>
-            </Select>
+            />
           );
         },
       },

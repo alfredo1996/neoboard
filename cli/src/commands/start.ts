@@ -102,6 +102,14 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     `Neo4j:      http://localhost:${config.ports.neo4j_http}`,
     `PostgreSQL: localhost:${config.ports.postgres}`,
     "",
+    // First-run guidance: unlike `neoboard demo` (which seeds an admin and
+    // prints its credentials), `setup`/`start` has no users yet — the first
+    // visit goes through the bootstrap screen to create the admin account
+    // (#1038). Without this line the banner dead-ends at a login wall.
+    appRunning
+      ? "First run:  open the App URL to create your admin account"
+      : "First run:  start the app, then create your admin account in the browser",
+    "",
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,
   ]);

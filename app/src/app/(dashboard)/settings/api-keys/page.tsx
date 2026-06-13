@@ -15,8 +15,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@neoboard/components";
-import { useApiKeys, useCreateApiKey, useRevokeApiKey } from "@/hooks/use-api-keys";
+import {
+  useApiKeys,
+  useCreateApiKey,
+  useRevokeApiKey,
+} from "@/hooks/use-api-keys";
 import type { ApiKeyListItem, CreatedApiKey } from "@/hooks/use-api-keys";
+import { maskedKey } from "./masked-key";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
@@ -104,7 +109,11 @@ function CreateKeyDialog({
               className="flex items-center rounded-md border bg-muted px-3 py-2 font-mono text-sm"
               data-testid="api-key-display"
             >
-              <span className="flex-1 break-all">{createdKey.key}</span>
+              {/* Keep the 66-char token on one line — horizontal scroll
+                  instead of break-all, which wrapped mid-token (#1038). */}
+              <span className="flex-1 overflow-x-auto whitespace-nowrap">
+                {createdKey.key}
+              </span>
               <CopyButton value={createdKey.key} />
             </div>
             <DialogFooter>
@@ -129,7 +138,8 @@ function CreateKeyDialog({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="key-expires">
-                Expires at <span className="text-muted-foreground">(optional)</span>
+                Expires at{" "}
+                <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input
                 id="key-expires"
@@ -139,7 +149,9 @@ function CreateKeyDialog({
               />
             </div>
             {createMutation.error && (
-              <p className="text-sm text-destructive">{createMutation.error.message}</p>
+              <p className="text-sm text-destructive">
+                {createMutation.error.message}
+              </p>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>
@@ -170,7 +182,12 @@ function ApiKeyRow({
 
   return (
     <tr className="border-b last:border-b-0">
-      <td className="px-4 py-3 font-medium text-sm whitespace-nowrap">{apiKey.name}</td>
+      <td className="px-4 py-3 font-medium text-sm whitespace-nowrap">
+        {apiKey.name}
+      </td>
+      <td className="px-4 py-3 font-mono text-sm text-muted-foreground whitespace-nowrap">
+        {maskedKey(apiKey.keyPrefix)}
+      </td>
       <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
         {formatDate(apiKey.createdAt)}
       </td>
@@ -256,6 +273,9 @@ export default function ApiKeysPage() {
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Key
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Created

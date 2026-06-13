@@ -86,12 +86,13 @@ export default function SignupPage() {
             <CardDescription>Registration Disabled</CardDescription>
           </CardHeader>
           <CardContent>
-            <Alert>
-              <AlertDescription>
-                Self-registration is disabled. Contact your administrator for an
-                account.
-              </AlertDescription>
-            </Alert>
+            {/* Plain text, not a nested Alert box — the Card is already the
+                container, so a bordered box-in-box reads as card-in-card
+                (#1038). */}
+            <p className="text-sm text-muted-foreground">
+              Self-registration is disabled. Contact your administrator for an
+              account.
+            </p>
           </CardContent>
           <CardFooter className="justify-center">
             <p className="text-sm text-muted-foreground">

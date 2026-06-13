@@ -70,6 +70,7 @@ import {
 } from "@neoboard/components";
 import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
+import { dashboardListSubtitle } from "./dashboard-list-subtitle";
 
 // ── Types for import dialog ──────────────────────────────────────────
 
@@ -667,7 +668,7 @@ export default function DashboardListPage() {
     <div className="p-6">
       <PageHeader
         title="Dashboards"
-        description="Create and manage your data dashboards"
+        description={dashboardListSubtitle(canCreate)}
         actions={
           canCreate ? (
             <div className="flex items-center gap-2">
