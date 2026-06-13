@@ -20,6 +20,23 @@ test.describe("Dashboard viewer — uncovered states", () => {
     ).toBeVisible();
   });
 
+  test("unmatched route shows the branded not-found page, not a stock 404 (#1047)", async ({
+    page,
+  }) => {
+    // A sub-route with no match (there's no dashboards/[id] route) used to
+    // fall through to Next's unstyled default page.
+    await page.goto("/dashboards/00000000-0000-0000-0000-000000000000");
+
+    await expect(
+      page.getByRole("heading", { name: "Page not found" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole("link", { name: "Go to dashboards" }),
+    ).toBeVisible();
+    // Not the stock Next.js page.
+    await expect(page.getByText("This page could not be found")).toHaveCount(0);
+  });
+
   test("should show empty state when dashboard has no widgets", async ({
     page,
   }) => {
