@@ -388,12 +388,16 @@ export default function ConnectionsPage() {
   function buildEditConfig() {
     // Only include credential fields when the user has explicitly filled them in.
     // Omitting them (undefined) tells the server to keep the existing stored values
-    // rather than overwriting them with blank strings.
+    // rather than overwriting them with blank strings. Gate on the *trimmed*
+    // value so whitespace-only input (possible now the form is noValidate)
+    // doesn't clobber stored credentials (#1043).
+    const uri = editForm.uri.trim();
+    const username = editForm.username.trim();
     return {
-      ...(editForm.uri ? { uri: editForm.uri } : {}),
-      ...(editForm.username ? { username: editForm.username } : {}),
-      ...(editForm.password ? { password: editForm.password } : {}),
-      database: editForm.database || undefined,
+      ...(uri ? { uri } : {}),
+      ...(username ? { username } : {}),
+      ...(editForm.password.trim() ? { password: editForm.password } : {}),
+      database: editForm.database.trim() || undefined,
       connectionTimeout: parseOptionalInt(editForm.connectionTimeout),
       queryTimeout: parseOptionalInt(editForm.queryTimeout),
       maxPoolSize: parseOptionalInt(editForm.maxPoolSize),
