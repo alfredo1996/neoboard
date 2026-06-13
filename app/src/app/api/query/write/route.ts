@@ -5,7 +5,10 @@ import { connections, dashboards } from "@/lib/db/schema";
 import type { DashboardLayoutV2, DashboardWidget } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
-import { executeQuery } from "@/lib/query/query-executor";
+import {
+  executeQuery,
+  toConnectorAccessMode,
+} from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
 import { runPipeline } from "@/lib/query/pipeline";
 import type { QueryContext } from "@/lib/query/pipeline-types";
@@ -143,7 +146,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         pipelineCtx.connectionType,
         effectiveCredentials,
         { query: pipelineCtx.query, params: pipelineCtx.params },
-        { accessMode: "WRITE" },
+        // Derive from the context (this route is write) so the access mode has
+        // a single source of truth rather than a hardcoded duplicate (#1044).
+        { accessMode: toConnectorAccessMode(pipelineCtx.accessMode) },
       ),
     );
     const serverDurationMs = Math.round(performance.now() - queryStart);

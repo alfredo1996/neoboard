@@ -4,7 +4,10 @@ import { db } from "@/lib/db";
 import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
-import { executeQuery } from "@/lib/query/query-executor";
+import {
+  executeQuery,
+  toConnectorAccessMode,
+} from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
 import { computeResultId } from "@/lib/query/query-hash";
 import { runPipeline } from "@/lib/query/pipeline";
@@ -167,12 +170,16 @@ async function handleReadQuery(request: Request): Promise<Response> {
     };
 
     const queryStart = performance.now();
-    const result = await runPipeline(ctx, async (pipelineCtx) =>
-      executeQuery(pipelineCtx.connectionType, effectiveCredentials, {
-        query: pipelineCtx.query,
-        params: pipelineCtx.params,
-      }),
-    );
+    const result = await runPipeline(ctx, async (pipelineCtx) => {
+      // Pass the route's intent through to the connector instead of relying on
+      // the connection-config default (#1044). This route is read-only.
+      return executeQuery(
+        pipelineCtx.connectionType,
+        effectiveCredentials,
+        { query: pipelineCtx.query, params: pipelineCtx.params },
+        { accessMode: toConnectorAccessMode(pipelineCtx.accessMode) },
+      );
+    });
     const serverDurationMs = Math.round(performance.now() - queryStart);
 
     // Deterministic query hash: same connection + normalized query + params

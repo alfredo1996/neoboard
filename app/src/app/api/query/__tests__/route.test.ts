@@ -43,6 +43,8 @@ vi.mock("@/lib/crypto/crypto", () => ({
 }));
 vi.mock("@/lib/query/query-executor", () => ({
   executeQuery: mockExecuteQuery,
+  toConnectorAccessMode: (m: "read" | "write") =>
+    m === "write" ? "WRITE" : "READ",
 }));
 vi.mock("@/lib/connector/schema-prefetch", () => ({ prefetchSchema: vi.fn() }));
 
@@ -207,6 +209,36 @@ describe("POST /api/query", () => {
     expect(body.meta.resultId).toHaveLength(16);
     expect(body.meta.resultId).toMatch(/^[0-9a-f]{16}$/);
     expect(body.data.data).toEqual([{ n: 1 }]);
+  });
+
+  it("passes accessMode READ to the connector (not just the config default) (#1044)", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "postgresql",
+          configEncrypted: "enc",
+          userId: "user-1",
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({
+      uri: "postgres://localhost",
+      username: "u",
+      password: "p",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+
+    await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
+
+    // The route's read-only intent must reach the connector explicitly.
+    expect(mockExecuteQuery).toHaveBeenCalledWith(
+      "postgresql",
+      expect.anything(),
+      expect.anything(),
+      { accessMode: "READ" },
+    );
   });
 
   it("includes resultId in response and it matches computeResultId", async () => {
@@ -742,6 +774,7 @@ describe("POST /api/query", () => {
       "neo4j",
       expect.objectContaining({ database: "otherdb" }),
       expect.anything(),
+      { accessMode: "READ" },
     );
   });
 
@@ -785,6 +818,7 @@ describe("POST /api/query", () => {
       "neo4j",
       expect.objectContaining({ database: "neo4j" }),
       expect.anything(),
+      { accessMode: "READ" },
     );
   });
 
@@ -828,6 +862,7 @@ describe("POST /api/query", () => {
       "postgresql",
       expect.objectContaining({ database: "mydb" }),
       expect.anything(),
+      { accessMode: "READ" },
     );
   });
 
@@ -871,6 +906,7 @@ describe("POST /api/query", () => {
       "neo4j",
       expect.objectContaining({ database: "neo4j" }),
       expect.anything(),
+      { accessMode: "READ" },
     );
   });
 });
