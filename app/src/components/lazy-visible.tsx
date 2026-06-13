@@ -37,19 +37,22 @@ export function LazyVisible({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Without IntersectionObserver (very old browsers, some test envs) fall
-    // back to always-mounted so nothing silently disappears. Deferred so it's
-    // not a synchronous setState inside the effect body.
-    if (typeof IntersectionObserver === "undefined") {
+    // Construct the observer defensively: if IntersectionObserver is missing
+    // or not constructable (very old browsers, some test envs), mount eagerly
+    // rather than hide content or crash. Deferred so it's not a synchronous
+    // setState inside the effect body.
+    let observer: IntersectionObserver;
+    try {
+      observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) setVisible(entry.isIntersecting);
+        },
+        { rootMargin },
+      );
+    } catch {
       const t = setTimeout(() => setVisible(true), 0);
       return () => clearTimeout(t);
     }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) setVisible(entry.isIntersecting);
-      },
-      { rootMargin },
-    );
     observer.observe(el);
     return () => observer.disconnect();
   }, [rootMargin]);
