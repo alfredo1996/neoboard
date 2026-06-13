@@ -3,7 +3,13 @@ import { COLOR_PALETTES } from "@/charts/palettes";
 export interface ChartOptionDef {
   key: string;
   label: string;
-  type: "boolean" | "select" | "text" | "number" | "column-multi-select";
+  type:
+    | "boolean"
+    | "select"
+    | "text"
+    | "textarea"
+    | "number"
+    | "column-multi-select";
   default: unknown;
   category: string;
   /** Only for type: "select" */
