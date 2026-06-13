@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Database,
   MoreVertical,
@@ -24,6 +25,12 @@ import { cn } from "@/lib/utils";
 export interface ConnectionCardProps {
   name: string;
   host: string;
+  /**
+   * Optional connector-type icon (e.g. a Neo4j or PostgreSQL logo). Falls back
+   * to a generic database glyph so every type is visually distinct (#1043).
+   * Passed in by the app to keep this library free of app-specific assets.
+   */
+  icon?: ReactNode;
   database?: string;
   status: ConnectionState;
   statusText?: string;
@@ -44,6 +51,7 @@ export interface ConnectionCardProps {
 function ConnectionCard({
   name,
   host,
+  icon,
   database,
   status,
   statusText,
@@ -70,7 +78,7 @@ function ConnectionCard({
     >
       <CardContent className="flex items-center gap-3 p-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-          <Database className="h-5 w-5 text-muted-foreground" />
+          {icon ?? <Database className="h-5 w-5 text-muted-foreground" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

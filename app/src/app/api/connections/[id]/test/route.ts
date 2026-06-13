@@ -6,11 +6,11 @@ import { decryptJson } from "@/lib/crypto/crypto";
 import { testConnection } from "@/lib/query/query-executor";
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
 import { apiSuccess } from "@/lib/api/api-response";
+import { notFound, handleRouteError } from "@/lib/api/api-utils";
 import {
-  notFound,
-  handleRouteError,
-  sanitizeErrorMessage,
-} from "@/lib/api/api-utils";
+  connectionCheckFalseResult,
+  connectionTestErrorResult,
+} from "@/lib/connector/connection-test-result";
 
 export async function POST(
   _request: Request,
@@ -54,20 +54,13 @@ export async function POST(
         connection.type as DbType,
         credentials,
       );
-      return apiSuccess({
-        success,
-        ...(!success ? { error: "Connection check returned false" } : {}),
-      });
-    } catch (testError) {
-      const rawMessage =
-        testError instanceof Error
-          ? testError.message
-          : "Connection test failed";
-      const message = sanitizeErrorMessage(
-        rawMessage,
-        "Connection test failed",
+      // A false result (no throw) gets an actionable fallback; a thrown error
+      // is classified for a targeted hint. Both via the shared helper (#1043).
+      return apiSuccess(
+        success ? { success: true } : connectionCheckFalseResult(),
       );
-      return apiSuccess({ success: false, error: message });
+    } catch (testError) {
+      return apiSuccess(connectionTestErrorResult(testError));
     }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");

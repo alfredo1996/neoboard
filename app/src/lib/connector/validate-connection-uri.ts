@@ -1,0 +1,47 @@
+import type { ConnectorType } from "@/lib/connector/connector-types";
+
+/**
+ * Client-side URI *format* validation for the connection dialog (#1043).
+ *
+ * Saving an unreachable connection is intentional, but a malformed URI like
+ * `not-a-uri` should be caught before save instead of persisting as an
+ * Error-badge connection. This checks shape only (parseable, expected scheme,
+ * has a host) — it never attempts a network connection.
+ *
+ * Returns null when the URI is well-formed, otherwise an actionable message.
+ */
+const SCHEMES: Record<ConnectorType, string[]> = {
+  neo4j: ["bolt:", "bolt+s:", "bolt+ssc:", "neo4j:", "neo4j+s:", "neo4j+ssc:"],
+  postgresql: ["postgres:", "postgresql:"],
+};
+
+export function validateConnectionUri(
+  uri: string,
+  type: ConnectorType,
+): string | null {
+  const trimmed = uri.trim();
+  if (!trimmed) return "URI is required.";
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return type === "neo4j"
+      ? "Enter a valid URI, e.g. bolt://localhost:7687 or neo4j+s://host."
+      : "Enter a valid URI, e.g. postgresql://localhost:5432/db.";
+  }
+
+  if (!parsed.hostname) {
+    return "The URI is missing a host.";
+  }
+
+  const allowed = SCHEMES[type];
+  if (allowed && !allowed.includes(parsed.protocol)) {
+    return `Unexpected scheme "${parsed.protocol.replace(
+      ":",
+      "",
+    )}". Use one of: ${allowed.map((s) => s.replace(":", "")).join(", ")}.`;
+  }
+
+  return null;
+}

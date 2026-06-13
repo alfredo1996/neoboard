@@ -134,6 +134,50 @@ describe("POST /api/connections/[id]/test", () => {
     const body = await res.json();
     expect(body.data.success).toBe(false);
     expect(body.data.error).toBe("Connection refused");
+    // The error is classified so the UI can show a targeted hint (#1043).
+    expect(body.data.code).toBe("network");
+  });
+
+  it("classifies an auth failure thrown by testConnection (#1043)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "bolt://h", username: "u" });
+    mockTestConnection.mockRejectedValue(
+      new Error("The client is unauthorized due to authentication failure."),
+    );
+
+    const res = await POST({} as Request, makeParams("c1"));
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("auth_failed");
+  });
+
+  it("returns an actionable message + code when testConnection returns false (#1043)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        {
+          id: "c1",
+          userId: "user-1",
+          type: "postgresql",
+          configEncrypted: "enc",
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "pg://h", username: "u" });
+    mockTestConnection.mockResolvedValue(false);
+
+    const res = await POST({} as Request, makeParams("c1"));
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("unknown");
+    // No longer the dead-end "Connection check returned false".
+    expect(body.data.error).not.toMatch(/check returned false/i);
+    expect(body.data.error).toMatch(/verify the host, port, credentials/i);
   });
 
   // Lost/rotated ENCRYPTION_KEY is a documented operational failure mode —

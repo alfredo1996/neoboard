@@ -35,6 +35,16 @@ describe("ConnectionCard", () => {
     expect(container.querySelector("svg")).toBeInTheDocument();
   });
 
+  it("renders a custom connector-type icon when provided (#1043)", () => {
+    render(
+      <ConnectionCard
+        {...defaultProps}
+        icon={<span data-testid="neo4j-logo" />}
+      />,
+    );
+    expect(screen.getByTestId("neo4j-logo")).toBeInTheDocument();
+  });
+
   it("applies active border when active", () => {
     const { container } = render(<ConnectionCard {...defaultProps} active />);
     expect(container.firstChild).toHaveClass("border-primary");
@@ -42,7 +52,7 @@ describe("ConnectionCard", () => {
 
   it("applies cursor-pointer when onClick is provided", () => {
     const { container } = render(
-      <ConnectionCard {...defaultProps} onClick={vi.fn()} />
+      <ConnectionCard {...defaultProps} onClick={vi.fn()} />,
     );
     expect(container.firstChild).toHaveClass("cursor-pointer");
   });
@@ -56,30 +66,38 @@ describe("ConnectionCard", () => {
 
   it("renders dropdown menu when action handlers are provided", () => {
     render(<ConnectionCard {...defaultProps} onEdit={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /connection actions/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /connection actions/i }),
+    ).toBeInTheDocument();
   });
 
   it("does not render dropdown when no action handlers", () => {
     render(<ConnectionCard {...defaultProps} />);
-    expect(screen.queryByRole("button", { name: /connection actions/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /connection actions/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("applies custom className", () => {
     const { container } = render(
-      <ConnectionCard {...defaultProps} className="custom-card" />
+      <ConnectionCard {...defaultProps} className="custom-card" />,
     );
     expect(container.firstChild).toHaveClass("custom-card");
   });
 
   it("renders actions dropdown when onDuplicate is provided", () => {
     render(<ConnectionCard {...defaultProps} onDuplicate={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /connection actions/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /connection actions/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders Duplicate menu item when onDuplicate is provided", async () => {
     const user = userEvent.setup();
     render(<ConnectionCard {...defaultProps} onDuplicate={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /connection actions/i }));
+    await user.click(
+      screen.getByRole("button", { name: /connection actions/i }),
+    );
     expect(screen.getByText("Duplicate")).toBeInTheDocument();
   });
 
@@ -87,7 +105,9 @@ describe("ConnectionCard", () => {
     const user = userEvent.setup();
     const onDuplicate = vi.fn();
     render(<ConnectionCard {...defaultProps} onDuplicate={onDuplicate} />);
-    await user.click(screen.getByRole("button", { name: /connection actions/i }));
+    await user.click(
+      screen.getByRole("button", { name: /connection actions/i }),
+    );
     await user.click(screen.getByText("Duplicate"));
     expect(onDuplicate).toHaveBeenCalledTimes(1);
   });
@@ -95,7 +115,9 @@ describe("ConnectionCard", () => {
   it("does not render Duplicate menu item when onDuplicate is not provided", async () => {
     const user = userEvent.setup();
     render(<ConnectionCard {...defaultProps} onEdit={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /connection actions/i }));
+    await user.click(
+      screen.getByRole("button", { name: /connection actions/i }),
+    );
     expect(screen.getByText("Edit")).toBeInTheDocument();
     expect(screen.queryByText("Duplicate")).not.toBeInTheDocument();
   });
@@ -106,7 +128,7 @@ describe("ConnectionCard", () => {
         {...defaultProps}
         status="error"
         statusText="Connection refused"
-      />
+      />,
     );
     // Error badge is still rendered
     expect(screen.getByText("Error")).toBeInTheDocument();
