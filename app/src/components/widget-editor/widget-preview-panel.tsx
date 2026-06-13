@@ -181,26 +181,37 @@ function renderChart(props: {
           );
         })()
       ) : previewQuery.data || initialPreviewData ? (
-        <CardContainer
-          widget={{
-            id: "preview",
-            chartType,
-            connectionId,
-            query,
-            settings: {
-              title: title || undefined,
-              chartOptions,
-              stylingConfig: buildStylingConfig(),
-              conditionalFormatting: colorScales.length
-                ? { colorScales }
-                : undefined,
-              transforms: transforms.length ? transforms : undefined,
-              transformsEnabled,
-            },
-          }}
-          previewData={(previewQuery.data ?? initialPreviewData)!.data}
-          previewResultId={(previewQuery.data ?? initialPreviewData)!.resultId}
-        />
+        <div className="flex h-full flex-col">
+          <div className="min-h-0 flex-1">
+            <CardContainer
+              widget={{
+                id: "preview",
+                chartType,
+                connectionId,
+                query,
+                settings: {
+                  title: title || undefined,
+                  chartOptions,
+                  stylingConfig: buildStylingConfig(),
+                  conditionalFormatting: colorScales.length
+                    ? { colorScales }
+                    : undefined,
+                  transforms: transforms.length ? transforms : undefined,
+                  transformsEnabled,
+                },
+              }}
+              previewData={(previewQuery.data ?? initialPreviewData)!.data}
+              previewResultId={
+                (previewQuery.data ?? initialPreviewData)!.resultId
+              }
+            />
+          </div>
+          {/* The preview query is capped server-side; surface the silent
+              LIMIT so authors don't mistake it for the full result (#1043). */}
+          <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
+            Preview shows up to 25 rows
+          </p>
+        </div>
       ) : connectionId && query.trim() && !previewQuery.isError ? (
         <div className="h-full flex items-center justify-center">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />

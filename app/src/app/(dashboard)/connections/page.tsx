@@ -35,6 +35,7 @@ import {
   PasswordInput,
   Alert,
   AlertDescription,
+  useToast,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 import {
@@ -42,6 +43,8 @@ import {
   CONNECTOR_LABELS,
 } from "@/lib/connector/connector-types";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
+import { validateConnectionUri } from "@/lib/connector/validate-connection-uri";
+import { missingRequiredConnectionFields } from "@/lib/connector/connection-form-validation";
 import {
   parseOptionalInt,
   mapConfigToEditForm,
@@ -69,6 +72,7 @@ const DEFAULT_FORM = {
 
 export default function ConnectionsPage() {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const isAdmin = session?.user?.role === "admin";
   const { data: connections, isLoading } = useConnections();
   const createConnection = useCreateConnection();
@@ -244,6 +248,20 @@ export default function ConnectionsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreateError(null);
+    // Report all missing required fields at once via a styled inline alert
+    // (form is noValidate) instead of one native browser tooltip at a time
+    // (#1043).
+    const missing = missingRequiredConnectionFields(form);
+    if (missing.length > 0) {
+      setCreateError(`Please fill in: ${missing.join(", ")}.`);
+      return;
+    }
+    // Validate URI format client-side before save (#1043).
+    const uriError = validateConnectionUri(form.uri, form.type);
+    if (uriError) {
+      setCreateError(uriError);
+      return;
+    }
     try {
       const newConn = await createConnection.mutateAsync({
         name: form.name,
@@ -394,12 +412,28 @@ export default function ConnectionsPage() {
     if (!editTarget) return;
     setEditError(null);
 
+    if (!editForm.name.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
+    // Validate URI *format* before save when the user changed it (blank keeps
+    // the existing one). Catches malformed URIs client-side (#1043).
+    if (editForm.uri.trim()) {
+      const uriError = validateConnectionUri(editForm.uri, editTarget.type);
+      if (uriError) {
+        setEditError(uriError);
+        return;
+      }
+    }
+
     try {
       await updateConnection.mutateAsync({
         id: editTarget.id,
+        name: editForm.name.trim(),
         config: buildEditConfig(),
       });
       setEditTarget(null);
+      toast({ title: "Connection updated" });
       handleTest(editTarget.id);
     } catch (error) {
       setEditError(
@@ -473,6 +507,7 @@ export default function ConnectionsPage() {
           ) : (
             <form
               onSubmit={handleCreate}
+              noValidate
               className="flex min-h-0 flex-col overflow-hidden"
             >
               <DialogHeader>
@@ -758,6 +793,7 @@ export default function ConnectionsPage() {
         <DialogContent className="flex flex-col overflow-hidden">
           <form
             onSubmit={handleEdit}
+            noValidate
             className="flex min-h-0 flex-col overflow-hidden"
           >
             <DialogHeader>
@@ -773,6 +809,19 @@ export default function ConnectionsPage() {
                   Update your connection settings. Leave password blank to keep
                   the existing one.
                 </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editForm.name}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditForm((f) => ({ ...f, name: e.target.value }))
+                    }
+                    required
+                    placeholder="My database"
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-uri">URI</Label>
@@ -1164,6 +1213,13 @@ export default function ConnectionsPage() {
                     <ConnectionCard
                       name={c.name}
                       host={c.type}
+                      icon={
+                        c.type === "neo4j" ? (
+                          <Neo4jLogo className="h-5 w-5" />
+                        ) : (
+                          <PostgreSQLLogo className="h-5 w-5" />
+                        )
+                      }
                       status={status}
                       statusText={testErrors[c.id]}
                       onClick={
