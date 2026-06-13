@@ -94,6 +94,7 @@ describe("GET /api/keys", () => {
       {
         id: "key-1",
         name: "CI Key",
+        keyPrefix: "nb_aaaaaaaa",
         lastUsedAt: null,
         expiresAt: null,
         createdAt: new Date("2026-01-01"),
@@ -106,6 +107,8 @@ describe("GET /api/keys", () => {
     expect(body.data).toHaveLength(1);
     expect(body.data[0]).not.toHaveProperty("keyHash");
     expect(body.data[0].name).toBe("CI Key");
+    // The non-secret display prefix is returned to clients (#1038).
+    expect(body.data[0].keyPrefix).toBe("nb_aaaaaaaa");
   });
 
   it("only returns keys for the authenticated user (tenant-scoped)", async () => {
@@ -216,6 +219,7 @@ describe("POST /api/keys", () => {
     const insertedRow = {
       id: "new-key-id",
       name: "My CI Key",
+      keyPrefix: "nb_aaaaaaaa",
       expiresAt: null,
       createdAt: new Date(),
     };
@@ -225,6 +229,8 @@ describe("POST /api/keys", () => {
     const body = await res.json();
     expect(body.data.name).toBe("My CI Key");
     expect(body.data.key).toBe("nb_" + "a".repeat(64));
+    // The non-secret display prefix is returned to clients (#1038).
+    expect(body.data.keyPrefix).toBe("nb_aaaaaaaa");
   });
 
   it("returned key starts with nb_ prefix", async () => {

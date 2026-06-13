@@ -107,7 +107,9 @@ describe("ApiKeysPage Key column (#1038)", () => {
     mockKeys = [makeKey({ keyPrefix: null, name: "Legacy Key" })];
     render(<ApiKeysPage />);
     expect(screen.getByText("Legacy Key")).toBeInTheDocument();
-    // The masked cell renders the fallback dash.
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    // Scope to the Legacy Key row so the dash proves the Key-cell fallback
+    // specifically (date columns also render "—").
+    const legacyRow = screen.getByRole("row", { name: /Legacy Key/i });
+    expect(legacyRow).toHaveTextContent("—");
   });
 });
