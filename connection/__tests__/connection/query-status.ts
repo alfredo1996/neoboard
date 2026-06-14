@@ -1,15 +1,19 @@
-import { getNeo4jAuth } from '../utils/setup';
-import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { QueryCallback, QueryParams, QueryStatus } from '../../src/generalized/interfaces';
-import { NEO4J_TEST_CONNECTION_CONFIG } from '../utils/setup';
+import { getNeo4jAuth } from "../utils/setup";
+import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
+import {
+  QueryCallback,
+  QueryParams,
+  QueryStatus,
+} from "../../src/generalized/interfaces";
+import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
-describe('Query to Neo4j', () => {
-  test('run MATCH (n) RETURN n LIMIT 1 and receive COMPLETE status', async () => {
+describe("Query to Neo4j", () => {
+  test("run MATCH (n) RETURN n LIMIT 1 and receive COMPLETE status", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH (n) RETURN n LIMIT 1',
+      query: "MATCH (n) RETURN n LIMIT 1",
       params: {},
     };
 
@@ -20,25 +24,29 @@ describe('Query to Neo4j', () => {
         expect(res.length).toBeGreaterThan(0);
       },
       onFail: (err) => {
-        console.error('Error executing query:', err);
-        fail('Query failed unexpectedly');
+        console.error("Error executing query:", err);
+        fail("Query failed unexpectedly");
       },
       setStatus: (status) => {
         receivedStatus = status;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
 
     expect(receivedStatus).toBe(QueryStatus.COMPLETE);
   });
 
-  test('should return COMPLETE_TRUNCATED when result exceeds rowLimit', async () => {
+  test("should return COMPLETE_TRUNCATED when result exceeds rowLimit", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH (n) RETURN n LIMIT 100', // Request more data than allowed
+      query: "MATCH (n) RETURN n LIMIT 100", // Request more data than allowed
       params: {},
     };
 
@@ -50,8 +58,8 @@ describe('Query to Neo4j', () => {
         receivedRecords = res;
       },
       onFail: (err) => {
-        console.error('Query failed:', err);
-        fail('Query should not fail');
+        console.error("Query failed:", err);
+        fail("Query should not fail");
       },
       setStatus: (status) => {
         receivedStatus = status;
@@ -74,12 +82,12 @@ describe('Query to Neo4j', () => {
     expect(receivedRecords!.length).toBeLessThanOrEqual(5);
   });
 
-  test('should set RUNNING before COMPLETE status', async () => {
+  test("should set RUNNING before COMPLETE status", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH (n) RETURN n LIMIT 1',
+      query: "MATCH (n) RETURN n LIMIT 1",
       params: {},
     };
 
@@ -91,15 +99,19 @@ describe('Query to Neo4j', () => {
         expect(res.length).toBeGreaterThan(0);
       },
       onFail: (err) => {
-        console.error('Unexpected error:', err);
-        fail('Query should not fail');
+        console.error("Unexpected error:", err);
+        fail("Query should not fail");
       },
       setStatus: (status) => {
         statusSequence.push(status);
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
 
     // Check that RUNNING was set before COMPLETE
     const runningIndex = statusSequence.indexOf(QueryStatus.RUNNING);
@@ -110,12 +122,12 @@ describe('Query to Neo4j', () => {
     expect(runningIndex).toBeLessThan(completeIndex);
   });
 
-  test('should set NO_DATA when query returns no records', async () => {
+  test("should set NO_DATA when query returns no records", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH (n) WHERE false RETURN n', // Always returns 0 results
+      query: "MATCH (n) WHERE false RETURN n", // Always returns 0 results
       params: {},
     };
 
@@ -126,24 +138,28 @@ describe('Query to Neo4j', () => {
         expect(res.length).toBe(0);
       },
       onFail: () => {
-        fail('Query should not fail');
+        fail("Query should not fail");
       },
       setStatus: (status) => {
         receivedStatus = status;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
 
     expect(receivedStatus).toBe(QueryStatus.NO_DATA);
   });
 
-  test('should set ERROR when query is invalid', async () => {
+  test("should set ERROR when query is invalid", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'RETURN', // Invalid Cypher query
+      query: "RETURN", // Invalid Cypher query
       params: {},
     };
 
@@ -151,7 +167,7 @@ describe('Query to Neo4j', () => {
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: () => {
-        fail('Query should not succeed');
+        fail("Query should not succeed");
       },
       onFail: (err) => {
         expect(err).toBeDefined();
@@ -161,17 +177,30 @@ describe('Query to Neo4j', () => {
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
 
     expect(receivedStatus).toBe(QueryStatus.ERROR);
   });
 
-  test('should set TIMED_OUT when query exceeds timeout', async () => {
+  test("should set TIMED_OUT when query exceeds timeout", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'WITH range(1, toInteger(2^48)) AS x UNWIND x as y RETURN y', // Will explode result size
+      // A slow-to-FIRST-ROW query, not merely a large one. A 5-way cartesian
+      // product with a cross-node predicate is an aggregation barrier: the
+      // predicate blocks the planner's product-of-counts optimisation (forcing
+      // full enumeration), and the single count row isn't produced until the
+      // whole product is consumed — so streaming row-limits cannot short-circuit
+      // it and the transaction timeout fires. (A query that merely produces many
+      // rows now truncates fast instead of timing out — the intended behaviour
+      // of the streaming fix.)
+      query:
+        "MATCH (a),(b),(c),(d),(e) WHERE id(a) <> id(b) RETURN count(*) AS total",
       params: {},
     };
 
@@ -179,7 +208,7 @@ describe('Query to Neo4j', () => {
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: () => {
-        fail('Query should have timed out');
+        fail("Query should have timed out");
       },
       onFail: (err) => {
         expect(err).toBeDefined();
@@ -199,12 +228,13 @@ describe('Query to Neo4j', () => {
     expect(receivedStatus).toBe(QueryStatus.TIMED_OUT);
   }, 30000);
 
-  test('should set TIMED_OUT when write query exceeds timeout', async () => {
+  test("should set TIMED_OUT when write query exceeds timeout", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'UNWIND range(1, toInteger(2^48)) AS id CREATE (:TimeoutTest {id: id})',
+      query:
+        "UNWIND range(1, toInteger(2^48)) AS id CREATE (:TimeoutTest {id: id})",
       params: {},
     };
 
@@ -212,7 +242,7 @@ describe('Query to Neo4j', () => {
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: () => {
-        throw new Error('Query should have timed out');
+        throw new Error("Query should have timed out");
       },
       onFail: (err) => {
         expect(err).toBeDefined();
@@ -224,7 +254,7 @@ describe('Query to Neo4j', () => {
 
     const shortTimeoutConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
-      accessMode: 'WRITE',
+      accessMode: "WRITE",
       timeout: 2000, // Short transaction timeout to trigger TIMED_OUT
     };
 
@@ -233,7 +263,7 @@ describe('Query to Neo4j', () => {
     expect(receivedStatus).toBe(QueryStatus.TIMED_OUT);
   }, 30000);
 
-  test('run MATCH (n:Test {name:“foobar”}) RETURN n and get NO_DATA', async () => {
+  test("run MATCH (n:Test {name:“foobar”}) RETURN n and get NO_DATA", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -248,22 +278,26 @@ describe('Query to Neo4j', () => {
         expect(receivedStatus).toBe(QueryStatus.NO_DATA);
       },
       onFail: (err) => {
-        console.error('Error executing query:', err);
+        console.error("Error executing query:", err);
       },
       setStatus: (status) => {
         receivedStatus = status;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('Trying to run the query with an empty string should set the status to NO_QUERY', async () => {
+  test("Trying to run the query with an empty string should set the status to NO_QUERY", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: '',
+      query: "",
       params: {},
     };
 
@@ -272,17 +306,21 @@ describe('Query to Neo4j', () => {
         console.log(res);
       },
       onFail: (err) => {
-        console.error('Error executing query:', err);
+        console.error("Error executing query:", err);
       },
       setStatus: (status) => {
         expect(status).toBe(QueryStatus.NO_QUERY);
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('Trying to run the query undefined/null should set the status to NO_QUERY', async () => {
+  test("Trying to run the query undefined/null should set the status to NO_QUERY", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -298,13 +336,17 @@ describe('Query to Neo4j', () => {
         console.log(res);
       },
       onFail: (err) => {
-        console.error('Error executing query:', err);
+        console.error("Error executing query:", err);
       },
       setStatus: (status) => {
         expect(status).toBe(QueryStatus.NO_QUERY);
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 });
