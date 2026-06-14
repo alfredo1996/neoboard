@@ -43,7 +43,9 @@ function DataGridPagination<TData>({
             }}
           >
             <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
+              {/* Render the active page size explicitly — the placeholder only
+                  shows when empty, leaving the trigger blank (#1055). */}
+              <SelectValue>{table.getState().pagination.pageSize}</SelectValue>
             </SelectTrigger>
             <SelectContent side="top">
               {pageSizeOptions.map((pageSize) => (

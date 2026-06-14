@@ -12,6 +12,7 @@ import {
   CascadingSelector,
 } from "@neoboard/components";
 import type { ParamUIType, DateSubType } from "./parameter-config-section";
+import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 
 const DEFAULT_PREVIEW_OPTIONS = [
   { value: "option-1", label: "Option 1" },
@@ -47,7 +48,9 @@ export function ParameterPreview({
     >
       <div className="w-full max-w-xs space-y-3">
         <Label className="text-xs text-muted-foreground block">
-          {paramWidgetName ? `$param_${paramWidgetName}` : "Parameter preview"}
+          {paramWidgetName
+            ? `$param_${normalizeParamName(paramWidgetName)}`
+            : "Parameter preview"}
         </Label>
         {seedQueryError && (
           <p className="text-xs text-destructive">{seedQueryError}</p>

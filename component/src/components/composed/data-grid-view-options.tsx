@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { humanizeHeader } from "@/lib/humanize-header";
 
 interface DataGridViewOptionsProps<TData> {
   table: Table<TData>;
@@ -42,11 +43,10 @@ function DataGridViewOptions<TData>({
           .map((column) => (
             <DropdownMenuCheckboxItem
               key={column.id}
-              className="capitalize"
               checked={column.getIsVisible()}
               onCheckedChange={(value) => column.toggleVisibility(!!value)}
             >
-              {column.id}
+              {humanizeHeader(column.id)}
             </DropdownMenuCheckboxItem>
           ))}
       </DropdownMenuContent>
