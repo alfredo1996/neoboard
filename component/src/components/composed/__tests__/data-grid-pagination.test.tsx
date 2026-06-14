@@ -27,9 +27,22 @@ describe("DataGridPagination", () => {
         data={data}
         pageSize={10}
         pagination={(table) => <DataGridPagination table={table} />}
-      />
+      />,
     );
     expect(screen.getByText("Rows per page")).toBeInTheDocument();
+  });
+
+  it("shows the current page size in the selector trigger (#1055)", () => {
+    render(
+      <DataGrid
+        columns={columns}
+        data={data}
+        pageSize={10}
+        pagination={(table) => <DataGridPagination table={table} />}
+      />,
+    );
+    // The trigger (combobox) displays the active page size, not just a chevron.
+    expect(screen.getByRole("combobox")).toHaveTextContent("10");
   });
 
   it("renders page info", () => {
@@ -39,7 +52,7 @@ describe("DataGridPagination", () => {
         data={data}
         pageSize={10}
         pagination={(table) => <DataGridPagination table={table} />}
-      />
+      />,
     );
     expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
@@ -52,7 +65,7 @@ describe("DataGridPagination", () => {
         data={data}
         pageSize={10}
         pagination={(table) => <DataGridPagination table={table} />}
-      />
+      />,
     );
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
     expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
@@ -66,10 +79,12 @@ describe("DataGridPagination", () => {
         data={data}
         pageSize={10}
         pagination={(table) => <DataGridPagination table={table} />}
-      />
+      />,
     );
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
-    await user.click(screen.getByRole("button", { name: "Go to previous page" }));
+    await user.click(
+      screen.getByRole("button", { name: "Go to previous page" }),
+    );
     expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
 
@@ -80,8 +95,10 @@ describe("DataGridPagination", () => {
         data={data}
         pageSize={10}
         pagination={(table) => <DataGridPagination table={table} />}
-      />
+      />,
     );
-    expect(screen.getByRole("button", { name: "Go to previous page" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Go to previous page" }),
+    ).toBeDisabled();
   });
 });

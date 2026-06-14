@@ -61,6 +61,8 @@ type WidgetPreviewPanelProps = Readonly<{
   };
   initialPreviewData: PreviewData | undefined;
   onRunPreview: () => void;
+  /** Query references $param_x tokens that aren't all bound yet (#1055). */
+  waitingForParams?: boolean;
 }>;
 
 function renderMarkdown(chartOptions: Record<string, unknown>) {
@@ -253,6 +255,7 @@ export function WidgetPreviewPanel({
   previewQuery,
   initialPreviewData,
   onRunPreview,
+  waitingForParams,
 }: WidgetPreviewPanelProps) {
   function renderPreviewContent() {
     if (isMarkdown) return renderMarkdown(chartOptions);
@@ -270,6 +273,20 @@ export function WidgetPreviewPanel({
       });
     }
     if (isForm) return renderForm(formFields, chartOptions);
+    if (waitingForParams) {
+      // Mirror the dashboard's waiting state instead of running the literal
+      // $param_x token and surfacing a raw DB syntax error (#1055).
+      return (
+        <div className="flex h-full items-center justify-center p-6">
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="preview-waiting-params"
+          >
+            Waiting for parameters…
+          </p>
+        </div>
+      );
+    }
     return renderChart({
       chartType,
       connectionId,
@@ -311,6 +328,7 @@ export function WidgetPreviewPanel({
         {!isParamSelect &&
           !isForm &&
           !isContentOnly &&
+          !waitingForParams &&
           previewQuery.isError && (
             <Tooltip>
               <TooltipTrigger asChild>

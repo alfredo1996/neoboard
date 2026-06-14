@@ -373,9 +373,12 @@ function DataGrid<TData>({
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                     style={!isGrouped ? getRowStyle?.(row.original) : undefined}
-                    className={
-                      isGrouped ? "bg-muted/50 font-medium" : undefined
-                    }
+                    className={cn(
+                      isGrouped
+                        ? "bg-muted/50 font-medium"
+                        : // Subtle hover affordance on data rows (#1055).
+                          "transition-colors hover:bg-muted/40",
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => {
                       const isDataCell = cell.column.id !== "select";

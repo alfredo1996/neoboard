@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { DashboardWidget, DashboardLayoutV2 } from "@/lib/db/schema";
 import { resolveInternalParamType } from "./parameter-config-section";
+import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 
 /**
  * Builds a DashboardWidget object from the current widget editor store state.
@@ -59,7 +60,8 @@ export function useBuildWidgetForSave(
             dateSub,
             multiSelect,
           ),
-          parameterName: paramWidgetName,
+          // Strip a leading param_ so the consumed token isn't doubled (#1055).
+          parameterName: normalizeParamName(paramWidgetName),
           // Seed query is only meaningful for the option-backed types.
           seedQuery:
             paramUIType === "select" || paramUIType === "cascading"

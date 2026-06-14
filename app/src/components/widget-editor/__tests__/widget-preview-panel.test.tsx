@@ -117,6 +117,22 @@ describe("WidgetPreviewPanel", () => {
     expect(screen.queryByText("Run")).not.toBeInTheDocument();
   });
 
+  it("shows a waiting state instead of running an unbound-param query (#1055)", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          query: "SELECT * FROM t WHERE s = $param_status",
+          waitingForParams: true,
+        })}
+      />,
+    );
+    expect(screen.getByTestId("preview-waiting-params")).toHaveTextContent(
+      /Waiting for parameters/i,
+    );
+    // The chart preview (card container) must not render while waiting.
+    expect(screen.queryByTestId("card-container")).not.toBeInTheDocument();
+  });
+
   it("renders MarkdownWidget when isMarkdown", () => {
     render(
       <WidgetPreviewPanel
