@@ -113,14 +113,14 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 - Neo4j read-only: session access modes.
 - Row limits: cursor/stream consumption with MAX_ROWS+1 pattern. Never add LIMIT to user queries.
 - Timeouts: enforced at the driver/transaction level — PostgreSQL via `SET LOCAL statement_timeout` inside the transaction; Neo4j via the managed-transaction `timeout`. Default 30s.
-- Concurrency: handled by the drivers — node-pg `Pool` (PostgreSQL) and the Neo4j driver's built-in connection pool. Connector modules are cached per (type, credentials); there is no application-level work queue.
+- Concurrency: a bespoke per-connector priority **scheduler** (`app/src/lib/query/scheduler.ts`, one per connectionId via `scheduler-registry.ts`) — **not** the `p-queue` npm package. Priority tiers (1=interactive > 2=load > 3=refresh, with P3 shed under load), per-user round-robin fairness, `maxConcurrent`/`maxPerUser` caps, backpressure (queue-full → 503) and queue timeouts; tuned via `QUERY_*` env vars. The drivers' own connection pools (node-pg `Pool`, Neo4j driver pool) sit underneath.
 - `can_write` permission: ALWAYS enforced server-side in the API route, not just UI.
 
 ## Credentials — DO NOT VIOLATE
 
 - NEVER log decrypted credentials.
 - NEVER store encryption keys in the database.
-- Encryption uses AES-256-GCM with the raw 32-byte `ENCRYPTION_KEY` (64-char hex) as the key directly — no HKDF derivation, no envelope/data-key wrapping. Ciphertext format is `iv:authTag:ciphertext` (base64). Key rotation is supported via `ENCRYPTION_KEY_OLD` (decrypt-with-old, re-encrypt-with-new).
+- Encryption uses AES-256-GCM with the `ENCRYPTION_KEY` (a 64-character hex string = 32 bytes) as the key directly — no HKDF derivation, no envelope/data-key wrapping. Ciphertext format is `iv:authTag:ciphertext` (base64). Key rotation is supported via `ENCRYPTION_KEY_OLD` (decrypt-with-old, re-encrypt-with-new).
 - Lost ENCRYPTION_KEY = all credentials unrecoverable. Always warn users about this.
 
 ## Multi-Tenancy

@@ -957,7 +957,7 @@ The database uses PostgreSQL with Drizzle ORM. Core tables:
 - **`tenantId`** on every table — enables multi-tenancy
 - **`layoutJson`** (JSONB) stores the entire dashboard layout — widgets, grid positions, pages, parameters — as a single JSON document rather than normalized tables
 - **`version`** column on dashboards enables optimistic locking for concurrent editing
-- **Credentials** are encrypted at rest using AES-256-GCM with the raw 32-byte `ENCRYPTION_KEY` as the key directly (no HKDF derivation, no envelope wrapping); key rotation via `ENCRYPTION_KEY_OLD`
+- **Credentials** are encrypted at rest using AES-256-GCM with the `ENCRYPTION_KEY` (a 64-character hex string = 32 bytes) as the key directly (no HKDF derivation, no envelope wrapping); key rotation via `ENCRYPTION_KEY_OLD`
 - **Migrations** are forward-only, idempotent, and use advisory locks to prevent concurrent execution
 
 ### Connection Initialization
@@ -1082,7 +1082,7 @@ These are **inviolable** constraints enforced at multiple levels:
 4. **Write requires `can_write`** — enforced server-side, not just UI
 5. **Row limits** — cursor-based consumption with MAX_ROWS+1 pattern
 6. **Timeouts** — driver/transaction-level enforcement (`SET LOCAL statement_timeout` for pg, managed-transaction timeout for neo4j)
-7. **Concurrency** — handled by the drivers' connection pools (node-pg `Pool`, Neo4j driver pool); there is no application-level work queue
+7. **Concurrency** — a bespoke per-connector priority scheduler (`lib/query/scheduler.ts`, one per connectionId via `scheduler-registry.ts`); **not** the `p-queue` npm package. Priority tiers, per-user fairness, `maxConcurrent`/`maxPerUser` caps, backpressure (queue-full → 503) and queue timeouts (`QUERY_*` env vars). The drivers' own connection pools sit underneath
 
 ---
 
@@ -1719,7 +1719,7 @@ User provides credentials (password, connection string)
   │
   ▼
 AES-256-GCM encryption with the raw ENCRYPTION_KEY
-  ├── Key: ENCRYPTION_KEY env var (32-byte hex, used directly — no HKDF)
+  ├── Key: ENCRYPTION_KEY env var (64-char hex string = 32 bytes, used directly — no HKDF)
   ├── Key rotation: ENCRYPTION_KEY_OLD (decrypt-old, re-encrypt-new)
   ├── Unique IV per encryption
   └── Auth tag for integrity
@@ -1732,15 +1732,15 @@ Stored encrypted in PostgreSQL (encryptedCredentials column)
 
 ### Query Safety (enforced at multiple layers)
 
-| Layer              | Mechanism                                                                                                   |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| SQL injection      | Parameterized queries only. Never interpolate user input.                                                   |
-| Read-only          | `BEGIN READ ONLY` (pg) / read access mode (neo4j) for non-Form widgets                                      |
-| Write permission   | `can_write` flag checked server-side in API route                                                           |
-| Row limits         | Cursor/stream with MAX_ROWS+1 pattern                                                                       |
-| Timeouts           | Driver/transaction-level (`SET LOCAL statement_timeout` for pg, managed-tx timeout for neo4j). Default 30s. |
-| Concurrency        | Driver connection pools (node-pg `Pool`, Neo4j driver pool). No app-level work queue.                       |
-| Query modification | NEVER modify or wrap user queries (safety enforced at driver level)                                         |
+| Layer              | Mechanism                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SQL injection      | Parameterized queries only. Never interpolate user input.                                                                                                                               |
+| Read-only          | `BEGIN READ ONLY` (pg) / read access mode (neo4j) for non-Form widgets                                                                                                                  |
+| Write permission   | `can_write` flag checked server-side in API route                                                                                                                                       |
+| Row limits         | Cursor/stream with MAX_ROWS+1 pattern                                                                                                                                                   |
+| Timeouts           | Driver/transaction-level (`SET LOCAL statement_timeout` for pg, managed-tx timeout for neo4j). Default 30s.                                                                             |
+| Concurrency        | Bespoke per-connector priority scheduler (`lib/query/scheduler.ts`); priority tiers, per-user fairness, backpressure (503), queue timeouts. Driver pools underneath. Not `p-queue` npm. |
+| Query modification | NEVER modify or wrap user queries (safety enforced at driver level)                                                                                                                     |
 
 ### Rate Limiting
 

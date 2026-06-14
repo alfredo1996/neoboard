@@ -33,7 +33,7 @@ NeoBoard handles database credentials and user authentication. Key security meas
 
 ### Credentials
 
-- All database credentials are encrypted at rest using **AES-256-GCM** with the 32-byte `ENCRYPTION_KEY` used directly as the key (no HKDF derivation, no envelope wrapping); each ciphertext uses a unique IV and an auth tag, and key rotation is supported via `ENCRYPTION_KEY_OLD`
+- All database credentials are encrypted at rest using **AES-256-GCM** with the `ENCRYPTION_KEY` (a 64-character hex string = 32 bytes) used directly as the key (no HKDF derivation, no envelope wrapping); each ciphertext uses a unique IV and an auth tag, and key rotation is supported via `ENCRYPTION_KEY_OLD`
 - The `ENCRYPTION_KEY` environment variable is never stored in the database
 - **Lost ENCRYPTION_KEY = all credentials unrecoverable** — there is no recovery mechanism by design
 - Decrypted credentials are never logged
