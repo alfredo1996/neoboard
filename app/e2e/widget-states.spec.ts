@@ -398,8 +398,12 @@ test.describe("Empty result set — No data UX", () => {
     await page.goto(`/${id}`);
     const widget = page.locator("[data-testid='widget-card']");
     await expect(widget).toBeVisible({ timeout: 15_000 });
-    // ECharts renders "No data" on canvas — verify canvas present, no error
-    await expect(widget.locator("canvas")).toBeVisible({ timeout: 15_000 });
+    // Empty bar chart now renders a DOM, screen-reader-readable "No data"
+    // status instead of only an ECharts canvas title (#1053).
+    await expect(widget.getByTestId("bar-chart-empty")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(widget.getByText("No data")).toBeVisible();
     await expect(page.getByText("Query Failed")).not.toBeVisible();
     await expect(page.getByText("Incompatible data format")).not.toBeVisible();
   });

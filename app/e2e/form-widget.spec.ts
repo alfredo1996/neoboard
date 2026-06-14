@@ -387,8 +387,15 @@ test.describe("Form widget", () => {
       tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+    // The seed query returns no rows yet (the form creates the node), so the
+    // preview may render the chart, a table, or the empty-state element
+    // (bar's DOM "No data" status, #1053) — any means the widget mounted.
     await expect(
-      tableDialog.locator("[data-testid='base-chart'], table").first(),
+      tableDialog
+        .locator(
+          "[data-testid='base-chart'], [data-testid='bar-chart-empty'], table",
+        )
+        .first(),
     ).toBeVisible({ timeout: 15_000 });
 
     await tableDialog.getByRole("button", { name: "Add Widget" }).click();
