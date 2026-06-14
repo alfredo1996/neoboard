@@ -328,6 +328,7 @@ export function WidgetPreviewPanel({
         {!isParamSelect &&
           !isForm &&
           !isContentOnly &&
+          !waitingForParams &&
           previewQuery.isError && (
             <Tooltip>
               <TooltipTrigger asChild>

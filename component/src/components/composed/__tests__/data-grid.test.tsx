@@ -46,6 +46,12 @@ describe("DataGrid", () => {
     expect(screen.getByText("Charlie")).toBeInTheDocument();
   });
 
+  it("gives non-grouped data rows a hover affordance (#1055)", () => {
+    render(<DataGrid columns={columns} data={data} />);
+    const dataRow = screen.getByText("Alice").closest("tr");
+    expect(dataRow).toHaveClass("hover:bg-muted/40");
+  });
+
   it("shows empty state when no data", () => {
     render(<DataGrid columns={columns} data={[]} />);
     expect(screen.getByText("No results.")).toBeInTheDocument();
