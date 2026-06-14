@@ -114,6 +114,10 @@ function TreemapChart({
           label: {
             show: showLabels && !compact,
             position: "insideTopLeft",
+            // Truncate at the tile edge with an ellipsis instead of breaking
+            // mid-word ("Vintage K…"); the tooltip reveals the full name (#1053).
+            overflow: "truncate",
+            ellipsis: "…",
             formatter: showValues ? "{b}: {c}" : "{b}",
           },
           upperLabel: {

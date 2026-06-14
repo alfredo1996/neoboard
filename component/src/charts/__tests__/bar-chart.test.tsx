@@ -87,9 +87,15 @@ describe("BarChart", () => {
     expect(opts.legend).toBeDefined();
   });
 
-  it("handles empty data", () => {
-    const opts = renderBarOptions({ data: [] });
-    expect(opts.title.text).toBe("No data");
+  it("renders a DOM/AT-readable empty state for empty data (#1053)", () => {
+    render(<BarChart data={[]} />);
+    // The empty state is a real DOM element (role=status), not just an
+    // ECharts canvas title, so screen readers announce it.
+    const empty = screen.getByTestId("bar-chart-empty");
+    expect(empty).toHaveTextContent("No data");
+    expect(empty).toHaveAttribute("role", "status");
+    // No chart was rendered for empty data.
+    expect(mockSetOption).not.toHaveBeenCalled();
   });
 
   it("shows loading state", () => {
@@ -264,10 +270,13 @@ describe("BarChart", () => {
     ).toBeInTheDocument();
   });
 
-  it("auto-derived aria-label handles empty data without crashing", () => {
+  it("renders the accessible empty state (not a chart) for empty data without crashing", () => {
     render(<BarChart data={[]} />);
-    const el = screen.getByTestId("base-chart");
-    // Empty charts should still have a meaningful label
-    expect(el.getAttribute("aria-label")).toMatch(/bar chart/i);
+    // Empty data now renders an AT-readable status element instead of a chart.
+    expect(screen.queryByTestId("base-chart")).not.toBeInTheDocument();
+    expect(screen.getByTestId("bar-chart-empty")).toHaveAttribute(
+      "role",
+      "status",
+    );
   });
 });

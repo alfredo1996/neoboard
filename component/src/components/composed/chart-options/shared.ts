@@ -16,6 +16,13 @@ export interface ChartOptionDef {
   options?: { label: string; value: string }[];
   /** Short description shown in a tooltip next to the option label. */
   description?: string;
+  /**
+   * Optional client-side validation for text inputs. Returns null when the
+   * value is acceptable, or a severity + message to show inline (#1053).
+   */
+  validate?: (
+    value: string,
+  ) => { level: "error" | "warning"; message: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,6 +37,21 @@ export const SHARED_SHOW_LEGEND: ChartOptionDef = {
   default: true,
   category: "Labels",
   description: "Show the chart legend identifying each data series.",
+};
+
+export const SHARED_LEGEND_POSITION: ChartOptionDef = {
+  key: "legendPosition",
+  label: "Legend Position",
+  type: "select",
+  default: "bottom",
+  category: "Labels",
+  description: "Where to place the legend relative to the chart.",
+  options: [
+    { label: "Bottom", value: "bottom" },
+    { label: "Top", value: "top" },
+    { label: "Left", value: "left" },
+    { label: "Right", value: "right" },
+  ],
 };
 
 export const SHARED_X_AXIS_LABEL: ChartOptionDef = {

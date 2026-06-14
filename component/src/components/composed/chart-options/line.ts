@@ -4,6 +4,7 @@ import {
   SHARED_X_AXIS_LABEL,
   SHARED_Y_AXIS_LABEL,
   SHARED_SHOW_LEGEND,
+  SHARED_LEGEND_POSITION,
   SHARED_REFERENCE_LINES,
 } from "./shared";
 
@@ -90,6 +91,7 @@ export const lineOptions: ChartOptionDef[] = [
       "Custom label for the secondary Y-axis. Applies only when Right Y-Axis Series is non-empty.",
   },
   SHARED_SHOW_LEGEND,
+  SHARED_LEGEND_POSITION,
   SHARED_REFERENCE_LINES,
   {
     key: "samplingThreshold",

@@ -19,6 +19,7 @@ import {
 } from "@/hooks/use-widget-templates";
 import { useConnections } from "@/hooks/use-connections";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
+import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
 import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
   PageHeader,
@@ -80,7 +81,10 @@ function TemplateCard({
       <div className="p-3 flex flex-col gap-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{template.name}</p>
+            {/* title reveals the full name when truncated (#1053). */}
+            <p className="font-medium truncate" title={template.name}>
+              {template.name}
+            </p>
             {template.description && (
               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                 {template.description}
@@ -168,22 +172,33 @@ function TemplateCard({
           </div>
         </div>
 
-        <CodePreview
-          value={template.query}
-          language={
-            CONNECTOR_LANGUAGES[template.connectorType as ConnectorType] ??
-            "Cypher"
-          }
-        />
+        {/* Content-only templates (markdown/iframe) have no query or connector,
+            so show a neutral label instead of "No query" + a connector tag they
+            don't use (#1053). */}
+        {isContentOnlyChartType(template.chartType) ? (
+          <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            Content widget — no query
+          </p>
+        ) : (
+          <CodePreview
+            value={template.query}
+            language={
+              CONNECTOR_LANGUAGES[template.connectorType as ConnectorType] ??
+              "Cypher"
+            }
+          />
+        )}
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="secondary" className="text-xs">
               {chartLabel}
             </Badge>
-            <Badge variant="outline" className="text-xs">
-              {template.connectorType}
-            </Badge>
+            {!isContentOnlyChartType(template.chartType) && (
+              <Badge variant="outline" className="text-xs">
+                {template.connectorType}
+              </Badge>
+            )}
             {(template.tags ?? []).map((tag) => (
               <Badge
                 key={tag}

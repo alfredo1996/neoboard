@@ -9,6 +9,8 @@ import {
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
+  buildLegend,
+  resolveLegendPosition,
   resolveItemColor,
   buildTooltipFormatter,
   parseReferenceLines,
@@ -30,6 +32,8 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   area?: boolean;
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
+  /** Where to place the legend (#1053). */
+  legendPosition?: string;
   /** Show data point markers */
   showPoints?: boolean;
   /** Line stroke width in pixels */
@@ -107,6 +111,7 @@ function LineChart({
   smooth = true,
   area = true,
   showLegend,
+  legendPosition,
   showPoints = false,
   lineWidth = 1.5,
   showGridLines = true,
@@ -135,6 +140,7 @@ function LineChart({
       seriesKeys.length,
       hideLegend,
     );
+    const legendPos = resolveLegendPosition(legendPosition);
     const markLine = buildMarkLineFromRefs(
       parseReferenceLines(referenceLinesJson),
     );
@@ -216,11 +222,15 @@ function LineChart({
 
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
-      legend: effectiveShowLegend ? { bottom: 0 } : undefined,
+      legend: buildLegend(effectiveShowLegend, legendPos),
       grid: {
-        ...buildCompactGrid(compact, effectiveShowLegend),
-        left: compact ? 8 : 48,
-        right: useDualAxis && !compact ? 56 : undefined,
+        ...buildCompactGrid(compact, effectiveShowLegend, legendPos),
+        // Keep room for the y-axis labels, plus extra when a side legend sits
+        // on that edge (#1053).
+        left: (compact ? 8 : 48) + (legendPos === "left" ? 40 : 0),
+        right:
+          (useDualAxis && !compact ? 56 : 0) +
+            (legendPos === "right" ? 40 : 0) || undefined,
       },
       xAxis: {
         type: useTimeAxis ? "time" : "category",

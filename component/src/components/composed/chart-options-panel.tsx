@@ -156,18 +156,34 @@ function OptionField({
         </div>
       );
 
-    case "text":
+    case "text": {
+      const textValue = String(value ?? option.default ?? "");
+      const validation = option.validate?.(textValue) ?? null;
       return (
         <div className="space-y-1.5">
           <OptionLabel option={option} />
           <Input
             id={option.key}
-            value={String(value ?? option.default ?? "")}
+            value={textValue}
             onChange={(e) => onChange(option.key, e.target.value)}
             placeholder={option.label}
+            aria-invalid={validation?.level === "error" ? true : undefined}
           />
+          {validation && (
+            <p
+              role={validation.level === "error" ? "alert" : undefined}
+              className={
+                validation.level === "error"
+                  ? "text-xs text-destructive"
+                  : "text-xs text-amber-600 dark:text-amber-500"
+              }
+            >
+              {validation.message}
+            </p>
+          )}
         </div>
       );
+    }
 
     case "number":
       return (
