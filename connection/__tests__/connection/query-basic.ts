@@ -63,7 +63,14 @@ describe("Query to Neo4j", () => {
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: "WITH range(1, toInteger(2^48)) AS x UNWIND x as y RETURN y ",
+      // A slow-to-FIRST-ROW read, not merely a large one: a cartesian product
+      // with a cross-node predicate can't be planner-optimised, and the single
+      // count row only emerges after the whole product is enumerated — so the
+      // streaming row-limit can't short-circuit it and the transaction timeout
+      // fires. (A read that merely returns many rows now truncates fast instead
+      // of timing out — the intended behaviour of the streaming row-limit fix.)
+      query:
+        "MATCH (a),(b),(c),(d),(e) WHERE id(a) <> id(b) RETURN count(*) AS total",
       params: {},
     };
 
@@ -80,6 +87,7 @@ describe("Query to Neo4j", () => {
     const connectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       connectionTimeout: 100,
+      timeout: 2000, // Short transaction timeout so the slow read trips it fast.
     };
     await connection.runQuery(queryParams, queryCallback, connectionConfig);
   });

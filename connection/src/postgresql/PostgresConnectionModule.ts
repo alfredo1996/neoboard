@@ -10,7 +10,8 @@ import {
   QueryStatus,
 } from "../generalized/interfaces";
 import { PostgresRecordParser } from "./PostgresRecordParser";
-import { Pool, PoolClient } from "pg";
+import { Pool, PoolClient, FieldDef } from "pg";
+import { readBoundedCursor } from "./cursor-read";
 import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
 import { determineQueryStatus } from "../generalized/utils";
 import { wrapError, ConnectorErrorType } from "../generalized/ConnectorError";
@@ -122,35 +123,63 @@ export class PostgresConnectionModule extends ConnectionModule {
               .map((k) => params[k])
           : [];
 
-      // Execute query with positional parameters
-      const result = await client.query(query, paramValues);
+      // Fetch rows. READ queries stream through a server-side cursor so a
+      // huge result set never buffers in memory — we pull at most rowLimit + 1
+      // rows (the MAX_ROWS+1 truncation probe). WRITE queries (Form widgets)
+      // keep the direct path: their result sets are small and we need the
+      // driver's affected-row count so an INSERT without RETURNING still
+      // reports COMPLETE rather than NO_DATA.
+      let fetchedRows: Record<string, unknown>[];
+      let fields: FieldDef[] | undefined;
+      let affectedRowCount: number | undefined;
+
+      if (isReadOnly) {
+        const batch = await readBoundedCursor(
+          client,
+          query,
+          paramValues,
+          config.rowLimit + 1,
+        );
+        fetchedRows = batch.rows;
+        fields = batch.fields;
+      } else {
+        const result = await client.query(query, paramValues);
+        fetchedRows = result.rows;
+        fields = result.fields;
+        affectedRowCount = result.rowCount ?? undefined;
+      }
 
       // Commit transaction
       await client.query("COMMIT");
 
-      const rowCount = result.rowCount || 0;
-      const isTruncated = rowCount > config.rowLimit;
+      const isTruncated = fetchedRows.length > config.rowLimit;
+      const limitedRows = isTruncated
+        ? fetchedRows.slice(0, config.rowLimit)
+        : fetchedRows;
+      // For reads, the streamed count is capped at rowLimit + 1, which yields
+      // the same status as the true count (> rowLimit ⇒ truncated). For writes,
+      // use the driver's affected-row count.
+      const rowCount =
+        affectedRowCount ??
+        (isTruncated ? config.rowLimit + 1 : fetchedRows.length);
 
       // Extract schema if callback is provided
-      if (callbacks.setSchema && result.fields) {
-        const schema = extractTableSchemaFromFields(result.fields);
+      if (callbacks.setSchema && fields) {
+        const schema = extractTableSchemaFromFields(fields);
         callbacks.setSchema(schema);
       }
 
       callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
 
       // Parse results to NeodashRecord format
-      const limitedRows = isTruncated
-        ? result.rows.slice(0, config.rowLimit)
-        : result.rows;
       const parsedRecords = config.parseToNeodashRecord
         ? this.parser.bulkParse(limitedRows)
         : limitedRows;
 
       // Set fields if callback is provided
       if (callbacks.setFields) {
-        if (parsedRecords.length > 0 && config.parseToNeodashRecord) {
-          const firstRecord = this.parser.bulkParse([result.rows[0]])[0];
+        if (limitedRows.length > 0 && config.parseToNeodashRecord) {
+          const firstRecord = this.parser.bulkParse([limitedRows[0]])[0];
           callbacks.setFields(
             firstRecord.getFields(config.useNodePropsAsFields),
           );
