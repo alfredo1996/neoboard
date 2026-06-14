@@ -9,6 +9,8 @@ import {
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
+  buildLegend,
+  resolveLegendPosition,
   resolveItemColor,
   buildTooltipFormatter,
   buildPercentTooltipFormatter,
@@ -33,6 +35,8 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   showValues?: boolean;
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
+  /** Where to place the legend (#1053). */
+  legendPosition?: string;
   /** Bar width in pixels; 0 means auto */
   barWidth?: number;
   /** Gap between bars in a group (e.g. "30%") */
@@ -69,6 +73,7 @@ function BarChart({
   stacked = false,
   showValues = false,
   showLegend,
+  legendPosition,
   barWidth = 0,
   barGap = "30%",
   showGridLines = true,
@@ -120,6 +125,7 @@ function BarChart({
       seriesKeys.length,
       hideLegend,
     );
+    const legendPos = resolveLegendPosition(legendPosition);
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
@@ -165,8 +171,8 @@ function BarChart({
           ? buildPercentTooltipFormatter(seriesKeys, data)
           : buildTooltipFormatter(),
       },
-      legend: effectiveShowLegend ? { bottom: 0 } : undefined,
-      grid: buildCompactGrid(compact, effectiveShowLegend),
+      legend: buildLegend(effectiveShowLegend, legendPos),
+      grid: buildCompactGrid(compact, effectiveShowLegend, legendPos),
       xAxis: isHorizontal ? valueAxis : categoryAxis,
       yAxis: isHorizontal ? categoryAxis : valueAxis,
       series: seriesKeys.map((key, idx) => ({
@@ -238,7 +244,23 @@ function BarChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} ariaDescription={effectiveAria} />
+      {data.length === 0 ? (
+        // The ECharts "No data" title is canvas-only; render a DOM element so
+        // the empty state is visible to screen readers too (#1053).
+        <div
+          role="status"
+          data-testid="bar-chart-empty"
+          className="flex h-full w-full items-center justify-center text-sm text-muted-foreground"
+        >
+          No data
+        </div>
+      ) : (
+        <BaseChart
+          options={options}
+          {...rest}
+          ariaDescription={effectiveAria}
+        />
+      )}
     </div>
   );
 }

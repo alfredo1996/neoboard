@@ -24,6 +24,19 @@ describe("MarkdownWidget", () => {
     expect(heading).toHaveTextContent("Main Heading");
   });
 
+  it("re-renders live when the content prop changes (#1053)", () => {
+    // The editor writes content to the store on each keystroke; the preview
+    // must reflect it immediately, not only on save.
+    const { rerender } = render(<MarkdownWidget content="# First" />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "First",
+    );
+    rerender(<MarkdownWidget content="# Second" />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Second",
+    );
+  });
+
   it("renders multiline content with a heading and a list (#1049)", () => {
     // Now that the editor preserves newlines (textarea), real multiline
     // markdown must render structurally — heading + list items.

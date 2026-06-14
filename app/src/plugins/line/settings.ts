@@ -12,6 +12,9 @@ export const lineSettingsSchema = z
     rightYAxisLabel: z.string().optional(),
     rightAxisSeries: z.string().optional(),
     showLegend: z.boolean().default(true),
+    legendPosition: z
+      .enum(["top", "bottom", "left", "right"])
+      .default("bottom"),
     lineWidth: z.coerce.number().default(2),
     stepped: z.boolean().default(false),
     showPoints: z.boolean().default(false),

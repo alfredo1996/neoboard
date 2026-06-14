@@ -37,6 +37,7 @@ function BarPluginComponent({
       stacked={settings.stacked}
       showValues={settings.showValues}
       showLegend={settings.showLegend}
+      legendPosition={settings.legendPosition}
       barWidth={settings.barWidth}
       barGap={settings.barGap}
       xAxisLabel={settings.xAxisLabel}
