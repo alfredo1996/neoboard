@@ -112,15 +112,15 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 - PostgreSQL read-only: `BEGIN READ ONLY` transactions for non-Form widgets.
 - Neo4j read-only: session access modes.
 - Row limits: cursor/stream consumption with MAX_ROWS+1 pattern. Never add LIMIT to user queries.
-- Timeouts: enforced at driver level (AbortSignal for pg, native for Neo4j). Default 30s.
-- Concurrency: per-connector `p-queue`. One queue per connector.
+- Timeouts: enforced at the driver/transaction level — PostgreSQL via `SET LOCAL statement_timeout` inside the transaction; Neo4j via the managed-transaction `timeout`. Default 30s.
+- Concurrency: handled by the drivers — node-pg `Pool` (PostgreSQL) and the Neo4j driver's built-in connection pool. Connector modules are cached per (type, credentials); there is no application-level work queue.
 - `can_write` permission: ALWAYS enforced server-side in the API route, not just UI.
 
 ## Credentials — DO NOT VIOLATE
 
 - NEVER log decrypted credentials.
 - NEVER store encryption keys in the database.
-- Encryption uses AES-256-GCM envelope scheme (HKDF-SHA256 key derivation).
+- Encryption uses AES-256-GCM with the raw 32-byte `ENCRYPTION_KEY` (64-char hex) as the key directly — no HKDF derivation, no envelope/data-key wrapping. Ciphertext format is `iv:authTag:ciphertext` (base64). Key rotation is supported via `ENCRYPTION_KEY_OLD` (decrypt-with-old, re-encrypt-with-new).
 - Lost ENCRYPTION_KEY = all credentials unrecoverable. Always warn users about this.
 
 ## Multi-Tenancy

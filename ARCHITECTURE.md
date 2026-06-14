@@ -239,4 +239,4 @@ apiKeys              widgetTemplates
 
 **Multi-tenancy:** Every table includes `tenantId`. All queries filter by tenant at the ORM level.
 
-**Encryption:** Connection credentials use AES-256-GCM envelope encryption (HKDF-SHA256 key derivation). Lost `ENCRYPTION_KEY` = all credentials unrecoverable.
+**Encryption:** Connection credentials use AES-256-GCM with the raw 32-byte `ENCRYPTION_KEY` as the key directly (no HKDF derivation, no envelope wrapping); ciphertext is stored as `iv:authTag:ciphertext` (base64), with key rotation via `ENCRYPTION_KEY_OLD`. Lost `ENCRYPTION_KEY` = all credentials unrecoverable.

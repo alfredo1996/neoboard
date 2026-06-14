@@ -373,7 +373,7 @@ The full lifecycle of a query from click to chart:
        │  │  │                                   │  │  │
        │  │  │  PostgreSQL:                      │  │  │
        │  │  │    BEGIN READ ONLY                │  │  │
-       │  │  │    AbortSignal timeout (30s)      │  │  │
+       │  │  │    statement_timeout (30s)        │  │  │
        │  │  │    Cursor: MAX_ROWS+1 pattern     │  │  │
        │  │  │                                   │  │  │
        │  │  │  Neo4j:                           │  │  │
@@ -957,7 +957,7 @@ The database uses PostgreSQL with Drizzle ORM. Core tables:
 - **`tenantId`** on every table — enables multi-tenancy
 - **`layoutJson`** (JSONB) stores the entire dashboard layout — widgets, grid positions, pages, parameters — as a single JSON document rather than normalized tables
 - **`version`** column on dashboards enables optimistic locking for concurrent editing
-- **Credentials** are encrypted at rest using AES-256-GCM envelope encryption (HKDF-SHA256 key derivation from `ENCRYPTION_KEY` env var)
+- **Credentials** are encrypted at rest using AES-256-GCM with the raw 32-byte `ENCRYPTION_KEY` as the key directly (no HKDF derivation, no envelope wrapping); key rotation via `ENCRYPTION_KEY_OLD`
 - **Migrations** are forward-only, idempotent, and use advisory locks to prevent concurrent execution
 
 ### Connection Initialization
@@ -1005,7 +1005,7 @@ Query Middleware Pipeline (lib/query/pipeline.ts)
   │   ├── Connection adapter     → Bridge to connection/ package
   │   └── Driver execution       → Neo4j driver or PostgreSQL client
   │       ├── Read-only mode     → BEGIN READ ONLY (pg) / read access mode (neo4j)
-  │       ├── Timeout            → AbortSignal (pg) / native (neo4j), default 30s
+  │       ├── Timeout            → SET LOCAL statement_timeout (pg) / managed-tx timeout (neo4j), default 30s
   │       └── Row limit          → MAX_ROWS+1 cursor pattern
   │
   ├── Audit Middleware           → Log duration, row count, success/failure
@@ -1081,8 +1081,8 @@ These are **inviolable** constraints enforced at multiple levels:
 3. **Read-only by default** — `BEGIN READ ONLY` (pg) or read access mode (neo4j)
 4. **Write requires `can_write`** — enforced server-side, not just UI
 5. **Row limits** — cursor-based consumption with MAX_ROWS+1 pattern
-6. **Timeouts** — driver-level enforcement (AbortSignal for pg, native for neo4j)
-7. **Concurrency** — per-connector p-queue prevents connection exhaustion
+6. **Timeouts** — driver/transaction-level enforcement (`SET LOCAL statement_timeout` for pg, managed-transaction timeout for neo4j)
+7. **Concurrency** — handled by the drivers' connection pools (node-pg `Pool`, Neo4j driver pool); there is no application-level work queue
 
 ---
 
@@ -1718,9 +1718,9 @@ Every query execution is logged with:
 User provides credentials (password, connection string)
   │
   ▼
-AES-256-GCM encryption with envelope scheme
-  ├── Master key: ENCRYPTION_KEY env var
-  ├── Key derivation: HKDF-SHA256 per credential
+AES-256-GCM encryption with the raw ENCRYPTION_KEY
+  ├── Key: ENCRYPTION_KEY env var (32-byte hex, used directly — no HKDF)
+  ├── Key rotation: ENCRYPTION_KEY_OLD (decrypt-old, re-encrypt-new)
   ├── Unique IV per encryption
   └── Auth tag for integrity
   │
@@ -1732,15 +1732,15 @@ Stored encrypted in PostgreSQL (encryptedCredentials column)
 
 ### Query Safety (enforced at multiple layers)
 
-| Layer              | Mechanism                                                              |
-| ------------------ | ---------------------------------------------------------------------- |
-| SQL injection      | Parameterized queries only. Never interpolate user input.              |
-| Read-only          | `BEGIN READ ONLY` (pg) / read access mode (neo4j) for non-Form widgets |
-| Write permission   | `can_write` flag checked server-side in API route                      |
-| Row limits         | Cursor/stream with MAX_ROWS+1 pattern                                  |
-| Timeouts           | Driver-level (AbortSignal for pg, native for neo4j). Default 30s.      |
-| Concurrency        | Per-connector p-queue. Prevents connection exhaustion.                 |
-| Query modification | NEVER modify or wrap user queries (safety enforced at driver level)    |
+| Layer              | Mechanism                                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| SQL injection      | Parameterized queries only. Never interpolate user input.                                                   |
+| Read-only          | `BEGIN READ ONLY` (pg) / read access mode (neo4j) for non-Form widgets                                      |
+| Write permission   | `can_write` flag checked server-side in API route                                                           |
+| Row limits         | Cursor/stream with MAX_ROWS+1 pattern                                                                       |
+| Timeouts           | Driver/transaction-level (`SET LOCAL statement_timeout` for pg, managed-tx timeout for neo4j). Default 30s. |
+| Concurrency        | Driver connection pools (node-pg `Pool`, Neo4j driver pool). No app-level work queue.                       |
+| Query modification | NEVER modify or wrap user queries (safety enforced at driver level)                                         |
 
 ### Rate Limiting
 
@@ -2015,7 +2015,7 @@ Pipeline:
   │  1. Substitute $params with values          │
   │  2. Create connection adapter               │
   │  3. Open read-only transaction              │
-  │  4. Execute with timeout (AbortSignal)      │
+  │  4. Execute with timeout (statement_timeout)│
   │  5. Stream rows up to MAX_ROWS+1            │
   │  6. Return { columns, rows, truncated }     │
   └─────────────────────────────────────────────┘
