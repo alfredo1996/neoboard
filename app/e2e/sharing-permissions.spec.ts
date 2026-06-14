@@ -90,8 +90,11 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
       await page.getByRole("button", { name: "Assign" }).click();
 
       await expect(page.getByText("Dave Demo")).toBeVisible({ timeout: 5_000 });
-      // Role label is rendered with a `capitalize` class; the raw text is "editor".
-      await expect(page.getByText("editor", { exact: true })).toBeVisible();
+      // The assigned row exposes an inline role Select (#1056); its value is the
+      // assigned role.
+      await expect(
+        page.getByRole("combobox", { name: `Role for ${DAVE.email}` }),
+      ).toHaveText("Editor", { timeout: 5_000 });
     } finally {
       await cleanup();
     }
@@ -112,18 +115,19 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
       expect(seedRes.status()).toBe(201);
 
       await openSharingPanel(page, id);
-      await expect(page.getByText("viewer", { exact: true })).toBeVisible();
+      const roleSelect = page.getByRole("combobox", {
+        name: `Role for ${DAVE.email}`,
+      });
+      await expect(roleSelect).toHaveText("Viewer", { timeout: 5_000 });
 
-      // Upsert to editor via UI
+      // Upsert to editor via the add form (POST upserts the role).
       await page.locator("#assign-email").fill(DAVE.email);
       await page.locator("#assign-role").click();
       await page.getByRole("option", { name: "Editor" }).click();
       await page.getByRole("button", { name: "Assign" }).click();
 
-      await expect(page.getByText("editor", { exact: true })).toBeVisible({
-        timeout: 5_000,
-      });
-      await expect(page.getByText("viewer", { exact: true })).not.toBeVisible();
+      // The single Dave row's role flips to Editor (no duplicate row).
+      await expect(roleSelect).toHaveText("Editor", { timeout: 5_000 });
       await expect(page.getByText("Dave Demo")).toHaveCount(1);
     } finally {
       await cleanup();
@@ -213,7 +217,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     }
   });
 
-  test("8. viewer cannot edit: Edit button hidden and direct PUT returns 404", async ({
+  test("8. viewer cannot edit: Edit button hidden and direct PUT returns 403", async ({
     page,
     browser,
   }) => {
@@ -233,12 +237,13 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
           dave.page.getByRole("button", { name: "Edit", exact: true }),
         ).not.toBeVisible();
 
-        // Direct API: PUT returns 404 for non-editor (defence-in-depth:
-        // don't leak existence of dashboards the caller can't edit).
+        // Direct API: an explicit viewer-share write returns 403 — "may view,
+        // not write" — aligned with the global-reader 403 (#1056). (Non-sharees
+        // still get 404 to avoid leaking existence.)
         const putRes = await dave.page.request.put(`/api/dashboards/${id}`, {
           data: { name: "Hijacked" },
         });
-        expect(putRes.status()).toBe(404);
+        expect(putRes.status()).toBe(403);
       } finally {
         await dave.close();
       }

@@ -7,6 +7,7 @@ import {
   useAssignDashboard,
   useRemoveDashboardShare,
 } from "@/hooks/use-dashboards";
+import { isEditorShareNoOp } from "@/lib/dashboard/share-role";
 import {
   Button,
   Input,
@@ -29,7 +30,11 @@ interface DashboardAssignPanelProps {
   readonly onTogglePublic: (value: boolean) => void;
 }
 
-export function DashboardAssignPanel({ dashboardId, isPublic, onTogglePublic }: Readonly<DashboardAssignPanelProps>) {
+export function DashboardAssignPanel({
+  dashboardId,
+  isPublic,
+  onTogglePublic,
+}: Readonly<DashboardAssignPanelProps>) {
   const { data: shares, isLoading } = useDashboardShares(dashboardId);
   const assign = useAssignDashboard(dashboardId);
   const removeShare = useRemoveDashboardShare(dashboardId);
@@ -55,7 +60,9 @@ export function DashboardAssignPanel({ dashboardId, isPublic, onTogglePublic }: 
         <h3 className="text-sm font-semibold">Access</h3>
         <div className="mt-3 flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label htmlFor="public-toggle" className="text-sm">Public access</Label>
+            <Label htmlFor="public-toggle" className="text-sm">
+              Public access
+            </Label>
             <p className="text-xs text-muted-foreground">
               Anyone in the organization can view this dashboard
             </p>
@@ -134,32 +141,59 @@ export function DashboardAssignPanel({ dashboardId, isPublic, onTogglePublic }: 
         {shares?.map((share) => (
           <div
             key={share.id}
-            className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+            className="space-y-1 rounded border px-3 py-2 text-sm"
           >
-            <div>
-              <span className="font-medium">
-                {share.userName ?? share.userEmail}
-              </span>
-              {share.userName && (
-                <span className="ml-1 text-xs text-muted-foreground">
-                  ({share.userEmail})
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <span className="font-medium">
+                  {share.userName ?? share.userEmail}
                 </span>
-              )}
+                {share.userName && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    ({share.userEmail})
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {/* Inline role change reuses the assign upsert (#1056). */}
+                <Select
+                  value={share.role}
+                  onValueChange={(v) => {
+                    if (share.userEmail) {
+                      assign.mutate({
+                        email: share.userEmail,
+                        role: v as "viewer" | "editor",
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    className="h-7 w-24 text-xs"
+                    aria-label={`Role for ${share.userEmail}`}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive hover:text-destructive"
+                  onClick={() => removeShare.mutate(share.id)}
+                  aria-label={`Remove ${share.userEmail}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs capitalize text-muted-foreground">
-                {share.role}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-destructive hover:text-destructive"
-                onClick={() => removeShare.mutate(share.id)}
-                aria-label={`Remove ${share.userEmail}`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            {isEditorShareNoOp(share.userRole, share.role) && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                Editor has no effect — this user’s Reader role blocks writes.
+              </p>
+            )}
           </div>
         ))}
       </div>
