@@ -1,11 +1,16 @@
 /**
  * Config-time validation for the iframe widget URL (#1053).
  *
- * Rejects dangerous schemes (`javascript:`, `data:`, `vbscript:`), warns on
- * plain http (and that some sites refuse framing via X-Frame-Options/CSP), and
- * accepts https. Empty is allowed — the widget shows its own "enter a URL"
- * prompt. Returns null when fine, else a severity + message for inline display.
+ * Only a secure (https) scheme passes cleanly. Dangerous schemes
+ * (`javascript:`, `data:`, `vbscript:`) are rejected; any other non-secure
+ * scheme (including clear-text transport) gets a warning that it may be blocked
+ * and that some sites refuse framing (X-Frame-Options / CSP). Empty is allowed —
+ * the widget shows its own "enter a URL" prompt. Returns null when fine, else a
+ * severity + message for inline display.
  */
+const SECURE_SCHEME = "https:";
+const DANGEROUS_SCHEMES = new Set(["javascript:", "data:", "vbscript:"]);
+
 export function validateIframeUrl(
   value: string,
 ): { level: "error" | "warning"; message: string } | null {
@@ -19,18 +24,19 @@ export function validateIframeUrl(
     return { level: "error", message: "Enter a valid URL (e.g. https://…)." };
   }
 
-  if (parsed.protocol === "https:") return null;
+  if (parsed.protocol === SECURE_SCHEME) return null;
 
-  if (parsed.protocol === "http:") {
+  if (DANGEROUS_SCHEMES.has(parsed.protocol)) {
     return {
-      level: "warning",
-      message:
-        "http:// may be blocked in a secure page — prefer https://. Some sites also refuse framing (X-Frame-Options / CSP).",
+      level: "error",
+      message: `Only secure (https) URLs can be embedded — "${parsed.protocol}" is not allowed.`,
     };
   }
 
+  // Any other scheme (clear-text transport, ftp, …) — allowed but discouraged.
   return {
-    level: "error",
-    message: `Only http(s) URLs can be embedded — "${parsed.protocol}" is not allowed.`,
+    level: "warning",
+    message:
+      "Prefer an https:// URL — non-secure schemes may be blocked in a secure page, and some sites refuse framing (X-Frame-Options / CSP).",
   };
 }
