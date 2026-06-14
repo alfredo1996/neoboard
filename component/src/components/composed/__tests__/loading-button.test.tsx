@@ -8,6 +8,15 @@ describe("LoadingButton", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
 
+  it("defaults to the primary (default) variant, not a muted one (#1059)", () => {
+    // Settings "Save" uses LoadingButton with no variant — it must read as a
+    // primary action (bg-primary), not secondary/muted.
+    render(<LoadingButton>Save</LoadingButton>);
+    const btn = screen.getByRole("button", { name: "Save" });
+    expect(btn.className).toContain("bg-primary");
+    expect(btn.className).not.toContain("bg-secondary");
+  });
+
   it("shows spinner when loading", () => {
     const { container } = render(<LoadingButton loading>Submit</LoadingButton>);
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
@@ -17,7 +26,7 @@ describe("LoadingButton", () => {
     render(
       <LoadingButton loading loadingText="Saving...">
         Submit
-      </LoadingButton>
+      </LoadingButton>,
     );
     expect(screen.getByText("Saving...")).toBeInTheDocument();
     expect(screen.queryByText("Submit")).not.toBeInTheDocument();

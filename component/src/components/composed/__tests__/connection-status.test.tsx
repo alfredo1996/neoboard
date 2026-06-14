@@ -9,6 +9,13 @@ describe("ConnectionStatus", () => {
     expect(screen.getByText("Connected")).toBeInTheDocument();
   });
 
+  it("exposes a status role so AT announces connection state (#1059)", () => {
+    render(<ConnectionStatus status="connected" />);
+    const badge = screen.getByRole("status");
+    expect(badge).toHaveTextContent("Connected");
+    expect(badge).toHaveAttribute("aria-label", "Connection status: Connected");
+  });
+
   it("renders disconnected status", () => {
     render(<ConnectionStatus status="disconnected" />);
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
