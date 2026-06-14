@@ -267,6 +267,26 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 403 (not 404) for a viewer-share write — may view, not write (#1056)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const sharedDashboard = { ...OWNER_DASHBOARD, userId: "user-1" };
+    const viewerShare = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "viewer",
+    };
+    // canAccess(editor): dashboard + viewer share → null (needs editor).
+    // canAccess(viewer): dashboard + viewer share → access → 403.
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
+      .mockReturnValueOnce(makeSelectChain([viewerShare]))
+      .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
+      .mockReturnValueOnce(makeSelectChain([viewerShare]));
+    const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
+    expect(res.status).toBe(403);
+  });
+
   it("updates dashboard and returns 200", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
@@ -316,8 +336,13 @@ describe("PUT /api/dashboards/[id]", () => {
   it("returns 404 when public dashboard is edited by non-owner", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
     const publicDashboard = { ...OWNER_DASHBOARD, isPublic: true };
-    // canAccess with "editor" required: dashboard found, no share -> public only grants viewer
+    // canAccess("editor"): dashboard found, no share → public only grants
+    // viewer → null. Then the viewer fallback runs with allowPublic=false,
+    // so a public-but-unshared dashboard still resolves to null → 404 (we
+    // don't surface per-dashboard writability for public dashboards) (#1056).
     mockDb.select
+      .mockReturnValueOnce(makeSelectChain([publicDashboard]))
+      .mockReturnValueOnce(makeSelectChain([]))
       .mockReturnValueOnce(makeSelectChain([publicDashboard]))
       .mockReturnValueOnce(makeSelectChain([]));
     const res = await PUT(makeRequest({ name: "Hacked" }), makeParams("d1"));

@@ -62,6 +62,8 @@ export interface DashboardShareItem {
   createdAt: string;
   userName: string | null;
   userEmail: string | null;
+  /** The sharee's global role; an Editor share is a no-op for a reader (#1056). */
+  userRole: "admin" | "creator" | "reader";
 }
 
 export function useDashboards(limit = 100, offset = 0) {

@@ -65,6 +65,9 @@ export async function GET(
         createdAt: dashboardShares.createdAt,
         userName: users.name,
         userEmail: users.email,
+        // The sharee's global role — an Editor share is a no-op for a reader,
+        // so the UI annotates it (#1056).
+        userRole: users.role,
       })
       .from(dashboardShares)
       .innerJoin(users, eq(dashboardShares.userId, users.id))

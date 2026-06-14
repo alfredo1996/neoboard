@@ -73,6 +73,7 @@ async function canAccess(
   tenantId: string,
   userRole: UserRole,
   requiredRole: "viewer" | "editor" | "owner",
+  allowPublic = true,
 ): Promise<{
   dashboard: typeof dashboards.$inferSelect;
   role: DashboardAccessRole;
@@ -84,6 +85,7 @@ async function canAccess(
     tenantId,
     userRole,
     required: requiredRole,
+    allowPublic,
   });
 }
 
@@ -137,7 +139,19 @@ export async function PUT(
 
     const access = await canAccess(id, userId, tenantId, userRole, "editor");
     if (!access) {
-      return notFound();
+      // A user with an explicit VIEWER share gets 403 ("may view, not write"),
+      // consistent with the global-reader 403 above — not 404. Exclude public
+      // access (allowPublic=false) so a public-but-unshared dashboard still
+      // returns 404 and we don't leak per-dashboard writability (#1056).
+      const viewAccess = await canAccess(
+        id,
+        userId,
+        tenantId,
+        userRole,
+        "viewer",
+        false,
+      );
+      return viewAccess ? forbidden() : notFound();
     }
 
     const body = await request.json();
