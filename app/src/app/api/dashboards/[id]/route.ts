@@ -48,24 +48,34 @@ const dashboardSettingsSchema = z.object({
   refreshIntervalSeconds: z.number().min(5).optional(),
 });
 
-/** Each thumbnail must be a data-URI under 50 KB. */
-const thumbnailValueSchema = z.string().startsWith("data:image/").max(50_000);
-
-const updateDashboardSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  layoutJson: z
-    .object({
-      version: z.literal(2),
-      pages: z.array(pageSchema).min(1),
-      settings: dashboardSettingsSchema.optional(),
-    })
-    .optional(),
-  isPublic: z.boolean().optional(),
-  thumbnailJson: z.record(thumbnailValueSchema).optional(),
-  /** Optimistic lock — must match the server's current version. */
-  expectedVersion: z.number().int().positive().optional(),
-});
+const updateDashboardSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().optional(),
+    layoutJson: z
+      .object({
+        version: z.literal(2),
+        pages: z.array(pageSchema).min(1),
+        settings: dashboardSettingsSchema.optional(),
+      })
+      .optional(),
+    isPublic: z.boolean().optional(),
+    /** Optimistic lock — must match the server's current version. */
+    expectedVersion: z.number().int().positive().optional(),
+  })
+  // Reject unknown keys (e.g. stale thumbnailJson payloads) instead of
+  // silently stripping them into an empty no-op update.
+  .strict()
+  // Require at least one real data field — expectedVersion alone is just the
+  // optimistic-lock guard and has nothing to persist.
+  .refine(
+    (d) =>
+      d.name !== undefined ||
+      d.description !== undefined ||
+      d.layoutJson !== undefined ||
+      d.isPublic !== undefined,
+    { message: "At least one field to update is required" },
+  );
 
 async function canAccess(
   dashboardId: string,
@@ -170,25 +180,16 @@ export async function PUT(
       conditions.push(eq(dashboards.version, expectedVersion));
     }
 
-    // Only increment version on meaningful edits — thumbnails-only or
-    // settings-only saves should not bump version and trigger the
-    // "updated by X" banner in other viewers' browsers.
-    const isMeaningfulEdit =
-      expectedVersion !== undefined ||
-      updateData.layoutJson !== undefined ||
-      updateData.name !== undefined ||
-      updateData.description !== undefined ||
-      updateData.isPublic !== undefined;
-
+    // The schema's .refine() guarantees at least one real data field, so every
+    // accepted update is a meaningful edit — always bump version (which drives
+    // the "updated by X" banner in other viewers' browsers).
     const [updated] = await db
       .update(dashboards)
       .set({
         ...updateData,
         updatedAt: new Date(),
         updatedBy: userId,
-        ...(isMeaningfulEdit
-          ? { version: sql`${dashboards.version} + 1` }
-          : {}),
+        version: sql`${dashboards.version} + 1`,
       })
       .where(and(...conditions))
       .returning();

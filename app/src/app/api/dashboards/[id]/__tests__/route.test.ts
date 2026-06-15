@@ -558,4 +558,39 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
     const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
     expect(res.status).toBe(200);
   });
+
+  it("rejects unknown body keys (e.g. stale thumbnailJson) with 400", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // A stale client sending the removed thumbnailJson field must 400 rather
+    // than silently parsing as an empty update (which would still touch
+    // updatedAt/updatedBy and bump version on a no-op).
+    const res = await PUT(
+      makeRequest({ thumbnailJson: { w1: "data:image/jpeg;base64,AAA" } }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty update body with 400", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const res = await PUT(makeRequest({}), makeParams("d1"));
+    expect(res.status).toBe(400);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expectedVersion-only body (no data fields) with 400", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // expectedVersion is an optimistic-lock guard, not a data field — a body
+    // carrying only the lock has nothing to persist and must not bump version.
+    const res = await PUT(
+      makeRequest({ expectedVersion: 3 }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
 });
