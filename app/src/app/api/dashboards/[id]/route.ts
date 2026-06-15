@@ -48,9 +48,6 @@ const dashboardSettingsSchema = z.object({
   refreshIntervalSeconds: z.number().min(5).optional(),
 });
 
-/** Each thumbnail must be a data-URI under 50 KB. */
-const thumbnailValueSchema = z.string().startsWith("data:image/").max(50_000);
-
 const updateDashboardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -62,7 +59,6 @@ const updateDashboardSchema = z.object({
     })
     .optional(),
   isPublic: z.boolean().optional(),
-  thumbnailJson: z.record(thumbnailValueSchema).optional(),
   /** Optimistic lock — must match the server's current version. */
   expectedVersion: z.number().int().positive().optional(),
 });
@@ -170,9 +166,9 @@ export async function PUT(
       conditions.push(eq(dashboards.version, expectedVersion));
     }
 
-    // Only increment version on meaningful edits — thumbnails-only or
-    // settings-only saves should not bump version and trigger the
-    // "updated by X" banner in other viewers' browsers.
+    // Only increment version on meaningful edits — settings-only saves
+    // should not bump version and trigger the "updated by X" banner in
+    // other viewers' browsers.
     const isMeaningfulEdit =
       expectedVersion !== undefined ||
       updateData.layoutJson !== undefined ||

@@ -7,32 +7,6 @@ import { requireSession } from "@/lib/auth/session";
 import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 
-interface WidgetPreviewItem {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  chartType: string;
-  thumbnailUrl?: string;
-}
-
-function computePreview(
-  layout: DashboardLayoutV2 | null | undefined,
-  thumbnails?: Record<string, string> | null,
-): WidgetPreviewItem[] {
-  if (!layout?.pages?.[0]) return [];
-  const page = layout.pages[0];
-  const typeMap = new Map(page.widgets.map((w) => [w.id, w.chartType]));
-  return page.gridLayout.map((g) => ({
-    x: g.x,
-    y: g.y,
-    w: g.w,
-    h: g.h,
-    chartType: typeMap.get(g.i) ?? "unknown",
-    ...(thumbnails?.[g.i] ? { thumbnailUrl: thumbnails[g.i] } : {}),
-  }));
-}
-
 function countWidgets(layout: DashboardLayoutV2 | null | undefined): number {
   if (!layout?.pages) return 0;
   return layout.pages.reduce((sum, page) => sum + page.widgets.length, 0);
@@ -66,7 +40,6 @@ export async function GET(request: Request) {
           updatedAt: dashboards.updatedAt,
           ownerId: dashboards.userId,
           layoutJson: dashboards.layoutJson,
-          thumbnailJson: dashboards.thumbnailJson,
           updatedByName: users.name,
         })
         .from(dashboards)
@@ -77,11 +50,10 @@ export async function GET(request: Request) {
         .offset(offset);
 
       const mapped = rows.map((d) => {
-        const { layoutJson, thumbnailJson, ...rest } = d;
+        const { layoutJson, ...rest } = d;
         return {
           ...rest,
           role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
-          preview: computePreview(layoutJson, thumbnailJson),
           widgetCount: countWidgets(layoutJson),
         };
       });
@@ -127,7 +99,6 @@ export async function GET(request: Request) {
         ownerId: dashboards.userId,
         shareRole: dashboardShares.role,
         layoutJson: dashboards.layoutJson,
-        thumbnailJson: dashboards.thumbnailJson,
         updatedByName: users.name,
       })
       .from(dashboards)
@@ -146,7 +117,7 @@ export async function GET(request: Request) {
       .offset(offset);
 
     const mapped = rows.map((d) => {
-      const { layoutJson, thumbnailJson, ownerId, shareRole, ...rest } = d;
+      const { layoutJson, ownerId, shareRole, ...rest } = d;
       const dashRole =
         ownerId === userId
           ? ("owner" as const)
@@ -154,7 +125,6 @@ export async function GET(request: Request) {
       return {
         ...rest,
         role: dashRole,
-        preview: computePreview(layoutJson, thumbnailJson),
         widgetCount: countWidgets(layoutJson),
       };
     });

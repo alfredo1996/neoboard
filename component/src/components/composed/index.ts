@@ -67,12 +67,6 @@ export {
   type DashboardGridProps,
   type LayoutItem,
 } from "./dashboard-grid";
-export {
-  DashboardMiniPreview,
-  type DashboardMiniPreviewProps,
-  type MiniPreviewWidget,
-} from "./dashboard-mini-preview";
-
 // Tables & Data
 export { DataGrid, type DataGridProps, type DataGridColumn } from "./data-grid";
 export {
