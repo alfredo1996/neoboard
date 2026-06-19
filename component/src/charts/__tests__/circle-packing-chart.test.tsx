@@ -107,6 +107,20 @@ describe("CirclePackingChart", () => {
     expect(text?.style?.fill).toBe("#000000");
   });
 
+  it("fills depth circles from the citrine palette (no stock ECharts colors)", () => {
+    render(<CirclePackingChart data={hierarchicalData} />);
+    const { renderItem } = mockSetOption.mock.calls[0][0].series[0];
+    // depth 1, no per-node color -> falls back to the citrine depth palette.
+    const vals = [120, 120, 40, 1, 50, "", "Frontend"];
+    const api = { value: (d: number) => vals[d], style: () => ({}) };
+    const group = renderItem(undefined, api) as {
+      children: { type: string; shape?: object; style?: { fill?: string } }[];
+    };
+    const circle = group.children.find((c) => c.type === "circle");
+    expect(circle?.style?.fill).toContain("hsl");
+    expect(circle?.style?.fill).not.toBe("#5470c6");
+  });
+
   it("shows loading state", () => {
     render(<CirclePackingChart data={hierarchicalData} loading />);
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
