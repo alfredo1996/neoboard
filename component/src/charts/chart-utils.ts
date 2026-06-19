@@ -79,6 +79,22 @@ export function formatNumber(
 // ---------------------------------------------------------------------------
 
 /**
+ * Label treatment for text rendered directly ON colored chart fills — treemap
+ * cells, sunburst segments, packed circles. White text with a subtle dark
+ * outline stays legible on BOTH light- and dark-tinted palette fills, in both
+ * themes. This replaces the inconsistent prior approaches (`color: "inherit"`
+ * on treemap/sunburst, a hardcoded `fill: "#fff"` with no outline on
+ * circle-packing) that left white labels unreadable on the light-tinted cells
+ * the palette generates (e.g. light-lavender / light-cyan children).
+ *
+ * Series `label` configs use `textBorderColor` / `textBorderWidth`; custom
+ * zrender text elements use `stroke` / `lineWidth` — same values, two APIs.
+ */
+export const FILL_LABEL_COLOR = "#ffffff";
+export const FILL_LABEL_OUTLINE = "rgba(0, 0, 0, 0.55)";
+export const FILL_LABEL_OUTLINE_WIDTH = 2;
+
+/**
  * Pick black or white text for readability against an arbitrary background
  * color. Accepts `#rgb`, `#rrggbb`, or `rgb()` / `rgba()` strings. Anything
  * unparseable (named colors, CSS variables, gradients, garbage) falls back to
@@ -393,9 +409,13 @@ export function isDark(): boolean {
 /**
  * Build the "No data" option with a theme-aware text color.
  * Falls back to neutral gray when document is unavailable (SSR).
+ *
+ * Matches the exact --muted-foreground hex the registered ECharts themes use
+ * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
+ * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
  */
 function resolveEmptyDataColor(): string {
-  return isDark() ? "#a3a3a3" : "#737373";
+  return isDark() ? "#959ba7" : "#666d7a";
 }
 
 export function buildEmptyDataOption(): EChartsOption {

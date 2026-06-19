@@ -55,6 +55,14 @@ describe("TreemapChart", () => {
     expect(optionsCall.series[0].data).toEqual(sampleData);
   });
 
+  it("labels are white with a dark outline so they read on light- and dark-tinted cells", () => {
+    render(<TreemapChart data={sampleData} />);
+    const { label } = mockSetOption.mock.calls[0][0].series[0];
+    expect(label.color).toBe("#ffffff");
+    expect(label.textBorderColor).toBe("rgba(0, 0, 0, 0.55)");
+    expect(label.textBorderWidth).toBeGreaterThan(0);
+  });
+
   it("shows loading state", () => {
     render(<TreemapChart data={sampleData} loading />);
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
@@ -68,7 +76,9 @@ describe("TreemapChart", () => {
   // --- styling rules ---
 
   it("applies styling rule color to items that match rule", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 150, color: "#ff0000" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 150, color: "#ff0000" },
+    ];
     render(<TreemapChart data={sampleData} stylingRules={stylingRules} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data;
@@ -78,7 +88,9 @@ describe("TreemapChart", () => {
   });
 
   it("does not apply color to items that do not match styling rule", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 150, color: "#ff0000" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 150, color: "#ff0000" },
+    ];
     render(<TreemapChart data={sampleData} stylingRules={stylingRules} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data;
@@ -94,9 +106,17 @@ describe("TreemapChart", () => {
   });
 
   it("accepts paramValues prop without error", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 100, color: "#00ff00" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 100, color: "#00ff00" },
+    ];
     const paramValues = { threshold: 100 };
-    render(<TreemapChart data={sampleData} stylingRules={stylingRules} paramValues={paramValues} />);
+    render(
+      <TreemapChart
+        data={sampleData}
+        stylingRules={stylingRules}
+        paramValues={paramValues}
+      />,
+    );
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
   });
 });

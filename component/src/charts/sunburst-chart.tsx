@@ -7,7 +7,13 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  FILL_LABEL_COLOR,
+  FILL_LABEL_OUTLINE,
+  FILL_LABEL_OUTLINE_WIDTH,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ESunburstChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -106,7 +112,11 @@ function SunburstChart({
           ellipsis: "…",
           width,
           fontSize: withinDepth ? fontSize : 10,
-          color: withinDepth ? "inherit" : "transparent",
+          // White + subtle outline so segment labels read on any fill color;
+          // hidden levels stay fully transparent (no ghost outline).
+          color: withinDepth ? FILL_LABEL_COLOR : "transparent",
+          textBorderColor: FILL_LABEL_OUTLINE,
+          textBorderWidth: withinDepth ? FILL_LABEL_OUTLINE_WIDTH : 0,
         },
       });
     }
@@ -148,6 +158,9 @@ function SunburstChart({
           label: {
             show: !compact,
             fontSize: 11,
+            color: FILL_LABEL_COLOR,
+            textBorderColor: FILL_LABEL_OUTLINE,
+            textBorderWidth: FILL_LABEL_OUTLINE_WIDTH,
           },
           // Hide labels on very thin slivers regardless of level settings
           minAngle: 5,
@@ -158,7 +171,9 @@ function SunburstChart({
                   show: true,
                   fontSize: 12,
                   fontWeight: "bold" as const,
-                  color: "inherit",
+                  color: FILL_LABEL_COLOR,
+                  textBorderColor: FILL_LABEL_OUTLINE,
+                  textBorderWidth: FILL_LABEL_OUTLINE_WIDTH,
                 },
                 itemStyle: {
                   shadowBlur: 4,

@@ -7,7 +7,13 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  FILL_LABEL_COLOR,
+  FILL_LABEL_OUTLINE,
+  FILL_LABEL_OUTLINE_WIDTH,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ETreemapChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -119,11 +125,17 @@ function TreemapChart({
             overflow: "truncate",
             ellipsis: "…",
             formatter: showValues ? "{b}: {c}" : "{b}",
+            // White + subtle outline reads on light- and dark-tinted cells alike.
+            color: FILL_LABEL_COLOR,
+            textBorderColor: FILL_LABEL_OUTLINE,
+            textBorderWidth: FILL_LABEL_OUTLINE_WIDTH,
           },
           upperLabel: {
             show: true,
             height: 22,
-            color: "inherit",
+            color: FILL_LABEL_COLOR,
+            textBorderColor: FILL_LABEL_OUTLINE,
+            textBorderWidth: FILL_LABEL_OUTLINE_WIDTH,
           },
           itemStyle: {
             borderColor: "rgba(128, 128, 128, 0.25)",

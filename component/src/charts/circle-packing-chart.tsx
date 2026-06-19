@@ -8,7 +8,13 @@ import { pack, hierarchy, type HierarchyCircularNode } from "d3-hierarchy";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  FILL_LABEL_COLOR,
+  FILL_LABEL_OUTLINE,
+  FILL_LABEL_OUTLINE_WIDTH,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([CustomChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -167,7 +173,11 @@ function CirclePackingChart({
             text: name,
             x: cx,
             y: cy,
-            fill: "#fff",
+            // White + subtle dark outline reads on light- and dark-tinted
+            // circles alike (custom zrender text uses stroke/lineWidth).
+            fill: FILL_LABEL_COLOR,
+            stroke: FILL_LABEL_OUTLINE,
+            lineWidth: FILL_LABEL_OUTLINE_WIDTH,
             fontSize,
             fontWeight: depth <= 1 ? "bold" : "normal",
             textAlign: "center",
