@@ -8,6 +8,13 @@ describe("Badge", () => {
     expect(screen.getByText("Default")).toHaveClass("bg-primary");
   });
 
+  it("renders the citrine tonal variant as an alpha --ring tint", () => {
+    render(<Badge variant="tonal">Featured</Badge>);
+    const badge = screen.getByText("Featured");
+    expect(badge).toHaveClass("bg-[hsl(var(--ring)/0.14)]");
+    expect(badge).toHaveClass("text-accent-foreground");
+  });
+
   it("renders a success variant as a tonal success tint, not the heavy default", () => {
     render(<Badge variant="success">Connected</Badge>);
     const badge = screen.getByText("Connected");
