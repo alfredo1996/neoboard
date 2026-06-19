@@ -10,7 +10,15 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["default", "secondary", "destructive", "outline"],
+      options: [
+        "default",
+        "tonal",
+        "success",
+        "warning",
+        "secondary",
+        "destructive",
+        "outline",
+      ],
       description: "The visual style variant of the badge",
     },
     children: {
@@ -41,11 +49,21 @@ export const Outline: Story = {
   args: { variant: "outline", children: "Outline" },
 };
 
+export const Success: Story = {
+  args: { variant: "success", children: "Connected" },
+};
+
+export const Warning: Story = {
+  args: { variant: "warning", children: "Connecting" },
+};
+
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-wrap gap-2">
       <Badge>Default</Badge>
       <Badge variant="tonal">Tonal</Badge>
+      <Badge variant="success">Success</Badge>
+      <Badge variant="warning">Warning</Badge>
       <Badge variant="secondary">Secondary</Badge>
       <Badge variant="destructive">Destructive</Badge>
       <Badge variant="outline">Outline</Badge>
