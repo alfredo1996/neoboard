@@ -84,6 +84,21 @@ describe("CirclePackingChart", () => {
     expect(typeof optionsCall.series[0].renderItem).toBe("function");
   });
 
+  it("renders leaf labels as white text with a dark outline", () => {
+    render(<CirclePackingChart data={hierarchicalData} />);
+    const { renderItem } = mockSetOption.mock.calls[0][0].series[0];
+    // [x, y, r, depth, value, color, name] — a leaf big enough to label.
+    const vals = [120, 120, 40, 1, 50, "#5470c6", "React"];
+    const api = { value: (d: number) => vals[d], style: () => ({}) };
+    const group = renderItem(undefined, api) as {
+      children: { type: string; style?: Record<string, unknown> }[];
+    };
+    const text = group.children.find((c) => c.type === "text");
+    expect(text?.style?.fill).toBe("#ffffff");
+    expect(text?.style?.stroke).toBe("rgba(0, 0, 0, 0.55)");
+    expect(text?.style?.lineWidth as number).toBeGreaterThan(0);
+  });
+
   it("shows loading state", () => {
     render(<CirclePackingChart data={hierarchicalData} loading />);
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
