@@ -21,36 +21,19 @@ import {
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { useDarkMode } from "./base-chart";
+import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
 
-/** Light-mode palette — moderate saturation, good contrast on white. */
-const LABEL_COLOR_PALETTE_LIGHT = [
-  "#4E79A7",
-  "#F28E2B",
-  "#E15759",
-  "#76B7B2",
-  "#59A14F",
-  "#EDC948",
-  "#B07AA1",
-  "#FF9DA7",
-  "#9C755F",
-  "#BAB0AC",
-];
-
-/** Dark-mode palette — same hues, boosted lightness for contrast on dark backgrounds. */
-const LABEL_COLOR_PALETTE_DARK = [
-  "#6B9BD2",
-  "#F5A854",
-  "#E8787A",
-  "#8FD0CA",
-  "#74C068",
-  "#F0D86A",
-  "#C99ABF",
-  "#FFB5BD",
-  "#B89278",
-  "#CFC5BF",
-];
+/**
+ * Node-label palettes — the brand citrine ("Citrine") palette, citrine-led and
+ * colorblind-safe, shared with every other chart. Was a generic Tableau-10
+ * palette (off-brand "stock chart" look); aligning it to CITRINE makes the
+ * graph read as part of the same vibrant system. Light/dark variants track
+ * the theme.
+ */
+const LABEL_COLOR_PALETTE_LIGHT = CITRINE_LIGHT;
+const LABEL_COLOR_PALETTE_DARK = CITRINE_DARK;
 
 /**
  * Builds a map of Neo4j label → palette color.
