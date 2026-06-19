@@ -84,19 +84,27 @@ describe("CirclePackingChart", () => {
     expect(typeof optionsCall.series[0].renderItem).toBe("function");
   });
 
-  it("renders leaf labels as white text with a dark outline", () => {
+  function leafText(color: string) {
     render(<CirclePackingChart data={hierarchicalData} />);
     const { renderItem } = mockSetOption.mock.calls[0][0].series[0];
     // [x, y, r, depth, value, color, name] — a leaf big enough to label.
-    const vals = [120, 120, 40, 1, 50, "#5470c6", "React"];
+    const vals = [120, 120, 40, 1, 50, color, "React"];
     const api = { value: (d: number) => vals[d], style: () => ({}) };
     const group = renderItem(undefined, api) as {
       children: { type: string; style?: Record<string, unknown> }[];
     };
-    const text = group.children.find((c) => c.type === "text");
+    return group.children.find((c) => c.type === "text");
+  }
+
+  it("labels dark circles with white text (per-cell contrast, no outline)", () => {
+    const text = leafText("#5470c6"); // dark blue
     expect(text?.style?.fill).toBe("#ffffff");
-    expect(text?.style?.stroke).toBe("rgba(0, 0, 0, 0.55)");
-    expect(text?.style?.lineWidth as number).toBeGreaterThan(0);
+    expect(text?.style?.stroke).toBeUndefined();
+  });
+
+  it("labels light circles with black text (per-cell contrast)", () => {
+    const text = leafText("#91cc75"); // light moss green
+    expect(text?.style?.fill).toBe("#000000");
   });
 
   it("shows loading state", () => {

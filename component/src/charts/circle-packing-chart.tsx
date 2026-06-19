@@ -11,9 +11,7 @@ import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
   resolveItemColor,
-  FILL_LABEL_COLOR,
-  FILL_LABEL_OUTLINE,
-  FILL_LABEL_OUTLINE_WIDTH,
+  contrastTextColor,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -173,11 +171,9 @@ function CirclePackingChart({
             text: name,
             x: cx,
             y: cy,
-            // White + subtle dark outline reads on light- and dark-tinted
-            // circles alike (custom zrender text uses stroke/lineWidth).
-            fill: FILL_LABEL_COLOR,
-            stroke: FILL_LABEL_OUTLINE,
-            lineWidth: FILL_LABEL_OUTLINE_WIDTH,
+            // Per-circle contrast: black on the light moss/mint leaves, white
+            // on the dark blue parents — crisp and readable, no halo.
+            fill: contrastTextColor(String(fillColor)),
             fontSize,
             fontWeight: depth <= 1 ? "bold" : "normal",
             textAlign: "center",

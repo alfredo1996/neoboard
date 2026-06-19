@@ -55,12 +55,12 @@ describe("TreemapChart", () => {
     expect(optionsCall.series[0].data).toEqual(sampleData);
   });
 
-  it("labels are white with a dark outline so they read on light- and dark-tinted cells", () => {
+  it("labels are white with a soft shadow so they read on light- and dark-tinted cells", () => {
     render(<TreemapChart data={sampleData} />);
     const { label } = mockSetOption.mock.calls[0][0].series[0];
     expect(label.color).toBe("#ffffff");
-    expect(label.textBorderColor).toBe("rgba(0, 0, 0, 0.55)");
-    expect(label.textBorderWidth).toBeGreaterThan(0);
+    expect(label.textShadowColor).toBe("rgba(0, 0, 0, 0.55)");
+    expect(label.textShadowBlur).toBeGreaterThan(0);
   });
 
   it("shows loading state", () => {

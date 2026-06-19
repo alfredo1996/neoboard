@@ -79,20 +79,27 @@ export function formatNumber(
 // ---------------------------------------------------------------------------
 
 /**
- * Label treatment for text rendered directly ON colored chart fills — treemap
- * cells, sunburst segments, packed circles. White text with a subtle dark
- * outline stays legible on BOTH light- and dark-tinted palette fills, in both
- * themes. This replaces the inconsistent prior approaches (`color: "inherit"`
- * on treemap/sunburst, a hardcoded `fill: "#fff"` with no outline on
- * circle-packing) that left white labels unreadable on the light-tinted cells
- * the palette generates (e.g. light-lavender / light-cyan children).
+ * Label treatment for white text rendered on colored chart fills (treemap
+ * cells, sunburst segments). A SOFT blurred drop-shadow — not a hard stroke —
+ * keeps the text crisp on saturated/dark cells (where the shadow is invisible)
+ * while lifting it enough to read on the pale child cells the palette generates
+ * (light-lavender / light-cyan). A hard outline haloed every glyph and muddied
+ * the text on dark cells; the shadow is cleaner and less "templated".
  *
- * Series `label` configs use `textBorderColor` / `textBorderWidth`; custom
- * zrender text elements use `stroke` / `lineWidth` — same values, two APIs.
+ * For text whose fill color is known per element (packed circles), prefer
+ * `contrastTextColor` instead — it picks black or white per cell, which beats
+ * a shadow on light fills.
  */
 export const FILL_LABEL_COLOR = "#ffffff";
-export const FILL_LABEL_OUTLINE = "rgba(0, 0, 0, 0.55)";
-export const FILL_LABEL_OUTLINE_WIDTH = 2;
+export const FILL_LABEL_SHADOW = "rgba(0, 0, 0, 0.55)";
+export const FILL_LABEL_SHADOW_BLUR = 4;
+
+/** Spreadable ECharts series-label style for white-on-fill labels. */
+export const fillLabelStyle = {
+  color: FILL_LABEL_COLOR,
+  textShadowColor: FILL_LABEL_SHADOW,
+  textShadowBlur: FILL_LABEL_SHADOW_BLUR,
+} as const;
 
 /**
  * Pick black or white text for readability against an arbitrary background

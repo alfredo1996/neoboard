@@ -10,9 +10,7 @@ import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
   resolveItemColor,
-  FILL_LABEL_COLOR,
-  FILL_LABEL_OUTLINE,
-  FILL_LABEL_OUTLINE_WIDTH,
+  fillLabelStyle,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -125,17 +123,13 @@ function TreemapChart({
             overflow: "truncate",
             ellipsis: "…",
             formatter: showValues ? "{b}: {c}" : "{b}",
-            // White + subtle outline reads on light- and dark-tinted cells alike.
-            color: FILL_LABEL_COLOR,
-            textBorderColor: FILL_LABEL_OUTLINE,
-            textBorderWidth: FILL_LABEL_OUTLINE_WIDTH,
+            // White + soft shadow: crisp on saturated cells, readable on pale ones.
+            ...fillLabelStyle,
           },
           upperLabel: {
             show: true,
             height: 22,
-            color: FILL_LABEL_COLOR,
-            textBorderColor: FILL_LABEL_OUTLINE,
-            textBorderWidth: FILL_LABEL_OUTLINE_WIDTH,
+            ...fillLabelStyle,
           },
           itemStyle: {
             borderColor: "rgba(128, 128, 128, 0.25)",

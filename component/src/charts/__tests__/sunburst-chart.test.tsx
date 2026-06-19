@@ -59,13 +59,13 @@ describe("SunburstChart", () => {
     expect(optionsCall.series[0].type).toBe("sunburst");
   });
 
-  it("uses the white+outline label treatment on the series and emphasis labels", () => {
+  it("uses the white+soft-shadow label treatment on the series and emphasis labels", () => {
     render(<SunburstChart data={sampleData} highlightOnHover />);
     const series = mockSetOption.mock.calls[0][0].series[0];
     expect(series.label.color).toBe("#ffffff");
-    expect(series.label.textBorderColor).toBe("rgba(0, 0, 0, 0.55)");
+    expect(series.label.textShadowColor).toBe("rgba(0, 0, 0, 0.55)");
     expect(series.emphasis.label.color).toBe("#ffffff");
-    expect(series.emphasis.label.textBorderColor).toBe("rgba(0, 0, 0, 0.55)");
+    expect(series.emphasis.label.textShadowColor).toBe("rgba(0, 0, 0, 0.55)");
   });
 
   it("omits the emphasis block when highlightOnHover is disabled", () => {
@@ -90,7 +90,7 @@ describe("SunburstChart", () => {
       (l: { label?: { color?: string } }) => l.label?.color === "transparent",
     );
     expect(hidden).toBeTruthy();
-    expect(hidden.label.textBorderWidth).toBe(0);
+    expect(hidden.label.textShadowBlur).toBe(0);
   });
 
   it("shows loading state", () => {
