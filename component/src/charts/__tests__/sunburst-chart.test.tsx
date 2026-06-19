@@ -22,7 +22,14 @@ vi.mock("echarts/core", () => {
 });
 
 const sampleData = [
-  { name: "Root", value: 100, children: [{ name: "A", value: 40 }, { name: "B", value: 60 }] },
+  {
+    name: "Root",
+    value: 100,
+    children: [
+      { name: "A", value: 40 },
+      { name: "B", value: 60 },
+    ],
+  },
 ];
 
 const flatData = [
@@ -52,6 +59,40 @@ describe("SunburstChart", () => {
     expect(optionsCall.series[0].type).toBe("sunburst");
   });
 
+  it("uses the white+outline label treatment on the series and emphasis labels", () => {
+    render(<SunburstChart data={sampleData} highlightOnHover />);
+    const series = mockSetOption.mock.calls[0][0].series[0];
+    expect(series.label.color).toBe("#ffffff");
+    expect(series.label.textBorderColor).toBe("rgba(0, 0, 0, 0.55)");
+    expect(series.emphasis.label.color).toBe("#ffffff");
+    expect(series.emphasis.label.textBorderColor).toBe("rgba(0, 0, 0, 0.55)");
+  });
+
+  it("omits the emphasis block when highlightOnHover is disabled", () => {
+    render(<SunburstChart data={sampleData} highlightOnHover={false} />);
+    const series = mockSetOption.mock.calls[0][0].series[0];
+    expect(series.emphasis).toEqual({});
+  });
+
+  it("renders levels beyond maxLabelDepth with transparent labels", () => {
+    const deep = [
+      {
+        name: "Root",
+        value: 100,
+        children: [
+          { name: "Mid", value: 100, children: [{ name: "Leaf", value: 100 }] },
+        ],
+      },
+    ];
+    render(<SunburstChart data={deep} maxLabelDepth={1} />);
+    const series = mockSetOption.mock.calls[0][0].series[0];
+    const hidden = series.levels.find(
+      (l: { label?: { color?: string } }) => l.label?.color === "transparent",
+    );
+    expect(hidden).toBeTruthy();
+    expect(hidden.label.textBorderWidth).toBe(0);
+  });
+
   it("shows loading state", () => {
     render(<SunburstChart data={sampleData} loading />);
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
@@ -65,7 +106,9 @@ describe("SunburstChart", () => {
   // --- styling rules ---
 
   it("applies styling rule color to flat items that match rule", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" },
+    ];
     render(<SunburstChart data={flatData} stylingRules={stylingRules} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data;
@@ -75,7 +118,9 @@ describe("SunburstChart", () => {
   });
 
   it("does not apply color when value does not match styling rule", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 50, color: "#ff0000" },
+    ];
     render(<SunburstChart data={flatData} stylingRules={stylingRules} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data;
@@ -91,9 +136,17 @@ describe("SunburstChart", () => {
   });
 
   it("accepts paramValues prop without error", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 30, color: "#00ff00" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 30, color: "#00ff00" },
+    ];
     const paramValues = { threshold: 30 };
-    render(<SunburstChart data={flatData} stylingRules={stylingRules} paramValues={paramValues} />);
+    render(
+      <SunburstChart
+        data={flatData}
+        stylingRules={stylingRules}
+        paramValues={paramValues}
+      />,
+    );
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
   });
 });
