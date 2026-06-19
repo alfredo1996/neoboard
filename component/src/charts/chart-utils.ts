@@ -79,6 +79,29 @@ export function formatNumber(
 // ---------------------------------------------------------------------------
 
 /**
+ * Label treatment for white text rendered on colored chart fills (treemap
+ * cells, sunburst segments). A SOFT blurred drop-shadow — not a hard stroke —
+ * keeps the text crisp on saturated/dark cells (where the shadow is invisible)
+ * while lifting it enough to read on the pale child cells the palette generates
+ * (light-lavender / light-cyan). A hard outline haloed every glyph and muddied
+ * the text on dark cells; the shadow is cleaner and less "templated".
+ *
+ * For text whose fill color is known per element (packed circles), prefer
+ * `contrastTextColor` instead — it picks black or white per cell, which beats
+ * a shadow on light fills.
+ */
+export const FILL_LABEL_COLOR = "#ffffff";
+export const FILL_LABEL_SHADOW = "rgba(0, 0, 0, 0.55)";
+export const FILL_LABEL_SHADOW_BLUR = 4;
+
+/** Spreadable ECharts series-label style for white-on-fill labels. */
+export const fillLabelStyle = {
+  color: FILL_LABEL_COLOR,
+  textShadowColor: FILL_LABEL_SHADOW,
+  textShadowBlur: FILL_LABEL_SHADOW_BLUR,
+} as const;
+
+/**
  * Pick black or white text for readability against an arbitrary background
  * color. Accepts `#rgb`, `#rrggbb`, or `rgb()` / `rgba()` strings. Anything
  * unparseable (named colors, CSS variables, gradients, garbage) falls back to
@@ -393,9 +416,13 @@ export function isDark(): boolean {
 /**
  * Build the "No data" option with a theme-aware text color.
  * Falls back to neutral gray when document is unavailable (SSR).
+ *
+ * Matches the exact --muted-foreground hex the registered ECharts themes use
+ * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
+ * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
  */
 function resolveEmptyDataColor(): string {
-  return isDark() ? "#a3a3a3" : "#737373";
+  return isDark() ? "#959ba7" : "#666d7a";
 }
 
 export function buildEmptyDataOption(): EChartsOption {

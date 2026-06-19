@@ -8,7 +8,11 @@ import { pack, hierarchy, type HierarchyCircularNode } from "d3-hierarchy";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  contrastTextColor,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([CustomChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -167,7 +171,9 @@ function CirclePackingChart({
             text: name,
             x: cx,
             y: cy,
-            fill: "#fff",
+            // Per-circle contrast: black on the light moss/mint leaves, white
+            // on the dark blue parents — crisp and readable, no halo.
+            fill: contrastTextColor(String(fillColor)),
             fontSize,
             fontWeight: depth <= 1 ? "bold" : "normal",
             textAlign: "center",
