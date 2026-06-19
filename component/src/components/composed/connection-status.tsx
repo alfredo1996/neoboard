@@ -26,13 +26,19 @@ const statusConfig: Record<
   {
     label: string;
     dotClass: string;
-    variant: "default" | "secondary" | "destructive" | "outline";
+    variant:
+      | "default"
+      | "secondary"
+      | "destructive"
+      | "outline"
+      | "success"
+      | "warning";
   }
 > = {
   connected: {
     label: "Connected",
     dotClass: connectionStatusColors.connected,
-    variant: "default",
+    variant: "success",
   },
   disconnected: {
     label: "Disconnected",
@@ -42,7 +48,7 @@ const statusConfig: Record<
   connecting: {
     label: "Connecting...",
     dotClass: connectionStatusColors.connecting,
-    variant: "outline",
+    variant: "warning",
   },
   error: {
     label: "Error",

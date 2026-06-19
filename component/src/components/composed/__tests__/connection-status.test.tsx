@@ -46,6 +46,20 @@ describe("ConnectionStatus", () => {
     expect(dot).toHaveClass("animate-pulse");
   });
 
+  it("renders connected as a success-tinted chip, not the heavy default pill", () => {
+    render(<ConnectionStatus status="connected" />);
+    const badge = screen.getByText("Connected");
+    expect(badge).toHaveClass("text-[hsl(var(--success))]");
+    expect(badge).not.toHaveClass("bg-primary");
+  });
+
+  it("renders connecting as a warning-tinted chip", () => {
+    render(<ConnectionStatus status="connecting" />);
+    expect(screen.getByText("Connecting...")).toHaveClass(
+      "text-[hsl(var(--warning))]",
+    );
+  });
+
   it("uses destructive variant for error status", () => {
     render(<ConnectionStatus status="error" />);
     const badge =

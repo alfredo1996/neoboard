@@ -24,24 +24,29 @@ describe("SingleValueChart", () => {
     expect(screen.getByText("1,234,567")).toBeInTheDocument();
   });
 
-  it("shows up trend", () => {
+  it("shows up trend with the success token color", () => {
     render(
       <SingleValueChart
         value={100}
         trend={{ direction: "up", label: "+12%" }}
       />,
     );
-    expect(screen.getByText(/\+12%/)).toBeInTheDocument();
+    const trend = screen.getByText(/\+12%/);
+    expect(trend).toBeInTheDocument();
+    // Token-based, not a raw Tailwind green — so it tracks the theme (#1059).
+    expect(trend).toHaveClass("text-[hsl(var(--success))]");
   });
 
-  it("shows down trend", () => {
+  it("shows down trend with the danger token color", () => {
     render(
       <SingleValueChart
         value={80}
         trend={{ direction: "down", label: "-5%" }}
       />,
     );
-    expect(screen.getByText(/-5%/)).toBeInTheDocument();
+    const trend = screen.getByText(/-5%/);
+    expect(trend).toBeInTheDocument();
+    expect(trend).toHaveClass("text-[hsl(var(--danger))]");
   });
 
   it("shows loading state", () => {
