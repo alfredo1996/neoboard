@@ -53,6 +53,18 @@
   --accent-soft: hsl(38 95% 55% / 0.12);
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
+  /* Semantic status colors (#1059 follow-up): readable as text on the page
+     surface AND as the base for low-alpha tonal badge tints. Mid-luminance
+     in light mode; lifted in dark (see .dark). --warning is a deliberately
+     warmer/darker amber than the citrine brand --ring so "warning" and
+     "accent" stay distinct. Danger is a text-legible red, distinct from the
+     heavier --destructive surface color. */
+  --success: 142 64% 32%;
+  --success-foreground: 0 0% 100%;
+  --warning: 33 92% 40%;
+  --warning-foreground: 0 0% 100%;
+  --danger: 0 72% 48%;
+  --danger-foreground: 0 0% 100%;
   --border: 220 13% 91%;
   /* Stronger border for inputs and emphasized dividers. */
   --border-strong: 220 13% 84%;
@@ -113,6 +125,13 @@
   --accent-soft: hsl(38 95% 55% / 0.15);
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
+  /* Lifted luminance so the colors read as text/tints against charcoal. */
+  --success: 142 58% 55%;
+  --success-foreground: 220 13% 9%;
+  --warning: 38 92% 60%;
+  --warning-foreground: 220 13% 9%;
+  --danger: 0 80% 66%;
+  --danger-foreground: 220 13% 9%;
   --border: 220 13% 17%;
   --border-strong: 220 13% 25%;
   --input: 220 13% 25%;

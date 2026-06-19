@@ -9,7 +9,8 @@ export const fieldTypeColors: Record<string, string> = {
   string: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   number: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   date: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  boolean: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  boolean:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   object: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
@@ -44,5 +45,6 @@ export const jsonSyntaxColors = {
 /** Default marker color for the map chart (Leaflet circleMarker). */
 export const MAP_MARKER_DEFAULT_COLOR = "#3b82f6";
 
-/** Success message color token. */
-export const successTextColor = "text-green-600 dark:text-green-400";
+/** Success message color token — sourced from the --success CSS variable so
+ * it tracks the theme (light/dark) from a single source of truth. */
+export const successTextColor = "text-[hsl(var(--success))]";

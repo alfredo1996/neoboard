@@ -175,7 +175,7 @@ function OptionField({
               className={
                 validation.level === "error"
                   ? "text-xs text-destructive"
-                  : "text-xs text-amber-600 dark:text-amber-500"
+                  : "text-xs text-[hsl(var(--warning))]"
               }
             >
               {validation.message}
