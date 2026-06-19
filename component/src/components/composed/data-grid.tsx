@@ -462,7 +462,7 @@ function DataGrid<TData>({
                             // firing.
                             <button
                               type="button"
-                              className="flex h-full w-full items-center rounded-md bg-primary/5 px-4 py-2 text-left text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-soft"
+                              className="flex h-full w-full items-center rounded-md bg-primary/5 px-4 py-2 text-left text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onCellClick({

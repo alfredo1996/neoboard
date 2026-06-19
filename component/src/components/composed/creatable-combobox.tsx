@@ -41,15 +41,19 @@ function CreatableCombobox({
     () =>
       suggestions.filter(
         (s) =>
-          s.toLowerCase().includes(inputValue.toLowerCase()) && s !== inputValue
+          s.toLowerCase().includes(inputValue.toLowerCase()) &&
+          s !== inputValue,
       ),
-    [suggestions, inputValue]
+    [suggestions, inputValue],
   );
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -78,11 +82,12 @@ function CreatableCombobox({
         aria-expanded={open && filtered.length > 0}
         aria-autocomplete="list"
         className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors",
+          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-[color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
           "file:border-0 file:bg-transparent file:text-sm file:font-medium",
           "placeholder:text-muted-foreground",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          "disabled:cursor-not-allowed disabled:opacity-50"
+          "hover:border-[hsl(var(--border-strong))]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:border-[hsl(var(--ring))]",
+          "disabled:cursor-not-allowed disabled:opacity-50",
         )}
         value={inputValue}
         onChange={handleInputChange}
@@ -103,7 +108,7 @@ function CreatableCombobox({
               className={cn(
                 "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
                 "hover:bg-accent hover:text-accent-foreground",
-                suggestion === value && "bg-accent text-accent-foreground"
+                suggestion === value && "bg-accent text-accent-foreground",
               )}
               onMouseDown={(e) => {
                 e.preventDefault();
