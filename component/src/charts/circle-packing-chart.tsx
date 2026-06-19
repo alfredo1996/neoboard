@@ -5,7 +5,7 @@ import { TitleComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { pack, hierarchy, type HierarchyCircularNode } from "d3-hierarchy";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -13,6 +13,7 @@ import {
   resolveItemColor,
   contrastTextColor,
 } from "./chart-utils";
+import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([CustomChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -49,18 +50,8 @@ interface PackedNode {
   color?: string;
 }
 
-/** Default color palette by depth level. */
-const DEPTH_COLORS = [
-  "rgba(100, 140, 200, 0.15)", // root background
-  "#5470c6",
-  "#91cc75",
-  "#fac858",
-  "#ee6666",
-  "#73c0de",
-  "#3ba272",
-  "#fc8452",
-  "#9a60b4",
-];
+/** Faint neutral fill for the (label-less) root circle. */
+const ROOT_FILL = "rgba(140, 140, 140, 0.08)";
 
 function CirclePackingChart({
   data,
@@ -72,8 +63,11 @@ function CirclePackingChart({
 }: CirclePackingChartProps) {
   const { width, height, containerRef } = useContainerSize();
   const measured = width > 0;
+  const dark = useDarkMode();
 
   const options = useMemo((): EChartsOption | undefined => {
+    // Brand citrine palette, indexed by depth (was a stock ECharts palette).
+    const depthColors = dark ? CITRINE_DARK : CITRINE_LIGHT;
     if (!measured) return undefined;
     if (!data.length) return buildEmptyDataOption();
 
@@ -134,10 +128,9 @@ function CirclePackingChart({
       const nodeColor = api.value(5);
       const name = String(api.value(6));
 
+      // depth 1 → first citrine color, depth 2 → second, … (cycling).
       const fillColor =
-        nodeColor ||
-        DEPTH_COLORS[depth] ||
-        DEPTH_COLORS[DEPTH_COLORS.length - 1];
+        nodeColor || depthColors[(Math.max(1, depth) - 1) % depthColors.length];
 
       const group: { type: string; children: unknown[] } = {
         type: "group",
@@ -146,7 +139,7 @@ function CirclePackingChart({
             type: "circle",
             shape: { cx, cy, r },
             style: {
-              fill: depth === 0 ? "rgba(100, 140, 200, 0.08)" : fillColor,
+              fill: depth === 0 ? ROOT_FILL : fillColor,
               stroke: depth === 0 ? "none" : "rgba(255, 255, 255, 0.6)",
               lineWidth: 1,
               opacity: depth === 0 ? 1 : 0.85,
@@ -229,6 +222,7 @@ function CirclePackingChart({
     padding,
     stylingRules,
     paramValues,
+    dark,
   ]);
 
   return (

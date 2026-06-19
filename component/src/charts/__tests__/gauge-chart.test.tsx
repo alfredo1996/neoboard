@@ -59,6 +59,14 @@ describe("GaugeChart", () => {
     expect(optionsCall.series[0].type).toBe("gauge");
   });
 
+  it("defaults the progress arc to the brand citrine accent, not stock blue", () => {
+    render(<GaugeChart data={sampleData} />);
+    const color = mockSetOption.mock.calls[0][0].series[0].progress.itemStyle
+      .color as string;
+    expect(color).not.toBe("#5470c6");
+    expect(color.toLowerCase()).toContain("hsl(38"); // citrine amber
+  });
+
   it("passes min and max to the series", () => {
     render(<GaugeChart data={sampleData} min={10} max={200} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
