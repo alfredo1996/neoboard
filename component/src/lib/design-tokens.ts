@@ -22,19 +22,6 @@ export const connectionStatusColors: Record<string, string> = {
   error: "bg-red-500",
 };
 
-/** Background tints for chart-type cells in the dashboard mini preview. */
-export const chartTypePreviewColors: Record<string, string> = {
-  bar: "bg-blue-400/40",
-  line: "bg-green-400/40",
-  pie: "bg-amber-400/40",
-  "single-value": "bg-purple-400/40",
-  graph: "bg-cyan-400/40",
-  map: "bg-emerald-400/40",
-  table: "bg-slate-400/40",
-  json: "bg-orange-400/40",
-  "parameter-select": "bg-pink-400/40",
-};
-
 /** Syntax-highlight colors for the JSON viewer. */
 export const jsonSyntaxColors = {
   string: "text-green-600 dark:text-green-400",

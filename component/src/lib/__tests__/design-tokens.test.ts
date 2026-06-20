@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   fieldTypeColors,
   connectionStatusColors,
-  chartTypePreviewColors,
   jsonSyntaxColors,
   MAP_MARKER_DEFAULT_COLOR,
   successTextColor,
@@ -11,19 +10,18 @@ import {
 describe("design-tokens", () => {
   it("fieldTypeColors covers all expected types", () => {
     expect(Object.keys(fieldTypeColors)).toEqual(
-      expect.arrayContaining(["string", "number", "date", "boolean", "object"])
+      expect.arrayContaining(["string", "number", "date", "boolean", "object"]),
     );
   });
 
   it("connectionStatusColors covers all states", () => {
     expect(Object.keys(connectionStatusColors)).toEqual(
-      expect.arrayContaining(["connected", "disconnected", "connecting", "error"])
-    );
-  });
-
-  it("chartTypePreviewColors covers core chart types", () => {
-    expect(Object.keys(chartTypePreviewColors)).toEqual(
-      expect.arrayContaining(["bar", "line", "pie", "table", "graph", "map"])
+      expect.arrayContaining([
+        "connected",
+        "disconnected",
+        "connecting",
+        "error",
+      ]),
     );
   });
 
