@@ -11,7 +11,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption } from "./chart-utils";
+import { buildEmptyDataOption, isDark } from "./chart-utils";
 
 echarts.use([
   EMapChart,
@@ -171,10 +171,11 @@ function ChoroplethChart({
               show: true,
               fontSize: 13,
               fontWeight: "bold",
-              color: "#333",
+              color: "inherit",
             },
+            // Keep the region's data color on hover (don't overwrite it with a
+            // off-brand gold) — the border + shadow are the hover affordance.
             itemStyle: {
-              areaColor: "#ffd700",
               shadowBlur: 12,
               shadowOffsetX: 2,
               shadowOffsetY: 2,
@@ -186,7 +187,9 @@ function ChoroplethChart({
           itemStyle: {
             borderColor: "rgba(200, 200, 200, 0.6)",
             borderWidth: 0.5,
-            areaColor: "#eee",
+            // No-data fill — theme-aware (was a hardcoded #eee, glaringly
+            // bright in dark mode).
+            areaColor: isDark() ? "#23262d" : "#eceef1",
           },
           data: normalizedData,
         },
