@@ -57,6 +57,18 @@ describe("DataGrid", () => {
     expect(screen.getByText("No results.")).toBeInTheDocument();
   });
 
+  it("supports a custom empty message", () => {
+    render(
+      <DataGrid
+        columns={columns}
+        data={[]}
+        emptyMessage="No transactions yet"
+      />,
+    );
+    expect(screen.getByText("No transactions yet")).toBeInTheDocument();
+    expect(screen.queryByText("No results.")).not.toBeInTheDocument();
+  });
+
   it("calls onCellClick with column and value when a cell is clicked", async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
