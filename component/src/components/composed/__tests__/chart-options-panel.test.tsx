@@ -3,6 +3,11 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
 import { getChartOptions } from "../chart-options-schema";
 
+// This panel renders every option for a chart type (+ category expansion), a
+// heavy jsdom render that intermittently exceeds the 5s default under parallel
+// CI load — the source of a flaky timeout. Give the whole file headroom.
+vi.setConfig({ testTimeout: 15000 });
+
 // cmdk calls scrollIntoView which jsdom doesn't implement
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
@@ -31,7 +36,7 @@ describe("ChartOptionsPanel", () => {
     expect(screen.getByText("Show Legend")).toBeInTheDocument();
     expect(screen.getByText("Bar Width (px, 0=auto)")).toBeInTheDocument();
     expect(screen.getByText("Show Grid Lines")).toBeInTheDocument();
-  }, 15000);
+  });
 
   it("shows empty message for unknown chart type", () => {
     render(
