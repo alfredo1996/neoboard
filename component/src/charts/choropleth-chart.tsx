@@ -68,6 +68,7 @@ function ChoroplethChart({
   minColor = "#fff7d6",
   maxColor = "#993404",
   showLabels = false,
+  ariaDescription,
   ...rest
 }: ChoroplethChartProps) {
   const [mapRegistered, setMapRegistered] = useState(false);
@@ -206,7 +207,15 @@ function ChoroplethChart({
     showLabels,
   ]);
 
-  return <BaseChart options={options} {...rest} />;
+  return (
+    <BaseChart
+      options={options}
+      ariaDescription={
+        ariaDescription ?? `Choropleth map with ${data.length} regions`
+      }
+      {...rest}
+    />
+  );
 }
 
 export { ChoroplethChart };

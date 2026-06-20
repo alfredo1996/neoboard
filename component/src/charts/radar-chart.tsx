@@ -69,6 +69,7 @@ function RadarChart({
   showValues = false,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: RadarChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -152,7 +153,14 @@ function RadarChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Radar chart comparing ${data.series.length} series across ${data.indicators.length} axes`
+        }
+        {...rest}
+      />
     </div>
   );
 }

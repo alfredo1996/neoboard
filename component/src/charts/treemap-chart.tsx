@@ -60,6 +60,7 @@ function TreemapChart({
   colorSaturation = "medium",
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: TreemapChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -174,7 +175,13 @@ function TreemapChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ?? `Treemap with ${data.length} top-level items`
+        }
+        {...rest}
+      />
     </div>
   );
 }

@@ -54,6 +54,7 @@ function SunburstChart({
   highlightOnHover = true,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: SunburstChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -196,7 +197,14 @@ function SunburstChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Sunburst chart with ${data.length} top-level segments`
+        }
+        {...rest}
+      />
     </div>
   );
 }
