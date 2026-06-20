@@ -65,8 +65,8 @@ function ChoroplethChart({
   data,
   roam = true,
   showVisualMap = true,
-  minColor = "#e8f4f8",
-  maxColor = "#08306b",
+  minColor = "#fff7d6",
+  maxColor = "#993404",
   showLabels = false,
   ...rest
 }: ChoroplethChartProps) {
@@ -139,7 +139,9 @@ function ChoroplethChart({
             min: minVal,
             max: maxVal,
             inRange: {
-              color: [minColor, "#a6cee3", "#4292c6", "#2171b5", maxColor],
+              // Warm YlOrBr sequential ramp (citrine-adjacent, colorblind-safe)
+              // — replaces the off-brand ColorBrewer "Blues".
+              color: [minColor, "#fed98e", "#fe9929", "#d95f0e", maxColor],
             },
             textStyle: { color: "inherit", fontSize: 10 },
             itemWidth: 12,
