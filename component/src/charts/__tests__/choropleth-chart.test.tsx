@@ -50,12 +50,16 @@ describe("ChoroplethChart", () => {
 
   it("uses a warm sequential ramp (not the off-brand ColorBrewer blues)", async () => {
     render(<ChoroplethChart data={data} />);
-    // visualMap options only build once the async world map registers.
-    await waitFor(() => expect(lastOptionWith("visualMap")).toBeDefined());
+    // visualMap options only build after the async world.geo.json import +
+    // registration resolves — a large dynamic import that can exceed waitFor's
+    // 1s default under parallel CI load, so give it headroom.
+    await waitFor(() => expect(lastOptionWith("visualMap")).toBeDefined(), {
+      timeout: 10000,
+    });
     const opt = lastOptionWith("visualMap");
     const ramp = opt.visualMap.inRange.color as string[];
     expect(ramp[0]).toBe("#fff7d6"); // pale citrine min default
     expect(ramp[ramp.length - 1]).toBe("#993404"); // deep amber max default
     expect(ramp).not.toContain("#2171b5"); // no stock blue stop
-  });
+  }, 15000);
 });
