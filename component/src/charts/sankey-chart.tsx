@@ -56,6 +56,7 @@ function SankeyChart({
   nodeGap = 8,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: SankeyChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -76,7 +77,11 @@ function SankeyChart({
           data: data.nodes,
           links: stylingRules?.length
             ? data.links.map((link) => {
-                const resolvedColor = resolveItemColor(link.value, stylingRules, paramValues);
+                const resolvedColor = resolveItemColor(
+                  link.value,
+                  stylingRules,
+                  paramValues,
+                );
                 return {
                   ...link,
                   lineStyle: resolvedColor ? { color: resolvedColor } : {},
@@ -99,11 +104,27 @@ function SankeyChart({
         },
       ],
     };
-  }, [data, orient, showLabels, nodeWidth, nodeGap, compact, stylingRules, paramValues]);
+  }, [
+    data,
+    orient,
+    showLabels,
+    nodeWidth,
+    nodeGap,
+    compact,
+    stylingRules,
+    paramValues,
+  ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Sankey diagram with ${data.nodes.length} nodes and ${data.links.length} links`
+        }
+        {...rest}
+      />
     </div>
   );
 }

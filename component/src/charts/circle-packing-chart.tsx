@@ -59,6 +59,7 @@ function CirclePackingChart({
   padding = 3,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: CirclePackingChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -266,7 +267,14 @@ function CirclePackingChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Circle-packing chart with ${data.length} top-level groups`
+        }
+        {...rest}
+      />
     </div>
   );
 }

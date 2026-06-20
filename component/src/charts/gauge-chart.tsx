@@ -64,6 +64,7 @@ function GaugeChart({
   thresholdZones: thresholdZonesJson,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: GaugeChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -205,7 +206,14 @@ function GaugeChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Gauge showing ${data[0]?.value ?? 0} of ${min} to ${max}`
+        }
+        {...rest}
+      />
     </div>
   );
 }

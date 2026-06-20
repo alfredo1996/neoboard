@@ -60,6 +60,7 @@ function PieChart({
   donutCenterText,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: PieChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -187,7 +188,13 @@ function PieChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ?? `Pie chart with ${data.length} segments`
+        }
+        {...rest}
+      />
     </div>
   );
 }

@@ -68,6 +68,7 @@ function GanttChart({
   showGridLines = true,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: GanttChartProps) {
   const options = useMemo((): EChartsOption => {
@@ -323,7 +324,15 @@ function GanttChart({
     paramValues,
   ]);
 
-  return <BaseChart options={options} {...rest} />;
+  return (
+    <BaseChart
+      options={options}
+      ariaDescription={
+        ariaDescription ?? `Gantt chart with ${data.length} tasks`
+      }
+      {...rest}
+    />
+  );
 }
 
 export { GanttChart };
