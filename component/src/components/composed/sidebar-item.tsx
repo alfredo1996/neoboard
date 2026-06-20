@@ -142,7 +142,7 @@ const Wordmark = ({ collapsed = false, className, ...rest }: WordmarkProps) => (
   >
     <span
       aria-hidden
-      className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-[hsl(var(--ring))]"
+      className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-[hsl(var(--brand))]"
     />
     {collapsed ? (
       <span className="font-semibold">N</span>

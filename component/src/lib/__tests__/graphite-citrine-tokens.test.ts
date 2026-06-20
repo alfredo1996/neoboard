@@ -42,9 +42,18 @@ describe("Graphite & Citrine locked palette values (#820)", () => {
     expect(tokenValue(light, "--primary")).toBe("220 13% 9%");
   });
 
-  it("focus ring is the citrine amber accent in both modes", () => {
-    expect(tokenValue(light, "--ring")).toBe("38 95% 55%");
-    expect(tokenValue(dark, "--ring")).toBe("38 95% 55%");
+  it("focus/selection ring is the cool indigo accent (moved off amber)", () => {
+    expect(tokenValue(light, "--ring")).toBe("243 75% 59%");
+    expect(tokenValue(dark, "--ring")).toBe("243 85% 70%");
+  });
+
+  it("brand mark stays the citrine amber in both modes", () => {
+    expect(tokenValue(light, "--brand")).toBe("38 95% 55%");
+    expect(tokenValue(dark, "--brand")).toBe("38 95% 58%");
+  });
+
+  it("chart-1 data color stays citrine (charts keep the warm palette)", () => {
+    expect(tokenValue(light, "--chart-1")).toBe("38 95% 55%");
   });
 });
 
@@ -56,10 +65,10 @@ describe("new token surface (#820)", () => {
     expect(tokenValue(dark, token), `${token} dark`).toBeTruthy();
   });
 
-  it("--accent-soft is a low-alpha citrine tint in both modes", () => {
+  it("--accent-soft is a low-alpha indigo tint in both modes", () => {
     for (const mode of [light, dark]) {
       const v = tokenValue(mode, "--accent-soft");
-      expect(v).toMatch(/^hsl\(38 95% 55% \/ 0\.1\d?\)$/);
+      expect(v).toMatch(/^hsl\(243 \d{2}% \d{2}% \/ 0\.\d+\)$/);
     }
   });
 
