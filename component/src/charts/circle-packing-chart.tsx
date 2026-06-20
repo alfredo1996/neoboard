@@ -5,7 +5,7 @@ import { TitleComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { pack, hierarchy, type HierarchyCircularNode } from "d3-hierarchy";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -13,6 +13,7 @@ import {
   resolveItemColor,
   contrastTextColor,
 } from "./chart-utils";
+import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([CustomChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -49,18 +50,8 @@ interface PackedNode {
   color?: string;
 }
 
-/** Default color palette by depth level. */
-const DEPTH_COLORS = [
-  "rgba(100, 140, 200, 0.15)", // root background
-  "#5470c6",
-  "#91cc75",
-  "#fac858",
-  "#ee6666",
-  "#73c0de",
-  "#3ba272",
-  "#fc8452",
-  "#9a60b4",
-];
+/** Faint neutral fill for the (label-less) root circle. */
+const ROOT_FILL = "rgba(140, 140, 140, 0.08)";
 
 function CirclePackingChart({
   data,
@@ -72,8 +63,11 @@ function CirclePackingChart({
 }: CirclePackingChartProps) {
   const { width, height, containerRef } = useContainerSize();
   const measured = width > 0;
+  const dark = useDarkMode();
 
   const options = useMemo((): EChartsOption | undefined => {
+    // Brand citrine palette, indexed by depth (was a stock ECharts palette).
+    const depthColors = dark ? CITRINE_DARK : CITRINE_LIGHT;
     if (!measured) return undefined;
     if (!data.length) return buildEmptyDataOption();
 
@@ -120,6 +114,10 @@ function CirclePackingChart({
     const offsetX = (width - size) / 2;
     const offsetY = (height - size) / 2;
 
+    // Deepest level = leaf circles. Parent labels are pinned to the top rim so
+    // they don't sit dead-centre under their (centred) child circles.
+    const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
+
     const renderItem = (
       _params: unknown,
       api: {
@@ -133,11 +131,38 @@ function CirclePackingChart({
       const depth = api.value(3);
       const nodeColor = api.value(5);
       const name = String(api.value(6));
+      const kind = api.value(7); // 0 = circle (+leaf label), 1 = parent label
 
+      const fontSize = Math.max(8, Math.min(r / 3, 14));
+
+      // Parent-label pass: a small dark pill pinned to the top rim. Emitted as a
+      // separate, later data entry so it draws ON TOP of every circle — readable
+      // over the fill or any child that packs against the top, never hidden
+      // dead-centre under the (centred) children.
+      if (kind === 1) {
+        return {
+          type: "text",
+          style: {
+            text: name,
+            x: cx,
+            y: cy - r + fontSize,
+            fill: "#ffffff",
+            backgroundColor: "rgba(0, 0, 0, 0.55)",
+            padding: [2, 6] as [number, number],
+            borderRadius: 4,
+            fontSize,
+            fontWeight: "bold",
+            textAlign: "center",
+            textVerticalAlign: "top",
+            overflow: "truncate",
+            width: r * 1.4,
+          },
+        };
+      }
+
+      // depth 1 → first citrine color, depth 2 → second, … (cycling).
       const fillColor =
-        nodeColor ||
-        DEPTH_COLORS[depth] ||
-        DEPTH_COLORS[DEPTH_COLORS.length - 1];
+        nodeColor || depthColors[(Math.max(1, depth) - 1) % depthColors.length];
 
       const group: { type: string; children: unknown[] } = {
         type: "group",
@@ -146,7 +171,7 @@ function CirclePackingChart({
             type: "circle",
             shape: { cx, cy, r },
             style: {
-              fill: depth === 0 ? "rgba(100, 140, 200, 0.08)" : fillColor,
+              fill: depth === 0 ? ROOT_FILL : fillColor,
               stroke: depth === 0 ? "none" : "rgba(255, 255, 255, 0.6)",
               lineWidth: 1,
               opacity: depth === 0 ? 1 : 0.85,
@@ -162,17 +187,15 @@ function CirclePackingChart({
         ],
       };
 
-      // Add label for leaf nodes or nodes with enough radius
-      if (showLabels && r > 18 && depth > 0) {
-        const fontSize = Math.max(8, Math.min(r / 3, 14));
+      // Leaf labels sit centred inside their circle (nothing draws over them);
+      // per-circle contrast text — black on light fills, white on dark.
+      if (showLabels && r > 18 && depth > 0 && depth >= maxDepth) {
         (group.children as unknown[]).push({
           type: "text",
           style: {
             text: name,
             x: cx,
             y: cy,
-            // Per-circle contrast: black on the light moss/mint leaves, white
-            // on the dark blue parents — crisp and readable, no halo.
             fill: contrastTextColor(String(fillColor)),
             fontSize,
             fontWeight: depth <= 1 ? "bold" : "normal",
@@ -187,10 +210,19 @@ function CirclePackingChart({
       return group;
     };
 
-    // Build series data: [x, y, r, depth, value, color, name]
-    const seriesData = nodes.map((n) => ({
-      value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name],
+    // Circle entries first; parent-label entries appended so they render last
+    // (on top of all circles). value: [x, y, r, depth, value, color, name, kind]
+    const circleData = nodes.map((n) => ({
+      value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, 0],
     }));
+    const parentLabelData = showLabels
+      ? nodes
+          .filter((n) => n.depth > 0 && n.depth < maxDepth && n.r > 18)
+          .map((n) => ({
+            value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, 1],
+          }))
+      : [];
+    const seriesData = [...circleData, ...parentLabelData];
 
     return {
       tooltip: {
@@ -229,6 +261,7 @@ function CirclePackingChart({
     padding,
     stylingRules,
     paramValues,
+    dark,
   ]);
 
   return (
