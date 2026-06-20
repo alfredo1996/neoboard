@@ -160,7 +160,8 @@ function PieChart({
                   align: "center",
                   fontSize: 20,
                   fontWeight: "bold",
-                  fill: isDark() ? "#e5e5e5" : "#262626",
+                  // Theme foreground (matches the registered ECharts themes).
+                  fill: isDark() ? "#f3f4f6" : "#14161a",
                 },
               },
             ],

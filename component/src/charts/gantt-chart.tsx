@@ -203,7 +203,9 @@ function GanttChart({
             silent: true,
             symbol: "none",
             lineStyle: {
-              color: "#E74C3C",
+              // Today marker = the design's danger red (was an off-palette
+              // flat-UI red). Hex because canvas can't read CSS vars.
+              color: "#d92d2d",
               type: "dashed" as const,
               width: 1.5,
             },
