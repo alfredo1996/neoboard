@@ -114,6 +114,10 @@ function CirclePackingChart({
     const offsetX = (width - size) / 2;
     const offsetY = (height - size) / 2;
 
+    // Deepest level = leaf circles. Parent labels are pinned to the top rim so
+    // they don't sit dead-centre under their (centred) child circles.
+    const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
+
     const renderItem = (
       _params: unknown,
       api: {
@@ -127,6 +131,34 @@ function CirclePackingChart({
       const depth = api.value(3);
       const nodeColor = api.value(5);
       const name = String(api.value(6));
+      const kind = api.value(7); // 0 = circle (+leaf label), 1 = parent label
+
+      const fontSize = Math.max(8, Math.min(r / 3, 14));
+
+      // Parent-label pass: a small dark pill pinned to the top rim. Emitted as a
+      // separate, later data entry so it draws ON TOP of every circle — readable
+      // over the fill or any child that packs against the top, never hidden
+      // dead-centre under the (centred) children.
+      if (kind === 1) {
+        return {
+          type: "text",
+          style: {
+            text: name,
+            x: cx,
+            y: cy - r + fontSize,
+            fill: "#ffffff",
+            backgroundColor: "rgba(0, 0, 0, 0.55)",
+            padding: [2, 6] as [number, number],
+            borderRadius: 4,
+            fontSize,
+            fontWeight: "bold",
+            textAlign: "center",
+            textVerticalAlign: "top",
+            overflow: "truncate",
+            width: r * 1.4,
+          },
+        };
+      }
 
       // depth 1 → first citrine color, depth 2 → second, … (cycling).
       const fillColor =
@@ -155,17 +187,15 @@ function CirclePackingChart({
         ],
       };
 
-      // Add label for leaf nodes or nodes with enough radius
-      if (showLabels && r > 18 && depth > 0) {
-        const fontSize = Math.max(8, Math.min(r / 3, 14));
+      // Leaf labels sit centred inside their circle (nothing draws over them);
+      // per-circle contrast text — black on light fills, white on dark.
+      if (showLabels && r > 18 && depth > 0 && depth >= maxDepth) {
         (group.children as unknown[]).push({
           type: "text",
           style: {
             text: name,
             x: cx,
             y: cy,
-            // Per-circle contrast: black on the light moss/mint leaves, white
-            // on the dark blue parents — crisp and readable, no halo.
             fill: contrastTextColor(String(fillColor)),
             fontSize,
             fontWeight: depth <= 1 ? "bold" : "normal",
@@ -180,10 +210,19 @@ function CirclePackingChart({
       return group;
     };
 
-    // Build series data: [x, y, r, depth, value, color, name]
-    const seriesData = nodes.map((n) => ({
-      value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name],
+    // Circle entries first; parent-label entries appended so they render last
+    // (on top of all circles). value: [x, y, r, depth, value, color, name, kind]
+    const circleData = nodes.map((n) => ({
+      value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, 0],
     }));
+    const parentLabelData = showLabels
+      ? nodes
+          .filter((n) => n.depth > 0 && n.depth < maxDepth && n.r > 18)
+          .map((n) => ({
+            value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, 1],
+          }))
+      : [];
+    const seriesData = [...circleData, ...parentLabelData];
 
     return {
       tooltip: {
