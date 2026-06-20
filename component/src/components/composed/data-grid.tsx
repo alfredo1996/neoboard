@@ -21,7 +21,7 @@ import type {
   ExpandedState,
   Table,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, ChevronsDownUp } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, Inbox } from "lucide-react";
 import {
   Table as UITable,
   TableBody,
@@ -106,6 +106,8 @@ export interface DataGridProps<TData> {
   initialGrouping?: string[];
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
+  /** Message shown in the empty state (no rows / filtered to none). */
+  emptyMessage?: string;
   className?: string;
 }
 
@@ -129,6 +131,7 @@ function DataGrid<TData>({
   initialGrouping,
   toolbar,
   pagination,
+  emptyMessage = "No results.",
   className,
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -489,12 +492,12 @@ function DataGrid<TData>({
                 );
               })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={allColumns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={allColumns.length} className="h-32">
+                  <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Inbox className="h-8 w-8 opacity-40" aria-hidden />
+                    <span className="text-sm">{emptyMessage}</span>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
