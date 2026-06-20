@@ -4,9 +4,12 @@
  * Single source of truth for CSS custom properties.
  * Imported by app/src/app/globals.css and component/src/index.css.
  *
- * Palette intent: near-black graphite primaries on a cool off-white page,
- * with a warm citrine amber as THE accent — focus rings, active states,
- * chart color 1. Hover/selected fills are warm-tinted, never plain gray.
+ * Palette intent: near-black graphite primaries on a cool off-white page.
+ * UI selection/interaction (focus rings, active/selected, tonal, hover fills)
+ * uses a cool INDIGO accent (--ring/--accent). Warm citrine is the BRAND mark
+ * (--brand, the wordmark) + the chart data palette (--chart-1). Amber is
+ * reserved for --warning. (Selection moved off amber: it collided with the
+ * warning hue and was low-contrast on white.)
  *
  * Elevation: page background < --surface (cards) < --surface-2 (nested).
  * Shadows are warm-tinted (hue 30) rather than pure black — see --shadow-*.
