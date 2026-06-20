@@ -86,9 +86,7 @@ const cases: Array<[string, React.ReactElement, RegExp]> = [
   ],
   [
     "gantt",
-    <GanttChart
-      data={[{ name: "T", start: "2026-01-01", end: "2026-01-02" }]}
-    />,
+    <GanttChart data={[{ task: "T", start: 0, end: 1 }]} />,
     /Gantt chart with 1 tasks/,
   ],
   [
