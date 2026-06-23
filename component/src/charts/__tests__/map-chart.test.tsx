@@ -216,6 +216,74 @@ describe("MapChart", () => {
     expect(mockFitBounds).not.toHaveBeenCalled();
   });
 
+  // --- Pan/zoom preservation on re-render ---
+  // Regression: any parent re-render used to re-run the marker effect (its deps
+  // included the inline onMarkerClick identity and the default fitBoundsPadding
+  // array), which re-called fitBounds and snapped the user's pan/zoom back.
+
+  it("does not re-fit bounds on re-render when markers are unchanged (new click-handler identity)", () => {
+    const markers = [
+      { id: "1", lat: 10, lng: 20 },
+      { id: "2", lat: 30, lng: 40 },
+    ];
+    const { rerender } = render(
+      <MapChart markers={markers} autoFitBounds onMarkerClick={() => {}} />,
+    );
+    expect(mockFitBounds).toHaveBeenCalledTimes(1);
+    mockFitBounds.mockClear();
+    // Re-render with the same markers but a fresh inline handler identity.
+    rerender(
+      <MapChart markers={markers} autoFitBounds onMarkerClick={() => {}} />,
+    );
+    expect(mockFitBounds).not.toHaveBeenCalled();
+  });
+
+  it("does not rebuild markers on re-render when only the click handler identity changes", () => {
+    const markers = [{ id: "1", lat: 10, lng: 20 }];
+    const { rerender } = render(
+      <MapChart markers={markers} onMarkerClick={() => {}} />,
+    );
+    expect(L.circleMarker).toHaveBeenCalledTimes(1);
+    (L.circleMarker as unknown as ReturnType<typeof vi.fn>).mockClear();
+    rerender(<MapChart markers={markers} onMarkerClick={() => {}} />);
+    expect(L.circleMarker).not.toHaveBeenCalled();
+  });
+
+  it("still re-fits bounds when the markers actually change", () => {
+    const markers = [{ id: "1", lat: 10, lng: 20 }];
+    const { rerender } = render(<MapChart markers={markers} autoFitBounds />);
+    expect(mockFitBounds).toHaveBeenCalledTimes(1);
+    mockFitBounds.mockClear();
+    rerender(
+      <MapChart
+        markers={[
+          { id: "1", lat: 10, lng: 20 },
+          { id: "2", lat: 50, lng: 60 },
+        ]}
+        autoFitBounds
+      />,
+    );
+    expect(mockFitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("invokes the latest onMarkerClick after a re-render without rebuilding markers", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const markers = [{ id: "1", lat: 10, lng: 20 }];
+    const { rerender } = render(
+      <MapChart markers={markers} onMarkerClick={first} />,
+    );
+    // Grab the click handler registered on the marker.
+    const clickHandler = mockOn.mock.calls.find(
+      (c) => c[0] === "click",
+    )?.[1] as (() => void) | undefined;
+    expect(clickHandler).toBeDefined();
+    rerender(<MapChart markers={markers} onMarkerClick={second} />);
+    clickHandler?.();
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith(markers[0]);
+  });
+
   // --- New options ---
 
   it("uses markerSize as default radius when marker has no value", () => {

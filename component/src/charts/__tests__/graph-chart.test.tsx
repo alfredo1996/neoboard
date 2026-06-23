@@ -168,6 +168,51 @@ describe("GraphChart", () => {
     expect(nvlNodes[0].caption).toBeUndefined();
   });
 
+  // --- Selection ---
+
+  it("marks nodes in selectedNodeIds as selected on the NVL node", () => {
+    render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        selectedNodeIds={["2"]}
+      />,
+    );
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes.find((n) => n.id === "1")?.selected).toBe(false);
+    expect(nvlNodes.find((n) => n.id === "2")?.selected).toBe(true);
+    expect(nvlNodes.find((n) => n.id === "3")?.selected).toBe(false);
+  });
+
+  it("leaves nodes unselected when selectedNodeIds is omitted", () => {
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes.every((n) => n.selected === false)).toBe(true);
+  });
+
+  it("reflects an updated selectedNodeIds prop on the NVL nodes", () => {
+    const { rerender } = render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        selectedNodeIds={["1"]}
+      />,
+    );
+    expect(
+      (capturedProps.nodes as NvlNode[]).find((n) => n.id === "1")?.selected,
+    ).toBe(true);
+    rerender(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        selectedNodeIds={["3"]}
+      />,
+    );
+    const nvlNodes = capturedProps.nodes as NvlNode[];
+    expect(nvlNodes.find((n) => n.id === "1")?.selected).toBe(false);
+    expect(nvlNodes.find((n) => n.id === "3")?.selected).toBe(true);
+  });
+
   // --- Node color ---
 
   it("passes explicit node color to NVL node", () => {
