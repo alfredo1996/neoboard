@@ -676,7 +676,7 @@ app/
 │   │   │   ├── dashboards/     # Dashboard listing
 │   │   │   ├── connections/    # Connection management
 │   │   │   ├── users/          # User management (admin)
-│   │   │   ├── widget-lab/     # Widget playground
+│   │   │   ├── widget-library/ # Reusable widget templates
 │   │   │   └── settings/       # Profile, API keys
 │   │   └── api/                # API route handlers
 │   │       ├── auth/           # NextAuth + bootstrap
@@ -748,7 +748,7 @@ NeoBoard uses two route groups to separate public and protected pages:
 - `/dashboards` — List all accessible dashboards
 - `/connections` — Manage database connections
 - `/users` — User management (admin only)
-- `/widget-lab` — Interactive widget testing environment
+- `/widget-library` — Reusable widget template library
 - `/settings` — User settings hub
 - `/settings/profile` — Profile (name, email)
 - `/settings/api-keys` — API key management
@@ -1865,7 +1865,7 @@ Two project environments:
 | `connection-advanced.spec.ts`   | Schema fetch, test connection           |
 | `widgets.spec.ts`               | Widget CRUD within dashboard            |
 | `widget-states.spec.ts`         | Widget loading, error, empty states     |
-| `widget-lab.spec.ts`            | Widget playground                       |
+| `widget-library.spec.ts`        | Widget template library                 |
 | `charts.spec.ts`                | Chart rendering (bar, line, pie, etc.)  |
 | `new-charts.spec.ts`            | Newer chart types (gauge, sankey, etc.) |
 | `parameters.spec.ts`            | Parameter widgets, binding              |

@@ -573,7 +573,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Sankey diagram\n\nFlow visualization between two (or more) categorical dimensions. Query must return `source`, `target`, `value` columns.\n\n**Options shown:** `orient: horizontal`, `showLabels: true`."
+                "content": "## Sankey diagram\n\nMulti-hop flow visualization across N categorical dimensions. Query returns `source`, `target`, `value` rows — the chart wires them into a graph automatically, so any chain (continent → region → category → status, etc.) just works.\n\n**Options shown:** `orient: horizontal`, `showLabels: true`."
               }
             }
           },
@@ -581,9 +581,9 @@
             "id": "sankey-chart",
             "chartType": "sankey",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT r.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY r.name, o.status",
+            "query": "SELECT r.continent AS source, r.country AS target, COUNT(*)::float AS value FROM neoboard_demo_public.regions r JOIN neoboard_demo_public.customers c ON c.region_id = r.id JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY r.continent, r.country UNION ALL SELECT r.country AS source, cat.name AS target, COUNT(*)::float AS value FROM neoboard_demo_public.regions r JOIN neoboard_demo_public.customers c ON c.region_id = r.id JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.order_items oi ON oi.order_id = o.id JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories cat ON cat.id = p.category_id GROUP BY r.country, cat.name UNION ALL SELECT cat.name AS source, o.status AS target, COUNT(*)::float AS value FROM neoboard_demo_public.categories cat JOIN neoboard_demo_public.products p ON p.category_id = cat.id JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id GROUP BY cat.name, o.status",
             "settings": {
-              "title": "Region → order status flow",
+              "title": "Continent → Country → Category → Status flow",
               "chartOptions": {
                 "orient": "horizontal",
                 "showLabels": true,
@@ -757,7 +757,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Circle Packing\n\nNested circles showing hierarchical data — similar to treemap but uses area of circles instead of rectangles. Best for **proportional comparisons** across a hierarchy.\n\n**Data shape:** query returns `name` and `value` columns. Hierarchy is built from the data structure.\n\n**Options shown:** `showLabels: true`, `padding: 3`."
+                "content": "## Circle Packing\n\nNested circles showing hierarchical data — similar to treemap but uses area of circles instead of rectangles. Best for **proportional comparisons** across a hierarchy.\n\n**Data shape:** query returns `name`, `value`, and `parent` columns. Rows with empty `parent` become outer circles; rows with a matching parent name nest inside.\n\n**Options shown:** `showLabels: true`, `padding: 3`."
               }
             }
           },
@@ -765,9 +765,9 @@
             "id": "circle-packing-chart",
             "chartType": "circle-packing",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 25",
+            "query": "SELECT cat.name AS name, SUM(oi.qty * oi.price)::float AS value, '' AS parent FROM neoboard_demo_public.categories cat JOIN neoboard_demo_public.products p ON p.category_id = cat.id JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id GROUP BY cat.name UNION ALL SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value, cat.name AS parent FROM neoboard_demo_public.products p JOIN neoboard_demo_public.categories cat ON cat.id = p.category_id JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id GROUP BY p.name, cat.name",
             "settings": {
-              "title": "Top 25 products by revenue",
+              "title": "Revenue by category → product",
               "chartOptions": {
                 "showLabels": true,
                 "padding": 3,

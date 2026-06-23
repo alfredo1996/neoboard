@@ -491,4 +491,75 @@ describe("DataGrid", () => {
       expect(screen.getByLabelText("Filter Name")).toBeInTheDocument();
     });
   });
+
+  // ─── Numeric cell formatting (#910 / #911) ────────────────────────────
+  describe("numeric cell formatting", () => {
+    interface NumRow {
+      label: string;
+      value: number;
+      note: string | null;
+    }
+    const numCols: ColumnDef<NumRow, unknown>[] = [
+      { accessorKey: "label", header: "Label" },
+      { accessorKey: "value", header: "Value" },
+      { accessorKey: "note", header: "Note" },
+    ];
+    const numData: NumRow[] = [
+      { label: "tiny", value: 0.123456789, note: null },
+      { label: "big", value: 1234567.89, note: "see footer" },
+      { label: "round", value: 42, note: null },
+    ];
+
+    it("applies the formatNumber default (comma + 2dp) to numeric cells", () => {
+      const { container } = render(
+        <DataGrid columns={numCols} data={numData} />,
+      );
+      // eslint-disable-next-line no-console
+      console.log("RENDERED2:", container.innerHTML.slice(800, 1800));
+      expect(screen.getByText("0.12")).toBeInTheDocument();
+      expect(screen.getByText("1,234,567.89")).toBeInTheDocument();
+      expect(screen.getByText("42.00")).toBeInTheDocument();
+    });
+
+    it("respects table-level decimalPlaces override", () => {
+      const { container } = render(
+        <DataGrid columns={numCols} data={numData} decimalPlaces={4} />,
+      );
+      // Use container.textContent — getByText is finicky around comma-formatted
+      // long numbers that React may split across text fragments.
+      const text = container.textContent ?? "";
+      expect(text).toContain("0.1235");
+      expect(text).toContain("1,234,567.8900");
+      expect(text).toContain("42.0000");
+    });
+
+    it("respects table-level numberFormat override (compact)", () => {
+      render(
+        <DataGrid columns={numCols} data={numData} numberFormat="compact" />,
+      );
+      // Intl compact: 1.234567.89 → ~1.2M (depending on Intl version)
+      expect(screen.getByText(/1\.2M/)).toBeInTheDocument();
+    });
+
+    it("leaves string + null cells untouched", () => {
+      render(<DataGrid columns={numCols} data={numData} />);
+      expect(screen.getByText("tiny")).toBeInTheDocument();
+      expect(screen.getByText("see footer")).toBeInTheDocument();
+    });
+
+    it("defers to custom cell renderers — does not format if column.cell is set", () => {
+      const custom: ColumnDef<NumRow, unknown>[] = [
+        { accessorKey: "label", header: "Label" },
+        {
+          accessorKey: "value",
+          header: "Value",
+          // Returns the raw number to prove the data-grid did not override.
+          cell: ({ getValue }) => `RAW:${String(getValue())}`,
+        },
+      ];
+      render(<DataGrid columns={custom} data={numData} />);
+      expect(screen.getByText("RAW:0.123456789")).toBeInTheDocument();
+      expect(screen.getByText("RAW:42")).toBeInTheDocument();
+    });
+  });
 });

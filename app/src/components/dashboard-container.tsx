@@ -55,6 +55,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  type WidgetCardAction,
 } from "@neoboard/components";
 
 /** Widget action callbacks — grouped to reduce prop count. */
@@ -69,8 +70,6 @@ export interface WidgetActions {
   ) => void;
   /** Called when a click action navigates to a different page. Optionally scrolls to a widget. */
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
-  /** Called when the user chooses "Save to Widget Lab" for a widget. */
-  onSaveAsTemplate?: (widget: DashboardWidget) => void;
   onSyncWidget?: (widget: DashboardWidget) => void;
   onDetachWidget?: (widgetId: string) => void;
 }
@@ -103,7 +102,6 @@ export function DashboardContainer({
     onDuplicateWidget,
     onLayoutChange,
     onNavigateToPage,
-    onSaveAsTemplate,
     onSyncWidget,
     onDetachWidget,
   } = actions ?? {};
@@ -224,34 +222,34 @@ export function DashboardContainer({
   }
 
   const buildActions = (widget: DashboardWidget) => {
-    const actions = [];
+    const actions: WidgetCardAction[] = [];
 
+    // ── Export (#912) ─────────────────────────────────────────────
+    // Collapse 2+ export formats into a single "Export ▸" submenu so the
+    // dropdown stays scannable. Single-format widgets keep a flat item to
+    // avoid a needless extra click for the common case.
+    const exportChildren: WidgetCardAction[] = [];
     if (isDataWidget(widget.chartType)) {
-      actions.push({
-        label: "Export CSV",
+      exportChildren.push({
+        label: "CSV",
         onClick: () => exportWidgetCsv(widget),
       });
     }
-
     if (getChartConfig(widget.chartType)?.capabilities.isECharts) {
-      actions.push(
-        {
-          label: "Export PNG",
-          onClick: () => exportWidgetPng(widget),
-        },
-        {
-          label: "Export SVG",
-          onClick: () => exportWidgetSvg(widget),
-        },
+      exportChildren.push(
+        { label: "PNG", onClick: () => exportWidgetPng(widget) },
+        { label: "SVG", onClick: () => exportWidgetSvg(widget) },
       );
     }
-
-    if (onSaveAsTemplate) {
-      actions.push({
-        label: "Save to Widget Lab",
-        onClick: () => onSaveAsTemplate(widget),
-      });
+    if (exportChildren.length === 1) {
+      const only = exportChildren[0];
+      actions.push({ label: `Export ${only.label}`, onClick: only.onClick });
+    } else if (exportChildren.length > 1) {
+      actions.push({ label: "Export", children: exportChildren });
     }
+
+    // "Save to Widget Library" (formerly Widget Lab) moved to the widget
+    // editor modal footer per #913. See widget-editor-modal.tsx.
 
     if (!editable) return actions.length > 0 ? actions : undefined;
     if (onEditWidget) {

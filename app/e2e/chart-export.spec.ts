@@ -27,17 +27,19 @@ test.describe("Chart export actions (issue #872)", () => {
     await echartsCard.hover();
     await echartsCard.getByRole("button", { name: "Widget actions" }).click();
 
-    // Both export actions present
-    await expect(
-      page.getByRole("menuitem", { name: "Export PNG" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "Export SVG" }),
-    ).toBeVisible();
+    // #912: Export formats now live inside an "Export ▸" submenu.
+    // Open the submenu via the parent menuitem.
+    const exportTrigger = page.getByRole("menuitem", { name: "Export" });
+    await expect(exportTrigger).toBeVisible();
+    await exportTrigger.hover();
 
-    // Clicking Export PNG triggers a .png download
+    // Both formats render as children of the submenu
+    await expect(page.getByRole("menuitem", { name: "PNG" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "SVG" })).toBeVisible();
+
+    // Clicking PNG triggers a .png download
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("menuitem", { name: "Export PNG" }).click();
+    await page.getByRole("menuitem", { name: "PNG" }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.png$/);
   });

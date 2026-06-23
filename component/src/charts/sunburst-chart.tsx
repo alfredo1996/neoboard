@@ -105,10 +105,11 @@ function SunburstChart({
       levels.push({
         ...(i === 1 ? { itemStyle: { borderWidth: 2 } } : {}),
         label: {
-          // When showLabels is off, hide everything.
-          // Otherwise, keep labels present but use transparent color for
-          // hidden levels so emphasis can reveal them on hover.
-          show: showLabels && !compact,
+          // Hide labels outside the visible depth band. emphasis.label.show
+          // is true (see below), so hovering reveals them on demand. Text
+          // color is intentionally omitted — theme.ts provides it via the
+          // global textStyle.color (light/dark aware).
+          show: showLabels && !compact && withinDepth,
           rotate: rotation,
           overflow: "truncate",
           ellipsis: "…",

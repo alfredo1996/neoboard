@@ -15,12 +15,20 @@ describe("WidgetCard", () => {
   });
 
   it("renders subtitle", () => {
-    render(<WidgetCard title="Sales" subtitle="Last 30 days">Content</WidgetCard>);
+    render(
+      <WidgetCard title="Sales" subtitle="Last 30 days">
+        Content
+      </WidgetCard>,
+    );
     expect(screen.getByText("Last 30 days")).toBeInTheDocument();
   });
 
   it("shows drag handle when draggable", () => {
-    render(<WidgetCard draggable title="Sales">Content</WidgetCard>);
+    render(
+      <WidgetCard draggable title="Sales">
+        Content
+      </WidgetCard>,
+    );
     expect(screen.getByText("Drag to reorder")).toBeInTheDocument();
   });
 
@@ -35,8 +43,14 @@ describe("WidgetCard", () => {
       { label: "Edit", onClick: vi.fn() },
       { label: "Delete", onClick: vi.fn(), destructive: true },
     ];
-    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
-    expect(screen.getByRole("button", { name: "Widget actions" })).toBeInTheDocument();
+    render(
+      <WidgetCard title="Sales" actions={actions}>
+        Content
+      </WidgetCard>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Widget actions" }),
+    ).toBeInTheDocument();
   });
 
   it("calls onDragHandleMouseDown when drag handle is pressed", () => {
@@ -44,7 +58,7 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard draggable title="Sales" onDragHandleMouseDown={onMouseDown}>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     fireEvent.mouseDown(screen.getByText("Drag to reorder").closest("button")!);
     expect(onMouseDown).toHaveBeenCalledOnce();
@@ -57,7 +71,9 @@ describe("WidgetCard", () => {
   });
 
   it("applies custom className", () => {
-    const { container } = render(<WidgetCard className="my-widget">Content</WidgetCard>);
+    const { container } = render(
+      <WidgetCard className="my-widget">Content</WidgetCard>,
+    );
     expect(container.firstChild).toHaveClass("my-widget");
   });
 
@@ -65,7 +81,7 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard title="Sales" headerExtra={<button>Fullscreen</button>}>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     expect(screen.getByText("Fullscreen")).toBeInTheDocument();
   });
@@ -74,7 +90,7 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard headerExtra={<span data-testid="extra">Extra</span>}>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     expect(screen.getByTestId("extra")).toBeInTheDocument();
   });
@@ -88,10 +104,12 @@ describe("WidgetCard", () => {
         headerExtra={<button>Expand</button>}
       >
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     expect(screen.getByText("Expand")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Widget actions" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Widget actions" }),
+    ).toBeInTheDocument();
   });
 
   // ── disabled action ───────────────────────────────────────────────────────
@@ -101,7 +119,11 @@ describe("WidgetCard", () => {
     const actions = [
       { label: "Save to Lab", onClick: vi.fn(), disabled: true },
     ];
-    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    render(
+      <WidgetCard title="Sales" actions={actions}>
+        Content
+      </WidgetCard>,
+    );
     await user.click(screen.getByRole("button", { name: "Widget actions" }));
     const item = screen.getByRole("menuitem", { name: "Save to Lab" });
     expect(item).toBeInTheDocument();
@@ -112,7 +134,11 @@ describe("WidgetCard", () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     const actions = [{ label: "Save to Lab", onClick, disabled: true }];
-    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    render(
+      <WidgetCard title="Sales" actions={actions}>
+        Content
+      </WidgetCard>,
+    );
     await user.click(screen.getByRole("button", { name: "Widget actions" }));
     const item = screen.getByRole("menuitem", { name: "Save to Lab" });
     await user.click(item);
@@ -122,7 +148,11 @@ describe("WidgetCard", () => {
   it("applies opacity and cursor-not-allowed class to disabled action", async () => {
     const user = userEvent.setup();
     const actions = [{ label: "Locked", onClick: vi.fn(), disabled: true }];
-    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    render(
+      <WidgetCard title="Sales" actions={actions}>
+        Content
+      </WidgetCard>,
+    );
     await user.click(screen.getByRole("button", { name: "Widget actions" }));
     const item = screen.getByRole("menuitem", { name: "Locked" });
     expect(item.className).toContain("opacity-50");
@@ -133,7 +163,11 @@ describe("WidgetCard", () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     const actions = [{ label: "Edit", onClick }];
-    render(<WidgetCard title="Sales" actions={actions}>Content</WidgetCard>);
+    render(
+      <WidgetCard title="Sales" actions={actions}>
+        Content
+      </WidgetCard>,
+    );
     await user.click(screen.getByRole("button", { name: "Widget actions" }));
     await user.click(screen.getByRole("menuitem", { name: "Edit" }));
     expect(onClick).toHaveBeenCalledOnce();
@@ -145,14 +179,16 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard title="Sales" onRefresh={() => {}}>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
   });
 
   it("does not render a refresh button when onRefresh is not provided", () => {
     render(<WidgetCard title="Sales">Content</WidgetCard>);
-    expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Refresh" }),
+    ).not.toBeInTheDocument();
   });
 
   it("calls onRefresh when the refresh button is clicked", async () => {
@@ -161,7 +197,7 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard title="Sales" onRefresh={onRefresh}>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     expect(onRefresh).toHaveBeenCalledOnce();
@@ -171,7 +207,7 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard title="Sales" onRefresh={() => {}} refreshDisabled>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     const btn = screen.getByRole("button", { name: "Refresh" });
     expect(btn).toBeDisabled();
@@ -181,7 +217,7 @@ describe("WidgetCard", () => {
     render(
       <WidgetCard title="Sales" onRefresh={() => {}}>
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     const btn = screen.getByRole("button", { name: "Refresh" });
     expect(btn).not.toBeDisabled();
@@ -195,9 +231,83 @@ describe("WidgetCard", () => {
         headerExtra={<button>Fullscreen</button>}
       >
         Content
-      </WidgetCard>
+      </WidgetCard>,
     );
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
     expect(screen.getByText("Fullscreen")).toBeInTheDocument();
+  });
+
+  // ── Submenu support (#912) ─────────────────────────────────────────────
+  describe("submenu actions", () => {
+    it("renders a submenu trigger when an action has children", async () => {
+      const user = userEvent.setup();
+      const actions = [
+        {
+          label: "Export",
+          children: [
+            { label: "CSV", onClick: vi.fn() },
+            { label: "PNG", onClick: vi.fn() },
+          ],
+        },
+        { label: "Edit", onClick: vi.fn() },
+      ];
+      render(
+        <WidgetCard title="Sales" actions={actions}>
+          Content
+        </WidgetCard>,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Widget actions" }));
+      // The submenu trigger renders as a menuitem labelled "Export"
+      const exportTrigger = await screen.findByRole("menuitem", {
+        name: /Export/,
+      });
+      expect(exportTrigger).toBeInTheDocument();
+      expect(
+        screen.getByRole("menuitem", { name: "Edit" }),
+      ).toBeInTheDocument();
+    });
+
+    it("fires child onClick when a submenu item is keyboard-activated", async () => {
+      const onCsv = vi.fn();
+      const user = userEvent.setup();
+      const actions = [
+        {
+          label: "Export",
+          children: [{ label: "CSV", onClick: onCsv }],
+        },
+      ];
+      render(
+        <WidgetCard title="Sales" actions={actions}>
+          Content
+        </WidgetCard>,
+      );
+      await user.click(screen.getByRole("button", { name: "Widget actions" }));
+      // Radix submenus open on ArrowRight from the trigger and don't reliably
+      // respond to .click() in jsdom (no hover/pointer events). Use keyboard
+      // traversal which matches the documented keyboard-nav contract.
+      const trigger = await screen.findByRole("menuitem", { name: /Export/ });
+      trigger.focus();
+      await user.keyboard("{ArrowRight}");
+      await user.keyboard("{Enter}");
+      expect(onCsv).toHaveBeenCalledOnce();
+    });
+
+    it("renders a flat menu item (not a submenu trigger) when action has no children", async () => {
+      const user = userEvent.setup();
+      const onClick = vi.fn();
+      const actions = [{ label: "Edit", onClick }];
+      render(
+        <WidgetCard title="Sales" actions={actions}>
+          Content
+        </WidgetCard>,
+      );
+      await user.click(screen.getByRole("button", { name: "Widget actions" }));
+      const item = await screen.findByRole("menuitem", { name: "Edit" });
+      // SubTrigger items get aria-haspopup="menu"; flat MenuItem doesn't.
+      expect(item.getAttribute("aria-haspopup")).toBeNull();
+      await user.click(item);
+      expect(onClick).toHaveBeenCalledOnce();
+    });
   });
 });

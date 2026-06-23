@@ -144,7 +144,7 @@ function ChoroplethChart({
               // — replaces the off-brand ColorBrewer "Blues".
               color: [minColor, "#fed98e", "#fe9929", "#d95f0e", maxColor],
             },
-            textStyle: { color: "inherit", fontSize: 10 },
+            textStyle: { fontSize: 10 },
             itemWidth: 12,
             itemHeight: 12,
             itemGap: 4,
@@ -165,14 +165,12 @@ function ChoroplethChart({
           label: {
             show: showLabels,
             fontSize: 9,
-            color: "inherit",
           },
           emphasis: {
             label: {
               show: true,
               fontSize: 13,
               fontWeight: "bold",
-              color: "inherit",
             },
             // Keep the region's data color on hover (don't overwrite it with a
             // off-brand gold) — the border + shadow are the hover affordance.

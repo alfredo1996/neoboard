@@ -37,28 +37,38 @@ async function addBarWidgetToDashboard(page: import("@playwright/test").Page) {
 // Suite
 // ---------------------------------------------------------------------------
 
-test.describe("Widget Lab", () => {
+test.describe("Widget Library", () => {
   test.beforeEach(async ({ authPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
   // ── Sidebar navigation ──────────────────────────────────────────────
 
-  test("sidebar has Widget Lab item that navigates to /widget-lab", async ({
+  test("sidebar has Widget Library item that navigates to /widget-library", async ({
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Widget Lab" }).click();
-    await expect(page).toHaveURL("/widget-lab");
+    await page.getByRole("button", { name: "Widget Library" }).click();
+    await expect(page).toHaveURL("/widget-library");
     await expect(
-      page.getByRole("heading", { name: "Widget Lab" }),
+      page.getByRole("heading", { name: "Widget Library" }),
     ).toBeVisible();
   });
 
-  test("Widget Lab page shows empty state when no templates exist", async ({
+  test("legacy /widget-lab URL redirects to /widget-library (#914)", async ({
     page,
   }) => {
+    // Next.js permanent redirect from /widget-lab → /widget-library.
+    // Playwright follows the redirect automatically; landing on the new path
+    // is enough proof the redirects() entry in next.config.ts is wired.
     await page.goto("/widget-lab");
+    await expect(page).toHaveURL("/widget-library");
+  });
+
+  test("Widget Library page shows empty state when no templates exist", async ({
+    page,
+  }) => {
+    await page.goto("/widget-library");
     // Either the empty-state copy or template cards should render
     await expect(
       page
@@ -68,7 +78,7 @@ test.describe("Widget Lab", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  // ── Save to Widget Lab flow ─────────────────────────────────────────
+  // ── Save to Widget Library flow ─────────────────────────────────────────
 
   test.describe("Save / browse / delete template flow", () => {
     let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -77,7 +87,7 @@ test.describe("Widget Lab", () => {
     test.beforeEach(async ({ page }) => {
       const { id, cleanup } = await createTestDashboard(
         page.request,
-        `Widget Lab Test ${Date.now()}`,
+        `Widget Library Test ${Date.now()}`,
       );
       dashboardCleanup = cleanup;
       await page.goto(`/${id}/edit`);
@@ -96,18 +106,29 @@ test.describe("Widget Lab", () => {
       await dashboardCleanup?.();
     });
 
-    test("can save a widget as a template and see it in Widget Lab", async ({
+    test("can save a widget as a template and see it in Widget Library", async ({
       page,
     }) => {
-      // Open widget actions menu → "Save to Widget Lab"
+      // #913: Save-as-template moved into the widget editor modal.
+      // Flow: widget actions → Edit Widget → modal footer "Save as new template" → fill dialog.
       const widgetCard = page.locator("[data-testid='widget-card']").first();
       await widgetCard.hover();
       await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-      await page.getByRole("menuitem", { name: "Save to Widget Lab" }).click();
+      await page.getByRole("menuitem", { name: "Edit Widget" }).click();
 
-      // Save Template dialog should appear
+      // Editor modal opens
+      const editorModal = page.getByRole("dialog", { name: "Edit Widget" });
+      await expect(editorModal).toBeVisible();
+
+      // Click the footer "Save as new template" button
+      await editorModal
+        .getByRole("button", { name: "Save as new template" })
+        .click();
+
+      // Editor closes; SaveTemplateDialog opens
+      await expect(editorModal).not.toBeVisible();
       const saveDialog = page.getByRole("dialog", {
-        name: "Save to Widget Lab",
+        name: "Save to Widget Library",
       });
       await expect(saveDialog).toBeVisible();
 
@@ -120,8 +141,8 @@ test.describe("Widget Lab", () => {
       await saveDialog.getByRole("button", { name: "Save Template" }).click();
       await expect(saveDialog).not.toBeVisible();
 
-      // Navigate to Widget Lab and verify the template appears
-      await page.goto("/widget-lab");
+      // Navigate to Widget Library and verify the template appears
+      await page.goto("/widget-library");
       await expect(page.getByText(templateName)).toBeVisible({
         timeout: 10_000,
       });
@@ -134,7 +155,7 @@ test.describe("Widget Lab", () => {
       templateId = saved?.id;
     });
 
-    test("can delete a template from Widget Lab", async ({ page }) => {
+    test("can delete a template from Widget Library", async ({ page }) => {
       // First save a template via the API so we don't depend on the UI flow
       const templateName = `E2E Delete ${Date.now()}`;
       const createRes = await page.request.post("/api/widget-templates", {
@@ -149,8 +170,8 @@ test.describe("Widget Lab", () => {
       const { id } = (await createRes.json()).data;
       templateId = id;
 
-      // Go to Widget Lab
-      await page.goto("/widget-lab");
+      // Go to Widget Library
+      await page.goto("/widget-library");
       await expect(page.getByText(templateName)).toBeVisible({
         timeout: 10_000,
       });
@@ -188,7 +209,7 @@ test.describe("Widget Lab", () => {
       templateName = `E2E Tmpl ${Date.now()}`;
       const { id, cleanup } = await createTestDashboard(
         page.request,
-        `Widget Lab From Template ${Date.now()}`,
+        `Widget Library From Template ${Date.now()}`,
       );
       dashboardCleanup = cleanup;
 
@@ -288,9 +309,9 @@ test.describe("Widget Lab", () => {
     });
   });
 
-  // ── Create / Edit templates directly in Widget Lab ──────────────────
+  // ── Create / Edit templates directly in Widget Library ──────────────────
 
-  test.describe("Widget Lab editor — create and edit templates", () => {
+  test.describe("Widget Library editor — create and edit templates", () => {
     let templateId: string | undefined;
 
     test.afterEach(async ({ page }) => {
@@ -300,13 +321,13 @@ test.describe("Widget Lab", () => {
       }
     });
 
-    test("can create a new template directly from Widget Lab", async ({
+    test("can create a new template directly from Widget Library", async ({
       page,
     }) => {
       test.setTimeout(60_000);
-      await page.goto("/widget-lab");
+      await page.goto("/widget-library");
       await expect(
-        page.getByRole("heading", { name: "Widget Lab" }),
+        page.getByRole("heading", { name: "Widget Library" }),
       ).toBeVisible();
 
       // Click "New Template" button
@@ -319,7 +340,7 @@ test.describe("Widget Lab", () => {
       await dialog.locator("#lab-template-name").fill(templateName);
       await dialog
         .locator("#lab-template-desc")
-        .fill("Created directly in Widget Lab");
+        .fill("Created directly in Widget Library");
       await dialog.locator("#lab-template-tags").fill("e2e, test");
 
       // Select a connection
@@ -345,7 +366,7 @@ test.describe("Widget Lab", () => {
       await dialog.getByRole("button", { name: "Create Template" }).click();
       await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
-      // Verify it appears in the Widget Lab list
+      // Verify it appears in the Widget Library list
       await expect(page.getByText(templateName)).toBeVisible({
         timeout: 10_000,
       });
@@ -359,7 +380,9 @@ test.describe("Widget Lab", () => {
       expect(templateId).toBeDefined();
     });
 
-    test("can edit an existing template in Widget Lab", async ({ page }) => {
+    test("can edit an existing template in Widget Library", async ({
+      page,
+    }) => {
       test.setTimeout(60_000);
 
       // Create a template via API first
@@ -378,8 +401,8 @@ test.describe("Widget Lab", () => {
       const { id } = (await createRes.json()).data;
       templateId = id;
 
-      // Go to Widget Lab and click edit on the template card
-      await page.goto("/widget-lab");
+      // Go to Widget Library and click edit on the template card
+      await page.goto("/widget-library");
       await expect(page.getByText(origName)).toBeVisible({ timeout: 10_000 });
 
       const card = page
@@ -428,8 +451,8 @@ test.describe("Widget Lab", () => {
       const { id } = (await createRes.json()).data;
       templateId = id;
 
-      // Navigate to Widget Lab
-      await page.goto("/widget-lab");
+      // Navigate to Widget Library
+      await page.goto("/widget-library");
       await expect(page.getByText(templateName)).toBeVisible({
         timeout: 10_000,
       });
@@ -471,8 +494,8 @@ test.describe("Widget Lab", () => {
       );
 
       try {
-        // Go to Widget Lab
-        await page.goto("/widget-lab");
+        // Go to Widget Library
+        await page.goto("/widget-library");
         await expect(page.getByText(templateName)).toBeVisible({
           timeout: 10_000,
         });
@@ -580,8 +603,8 @@ test.describe("Widget Lab", () => {
         // eslint-disable-next-line playwright/no-wait-for-timeout
         await page.waitForTimeout(1_000);
 
-        // 3. Edit the template in Widget Lab — change its name
-        await page.goto("/widget-lab");
+        // 3. Edit the template in Widget Library — change its name
+        await page.goto("/widget-library");
         await expect(page.getByText(templateName)).toBeVisible({
           timeout: 10_000,
         });
@@ -621,118 +644,14 @@ test.describe("Widget Lab", () => {
     });
   });
 
-  // ── Save to Widget Lab from view mode ─────────────────────────────
+  // #913: "Save to Widget Library" moved from the widget action dropdown into
+  // the widget editor modal footer. The old "from view mode" tests are no
+  // longer applicable — view-mode users must enter Edit to access the action.
+  // Reader role still can't reach it: they can't open the editor either.
 
-  test.describe("Save to Widget Lab from view mode", () => {
-    test("action is visible on widget menu in view mode", async ({
-      authPage,
-      page,
-    }) => {
-      await authPage.login(ALICE.email, ALICE.password);
+  // ── Widget Library consumption: duplicate, filter, search ───────────────
 
-      // Navigate to Movie Analytics dashboard (view mode, not edit)
-      const res = await page.request.get("/api/dashboards");
-      const dashboards = (await res.json()).data;
-      const movieAnalytics = (
-        dashboards as { id: string; name: string }[]
-      ).find((d) => d.name === "Movie Analytics");
-      expect(movieAnalytics).toBeTruthy();
-      await page.goto(`/${movieAnalytics!.id}`);
-
-      // Open widget actions menu
-      const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await expect(widgetCard).toBeVisible({ timeout: 15_000 });
-      await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-
-      await expect(
-        page.getByRole("menuitem", { name: "Save to Widget Lab" }),
-      ).toBeVisible();
-    });
-
-    test("can save a widget from view mode and see it in Widget Lab", async ({
-      authPage,
-      page,
-    }) => {
-      test.setTimeout(60_000);
-      await authPage.login(ALICE.email, ALICE.password);
-
-      const res = await page.request.get("/api/dashboards");
-      const dashboards = (await res.json()).data;
-      const movieAnalytics = (
-        dashboards as { id: string; name: string }[]
-      ).find((d) => d.name === "Movie Analytics");
-      expect(movieAnalytics).toBeTruthy();
-      await page.goto(`/${movieAnalytics!.id}`);
-
-      // Open widget actions → Save to Widget Lab
-      const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await expect(widgetCard).toBeVisible({ timeout: 15_000 });
-      await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-      await page.getByRole("menuitem", { name: "Save to Widget Lab" }).click();
-
-      // Fill and submit
-      const saveDialog = page.getByRole("dialog", {
-        name: "Save to Widget Lab",
-      });
-      await expect(saveDialog).toBeVisible();
-
-      const templateName = `View Mode Template ${Date.now()}`;
-      await saveDialog.getByLabel("Name").fill(templateName);
-      await saveDialog.getByRole("button", { name: "Save Template" }).click();
-      await expect(saveDialog).not.toBeVisible();
-
-      // Verify in Widget Lab
-      await page.goto("/widget-lab");
-      await expect(page.getByText(templateName)).toBeVisible({
-        timeout: 10_000,
-      });
-
-      // Clean up
-      const templatesRes = await page.request.get("/api/widget-templates");
-      const templates = (await templatesRes.json()).data;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const saved = templates.find((t: any) => t.name === templateName);
-      if (saved) {
-        await page.request.delete(`/api/widget-templates/${saved.id}`);
-      }
-    });
-
-    test("reader role does not see Save to Widget Lab action", async ({
-      authPage,
-      page,
-    }) => {
-      test.setTimeout(60_000);
-      await authPage.login(CAROL.email, CAROL.password);
-
-      // Navigate to Movie Analytics (shared/public dashboard)
-      const res = await page.request.get("/api/dashboards");
-      const dashboards = (await res.json()).data;
-      const movieAnalytics = (
-        dashboards as { id: string; name: string }[]
-      ).find((d) => d.name === "Movie Analytics");
-      expect(movieAnalytics).toBeTruthy();
-      await page.goto(`/${movieAnalytics!.id}`);
-
-      const widgetCard = page.locator("[data-testid='widget-card']").first();
-      await expect(widgetCard).toBeVisible({ timeout: 15_000 });
-      await widgetCard.hover();
-      await widgetCard.getByRole("button", { name: "Widget actions" }).click();
-
-      // Export CSV should be visible, but Save to Widget Lab should NOT
-      await expect(
-        page.getByRole("menuitem", { name: "Export CSV" }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("menuitem", { name: "Save to Widget Lab" }),
-      ).not.toBeVisible();
-    });
-  });
-
-  // ── Widget Lab consumption: duplicate, filter, search ───────────────
-
-  test.describe("Widget Lab consumption", () => {
+  test.describe("Widget Library consumption", () => {
     // Tests in this block share the same template names ("Neo4j Bar Template",
     // "PostgreSQL Table Template") in their beforeEach. With fullyParallel and
     // 2 CI workers, two tests' beforeEach can race → two templates with the
@@ -773,7 +692,7 @@ test.describe("Widget Lab", () => {
     });
 
     test("can duplicate a template", async ({ page }) => {
-      await page.goto("/widget-lab");
+      await page.goto("/widget-library");
       const card = page
         .locator("[data-testid='template-card']")
         .filter({ hasText: "Neo4j Bar Template" })
@@ -798,7 +717,7 @@ test.describe("Widget Lab", () => {
     });
 
     test("can filter templates by chart type", async ({ page }) => {
-      await page.goto("/widget-lab");
+      await page.goto("/widget-library");
       const neo4jCard = page
         .locator("[data-testid='template-card']")
         .filter({ hasText: "Neo4j Bar Template" })
@@ -819,7 +738,7 @@ test.describe("Widget Lab", () => {
     });
 
     test("can filter templates by connector type", async ({ page }) => {
-      await page.goto("/widget-lab");
+      await page.goto("/widget-library");
       const neo4jCard = page
         .locator("[data-testid='template-card']")
         .filter({ hasText: "Neo4j Bar Template" })
@@ -839,7 +758,7 @@ test.describe("Widget Lab", () => {
     });
 
     test("can search templates by name", async ({ page }) => {
-      await page.goto("/widget-lab");
+      await page.goto("/widget-library");
       await expect(
         page.getByText("Neo4j Bar Template", { exact: true }),
       ).toBeVisible({ timeout: 10_000 });

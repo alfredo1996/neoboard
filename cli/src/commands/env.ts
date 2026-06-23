@@ -8,6 +8,9 @@ const REQUIRED_VARS = [
   "ENCRYPTION_KEY",
   "NEXTAUTH_SECRET",
   "NEXTAUTH_URL",
+  // API_KEY_HMAC_SECRET is required for the community API-keys feature; the
+  // server fails at startup without it. Auto-generated alongside other secrets.
+  "API_KEY_HMAC_SECRET",
 ];
 
 function generateSecret(): string {
@@ -49,8 +52,9 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
   const encryptionKey = generateSecret();
   const nextauthSecret = generateSecret();
   const bootstrapToken = generateSecret();
-  // Optional at startup, but required the moment someone creates an API key
-  // from Settings (#907) — generate it up front so the feature just works.
+  // API_KEY_HMAC_SECRET — required by the community API-keys feature (#907);
+  // the server fails at startup without it. Generated up front alongside the
+  // other secrets so a fresh `neoboard setup` produces a fully-working install.
   const apiKeyHmacSecret = generateSecret();
 
   const lines = [

@@ -34,6 +34,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  formatNumber,
+  type NumberFormat,
+  type NumberFormatConfig,
+} from "@/charts/chart-utils";
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
 
@@ -109,6 +114,14 @@ export interface DataGridProps<TData> {
   /** Message shown in the empty state (no rows / filtered to none). */
   emptyMessage?: string;
   className?: string;
+  /**
+   * Table-wide number format applied to every numeric cell that does not
+   * have a custom `cell` renderer in its column definition. #910/#911.
+   * Falls through to the formatNumber default (comma + 2dp) when omitted.
+   */
+  numberFormat?: NumberFormat;
+  /** Table-wide decimal places for numeric cells. See `numberFormat`. */
+  decimalPlaces?: number;
 }
 
 function DataGrid<TData>({
@@ -133,7 +146,20 @@ function DataGrid<TData>({
   pagination,
   emptyMessage = "No results.",
   className,
+  numberFormat,
+  decimalPlaces,
 }: DataGridProps<TData>) {
+  // Table cells always want comma formatting (it's tabular data — commas
+  // are the universal Excel-like convention). When the caller doesn't
+  // override numberFormat, force "comma". For decimalPlaces, defer to
+  // formatNumber's smart default (2dp) when both are unset.
+  const numberFormatConfig: NumberFormatConfig =
+    numberFormat === undefined && decimalPlaces === undefined
+      ? {} // both unset → formatNumber applies comma + 2dp
+      : {
+          numberFormat: numberFormat ?? "comma",
+          ...(decimalPlaces !== undefined && { decimalPlaces }),
+        };
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -204,7 +230,20 @@ function DataGrid<TData>({
     enableSorting,
     enableColumnResizing,
     columnResizeMode: enableColumnResizing ? ("onChange" as const) : undefined,
-    defaultColumn: enableColumnResizing ? { minSize: 50 } : undefined,
+    defaultColumn: {
+      ...(enableColumnResizing && { minSize: 50 }),
+      // Format numeric cells with the table-wide numberFormat/decimalPlaces
+      // (or formatNumber's smart defaults). Columns that supply an explicit
+      // `cell` renderer in their columnDef override this — TanStack uses the
+      // column-level cell when present and only falls back to defaultColumn.
+      cell: ({ getValue }) => {
+        const v = getValue();
+        if (typeof v === "number" && Number.isFinite(v)) {
+          return formatNumber(v, numberFormatConfig);
+        }
+        return v === null || v === undefined ? null : String(v);
+      },
+    },
     enableGrouping,
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),

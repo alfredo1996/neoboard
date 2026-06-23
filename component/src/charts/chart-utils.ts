@@ -19,6 +19,11 @@ export interface NumberFormatConfig {
 /**
  * Format a numeric value with optional decimal places, locale formatting,
  * compact notation, prefix, and suffix. Non-numeric values pass through as-is.
+ *
+ * Defaults (#911): when *both* numberFormat and decimalPlaces are undefined,
+ * apply `numberFormat: "comma"` + `decimalPlaces: 2`. Excel-like, readable,
+ * predictable. If either is set explicitly — even `decimalPlaces: 0` — the
+ * caller wins and the default does not apply.
  */
 export function formatNumber(
   value: number | string,
@@ -27,9 +32,12 @@ export function formatNumber(
   if (typeof value !== "number" || !Number.isFinite(value))
     return String(value);
 
+  const bothUnset =
+    config.numberFormat === undefined && config.decimalPlaces === undefined;
+
   const {
-    numberFormat = "plain",
-    decimalPlaces,
+    numberFormat = bothUnset ? "comma" : "plain",
+    decimalPlaces = bothUnset ? 2 : undefined,
     prefix = "",
     suffix = "",
   } = config;

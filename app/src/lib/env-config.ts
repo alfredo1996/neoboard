@@ -50,6 +50,18 @@ const ENV_VARS: EnvVar[] = [
         : "Must be at least 32 characters. Generate with: openssl rand -hex 32",
   },
   { key: "NEXTAUTH_URL", required: false },
+  {
+    // Required: API keys are a community feature available to every install
+    // (no enterprise gate on /api/keys or /settings/api-keys). Without this
+    // secret, the route throws at create time — users discover the problem
+    // only when they click "Create API Key". Fail fast at startup instead.
+    key: "API_KEY_HMAC_SECRET",
+    required: true,
+    validate: (v) =>
+      HEX_64.test(v) || v.length >= 32
+        ? null
+        : "Must be a 64-character hex string (32 bytes) or at least 32 chars. Generate with: openssl rand -hex 32",
+  },
 
   // ── Optional: Auth ──
   { key: "TENANT_ID", required: false },
@@ -58,7 +70,6 @@ const ENV_VARS: EnvVar[] = [
   { key: "ADMIN_BOOTSTRAP_TOKEN", required: false },
   { key: "BOOTSTRAP_ADMIN_EMAIL", required: false },
   { key: "BOOTSTRAP_ADMIN_PASSWORD", required: false },
-  { key: "API_KEY_HMAC_SECRET", required: false },
 
   // ── Optional: Security ──
   { key: "FORCE_HTTPS", required: false },

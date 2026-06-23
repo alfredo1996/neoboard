@@ -168,7 +168,6 @@ function GaugeChart({
               '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             formatter: "{value}",
             offsetCenter: [0, "0%"],
-            color: "inherit",
           },
           title: {
             show: showDetail && !compact,

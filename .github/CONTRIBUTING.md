@@ -25,7 +25,7 @@ npm run dev                    # Start dev server at http://localhost:3000
 
 - **Admin**: admin@neoboard.local / admin123
 
-> `scripts/setup.sh` does the same without demo data — use it for a clean start.
+> `bash install.sh` does the same without demo data — use it for a clean start.
 
 ## Development Workflow
 

@@ -58,7 +58,11 @@ describe("validateEnv", () => {
   it("passes when all required vars present", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(
-      "DATABASE_URL=postgres://...\nENCRYPTION_KEY=abc\nNEXTAUTH_SECRET=def\nNEXTAUTH_URL=http://localhost:3000\n",
+      "DATABASE_URL=postgres://...\n" +
+        "ENCRYPTION_KEY=abc\n" +
+        "NEXTAUTH_SECRET=def\n" +
+        "NEXTAUTH_URL=http://localhost:3000\n" +
+        "API_KEY_HMAC_SECRET=ghi\n",
     );
     const result = validateEnv();
     expect(result.ok).toBe(true);
@@ -72,12 +76,15 @@ describe("validateEnv", () => {
     expect(result.ok).toBe(false);
     expect(result.missing).toContain("ENCRYPTION_KEY");
     expect(result.missing).toContain("NEXTAUTH_SECRET");
+    // API_KEY_HMAC_SECRET became required in #907 — every install needs it
+    // for the community API-keys feature.
+    expect(result.missing).toContain("API_KEY_HMAC_SECRET");
   });
 
   it("ignores comments and blank lines", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(
-      "# comment\n\nDATABASE_URL=x\nENCRYPTION_KEY=x\nNEXTAUTH_SECRET=x\nNEXTAUTH_URL=x\n",
+      "# comment\n\nDATABASE_URL=x\nENCRYPTION_KEY=x\nNEXTAUTH_SECRET=x\nNEXTAUTH_URL=x\nAPI_KEY_HMAC_SECRET=x\n",
     );
     expect(validateEnv().ok).toBe(true);
   });
@@ -93,7 +100,9 @@ describe("generateEnvFile", () => {
     expect(content).toContain("ENCRYPTION_KEY=");
     expect(content).toContain("NEXTAUTH_SECRET=");
     expect(content).toContain("ADMIN_BOOTSTRAP_TOKEN=");
-    // Without it, creating an API key from Settings dead-ends (#907/#952)
+    // #907/#952: HMAC secret is auto-generated alongside the other secrets so
+    // a fresh install can use the community API-keys feature out of the box —
+    // without it, creating an API key from Settings dead-ends.
     expect(content).toContain("API_KEY_HMAC_SECRET=");
   });
 

@@ -87,6 +87,23 @@ export async function register() {
     );
   }
 
+  // Dev-only: warn about seeded connections that reference unreachable hosts.
+  // Fire-and-forget; startup never waits on DNS. Common cause: seed ran inside
+  // the docker-app container (where NEO4J_HOST/PG_HOST resolved to container
+  // names) and the dev server later runs on the host where those names don't
+  // resolve. #899
+  if (process.env.NODE_ENV === "development") {
+    void (async () => {
+      try {
+        const { verifyConnectionHosts } =
+          await import("@/lib/dev/verify-connection-hosts");
+        await verifyConnectionHosts();
+      } catch {
+        // Never let the check crash startup.
+      }
+    })();
+  }
+
   // Bootstrap the first admin user when the database is empty.
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;

@@ -95,7 +95,7 @@ function RadarChart({
         indicator: data.indicators,
         radius: compact ? "70%" : "65%",
         center: effectiveShowLegend ? ["50%", "45%"] : ["50%", "50%"],
-        axisName: { color: "inherit" },
+        // Text color intentionally omitted — picked up from theme.textStyle.color.
         splitArea: {
           show: true,
           areaStyle: {

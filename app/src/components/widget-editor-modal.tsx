@@ -95,12 +95,18 @@ export interface WidgetEditorModalProps {
   onLabSaved?: () => void;
   /** Dashboard layout — used for page list and parameter name suggestions */
   layout?: DashboardLayoutV2;
-  /** Template to auto-apply when opening in add mode (from Widget Lab "Use in Dashboard") */
+  /** Template to auto-apply when opening in add mode (from Widget Library "Use in Dashboard") */
   initialTemplate?: WidgetTemplate;
   /** Cached query data from the dashboard — shown as preview immediately without re-running */
   initialPreviewData?: { data: unknown; resultId: string };
   /** Whether the current user has write permission. Controls visibility of the write toggle. */
   canWrite?: boolean;
+  /**
+   * Called when the user clicks "Save as new template" in the modal footer
+   * (#913). Parent is responsible for opening the SaveTemplateDialog with the
+   * widget. Only rendered when `mode === "edit"`.
+   */
+  onSaveAsTemplate?: (widget: DashboardWidget) => void;
 }
 
 export function WidgetEditorModal({
@@ -116,6 +122,7 @@ export function WidgetEditorModal({
   initialTemplate,
   initialPreviewData,
   canWrite = false,
+  onSaveAsTemplate,
 }: WidgetEditorModalProps) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
@@ -409,7 +416,7 @@ export function WidgetEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, widget, templateProp]);
 
-  // Auto-apply a template when opening in add mode with initialTemplate (Widget Lab → Dashboard flow)
+  // Auto-apply a template when opening in add mode with initialTemplate (Widget Library → Dashboard flow)
   const initialTemplateAppliedRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (
@@ -577,6 +584,16 @@ export function WidgetEditorModal({
   }
 
   const labSaving = createTemplate.isPending || updateTemplate.isPending;
+
+  // Footer "Save as new template" handler (#913). Uses the *current*
+  // editor state (buildWidgetForSave) so unsaved edits in the open modal
+  // are captured in the template payload, not the last-saved widget.
+  const handleSaveAsTemplate = useCallback(() => {
+    if (!onSaveAsTemplate) return;
+    const current = buildWidgetForSave();
+    onOpenChange(false);
+    onSaveAsTemplate(current);
+  }, [onSaveAsTemplate, buildWidgetForSave, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -910,6 +927,9 @@ export function WidgetEditorModal({
               onCancel={() => onOpenChange(false)}
               onSave={handleSave}
               onLabSave={handleLabSave}
+              onSaveAsTemplate={
+                onSaveAsTemplate ? handleSaveAsTemplate : undefined
+              }
             />
           </>
         )}

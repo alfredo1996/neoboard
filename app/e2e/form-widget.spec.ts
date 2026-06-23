@@ -421,12 +421,21 @@ test.describe("Form widget", () => {
     await formDialog.getByPlaceholder("e.g. Movie Title").fill("Name");
     await formDialog.getByPlaceholder("e.g. title").fill("name");
 
-    // Go to Advanced tab and enable refresh for the table widget
+    // Go to Advanced tab and pick "Refresh Target" from the MultiSelect (#902).
     await formDialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(formDialog.getByText("Refresh Target")).toBeVisible({
+    await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
-    await formDialog.getByRole("checkbox", { name: "Refresh Target" }).click();
+    // The MultiSelect renders as a <button role="combobox"> but its
+    // accessible name isn't reliably the placeholder (the chevron icon
+    // disrupts AT name computation). `.last()` on the Advanced tab is the
+    // simplest stable selector — there's only one combobox in the After
+    // Submit section today. If another combobox is added to the Advanced
+    // tab below this one, switch to a data-testid on the section.
+    await formDialog.getByRole("combobox").last().click();
+    await page.getByRole("option", { name: /Refresh Target/ }).click();
+    // Close the popover by clicking the dialog title area.
+    await formDialog.getByRole("tab", { name: "Advanced" }).click();
 
     await formDialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(formDialog).not.toBeVisible();

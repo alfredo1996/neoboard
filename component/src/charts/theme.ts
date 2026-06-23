@@ -140,6 +140,12 @@ export function registerNeoboardThemes(
       axisLabel: { color: "#666d7a", formatter: formatAxisCompact },
     },
     legend: { textStyle: { color: "#666d7a" } }, // muted-foreground
+    // Gauge series ignores textStyle for `detail` (the big center number)
+    // — it defaults to `'auto'` which picks up axis colors. Force foreground.
+    gauge: {
+      detail: { color: "#14161a" },
+      title: { color: "#666d7a" },
+    },
     ...seriesDefaults("#ffffff", "#e5e7eb", "#14161a"),
   });
 
@@ -156,6 +162,10 @@ export function registerNeoboardThemes(
       axisLabel: { color: "#959ba7", formatter: formatAxisCompact },
     },
     legend: { textStyle: { color: "#959ba7" } }, // muted-foreground
+    gauge: {
+      detail: { color: "#f3f4f6" },
+      title: { color: "#959ba7" },
+    },
     ...seriesDefaults("#181b20", "#262931", "#f3f4f6"),
   });
 }

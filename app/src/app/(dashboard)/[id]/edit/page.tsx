@@ -522,6 +522,8 @@ export default function DashboardEditorPage({
               editorMode === "edit" ? cachedPreviewData : undefined
             }
             canWrite={session?.user?.canWrite !== false}
+            // #913: opens SaveTemplateDialog from the modal footer.
+            onSaveAsTemplate={(w) => setTemplateWidget(w)}
           />
 
           {templateWidget &&
@@ -589,7 +591,6 @@ export default function DashboardEditorPage({
                           updateWidget(widgetId, { ...target, settings });
                       },
                       onNavigateToPage: handleNavigateToPage,
-                      onSaveAsTemplate: setTemplateWidget,
                       onSyncWidget: handleSyncWidget,
                       onDetachWidget: handleDetachWidget,
                     }}

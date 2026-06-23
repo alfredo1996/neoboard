@@ -274,7 +274,7 @@ export interface DashboardWidget {
   /** When true, this widget is allowed to execute write queries.
    *  Server enforces: write only if BOTH user.canWrite AND widget.allowWrites. */
   allowWrites?: boolean;
-  /** ID of the Widget Lab template this widget was created from. */
+  /** ID of the Widget Library template this widget was created from. */
   templateId?: string;
   /** ISO timestamp of the template snapshot at apply-time (= template.updatedAt). */
   templateSyncedAt?: string;

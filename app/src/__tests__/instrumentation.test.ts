@@ -197,6 +197,7 @@ describe("register — env validation", () => {
     encryption: process.env.ENCRYPTION_KEY,
     secret: process.env.NEXTAUTH_SECRET,
     dburl: process.env.DATABASE_URL,
+    hmac: process.env.API_KEY_HMAC_SECRET,
   };
 
   const restore = (key: string, value: string | undefined) => {
@@ -210,6 +211,7 @@ describe("register — env validation", () => {
     restore("ENCRYPTION_KEY", saved.encryption);
     restore("NEXTAUTH_SECRET", saved.secret);
     restore("DATABASE_URL", saved.dburl);
+    restore("API_KEY_HMAC_SECRET", saved.hmac);
   });
 
   it("calls process.exit(1) when required vars are missing", async () => {
@@ -219,6 +221,7 @@ describe("register — env validation", () => {
     delete process.env.ENCRYPTION_KEY;
     delete process.env.NEXTAUTH_SECRET;
     delete process.env.DATABASE_URL;
+    delete process.env.API_KEY_HMAC_SECRET;
 
     const exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
       // Throw to short-circuit register() so the subsequent code (logger
@@ -249,6 +252,7 @@ describe("register — env validation", () => {
     delete process.env.ENCRYPTION_KEY;
     delete process.env.NEXTAUTH_SECRET;
     delete process.env.DATABASE_URL;
+    delete process.env.API_KEY_HMAC_SECRET;
 
     const exitSpy = vi
       .spyOn(process, "exit")
@@ -266,6 +270,7 @@ describe("register — env validation", () => {
     process.env.DATABASE_URL = "postgres://x:y@z/db";
     process.env.ENCRYPTION_KEY = "0".repeat(64);
     process.env.NEXTAUTH_SECRET = "a".repeat(32);
+    process.env.API_KEY_HMAC_SECRET = "b".repeat(64);
     delete process.env.BOOTSTRAP_ADMIN_EMAIL;
     delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
 
