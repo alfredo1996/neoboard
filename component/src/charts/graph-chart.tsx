@@ -218,6 +218,7 @@ function toNvlNode(
   captionMap: Record<string, string>,
   labelColorMap: Map<string, string>,
   nodeSizeScale: number,
+  selectedIds: Set<string>,
   stylingRules?: StylingRule[],
   paramValues?: Record<string, unknown>,
 ): NvlNode {
@@ -256,6 +257,9 @@ function toNvlNode(
     size:
       baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
     pinned: node.fixed,
+    // Reflect controlled selection so NVL highlights selected nodes (e.g. a
+    // restored or programmatic selection, not just the last in-canvas click).
+    selected: selectedIds.has(node.id),
     x,
     y,
   };
@@ -380,6 +384,11 @@ function GraphChartInner({
 
   const nodeSizeScale = NODE_SIZE_SCALE[nodeSize] ?? 1.0;
 
+  const selectedIds = useMemo(
+    () => new Set(selectedNodeIds ?? []),
+    [selectedNodeIds],
+  );
+
   const nvlNodes = useMemo(
     () =>
       nodes.map((n, i) =>
@@ -391,6 +400,7 @@ function GraphChartInner({
           captionMap,
           labelColorMap,
           nodeSizeScale,
+          selectedIds,
           stylingRules,
           paramValues,
         ),
@@ -401,6 +411,7 @@ function GraphChartInner({
       captionMap,
       labelColorMap,
       nodeSizeScale,
+      selectedIds,
       stylingRules,
       paramValues,
     ],

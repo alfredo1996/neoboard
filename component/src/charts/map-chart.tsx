@@ -76,6 +76,13 @@ const TILE_PRESETS: Record<
 
 const DEFAULT_CENTER: [number, number] = [40, -3];
 const DEFAULT_ZOOM = 3;
+/**
+ * Module-level default so an omitted `fitBoundsPadding` prop keeps a stable
+ * identity across renders. An inline `[20, 20]` default literal would be a
+ * fresh array every render, re-triggering the fit-bounds effect and snapping
+ * the user's pan/zoom back on any unrelated re-render.
+ */
+const DEFAULT_FIT_PADDING: [number, number] = [20, 20];
 
 /** Resolve tile layer, auto-selecting carto-light/carto-dark when no explicit preset is given. */
 function resolveTileLayer(
@@ -117,7 +124,7 @@ function MapChart({
   tileLayer,
   attribution,
   autoFitBounds = false,
-  fitBoundsPadding = [20, 20],
+  fitBoundsPadding = DEFAULT_FIT_PADDING,
   markerSize = 6,
   clusterMarkers = false,
   showPopup = true,
@@ -134,6 +141,12 @@ function MapChart({
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   const dark = useDarkMode();
+
+  // Latest-ref for the click callback so a fresh inline `onMarkerClick`
+  // identity (the common case — parents pass an arrow) does not re-run the
+  // marker-build effect and tear down/rebuild every marker on each render.
+  const onMarkerClickRef = useRef(onMarkerClick);
+  onMarkerClickRef.current = onMarkerClick;
 
   const tile = resolveTileLayer(tileLayer, dark, attribution);
 
@@ -237,31 +250,32 @@ function MapChart({
         circleMarker.bindPopup(m.popup);
       }
 
-      if (onMarkerClick) {
-        circleMarker.on("click", () => onMarkerClick(m));
-      }
+      // Always bind via the ref wrapper so the latest handler is invoked
+      // without making `onMarkerClick` an effect dependency.
+      circleMarker.on("click", () => onMarkerClickRef.current?.(m));
 
       circleMarker.addTo(layer);
     });
-
-    // Auto-fit bounds
-    if (autoFitBounds && map && markers.length > 0) {
-      const bounds = L.latLngBounds(
-        markers.map((m) => [m.lat, m.lng] as [number, number]),
-      );
-      map.fitBounds(bounds, { padding: fitBoundsPadding });
-    }
   }, [
     markers,
-    onMarkerClick,
-    autoFitBounds,
-    fitBoundsPadding,
     markerSize,
     clusterMarkers,
     showPopup,
     stylingRules,
     paramValues,
   ]);
+
+  // Auto-fit bounds — kept in its own effect so that rebuilding markers (for a
+  // style/handler change) never re-fits the map. Re-fitting only happens when
+  // the markers themselves change, preserving the user's pan/zoom otherwise.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !autoFitBounds || markers.length === 0) return;
+    const bounds = L.latLngBounds(
+      markers.map((m) => [m.lat, m.lng] as [number, number]),
+    );
+    map.fitBounds(bounds, { padding: fitBoundsPadding });
+  }, [markers, autoFitBounds, fitBoundsPadding]);
 
   if (error) {
     return (
