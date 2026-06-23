@@ -9,7 +9,12 @@ describe("SidebarItem", () => {
   });
 
   it("renders icon", () => {
-    render(<SidebarItem label="Dashboard" icon={<span data-testid="icon">D</span>} />);
+    render(
+      <SidebarItem
+        label="Dashboard"
+        icon={<span data-testid="icon">D</span>}
+      />,
+    );
     expect(screen.getByTestId("icon")).toBeInTheDocument();
   });
 
@@ -27,7 +32,11 @@ describe("SidebarItem", () => {
 
   it("applies active state class", () => {
     const { container } = render(<SidebarItem label="Dashboard" active />);
-    expect(container.querySelector(".bg-accent")).toBeInTheDocument();
+    // #826: active = tonal accent-soft fill + citrine left border
+    expect(container.querySelector(".bg-accent-soft")).toBeInTheDocument();
+    expect(
+      container.querySelector('[class*="border-[hsl(var(--ring))]"]'),
+    ).toBeInTheDocument();
   });
 
   it("hides label when collapsed", () => {

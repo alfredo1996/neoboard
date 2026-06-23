@@ -22,6 +22,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  // Shown after a voluntary password change redirects here (#1035).
+  const passwordChanged = searchParams.get("passwordChanged") === "1";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -57,6 +59,13 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {passwordChanged && !error && (
+        <Alert>
+          <AlertDescription>
+            Password changed. Please sign in with your new password.
+          </AlertDescription>
+        </Alert>
+      )}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -115,7 +124,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">NeoBoard</CardTitle>
+          <CardTitle className="text-2xl">
+            <h1>NeoBoard</h1>
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Visual dashboards for Neo4j &amp; PostgreSQL
           </p>

@@ -8,7 +8,10 @@ import {
   useState,
 } from "react";
 import type { ConnectionListItem } from "@/hooks/use-connections";
-import { extractReferencedParams } from "@/hooks/use-widget-query";
+import {
+  extractReferencedParams,
+  allReferencedParamsReady,
+} from "@/hooks/use-widget-query";
 import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
 import type { DashboardWidget } from "@/lib/db/schema";
 
@@ -78,6 +81,11 @@ export function useAutoPreview({
     const cId = connectionIdRef.current;
     const q = queryRef.current;
     if (cId && q.trim()) {
+      // Don't run a query that still has unbound $param_x tokens — the literal
+      // token would surface a raw `syntax error at or near "$"` in the editor
+      // preview. Mirror the dashboard's "Waiting for parameters…" state by
+      // skipping the run (#1055).
+      if (!allReferencedParamsReady(q, allParamValuesRef.current)) return;
       const referenced = extractReferencedParams(q, allParamValuesRef.current);
       const params =
         Object.keys(referenced).length > 0 ? referenced : undefined;

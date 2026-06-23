@@ -60,9 +60,21 @@ function convertParamSyntax(query: string): string {
  */
 function convertReportActions(
   settings: Record<string, unknown>,
+  notes?: string[],
+  widgetTitle?: string,
 ): Record<string, unknown> | undefined {
   const rules = settings.actionsRules;
   if (!Array.isArray(rules) || rules.length === 0) return undefined;
+
+  // NeoBoard supports one click action per widget; NeoDash allows many
+  // value-conditional rules. Import the first and surface the rest as a
+  // non-blocking note rather than silently dropping them (#882).
+  if (rules.length > 1 && notes) {
+    notes.push(
+      `"${widgetTitle ?? "Untitled widget"}": dropped ${rules.length - 1} ` +
+        `secondary click action rule(s) — NeoBoard supports one click action per widget`,
+    );
+  }
 
   // Take the first rule as the primary click action
   const rule = rules[0] as Record<string, unknown>;
@@ -330,7 +342,11 @@ export function convertNeoDashWithNotes(
 
       // Convert settings
       const reportSettings = report.settings ?? {};
-      const clickAction = convertReportActions(reportSettings);
+      const clickAction = convertReportActions(
+        reportSettings,
+        notes,
+        report.title,
+      );
       const stylingConfig = convertStyleRules(reportSettings);
       const refreshSettings = convertRefreshRate(reportSettings);
       const paramDefaults = convertParameterDefaults(reportSettings);

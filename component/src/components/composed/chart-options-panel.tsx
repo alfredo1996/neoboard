@@ -2,6 +2,7 @@ import * as React from "react";
 import { getChartOptions } from "./chart-options-schema";
 import type { ChartOptionDef } from "./chart-options-schema";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -117,7 +118,12 @@ function OptionField({
         );
       }
       const csv = String(value ?? option.default ?? "");
-      const selected = csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      const selected = csv
+        ? csv
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
       const multiOptions = columns.map((col) => ({ value: col, label: col }));
       return (
         <div className="space-y-1.5">
@@ -133,18 +139,51 @@ function OptionField({
       );
     }
 
-    case "text":
+    case "textarea":
+      // Multiline string options (e.g. markdown content) — a single-line
+      // Input strips newlines (#1049).
+      return (
+        <div className="space-y-1.5">
+          <OptionLabel option={option} />
+          <Textarea
+            id={option.key}
+            value={String(value ?? option.default ?? "")}
+            onChange={(e) => onChange(option.key, e.target.value)}
+            placeholder={option.label}
+            rows={8}
+            className="font-mono text-xs"
+          />
+        </div>
+      );
+
+    case "text": {
+      const textValue = String(value ?? option.default ?? "");
+      const validation = option.validate?.(textValue) ?? null;
       return (
         <div className="space-y-1.5">
           <OptionLabel option={option} />
           <Input
             id={option.key}
-            value={String(value ?? option.default ?? "")}
+            value={textValue}
             onChange={(e) => onChange(option.key, e.target.value)}
             placeholder={option.label}
+            aria-invalid={validation?.level === "error" ? true : undefined}
           />
+          {validation && (
+            <p
+              role={validation.level === "error" ? "alert" : undefined}
+              className={
+                validation.level === "error"
+                  ? "text-xs text-destructive"
+                  : "text-xs text-[hsl(var(--warning))]"
+              }
+            >
+              {validation.message}
+            </p>
+          )}
         </div>
       );
+    }
 
     case "number":
       return (
@@ -211,7 +250,7 @@ function ChartOptionsPanel({
       (opt) =>
         opt.label.toLowerCase().includes(term) ||
         opt.category.toLowerCase().includes(term) ||
-        opt.key.toLowerCase().includes(term)
+        opt.key.toLowerCase().includes(term),
     );
   }, [options, search]);
 
@@ -237,31 +276,35 @@ function ChartOptionsPanel({
 
   return (
     <TooltipProvider>
-    <div className={cn("space-y-4", className)}>
-      {options.length > 4 && (
-        <Input
-          placeholder="Search options..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      )}
+      <div className={cn("space-y-4", className)}>
+        {options.length > 4 && (
+          <Input
+            placeholder="Search options..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        )}
 
-      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-        {Object.entries(grouped).map(([category, opts], index) => (
-          <CategorySection key={category} title={category} defaultOpen={index === 0}>
-            {opts.map((opt) => (
-              <OptionField
-                key={opt.key}
-                option={opt}
-                value={settings[opt.key]}
-                onChange={handleChange}
-                columns={columns}
-              />
-            ))}
-          </CategorySection>
-        ))}
+        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+          {Object.entries(grouped).map(([category, opts], index) => (
+            <CategorySection
+              key={category}
+              title={category}
+              defaultOpen={index === 0}
+            >
+              {opts.map((opt) => (
+                <OptionField
+                  key={opt.key}
+                  option={opt}
+                  value={settings[opt.key]}
+                  onChange={handleChange}
+                  columns={columns}
+                />
+              ))}
+            </CategorySection>
+          ))}
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }

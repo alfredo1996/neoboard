@@ -9,6 +9,7 @@ import React, {
   useRef,
 } from "react";
 import { useQueryExecution } from "@/hooks/use-query-execution";
+import { allReferencedParamsReady } from "@/hooks/use-widget-query";
 import type {
   DashboardWidget,
   DashboardLayoutV2,
@@ -291,6 +292,12 @@ export function WidgetEditorModal({
 
   const previewQuery = useQueryExecution();
   const allParamValues = useParameterValues();
+  // Query references $param_x tokens that aren't all bound — the preview shows
+  // a waiting state instead of running the literal token and erroring (#1055).
+  const previewWaitingForParams = !allReferencedParamsReady(
+    query,
+    allParamValues,
+  );
 
   // Derive the selected connection object so we can read its type
   const selectedConnection = useMemo(
@@ -755,7 +762,9 @@ export function WidgetEditorModal({
                           />
                         )}
 
-                      {/* Form fields editor (form type only) */}
+                      {/* Form fields editor (form type only). The editor
+                          itself renders the config-time write-permission note
+                          (#1051). */}
                       {isForm && <FormFieldsEditor />}
                     </div>
                   }
@@ -905,6 +914,7 @@ export function WidgetEditorModal({
                 }}
                 initialPreviewData={initialPreviewData}
                 onRunPreview={handlePreview}
+                waitingForParams={previewWaitingForParams}
               />
             </div>
 

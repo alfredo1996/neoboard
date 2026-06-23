@@ -444,6 +444,36 @@ describe("PostgreSQL Query Execution", () => {
     expect(result).toHaveLength(0);
   });
 
+  test("streams a huge READ result without buffering it all (MAX_ROWS+1)", async () => {
+    let result: any = null;
+    let status: QueryStatus | null = null;
+
+    const config = {
+      ...DEFAULT_CONNECTION_CONFIG,
+      connectionType: ConnectionTypes.POSTGRESQL,
+      accessMode: "READ",
+      rowLimit: 5,
+      parseToNeodashRecord: true,
+    };
+
+    // generate_series(1, 1_000_000) would materialise a million rows under the
+    // old buffer-then-slice path. The cursor must pull only rowLimit + 1 (6)
+    // and report truncation — proving memory stays bounded.
+    await connectionModule.runQuery(
+      { query: "SELECT g AS n FROM generate_series(1, 1000000) AS g" },
+      {
+        onSuccess: (r) => (result = r),
+        setStatus: (s) => (status = s),
+      },
+      config,
+    );
+
+    expect(status).toBe(QueryStatus.COMPLETE_TRUNCATED);
+    expect(result).toHaveLength(5);
+    expect(result[0].n).toBe(1);
+    expect(result[4].n).toBe(5);
+  });
+
   test("should handle COMPLETE_TRUNCATED status when row limit exceeded", async () => {
     let status: QueryStatus | null = null;
     let result: any = null;

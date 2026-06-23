@@ -21,6 +21,8 @@ import {
   AppShell,
   Sidebar,
   SidebarItem,
+  SidebarSectionLabel,
+  Wordmark,
   Badge,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -76,13 +78,7 @@ export default function DashboardLayout({
         <Sidebar
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
-          header={
-            !collapsed ? (
-              <span className="text-lg font-bold">NeoBoard</span>
-            ) : (
-              <span className="text-lg font-bold">N</span>
-            )
-          }
+          header={<Wordmark collapsed={collapsed} />}
           footer={
             <>
               {userName && (
@@ -143,11 +139,17 @@ export default function DashboardLayout({
                 icon={<LogOut className="h-4 w-4" />}
                 label="Sign out"
                 collapsed={collapsed}
-                onClick={() => signOut()}
+                // Explicit logout lands on a CLEAN /login — no callbackUrl.
+                // Otherwise the next user to sign in on this machine inherits
+                // the previous user's last location (#1037). The proxy still
+                // adds callbackUrl on mid-task session expiry, which is the
+                // case that param is for.
+                onClick={() => signOut({ callbackUrl: "/login" })}
               />
             </>
           }
         >
+          <SidebarSectionLabel label="Workspace" collapsed={collapsed} />
           <SidebarItem
             icon={<LayoutDashboard className="h-4 w-4" />}
             label="Dashboards"
@@ -162,15 +164,6 @@ export default function DashboardLayout({
             collapsed={collapsed}
             onClick={() => router.push("/connections")}
           />
-          {userRole === "admin" && (
-            <SidebarItem
-              icon={<Users className="h-4 w-4" />}
-              label="Users"
-              active={pathname === "/users"}
-              collapsed={collapsed}
-              onClick={() => router.push("/users")}
-            />
-          )}
           <SidebarItem
             icon={<Library className="h-4 w-4" />}
             label="Widget Library"
@@ -185,6 +178,18 @@ export default function DashboardLayout({
             collapsed={collapsed}
             onClick={() => router.push("/settings/profile")}
           />
+          {userRole === "admin" && (
+            <>
+              <SidebarSectionLabel label="Admin" collapsed={collapsed} />
+              <SidebarItem
+                icon={<Users className="h-4 w-4" />}
+                label="Users"
+                active={pathname === "/users"}
+                collapsed={collapsed}
+                onClick={() => router.push("/users")}
+              />
+            </>
+          )}
         </Sidebar>
       }
     >

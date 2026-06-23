@@ -11,6 +11,10 @@ const publicExact = new Set([
   "/signup",
   "/change-password",
   "/api/docs",
+  // Liveness/readiness probe — consumed by Docker healthchecks and the CLI
+  // readiness poll before any session exists. Reports set/unset env var
+  // names and DB status only, never values.
+  "/api/health",
 ]);
 
 /**
@@ -105,6 +109,26 @@ export async function proxy(req: NextRequest) {
   ) {
     return withRequestId(
       NextResponse.redirect(new URL("/change-password", req.nextUrl.origin)),
+      requestId,
+    );
+  }
+
+  // A forced-password-change session is a possibly-compromised credential —
+  // block mutating API calls too, not just pages (#993). Reads stay allowed
+  // (the change-password page itself needs session reads), the password
+  // endpoint must work, and nb_* API keys never reach this branch (they
+  // pass through above as machine credentials).
+  if (
+    token.forcePasswordChange &&
+    pathname.startsWith("/api/") &&
+    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    pathname !== "/api/users/me/password"
+  ) {
+    return withRequestId(
+      NextResponse.json(
+        { error: "Password change required before modifying data" },
+        { status: 403 },
+      ),
       requestId,
     );
   }

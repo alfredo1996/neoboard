@@ -1,21 +1,38 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'react';
-import { Home, BarChart3, Settings, Users, Plus, Download, Bell } from 'lucide-react';
-import { AppShell } from '@/components/composed/app-shell';
-import { Sidebar } from '@/components/composed/sidebar';
-import { SidebarItem } from '@/components/composed/sidebar-item';
-import { Toolbar, ToolbarSection, ToolbarSeparator } from '@/components/composed/toolbar';
-import { DashboardGrid } from '@/components/composed/dashboard-grid';
-import { WidgetCard } from '@/components/composed/widget-card';
-import { LineChart } from '@/charts/line-chart';
-import { BarChart } from '@/charts/bar-chart';
-import { Button } from '@/components/ui/button';
+import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
+import {
+  Home,
+  BarChart3,
+  Settings,
+  Users,
+  Plus,
+  Download,
+  Bell,
+} from "lucide-react";
+import { AppShell } from "@/components/composed/app-shell";
+import { Sidebar } from "@/components/composed/sidebar";
+import {
+  SidebarItem,
+  SidebarSectionLabel,
+  Wordmark,
+} from "@/components/composed/sidebar-item";
+import {
+  Toolbar,
+  ToolbarSection,
+  ToolbarSeparator,
+} from "@/components/composed/toolbar";
+import { WidgetCard } from "@/components/composed/widget-card";
+import { LineChart } from "@/charts/line-chart";
+import { BarChart } from "@/charts/bar-chart";
+import { Button } from "@/components/ui/button";
+import { Card, CardKpi } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const meta = {
-  title: 'Composed/AppShell',
+  title: "Composed/AppShell",
   component: AppShell,
-  parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
+  parameters: { layout: "fullscreen" },
+  tags: ["autodocs"],
 } satisfies Meta<typeof AppShell>;
 
 export default meta;
@@ -48,13 +65,40 @@ export const Default: Story = {
             <Sidebar
               collapsed={collapsed}
               onCollapsedChange={setCollapsed}
-              header={!collapsed ? <span className="text-lg font-bold px-1">NeoBoard</span> : undefined}
+              header={
+                !collapsed ? (
+                  <span className="text-lg font-bold px-1">NeoBoard</span>
+                ) : undefined
+              }
             >
-              <SidebarItem icon={<Home className="h-4 w-4" />} label="Dashboard" active collapsed={collapsed} />
-              <SidebarItem icon={<BarChart3 className="h-4 w-4" />} label="Analytics" collapsed={collapsed} />
-              <SidebarItem icon={<Users className="h-4 w-4" />} label="Users" badge={12} collapsed={collapsed} />
-              <SidebarItem icon={<Bell className="h-4 w-4" />} label="Notifications" badge={3} collapsed={collapsed} />
-              <SidebarItem icon={<Settings className="h-4 w-4" />} label="Settings" collapsed={collapsed} />
+              <SidebarItem
+                icon={<Home className="h-4 w-4" />}
+                label="Dashboard"
+                active
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<BarChart3 className="h-4 w-4" />}
+                label="Analytics"
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<Users className="h-4 w-4" />}
+                label="Users"
+                badge={12}
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<Bell className="h-4 w-4" />}
+                label="Notifications"
+                badge={3}
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<Settings className="h-4 w-4" />}
+                label="Settings"
+                collapsed={collapsed}
+              />
             </Sidebar>
           }
           header={
@@ -76,22 +120,16 @@ export const Default: Story = {
           }
         >
           <div className="p-6">
-            <p className="text-muted-foreground">Main content area. Place dashboard grids, tables, or other content here.</p>
+            <p className="text-muted-foreground">
+              Main content area. Place dashboard grids, tables, or other content
+              here.
+            </p>
           </div>
         </AppShell>
       </div>
     );
   },
 };
-
-const dashboardLayout = [
-  { i: 'stat-1', x: 0, y: 0, w: 3, h: 2 },
-  { i: 'stat-2', x: 3, y: 0, w: 3, h: 2 },
-  { i: 'stat-3', x: 6, y: 0, w: 3, h: 2 },
-  { i: 'stat-4', x: 9, y: 0, w: 3, h: 2 },
-  { i: 'line', x: 0, y: 2, w: 8, h: 4 },
-  { i: 'bar', x: 8, y: 2, w: 4, h: 4 },
-];
 
 export const FullDashboard: Story = {
   args: { children: null },
@@ -104,21 +142,52 @@ export const FullDashboard: Story = {
             <Sidebar
               collapsed={collapsed}
               onCollapsedChange={setCollapsed}
-              header={!collapsed ? <span className="text-lg font-bold px-1">NeoBoard</span> : undefined}
-              footer={!collapsed ? <span className="text-xs text-muted-foreground">v1.0.0</span> : undefined}
+              header={<Wordmark collapsed={collapsed} />}
+              footer={
+                !collapsed ? (
+                  <span className="text-xs text-muted-foreground">v1.1.0</span>
+                ) : undefined
+              }
             >
-              <SidebarItem icon={<Home className="h-4 w-4" />} label="Dashboard" active collapsed={collapsed} />
-              <SidebarItem icon={<BarChart3 className="h-4 w-4" />} label="Analytics" collapsed={collapsed} />
-              <SidebarItem icon={<Users className="h-4 w-4" />} label="Users" badge={24} collapsed={collapsed} />
-              <SidebarItem icon={<Settings className="h-4 w-4" />} label="Settings" collapsed={collapsed} />
+              <SidebarSectionLabel label="Workspace" collapsed={collapsed} />
+              <SidebarItem
+                icon={<Home className="h-4 w-4" />}
+                label="Dashboards"
+                active
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<BarChart3 className="h-4 w-4" />}
+                label="Analytics"
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<Bell className="h-4 w-4" />}
+                label="Notifications"
+                badge={3}
+                collapsed={collapsed}
+              />
+              <SidebarSectionLabel label="Admin" collapsed={collapsed} />
+              <SidebarItem
+                icon={<Users className="h-4 w-4" />}
+                label="Users"
+                badge={24}
+                collapsed={collapsed}
+              />
+              <SidebarItem
+                icon={<Settings className="h-4 w-4" />}
+                label="Settings"
+                collapsed={collapsed}
+              />
             </Sidebar>
           }
           header={
             <Toolbar>
               <ToolbarSection>
-                <h2 className="text-lg font-semibold">Dashboard</h2>
+                <h2 className="font-display text-lg font-semibold tracking-tight">
+                  Revenue Overview
+                </h2>
               </ToolbarSection>
-              <ToolbarSeparator />
               <ToolbarSection className="ml-auto">
                 <Button size="sm" variant="outline">
                   <Download className="mr-2 h-4 w-4" />
@@ -129,46 +198,49 @@ export const FullDashboard: Story = {
                   Add Widget
                 </Button>
               </ToolbarSection>
+              <ToolbarSeparator />
+              <ToolbarSection>
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>AD</AvatarFallback>
+                </Avatar>
+              </ToolbarSection>
             </Toolbar>
           }
         >
-          <div className="p-4">
-            <DashboardGrid layout={dashboardLayout} rowHeight={60} isDraggable={false} isResizable={false}>
-              <div key="stat-1">
-                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
-                  <span className="text-sm text-muted-foreground">Revenue</span>
-                  <span className="text-2xl font-bold">$45,231</span>
-                </div>
-              </div>
-              <div key="stat-2">
-                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
-                  <span className="text-sm text-muted-foreground">Users</span>
-                  <span className="text-2xl font-bold">2,350</span>
-                </div>
-              </div>
-              <div key="stat-3">
-                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
-                  <span className="text-sm text-muted-foreground">Orders</span>
-                  <span className="text-2xl font-bold">1,247</span>
-                </div>
-              </div>
-              <div key="stat-4">
-                <div className="flex h-full flex-col items-center justify-center rounded-lg border p-4">
-                  <span className="text-sm text-muted-foreground">Conversion</span>
-                  <span className="text-2xl font-bold">3.2%</span>
-                </div>
-              </div>
-              <div key="line">
+          {/* 4-col KPI row + 2:1 chart row (#832) — plain CSS grid, no
+              orphans, compact left-aligned KPIs from #825. */}
+          <div className="space-y-4 p-6">
+            <div className="grid grid-cols-4 gap-4">
+              <Card density="compact" interactive>
+                <CardKpi
+                  label="Revenue"
+                  value="$45,231"
+                  trend={12.4}
+                  trendLabel="vs last month"
+                />
+              </Card>
+              <Card density="compact" interactive>
+                <CardKpi label="Users" value="2,350" trend={4.1} />
+              </Card>
+              <Card density="compact" interactive>
+                <CardKpi label="Orders" value="1,247" trend={-1.8} />
+              </Card>
+              <Card density="compact" interactive>
+                <CardKpi label="Conversion" value="3.2%" trend={0.4} />
+              </Card>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2 h-[320px]">
                 <WidgetCard title="Revenue Over Time" subtitle="Monthly trend">
                   <LineChart data={revenueData} smooth area />
                 </WidgetCard>
               </div>
-              <div key="bar">
+              <div className="h-[320px]">
                 <WidgetCard title="Sales by Category">
-                  <BarChart data={categoryData} showValues />
+                  <BarChart data={categoryData} />
                 </WidgetCard>
               </div>
-            </DashboardGrid>
+            </div>
           </div>
         </AppShell>
       </div>

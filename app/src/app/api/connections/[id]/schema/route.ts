@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -14,13 +14,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await requireSession();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
 
     const [connection] = await db
       .select()
       .from(connections)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId)))
+      .where(
+        and(
+          eq(connections.id, id),
+          eq(connections.tenantId, tenantId),
+          or(
+            eq(connections.userId, userId),
+            eq(connections.visibility, "shared"),
+          ),
+        ),
+      )
       .limit(1);
 
     if (!connection) {

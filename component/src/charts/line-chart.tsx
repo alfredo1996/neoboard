@@ -9,6 +9,8 @@ import {
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
+  buildLegend,
+  resolveLegendPosition,
   resolveItemColor,
   buildTooltipFormatter,
   parseReferenceLines,
@@ -30,6 +32,8 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   area?: boolean;
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
+  /** Where to place the legend (#1053). */
+  legendPosition?: string;
   /** Show data point markers */
   showPoints?: boolean;
   /** Line stroke width in pixels */
@@ -102,11 +106,14 @@ function LineChart({
   data,
   xAxisLabel,
   yAxisLabel,
-  smooth = false,
-  area = false,
+  // v1.1 defaults (#822): smooth fine lines with a subtle area fill make
+  // charts look deliberately styled out of the box. Both opt-outable.
+  smooth = true,
+  area = true,
   showLegend,
+  legendPosition,
   showPoints = false,
-  lineWidth = 2,
+  lineWidth = 1.5,
   showGridLines = true,
   stepped = false,
   connectNulls = false,
@@ -133,6 +140,7 @@ function LineChart({
       seriesKeys.length,
       hideLegend,
     );
+    const legendPos = resolveLegendPosition(legendPosition);
     const markLine = buildMarkLineFromRefs(
       parseReferenceLines(referenceLinesJson),
     );
@@ -181,7 +189,27 @@ function LineChart({
         lineStyle: { width: lineWidth, color: seriesColor },
         itemStyle: seriesColor ? { color: seriesColor } : undefined,
         showSymbol: showPoints,
-        areaStyle: area ? {} : undefined,
+        // Subtle fill (#822): a soft gradient when the series color is
+        // known, otherwise a low flat opacity (ECharts applies the series
+        // color automatically).
+        areaStyle: area
+          ? seriesColor
+            ? {
+                opacity: 0.15,
+                color: {
+                  type: "linear" as const,
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [
+                    { offset: 0, color: seriesColor },
+                    { offset: 1, color: "rgba(255,255,255,0)" },
+                  ],
+                },
+              }
+            : { opacity: 0.12 }
+          : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // LTTB downsampling for large datasets
         ...(useSampling
@@ -194,11 +222,15 @@ function LineChart({
 
     return {
       tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
-      legend: effectiveShowLegend ? { bottom: 0 } : undefined,
+      legend: buildLegend(effectiveShowLegend, legendPos),
       grid: {
-        ...buildCompactGrid(compact, effectiveShowLegend),
-        left: compact ? 8 : 48,
-        right: useDualAxis && !compact ? 56 : undefined,
+        ...buildCompactGrid(compact, effectiveShowLegend, legendPos),
+        // Keep room for the y-axis labels, plus extra when a side legend sits
+        // on that edge (#1053).
+        left: (compact ? 8 : 48) + (legendPos === "left" ? 40 : 0),
+        right:
+          (useDualAxis && !compact ? 56 : 0) +
+            (legendPos === "right" ? 40 : 0) || undefined,
       },
       xAxis: {
         type: useTimeAxis ? "time" : "category",

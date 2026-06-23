@@ -7,7 +7,14 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  FILL_LABEL_COLOR,
+  FILL_LABEL_SHADOW,
+  FILL_LABEL_SHADOW_BLUR,
+  fillLabelStyle,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ESunburstChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -47,6 +54,7 @@ function SunburstChart({
   highlightOnHover = true,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: SunburstChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -107,6 +115,11 @@ function SunburstChart({
           ellipsis: "…",
           width,
           fontSize: withinDepth ? fontSize : 10,
+          // White + soft shadow so segment labels read on any fill color;
+          // hidden levels stay fully transparent (no ghost shadow).
+          color: withinDepth ? FILL_LABEL_COLOR : "transparent",
+          textShadowColor: FILL_LABEL_SHADOW,
+          textShadowBlur: withinDepth ? FILL_LABEL_SHADOW_BLUR : 0,
         },
       });
     }
@@ -148,6 +161,7 @@ function SunburstChart({
           label: {
             show: !compact,
             fontSize: 11,
+            ...fillLabelStyle,
           },
           // Hide labels on very thin slivers regardless of level settings
           minAngle: 5,
@@ -158,6 +172,7 @@ function SunburstChart({
                   show: true,
                   fontSize: 12,
                   fontWeight: "bold" as const,
+                  ...fillLabelStyle,
                 },
                 itemStyle: {
                   shadowBlur: 4,
@@ -183,7 +198,14 @@ function SunburstChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Sunburst chart with ${data.length} top-level segments`
+        }
+        {...rest}
+      />
     </div>
   );
 }

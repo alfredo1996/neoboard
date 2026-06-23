@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
+import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 import {
   Calendar,
   Type,
@@ -166,6 +167,8 @@ export function ParameterConfigSection({
   const onParamWidgetNameChange = useWidgetEditorStore(
     (s) => s.setParamWidgetName,
   );
+  // The consumed token strips a leading param_ so it isn't doubled (#1055).
+  const displayParamName = normalizeParamName(paramWidgetName);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const onChartOptionsChange = useWidgetEditorStore((s) => s.setChartOptions);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
@@ -387,7 +390,7 @@ export function ParameterConfigSection({
             <p>
               Other widgets can use this parameter as:{" "}
               <code className="bg-muted px-1 py-0.5 rounded text-foreground">
-                $param_{paramWidgetName}
+                $param_{displayParamName}
               </code>
             </p>
             {paramUIType === "date" &&
@@ -395,11 +398,11 @@ export function ParameterConfigSection({
                 <p>
                   Date range sub-parameters:{" "}
                   <code className="bg-muted px-1 py-0.5 rounded text-foreground">
-                    $param_{paramWidgetName}_from
+                    $param_{displayParamName}_from
                   </code>
                   ,{" "}
                   <code className="bg-muted px-1 py-0.5 rounded text-foreground">
-                    $param_{paramWidgetName}_to
+                    $param_{displayParamName}_to
                   </code>
                 </p>
               )}
@@ -407,11 +410,11 @@ export function ParameterConfigSection({
               <p>
                 Number range sub-parameters:{" "}
                 <code className="bg-muted px-1 py-0.5 rounded text-foreground">
-                  $param_{paramWidgetName}_min
+                  $param_{displayParamName}_min
                 </code>
                 ,{" "}
                 <code className="bg-muted px-1 py-0.5 rounded text-foreground">
-                  $param_{paramWidgetName}_max
+                  $param_{displayParamName}_max
                 </code>
               </p>
             )}

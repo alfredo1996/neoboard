@@ -159,6 +159,15 @@ test.describe("Connections", () => {
     await expect(nameInput).toBeVisible();
     const nameValue = await nameInput.inputValue();
     expect(nameValue).toContain("(copy)");
+
+    // Duplicate prefills the source's non-secret config (#1042): URI and
+    // username arrive async from GET /api/connections/{id}.
+    await expect(dialog.locator("#conn-uri")).not.toHaveValue("", {
+      timeout: 5_000,
+    });
+    await expect(dialog.locator("#conn-username")).not.toHaveValue("");
+    // The password is NEVER carried over — secrets don't round-trip.
+    await expect(dialog.locator("#conn-password")).toHaveValue("");
   });
 
   test("clicking an error card shows error details inline", async ({
@@ -210,6 +219,63 @@ test.describe("Connections", () => {
     // Close dialog
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).not.toBeVisible();
+  });
+
+  test("should rename a connection from the edit dialog (#1043)", async ({
+    page,
+  }) => {
+    const name = `Rename Me ${Date.now()}`;
+    const renamed = `Renamed ${Date.now()}`;
+    // Create a connection to rename.
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    let dialog = page.getByRole("dialog");
+    await dialog.getByTestId("pick-neo4j").click();
+    await dialog.locator("#conn-name").fill(name);
+    await dialog.locator("#conn-uri").fill(TEST_NEO4J_BOLT_URL);
+    await dialog.locator("#conn-username").fill("neo4j");
+    await dialog.locator("#conn-password").fill("neoboard123");
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByText(name)).toBeVisible();
+
+    // Open its edit dialog and change the Name field. Scope to the smallest
+    // card div that holds both this connection's name and its actions button.
+    const card = page
+      .locator("div")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .filter({ has: page.getByRole("button", { name: "Connection actions" }) })
+      .last();
+    await card.getByRole("button", { name: "Connection actions" }).click();
+    await page.getByRole("menuitem", { name: /Edit/ }).click();
+    dialog = page.getByRole("dialog");
+    await expect(dialog.locator("#edit-name")).toHaveValue(name, {
+      timeout: 5000,
+    });
+    await dialog.locator("#edit-name").fill(renamed);
+    await dialog.getByRole("button", { name: "Save" }).click();
+
+    // The new name appears and a confirmation toast fires (#1043). Use exact
+    // match to avoid the aria-live "Notification …" status span.
+    await expect(
+      page.getByText("Connection updated", { exact: true }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(renamed)).toBeVisible();
+  });
+
+  test("blocks save of a malformed URI with an inline error (#1043)", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("pick-neo4j").click();
+    await dialog.locator("#conn-name").fill("Bad URI");
+    await dialog.locator("#conn-uri").fill("not-a-uri");
+    await dialog.locator("#conn-username").fill("neo4j");
+    await dialog.locator("#conn-password").fill("pw");
+    await dialog.getByRole("button", { name: "Create" }).click();
+
+    // Inline error shown; dialog stays open (no Error-badge connection saved).
+    await expect(dialog.getByText(/valid URI/i)).toBeVisible({ timeout: 5000 });
+    await expect(dialog).toBeVisible();
   });
 
   test("should delete a connection with confirmation", async ({ page }) => {

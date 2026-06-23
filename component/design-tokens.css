@@ -1,71 +1,172 @@
 /*
- * NeoBoard Design Tokens — Deep Ocean palette
+ * NeoBoard Design Tokens — Graphite & Citrine palette (#820, #823)
  *
  * Single source of truth for CSS custom properties.
  * Imported by app/src/app/globals.css and component/src/index.css.
+ *
+ * Palette intent: near-black graphite primaries on a cool off-white page.
+ * UI selection/interaction (focus rings, active/selected, tonal, hover fills)
+ * uses a cool INDIGO accent (--ring/--accent). Warm citrine is the BRAND mark
+ * (--brand, the wordmark) + the chart data palette (--chart-1). Amber is
+ * reserved for --warning. (Selection moved off amber: it collided with the
+ * warning hue and was low-contrast on white.)
+ *
+ * Elevation: page background < --surface (cards) < --surface-2 (nested).
+ * Shadows are warm-tinted (hue 30) rather than pure black — see --shadow-*.
  */
 
+/*
+ * Self-hosted variable fonts (#830) — Geist Sans for display/headings,
+ * Inter for body. font-display: swap keeps text visible with the system
+ * fallback while the woff2 loads (graceful, no invisible text).
+ */
+@font-face {
+  font-family: "Geist Sans";
+  src: url("./fonts/geist-sans-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/inter-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --background: 210 20% 99%;
-  --foreground: 222 47% 11%;
-  --card: 210 20% 99%;
-  --card-foreground: 222 47% 11%;
-  --popover: 210 20% 99%;
-  --popover-foreground: 222 47% 11%;
-  --muted: 214 20% 95%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 214 20% 95%;
-  --accent-foreground: 222 47% 11%;
+  --background: 220 14% 98%;
+  --foreground: 220 13% 9%;
+  /* Cards float white above the tinted page background. */
+  --surface: 0 0% 100%;
+  --surface-2: 220 14% 95%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 13% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 13% 9%;
+  --muted: 220 14% 94%;
+  --muted-foreground: 220 9% 44%;
+  /* Indigo-tinted hover/selected fill (shadcn semantics). Selection/interaction
+     moved off amber to a cool indigo: amber reads as "warning" (and IS the
+     --warning hue), and amber focus rings are low-contrast on white. Citrine
+     stays the brand mark (--brand) + chart data palette. */
+  --accent: 243 100% 97%;
+  --accent-foreground: 220 13% 9%;
+  /* Low-alpha indigo tint for hover/active fills on arbitrary surfaces —
+     alpha-based so it adapts to theme mode automatically. */
+  --accent-soft: hsl(243 75% 59% / 0.14);
+  /* Brand mark accent — the warm citrine square in the wordmark. Kept warm so
+     the brand identity stays "Graphite & Citrine" while UI selection is cool. */
+  --brand: 38 95% 55%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 214 20% 90%;
-  --input: 214 20% 90%;
-  --ring: 217 91% 60%;
-  --radius: 0.5rem;
-  --primary: 222 47% 11%;
-  --primary-foreground: 210 20% 99%;
-  --secondary: 214 20% 95%;
-  --secondary-foreground: 222 47% 11%;
-  --chart-1: 217 91% 60%;
-  --chart-2: 38 92% 50%;
-  --chart-3: 347 77% 50%;
-  --chart-4: 160 84% 39%;
-  --chart-5: 271 81% 56%;
-  --chart-6: 24 90% 48%;
-  --chart-7: 142 71% 45%;
-  --chart-8: 199 89% 48%;
-  --chart-9: 326 78% 42%;
-  --chart-10: 55 70% 45%;
+  /* Semantic status colors (#1059 follow-up): readable as text on the page
+     surface AND as the base for low-alpha tonal badge tints. Mid-luminance
+     in light mode; lifted in dark (see .dark). --warning is a deliberately
+     warmer/darker amber than the citrine brand --ring so "warning" and
+     "accent" stay distinct. Danger is a text-legible red, distinct from the
+     heavier --destructive surface color. */
+  --success: 142 64% 32%;
+  --success-foreground: 0 0% 100%;
+  --warning: 33 92% 40%;
+  --warning-foreground: 0 0% 100%;
+  --danger: 0 72% 48%;
+  --danger-foreground: 0 0% 100%;
+  --border: 220 13% 91%;
+  /* Stronger border for inputs and emphasized dividers. */
+  --border-strong: 220 13% 84%;
+  --input: 220 13% 84%;
+  /* Selection/focus accent — cool indigo (was citrine amber). */
+  --ring: 243 75% 59%;
+  --font-display: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Radius scale (#831): precise small controls, softer large containers. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-pill: 9999px;
+  --radius: var(--radius-md);
+  /* Motion vocabulary (#833): standard for general transitions,
+     emphasized for significant entrances/exits. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --primary: 220 13% 9%;
+  --primary-foreground: 220 14% 98%;
+  --secondary: 220 14% 94%;
+  --secondary-foreground: 220 13% 9%;
+  /* Elevation scale — warm-tinted shadows (hue 30), not pure black. */
+  --shadow-sm: 0 1px 2px 0 hsl(30 25% 10% / 0.05);
+  --shadow-md:
+    0 2px 6px -1px hsl(30 25% 10% / 0.08), 0 1px 2px -1px hsl(30 25% 10% / 0.05);
+  --shadow-lg:
+    0 8px 24px -4px hsl(30 25% 10% / 0.12),
+    0 2px 6px -2px hsl(30 25% 10% / 0.06);
+  --chart-1: 38 95% 55%;
+  --chart-2: 185 70% 48%;
+  --chart-3: 265 55% 48%;
+  --chart-4: 350 70% 48%;
+  --chart-5: 95 45% 66%;
+  --chart-6: 330 65% 38%;
+  --chart-7: 240 55% 66%;
+  --chart-8: 15 75% 58%;
+  --chart-9: 172 65% 38%;
+  --chart-10: 150 55% 66%;
 }
 
 .dark {
-  --background: 222 47% 6%;
-  --foreground: 210 40% 98%;
-  --card: 222 47% 6%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222 47% 6%;
-  --popover-foreground: 210 40% 98%;
-  --muted: 217 33% 14%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 217 33% 14%;
-  --accent-foreground: 210 40% 98%;
+  --background: 220 13% 8%;
+  --foreground: 220 14% 96%;
+  --surface: 220 13% 11%;
+  --surface-2: 220 13% 14%;
+  --card: 220 13% 11%;
+  --card-foreground: 220 14% 96%;
+  --popover: 220 13% 11%;
+  --popover-foreground: 220 14% 96%;
+  --muted: 220 13% 15%;
+  --muted-foreground: 220 9% 62%;
+  /* Deep indigo hover fill; readable cool-white text. */
+  --accent: 243 40% 22%;
+  --accent-foreground: 243 100% 93%;
+  --accent-soft: hsl(243 85% 70% / 0.2);
+  /* Brand mark stays warm citrine (matches --chart-1 dark). */
+  --brand: 38 95% 58%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --ring: 212 80% 60%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222 47% 11%;
-  --secondary: 217 33% 14%;
-  --secondary-foreground: 210 40% 98%;
-  --chart-1: 217 91% 65%;
-  --chart-2: 38 92% 56%;
-  --chart-3: 347 77% 55%;
-  --chart-4: 160 70% 50%;
-  --chart-5: 271 81% 65%;
-  --chart-6: 24 90% 55%;
-  --chart-7: 142 71% 50%;
-  --chart-8: 199 89% 55%;
-  --chart-9: 326 78% 50%;
-  --chart-10: 55 70% 52%;
+  /* Lifted luminance so the colors read as text/tints against charcoal. */
+  --success: 142 58% 55%;
+  --success-foreground: 220 13% 9%;
+  --warning: 38 92% 60%;
+  --warning-foreground: 220 13% 9%;
+  --danger: 0 80% 66%;
+  --danger-foreground: 220 13% 9%;
+  --border: 220 13% 17%;
+  --border-strong: 220 13% 25%;
+  --input: 220 13% 25%;
+  /* Lifted indigo focus/selection ring for contrast on charcoal. */
+  --ring: 243 85% 70%;
+  --primary: 220 14% 96%;
+  --primary-foreground: 220 13% 9%;
+  --secondary: 220 13% 15%;
+  --secondary-foreground: 220 14% 96%;
+  /* Dark mode needs heavier, cooler shadows to read against charcoal. */
+  --shadow-sm: 0 1px 2px 0 hsl(220 30% 2% / 0.4);
+  --shadow-md:
+    0 2px 6px -1px hsl(220 30% 2% / 0.5), 0 1px 2px -1px hsl(220 30% 2% / 0.4);
+  --shadow-lg:
+    0 8px 24px -4px hsl(220 30% 2% / 0.6), 0 2px 6px -2px hsl(220 30% 2% / 0.5);
+  --chart-1: 38 95% 58%;
+  --chart-2: 185 65% 52%;
+  --chart-3: 265 55% 56%;
+  --chart-4: 350 70% 55%;
+  --chart-5: 95 45% 68%;
+  --chart-6: 330 60% 46%;
+  --chart-7: 240 55% 70%;
+  --chart-8: 15 75% 62%;
+  --chart-9: 172 60% 44%;
+  --chart-10: 150 50% 68%;
 }

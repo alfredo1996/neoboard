@@ -164,23 +164,29 @@ async function main() {
     process.exit(1);
   }
 
+  // Secrets come from the process env first (the CLI passes them in Docker
+  // mode, sourced from docker/.env so host seed and container agree on the
+  // ENCRYPTION_KEY), then fall back to app/.env.local (local mode).
+  let env = {};
   const envPath = resolve(__dirname, "../app/.env.local");
-  let env;
   try {
     env = parseEnvFile(envPath);
   } catch {
-    console.error("    Could not read app/.env.local — skipping seed.");
-    process.exit(0);
+    // No .env.local — rely on process env (Docker mode).
   }
 
-  const databaseUrl = env.DATABASE_URL;
-  const encryptionKey = env.ENCRYPTION_KEY;
+  const databaseUrl = process.env.DATABASE_URL || env.DATABASE_URL;
+  const encryptionKey = process.env.ENCRYPTION_KEY || env.ENCRYPTION_KEY;
 
   if (!databaseUrl || !encryptionKey) {
+    // Exit NON-ZERO so the caller fails loudly instead of printing a
+    // "ready!" banner with credentials for a user that was never created
+    // (#969). Silent skip was the default fresh-clone Docker path.
     console.error(
-      "    DATABASE_URL or ENCRYPTION_KEY missing in .env.local — skipping seed.",
+      "    ERROR: DATABASE_URL / ENCRYPTION_KEY not found in process env or " +
+        "app/.env.local — cannot seed. The demo admin was NOT created.",
     );
-    process.exit(0);
+    process.exit(1);
   }
 
   const sql = postgres(databaseUrl, {
@@ -376,10 +382,11 @@ async function upsertDashboard(
     SELECT id FROM "dashboard" WHERE name = ${name} AND "userId" = ${userId}
   `;
   if (existing.length > 0) {
-    // Update existing dashboard layout so re-running refreshes the demo data
+    // Update existing dashboard layout so re-running refreshes the demo data.
+    // Set updated_by so seeded dashboards show "by {name}" like edited ones (#1048).
     await sql`
       UPDATE "dashboard"
-      SET "layoutJson" = ${sql.json(layout)}, "isPublic" = ${isPublic}, "updatedAt" = NOW()
+      SET "layoutJson" = ${sql.json(layout)}, "isPublic" = ${isPublic}, "updatedAt" = NOW(), "updated_by" = ${userId}
       WHERE id = ${existing[0].id}
     `;
     console.log(`    Dashboard "${name}" already exists — layout updated.`);
@@ -387,9 +394,11 @@ async function upsertDashboard(
   }
 
   const id = uuid();
+  // Populate updated_by so the card attribution ("by {name}") renders for
+  // seeded dashboards, not just user-edited ones (#1048).
   await sql`
-    INSERT INTO "dashboard" (id, "userId", tenant_id, name, description, "layoutJson", "isPublic", "createdAt", "updatedAt")
-    VALUES (${id}, ${userId}, ${"default"}, ${name}, ${description}, ${sql.json(layout)}, ${isPublic}, NOW(), NOW())
+    INSERT INTO "dashboard" (id, "userId", tenant_id, name, description, "layoutJson", "isPublic", "createdAt", "updatedAt", "updated_by")
+    VALUES (${id}, ${userId}, ${"default"}, ${name}, ${description}, ${sql.json(layout)}, ${isPublic}, NOW(), NOW(), ${userId})
   `;
   console.log(`    Dashboard "${name}" created.`);
   return id;

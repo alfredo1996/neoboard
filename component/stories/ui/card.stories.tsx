@@ -1,22 +1,30 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import type { Meta, StoryObj } from "@storybook/react";
+import {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardKpi,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const meta = {
-  title: 'UI/Card',
+  title: "UI/Card",
   component: Card,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     className: {
-      control: 'text',
-      description: 'Additional CSS classes to apply to the card',
+      control: "text",
+      description: "Additional CSS classes to apply to the card",
     },
   },
   args: {
-    className: 'w-[350px]',
+    className: "w-[350px]",
   },
 } satisfies Meta<typeof Card>;
 
@@ -75,5 +83,42 @@ export const WithForm: Story = {
         <Button>Deploy</Button>
       </CardFooter>
     </Card>
+  ),
+};
+
+export const KpiRow: Story = {
+  render: () => (
+    <div className="grid w-[720px] grid-cols-3 gap-4">
+      <Card density="compact">
+        <CardKpi
+          label="Revenue"
+          value="$1.2M"
+          trend={12.4}
+          trendLabel="vs last month"
+        />
+      </Card>
+      <Card density="compact">
+        <CardKpi label="Active users" value="8,421" trend={-3.2} />
+      </Card>
+      <Card density="compact">
+        <CardKpi label="Queries / day" value="142K" />
+      </Card>
+    </div>
+  ),
+};
+
+export const Densities: Story = {
+  render: () => (
+    <div className="flex w-[900px] gap-4">
+      {(["default", "compact", "tight"] as const).map((d) => (
+        <Card key={d} density={d} className="flex-1">
+          <CardHeader>
+            <CardTitle>{d}</CardTitle>
+            <CardDescription>density: {d}</CardDescription>
+          </CardHeader>
+          <CardContent>Padding scales with density.</CardContent>
+        </Card>
+      ))}
+    </div>
   ),
 };

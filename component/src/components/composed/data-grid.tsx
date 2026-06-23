@@ -21,7 +21,7 @@ import type {
   ExpandedState,
   Table,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, ChevronsDownUp } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, Inbox } from "lucide-react";
 import {
   Table as UITable,
   TableBody,
@@ -111,6 +111,8 @@ export interface DataGridProps<TData> {
   initialGrouping?: string[];
   toolbar?: (table: Table<TData>) => React.ReactNode;
   pagination?: (table: Table<TData>) => React.ReactNode;
+  /** Message shown in the empty state (no rows / filtered to none). */
+  emptyMessage?: string;
   className?: string;
   /**
    * Table-wide number format applied to every numeric cell that does not
@@ -142,6 +144,7 @@ function DataGrid<TData>({
   initialGrouping,
   toolbar,
   pagination,
+  emptyMessage = "No results.",
   className,
   numberFormat,
   decimalPlaces,
@@ -412,9 +415,12 @@ function DataGrid<TData>({
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                     style={!isGrouped ? getRowStyle?.(row.original) : undefined}
-                    className={
-                      isGrouped ? "bg-muted/50 font-medium" : undefined
-                    }
+                    className={cn(
+                      isGrouped
+                        ? "bg-muted/50 font-medium"
+                        : // Subtle hover affordance on data rows (#1055).
+                          "transition-colors hover:bg-muted/40",
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => {
                       const isDataCell = cell.column.id !== "select";
@@ -475,32 +481,43 @@ function DataGrid<TData>({
                       return (
                         <TableCell
                           key={cell.id}
-                          className={
-                            cellClickable ? "cursor-pointer" : undefined
-                          }
+                          className={cn(
+                            // Tabular figures keep digit columns aligned (#830)
+                            typeof cell.getValue() === "number" &&
+                              "tabular-nums",
+                            // Clickable cells: drop padding so the inner
+                            // button fills the whole cell, preserving the
+                            // full-cell click target (#980).
+                            cellClickable && "p-0",
+                          )}
                           style={getCellStyle?.(
                             row.original as TData,
                             cell.column.id,
                           )}
-                          onClick={
-                            cellClickable
-                              ? (e) => {
-                                  e.stopPropagation();
-                                  onCellClick({
-                                    column: cell.column.id,
-                                    value: cell.getValue(),
-                                  });
-                                }
-                              : undefined
-                          }
                         >
                           {cellClickable ? (
-                            <span className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 text-primary hover:bg-primary/15 transition-colors">
+                            // Real <button> so the click action is keyboard-
+                            // reachable and announced to assistive tech (#980).
+                            // w-full + cell padding makes it fill the cell, so
+                            // a click anywhere in the cell still activates it.
+                            // stopPropagation keeps the row handler from also
+                            // firing.
+                            <button
+                              type="button"
+                              className="flex h-full w-full items-center rounded-md bg-primary/5 px-4 py-2 text-left text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCellClick({
+                                  column: cell.column.id,
+                                  value: cell.getValue(),
+                                });
+                              }}
+                            >
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext(),
                               )}
-                            </span>
+                            </button>
                           ) : (
                             flexRender(
                               cell.column.columnDef.cell,
@@ -514,12 +531,12 @@ function DataGrid<TData>({
                 );
               })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={allColumns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={allColumns.length} className="h-32">
+                  <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Inbox className="h-8 w-8 opacity-40" aria-hidden />
+                    <span className="text-sm">{emptyMessage}</span>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

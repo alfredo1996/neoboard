@@ -1,5 +1,15 @@
-import { Database, MoreVertical, Pencil, Trash2, RefreshCw, Copy } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Database,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  RefreshCw,
+  Copy,
+  Users,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +25,12 @@ import { cn } from "@/lib/utils";
 export interface ConnectionCardProps {
   name: string;
   host: string;
+  /**
+   * Optional connector-type icon (e.g. a Neo4j or PostgreSQL logo). Falls back
+   * to a generic database glyph so every type is visually distinct (#1043).
+   * Passed in by the app to keep this library free of app-specific assets.
+   */
+  icon?: ReactNode;
   database?: string;
   status: ConnectionState;
   statusText?: string;
@@ -24,12 +40,18 @@ export interface ConnectionCardProps {
   onTest?: () => void;
   onDuplicate?: () => void;
   onClick?: () => void;
+  /** Renders a "Shared" badge — the connection is workspace-visible. */
+  shared?: boolean;
+  /** Menu action to toggle sharing; label comes from toggleVisibilityLabel. */
+  onToggleVisibility?: () => void;
+  toggleVisibilityLabel?: string;
   className?: string;
 }
 
 function ConnectionCard({
   name,
   host,
+  icon,
   database,
   status,
   statusText,
@@ -39,6 +61,9 @@ function ConnectionCard({
   onTest,
   onDuplicate,
   onClick,
+  shared = false,
+  onToggleVisibility,
+  toggleVisibilityLabel = "Share with workspace",
   className,
 }: ConnectionCardProps) {
   return (
@@ -47,13 +72,13 @@ function ConnectionCard({
         "transition-colors",
         active && "border-primary",
         onClick && "cursor-pointer hover:bg-accent/50",
-        className
+        className,
       )}
       onClick={onClick}
     >
       <CardContent className="flex items-center gap-3 p-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-          <Database className="h-5 w-5 text-muted-foreground" />
+          {icon ?? <Database className="h-5 w-5 text-muted-foreground" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -62,13 +87,23 @@ function ConnectionCard({
               status={status}
               errorMessage={status === "error" ? statusText : undefined}
             />
+            {shared && (
+              <Badge variant="secondary" className="gap-1 text-xs">
+                <Users className="h-3 w-3" />
+                Shared
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground truncate">
             {host}
             {database && ` / ${database}`}
           </p>
         </div>
-        {(onEdit || onDelete || onTest || onDuplicate) && (
+        {(onEdit ||
+          onDelete ||
+          onTest ||
+          onDuplicate ||
+          onToggleVisibility) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -98,6 +133,12 @@ function ConnectionCard({
                 <DropdownMenuItem onClick={onEdit}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit
+                </DropdownMenuItem>
+              )}
+              {onToggleVisibility && (
+                <DropdownMenuItem onClick={onToggleVisibility}>
+                  <Users className="mr-2 h-4 w-4" />
+                  {toggleVisibilityLabel}
                 </DropdownMenuItem>
               )}
               {onDelete && (

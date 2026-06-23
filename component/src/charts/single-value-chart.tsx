@@ -1,3 +1,4 @@
+import { TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { StylingRule } from "./styling-rule";
@@ -70,7 +71,11 @@ function SingleValueChart({
   if (error) {
     return (
       <Card className={cn(className)}>
-        <CardContent className="flex min-h-[120px] items-center justify-center">
+        <CardContent className="flex min-h-[120px] flex-col items-center justify-center gap-2">
+          <TriangleAlert
+            className="h-6 w-6 text-destructive opacity-80"
+            aria-hidden
+          />
           <span className="text-sm text-destructive" role="alert">
             {error.message}
           </span>
@@ -116,9 +121,9 @@ function SingleValueChart({
 
   const trendColor =
     trend?.direction === "up"
-      ? "text-green-600 dark:text-green-400"
+      ? "text-[hsl(var(--success))]"
       : trend?.direction === "down"
-        ? "text-red-600 dark:text-red-400"
+        ? "text-[hsl(var(--danger))]"
         : "text-muted-foreground";
 
   const trendArrow =
@@ -160,7 +165,10 @@ function SingleValueChart({
         ) : (
           <>
             <div
-              className={cn(valueSizeClass, "font-bold tracking-tight")}
+              className={cn(
+                valueSizeClass,
+                "font-display font-bold tracking-tight tabular-nums",
+              )}
               style={{ color: thresholdColor ?? autoContrast ?? undefined }}
             >
               {prefix}

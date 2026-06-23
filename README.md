@@ -80,12 +80,16 @@ Demo login: `admin@neoboard.local` / `admin123`
 
 ### Docker (Production)
 
+All Compose files live in [`docker/`](docker/) — there is intentionally no root-level `docker-compose.yml`, so pass `-f`:
+
 ```bash
-cp app/.env.example app/.env.local   # Fill in your secrets
-docker compose -f docker/docker-compose.prod.yml up
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)     # lost key = stored credentials unrecoverable
+export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+docker compose -f docker/docker-compose.prod-full.yml up -d
 ```
 
-See [`app/.env.example`](app/.env.example) for required environment variables.
+`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/getting-started/installation.mdx) for first-admin bootstrap, health verification, and TLS, and [`app/.env.example`](app/.env.example) for every variable.
 
 Browse the [screenshots](#screenshots) below for a feel of the UI without installing.
 
@@ -166,7 +170,7 @@ Feature and fix branches target `dev` by default, or the active `release/X.Y` br
 
 ## Migrating from NeoDash
 
-NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. The `neoboard migrate` CLI command converts your NeoDash JSON exports into NeoBoard-compatible dashboards, mapping chart types, parameters, and layout automatically. See the [NeoDash Migration Guide](docs/NEODASH_MIGRATION_GUIDE.md) for step-by-step instructions and a list of supported widget mappings.
+NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/getting-started/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
 
 ## API Documentation
 

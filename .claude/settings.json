@@ -150,10 +150,9 @@
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "You are a completion checklist for the NeoBoard project. FIRST: check if stop_hook_active is true in the input — if so, return {\"decision\": \"allow\"} immediately to prevent infinite loops.\n\nOtherwise, review the conversation transcript and check:\n1. If code files were edited, were relevant tests run (vitest AND playwright)?\n2. If files in app/ were edited, was linting run?\n3. If UI/visual changes were made, were before/after screenshots taken?\n\nIf ALL applicable checks pass (or no code was edited), return {\"decision\": \"allow\"}.\nIf a critical check was missed, return {\"decision\": \"block\", \"reason\": \"<what was missed>\"}.\n\nBe pragmatic — only flag genuinely missed steps, not minor oversights. If the user is just exploring or planning, return {\"decision\": \"allow\"}.",
-            "model": "claude-haiku-4-5-20251001",
-            "timeout": 15
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-check.sh",
+            "timeout": 5
           }
         ]
       }

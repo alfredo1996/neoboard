@@ -99,6 +99,11 @@ export const connectionTypeEnum = pgEnum("connection_type", [
   "postgresql",
 ]);
 
+export const connectionVisibilityEnum = pgEnum("connection_visibility", [
+  "private",
+  "shared",
+]);
+
 export const connections = pgTable("connection", {
   id: text("id")
     .primaryKey()
@@ -112,6 +117,15 @@ export const connections = pgTable("connection", {
   configEncrypted: text("configEncrypted").notNull(),
   /** When true, widget editors can override the connection's default database per-card. */
   allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
+  /**
+   * Connection sharing model (#901): "private" = owner + admins only;
+   * "shared" = every user in the tenant may query it and build dashboards
+   * on it. Credentials are never exposed either way; editing stays
+   * owner/admin-only.
+   */
+  visibility: connectionVisibilityEnum("visibility")
+    .notNull()
+    .default("private"),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
 });
@@ -196,6 +210,12 @@ export const apiKeys = pgTable("api_key", {
     .references(() => users.id, { onDelete: "cascade" }),
   tenantId: text("tenant_id").notNull().default("default"),
   keyHash: text("key_hash").notNull().unique(),
+  /**
+   * Non-secret display prefix captured at creation (e.g. "nb_1a2b3c4d").
+   * Lets the key list correlate a row with a token seen in logs without
+   * ever storing the full secret. Nullable for keys created before #1038.
+   */
+  keyPrefix: text("key_prefix"),
   name: text("name").notNull(),
   lastUsedAt: timestamp("last_used_at", { mode: "date" }),
   expiresAt: timestamp("expires_at", { mode: "date" }),

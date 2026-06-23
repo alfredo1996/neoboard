@@ -1,0 +1,44 @@
+# Docs site build check (#975) — a broken .mdx or Starlight regression was
+# previously only discoverable at deploy time. Separate workflow so docs-only
+# changes don't trigger the full CI matrix (E2E shards etc.).
+name: Docs
+
+on:
+  push:
+    branches: [main, dev, 'release/*']
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-ci.yml'
+  pull_request:
+    branches: [main, dev, 'release/*']
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-build:
+    name: Docs build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install docs dependencies
+        run: npm ci --prefix docs
+
+      - name: Build docs site
+        run: npm run build --prefix docs

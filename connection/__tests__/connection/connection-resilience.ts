@@ -140,6 +140,54 @@ describe("Connection Resilience — PostgreSQL", () => {
     } catch (_) {}
   });
 
+  test("backend termination mid-query rejects cleanly — no unhandled 'error' event (#999)", async () => {
+    const crashes: unknown[] = [];
+    const onUncaught = (err: unknown) => crashes.push(err);
+    process.on("uncaughtException", onUncaught);
+
+    try {
+      // Identify and kill our own backend from a second connection while
+      // a slow query is in flight — exactly the CI teardown race that
+      // used to kill the whole Jest process.
+      const slow = new Promise<{ ok: boolean; error?: unknown }>((resolve) => {
+        connectionModule.runQuery(
+          { query: "SELECT pg_sleep(10)", params: {} },
+          {
+            onSuccess: () => resolve({ ok: true }),
+            onFail: (error: unknown) => resolve({ ok: false, error }),
+          },
+          pgConfig,
+        );
+      });
+
+      // Give the slow query time to check out a client and start.
+      await new Promise((r) => setTimeout(r, 500));
+
+      const { Client } = require("pg");
+      const admin = new Client({
+        host: container.getHost(),
+        port: container.getPort(),
+        user: container.getUsername(),
+        password: container.getPassword(),
+        database: container.getDatabase(),
+      });
+      await admin.connect();
+      await admin.query(
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query LIKE '%pg_sleep(10)%' AND pid <> pg_backend_pid()",
+      );
+      await admin.end();
+
+      const result = await slow;
+      // The in-flight query must reject through the normal path…
+      expect(result.ok).toBe(false);
+      // …and nothing may escape as an unhandled 'error' event.
+      await new Promise((r) => setTimeout(r, 300));
+      expect(crashes).toEqual([]);
+    } finally {
+      process.removeListener("uncaughtException", onUncaught);
+    }
+  }, 30_000);
+
   test("follow-up query works after a query error", async () => {
     // First: run a query that will fail
     let firstError: unknown = null;

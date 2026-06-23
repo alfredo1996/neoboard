@@ -1,5 +1,5 @@
 {
-  "id": "78aae860-e244-485d-97ce-e0e78d43e26f",
+  "id": "5ec3aba2-98b3-4832-a130-965cbfd71d54",
   "prevId": "34edd0e6-71f6-4597-ae67-e79f8365a833",
   "version": "7",
   "dialect": "postgresql",
@@ -300,6 +300,14 @@
           "notNull": true,
           "default": true
         },
+        "visibility": {
+          "name": "visibility",
+          "type": "connection_visibility",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'private'"
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "timestamp",
@@ -445,6 +453,12 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'{\"version\":2,\"pages\":[{\"id\":\"page-1\",\"title\":\"Page 1\",\"widgets\":[],\"gridLayout\":[]}]}'::jsonb"
+        },
+        "thumbnailJson": {
+          "name": "thumbnailJson",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "version": {
           "name": "version",
@@ -933,6 +947,11 @@
       "name": "connection_type",
       "schema": "public",
       "values": ["neo4j", "postgresql"]
+    },
+    "public.connection_visibility": {
+      "name": "connection_visibility",
+      "schema": "public",
+      "values": ["private", "shared"]
     },
     "public.share_role": {
       "name": "share_role",

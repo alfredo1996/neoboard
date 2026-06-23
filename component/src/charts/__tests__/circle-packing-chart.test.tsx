@@ -84,6 +84,73 @@ describe("CirclePackingChart", () => {
     expect(typeof optionsCall.series[0].renderItem).toBe("function");
   });
 
+  // [x, y, r, depth, value, color, name, kind]; kind 0 = circle(+leaf label),
+  // 1 = parent-label pass. depth 2 = maxDepth (leaf) for hierarchicalData.
+  function leafText(color: string) {
+    render(<CirclePackingChart data={hierarchicalData} />);
+    const { renderItem } = mockSetOption.mock.calls[0][0].series[0];
+    const vals = [120, 120, 40, 2, 50, color, "React", 0];
+    const api = { value: (d: number) => vals[d], style: () => ({}) };
+    const group = renderItem(undefined, api) as {
+      children: { type: string; style?: Record<string, unknown> }[];
+    };
+    return group.children.find((c) => c.type === "text");
+  }
+
+  it("labels dark circles with white text (per-cell contrast, no outline)", () => {
+    const text = leafText("#5470c6"); // dark blue
+    expect(text?.style?.fill).toBe("#ffffff");
+    expect(text?.style?.stroke).toBeUndefined();
+  });
+
+  it("labels light circles with black text (per-cell contrast)", () => {
+    const text = leafText("#91cc75"); // light moss green
+    expect(text?.style?.fill).toBe("#000000");
+  });
+
+  it("renders parent labels as a top-rim pill drawn on top (separate pass)", () => {
+    render(<CirclePackingChart data={hierarchicalData} />);
+    const { renderItem } = mockSetOption.mock.calls[0][0].series[0];
+    // kind 1 = parent-label entry -> returns a standalone pill text element.
+    const vals = [120, 120, 40, 1, 50, "", "Backend", 1];
+    const api = { value: (d: number) => vals[d], style: () => ({}) };
+    const el = renderItem(undefined, api) as {
+      type: string;
+      style?: Record<string, unknown>;
+    };
+    expect(el.type).toBe("text");
+    expect(el.style?.text).toBe("Backend");
+    expect(el.style?.backgroundColor).toBe("rgba(0, 0, 0, 0.55)");
+    expect(el.style?.fill).toBe("#ffffff");
+    expect(el.style?.y as number).toBeLessThan(120); // top rim
+  });
+
+  it("emits parent-label entries after all circle entries (z-order on top)", () => {
+    render(<CirclePackingChart data={hierarchicalData} />);
+    const data = mockSetOption.mock.calls[0][0].series[0].data as {
+      value: unknown[];
+    }[];
+    const kinds = data.map((d) => d.value[7]);
+    const firstLabel = kinds.indexOf(1);
+    const lastCircle = kinds.lastIndexOf(0);
+    expect(firstLabel).toBeGreaterThan(-1); // there are parent labels
+    expect(firstLabel).toBeGreaterThan(lastCircle); // ...and they come last
+  });
+
+  it("fills depth circles from the citrine palette (no stock ECharts colors)", () => {
+    render(<CirclePackingChart data={hierarchicalData} />);
+    const { renderItem } = mockSetOption.mock.calls[0][0].series[0];
+    // depth 1, no per-node color -> falls back to the citrine depth palette.
+    const vals = [120, 120, 40, 1, 50, "", "Frontend", 0];
+    const api = { value: (d: number) => vals[d], style: () => ({}) };
+    const group = renderItem(undefined, api) as {
+      children: { type: string; shape?: object; style?: { fill?: string } }[];
+    };
+    const circle = group.children.find((c) => c.type === "circle");
+    expect(circle?.style?.fill).toContain("hsl");
+    expect(circle?.style?.fill).not.toBe("#5470c6");
+  });
+
   it("shows loading state", () => {
     render(<CirclePackingChart data={hierarchicalData} loading />);
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();

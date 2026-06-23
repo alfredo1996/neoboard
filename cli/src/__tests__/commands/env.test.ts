@@ -100,8 +100,9 @@ describe("generateEnvFile", () => {
     expect(content).toContain("ENCRYPTION_KEY=");
     expect(content).toContain("NEXTAUTH_SECRET=");
     expect(content).toContain("ADMIN_BOOTSTRAP_TOKEN=");
-    // #907: HMAC secret is auto-generated alongside the other secrets so a
-    // fresh install can use the community API-keys feature out of the box.
+    // #907/#952: HMAC secret is auto-generated alongside the other secrets so
+    // a fresh install can use the community API-keys feature out of the box —
+    // without it, creating an API key from Settings dead-ends.
     expect(content).toContain("API_KEY_HMAC_SECRET=");
   });
 

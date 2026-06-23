@@ -417,12 +417,12 @@ describe("colorPalette option", () => {
     expect(opt?.category).toBe("Appearance");
   });
 
-  it("colorPalette select options include 'deep-ocean' and 'tableau'", () => {
+  it("colorPalette select options include 'citrine' and 'tableau'", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorPalette");
     expect(opt?.options).toBeDefined();
     expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
-      "deep-ocean",
+      "citrine",
     );
     expect(opt?.options!.map((o: { value: string }) => o.value)).toContain(
       "tableau",
@@ -446,10 +446,11 @@ describe("markdown chart options", () => {
     expect(options.map((o) => o.key)).toContain("content");
   });
 
-  it("content option is text type with empty default", () => {
+  it("content option is multiline textarea type with empty default", () => {
     const options = getChartOptions("markdown");
     const content = options.find((o) => o.key === "content");
-    expect(content?.type).toBe("text");
+    // textarea, not text — markdown content is multiline (#1049)
+    expect(content?.type).toBe("textarea");
     expect(content?.default).toBe("");
     expect(content?.category).toBe("Content");
   });

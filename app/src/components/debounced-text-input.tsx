@@ -62,7 +62,7 @@ export const DebouncedTextInput = forwardRef<
   // Sync draft when the external (store) value changes (e.g. form reset).
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setDraft(value); // eslint-disable-line react-hooks/set-state-in-effect -- intentional sync from prop
+    setDraft(value);
   }, [value]);
 
   // Fire onChange after 200 ms of inactivity.

@@ -9,7 +9,7 @@ When something breaks, **always run these two commands first** — they answer m
 
 ```bash
 neoboard status      # shows mode, containers, DB health, migration state
-neoboard logs --tail 100   # last 100 log lines from every service
+neoboard logs -n 100       # last 100 log lines from every service
 ```
 
 ---
@@ -183,9 +183,9 @@ neoboard env --regenerate
 NeoBoard is pre-launch — if you don't yet have production data, you can collapse migration history and start fresh:
 
 ```bash
-neoboard db reset       # drops all tables in postgres + Neo4j
+neoboard db reset       # drops and recreates the PostgreSQL database (Neo4j data is untouched)
 neoboard db migrate     # re-applies every migration
-neoboard demo --seed    # optional: reload the sample dataset
+neoboard demo seed      # optional: reload the sample dataset
 ```
 
 ### Production recovery
@@ -257,8 +257,8 @@ For rotation procedure (intentional key change without data loss), see the [Cred
 If your symptom doesn't match anything above:
 
 1. **`neoboard status`** — what's the CLI's view of mode, containers, DB health, migrations?
-2. **`neoboard logs --tail 200`** — what did the failing service print? Grep for `error`.
-3. **`neoboard logs --service postgres --tail 100`** — narrow to one service.
+2. **`neoboard logs -n 200`** — what did the failing service print? Grep for `error`.
+3. **`neoboard logs postgres -n 100`** — narrow to one service (positional: `postgres`, `neo4j`, or `app`).
 4. **`docker compose ps`** — does the container's `State` match the CLI's view?
 5. **`docker compose exec postgres pg_isready`** — does postgres answer from inside its own container?
 

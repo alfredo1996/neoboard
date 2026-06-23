@@ -70,6 +70,12 @@ vi.mock("@neoboard/components", () => ({
       {label}
     </button>
   ),
+  SidebarSectionLabel: ({ label }: { label: string }) => (
+    <div data-testid={`sidebar-section-${label}`}>{label}</div>
+  ),
+  Wordmark: ({ collapsed }: { collapsed?: boolean }) => (
+    <span data-testid="wordmark">{collapsed ? "N" : "NeoBoard"}</span>
+  ),
   Badge: ({
     children,
     className,

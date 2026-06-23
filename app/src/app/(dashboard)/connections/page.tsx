@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Database, Plus, ChevronDown } from "lucide-react";
 import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
@@ -34,6 +35,7 @@ import {
   PasswordInput,
   Alert,
   AlertDescription,
+  useToast,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
 import {
@@ -41,6 +43,8 @@ import {
   CONNECTOR_LABELS,
 } from "@/lib/connector/connector-types";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
+import { validateConnectionUri } from "@/lib/connector/validate-connection-uri";
+import { missingRequiredConnectionFields } from "@/lib/connector/connection-form-validation";
 import {
   parseOptionalInt,
   mapConfigToEditForm,
@@ -67,6 +71,9 @@ const DEFAULT_FORM = {
 };
 
 export default function ConnectionsPage() {
+  const { data: session } = useSession();
+  const { toast } = useToast();
+  const isAdmin = session?.user?.role === "admin";
   const { data: connections, isLoading } = useConnections();
   const createConnection = useCreateConnection();
   const updateConnection = useUpdateConnection();
@@ -100,6 +107,8 @@ export default function ConnectionsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const autoTestedRef = useRef(false);
   const editTargetIdRef = useRef<string | null>(null);
+  // Stale-response guard for the Duplicate prefill fetch (#1042)
+  const duplicateSourceIdRef = useRef<string | null>(null);
 
   // Edit dialog state — only advanced settings are editable
   const [editTarget, setEditTarget] = useState<{
@@ -239,6 +248,20 @@ export default function ConnectionsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreateError(null);
+    // Report all missing required fields at once via a styled inline alert
+    // (form is noValidate) instead of one native browser tooltip at a time
+    // (#1043).
+    const missing = missingRequiredConnectionFields(form);
+    if (missing.length > 0) {
+      setCreateError(`Please fill in: ${missing.join(", ")}.`);
+      return;
+    }
+    // Validate URI format client-side before save (#1043).
+    const uriError = validateConnectionUri(form.uri, form.type);
+    if (uriError) {
+      setCreateError(uriError);
+      return;
+    }
     try {
       const newConn = await createConnection.mutateAsync({
         name: form.name,
@@ -289,7 +312,12 @@ export default function ConnectionsPage() {
     }
   }
 
-  function handleDuplicate(conn: { name: string; type: ConnectorType }) {
+  async function handleDuplicate(conn: {
+    id: string;
+    name: string;
+    type: ConnectorType;
+  }) {
+    duplicateSourceIdRef.current = conn.id;
     setForm({
       ...DEFAULT_FORM,
       type: conn.type,
@@ -299,6 +327,26 @@ export default function ConnectionsPage() {
     setCreateError(null);
     setInlineTestResult(null);
     setShowCreate(true);
+
+    // Prefill the non-secret config (URI, username, database, advanced
+    // settings) from the source connection — the whole point of Duplicate
+    // (#1042). The API never returns the password, so it stays blank and the
+    // user re-enters it. Guard against races: if another Duplicate starts
+    // before this fetch resolves, discard the stale response.
+    try {
+      const res = await fetch(`/api/connections/${conn.id}`);
+      if (duplicateSourceIdRef.current !== conn.id) return; // stale response
+      const body = await res.json();
+      const config = body?.data?.config;
+      if (config) {
+        setForm((prev) => ({
+          ...prev,
+          ...mapConfigToEditForm(config),
+        }));
+      }
+    } catch {
+      // Non-critical — the dialog still works; user fills fields manually
+    }
   }
 
   async function openEditDialog(conn: {
@@ -340,12 +388,16 @@ export default function ConnectionsPage() {
   function buildEditConfig() {
     // Only include credential fields when the user has explicitly filled them in.
     // Omitting them (undefined) tells the server to keep the existing stored values
-    // rather than overwriting them with blank strings.
+    // rather than overwriting them with blank strings. Gate on the *trimmed*
+    // value so whitespace-only input (possible now the form is noValidate)
+    // doesn't clobber stored credentials (#1043).
+    const uri = editForm.uri.trim();
+    const username = editForm.username.trim();
     return {
-      ...(editForm.uri ? { uri: editForm.uri } : {}),
-      ...(editForm.username ? { username: editForm.username } : {}),
-      ...(editForm.password ? { password: editForm.password } : {}),
-      database: editForm.database || undefined,
+      ...(uri ? { uri } : {}),
+      ...(username ? { username } : {}),
+      ...(editForm.password.trim() ? { password: editForm.password } : {}),
+      database: editForm.database.trim() || undefined,
       connectionTimeout: parseOptionalInt(editForm.connectionTimeout),
       queryTimeout: parseOptionalInt(editForm.queryTimeout),
       maxPoolSize: parseOptionalInt(editForm.maxPoolSize),
@@ -364,12 +416,28 @@ export default function ConnectionsPage() {
     if (!editTarget) return;
     setEditError(null);
 
+    if (!editForm.name.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
+    // Validate URI *format* before save when the user changed it (blank keeps
+    // the existing one). Catches malformed URIs client-side (#1043).
+    if (editForm.uri.trim()) {
+      const uriError = validateConnectionUri(editForm.uri, editTarget.type);
+      if (uriError) {
+        setEditError(uriError);
+        return;
+      }
+    }
+
     try {
       await updateConnection.mutateAsync({
         id: editTarget.id,
+        name: editForm.name.trim(),
         config: buildEditConfig(),
       });
       setEditTarget(null);
+      toast({ title: "Connection updated" });
       handleTest(editTarget.id);
     } catch (error) {
       setEditError(
@@ -405,7 +473,7 @@ export default function ConnectionsPage() {
           if (!open) closeCreateDialog();
         }}
       >
-        <DialogContent>
+        <DialogContent className="flex flex-col overflow-hidden">
           {dialogStep === "pick-type" ? (
             <>
               <DialogHeader>
@@ -441,13 +509,17 @@ export default function ConnectionsPage() {
               </div>
             </>
           ) : (
-            <form onSubmit={handleCreate}>
+            <form
+              onSubmit={handleCreate}
+              noValidate
+              className="flex min-h-0 flex-col overflow-hidden"
+            >
               <DialogHeader>
                 <DialogTitle>
                   New {CONNECTOR_LABELS[form.type]} Connection
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -684,7 +756,7 @@ export default function ConnectionsPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <DialogFooter>
+              <DialogFooter className="mt-4 shrink-0 border-t pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -722,8 +794,12 @@ export default function ConnectionsPage() {
           if (!open) setEditTarget(null);
         }}
       >
-        <DialogContent>
-          <form onSubmit={handleEdit}>
+        <DialogContent className="flex flex-col overflow-hidden">
+          <form
+            onSubmit={handleEdit}
+            noValidate
+            className="flex min-h-0 flex-col overflow-hidden"
+          >
             <DialogHeader>
               <DialogTitle>Edit {editTarget?.name}</DialogTitle>
             </DialogHeader>
@@ -732,11 +808,24 @@ export default function ConnectionsPage() {
                 <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
             ) : (
-              <div className="space-y-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
                 <p className="text-sm text-muted-foreground">
                   Update your connection settings. Leave password blank to keep
                   the existing one.
                 </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editForm.name}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditForm((f) => ({ ...f, name: e.target.value }))
+                    }
+                    required
+                    placeholder="My database"
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-uri">URI</Label>
@@ -924,7 +1013,7 @@ export default function ConnectionsPage() {
                 <AlertDescription>{editError}</AlertDescription>
               </Alert>
             )}
-            <DialogFooter>
+            <DialogFooter className="mt-4 shrink-0 border-t pt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -1128,6 +1217,13 @@ export default function ConnectionsPage() {
                     <ConnectionCard
                       name={c.name}
                       host={c.type}
+                      icon={
+                        c.type === "neo4j" ? (
+                          <Neo4jLogo className="h-5 w-5" />
+                        ) : (
+                          <PostgreSQLLogo className="h-5 w-5" />
+                        )
+                      }
                       status={status}
                       statusText={testErrors[c.id]}
                       onClick={
@@ -1138,10 +1234,47 @@ export default function ConnectionsPage() {
                               )
                           : undefined
                       }
-                      onTest={() => handleTest(c.id)}
-                      onEdit={() => openEditDialog(c)}
-                      onDelete={() => setDeleteTarget(c.id)}
-                      onDuplicate={() => handleDuplicate(c)}
+                      onTest={
+                        c.isOwner || isAdmin
+                          ? () => handleTest(c.id)
+                          : undefined
+                      }
+                      shared={c.visibility === "shared"}
+                      // Management actions only for the owner (or admin —
+                      // who can reach any connection via the API): shared
+                      // connections render read-only for everyone else (#901).
+                      onEdit={
+                        c.isOwner || isAdmin
+                          ? () => openEditDialog(c)
+                          : undefined
+                      }
+                      onDelete={
+                        c.isOwner || isAdmin
+                          ? () => setDeleteTarget(c.id)
+                          : undefined
+                      }
+                      onDuplicate={
+                        c.isOwner || isAdmin
+                          ? () => handleDuplicate(c)
+                          : undefined
+                      }
+                      onToggleVisibility={
+                        isAdmin && c.isOwner
+                          ? () =>
+                              updateConnection.mutate({
+                                id: c.id,
+                                visibility:
+                                  c.visibility === "shared"
+                                    ? "private"
+                                    : "shared",
+                              })
+                          : undefined
+                      }
+                      toggleVisibilityLabel={
+                        c.visibility === "shared"
+                          ? "Make private"
+                          : "Share with workspace"
+                      }
                     />
                     {expandedErrorId === c.id && testErrors[c.id] && (
                       <Alert variant="destructive" className="mt-1">

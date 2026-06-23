@@ -819,7 +819,6 @@ const SPEC = {
           description: { type: "string", nullable: true },
           isPublic: { type: "boolean" },
           layoutJson: { type: "object", nullable: true },
-          thumbnailJson: { type: "object", nullable: true },
         },
       },
       QueryRequest: {

@@ -1,6 +1,7 @@
 import { createConnection } from "node:net";
 import { run, runOrNull, dockerExec as execInContainer } from "./exec.js";
 import { paths, readProjectConfig, getMode } from "./config.js";
+import { ensureDockerEnvFile } from "./docker-env.js";
 import { join } from "node:path";
 
 export function isDockerRunning(): boolean {
@@ -19,13 +20,28 @@ export function composeFile(full = false): string {
 
 export function composeUp(opts?: { full?: boolean }): void {
   const file = composeFile(opts?.full);
-  run(`docker compose -f ${file} up -d --build`, { cwd: paths.root });
+  if (opts?.full) {
+    // The full stack needs per-install secrets (#970); generated once,
+    // reused forever. OS env still overrides --env-file values (CI).
+    const envFile = ensureDockerEnvFile();
+    run(`docker compose -f "${file}" --env-file "${envFile}" up -d --build`, {
+      cwd: paths.root,
+    });
+    return;
+  }
+  run(`docker compose -f "${file}" up -d --build`, { cwd: paths.root });
 }
 
 export function composeDown(opts?: { volumes?: boolean }): void {
   const file = composeFile();
   const flags = opts?.volumes ? " -v" : "";
-  run(`docker compose -f ${file} down${flags}`, { cwd: paths.root });
+  // --remove-orphans sweeps containers that belong to the project but
+  // aren't in this compose file — e.g. the app container started by the
+  // full stack (`demo`/`setup --full`), which the DB-only file otherwise
+  // leaves orphaned (#992).
+  run(`docker compose -f "${file}" down --remove-orphans${flags}`, {
+    cwd: paths.root,
+  });
 }
 
 export interface ContainerInfo {
@@ -58,8 +74,12 @@ export function composePs(): ContainerInfo[] {
   }
 }
 
-export function dockerExec(container: string, cmd: string): string {
-  return execInContainer(container, cmd);
+export function dockerExec(
+  container: string,
+  cmd: string,
+  opts?: { env?: Record<string, string> },
+): string {
+  return execInContainer(container, cmd, opts);
 }
 
 /** Check if a TCP port is accepting connections. */

@@ -42,6 +42,8 @@ vi.mock("@/lib/crypto/crypto", () => ({
 }));
 vi.mock("@/lib/query/query-executor", () => ({
   executeQuery: mockExecuteQuery,
+  toConnectorAccessMode: (m: "read" | "write") =>
+    m === "write" ? "WRITE" : "READ",
 }));
 
 // Minimal Next.js server shim

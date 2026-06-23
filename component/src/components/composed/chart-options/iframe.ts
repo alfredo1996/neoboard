@@ -1,4 +1,5 @@
 import { type ChartOptionDef } from "./shared";
+import { validateIframeUrl } from "./validate-iframe-url";
 
 export const iframeOptions: ChartOptionDef[] = [
   {
@@ -8,7 +9,9 @@ export const iframeOptions: ChartOptionDef[] = [
     default: "",
     category: "Content",
     description:
-      "The URL of the external page to embed. Must be an https:// URL.",
+      "The URL of the external page to embed (prefer https://; http may be " +
+      "blocked). Some sites refuse framing via X-Frame-Options / CSP.",
+    validate: validateIframeUrl,
   },
   {
     key: "iframeTitle",

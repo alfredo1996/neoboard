@@ -60,6 +60,7 @@ function PieChart({
   donutCenterText,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: PieChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -160,7 +161,8 @@ function PieChart({
                   align: "center",
                   fontSize: 20,
                   fontWeight: "bold",
-                  fill: isDark() ? "#e5e5e5" : "#262626",
+                  // Theme foreground (matches the registered ECharts themes).
+                  fill: isDark() ? "#f3f4f6" : "#14161a",
                 },
               },
             ],
@@ -186,7 +188,13 @@ function PieChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ?? `Pie chart with ${data.length} segments`
+        }
+        {...rest}
+      />
     </div>
   );
 }

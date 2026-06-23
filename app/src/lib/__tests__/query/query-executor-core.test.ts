@@ -244,6 +244,63 @@ describe("query-executor", () => {
   });
 
   // -----------------------------------------------------------------------
+  // executeQuery — query timeout wiring (#973)
+  // -----------------------------------------------------------------------
+
+  function captureConfig(): () => Record<string, unknown> {
+    let captured: Record<string, unknown> = {};
+    mockRunQuery.mockImplementation(
+      (
+        _p: unknown,
+        cbs: { onSuccess: (v: unknown) => void },
+        config: Record<string, unknown>,
+      ) => {
+        captured = config;
+        cbs.onSuccess([]);
+      },
+    );
+    return () => captured;
+  }
+
+  it("pg: statementTimeout reaches the driver as config.timeout", async () => {
+    const get = captureConfig();
+    await executeQuery(
+      "postgresql",
+      { ...pgCreds, statementTimeout: 12_345 },
+      { query: "SELECT 1" },
+    );
+    expect(get().timeout).toBe(12_345);
+  });
+
+  it("pg: statementTimeout wins over the generic queryTimeout", async () => {
+    const get = captureConfig();
+    await executeQuery(
+      "postgresql",
+      { ...pgCreds, statementTimeout: 12_345, queryTimeout: 99_999 },
+      { query: "SELECT 1" },
+    );
+    expect(get().timeout).toBe(12_345);
+  });
+
+  it("neo4j: queryTimeout applies; pg-only statementTimeout does not", async () => {
+    const get = captureConfig();
+    await executeQuery(
+      "neo4j",
+      { ...neo4jCreds, statementTimeout: 12_345, queryTimeout: 23_456 },
+      { query: "RETURN 1" },
+    );
+    expect(get().timeout).toBe(23_456);
+  });
+
+  it("falls back to the 30s package default when no timeout is configured", async () => {
+    const get = captureConfig();
+    await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
+    // DEFAULT_CONNECTION_CONFIG.timeout (mocked at the documented 30s —
+    // the real value is asserted in the connection package, #973)
+    expect(get().timeout).toBe(30_000);
+  });
+
+  // -----------------------------------------------------------------------
   // executeQuery — connection type mapping
   // -----------------------------------------------------------------------
 
@@ -402,15 +459,14 @@ describe("query-executor", () => {
     expect(mockCreateConnectionModule).toHaveBeenCalledWith(
       "neo4j", // string type for registry
       expect.anything(),
+      // Query timeouts flow through config.timeout, not advanced options (#973)
       expect.objectContaining({
         neo4jConnectionTimeout: 5000,
-        neo4jQueryTimeout: 10000,
         neo4jMaxPoolSize: 20,
         neo4jAcquisitionTimeout: 8000,
         pgConnectionTimeoutMillis: 5000,
         pgIdleTimeoutMillis: 15000,
         pgMaxPoolSize: 20,
-        pgStatementTimeout: 60000,
         pgSslRejectUnauthorized: false,
       }),
     );

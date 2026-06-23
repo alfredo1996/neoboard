@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain, makeInsertChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  makeInsertChain,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -7,7 +10,8 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireAdmin = vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
+const mockRequireAdmin =
+  vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
 const mockBcryptHash = vi.fn(async (pw: string) => `hashed:${pw}`);
 
 const mockDb = {
@@ -67,10 +71,27 @@ describe("GET /api/users", () => {
   });
 
   it("returns users in envelope with pagination meta", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
     const rows = [
-      { id: "u1", name: "Alice", email: "alice@example.com", role: "creator", canWrite: true, createdAt: new Date() },
-      { id: "u2", name: "Bob", email: "bob@example.com", role: "creator", canWrite: false, createdAt: new Date() },
+      {
+        id: "u1",
+        name: "Alice",
+        email: "alice@example.com",
+        role: "creator",
+        canWrite: true,
+        createdAt: new Date(),
+      },
+      {
+        id: "u2",
+        name: "Bob",
+        email: "bob@example.com",
+        role: "creator",
+        canWrite: false,
+        createdAt: new Date(),
+      },
     ];
     // Count query
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
@@ -88,17 +109,59 @@ describe("GET /api/users", () => {
   });
 
   it("respects limit and offset query params", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 10 }]));
-    mockDb.select.mockReturnValueOnce(makeSelectChain([
-      { id: "u3", name: "Charlie", email: "charlie@example.com", role: "reader", canWrite: false, createdAt: new Date() },
-    ]));
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([
+        {
+          id: "u3",
+          name: "Charlie",
+          email: "charlie@example.com",
+          role: "reader",
+          canWrite: false,
+          createdAt: new Date(),
+        },
+      ]),
+    );
 
-    const res = await GET(makeRequest({}, "http://localhost/api/users?limit=1&offset=2"));
+    const res = await GET(
+      makeRequest({}, "http://localhost/api/users?limit=1&offset=2"),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     expect(body.meta).toEqual({ total: 10, limit: 1, offset: 2 });
+  });
+
+  it("orders newest-first so just-created users appear on the first page", async () => {
+    const { users } = await import("@/lib/db/schema");
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    const orderByArgs: unknown[] = [];
+    const chain = makeSelectChain([]);
+    const origOrderBy = chain.orderBy;
+    chain.orderBy = (...args: unknown[]) => {
+      orderByArgs.push(...args);
+      return origOrderBy();
+    };
+    mockDb.select.mockReturnValueOnce(chain);
+
+    await GET(makeRequest({}, "http://localhost/api/users"));
+    // drizzle's desc() produces a SQL fragment: [chunk, column, chunk(" desc")].
+    // Assert the fragment references createdAt and renders a "desc" keyword.
+    const arg = orderByArgs[0] as { queryChunks?: unknown[] };
+    expect(arg.queryChunks).toBeDefined();
+    expect(arg.queryChunks).toContain(users.createdAt);
+    const sqlText = (arg.queryChunks ?? [])
+      .map((c) => ((c as { value?: string[] }).value ?? []).join(""))
+      .join("");
+    expect(sqlText).toContain("desc");
   });
 });
 
@@ -113,24 +176,41 @@ describe("POST /api/users", () => {
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
     vi.doMock("next/server", () => nextResponseMockFactory());
-vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+    // doMock, not mock — vi.mock is only hoisted at module top level;
+    // inside beforeEach it bypasses the resetModules pattern (CR on #1002).
+    vi.doMock("@/lib/auth/errors", () => ({
+      UnauthorizedError,
+      ForbiddenError,
+    }));
     const mod = await import("../route");
     POST = mod.POST;
   });
 
   it("creates user and returns 201 envelope", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([]));
-    const created = { id: "u1", name: "Test", email: "test@example.com", role: "creator", canWrite: false, createdAt: new Date() };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
-
-    const res = await POST(makeRequest({
+    const created = {
+      id: "u1",
       name: "Test",
       email: "test@example.com",
-      password: "password123",
       role: "creator",
       canWrite: false,
-    }));
+      createdAt: new Date(),
+    };
+    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+
+    const res = await POST(
+      makeRequest({
+        name: "Test",
+        email: "test@example.com",
+        password: "password123",
+        role: "creator",
+        canWrite: false,
+      }),
+    );
 
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -140,16 +220,28 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
   });
 
   it("defaults canWrite to true when omitted", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([]));
-    const created = { id: "u2", name: "Alice", email: "alice@example.com", role: "creator", canWrite: true, createdAt: new Date() };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
-
-    const res = await POST(makeRequest({
+    const created = {
+      id: "u2",
       name: "Alice",
       email: "alice@example.com",
-      password: "password123",
-    }));
+      role: "creator",
+      canWrite: true,
+      createdAt: new Date(),
+    };
+    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+
+    const res = await POST(
+      makeRequest({
+        name: "Alice",
+        email: "alice@example.com",
+        password: "password123",
+      }),
+    );
 
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -157,14 +249,19 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
   });
 
   it("returns 409 envelope when email already exists", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
     mockDb.select.mockReturnValue(makeSelectChain([{ id: "existing" }]));
 
-    const res = await POST(makeRequest({
-      name: "Dup",
-      email: "dup@example.com",
-      password: "password123",
-    }));
+    const res = await POST(
+      makeRequest({
+        name: "Dup",
+        email: "dup@example.com",
+        password: "password123",
+      }),
+    );
 
     expect(res.status).toBe(409);
     const body = await res.json();
@@ -173,7 +270,10 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
   });
 
   it("returns 400 envelope for invalid body", async () => {
-    mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "default" });
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
 
     const res = await POST(makeRequest({ name: "" }));
     expect(res.status).toBe(400);

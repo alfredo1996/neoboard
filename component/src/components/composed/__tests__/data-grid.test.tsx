@@ -46,9 +46,27 @@ describe("DataGrid", () => {
     expect(screen.getByText("Charlie")).toBeInTheDocument();
   });
 
+  it("gives non-grouped data rows a hover affordance (#1055)", () => {
+    render(<DataGrid columns={columns} data={data} />);
+    const dataRow = screen.getByText("Alice").closest("tr");
+    expect(dataRow).toHaveClass("hover:bg-muted/40");
+  });
+
   it("shows empty state when no data", () => {
     render(<DataGrid columns={columns} data={[]} />);
     expect(screen.getByText("No results.")).toBeInTheDocument();
+  });
+
+  it("supports a custom empty message", () => {
+    render(
+      <DataGrid
+        columns={columns}
+        data={[]}
+        emptyMessage="No transactions yet"
+      />,
+    );
+    expect(screen.getByText("No transactions yet")).toBeInTheDocument();
+    expect(screen.queryByText("No results.")).not.toBeInTheDocument();
   });
 
   it("calls onCellClick with column and value when a cell is clicked", async () => {
@@ -58,6 +76,37 @@ describe("DataGrid", () => {
       <DataGrid columns={columns} data={data} onCellClick={onCellClick} />,
     );
     await user.click(screen.getByText("Alice"));
+    expect(onCellClick).toHaveBeenCalledWith({
+      column: "name",
+      value: "Alice",
+    });
+  });
+
+  it("exposes clickable cells as keyboard-focusable buttons (#980)", () => {
+    const onCellClick = vi.fn();
+    render(
+      <DataGrid columns={columns} data={data} onCellClick={onCellClick} />,
+    );
+    const trigger = screen.getByRole("button", { name: /Alice/ });
+    // Native <button> is focusable and Enter/Space-activated for free.
+    expect(trigger.tagName).toBe("BUTTON");
+  });
+
+  it("fires onCellClick on Enter and Space (#980)", async () => {
+    const user = userEvent.setup();
+    const onCellClick = vi.fn();
+    render(
+      <DataGrid columns={columns} data={data} onCellClick={onCellClick} />,
+    );
+    const trigger = screen.getByRole("button", { name: /Alice/ });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+    expect(onCellClick).toHaveBeenCalledWith({
+      column: "name",
+      value: "Alice",
+    });
+    onCellClick.mockClear();
+    await user.keyboard(" ");
     expect(onCellClick).toHaveBeenCalledWith({
       column: "name",
       value: "Alice",
@@ -198,9 +247,8 @@ describe("DataGrid", () => {
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) {
-      expect(cell).toHaveClass("cursor-pointer");
-      // Badge span should wrap cell content
-      const badge = cell.querySelector("span");
+      // Clickable cell content is now a real <button> (#980)
+      const badge = cell.querySelector("button");
       expect(badge).toBeTruthy();
       expect(badge).toHaveClass("text-primary");
       expect(badge).toHaveClass("rounded-md");
@@ -213,9 +261,8 @@ describe("DataGrid", () => {
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) {
-      expect(cell).not.toHaveClass("cursor-pointer");
-      // No badge span wrapper
-      const badge = cell.querySelector("span.rounded-md");
+      // No clickable button wrapper when onCellClick is absent (#980)
+      const badge = cell.querySelector("button.rounded-md");
       expect(badge).toBeNull();
     }
   });
@@ -234,16 +281,13 @@ describe("DataGrid", () => {
     for (const row of rows) {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length === 0) continue;
-      // First cell (name) should have badge span
-      expect(cells[0]).toHaveClass("cursor-pointer");
-      const badge0 = cells[0].querySelector("span.rounded-md");
+      // First cell (name) content is a clickable button (#980)
+      const badge0 = cells[0].querySelector("button.rounded-md");
       expect(badge0).toBeTruthy();
       expect(badge0).toHaveClass("text-primary");
-      // Other cells should NOT have badge span
-      expect(cells[1]).not.toHaveClass("cursor-pointer");
-      expect(cells[1].querySelector("span.rounded-md")).toBeNull();
-      expect(cells[2]).not.toHaveClass("cursor-pointer");
-      expect(cells[2].querySelector("span.rounded-md")).toBeNull();
+      // Other cells have no clickable button
+      expect(cells[1].querySelector("button.rounded-md")).toBeNull();
+      expect(cells[2].querySelector("button.rounded-md")).toBeNull();
     }
   });
 
@@ -282,8 +326,7 @@ describe("DataGrid", () => {
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) {
-      expect(cell).toHaveClass("cursor-pointer");
-      const badge = cell.querySelector("span.rounded-md");
+      const badge = cell.querySelector("button.rounded-md");
       expect(badge).toBeTruthy();
       expect(badge).toHaveClass("text-primary");
     }
@@ -297,8 +340,7 @@ describe("DataGrid", () => {
     const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) {
-      expect(cell).toHaveClass("cursor-pointer");
-      const badge = cell.querySelector("span.rounded-md");
+      const badge = cell.querySelector("button.rounded-md");
       expect(badge).toBeTruthy();
     }
   });

@@ -47,6 +47,8 @@ export const updateConnectionConfigSchema = connectionConfigSchema.extend({
 export const updateConnectionSchema = z.object({
   name: z.string().min(1).optional(),
   config: updateConnectionConfigSchema.optional(),
+  /** #901 — admin-only; toggles tenant-wide read/query access. */
+  visibility: z.enum(["private", "shared"]).optional(),
 });
 
 export const testInlineSchema = z.object({

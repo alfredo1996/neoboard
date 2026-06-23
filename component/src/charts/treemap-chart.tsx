@@ -7,7 +7,11 @@ import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  resolveItemColor,
+  fillLabelStyle,
+} from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ETreemapChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -56,6 +60,7 @@ function TreemapChart({
   colorSaturation = "medium",
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: TreemapChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -114,11 +119,18 @@ function TreemapChart({
           label: {
             show: showLabels && !compact,
             position: "insideTopLeft",
+            // Truncate at the tile edge with an ellipsis instead of breaking
+            // mid-word ("Vintage K…"); the tooltip reveals the full name (#1053).
+            overflow: "truncate",
+            ellipsis: "…",
             formatter: showValues ? "{b}: {c}" : "{b}",
+            // White + soft shadow: crisp on saturated cells, readable on pale ones.
+            ...fillLabelStyle,
           },
           upperLabel: {
             show: true,
             height: 22,
+            ...fillLabelStyle,
           },
           itemStyle: {
             borderColor: "rgba(128, 128, 128, 0.25)",
@@ -163,7 +175,13 @@ function TreemapChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ?? `Treemap with ${data.length} top-level items`
+        }
+        {...rest}
+      />
     </div>
   );
 }

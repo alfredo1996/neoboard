@@ -59,7 +59,12 @@ vi.mock("@/lib/logger", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateApiKey", () => {
-  let generateApiKey: () => { plaintext: string; hash: string };
+  let generateApiKey: () => {
+    plaintext: string;
+    hash: string;
+    prefix: string;
+  };
+  let apiKeyPrefix: (plaintext: string) => string;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -86,6 +91,7 @@ describe("generateApiKey", () => {
     });
     const mod = await import("../api-key");
     generateApiKey = mod.generateApiKey;
+    apiKeyPrefix = mod.apiKeyPrefix;
   });
 
   afterEach(() => {
@@ -118,6 +124,18 @@ describe("generateApiKey", () => {
     const b = generateApiKey();
     expect(a.plaintext).not.toBe(b.plaintext);
     expect(a.hash).not.toBe(b.hash);
+  });
+
+  it("returns a non-secret prefix that is the leading slice of the key (#1038)", () => {
+    const { plaintext, prefix } = generateApiKey();
+    expect(prefix).toBe(plaintext.slice(0, 11));
+    expect(prefix.startsWith("nb_")).toBe(true);
+    // The prefix must NOT be the full secret.
+    expect(prefix.length).toBeLessThan(plaintext.length);
+  });
+
+  it("apiKeyPrefix derives the same 11-char prefix from a plaintext key", () => {
+    expect(apiKeyPrefix("nb_0123456789abcdef")).toBe("nb_01234567");
   });
 });
 

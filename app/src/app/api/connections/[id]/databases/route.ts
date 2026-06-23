@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -22,7 +22,10 @@ export async function GET(
       .where(
         and(
           eq(connections.id, id),
-          eq(connections.userId, userId),
+          or(
+            eq(connections.userId, userId),
+            eq(connections.visibility, "shared"),
+          ),
           eq(connections.tenantId, tenantId),
         ),
       )

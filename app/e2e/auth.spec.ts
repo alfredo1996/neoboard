@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, CAROL } from "./fixtures";
 
 test.describe("Authentication", () => {
   test("should redirect unauthenticated users to login", async ({ page }) => {
@@ -58,6 +58,32 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL("/");
     await authPage.logout();
     await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+  });
+
+  test("explicit logout clears callbackUrl — next login lands on default page (#1037)", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(45_000);
+    // Admin works at /users, then explicitly signs out.
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.goto("/users");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Users" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await authPage.logout();
+
+    // Explicit logout must land on a CLEAN login URL — no callbackUrl
+    // pointing at the previous user's last location.
+    await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+    expect(new URL(page.url()).searchParams.get("callbackUrl")).toBeNull();
+
+    // The next user signing in on this machine lands on the default page,
+    // not the previous admin's /users.
+    await page.getByLabel("Email").fill(CAROL.email);
+    await page.getByLabel("Password").fill(CAROL.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
   });
 });
 
@@ -170,12 +196,12 @@ test.describe("Signup", () => {
   });
 });
 
-// Skip on CI: JWT forcePasswordChange propagation has timing sensitivity
-// that causes flakes in the production build. The proxy redirect works
-// (verified locally and by user-sim agents) but the E2E timing is unreliable.
+// Previously skipped on CI as a "JWT timing flake" — the real cause was a
+// deterministic redirect loop (#989): the proxy read the stale
+// forcePasswordChange claim from the raw JWT cookie. Fixed in #990 by
+// re-issuing the session cookie from the password route, so the group is
+// CI-enabled again (#995).
 test.describe.serial("Force password change", () => {
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip(!!process.env.CI, "JWT timing flake on CI — verified manually");
   /**
    * Helper: login as ALICE, create a user with forcePasswordChange=true via API,
    * log out, then return the new user's credentials.
@@ -276,7 +302,9 @@ test.describe.serial("Force password change", () => {
     // Fill the change password form
     const newPassword = "newSecurePass123";
     await page.getByLabel("Current Password").fill(password);
-    await page.getByLabel("New Password").fill(newPassword);
+    // exact: true — bare "New Password" also substring-matches the
+    // "Confirm New Password" label and trips strict mode.
+    await page.getByLabel("New Password", { exact: true }).fill(newPassword);
     await page.getByLabel("Confirm New Password").fill(newPassword);
     await page.getByRole("button", { name: "Change Password" }).click();
 

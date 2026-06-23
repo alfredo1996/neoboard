@@ -9,33 +9,33 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-body text-foreground;
   }
 }
 
 /* Leaflet control overrides for dark mode */
 .dark .leaflet-control-zoom a {
-  background-color: hsl(222 47% 11%);
-  color: hsl(210 40% 98%);
-  border-color: hsl(217 33% 17%);
+  background-color: hsl(220 13% 11%);
+  color: hsl(220 14% 96%);
+  border-color: hsl(220 13% 17%);
 }
 .dark .leaflet-control-zoom a:hover {
-  background-color: hsl(217 33% 17%);
+  background-color: hsl(220 13% 17%);
 }
 .dark .leaflet-control-attribution {
-  background-color: hsl(222 47% 6% / 0.8);
-  color: hsl(215 20% 65%);
+  background-color: hsl(220 13% 8% / 0.8);
+  color: hsl(220 9% 62%);
 }
 .dark .leaflet-control-attribution a {
-  color: hsl(217 91% 65%);
+  color: hsl(38 95% 60%);
 }
 .dark .leaflet-popup-content-wrapper,
 .dark .leaflet-popup-tip {
-  background-color: hsl(222 47% 11%);
-  color: hsl(210 40% 98%);
+  background-color: hsl(220 13% 11%);
+  color: hsl(220 14% 96%);
 }
 .dark .leaflet-tooltip {
-  background-color: hsl(222 47% 11%);
-  color: hsl(210 40% 98%);
-  border-color: hsl(217 33% 17%);
+  background-color: hsl(220 13% 11%);
+  color: hsl(220 14% 96%);
+  border-color: hsl(220 13% 17%);
 }

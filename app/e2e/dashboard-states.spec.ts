@@ -20,6 +20,23 @@ test.describe("Dashboard viewer — uncovered states", () => {
     ).toBeVisible();
   });
 
+  test("unmatched route shows the branded not-found page, not a stock 404 (#1047)", async ({
+    page,
+  }) => {
+    // A sub-route with no match (there's no dashboards/[id] route) used to
+    // fall through to Next's unstyled default page.
+    await page.goto("/dashboards/00000000-0000-0000-0000-000000000000");
+
+    await expect(
+      page.getByRole("heading", { name: "Page not found" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole("link", { name: "Go to dashboards" }),
+    ).toBeVisible();
+    // Not the stock Next.js page.
+    await expect(page.getByText("This page could not be found")).toHaveCount(0);
+  });
+
   test("should show empty state when dashboard has no widgets", async ({
     page,
   }) => {
@@ -57,6 +74,24 @@ test.describe("Dashboard viewer — uncovered states", () => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
     await expect(page.getByText("Movie Analytics")).toBeVisible();
+  });
+
+  test("search filters the dashboards list and shows an empty state (#1048)", async ({
+    page,
+  }) => {
+    const search = page.getByRole("searchbox", { name: "Search dashboards" });
+    await expect(page.getByText("Movie Analytics")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Narrowing the search keeps the matching card visible.
+    await search.fill("Movie");
+    await expect(page.getByText("Movie Analytics")).toBeVisible();
+
+    // A query that matches nothing shows the empty-result message.
+    await search.fill("zzz-no-such-dashboard");
+    await expect(page.getByText(/No dashboards match/i)).toBeVisible();
+    await expect(page.getByText("Movie Analytics")).not.toBeVisible();
   });
 
   test("does NOT show 'Dashboard updated by' banner after a self-save + revisit (#904)", async ({

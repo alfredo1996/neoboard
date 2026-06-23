@@ -34,11 +34,24 @@ test.describe("API Key management", () => {
     const keyText = await keyDisplay.locator("span").first().textContent();
     expect(keyText).toMatch(/^nb_[0-9a-f]{64}$/);
 
+    // The secret must stay on a single line (no break-all wrapping) (#1038).
+    await expect(keyDisplay.locator("span").first()).toHaveClass(
+      /whitespace-nowrap/,
+    );
+
     await dialog.getByRole("button", { name: "Done" }).click();
 
     // Key should now appear in the table — use exact to avoid matching the revoke button cell
     await expect(
       page.getByRole("cell", { name: "Test CI Key", exact: true }),
+    ).toBeVisible();
+
+    // The list shows a masked, non-secret prefix of the key (#1038): the
+    // first 11 chars of the token followed by an ellipsis + mask. Never the
+    // full 64-hex secret.
+    const maskedPrefix = `${keyText!.slice(0, 11)}…****`;
+    await expect(
+      page.getByRole("cell", { name: maskedPrefix, exact: true }),
     ).toBeVisible();
   });
 

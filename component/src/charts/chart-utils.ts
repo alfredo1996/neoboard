@@ -87,6 +87,29 @@ export function formatNumber(
 // ---------------------------------------------------------------------------
 
 /**
+ * Label treatment for white text rendered on colored chart fills (treemap
+ * cells, sunburst segments). A SOFT blurred drop-shadow — not a hard stroke —
+ * keeps the text crisp on saturated/dark cells (where the shadow is invisible)
+ * while lifting it enough to read on the pale child cells the palette generates
+ * (light-lavender / light-cyan). A hard outline haloed every glyph and muddied
+ * the text on dark cells; the shadow is cleaner and less "templated".
+ *
+ * For text whose fill color is known per element (packed circles), prefer
+ * `contrastTextColor` instead — it picks black or white per cell, which beats
+ * a shadow on light fills.
+ */
+export const FILL_LABEL_COLOR = "#ffffff";
+export const FILL_LABEL_SHADOW = "rgba(0, 0, 0, 0.55)";
+export const FILL_LABEL_SHADOW_BLUR = 4;
+
+/** Spreadable ECharts series-label style for white-on-fill labels. */
+export const fillLabelStyle = {
+  color: FILL_LABEL_COLOR,
+  textShadowColor: FILL_LABEL_SHADOW,
+  textShadowBlur: FILL_LABEL_SHADOW_BLUR,
+} as const;
+
+/**
  * Pick black or white text for readability against an arbitrary background
  * color. Accepts `#rgb`, `#rrggbb`, or `rgb()` / `rgba()` strings. Anything
  * unparseable (named colors, CSS variables, gradients, garbage) falls back to
@@ -401,9 +424,13 @@ export function isDark(): boolean {
 /**
  * Build the "No data" option with a theme-aware text color.
  * Falls back to neutral gray when document is unavailable (SSR).
+ *
+ * Matches the exact --muted-foreground hex the registered ECharts themes use
+ * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
+ * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
  */
 function resolveEmptyDataColor(): string {
-  return isDark() ? "#a3a3a3" : "#737373";
+  return isDark() ? "#959ba7" : "#666d7a";
 }
 
 export function buildEmptyDataOption(): EChartsOption {
@@ -488,16 +515,70 @@ export function resolveShowLegend(
   return hideLegend ? false : autoShow;
 }
 
+export type LegendPosition = "top" | "bottom" | "left" | "right";
+
+const LEGEND_POSITIONS: ReadonlySet<string> = new Set([
+  "top",
+  "bottom",
+  "left",
+  "right",
+]);
+
+/** Normalize an arbitrary settings value to a known legend position. */
+export function resolveLegendPosition(value: unknown): LegendPosition {
+  return typeof value === "string" && LEGEND_POSITIONS.has(value)
+    ? (value as LegendPosition)
+    : "bottom";
+}
+
 /**
- * Standard ECharts grid with compact-aware margins.
- * Pass `showLegend` to add bottom space for the legend.
+ * ECharts legend config for a given position (#1053). Left/right render the
+ * legend vertically; type "scroll" keeps long legends usable.
  */
-export function buildCompactGrid(compact: boolean, showLegend: boolean) {
+export function buildLegend(
+  show: boolean,
+  position: LegendPosition = "bottom",
+) {
+  if (!show) return undefined;
+  switch (position) {
+    case "top":
+      return { type: "scroll" as const, top: 0 };
+    case "left":
+      return {
+        type: "scroll" as const,
+        orient: "vertical" as const,
+        left: 0,
+        top: "middle" as const,
+      };
+    case "right":
+      return {
+        type: "scroll" as const,
+        orient: "vertical" as const,
+        right: 0,
+        top: "middle" as const,
+      };
+    default:
+      return { type: "scroll" as const, bottom: 0 };
+  }
+}
+
+/**
+ * Standard ECharts grid with compact-aware margins. Reserves space on the side
+ * where the legend sits so it never overlaps the plot (#1053).
+ */
+export function buildCompactGrid(
+  compact: boolean,
+  showLegend: boolean,
+  legendPosition: LegendPosition = "bottom",
+) {
+  const base = compact ? 8 : 16;
+  const legendGap = 40;
+  const on = (side: LegendPosition) => showLegend && legendPosition === side;
   return {
-    left: compact ? 8 : 16,
-    right: compact ? 8 : 16,
-    top: compact ? 8 : 16,
-    bottom: showLegend ? 40 : compact ? 8 : 24,
+    left: on("left") ? legendGap + base : base,
+    right: on("right") ? legendGap + base : base,
+    top: on("top") ? legendGap : base,
+    bottom: on("bottom") ? legendGap : compact ? 8 : 24,
     containLabel: true,
   };
 }

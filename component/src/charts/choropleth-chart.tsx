@@ -11,7 +11,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption } from "./chart-utils";
+import { buildEmptyDataOption, isDark } from "./chart-utils";
 
 echarts.use([
   EMapChart,
@@ -65,9 +65,10 @@ function ChoroplethChart({
   data,
   roam = true,
   showVisualMap = true,
-  minColor = "#e8f4f8",
-  maxColor = "#08306b",
+  minColor = "#fff7d6",
+  maxColor = "#993404",
   showLabels = false,
+  ariaDescription,
   ...rest
 }: ChoroplethChartProps) {
   const [mapRegistered, setMapRegistered] = useState(false);
@@ -139,7 +140,9 @@ function ChoroplethChart({
             min: minVal,
             max: maxVal,
             inRange: {
-              color: [minColor, "#a6cee3", "#4292c6", "#2171b5", maxColor],
+              // Warm YlOrBr sequential ramp (citrine-adjacent, colorblind-safe)
+              // — replaces the off-brand ColorBrewer "Blues".
+              color: [minColor, "#fed98e", "#fe9929", "#d95f0e", maxColor],
             },
             textStyle: { fontSize: 10 },
             itemWidth: 12,
@@ -168,10 +171,10 @@ function ChoroplethChart({
               show: true,
               fontSize: 13,
               fontWeight: "bold",
-              color: "#333",
             },
+            // Keep the region's data color on hover (don't overwrite it with a
+            // off-brand gold) — the border + shadow are the hover affordance.
             itemStyle: {
-              areaColor: "#ffd700",
               shadowBlur: 12,
               shadowOffsetX: 2,
               shadowOffsetY: 2,
@@ -183,7 +186,9 @@ function ChoroplethChart({
           itemStyle: {
             borderColor: "rgba(200, 200, 200, 0.6)",
             borderWidth: 0.5,
-            areaColor: "#eee",
+            // No-data fill — theme-aware (was a hardcoded #eee, glaringly
+            // bright in dark mode).
+            areaColor: isDark() ? "#23262d" : "#eceef1",
           },
           data: normalizedData,
         },
@@ -200,7 +205,15 @@ function ChoroplethChart({
     showLabels,
   ]);
 
-  return <BaseChart options={options} {...rest} />;
+  return (
+    <BaseChart
+      options={options}
+      ariaDescription={
+        ariaDescription ?? `Choropleth map with ${data.length} regions`
+      }
+      {...rest}
+    />
+  );
 }
 
 export { ChoroplethChart };

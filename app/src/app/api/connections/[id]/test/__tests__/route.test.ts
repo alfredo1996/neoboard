@@ -134,5 +134,77 @@ describe("POST /api/connections/[id]/test", () => {
     const body = await res.json();
     expect(body.data.success).toBe(false);
     expect(body.data.error).toBe("Connection refused");
+    // The error is classified so the UI can show a targeted hint (#1043).
+    expect(body.data.code).toBe("network");
+  });
+
+  it("classifies an auth failure thrown by testConnection (#1043)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "bolt://h", username: "u" });
+    mockTestConnection.mockRejectedValue(
+      new Error("The client is unauthorized due to authentication failure."),
+    );
+
+    const res = await POST({} as Request, makeParams("c1"));
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("auth_failed");
+  });
+
+  it("returns an actionable message + code when testConnection returns false (#1043)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        {
+          id: "c1",
+          userId: "user-1",
+          type: "postgresql",
+          configEncrypted: "enc",
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "pg://h", username: "u" });
+    mockTestConnection.mockResolvedValue(false);
+
+    const res = await POST({} as Request, makeParams("c1"));
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("unknown");
+    // No longer the dead-end "Connection check returned false".
+    expect(body.data.error).not.toMatch(/check returned false/i);
+    expect(body.data.error).toMatch(/verify the host, port, credentials/i);
+  });
+
+  // Lost/rotated ENCRYPTION_KEY is a documented operational failure mode —
+  // it must surface as an actionable test result, not an unhandled 500 (#1040).
+  it("returns a structured decrypt_failed result when stored credentials can't be decrypted", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const conn = {
+      id: "c1",
+      userId: "user-1",
+      type: "postgresql",
+      configEncrypted: "enc-with-wrong-key",
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+    // AES-GCM auth failure — exactly what Decipheriv.final throws
+    mockDecryptJson.mockImplementation(() => {
+      throw new Error("Unsupported state or unable to authenticate data");
+    });
+
+    const res = await POST({} as Request, makeParams("c1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.success).toBe(false);
+    expect(body.data.code).toBe("decrypt_failed");
+    // Actionable: names the likely cause and the recovery path
+    expect(body.data.error).toMatch(/can't be decrypted/i);
+    expect(body.data.error).toMatch(/re-enter/i);
+    // The connector must never be called with garbage credentials
+    expect(mockTestConnection).not.toHaveBeenCalled();
   });
 });

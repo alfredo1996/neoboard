@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dashboards, dashboardShares, users } from "@/lib/db/schema";
+import { dashboards, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/db/schema";
+import {
+  resolveDashboardAccess,
+  type DashboardAccessRole,
+} from "@/lib/dashboard/access";
 import {
   validateBody,
   forbidden,
@@ -44,22 +48,34 @@ const dashboardSettingsSchema = z.object({
   refreshIntervalSeconds: z.number().min(5).optional(),
 });
 
-const updateDashboardSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  layoutJson: z
-    .object({
-      version: z.literal(2),
-      pages: z.array(pageSchema).min(1),
-      settings: dashboardSettingsSchema.optional(),
-    })
-    .optional(),
-  isPublic: z.boolean().optional(),
-  /** Optimistic lock — must match the server's current version. */
-  expectedVersion: z.number().int().positive().optional(),
-});
-
-type DashboardAccessRole = "owner" | "editor" | "viewer" | "admin";
+const updateDashboardSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().optional(),
+    layoutJson: z
+      .object({
+        version: z.literal(2),
+        pages: z.array(pageSchema).min(1),
+        settings: dashboardSettingsSchema.optional(),
+      })
+      .optional(),
+    isPublic: z.boolean().optional(),
+    /** Optimistic lock — must match the server's current version. */
+    expectedVersion: z.number().int().positive().optional(),
+  })
+  // Reject unknown keys (e.g. stale thumbnailJson payloads) instead of
+  // silently stripping them into an empty no-op update.
+  .strict()
+  // Require at least one real data field — expectedVersion alone is just the
+  // optimistic-lock guard and has nothing to persist.
+  .refine(
+    (d) =>
+      d.name !== undefined ||
+      d.description !== undefined ||
+      d.layoutJson !== undefined ||
+      d.isPublic !== undefined,
+    { message: "At least one field to update is required" },
+  );
 
 async function canAccess(
   dashboardId: string,
@@ -67,49 +83,20 @@ async function canAccess(
   tenantId: string,
   userRole: UserRole,
   requiredRole: "viewer" | "editor" | "owner",
+  allowPublic = true,
 ): Promise<{
   dashboard: typeof dashboards.$inferSelect;
   role: DashboardAccessRole;
 } | null> {
-  const [dashboard] = await db
-    .select()
-    .from(dashboards)
-    .where(
-      and(eq(dashboards.id, dashboardId), eq(dashboards.tenantId, tenantId)),
-    )
-    .limit(1);
-
-  if (!dashboard) return null;
-
-  // Admins bypass per-dashboard ACL
-  if (userRole === "admin") return { dashboard, role: "admin" };
-
-  if (dashboard.userId === userId) return { dashboard, role: "owner" };
-
-  const [share] = await db
-    .select()
-    .from(dashboardShares)
-    .where(
-      and(
-        eq(dashboardShares.dashboardId, dashboardId),
-        eq(dashboardShares.userId, userId),
-        eq(dashboardShares.tenantId, tenantId),
-      ),
-    )
-    .limit(1);
-
-  if (!share) {
-    // Public dashboards grant read-only access to any authenticated tenant user
-    if (dashboard.isPublic && requiredRole === "viewer") {
-      return { dashboard, role: "viewer" as const };
-    }
-    return null;
-  }
-
-  if (requiredRole === "owner") return null;
-  if (requiredRole === "editor" && share.role === "viewer") return null;
-
-  return { dashboard, role: share.role };
+  // Delegates to the shared helper (#979) — single source of truth.
+  return resolveDashboardAccess({
+    dashboardId,
+    userId,
+    tenantId,
+    userRole,
+    required: requiredRole,
+    allowPublic,
+  });
 }
 
 export async function GET(
@@ -162,7 +149,19 @@ export async function PUT(
 
     const access = await canAccess(id, userId, tenantId, userRole, "editor");
     if (!access) {
-      return notFound();
+      // A user with an explicit VIEWER share gets 403 ("may view, not write"),
+      // consistent with the global-reader 403 above — not 404. Exclude public
+      // access (allowPublic=false) so a public-but-unshared dashboard still
+      // returns 404 and we don't leak per-dashboard writability (#1056).
+      const viewAccess = await canAccess(
+        id,
+        userId,
+        tenantId,
+        userRole,
+        "viewer",
+        false,
+      );
+      return viewAccess ? forbidden() : notFound();
     }
 
     const body = await request.json();
@@ -181,25 +180,16 @@ export async function PUT(
       conditions.push(eq(dashboards.version, expectedVersion));
     }
 
-    // Only increment version on meaningful edits — thumbnails-only or
-    // settings-only saves should not bump version and trigger the
-    // "updated by X" banner in other viewers' browsers.
-    const isMeaningfulEdit =
-      expectedVersion !== undefined ||
-      updateData.layoutJson !== undefined ||
-      updateData.name !== undefined ||
-      updateData.description !== undefined ||
-      updateData.isPublic !== undefined;
-
+    // The schema's .refine() guarantees at least one real data field, so every
+    // accepted update is a meaningful edit — always bump version (which drives
+    // the "updated by X" banner in other viewers' browsers).
     const [updated] = await db
       .update(dashboards)
       .set({
         ...updateData,
         updatedAt: new Date(),
         updatedBy: userId,
-        ...(isMeaningfulEdit
-          ? { version: sql`${dashboards.version} + 1` }
-          : {}),
+        version: sql`${dashboards.version} + 1`,
       })
       .where(and(...conditions))
       .returning();

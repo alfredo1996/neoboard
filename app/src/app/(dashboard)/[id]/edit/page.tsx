@@ -52,6 +52,7 @@ import {
   Toolbar,
   ToolbarSection,
   ToolbarSeparator,
+  useToast,
 } from "@neoboard/components";
 
 export default function DashboardEditorPage({
@@ -138,6 +139,7 @@ export default function DashboardEditorPage({
   const updateGridLayout = useDashboardStore((s) => s.updateGridLayout);
   const duplicateWidget = useDashboardStore((s) => s.duplicateWidget);
   const markSaved = useDashboardStore((s) => s.markSaved);
+  const { toast } = useToast();
 
   const {
     showNavWarning,
@@ -279,12 +281,15 @@ export default function DashboardEditorPage({
         expectedVersion: dashboard?.version,
       });
       markSaved();
+      // Explicit Save (button / Cmd+S) gets explicit confirmation (#1046);
+      // the failure path already has its own sticky error toast (#836).
+      toast({ title: "Dashboard saved" });
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Failed to save dashboard",
       );
     }
-  }, [id, layout, updateDashboard, markSaved, dashboard]);
+  }, [id, layout, updateDashboard, markSaved, dashboard, toast]);
 
   function openAddWidget() {
     setEditorMode("add");

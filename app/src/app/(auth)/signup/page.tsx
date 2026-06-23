@@ -80,16 +80,19 @@ export default function SignupPage() {
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">NeoBoard</CardTitle>
+            <CardTitle className="text-2xl">
+              <h1>NeoBoard</h1>
+            </CardTitle>
             <CardDescription>Registration Disabled</CardDescription>
           </CardHeader>
           <CardContent>
-            <Alert>
-              <AlertDescription>
-                Self-registration is disabled. Contact your administrator for an
-                account.
-              </AlertDescription>
-            </Alert>
+            {/* Plain text, not a nested Alert box — the Card is already the
+                container, so a bordered box-in-box reads as card-in-card
+                (#1038). */}
+            <p className="text-sm text-muted-foreground">
+              Self-registration is disabled. Contact your administrator for an
+              account.
+            </p>
           </CardContent>
           <CardFooter className="justify-center">
             <p className="text-sm text-muted-foreground">
@@ -107,7 +110,9 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">NeoBoard</CardTitle>
+          <CardTitle className="text-2xl">
+            <h1>NeoBoard</h1>
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Visual dashboards for Neo4j &amp; PostgreSQL
           </p>

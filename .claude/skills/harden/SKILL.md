@@ -30,7 +30,7 @@ Test with extreme inputs by reading code and identifying vulnerabilities:
 - **Connection timeout**: 30s timeout hit — clear error message with retry?
 - **Auth failure**: Invalid credentials — redirect to connection settings, not cryptic error?
 - **Connection lost mid-query**: WebSocket/driver disconnect — widget error state with retry?
-- **Rate limiting**: p-queue saturation — queued indicator or backpressure feedback?
+- **Query scheduler saturation**: per-connector query scheduler hits `QUERY_MAX_QUEUE_DEPTH` under load — load-shedding/backpressure feedback (503) rather than a hang?
 - **Encryption errors**: Lost ENCRYPTION_KEY — clear "unrecoverable" message, not stack trace?
 
 ### 3. Widget Error States

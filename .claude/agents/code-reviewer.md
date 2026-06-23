@@ -39,7 +39,7 @@ Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then 
 
 - Read-only transactions for non-Form widgets (PostgreSQL: `BEGIN READ ONLY`, Neo4j: session access mode)
 - Row limits use MAX_ROWS+1 pattern, never LIMIT on user queries
-- Timeouts at driver level (AbortSignal for pg, native for Neo4j)
+- Timeouts at the driver/transaction level (PostgreSQL: `SET LOCAL statement_timeout`; Neo4j: managed-transaction timeout)
 - User queries never modified or wrapped
 
 ### Architecture (HIGH)

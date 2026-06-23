@@ -1,14 +1,38 @@
 import { execSync, spawn as nodeSpawn } from "node:child_process";
 import type { SpawnOptions, ChildProcess } from "node:child_process";
 
+/**
+ * Scrub credentials from text that may end up in error messages, stack
+ * traces, or pasted terminal output (#967): `-p <pw>` style flags,
+ * `key=value` secrets, and userinfo passwords in connection strings.
+ */
+export function redactSecrets(text: string): string {
+  return text
+    .replace(/((?:^|\s)(?:-p|--password))(\s+)(\S+)/g, "$1$2***")
+    .replace(
+      /\b((?:password|passwd|pwd|secret|token|access_token|api_key)=)([^\s'"&]+)/gi,
+      "$1***",
+    )
+    .replace(/(:\/\/[^/:\s@]+:)([^@\s]+)(@)/g, "$1***$3");
+}
+
 export class ExecError extends Error {
+  public readonly cmd: string;
+  public readonly stderr: string;
+
   constructor(
-    public readonly cmd: string,
+    cmd: string,
     public readonly exitCode: number,
-    public readonly stderr: string,
+    stderr: string,
   ) {
-    super(`Command failed (exit ${exitCode}): ${cmd}\n${stderr}`);
+    // Redact at construction so no consumer (message, stack, .cmd, .stderr)
+    // can leak credentials — demo/seed rethrow these uncaught (#967).
+    const safeCmd = redactSecrets(cmd);
+    const safeStderr = redactSecrets(stderr);
+    super(`Command failed (exit ${exitCode}): ${safeCmd}\n${safeStderr}`);
     this.name = "ExecError";
+    this.cmd = safeCmd;
+    this.stderr = safeStderr;
   }
 }
 
@@ -60,13 +84,25 @@ export function runOrNull(cmd: string, opts?: RunOptions): string | null {
  * Security (S4036): "docker" is resolved via PATH intentionally — this is a
  * local developer CLI tool, not a server process. PATH is trusted.
  */
-export function dockerExec(container: string, cmd: string): string {
+export function dockerExec(
+  container: string,
+  cmd: string,
+  opts?: { env?: Record<string, string> },
+): string {
+  // Secrets are forwarded by NAME only (`-e VAR`); the docker CLI reads the
+  // value from its own environment, so it never appears in host argv (#967).
+  const envFlags = opts?.env
+    ? Object.keys(opts.env)
+        .map((k) => `-e ${k} `)
+        .join("")
+    : "";
   // NOSONAR — CLI tool, all commands are hardcoded constants
-  const fullCmd = `docker exec ${container} ${cmd}`;
+  const fullCmd = `docker exec ${envFlags}${container} ${cmd}`;
   try {
     const result = execSync(fullCmd, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
+      env: opts?.env ? { ...process.env, ...opts.env } : process.env,
     });
     return result.trim();
   } catch (err: unknown) {

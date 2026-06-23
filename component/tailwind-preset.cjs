@@ -1,5 +1,5 @@
 /**
- * Shared Tailwind CSS preset — NeoBoard Deep Ocean theme.
+ * Shared Tailwind CSS preset — NeoBoard Graphite & Citrine theme.
  *
  * Imported by app/tailwind.config.ts and component/tailwind.config.js
  * to avoid duplicating the theme.extend block.
@@ -34,7 +34,15 @@ module.exports = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          // Alpha-baked citrine tint — use directly (bg-accent-soft), no
+          // hsl() wrapping since the token carries its own alpha.
+          soft: "var(--accent-soft)",
         },
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          2: "hsl(var(--surface-2))",
+        },
+        "border-strong": "hsl(var(--border-strong))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -56,10 +64,56 @@ module.exports = {
           10: "hsl(var(--chart-10))",
         },
       },
+      fontFamily: {
+        display: "var(--font-display)",
+        body: "var(--font-body)",
+      },
+      // Heading scale (#830): size, leading, and tracking travel together.
+      // Pair with `font-display` for the Geist Sans family.
+      fontSize: {
+        display: [
+          "2.25rem",
+          { lineHeight: "2.5rem", letterSpacing: "-0.025em", fontWeight: "600" },
+        ],
+        h1: [
+          "1.875rem",
+          { lineHeight: "2.25rem", letterSpacing: "-0.02em", fontWeight: "600" },
+        ],
+        h2: [
+          "1.5rem",
+          { lineHeight: "2rem", letterSpacing: "-0.015em", fontWeight: "600" },
+        ],
+        h3: [
+          "1.25rem",
+          { lineHeight: "1.75rem", letterSpacing: "-0.01em", fontWeight: "600" },
+        ],
+      },
+      // Radius scale (#831): rounded-sm/md/lg map 1:1 to the tokens.
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+      },
+      // Elevation scale (#823): shadow-sm/md/lg utilities emit the
+      // warm-tinted token values so all existing class usage upgrades
+      // without component changes.
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+      },
+      // Motion vocabulary (#833): the standard ease becomes the default
+      // timing function for every transition-* utility.
+      transitionTimingFunction: {
+        DEFAULT: "var(--ease-standard)",
+        standard: "var(--ease-standard)",
+        emphasized: "var(--ease-emphasized)",
+      },
+      transitionDuration: {
+        DEFAULT: "var(--duration-normal)",
+        fast: "var(--duration-fast)",
+        normal: "var(--duration-normal)",
+        slow: "var(--duration-slow)",
       },
       keyframes: {
         "accordion-down": {
@@ -70,10 +124,14 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-down": "accordion-down 0.2s var(--ease-standard)",
+        "accordion-up": "accordion-up 0.2s var(--ease-standard)",
+        shimmer: "shimmer 1.6s var(--ease-standard) infinite",
       },
     },
   },

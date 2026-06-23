@@ -13,6 +13,7 @@ import {
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { extractNodeAndRelPropertiesFromRecords } from "./utils";
 import { determineQueryStatus } from "../generalized/utils";
+import { collectUpToLimit } from "../generalized/stream-rows";
 import { wrapError, ConnectorErrorType } from "../generalized/ConnectorError";
 
 /**
@@ -83,15 +84,32 @@ export class Neo4jConnectionModule extends ConnectionModule {
       defaultAccessMode: neo4j.session[config.accessMode],
       database: config.database,
     });
-    const execute =
-      config.accessMode === "WRITE"
-        ? session.executeWrite.bind(session)
-        : session.executeRead.bind(session);
+    const isWrite = config.accessMode === "WRITE";
+    const execute = isWrite
+      ? session.executeWrite.bind(session)
+      : session.executeRead.bind(session);
     try {
-      const result = await execute(
+      const { rows: records, truncated } = await execute(
         async (tx: ManagedTransaction) => {
-          const res = await tx.run(query, params); // Pass params to the run method
-          return res.records;
+          if (isWrite) {
+            // Writes must run to completion so every side effect executes; we
+            // only truncate what we hand back for display. Stopping a write
+            // stream early could skip un-pulled CREATE/SET/DELETE work, leaving
+            // a partially-applied transaction.
+            const res = await tx.run(query, params);
+            const all = res.records;
+            const writeTruncated = all.length > config.rowLimit;
+            return {
+              rows: writeTruncated ? all.slice(0, config.rowLimit) : all,
+              truncated: writeTruncated,
+            };
+          }
+          // Reads stream lazily: do NOT await tx.run(...) (awaiting buffers the
+          // whole result set). The Result is async-iterable, so stop after
+          // rowLimit + 1 records (the MAX_ROWS+1 truncation probe) — peak memory
+          // stays bounded regardless of how many rows match.
+          const res = tx.run(query, params);
+          return collectUpToLimit(res, config.rowLimit);
         },
         {
           timeout: config.timeout, // Sets dbms.transaction.timeout for this transaction.
@@ -99,17 +117,18 @@ export class Neo4jConnectionModule extends ConnectionModule {
           // Very long-running queries within the timeout window will still complete.
         },
       );
-      // Set schema if provided
-      callbacks.setSchema?.(extractNodeAndRelPropertiesFromRecords(result));
+      // Set schema if provided. Derived from the retained (≤ rowLimit) records,
+      // which is sufficient for the field/property panel.
+      callbacks.setSchema?.(extractNodeAndRelPropertiesFromRecords(records));
 
-      // TODO: Truncation should happen at db level
-      const toTruncate = result.length > config.rowLimit;
-      callbacks.setStatus?.(
-        determineQueryStatus(result.length, config.rowLimit),
-      );
-      const limitedResult = toTruncate
-        ? result.slice(0, config.rowLimit)
-        : result;
+      // Streamed count is capped at rowLimit + 1, which yields the same status
+      // as the true count would (> rowLimit ⇒ truncated).
+      const rowCount = truncated ? config.rowLimit + 1 : records.length;
+      callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
+      // The driver's Record generics don't unify with the parser's
+      // Record<string, unknown>[] input even though the runtime shape is
+      // exactly that — bridge the identities once at the result boundary.
+      const limitedResult = records as unknown as Record<string, unknown>[];
       const parsedResult = config.parseToNeodashRecord
         ? this.parser.bulkParse(limitedResult)
         : limitedResult;
@@ -118,13 +137,13 @@ export class Neo4jConnectionModule extends ConnectionModule {
       // that don't need to reset fields after each result.
       if (callbacks.setFields) {
         if (parsedResult.length > 0) {
-          const parsed = this.parser.bulkParse([result[0]]);
+          const parsed = this.parser.bulkParse([limitedResult[0]]);
           callbacks.setFields(parsed[0].getFields(config.useNodePropsAsFields));
         } else {
           callbacks.setFields([]);
         }
       }
-      callbacks.onSuccess?.(parsedResult);
+      callbacks.onSuccess?.(parsedResult as T);
     } catch (err: unknown) {
       const wrapped = wrapError(err, "neo4j");
       callbacks.setStatus?.(

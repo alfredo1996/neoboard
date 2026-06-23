@@ -29,6 +29,11 @@ vi.mock("@/lib/auth/errors", () => ({
       super("Unauthorized");
     }
   },
+  ForbiddenError: class extends Error {
+    constructor() {
+      super("Forbidden");
+    }
+  },
 }));
 
 const SESSION = {
@@ -56,6 +61,26 @@ describe("POST /api/connections/list-databases-inline", () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for readers — inline listing probes arbitrary hosts with arbitrary credentials (#971)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      role: "reader",
+      canWrite: false,
+    });
+    const res = await POST(
+      makeRequest({
+        type: "postgresql",
+        config: {
+          uri: "postgresql://10.0.0.1:5432/db",
+          username: "u",
+          password: "p",
+        },
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(mockListDatabases).not.toHaveBeenCalled();
   });
 
   it("returns 400 for missing type", async () => {

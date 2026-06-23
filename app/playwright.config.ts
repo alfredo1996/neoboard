@@ -20,10 +20,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1,
-  // CI: 2 workers (constrained runner resources).
-  // Locally: 6 workers — balances parallelism with server/DB contention.
+  // 2 workers everywhere. Measured locally (2026-06-10, three full runs):
+  // 6 workers → 20 hard failures + 71 flaky, 4 workers → 9-11 failures +
+  // ~55 flaky — all login/navigation timeouts from server/DB contention —
+  // while every one of those tests passes at 2 workers. CI runners are
+  // resource-constrained for the same reason (#994).
   // Override with --workers=N on the CLI for experimentation.
-  workers: process.env.CI ? 2 : 6,
+  workers: 2,
   // CI: github (PR annotations) + list (real-time stream) + blob (for cross-shard merge).
   // Local: interactive HTML report.
   reporter: process.env.CI ? [["github"], ["list"], ["blob"]] : "html",

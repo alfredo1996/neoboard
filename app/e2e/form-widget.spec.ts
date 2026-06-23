@@ -48,6 +48,24 @@ test.describe("Form widget", () => {
     await dashboardCleanup?.();
   });
 
+  test("Form widget shows the config-time write-permission note (#1051)", async ({
+    page,
+  }) => {
+    // Forms are the only write-capable widget. Submits go through
+    // /api/query/write, which 403s for any submitter lacking write
+    // permission or connection ownership. There is no connection-level
+    // read-only flag to detect, so the note is shown unconditionally to
+    // warn the author at config time (#1051).
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Form" }).click();
+
+    await expect(
+      dialog.getByText(/Form submissions write to the database/i),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
   test("should configure form fields in editor and see preview", async ({
     page,
   }) => {
@@ -369,8 +387,15 @@ test.describe("Form widget", () => {
       tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+    // The seed query returns no rows yet (the form creates the node), so the
+    // preview may render the chart, a table, or the empty-state element
+    // (bar's DOM "No data" status, #1053) — any means the widget mounted.
     await expect(
-      tableDialog.locator("[data-testid='base-chart'], table").first(),
+      tableDialog
+        .locator(
+          "[data-testid='base-chart'], [data-testid='bar-chart-empty'], table",
+        )
+        .first(),
     ).toBeVisible({ timeout: 15_000 });
 
     await tableDialog.getByRole("button", { name: "Add Widget" }).click();

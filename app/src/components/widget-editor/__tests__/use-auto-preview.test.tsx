@@ -20,6 +20,26 @@ vi.mock("@/hooks/use-widget-query", () => ({
       return result;
     },
   ),
+  // Mirrors the real helper: a query is ready unless it references a
+  // $param_<name> that is missing/empty in allParams (#1055).
+  allReferencedParamsReady: vi.fn(
+    (q: string, allParams: Record<string, unknown>) => {
+      const regex = /\$param_(\w+)/g;
+      let match;
+      while ((match = regex.exec(q)) !== null) {
+        const v = allParams[match[1]];
+        if (
+          v === undefined ||
+          v === null ||
+          v === "" ||
+          (Array.isArray(v) && v.length === 0)
+        ) {
+          return false;
+        }
+      }
+      return true;
+    },
+  ),
 }));
 
 vi.mock("@/lib/query/wrap-with-preview-limit", () => ({

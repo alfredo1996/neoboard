@@ -14,6 +14,7 @@ import {
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { formatImportError } from "@/lib/dashboard/format-import-error";
 
 const importRequestSchema = z.object({
   payload: z.unknown(),
@@ -72,7 +73,8 @@ export async function POST(request: Request) {
     } else {
       const parsed = neoboardExportSchema.safeParse(payload);
       if (!parsed.success) {
-        return badRequest(parsed.error.errors[0].message);
+        // Name the offending field instead of a bare "Required" (#1048).
+        return badRequest(formatImportError(parsed.error));
       }
       exportData = parsed.data;
     }

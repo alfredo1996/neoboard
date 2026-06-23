@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -46,7 +46,9 @@ export async function GET(request: Request) {
       .from(users)
       .where(eq(users.tenantId, tenantId))
       .limit(limit)
-      .orderBy(users.createdAt)
+      // Newest first — a just-created user must be visible on the first
+      // page (the admin's create→verify workflow, and E2E, depend on it).
+      .orderBy(desc(users.createdAt))
       .offset(offset);
 
     return apiList(rows, { total: Number(total), limit, offset });

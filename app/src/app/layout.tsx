@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
@@ -43,7 +40,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      {/* No font className here — the design system's self-hosted Inter is
+          applied to `body` via the `font-body` token in globals.css, so we
+          don't pull a second copy of Inter from Google Fonts (#1059). */}
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>

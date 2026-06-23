@@ -11,7 +11,9 @@ import {
   buildEmptyDataOption,
   resolveItemColor,
   parseGaugeThresholdZones,
+  isDark,
 } from "./chart-utils";
+import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([EGaugeChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -62,6 +64,7 @@ function GaugeChart({
   thresholdZones: thresholdZonesJson,
   stylingRules,
   paramValues,
+  ariaDescription,
   ...rest
 }: GaugeChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -103,7 +106,11 @@ function GaugeChart({
       hasCustomZones && normalizedValue !== undefined
         ? thresholdZones.find(([stop]) => normalizedValue <= stop)?.[1]
         : undefined;
-    const progressColor = resolvedColor ?? thresholdColor ?? "#5470c6";
+    // Default to the brand citrine accent (chart-1), not the stock ECharts blue.
+    const progressColor =
+      resolvedColor ??
+      thresholdColor ??
+      (isDark() ? CITRINE_DARK[0] : CITRINE_LIGHT[0]);
 
     // Track color — light gray that works in both themes
     const trackColor = hasCustomZones
@@ -198,7 +205,14 @@ function GaugeChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} />
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ??
+          `Gauge showing ${data[0]?.value ?? 0} of ${min} to ${max}`
+        }
+        {...rest}
+      />
     </div>
   );
 }

@@ -52,9 +52,9 @@ export function generateEnvFile(opts?: { regenerate?: boolean }): void {
   const encryptionKey = generateSecret();
   const nextauthSecret = generateSecret();
   const bootstrapToken = generateSecret();
-  // API_KEY_HMAC_SECRET — required by the community API-keys feature. Server
-  // fails at startup without it. Generated alongside the other secrets so a
-  // fresh `neoboard setup` produces a fully-working install.
+  // API_KEY_HMAC_SECRET — required by the community API-keys feature (#907);
+  // the server fails at startup without it. Generated up front alongside the
+  // other secrets so a fresh `neoboard setup` produces a fully-working install.
   const apiKeyHmacSecret = generateSecret();
 
   const lines = [

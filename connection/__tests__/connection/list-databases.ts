@@ -16,6 +16,8 @@ describe("Neo4j listDatabases", () => {
     await connectionModule.close();
   });
 
+  // 30s: the first query after container start pays Neo4j JVM warmup —
+  // observed >15s on a loaded machine (2/2 cold full-suite runs, 2026-06-10).
   test("should return an array of database names", async () => {
     const databases = await connectionModule.listDatabases();
     expect(Array.isArray(databases)).toBe(true);
@@ -23,7 +25,7 @@ describe("Neo4j listDatabases", () => {
     expect(databases.length).toBeGreaterThanOrEqual(1);
     // "neo4j" is the default database
     expect(databases).toContain("neo4j");
-  });
+  }, 30_000);
 
   test("should filter out the system database", async () => {
     const databases = await connectionModule.listDatabases();

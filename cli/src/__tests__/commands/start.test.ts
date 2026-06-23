@@ -121,11 +121,28 @@ describe("runStart", () => {
     expect(lines.some((l) => l.startsWith("Logs:"))).toBe(true);
   });
 
-  it("DB-only mode shows 'Databases are ready!' and neoboard dev hint", async () => {
+  it("banner gives first-run admin-account guidance when app is running (#1038)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(
+      lines.some((l) => l.startsWith("First run:") && /admin account/i.test(l)),
+    ).toBe(true);
+  });
+
+  it("banner gives first-run admin-account guidance when app not yet started (#1038)", async () => {
+    await runStart({ full: false });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(
+      lines.some((l) => l.startsWith("First run:") && /admin account/i.test(l)),
+    ).toBe(true);
+  });
+
+  it("DB-only Docker mode shows 'neoboard start --full' hint, not 'dev' (#968)", async () => {
+    // getMode is "docker" by default in this suite's beforeEach.
     await runStart({ full: false });
     const lines = mockBanner.mock.calls[0][0];
     expect(lines[0]).toBe("Databases are ready!");
-    expect(lines.some((l) => l.includes("neoboard dev"))).toBe(true);
+    expect(lines.some((l) => l.includes("neoboard start --full"))).toBe(true);
     expect(lines.some((l) => l.includes("http://localhost:3000"))).toBe(false);
   });
 
@@ -179,5 +196,21 @@ describe("runStart", () => {
     expect(mockBanner).not.toHaveBeenCalled();
 
     logSpy.mockRestore();
+  });
+
+  it("returns true when everything starts", async () => {
+    await expect(runStart({ full: true })).resolves.toBe(true);
+  });
+
+  it("returns false when a healthcheck times out", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockWaitForHealth.mockRejectedValueOnce(new Error("Timeout"));
+    await expect(runStart()).resolves.toBe(false);
+    logSpy.mockRestore();
+  });
+
+  it("returns false when doctor finds failures in docker mode", async () => {
+    mockPrintResults.mockReturnValue(true);
+    await expect(runStart()).resolves.toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -43,7 +43,6 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -92,7 +91,13 @@ export default function ProfilePage() {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPasswordError("");
-    setPasswordSuccess(false);
+
+    // Inline validation replaces the native browser tooltip (the form sets
+    // noValidate) so length errors match the app's styled alerts (#1038).
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters");
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setPasswordError("New passwords do not match");
@@ -109,16 +114,23 @@ export default function ProfilePage() {
       if (!res.ok) {
         const body = await res.json();
         setPasswordError(body.error ?? "Failed to change password");
+        setSavingPassword(false);
       } else {
+        // The change bumps passwordChangedAt, which the auth layer uses to
+        // invalidate the current session. Rather than leave the user in a
+        // fragile/dead session that strands the next request on a raw
+        // "Unauthorized" (#1035), sign out cleanly and send them to login
+        // with a clear message.
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        setPasswordSuccess(true);
-        toast({ title: "Password changed" });
+        // Single success signal: the login page shows the confirmation
+        // (passwordChanged=1). No inline alert + toast double-feedback (#1038).
+        await signOut({ redirect: false });
+        window.location.href = "/login?passwordChanged=1";
       }
     } catch {
       setPasswordError("Something went wrong.");
-    } finally {
       setSavingPassword(false);
     }
   }
@@ -222,18 +234,14 @@ export default function ProfilePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleChangePassword} className="space-y-4">
+          <form
+            onSubmit={handleChangePassword}
+            className="space-y-4"
+            noValidate
+          >
             {passwordError && (
               <Alert variant="destructive">
                 <AlertDescription>{passwordError}</AlertDescription>
-              </Alert>
-            )}
-            {passwordSuccess && (
-              <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-                <AlertDescription>
-                  Password changed successfully. You can continue using the
-                  application.
-                </AlertDescription>
               </Alert>
             )}
             <div className="space-y-2">
@@ -242,6 +250,7 @@ export default function ProfilePage() {
                 id="current-password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -253,8 +262,8 @@ export default function ProfilePage() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
-                  minLength={8}
                 />
               </div>
               <div className="space-y-2">
@@ -264,8 +273,8 @@ export default function ProfilePage() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
-                  minLength={8}
                 />
               </div>
             </div>

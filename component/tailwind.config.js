@@ -5,6 +5,10 @@ const preset = require("./tailwind-preset.cjs");
 export default {
   presets: [preset],
   darkMode: ["class"],
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./stories/**/*.{js,ts,jsx,tsx}",
+  ],
   plugins: [require("tailwindcss-animate")],
 };

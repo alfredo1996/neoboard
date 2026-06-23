@@ -24,14 +24,49 @@ interface Payment {
 }
 
 const data: Payment[] = [
-  { id: "m5gr84i9", amount: 316, status: "success", email: "ken99@example.com" },
-  { id: "3u1reuv4", amount: 242, status: "success", email: "abe45@example.com" },
-  { id: "derv1ws0", amount: 837, status: "processing", email: "monserrat44@example.com" },
-  { id: "5kma53ae", amount: 874, status: "success", email: "silas22@example.com" },
-  { id: "bhqecj4p", amount: 721, status: "failed", email: "carmella@example.com" },
-  { id: "p0qr9s2t", amount: 150, status: "pending", email: "derek@example.com" },
+  {
+    id: "m5gr84i9",
+    amount: 316,
+    status: "success",
+    email: "ken99@example.com",
+  },
+  {
+    id: "3u1reuv4",
+    amount: 242,
+    status: "success",
+    email: "abe45@example.com",
+  },
+  {
+    id: "derv1ws0",
+    amount: 837,
+    status: "processing",
+    email: "monserrat44@example.com",
+  },
+  {
+    id: "5kma53ae",
+    amount: 874,
+    status: "success",
+    email: "silas22@example.com",
+  },
+  {
+    id: "bhqecj4p",
+    amount: 721,
+    status: "failed",
+    email: "carmella@example.com",
+  },
+  {
+    id: "p0qr9s2t",
+    amount: 150,
+    status: "pending",
+    email: "derek@example.com",
+  },
   { id: "a1b2c3d4", amount: 999, status: "success", email: "jane@example.com" },
-  { id: "e5f6g7h8", amount: 432, status: "processing", email: "mark@example.com" },
+  {
+    id: "e5f6g7h8",
+    amount: 432,
+    status: "processing",
+    email: "mark@example.com",
+  },
 ];
 
 const basicColumns: ColumnDef<Payment, unknown>[] = [
@@ -62,7 +97,14 @@ const enhancedColumns: ColumnDef<Payment, unknown>[] = [
     ),
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const variant = status === "success" ? "default" : status === "failed" ? "destructive" : "secondary";
+      const variant =
+        status === "success"
+          ? "success"
+          : status === "failed"
+            ? "destructive"
+            : status === "processing"
+              ? "warning"
+              : "secondary";
       return <Badge variant={variant}>{status}</Badge>;
     },
     filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
@@ -97,9 +139,20 @@ const enhancedColumns: ColumnDef<Payment, unknown>[] = [
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => console.log("Edit", row.original)}>Edit</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigator.clipboard.writeText(row.original.id)}>Copy ID</DropdownMenuItem>
-          <DropdownMenuItem className="text-destructive" onClick={() => console.log("Delete", row.original)}>Delete</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => console.log("Edit", row.original)}>
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => navigator.clipboard.writeText(row.original.id)}
+          >
+            Copy ID
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => console.log("Delete", row.original)}
+          >
+            Delete
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -115,8 +168,16 @@ const statusOptions = [
 
 const moreData: Payment[] = [
   ...data,
-  ...data.map((d, i) => ({ ...d, id: `extra-${i}`, email: `extra${i}@example.com` })),
-  ...data.map((d, i) => ({ ...d, id: `more-${i}`, email: `more${i}@example.com` })),
+  ...data.map((d, i) => ({
+    ...d,
+    id: `extra-${i}`,
+    email: `extra${i}@example.com`,
+  })),
+  ...data.map((d, i) => ({
+    ...d,
+    id: `more-${i}`,
+    email: `more${i}@example.com`,
+  })),
 ];
 
 const meta = {
@@ -174,7 +235,9 @@ export const WithToolbarAndFilters: Story = {
         <Input
           placeholder="Filter emails..."
           value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
-          onChange={(e) => table.getColumn("email")?.setFilterValue(e.target.value)}
+          onChange={(e) =>
+            table.getColumn("email")?.setFilterValue(e.target.value)
+          }
           className="h-8 w-[250px]"
         />
         {table.getColumn("status") && (
@@ -196,7 +259,9 @@ export const WithCellClick: Story = {
     data,
     onCellClick: (info) => {
       console.log("Cell clicked:", info);
-      alert(`Clicked column "${info.column}" with value: ${JSON.stringify(info.value)}`);
+      alert(
+        `Clicked column "${info.column}" with value: ${JSON.stringify(info.value)}`,
+      );
     },
   },
 };

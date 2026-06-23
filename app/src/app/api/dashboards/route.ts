@@ -50,10 +50,10 @@ export async function GET(request: Request) {
         .offset(offset);
 
       const mapped = rows.map((d) => {
-        const { layoutJson, ...rest } = d;
+        const { layoutJson, ownerId, ...rest } = d;
         return {
           ...rest,
-          role: d.ownerId === userId ? ("owner" as const) : ("admin" as const),
+          role: ownerId === userId ? ("owner" as const) : ("admin" as const),
           widgetCount: countWidgets(layoutJson),
         };
       });

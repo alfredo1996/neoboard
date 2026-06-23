@@ -1,18 +1,10 @@
 import { existsSync } from "node:fs";
+import { buildSeedEnv } from "../../lib/docker-env.js";
 import { resolve, normalize } from "node:path";
 import { run } from "../../lib/exec.js";
 import { dockerExec } from "../../lib/docker.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
 import { success, createSpinner } from "../../lib/output.js";
-
-/** Validate a config value contains no shell-special characters. */
-function assertSafeValue(value: string, label: string): void {
-  if (/[;&|`$"'\\<>(){}!\n\r]/.test(value)) {
-    throw new Error(
-      `Unsafe characters in ${label}: "${value}". Check neoboard.config.json.`,
-    );
-  }
-}
 
 /** Validate a seed script path stays within the project root. */
 function assertSafePath(scriptPath: string, label: string): void {
@@ -25,13 +17,25 @@ function assertSafePath(scriptPath: string, label: string): void {
   }
 }
 
+function neo4jEnv(
+  config: ReturnType<typeof readProjectConfig>,
+): Record<string, string> {
+  return {
+    NEO4J_USERNAME: config.neo4j.user,
+    NEO4J_PASSWORD: config.neo4j.password,
+  };
+}
+
 function getNeo4jNodeCount(): number {
   const config = readProjectConfig();
-  assertSafeValue(config.neo4j.user, "neo4j.user");
-  assertSafeValue(config.neo4j.password, "neo4j.password");
+  // Credentials go via environment (cypher-shell reads NEO4J_USERNAME /
+  // NEO4J_PASSWORD) — never into argv, where `ps` and error messages can
+  // expose them (#967). This also lifts the shell-safe charset restriction
+  // on passwords.
   const out = dockerExec(
     "neoboard-neo4j",
-    `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} "MATCH (n) RETURN count(n) AS c"`,
+    `cypher-shell "MATCH (n) RETURN count(n) AS c"`,
+    { env: neo4jEnv(config) },
   );
   const match = out.match(/(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
@@ -48,30 +52,24 @@ export async function seedNeo4j(): Promise<void> {
   }
 
   const config = readProjectConfig();
-  assertSafeValue(config.neo4j.user, "neo4j.user");
-  assertSafeValue(config.neo4j.password, "neo4j.password");
   dockerExec(
     "neoboard-neo4j",
-    `cypher-shell -u ${config.neo4j.user} -p ${config.neo4j.password} -f /var/lib/neo4j/import/init.cypher`,
+    `cypher-shell -f /var/lib/neo4j/import/init.cypher`,
+    { env: neo4jEnv(config) },
   );
   spinner.succeed("Neo4j seeded with demo data");
 }
 
-export async function seedPostgres(dockerNetwork = false): Promise<void> {
+export async function seedPostgres(): Promise<void> {
   const config = readProjectConfig();
   assertSafePath(config.seed.script, "seed.script");
   const spinner = createSpinner("Seeding PostgreSQL demo data...");
   spinner.start();
 
-  // When the app runs inside Docker, seed with Docker-internal hostnames
-  // so the stored connection URIs resolve inside the container network.
-  const env = dockerNetwork
-    ? {
-        ...process.env,
-        NEO4J_HOST: "neoboard-neo4j",
-        PG_HOST: "neoboard-postgres",
-      }
-    : process.env;
+  // buildSeedEnv keys off getMode(): in Docker mode it threads the internal
+  // hostnames, a localhost DSN, and the docker/.env ENCRYPTION_KEY (#969,
+  // #1039); in local mode it returns process.env unchanged.
+  const env = buildSeedEnv(config);
 
   run(`node ${paths.root}/${config.seed.script}`, {
     cwd: paths.root,
@@ -83,8 +81,6 @@ export async function seedPostgres(dockerNetwork = false): Promise<void> {
 export async function runDbSeed(opts?: {
   neo4j?: boolean;
   demo?: boolean;
-  /** When true, seed connection URIs use Docker-internal hostnames. */
-  dockerNetwork?: boolean;
 }): Promise<void> {
   const seedNeo4jOnly = opts?.neo4j && !opts?.demo;
   const seedDemoOnly = opts?.demo && !opts?.neo4j;
@@ -95,7 +91,9 @@ export async function runDbSeed(opts?: {
   }
 
   if (seedBoth || seedDemoOnly) {
-    await seedPostgres(opts?.dockerNetwork ?? false);
+    // Docker vs local is derived inside seedPostgres (via getMode), so no
+    // caller can forget to thread the encryption key (#1039).
+    await seedPostgres();
   }
 
   success("Seeding complete");

@@ -20,11 +20,12 @@ const { proxy, config } = await import("../proxy");
 
 function makeRequest(
   pathname: string,
-  options?: { headers?: Record<string, string> },
+  options?: { headers?: Record<string, string>; method?: string },
 ): NextRequest {
   const url = new URL(pathname, "http://localhost:3000");
   return {
     nextUrl: url,
+    method: options?.method ?? "GET",
     headers: new Headers(options?.headers ?? {}),
   } as unknown as NextRequest;
 }
@@ -104,6 +105,16 @@ describe("proxy", () => {
     it("passes through /api/openapi.json", async () => {
       const res = await proxy(makeRequest("/api/openapi.json"));
       expect(res.status).toBe(200);
+    });
+
+    it("passes through /api/health without authentication", async () => {
+      const res = await proxy(makeRequest("/api/health"));
+      expect(res.status).toBe(200);
+    });
+
+    it("does not treat /api/health sub-paths as public", async () => {
+      const res = await proxy(makeRequest("/api/health/internal"));
+      expect(res.status).toBe(401);
     });
   });
 
@@ -191,6 +202,59 @@ describe("proxy", () => {
       });
       const res = await proxy(makeRequest("/change-password"));
       // /change-password is a public route, so it passes through before token check
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("forcePasswordChange API enforcement (#993)", () => {
+    beforeEach(() => {
+      mockGetToken.mockResolvedValue({
+        sub: "user-1",
+        forcePasswordChange: true,
+      });
+    });
+
+    it("blocks mutating API requests with 403 JSON", async () => {
+      for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+        const res = await proxy(makeRequest("/api/dashboards", { method }));
+        expect(res.status, `${method} should be blocked`).toBe(403);
+        expect(res.headers.get("content-type")).toContain("application/json");
+      }
+    });
+
+    it("allows read-only API requests", async () => {
+      const res = await proxy(
+        makeRequest("/api/dashboards", { method: "GET" }),
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it("allows the password-change endpoint itself", async () => {
+      const res = await proxy(
+        makeRequest("/api/users/me/password", { method: "PUT" }),
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it("does not affect API-key (nb_) requests", async () => {
+      // API keys are machine credentials, not the compromised human session.
+      const res = await proxy(
+        makeRequest("/api/dashboards", {
+          method: "POST",
+          headers: { authorization: "Bearer nb_test_key_abc123" },
+        }),
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it("does not block mutating API for normal sessions", async () => {
+      mockGetToken.mockResolvedValue({
+        sub: "user-1",
+        forcePasswordChange: false,
+      });
+      const res = await proxy(
+        makeRequest("/api/dashboards", { method: "POST" }),
+      );
       expect(res.status).toBe(200);
     });
   });

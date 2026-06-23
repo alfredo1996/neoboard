@@ -45,7 +45,14 @@ export {
 } from "./widget-card";
 export { AppShell, type AppShellProps } from "./app-shell";
 export { Sidebar, type SidebarProps } from "./sidebar";
-export { SidebarItem, type SidebarItemProps } from "./sidebar-item";
+export {
+  SidebarItem,
+  SidebarSectionLabel,
+  Wordmark,
+  type SidebarItemProps,
+  type SidebarSectionLabelProps,
+  type WordmarkProps,
+} from "./sidebar-item";
 export {
   Toolbar,
   ToolbarSection,
