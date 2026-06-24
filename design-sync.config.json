@@ -1,0 +1,87 @@
+{
+  "pkg": "@neoboard/components",
+  "globalName": "NeoBoard",
+  "projectId": "3392f74e-64b2-4f2e-a8ba-a104b52e575f",
+  "shape": "storybook",
+  "storybookStatic": ".design-sync/sb-reference",
+  "storybookConfigDir": "component/.storybook",
+  "buildCmd": "cd component && (npx tsc -p tsconfig.dts.json || true)",
+  "entry": "component/src/index.slim.ts",
+  "tsconfig": "tsconfig.dssync.json",
+  "cssEntry": ".ds-tailwind.css",
+  "extraFonts": ["design-tokens.css"],
+  "libOverrides": {
+    "story-imports.mjs": "kebab-case source files (bar-chart.tsx) → PascalCase exports (BarChart) so previews shim to the shipped global instead of re-bundling source"
+  },
+  "overrides": {
+    "GraphChart": {
+      "skip": [
+        "charts-graphchart--default",
+        "charts-graphchart--circular-layout",
+        "charts-graphchart--with-categories",
+        "charts-graphchart--with-properties",
+        "charts-graphchart--with-node-colors",
+        "charts-graphchart--with-selection",
+        "charts-graphchart--colored-edges",
+        "charts-graphchart--path-expansion",
+        "charts-graphchart--with-label-selector",
+        "charts-graphchart--no-labels",
+        "charts-graphchart--empty-state"
+      ]
+    },
+    "MapChart": {
+      "skip": [
+        "charts-mapchart--default",
+        "charts-mapchart--auto-fit-bounds",
+        "charts-mapchart--carto-light",
+        "charts-mapchart--carto-dark",
+        "charts-mapchart--with-popups",
+        "charts-mapchart--with-properties",
+        "charts-mapchart--zoomed-in",
+        "charts-mapchart--color-coded",
+        "charts-mapchart--loading",
+        "charts-mapchart--error-state",
+        "charts-mapchart--empty"
+      ]
+    },
+    "ChoroplethChart": {
+      "skip": [
+        "charts-choroplethchart--world-population",
+        "charts-choroplethchart--gdp-by-country",
+        "charts-choroplethchart--with-labels",
+        "charts-choroplethchart--custom-colors",
+        "charts-choroplethchart--empty-state"
+      ]
+    },
+    "QueryEditor": {
+      "skip": [
+        "composed-queryeditor--default",
+        "composed-queryeditor--with-query",
+        "composed-queryeditor--running",
+        "composed-queryeditor--with-history",
+        "composed-queryeditor--sql-mode",
+        "composed-queryeditor--interactive"
+      ]
+    },
+    "CirclePackingChart": {
+      "skip": [
+        "charts-circlepackingchart--default",
+        "charts-circlepackingchart--flat-data",
+        "charts-circlepackingchart--no-labels",
+        "charts-circlepackingchart--empty-state"
+      ]
+    },
+    "Slider": {
+      "skip": [
+        "ui-slider--default",
+        "ui-slider--range",
+        "ui-slider--with-steps",
+        "ui-slider--disabled",
+        "ui-slider--custom-range"
+      ]
+    }
+  },
+  "storyImports": {
+    "bundle": ["/ui/card"]
+  }
+}

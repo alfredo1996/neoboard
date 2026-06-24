@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/lib/code-highlighter": ["./src/lib/code-highlighter.stub.ts"],
+      "@/*": ["./src/*"]
+    }
+  }
+}
