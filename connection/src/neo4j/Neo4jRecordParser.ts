@@ -1,4 +1,4 @@
-import { NeodashRecordParser } from "../generalized/NeodashRecordParser";
+import { NeodashRecordParser } from "@neoboard/connector-sdk";
 import {
   isInt,
   Record as Neo4jRecord,
@@ -14,7 +14,7 @@ import {
   PathSegment,
   Point,
 } from "neo4j-driver";
-import { NeodashRecord } from "../generalized/NeodashRecord";
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
 /**
  * Neo4jRecordParser

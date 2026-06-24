@@ -1,5 +1,5 @@
-import { NeodashRecordParser } from "../generalized/NeodashRecordParser";
-import { NeodashRecord } from "../generalized/NeodashRecord";
+import { NeodashRecordParser } from "@neoboard/connector-sdk";
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
 /**
  * PostgreSQL Record Parser

@@ -6,6 +6,7 @@
   "workspaces": [
     "app",
     "component",
+    "connector-sdk",
     "connection",
     "cli"
   ],
@@ -15,7 +16,7 @@
     "predev": "node scripts/generate-plugin-imports.mjs && node scripts/generate-connector-imports.mjs",
     "prebuild": "node scripts/generate-plugin-imports.mjs && node scripts/generate-connector-imports.mjs",
     "dev": "npm -w app run dev",
-    "build": "npm -w connection run build && npm -w app run build",
+    "build": "npm -w connector-sdk run build && npm -w connection run build && npm -w app run build",
     "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
     "test:app": "npm -w app run test",
     "test:components": "npm -w component run test",

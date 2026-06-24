@@ -4,7 +4,7 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
-} from "../../src/generalized/interfaces";
+} from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
 describe("Query to Neo4j", () => {

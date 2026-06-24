@@ -8,6 +8,14 @@ module.exports = {
   // uuid v14+ ships ESM only; transform it (and any future ESM-only deps in
   // the testcontainers→dockerode chain) so Jest's CJS runtime can require them.
   transformIgnorePatterns: ["/node_modules/(?!(uuid)/)"],
+  // Resolve the workspace SDK to its TypeScript source so ts-jest transforms it
+  // in-process — its package `exports` only define the ESM `import` condition,
+  // which Jest's CJS resolver can't load from dist. (Subpath first.)
+  moduleNameMapper: {
+    "^@neoboard/connector-sdk/connector-types$":
+      "<rootDir>/../connector-sdk/src/connector-types.ts",
+    "^@neoboard/connector-sdk$": "<rootDir>/../connector-sdk/src/index.ts",
+  },
   // Skip the built `dist/` output — adding the JS transform above means jest
   // would otherwise pick up compiled `.test.js` and `.test.d.ts` files from
   // a previous `tsc -p tsconfig.build.json` and double-run them.

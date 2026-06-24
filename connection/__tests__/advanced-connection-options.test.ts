@@ -1,9 +1,9 @@
-import { AuthType } from "../src/generalized/interfaces";
+import { AuthType } from "@neoboard/connector-sdk";
 import type {
   AdvancedConnectionOptions,
   Neo4jAdvancedOptions,
   PostgresAdvancedOptions,
-} from "../src/generalized/interfaces";
+} from "@neoboard/connector-sdk";
 
 // ---------------------------------------------------------------------------
 // Mocks — capture constructor args for neo4j.driver() and pg.Pool
@@ -262,7 +262,7 @@ describe("createConnectionModule with advanced options", () => {
 describe("DEFAULT_CONNECTION_CONFIG (#973)", () => {
   test("default query timeout is the documented 30s, not 2s", async () => {
     const { DEFAULT_CONNECTION_CONFIG } =
-      await import("../src/generalized/interfaces");
+      await import("@neoboard/connector-sdk");
     expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(30_000);
   });
 });
