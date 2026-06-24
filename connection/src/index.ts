@@ -8,7 +8,6 @@ export { ConnectionTypes } from "./ConnectionModuleConfig";
 export type {
   AuthConfig,
   AdvancedConnectionOptions,
-  BaseAdvancedOptions,
   Neo4jAdvancedOptions,
   PostgresAdvancedOptions,
 } from "./generalized/interfaces";
@@ -17,12 +16,6 @@ export {
   ConnectorError,
   ConnectorErrorType,
 } from "./generalized/ConnectorError";
-export {
-  ConnectionError,
-  QueryError,
-  QueryTimeoutError,
-  SchemaError,
-} from "./generalized/errors";
 /// Schema
 export type {
   DatabaseSchema,

@@ -223,18 +223,15 @@ export interface QueryParams {
   params?: Record<string, unknown>; // Optional parameters for the query.
 }
 
-/** Base advanced options shared across all connectors. Currently empty — extend as common options emerge. */
-export interface BaseAdvancedOptions {}
-
 /** Neo4j-specific advanced connection options. */
-export interface Neo4jAdvancedOptions extends BaseAdvancedOptions {
+export interface Neo4jAdvancedOptions {
   neo4jConnectionTimeout?: number;
   neo4jMaxPoolSize?: number;
   neo4jAcquisitionTimeout?: number;
 }
 
 /** PostgreSQL-specific advanced connection options. */
-export interface PostgresAdvancedOptions extends BaseAdvancedOptions {
+export interface PostgresAdvancedOptions {
   pgConnectionTimeoutMillis?: number;
   pgIdleTimeoutMillis?: number;
   pgMaxPoolSize?: number;
