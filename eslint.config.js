@@ -12,6 +12,7 @@ export default defineConfig([
     "**/node_modules",
     "component",
     "connection",
+    "connector-sdk",
     "**/coverage",
     "**/*.d.ts",
     "stress",
