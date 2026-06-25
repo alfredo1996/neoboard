@@ -8,6 +8,7 @@
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 import type { AuthConfig } from "@neoboard/connector-sdk";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
+import { postgresFormFields } from "../form-fields";
 
 export const postgresPlugin: ConnectorPlugin = {
   type: "postgresql",
@@ -19,36 +20,7 @@ export const postgresPlugin: ConnectorPlugin = {
   allowedProtocols: ["postgresql:", "postgres:"],
   uriPlaceholder: "postgresql://localhost:5432/mydb",
   databasePlaceholder: "postgres",
-  formFields: [
-    {
-      key: "uri",
-      label: "Connection URI",
-      type: "text",
-      required: true,
-      placeholder: "postgresql://localhost:5432/mydb",
-      description: "PostgreSQL connection string",
-    },
-    {
-      key: "database",
-      label: "Database",
-      type: "text",
-      placeholder: "postgres",
-      description: "Database name",
-    },
-    {
-      key: "username",
-      label: "Username",
-      type: "text",
-      required: true,
-      placeholder: "postgres",
-    },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      required: true,
-    },
-  ],
+  formFields: postgresFormFields,
 
   createModule(
     authConfig: AuthConfig,

@@ -8,6 +8,7 @@
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 import type { AuthConfig } from "@neoboard/connector-sdk";
 import { Neo4jConnectionModule } from "./Neo4jConnectionModule";
+import { neo4jFormFields } from "../form-fields";
 
 export const neo4jPlugin: ConnectorPlugin = {
   type: "neo4j",
@@ -26,36 +27,7 @@ export const neo4jPlugin: ConnectorPlugin = {
   ],
   uriPlaceholder: "bolt://localhost:7687",
   databasePlaceholder: "neo4j",
-  formFields: [
-    {
-      key: "uri",
-      label: "Connection URI",
-      type: "text",
-      required: true,
-      placeholder: "bolt://localhost:7687",
-      description: "Neo4j connection URI",
-    },
-    {
-      key: "database",
-      label: "Database",
-      type: "text",
-      placeholder: "neo4j",
-      description: "Database name (leave empty for default)",
-    },
-    {
-      key: "username",
-      label: "Username",
-      type: "text",
-      required: true,
-      placeholder: "neo4j",
-    },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      required: true,
-    },
-  ],
+  formFields: neo4jFormFields,
 
   createModule(
     authConfig: AuthConfig,

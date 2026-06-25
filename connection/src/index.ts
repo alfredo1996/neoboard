@@ -29,6 +29,12 @@ export {
   CONNECTOR_LANGUAGES,
 } from "./connector-types";
 export type { ConnectorType } from "./connector-types";
+/// Built-in connector form fields (client-safe — no drivers)
+export {
+  CONNECTOR_FORM_FIELDS,
+  neo4jFormFields,
+  postgresFormFields,
+} from "./form-fields";
 /// Connector plugin system
 export type {
   ConnectorPlugin,

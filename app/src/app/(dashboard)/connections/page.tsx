@@ -33,11 +33,13 @@ import {
   ConfirmDialog,
   ConnectionCard,
   PasswordInput,
+  DynamicConnectionFields,
   Alert,
   AlertDescription,
   useToast,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
+import { connectionFieldsFor } from "@/lib/connector/connection-form-fields";
 import {
   type ConnectorType,
   CONNECTOR_LABELS,
@@ -545,62 +547,17 @@ export default function ConnectionsPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="conn-uri">URI</Label>
-                  <Input
-                    id="conn-uri"
-                    value={form.uri}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setForm((f) => ({ ...f, uri: e.target.value }))
-                    }
-                    required
-                    placeholder={
-                      form.type === "neo4j"
-                        ? "bolt://localhost:7687"
-                        : "postgresql://localhost:5432"
-                    }
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="conn-username">Username</Label>
-                    <Input
-                      id="conn-username"
-                      value={form.username}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setForm((f) => ({ ...f, username: e.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="conn-password">Password</Label>
-                    <PasswordInput
-                      id="conn-password"
-                      value={form.password}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setForm((f) => ({ ...f, password: e.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="conn-database">
-                    Database{" "}
-                    <span className="text-muted-foreground">(optional)</span>
-                  </Label>
-                  <Input
-                    id="conn-database"
-                    value={form.database}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setForm((f) => ({ ...f, database: e.target.value }))
-                    }
-                  />
-                </div>
+                {/* Credential fields generated from the connector's
+                    formFields (#1118) — no hardcoded per-connector arrays. */}
+                <DynamicConnectionFields
+                  fields={connectionFieldsFor(form.type)}
+                  values={form}
+                  onChange={(name, value) =>
+                    // Built-in credential fields are all text/password, so the
+                    // value is always a string here.
+                    setForm((f) => ({ ...f, [name]: value as string }))
+                  }
+                />
 
                 {/* Advanced Settings */}
                 <div className="border-t pt-2">

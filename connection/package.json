@@ -19,6 +19,10 @@
     "./connector-types": {
       "types": "./dist/connector-types.d.ts",
       "import": "./dist/connector-types.js"
+    },
+    "./form-fields": {
+      "types": "./dist/form-fields.d.ts",
+      "import": "./dist/form-fields.js"
     }
   },
   "scripts": {
