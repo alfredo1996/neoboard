@@ -8,6 +8,7 @@
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 import type { AuthConfig } from "@neoboard/connector-sdk";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
+import { PostgresSchemaManager } from "../schema/pg-schema";
 import { postgresFormFields } from "../form-fields";
 
 export const postgresPlugin: ConnectorPlugin = {
@@ -27,5 +28,9 @@ export const postgresPlugin: ConnectorPlugin = {
     advancedOptions?: Record<string, unknown>,
   ) {
     return new PostgresConnectionModule(authConfig, advancedOptions);
+  },
+
+  createSchemaManager() {
+    return new PostgresSchemaManager();
   },
 };
