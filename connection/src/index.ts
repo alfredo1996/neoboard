@@ -40,6 +40,7 @@ export type {
   ConnectorPlugin,
   ConnectorRegistry,
   ConnectorFormField,
+  SchemaManager,
 } from "@neoboard/connector-sdk";
 export { createConnectorRegistry } from "@neoboard/connector-sdk";
 export {
@@ -48,4 +49,5 @@ export {
   unregisterConnector,
   getConnector,
   getAllConnectors,
+  getSchemaManager,
 } from "./connector-registry";

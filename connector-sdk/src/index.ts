@@ -48,12 +48,13 @@ export { collectUpToLimit } from "./generalized/stream-rows";
 export type { CollectedRows } from "./generalized/stream-rows";
 export { errorHasMessage, determineQueryStatus } from "./generalized/utils";
 
-/// Schema types (the SchemaManager interface is added in #1119)
+/// Schema types + the schema-manager contract (#1119)
 export type {
   DatabaseSchema,
   TableDef,
   ColumnDef,
   PropertyDef,
+  SchemaManager,
 } from "./schema/types";
 
 /// Connector plugin contract + registry factory

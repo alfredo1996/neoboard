@@ -20,6 +20,7 @@
 
 import type { ConnectionModule } from "./ConnectionModule";
 import type { AuthConfig } from "./interfaces";
+import type { SchemaManager } from "../schema/types";
 
 /**
  * Connector plugin — the contract a connector must satisfy.
@@ -73,6 +74,14 @@ export interface ConnectorPlugin {
    * hard-coding fields for each connector type.
    */
   formFields?: ConnectorFormField[];
+
+  /**
+   * Factory: create a SchemaManager for introspecting this connector's
+   * schema. Optional — connectors without schema introspection omit it, and
+   * the registry resolves them to `undefined`. Resolved by connector type
+   * via the registry (#1119), replacing hardcoded per-type dispatch.
+   */
+  createSchemaManager?(): SchemaManager;
 }
 
 /**

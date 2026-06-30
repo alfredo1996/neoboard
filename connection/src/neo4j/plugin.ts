@@ -8,6 +8,7 @@
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 import type { AuthConfig } from "@neoboard/connector-sdk";
 import { Neo4jConnectionModule } from "./Neo4jConnectionModule";
+import { Neo4jSchemaManager } from "../schema/neo4j-schema";
 import { neo4jFormFields } from "../form-fields";
 
 export const neo4jPlugin: ConnectorPlugin = {
@@ -34,5 +35,9 @@ export const neo4jPlugin: ConnectorPlugin = {
     advancedOptions?: Record<string, unknown>,
   ) {
     return new Neo4jConnectionModule(authConfig, advancedOptions);
+  },
+
+  createSchemaManager() {
+    return new Neo4jSchemaManager();
   },
 };
