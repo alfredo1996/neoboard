@@ -1,11 +1,8 @@
 import { getNeo4jAuth } from "../utils/setup";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
-import { QueryCallback, QueryParams } from "../../src/generalized/interfaces";
+import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
-import {
-  ConnectorError,
-  ConnectorErrorType,
-} from "../../src/generalized/ConnectorError";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
 describe("Query to Neo4j", () => {
   test("run MATCH (n) RETURN n LIMIT 1 and get Data", async () => {

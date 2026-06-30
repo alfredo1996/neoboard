@@ -14,7 +14,7 @@ import {
   createConnectorRegistry,
   type ConnectorPlugin,
   type ConnectorRegistry,
-} from "./generalized/connector-plugin";
+} from "@neoboard/connector-sdk";
 import { neo4jPlugin } from "./neo4j/plugin";
 import { postgresPlugin } from "./postgresql/plugin";
 import { EXTERNAL_CONNECTORS } from "./external-connectors.generated";
@@ -53,7 +53,7 @@ for (const { plugin, overrides } of EXTERNAL_CONNECTORS) {
 // Re-export for external use
 export { registry as connectorRegistry };
 export type { ConnectorPlugin, ConnectorRegistry };
-export { createConnectorRegistry } from "./generalized/connector-plugin";
+export { createConnectorRegistry } from "@neoboard/connector-sdk";
 
 /**
  * Convenience: register a new connector plugin.

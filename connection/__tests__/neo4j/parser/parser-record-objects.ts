@@ -1,12 +1,12 @@
-import { getNeo4jAuth } from '../../utils/setup';
-import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
-import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
-import { toNumber } from 'neo4j-driver-core';
+import { getNeo4jAuth } from "../../utils/setup";
+import { Neo4jConnectionModule } from "../../../src/neo4j/Neo4jConnectionModule";
+import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
+import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
+import { toNumber } from "neo4j-driver-core";
 
-import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
-describe('Neo4jRecordParser - Objects Parsing', () => {
+describe("Neo4jRecordParser - Objects Parsing", () => {
   test('should correctly find the movie "The Matrix" as NODE', async () => {
     const config = getNeo4jAuth();
 
@@ -19,28 +19,32 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (result: NeodashRecord[]) => {
-        const movieNode = result[0]['m'];
+        const movieNode = result[0]["m"];
 
         // parseGraphObject now returns a plain object with { identity, elementId, labels, properties }
-        expect(movieNode).toHaveProperty('labels');
-        expect(movieNode).toHaveProperty('properties');
-        const movieNodeProperties = movieNode['properties'];
+        expect(movieNode).toHaveProperty("labels");
+        expect(movieNode).toHaveProperty("properties");
+        const movieNodeProperties = movieNode["properties"];
         // Assertions
-        expect(movieNodeProperties.title).toBe('The Matrix');
-        expect(movieNodeProperties.tagline).toBe('Welcome to the Real World');
+        expect(movieNodeProperties.title).toBe("The Matrix");
+        expect(movieNodeProperties.tagline).toBe("Welcome to the Real World");
         expect(toNumber(movieNodeProperties.released)).toBe(1999);
 
-        expect(typeof movieNodeProperties.title).toBe('string');
-        expect(typeof movieNodeProperties.tagline).toBe('string');
-        expect(typeof toNumber(movieNodeProperties.released)).toBe('number');
+        expect(typeof movieNodeProperties.title).toBe("string");
+        expect(typeof movieNodeProperties.tagline).toBe("string");
+        expect(typeof toNumber(movieNodeProperties.released)).toBe("number");
       },
       onFail: (error) => {
-        console.error('Error during query execution:', error);
+        console.error("Error during query execution:", error);
         throw error;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
   test('should correctly find the relation "ACTED_IN" for movie "The Matrix"', async () => {
@@ -49,16 +53,17 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) WHERE m.title = "The Matrix" RETURN r LIMIT 1',
+      query:
+        'MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) WHERE m.title = "The Matrix" RETURN r LIMIT 1',
       params: {},
     };
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (result: NeodashRecord[]) => {
-        const relationship = result[0]['r'];
+        const relationship = result[0]["r"];
         // parseGraphObject now returns a plain object (not a Relationship instance)
-        expect(relationship).toHaveProperty('type');
-        expect(relationship).toHaveProperty('properties');
+        expect(relationship).toHaveProperty("type");
+        expect(relationship).toHaveProperty("properties");
 
         expect(relationship).toMatchObject({
           identity: expect.anything(),
@@ -72,35 +77,44 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
         });
       },
       onFail: (error) => {
-        console.error('Error during query execution:', error);
+        console.error("Error during query execution:", error);
         throw error;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('should correctly parse a Neo4j Path with ordered nodes', async () => {
+  test("should correctly parse a Neo4j Path with ordered nodes", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH p = (a:Person)-[:ACTED_IN]->(m:Movie) WITH p ORDER BY ID(a), ID(m) RETURN p LIMIT 1',
+      query:
+        "MATCH p = (a:Person)-[:ACTED_IN]->(m:Movie) WITH p ORDER BY ID(a), ID(m) RETURN p LIMIT 1",
       params: {},
     };
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: () => {},
       onFail: (error) => {
-        console.error('Error during query execution:', error);
+        console.error("Error during query execution:", error);
         throw error;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('should correctly parse complex array structures from Movie DB', async () => {
+  test("should correctly parse complex array structures from Movie DB", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -121,26 +135,30 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
         const [record] = parsed;
 
         // Types
-        expect(Array.isArray(record['actorNames'])).toBe(true);
-        expect(Array.isArray(record['mixedArray'])).toBe(true);
-        expect(Array.isArray(record['nestedArray'])).toBe(true);
-        expect(Array.isArray(record['nestedArray'][0])).toBe(true);
+        expect(Array.isArray(record["actorNames"])).toBe(true);
+        expect(Array.isArray(record["mixedArray"])).toBe(true);
+        expect(Array.isArray(record["nestedArray"])).toBe(true);
+        expect(Array.isArray(record["nestedArray"][0])).toBe(true);
 
         // Inner values
-        expect(typeof record['mixedArray'][0]).toBe('number'); // released
-        expect(typeof record['mixedArray'][1]).toBe('string'); // tagline
-        expect(typeof record['mixedArray'][2]).toBe('string'); // datetime → formatted string
+        expect(typeof record["mixedArray"][0]).toBe("number"); // released
+        expect(typeof record["mixedArray"][1]).toBe("string"); // tagline
+        expect(typeof record["mixedArray"][2]).toBe("string"); // datetime → formatted string
       },
       onFail: (error) => {
-        console.error('Error during query execution:', error);
+        console.error("Error during query execution:", error);
         throw error;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('should correctly parse a plain object with mixed types', async () => {
+  test("should correctly parse a plain object with mixed types", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -160,30 +178,34 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (parsed) => {
-        const data = parsed[0]['data'];
+        const data = parsed[0]["data"];
 
         expect(data.count).toBe(123);
         expect(data.flag).toBe(true);
-        expect(data.info.label).toBe('neo4j');
-        expect(typeof data.info.created).toBe('string'); // datetime → formatted string
+        expect(data.info.label).toBe("neo4j");
+        expect(typeof data.info.created).toBe("string"); // datetime → formatted string
       },
       onFail: (error) => {
-        console.error('Error during query execution:', error);
+        console.error("Error during query execution:", error);
         throw error;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('Run MATCH (p:Person {name: $name}) RETURN p with parameter', async () => {
+  test("Run MATCH (p:Person {name: $name}) RETURN p with parameter", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'MATCH (p:Person {name: $name}) RETURN p LIMIT 1',
+      query: "MATCH (p:Person {name: $name}) RETURN p LIMIT 1",
       params: {
-        name: 'Tom Hanks',
+        name: "Tom Hanks",
       },
     };
 
@@ -191,32 +213,36 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
       onSuccess: (parsed) => {
         expect(parsed.length).toBe(1);
 
-        const person = parsed[0]['p'];
+        const person = parsed[0]["p"];
         expect(person).toBeDefined();
-        expect(person.labels).toContain('Person');
-        expect(person.properties.name).toBe('Tom Hanks');
+        expect(person.labels).toContain("Person");
+        expect(person.properties.name).toBe("Tom Hanks");
       },
       onFail: (err) => {
-        console.error('Error executing parameterized query:', err);
+        console.error("Error executing parameterized query:", err);
         throw err;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('should correctly parse a Neo4j Point value', async () => {
+  test("should correctly parse a Neo4j Point value", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'RETURN point({x: 1.2, y: 3.4, srid: 7203}) AS location',
+      query: "RETURN point({x: 1.2, y: 3.4, srid: 7203}) AS location",
       params: {},
     };
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (parsed) => {
-        const location = parsed[0]['location'];
+        const location = parsed[0]["location"];
         expect(location).toBeDefined();
 
         expect(location.srid).toBe(7203);
@@ -224,45 +250,54 @@ describe('Neo4jRecordParser - Objects Parsing', () => {
         expect(location.y).toBe(3.4);
 
         // Types
-        expect(typeof location.x).toBe('number');
-        expect(typeof location.y).toBe('number');
-        expect(typeof location.srid).toBe('number');
+        expect(typeof location.x).toBe("number");
+        expect(typeof location.y).toBe("number");
+        expect(typeof location.srid).toBe("number");
       },
       onFail: (error) => {
-        console.error('Error during query execution:', error);
+        console.error("Error during query execution:", error);
         throw error;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 
-  test('should correctly parse a 3D Neo4j Point with z coordinate', async () => {
+  test("should correctly parse a 3D Neo4j Point with z coordinate", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
     const queryParams: QueryParams = {
-      query: 'RETURN point({x: 10.5, y: 20.5, z: 5.0, srid: 9157}) AS location3D',
+      query:
+        "RETURN point({x: 10.5, y: 20.5, z: 5.0, srid: 9157}) AS location3D",
       params: {},
     };
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (parsed) => {
-        const location = parsed[0]['location3D'];
+        const location = parsed[0]["location3D"];
         expect(location).toBeDefined();
 
         // Base fields
-        expect(location['x']).toBe(10.5);
-        expect(location['y']).toBe(20.5);
-        expect(location['srid']).toBe(9157);
-        expect(location['z']).toBe(5.0);
+        expect(location["x"]).toBe(10.5);
+        expect(location["y"]).toBe(20.5);
+        expect(location["srid"]).toBe(9157);
+        expect(location["z"]).toBe(5.0);
       },
       onFail: (err) => {
-        console.error('Error during 3D point parsing:', err);
+        console.error("Error during 3D point parsing:", err);
         throw err;
       },
     };
 
-    await connection.runQuery(queryParams, queryCallback, NEO4J_TEST_CONNECTION_CONFIG);
+    await connection.runQuery(
+      queryParams,
+      queryCallback,
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
   });
 });

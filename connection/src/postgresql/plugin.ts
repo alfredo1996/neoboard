@@ -5,8 +5,8 @@
  * PostgresConnectionModule for all connection/query operations.
  */
 
-import type { ConnectorPlugin } from "../generalized/connector-plugin";
-import type { AuthConfig } from "../generalized/interfaces";
+import type { ConnectorPlugin } from "@neoboard/connector-sdk";
+import type { AuthConfig } from "@neoboard/connector-sdk";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
 
 export const postgresPlugin: ConnectorPlugin = {

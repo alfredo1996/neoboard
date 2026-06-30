@@ -1,10 +1,10 @@
 import { getNeo4jAuth } from "../utils/setup";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
-import { QueryCallback, QueryParams } from "../../src/generalized/interfaces";
+import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 import { toNumber } from "neo4j-driver-core";
-import { ConnectorError } from "../../src/generalized/ConnectorError";
-import { NeodashRecord } from "../../src/generalized/NeodashRecord";
+import { ConnectorError } from "@neoboard/connector-sdk";
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
 describe("Advanced Query to Neo4j", () => {
   let connection: Neo4jConnectionModule;

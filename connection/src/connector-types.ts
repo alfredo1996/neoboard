@@ -1,20 +1,11 @@
 /**
- * Canonical connector type constants.
- *
- * Single source of truth for all connector type strings used across
- * app, component, and connection packages.
+ * Canonical connector type constants now live in @neoboard/connector-sdk.
+ * This re-export keeps the `@neoboard/connection/connector-types` subpath
+ * working for existing app consumers — do not add new declarations here.
  */
-
-export const CONNECTOR_TYPES = ["neo4j", "postgresql"] as const;
-
-export type ConnectorType = (typeof CONNECTOR_TYPES)[number];
-
-export const CONNECTOR_LABELS: Record<ConnectorType, string> = {
-  neo4j: "Neo4j",
-  postgresql: "PostgreSQL",
-};
-
-export const CONNECTOR_LANGUAGES: Record<ConnectorType, string> = {
-  neo4j: "Cypher",
-  postgresql: "SQL",
-};
+export {
+  CONNECTOR_TYPES,
+  CONNECTOR_LABELS,
+  CONNECTOR_LANGUAGES,
+} from "@neoboard/connector-sdk";
+export type { ConnectorType } from "@neoboard/connector-sdk";

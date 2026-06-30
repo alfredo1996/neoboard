@@ -1,4 +1,4 @@
-import { ConnectionModule } from "../generalized/ConnectionModule";
+import { ConnectionModule } from "@neoboard/connector-sdk";
 import neo4j, { ManagedTransaction } from "neo4j-driver";
 import { Neo4jAuthenticationModule } from "./Neo4jAuthenticationModule";
 import { Driver } from "neo4j-driver-core";
@@ -9,12 +9,12 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
-} from "../generalized/interfaces";
+} from "@neoboard/connector-sdk";
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { extractNodeAndRelPropertiesFromRecords } from "./utils";
-import { determineQueryStatus } from "../generalized/utils";
-import { collectUpToLimit } from "../generalized/stream-rows";
-import { wrapError, ConnectorErrorType } from "../generalized/ConnectorError";
+import { determineQueryStatus } from "@neoboard/connector-sdk";
+import { collectUpToLimit } from "@neoboard/connector-sdk";
+import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
 /**
  * Neo4jConnectionModule

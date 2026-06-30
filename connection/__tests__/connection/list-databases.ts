@@ -1,7 +1,7 @@
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
 import { getNeo4jAuth, NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
-import { AuthType } from "../../src/generalized/interfaces";
+import { AuthType } from "@neoboard/connector-sdk";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
 describe("Neo4j listDatabases", () => {

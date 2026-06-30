@@ -1,11 +1,11 @@
-import { getNeo4jAuth } from '../../utils/setup';
-import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
-import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
-import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
+import { getNeo4jAuth } from "../../utils/setup";
+import { Neo4jConnectionModule } from "../../../src/neo4j/Neo4jConnectionModule";
+import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
+import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
-describe('Neo4jConnectionModule - setFields', () => {
-  test('getFields should return top-level keys when useNodePropsAsFields is false', async () => {
+describe("Neo4jConnectionModule - setFields", () => {
+  test("getFields should return top-level keys when useNodePropsAsFields is false", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -23,11 +23,11 @@ describe('Neo4jConnectionModule - setFields', () => {
         expect(result.length).toBe(1);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setFields: (fields) => {
-        expect(fields).toEqual(expect.arrayContaining(['person', 'movie']));
+        expect(fields).toEqual(expect.arrayContaining(["person", "movie"]));
       },
     };
 
@@ -38,7 +38,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     });
   });
 
-  test('getFields should extract node properties grouped by label', async () => {
+  test("getFields should extract node properties grouped by label", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -56,12 +56,14 @@ describe('Neo4jConnectionModule - setFields', () => {
         expect(result.length).toBe(1);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setFields: (fields) => {
         expect(fields).toEqual(
-          expect.arrayContaining([expect.arrayContaining(['Person', expect.stringMatching(/.*/)])])
+          expect.arrayContaining([
+            expect.arrayContaining(["Person", expect.stringMatching(/.*/)]),
+          ]),
         );
       },
     };
@@ -73,7 +75,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     });
   });
 
-  test('getFields should extract properties from path segments', async () => {
+  test("getFields should extract properties from path segments", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -91,15 +93,15 @@ describe('Neo4jConnectionModule - setFields', () => {
         expect(result.length).toBe(1);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setFields: (fields) => {
         expect(fields).toEqual(
           expect.arrayContaining([
-            expect.arrayContaining(['Person', expect.stringMatching(/.*/)]),
-            expect.arrayContaining(['Movie', expect.stringMatching(/.*/)]),
-          ])
+            expect.arrayContaining(["Person", expect.stringMatching(/.*/)]),
+            expect.arrayContaining(["Movie", expect.stringMatching(/.*/)]),
+          ]),
         );
       },
     };
@@ -111,7 +113,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     });
   });
 
-  test('getFields should extract from array of nodes (array traversal)', async () => {
+  test("getFields should extract from array of nodes (array traversal)", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -129,15 +131,15 @@ describe('Neo4jConnectionModule - setFields', () => {
         expect(result.length).toBe(1);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setFields: (fields) => {
         expect(fields).toEqual(
           expect.arrayContaining([
-            expect.arrayContaining(['Person', expect.stringMatching(/.*/)]),
-            expect.arrayContaining(['Movie', expect.stringMatching(/.*/)]),
-          ])
+            expect.arrayContaining(["Person", expect.stringMatching(/.*/)]),
+            expect.arrayContaining(["Movie", expect.stringMatching(/.*/)]),
+          ]),
         );
       },
     };
@@ -149,7 +151,7 @@ describe('Neo4jConnectionModule - setFields', () => {
     });
   });
 
-  test('getFields should return empty array when query returns no records', async () => {
+  test("getFields should return empty array when query returns no records", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -167,7 +169,7 @@ describe('Neo4jConnectionModule - setFields', () => {
         expect(result).toEqual([]);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setFields: (fields) => {

@@ -11,11 +11,8 @@ import {
   StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { PostgresConnectionModule } from "../../src/postgresql";
-import { AuthType } from "../../src/generalized/interfaces";
-import {
-  ConnectorError,
-  ConnectorErrorType,
-} from "../../src/generalized/ConnectorError";
+import { AuthType } from "@neoboard/connector-sdk";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
 describe("PostgresConnectionModule.checkConnection", () => {
   let container: StartedPostgreSqlContainer;

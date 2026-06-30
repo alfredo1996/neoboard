@@ -1,8 +1,8 @@
 import neo4j from "neo4j-driver";
 import { Neo4jConnectionModule } from "../neo4j/Neo4jConnectionModule";
-import type { AuthConfig } from "../generalized/interfaces";
+import type { AuthConfig } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
-import type { DatabaseSchema, PropertyDef } from "./types";
+import type { DatabaseSchema, PropertyDef } from "@neoboard/connector-sdk";
 
 /**
  * Fetches schema information from a Neo4j database.

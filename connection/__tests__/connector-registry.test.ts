@@ -1,7 +1,7 @@
 import {
   createConnectorRegistry,
   type ConnectorPlugin,
-} from "../src/generalized/connector-plugin";
+} from "@neoboard/connector-sdk";
 
 // ---------------------------------------------------------------------------
 // Fixture

@@ -4,7 +4,7 @@ import type { FieldDef } from "pg";
  * PostgreSQL Utility Functions
  */
 
-export { errorHasMessage } from "../generalized/utils";
+export { errorHasMessage } from "@neoboard/connector-sdk";
 
 /**
  * Extracts schema information from PostgreSQL field metadata.
