@@ -10,12 +10,13 @@ import type { AuthConfig } from "@neoboard/connector-sdk";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
 import { PostgresSchemaManager } from "../schema/pg-schema";
 import { postgresFormFields } from "../form-fields";
+import { CONNECTOR_QUERY_LANGUAGES } from "../query-languages";
 
 export const postgresPlugin: ConnectorPlugin = {
   type: "postgresql",
   label: "PostgreSQL",
   category: "database",
-  queryLanguage: "sql",
+  queryLanguage: CONNECTOR_QUERY_LANGUAGES.postgresql,
   supportsGraphData: false,
   supportsWrite: true,
   allowedProtocols: ["postgresql:", "postgres:"],

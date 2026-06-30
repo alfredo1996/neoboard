@@ -18,9 +18,13 @@ import type { DatabaseSchema } from "../schema-transforms";
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocks accept any args
-const mockSql = vi.fn<(...args: any[]) => object[]>(() => [{ type: "sqlLanguageSupport" }]);
+const mockSql = vi.fn<(...args: any[]) => object[]>(() => [
+  { type: "sqlLanguageSupport" },
+]);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocks accept any args
-const mockCypher = vi.fn<(...args: any[]) => object>(() => ({ type: "cypherLanguageSupport" }));
+const mockCypher = vi.fn<(...args: any[]) => object>(() => ({
+  type: "cypherLanguageSupport",
+}));
 
 vi.mock("@codemirror/lang-sql", () => ({
   sql: (...args: unknown[]) => mockSql(...args),
@@ -32,9 +36,8 @@ vi.mock("@/lib/cypher-lang", () => ({
 }));
 
 // Import AFTER mocks
-const { resolveLanguageExt, languageResolvers } = await import(
-  "../language-resolvers"
-);
+const { resolveLanguageExt, languageResolvers } =
+  await import("../language-resolvers");
 
 beforeEach(() => {
   mockSql.mockClear();
@@ -74,21 +77,31 @@ describe("resolveLanguageExt", () => {
     expect(mockSql).not.toHaveBeenCalled();
   });
 
-  it("falls back to sql resolver for unknown languages", async () => {
-    await resolveLanguageExt("unknown-lang");
-    expect(mockSql).toHaveBeenCalled();
+  it("falls back to plain text (no extensions) for unknown languages", async () => {
+    const exts = await resolveLanguageExt("unknown-lang");
+    expect(exts).toEqual([]);
+    expect(mockSql).not.toHaveBeenCalled();
     expect(mockCypher).not.toHaveBeenCalled();
   });
 
-  it("falls back to sql for prototype-inherited keys like __proto__", async () => {
-    await resolveLanguageExt("__proto__");
-    expect(mockSql).toHaveBeenCalled();
+  it("falls back to plain text for an empty/undeclared language", async () => {
+    const exts = await resolveLanguageExt("");
+    expect(exts).toEqual([]);
+    expect(mockSql).not.toHaveBeenCalled();
     expect(mockCypher).not.toHaveBeenCalled();
   });
 
-  it("falls back to sql for constructor key", async () => {
-    await resolveLanguageExt("constructor");
-    expect(mockSql).toHaveBeenCalled();
+  it("falls back to plain text for prototype-inherited keys like __proto__", async () => {
+    const exts = await resolveLanguageExt("__proto__");
+    expect(exts).toEqual([]);
+    expect(mockSql).not.toHaveBeenCalled();
+    expect(mockCypher).not.toHaveBeenCalled();
+  });
+
+  it("falls back to plain text for constructor key", async () => {
+    const exts = await resolveLanguageExt("constructor");
+    expect(exts).toEqual([]);
+    expect(mockSql).not.toHaveBeenCalled();
     expect(mockCypher).not.toHaveBeenCalled();
   });
 

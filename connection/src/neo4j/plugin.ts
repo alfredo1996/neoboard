@@ -10,12 +10,13 @@ import type { AuthConfig } from "@neoboard/connector-sdk";
 import { Neo4jConnectionModule } from "./Neo4jConnectionModule";
 import { Neo4jSchemaManager } from "../schema/neo4j-schema";
 import { neo4jFormFields } from "../form-fields";
+import { CONNECTOR_QUERY_LANGUAGES } from "../query-languages";
 
 export const neo4jPlugin: ConnectorPlugin = {
   type: "neo4j",
   label: "Neo4j",
   category: "graph",
-  queryLanguage: "cypher",
+  queryLanguage: CONNECTOR_QUERY_LANGUAGES.neo4j,
   supportsGraphData: true,
   supportsWrite: true,
   allowedProtocols: [

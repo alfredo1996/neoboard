@@ -78,6 +78,7 @@ import { AdvancedFormRefreshSection } from "./widget-editor/advanced-form-refres
 import { LabMetadataForm } from "./widget-editor/lab-metadata-form";
 import { ModalFooter } from "./widget-editor/modal-footer";
 import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
+import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -348,9 +349,9 @@ export function WidgetEditorModal({
 
     store.setDialogStep("main");
   }
-  // Pass connector type directly — the language resolver registry maps it
-  // to the right editor extension (e.g., "neo4j" → cypher, "postgresql" → sql).
-  const editorLanguage = selectedConnection?.type ?? "cypher";
+  // Drive the editor language from the connector's declared queryLanguage
+  // (#1120) rather than its type; unknown / no connector → plain text.
+  const editorLanguage = editorLanguageForConnector(selectedConnection?.type);
 
   // Chart types compatible with the selected connector
   const compatibleChartTypes = useMemo(
