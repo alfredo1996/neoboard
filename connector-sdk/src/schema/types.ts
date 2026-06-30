@@ -21,7 +21,13 @@ export interface TableDef {
 }
 
 export interface DatabaseSchema {
-  type: "neo4j" | "postgresql";
+  /**
+   * Connector type that produced this schema. An open string (not a union)
+   * so a registry-supplied connector can describe its own type through the
+   * SchemaManager contract (#1119) without editing core SDK types. Built-ins
+   * still use "neo4j" / "postgresql".
+   */
+  type: string;
   /** Neo4j: node labels */
   labels?: string[];
   /** Neo4j: relationship types */
