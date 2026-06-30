@@ -35,6 +35,8 @@ export {
   neo4jFormFields,
   postgresFormFields,
 } from "./form-fields";
+/// Built-in connector query languages (client-safe — no drivers)
+export { CONNECTOR_QUERY_LANGUAGES } from "./query-languages";
 /// Connector plugin system
 export type {
   ConnectorPlugin,

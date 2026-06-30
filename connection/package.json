@@ -23,6 +23,10 @@
     "./form-fields": {
       "types": "./dist/form-fields.d.ts",
       "import": "./dist/form-fields.js"
+    },
+    "./query-languages": {
+      "types": "./dist/query-languages.d.ts",
+      "import": "./dist/query-languages.js"
     }
   },
   "scripts": {
