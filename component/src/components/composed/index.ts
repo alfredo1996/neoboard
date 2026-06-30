@@ -129,6 +129,11 @@ export {
   type ConnectionFieldConfig,
 } from "./connection-form";
 export { ConnectionCard, type ConnectionCardProps } from "./connection-card";
+export {
+  DynamicConnectionFields,
+  type DynamicConnectionField,
+  type DynamicConnectionFieldsProps,
+} from "./dynamic-connection-fields";
 
 // Interactivity
 export { ParameterBar, type ParameterBarProps } from "./parameter-bar";
