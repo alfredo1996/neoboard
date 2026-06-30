@@ -1,7 +1,7 @@
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { ensureDatabaseInUri } from "@/lib/query/query-params";
-import { getSchemaManager } from "@neoboard/connection";
+import { getSchemaManager } from "@/lib/connector/connection-adapter";
 
 /**
  * Builds the auth configuration object for schema manager calls.
