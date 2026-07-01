@@ -1,5 +1,4 @@
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { ensureDatabaseInUri } from "@/lib/query/query-params";
 import { getSchemaManager } from "@/lib/connector/connection-adapter";
 
@@ -22,7 +21,7 @@ export function buildAuthConfig(credentials: ConnectionCredentials) {
  * after connection create/update.
  */
 export async function fetchConnectionSchema(
-  type: ConnectorType,
+  type: string,
   credentials: ConnectionCredentials,
 ): Promise<unknown> {
   // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
@@ -36,7 +35,7 @@ export async function fetchConnectionSchema(
  * Errors are swallowed — schema is a cache; failure is non-critical.
  */
 export function prefetchSchema(
-  type: ConnectorType,
+  type: string,
   credentials: ConnectionCredentials,
 ): void {
   fetchConnectionSchema(type, credentials).catch(() => {

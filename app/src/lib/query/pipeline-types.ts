@@ -1,5 +1,3 @@
-import type { ConnectorType } from "@/lib/connector/connector-types";
-
 /**
  * Execution context that flows through the middleware pipeline.
  *
@@ -11,7 +9,8 @@ export interface QueryContext {
   query: string;
   params: Record<string, unknown>;
   connectionId: string;
-  connectionType: ConnectorType;
+  /** Connector type — any registry-registered type, not a fixed union (#1121). */
+  connectionType: string;
   userId: string;
   tenantId: string;
   accessMode: "read" | "write";

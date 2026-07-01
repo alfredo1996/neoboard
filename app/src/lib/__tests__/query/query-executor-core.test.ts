@@ -20,7 +20,7 @@ const mockCreateConnectionModule = vi.fn(() => ({
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: mockCreateConnectionModule,
   DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-  ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
+  ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
 }));
 
 // Mirror the QueryStatus enum from @neoboard/connection (integer values are
@@ -58,7 +58,7 @@ describe("query-executor", () => {
     vi.doMock("../connection-adapter", () => ({
       createConnectionModule: mockCreateConnectionModule,
       DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-      ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
+      ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
     }));
     const mod = await import("@/lib/query/query-executor");
     executeQuery = mod.executeQuery;
@@ -109,6 +109,24 @@ describe("query-executor", () => {
       truncated: false,
       rowLimit: 5000,
     });
+  });
+
+  it("maps a registry-supplied connector type to its module (#1121)", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([{ x: 1 }]);
+      },
+    );
+
+    // A type that isn't a built-in — the executor must still resolve its
+    // module through the registry (createConnectionModule), no per-type branch.
+    await executeQuery("mysql", pgCreds, { query: "SELECT 1" });
+
+    expect(mockCreateConnectionModule).toHaveBeenCalledWith(
+      "mysql",
+      expect.objectContaining({ uri: pgCreds.uri }),
+      expect.any(Object),
+    );
   });
 
   it("rejects when runQuery calls onFail", async () => {
@@ -690,7 +708,7 @@ describe("query-executor", () => {
       vi.doMock("../connection-adapter", () => ({
         createConnectionModule: mockCreateConnectionModule,
         DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-        ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
+        ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
       }));
       const mod = await import("@/lib/query/query-executor");
       listDatabases = mod.listDatabases;
@@ -729,7 +747,7 @@ describe("query-executor", () => {
       vi.doMock("../connection-adapter", () => ({
         createConnectionModule: mockCreateConnectionModule,
         DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-        ConnectionTypes: { NEO4J: 1, POSTGRESQL: 2 },
+        ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
       }));
       const mod = await import("@/lib/query/query-executor");
       listSchemas = mod.listSchemas;

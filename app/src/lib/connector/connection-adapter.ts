@@ -10,6 +10,8 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   ConnectionTypes,
   getSchemaManager,
+  getConnector,
+  getAllConnectors,
 } from "@neoboard/connection";
 
 export {
@@ -17,4 +19,6 @@ export {
   DEFAULT_CONNECTION_CONFIG,
   ConnectionTypes,
   getSchemaManager,
+  getConnector,
+  getAllConnectors,
 };
