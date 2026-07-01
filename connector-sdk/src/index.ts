@@ -72,3 +72,11 @@ export {
   CONNECTOR_LANGUAGES,
 } from "./connector-types";
 export type { ConnectorType } from "./connector-types";
+
+/// Query-safety conformance harness (#1122)
+export { buildConformanceCases } from "./conformance/query-safety";
+export type {
+  ConformanceSetup,
+  ConformanceQueries,
+  ConformanceCase,
+} from "./conformance/query-safety";
