@@ -5,6 +5,5 @@
 export {
   CONNECTOR_TYPES,
   CONNECTOR_LABELS,
-  CONNECTOR_LANGUAGES,
   type ConnectorType,
 } from "@neoboard/connection/connector-types";

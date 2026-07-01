@@ -66,11 +66,7 @@ export type {
 export { createConnectorRegistry } from "./generalized/connector-plugin";
 
 /// Connector type constants
-export {
-  CONNECTOR_TYPES,
-  CONNECTOR_LABELS,
-  CONNECTOR_LANGUAGES,
-} from "./connector-types";
+export { CONNECTOR_TYPES, CONNECTOR_LABELS } from "./connector-types";
 export type { ConnectorType } from "./connector-types";
 
 /// Query-safety conformance harness (#1122)

@@ -13,8 +13,3 @@ export const CONNECTOR_LABELS: Record<ConnectorType, string> = {
   neo4j: "Neo4j",
   postgresql: "PostgreSQL",
 };
-
-export const CONNECTOR_LANGUAGES: Record<ConnectorType, string> = {
-  neo4j: "Cypher",
-  postgresql: "SQL",
-};
