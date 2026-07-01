@@ -4,7 +4,6 @@ import {
   ConnectionTypes,
 } from "@/lib/connector/connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { QueryStatus } from "@neoboard/connection";
 
 /**
@@ -38,11 +37,21 @@ export interface ConnectionCredentials {
   maxRows?: number;
 }
 
-export type DbType = ConnectorType;
+// Registry-supplied connectors are first-class (#1121): a connector type is
+// any registered string, not just the built-in union. createConnectionModule
+// resolves it via the registry; built-in-specific branches (pg param rewrite,
+// statement timeout) key off the literal type and safely no-op for others.
+export type DbType = string;
 
-/** Numeric type for connection module config (legacy enum). */
+/**
+ * Numeric type for connection module config (legacy enum). Registry-supplied
+ * connectors have no built-in numeric identity → UNKNOWN, rather than being
+ * mislabeled as PostgreSQL (#1121).
+ */
 function toConnectionTypeEnum(type: DbType): number {
-  return type === "neo4j" ? ConnectionTypes.NEO4J : ConnectionTypes.POSTGRESQL;
+  if (type === "neo4j") return ConnectionTypes.NEO4J;
+  if (type === "postgresql") return ConnectionTypes.POSTGRESQL;
+  return ConnectionTypes.UNKNOWN;
 }
 
 /**

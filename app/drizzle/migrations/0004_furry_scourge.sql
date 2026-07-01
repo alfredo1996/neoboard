@@ -1,1 +1,0 @@
-ALTER TABLE "connection" ADD COLUMN "allow_per_card_db" boolean DEFAULT true NOT NULL;

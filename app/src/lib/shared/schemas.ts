@@ -1,10 +1,19 @@
 import { z } from "zod";
-import { CONNECTOR_TYPES } from "@/lib/connector/connector-types";
+import { isRegisteredConnectorType } from "@/lib/connector/registered-types";
 
 /**
  * Shared Zod schemas for API route validation.
  * Extracted to avoid duplication across connection routes.
  */
+
+/**
+ * Connector type accepted by the API — any type registered in the connector
+ * registry (built-in or external), not a hardcoded union (#1121).
+ */
+const connectorTypeSchema = z
+  .string()
+  .min(1)
+  .refine(isRegisteredConnectorType, { message: "Unknown connector type" });
 
 export const connectionConfigSchema = z.object({
   uri: z.string().min(1),
@@ -35,7 +44,7 @@ export const connectionConfigSchema = z.object({
 
 export const createConnectionSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(CONNECTOR_TYPES),
+  type: connectorTypeSchema,
   config: connectionConfigSchema,
 });
 
@@ -52,6 +61,6 @@ export const updateConnectionSchema = z.object({
 });
 
 export const testInlineSchema = z.object({
-  type: z.enum(CONNECTOR_TYPES),
+  type: connectorTypeSchema,
   config: connectionConfigSchema,
 });

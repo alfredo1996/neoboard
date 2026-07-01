@@ -94,10 +94,9 @@ export const verificationTokens = pgTable(
 
 // ─── Application tables ──────────────────────────────────────────────
 
-export const connectionTypeEnum = pgEnum("connection_type", [
-  "neo4j",
-  "postgresql",
-]);
+// Connection type is a plain text column (#1121): the accepted set is the
+// connector registry (built-in + registry-supplied), validated at the API
+// layer via schemas.ts — not a fixed DB enum.
 
 export const connectionVisibilityEnum = pgEnum("connection_visibility", [
   "private",
@@ -113,7 +112,7 @@ export const connections = pgTable("connection", {
     .references(() => users.id, { onDelete: "cascade" }),
   tenantId: text("tenant_id").notNull().default("default"),
   name: text("name").notNull(),
-  type: connectionTypeEnum("type").notNull(),
+  type: text("type").notNull(),
   configEncrypted: text("configEncrypted").notNull(),
   /** When true, widget editors can override the connection's default database per-card. */
   allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
