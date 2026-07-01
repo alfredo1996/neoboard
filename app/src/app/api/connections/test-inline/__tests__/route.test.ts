@@ -21,6 +21,11 @@ vi.mock("@/lib/query/query-executor", () => ({
   testConnection: mockTestConnection,
 }));
 vi.mock("next/server", () => nextResponseMockFactory());
+// Connector-type validation is registry-driven (#1121); stub it so the route
+// tests don't load the driver-heavy connection registry.
+vi.mock("@/lib/connector/registered-types", () => ({
+  isRegisteredConnectorType: (t: string) => t === "neo4j" || t === "postgresql",
+}));
 
 const SESSION = {
   userId: "user-1",
