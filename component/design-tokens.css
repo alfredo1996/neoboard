@@ -62,7 +62,7 @@
   /* Amber-tinted hover/selected fill. Epic A (#1125) unifies brand AND
      interaction on citrine amber. The two historical concerns (warning-hue
      collision; low contrast on white) are mitigated: --ring uses a denser amber
-     (42% L) for contrast, and --warning is nudged to hue 28 so "warning" and
+     (38% L) for contrast, and --warning is nudged to hue 28 so "warning" and
      "interactive" stay distinct. */
   --accent: 38 100% 96%;
   --accent-foreground: 220 13% 9%;
