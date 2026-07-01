@@ -1,7 +1,11 @@
-import { PostgresConnectionModule } from '../postgresql/PostgresConnectionModule';
-import type { AuthConfig } from '../generalized/interfaces';
-import type { SchemaManager } from './schema-manager';
-import type { DatabaseSchema, TableDef, ColumnDef } from './types';
+import { PostgresConnectionModule } from "../postgresql/PostgresConnectionModule";
+import type { AuthConfig } from "@neoboard/connector-sdk";
+import type { SchemaManager } from "./schema-manager";
+import type {
+  DatabaseSchema,
+  TableDef,
+  ColumnDef,
+} from "@neoboard/connector-sdk";
 
 const SCHEMA_QUERY = `
 SELECT
@@ -35,7 +39,7 @@ export class PostgresSchemaManager implements SchemaManager {
     const pool = module.getPool();
 
     if (!pool) {
-      throw new Error('Failed to create PostgreSQL connection pool');
+      throw new Error("Failed to create PostgreSQL connection pool");
     }
 
     const client = await pool.connect();
@@ -52,16 +56,18 @@ export class PostgresSchemaManager implements SchemaManager {
         columns.push({
           name: row.column_name,
           type: row.data_type,
-          nullable: row.is_nullable === 'YES',
+          nullable: row.is_nullable === "YES",
         });
       }
 
-      const tables: TableDef[] = Array.from(tableMap.entries()).map(([name, columns]) => ({
-        name,
-        columns,
-      }));
+      const tables: TableDef[] = Array.from(tableMap.entries()).map(
+        ([name, columns]) => ({
+          name,
+          columns,
+        }),
+      );
 
-      return { type: 'postgresql', tables };
+      return { type: "postgresql", tables };
     } finally {
       client.release();
       await pool.end();

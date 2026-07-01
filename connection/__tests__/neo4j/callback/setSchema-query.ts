@@ -1,11 +1,11 @@
-import { getNeo4jAuth } from '../../utils/setup';
-import { Neo4jConnectionModule } from '../../../src/neo4j/Neo4jConnectionModule';
-import { QueryCallback, QueryParams } from '../../../src/generalized/interfaces';
-import { NEO4J_TEST_CONNECTION_CONFIG } from '../../utils/setup';
-import { NeodashRecord } from '../../../src/generalized/NeodashRecord';
+import { getNeo4jAuth } from "../../utils/setup";
+import { Neo4jConnectionModule } from "../../../src/neo4j/Neo4jConnectionModule";
+import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
+import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
-describe('Neo4jConnectionModule - setSchema', () => {
-  test('should extract schema from MovieDB sample data with ACTED_IN relation', async () => {
+describe("Neo4jConnectionModule - setSchema", () => {
+  test("should extract schema from MovieDB sample data with ACTED_IN relation", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -23,17 +23,17 @@ describe('Neo4jConnectionModule - setSchema', () => {
         expect(result.length).toBeGreaterThan(0);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setSchema: (schema) => {
         // schema should include Person, Movie, and ACTED_IN with at least some properties
         expect(schema).toEqual(
           expect.arrayContaining([
-            expect.arrayContaining(['Person']),
-            expect.arrayContaining(['Movie']),
-            expect.arrayContaining(['ACTED_IN']),
-          ])
+            expect.arrayContaining(["Person"]),
+            expect.arrayContaining(["Movie"]),
+            expect.arrayContaining(["ACTED_IN"]),
+          ]),
         );
       },
     };
@@ -45,7 +45,7 @@ describe('Neo4jConnectionModule - setSchema', () => {
     });
   });
 
-  test('should extract schema from a path structure', async () => {
+  test("should extract schema from a path structure", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -63,13 +63,16 @@ describe('Neo4jConnectionModule - setSchema', () => {
         expect(result.length).toBeGreaterThan(0);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setSchema: (schema) => {
         // Since valueIsPath will be hit via extract function on `path`
         expect(schema).toEqual(
-          expect.arrayContaining([expect.arrayContaining(['Person']), expect.arrayContaining(['Movie'])])
+          expect.arrayContaining([
+            expect.arrayContaining(["Person"]),
+            expect.arrayContaining(["Movie"]),
+          ]),
         );
       },
     };
@@ -81,7 +84,7 @@ describe('Neo4jConnectionModule - setSchema', () => {
     });
   });
 
-  test('should handle undefined field gracefully (field === undefined)', async () => {
+  test("should handle undefined field gracefully (field === undefined)", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -95,7 +98,7 @@ describe('Neo4jConnectionModule - setSchema', () => {
         expect(result.length).toBe(1);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setSchema: (schema) => {
@@ -111,7 +114,7 @@ describe('Neo4jConnectionModule - setSchema', () => {
     });
   });
 
-  test('should recurse over array of nodes from MovieDB (valueIsArray === true)', async () => {
+  test("should recurse over array of nodes from MovieDB (valueIsArray === true)", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -130,14 +133,14 @@ describe('Neo4jConnectionModule - setSchema', () => {
         expect(result.length).toBe(1);
       },
       onFail: (error) => {
-        console.error('Query failed:', error);
+        console.error("Query failed:", error);
         throw error;
       },
       setSchema: (schema) => {
         expect(schema).toEqual(
           expect.arrayContaining([
-            expect.arrayContaining(['Person']), // at least a label
-          ])
+            expect.arrayContaining(["Person"]), // at least a label
+          ]),
         );
       },
     };

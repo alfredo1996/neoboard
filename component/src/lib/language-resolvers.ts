@@ -59,16 +59,17 @@ export const languageResolvers: Record<string, LanguageResolver> = {
 };
 
 /**
- * Resolve a language string to CM6 extensions. Falls back to SQL if the
- * language is not registered.
+ * Resolve a language string to CM6 extensions. Falls back to plain text
+ * (no language extension, no highlighting) when the language is not
+ * registered — so a registry-supplied connector that declares an unknown
+ * or no `queryLanguage` gets a neutral editor rather than misleading SQL
+ * highlighting (#1120).
  */
 export async function resolveLanguageExt(
   language: string,
   schema?: DatabaseSchema,
 ): Promise<Extension[]> {
   const key = language.toLowerCase();
-  const resolver = Object.hasOwn(languageResolvers, key)
-    ? languageResolvers[key]
-    : languageResolvers.sql;
-  return resolver(schema);
+  if (!Object.hasOwn(languageResolvers, key)) return [];
+  return languageResolvers[key](schema);
 }

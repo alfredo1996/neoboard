@@ -52,8 +52,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build connection package
-        run: npm -w connection run build
+      - name: Build connector-sdk + connection packages
+        run: npm -w connector-sdk run build && npm -w connection run build
 
       - name: Type-check component
         run: npm -w component exec tsc -- --noEmit
@@ -134,8 +134,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build connection package
-        run: npm -w connection run build
+      - name: Build connector-sdk + connection packages
+        run: npm -w connector-sdk run build && npm -w connection run build
 
       - name: Run all tests in parallel
         run: |
@@ -238,8 +238,8 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-
 
-      - name: Build connection package
-        run: npm -w connection run build
+      - name: Build connector-sdk + connection packages
+        run: npm -w connector-sdk run build && npm -w connection run build
 
       - name: Build Next.js
         working-directory: app

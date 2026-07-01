@@ -1,4 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// Connector-type validation is registry-driven (#1121). Mock the registry
+// membership check so the schema tests are deterministic and don't load DB
+// drivers: built-ins + one fixture type are "registered".
+vi.mock("@/lib/connector/registered-types", () => ({
+  isRegisteredConnectorType: (t: string) =>
+    ["neo4j", "postgresql", "fixture-db"].includes(t),
+}));
+
 import {
   connectionConfigSchema,
   createConnectionSchema,
@@ -185,6 +194,15 @@ describe("createConnectionSchema", () => {
         username: "pg",
         password: "test",
       },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a registry-supplied connector type (no core change per type)", () => {
+    const result = createConnectionSchema.safeParse({
+      name: "My Fixture",
+      type: "fixture-db",
+      config: { uri: "fixture://host", username: "u", password: "p" },
     });
     expect(result.success).toBe(true);
   });

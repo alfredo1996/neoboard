@@ -1,5 +1,5 @@
-import { AuthenticationModule } from "../generalized/AuthenticationModule";
-import { AuthConfig, PostgresAdvancedOptions } from "../generalized/interfaces";
+import { AuthenticationModule } from "@neoboard/connector-sdk";
+import { AuthConfig, PostgresAdvancedOptions } from "@neoboard/connector-sdk";
 import { Pool } from "pg";
 import { isAuthenticationError, attachClientErrorGuard } from "./utils";
 

@@ -1,4 +1,4 @@
-import { ConnectionModule } from "../generalized/ConnectionModule";
+import { ConnectionModule } from "@neoboard/connector-sdk";
 import { attachClientErrorGuard } from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import {
@@ -8,13 +8,13 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
-} from "../generalized/interfaces";
+} from "@neoboard/connector-sdk";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
 import { readBoundedCursor } from "./cursor-read";
 import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
-import { determineQueryStatus } from "../generalized/utils";
-import { wrapError, ConnectorErrorType } from "../generalized/ConnectorError";
+import { determineQueryStatus } from "@neoboard/connector-sdk";
+import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
 /**
  * PostgreSQL Connection Module

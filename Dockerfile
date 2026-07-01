@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 # Copy child package manifests (npm needs these to resolve workspaces)
 COPY app/package.json ./app/
 COPY component/package.json ./component/
+COPY connector-sdk/package.json ./connector-sdk/
 COPY connection/package.json ./connection/
 COPY cli/package.json ./cli/
 
@@ -35,7 +36,10 @@ COPY --from=deps /app/component/node_modules ./component/node_modules
 # Copy all source
 COPY . .
 
-# Build connection package (TypeScript → JS+d.ts) before app
+# Build connector-sdk → connection (TypeScript → JS+d.ts) before app.
+# connection imports @neoboard/connector-sdk, which resolves to its built
+# dist, so the SDK must be compiled first (mirrors the root build chain).
+RUN npm -w connector-sdk run build
 RUN npm -w connection run build
 RUN cd app && npm run build
 

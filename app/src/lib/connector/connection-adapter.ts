@@ -9,6 +9,14 @@ import {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
   ConnectionTypes,
+  getSchemaManager,
+  getConnector,
 } from "@neoboard/connection";
 
-export { createConnectionModule, DEFAULT_CONNECTION_CONFIG, ConnectionTypes };
+export {
+  createConnectionModule,
+  DEFAULT_CONNECTION_CONFIG,
+  ConnectionTypes,
+  getSchemaManager,
+  getConnector,
+};

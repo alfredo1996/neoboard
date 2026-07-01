@@ -8,7 +8,7 @@ import {
   QueryStatus,
   AuthType,
   ConnectionTypes,
-} from "../../src/generalized/interfaces";
+} from "@neoboard/connector-sdk";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
 describe("Connection Resilience — Neo4j", () => {

@@ -1,1 +1,0 @@
-ALTER TABLE "api_key" ADD COLUMN "key_prefix" text;

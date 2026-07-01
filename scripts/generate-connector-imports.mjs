@@ -129,7 +129,7 @@ export function renderSource(entries) {
  * Source: neoboard-connectors.json
  * Regenerate: node scripts/generate-connector-imports.mjs
  */
-import type { ConnectorPlugin } from "./generalized/connector-plugin";
+import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 `;
 
   if (entries.length === 0) {

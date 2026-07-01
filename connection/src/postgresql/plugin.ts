@@ -5,55 +5,33 @@
  * PostgresConnectionModule for all connection/query operations.
  */
 
-import type { ConnectorPlugin } from "../generalized/connector-plugin";
-import type { AuthConfig } from "../generalized/interfaces";
+import type { ConnectorPlugin } from "@neoboard/connector-sdk";
+import type { AuthConfig } from "@neoboard/connector-sdk";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
+import { PostgresSchemaManager } from "../schema/pg-schema";
+import { postgresFormFields } from "../form-fields";
+import { CONNECTOR_QUERY_LANGUAGES } from "../query-languages";
 
 export const postgresPlugin: ConnectorPlugin = {
   type: "postgresql",
   label: "PostgreSQL",
   category: "database",
-  queryLanguage: "sql",
+  queryLanguage: CONNECTOR_QUERY_LANGUAGES.postgresql,
   supportsGraphData: false,
   supportsWrite: true,
   allowedProtocols: ["postgresql:", "postgres:"],
   uriPlaceholder: "postgresql://localhost:5432/mydb",
   databasePlaceholder: "postgres",
-  formFields: [
-    {
-      key: "uri",
-      label: "Connection URI",
-      type: "text",
-      required: true,
-      placeholder: "postgresql://localhost:5432/mydb",
-      description: "PostgreSQL connection string",
-    },
-    {
-      key: "database",
-      label: "Database",
-      type: "text",
-      placeholder: "postgres",
-      description: "Database name",
-    },
-    {
-      key: "username",
-      label: "Username",
-      type: "text",
-      required: true,
-      placeholder: "postgres",
-    },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      required: true,
-    },
-  ],
+  formFields: postgresFormFields,
 
   createModule(
     authConfig: AuthConfig,
     advancedOptions?: Record<string, unknown>,
   ) {
     return new PostgresConnectionModule(authConfig, advancedOptions);
+  },
+
+  createSchemaManager() {
+    return new PostgresSchemaManager();
   },
 };

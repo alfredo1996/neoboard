@@ -1,7 +1,7 @@
 import { createConnectionModule } from "../../src/connector-registry";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
-import { AuthType } from "../../src/generalized/interfaces";
+import { AuthType } from "@neoboard/connector-sdk";
 
 describe("Connection Module Factory (via registry)", () => {
   const neo4jAuthConfig = {

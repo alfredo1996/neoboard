@@ -3,7 +3,7 @@ import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
-import { AuthType } from "../../src/generalized/interfaces";
+import { AuthType } from "@neoboard/connector-sdk";
 
 describe("PostgreSQL Authentication", () => {
   let container: StartedPostgreSqlContainer;

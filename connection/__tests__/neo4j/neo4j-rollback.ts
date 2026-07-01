@@ -1,10 +1,14 @@
-import { getNeo4jAuth } from '../utils/setup';
-import { Neo4jConnectionModule } from '../../src/neo4j/Neo4jConnectionModule';
-import { QueryCallback, QueryParams, QueryStatus } from '../../src/generalized/interfaces';
-import { NEO4J_TEST_CONNECTION_CONFIG } from '../utils/setup';
+import { getNeo4jAuth } from "../utils/setup";
+import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
+import {
+  QueryCallback,
+  QueryParams,
+  QueryStatus,
+} from "@neoboard/connector-sdk";
+import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
-describe('Neo4j Transaction Rollback', () => {
-  test('write transaction auto-rolls back on error — node is NOT persisted', async () => {
+describe("Neo4j Transaction Rollback", () => {
+  test("write transaction auto-rolls back on error — node is NOT persisted", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
@@ -19,10 +23,12 @@ describe('Neo4j Transaction Rollback', () => {
         params: {},
       },
       {
-        onFail: (err) => { failError = err; },
+        onFail: (err) => {
+          failError = err;
+        },
         setStatus: () => {},
       },
-      { ...NEO4J_TEST_CONNECTION_CONFIG, accessMode: 'WRITE' }
+      { ...NEO4J_TEST_CONNECTION_CONFIG, accessMode: "WRITE" },
     );
 
     // The query should have failed
@@ -36,10 +42,12 @@ describe('Neo4j Transaction Rollback', () => {
         params: {},
       },
       {
-        onSuccess: (r) => { result = r; },
+        onSuccess: (r) => {
+          result = r;
+        },
         setStatus: () => {},
       },
-      NEO4J_TEST_CONNECTION_CONFIG
+      NEO4J_TEST_CONNECTION_CONFIG,
     );
 
     expect(result).toHaveLength(0);

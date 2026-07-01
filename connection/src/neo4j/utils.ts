@@ -1,16 +1,23 @@
-export { errorHasMessage } from '../generalized/utils';
+export { errorHasMessage } from "@neoboard/connector-sdk";
 
 /**
  * Collects all node labels and node properties in a set of Neo4j records.
  * @param records : a list of Neo4j records.
  * @returns a list of lists, where each inner list is [NodeLabel] + [prop1, prop2, prop3]...
  */
-export function extractNodeAndRelPropertiesFromRecords(records: unknown[]): string[][] {
+export function extractNodeAndRelPropertiesFromRecords(
+  records: unknown[],
+): string[][] {
   const fieldsDict: Record<string, string[]> = {};
   records.forEach((record: unknown) => {
-    const rec = record as { _fields: unknown[] };
-    rec._fields.forEach((field: unknown) => {
-      saveNodeAndRelPropertiesToDictionary(field, fieldsDict);
+    // Use the public neo4j-driver Record API (keys + get), not the private
+    // `_fields` array, which breaks silently on driver upgrades (#1116).
+    const rec = record as {
+      keys: ReadonlyArray<PropertyKey>;
+      get: (key: PropertyKey) => unknown;
+    };
+    rec.keys.forEach((key) => {
+      saveNodeAndRelPropertiesToDictionary(rec.get(key), fieldsDict);
     });
   });
   const fields = Object.keys(fieldsDict).map((label) => {
@@ -19,7 +26,10 @@ export function extractNodeAndRelPropertiesFromRecords(records: unknown[]): stri
   return fields.length > 0 ? fields : [];
 }
 
-export function saveNodeAndRelPropertiesToDictionary(field: unknown, fieldsDict: Record<string, string[]>): void {
+export function saveNodeAndRelPropertiesToDictionary(
+  field: unknown,
+  fieldsDict: Record<string, string[]>,
+): void {
   if (field == undefined) {
     return;
   }
@@ -45,14 +55,50 @@ export function saveNodeAndRelPropertiesToDictionary(field: unknown, fieldsDict:
 }
 
 /* HELPER FUNCTIONS FOR DETERMINING TYPE OF FIELD RETURNED FROM NEO4J */
-function valueIsNode(value: unknown): value is { labels: string[]; identity: unknown; properties: Record<string, unknown> } {
-  return typeof value === 'object' && value !== null && 'labels' in value && 'identity' in value && 'properties' in value;
+function valueIsNode(value: unknown): value is {
+  labels: string[];
+  identity: unknown;
+  properties: Record<string, unknown>;
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "labels" in value &&
+    "identity" in value &&
+    "properties" in value
+  );
 }
 
-function valueIsRelationship(value: unknown): value is { type: string; start: unknown; end: unknown; identity: unknown; properties: Record<string, unknown> } {
-  return typeof value === 'object' && value !== null && 'type' in value && 'start' in value && 'end' in value && 'identity' in value && 'properties' in value;
+function valueIsRelationship(value: unknown): value is {
+  type: string;
+  start: unknown;
+  end: unknown;
+  identity: unknown;
+  properties: Record<string, unknown>;
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    "start" in value &&
+    "end" in value &&
+    "identity" in value &&
+    "properties" in value
+  );
 }
 
-function valueIsPath(value: unknown): value is { start: unknown; end: unknown; segments: Array<{ start: unknown; end: unknown }>; length: number } {
-  return typeof value === 'object' && value !== null && 'start' in value && 'end' in value && 'segments' in value && 'length' in value;
+function valueIsPath(value: unknown): value is {
+  start: unknown;
+  end: unknown;
+  segments: Array<{ start: unknown; end: unknown }>;
+  length: number;
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "start" in value &&
+    "end" in value &&
+    "segments" in value &&
+    "length" in value
+  );
 }

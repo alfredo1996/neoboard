@@ -1,10 +1,6 @@
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { ensureDatabaseInUri } from "@/lib/query/query-params";
-import {
-  Neo4jSchemaManager,
-  PostgresSchemaManager,
-} from "@neoboard/connection";
+import { getSchemaManager } from "@/lib/connector/connection-adapter";
 
 /**
  * Builds the auth configuration object for schema manager calls.
@@ -25,18 +21,13 @@ export function buildAuthConfig(credentials: ConnectionCredentials) {
  * after connection create/update.
  */
 export async function fetchConnectionSchema(
-  type: ConnectorType,
+  type: string,
   credentials: ConnectionCredentials,
 ): Promise<unknown> {
-  const authConfig = buildAuthConfig(credentials);
-
-  if (type === "neo4j") {
-    const manager = new Neo4jSchemaManager();
-    return manager.fetchSchema(authConfig);
-  } else {
-    const manager = new PostgresSchemaManager();
-    return manager.fetchSchema(authConfig);
-  }
+  // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
+  const manager = getSchemaManager(type);
+  if (!manager) return null; // connector type has no schema introspection
+  return manager.fetchSchema(buildAuthConfig(credentials));
 }
 
 /**
@@ -44,7 +35,7 @@ export async function fetchConnectionSchema(
  * Errors are swallowed — schema is a cache; failure is non-critical.
  */
 export function prefetchSchema(
-  type: ConnectorType,
+  type: string,
   credentials: ConnectionCredentials,
 ): void {
   fetchConnectionSchema(type, credentials).catch(() => {

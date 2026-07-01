@@ -14,7 +14,8 @@ import {
   createConnectorRegistry,
   type ConnectorPlugin,
   type ConnectorRegistry,
-} from "./generalized/connector-plugin";
+  type SchemaManager,
+} from "@neoboard/connector-sdk";
 import { neo4jPlugin } from "./neo4j/plugin";
 import { postgresPlugin } from "./postgresql/plugin";
 import { EXTERNAL_CONNECTORS } from "./external-connectors.generated";
@@ -53,7 +54,7 @@ for (const { plugin, overrides } of EXTERNAL_CONNECTORS) {
 // Re-export for external use
 export { registry as connectorRegistry };
 export type { ConnectorPlugin, ConnectorRegistry };
-export { createConnectorRegistry } from "./generalized/connector-plugin";
+export { createConnectorRegistry } from "@neoboard/connector-sdk";
 
 /**
  * Convenience: register a new connector plugin.
@@ -81,6 +82,16 @@ export function getConnector(type: string): ConnectorPlugin | undefined {
  */
 export function getAllConnectors(): ConnectorPlugin[] {
   return registry.getAll();
+}
+
+/**
+ * Resolve a connector's schema manager by type (#1119). Replaces the old
+ * hardcoded `'neo4j' | 'postgresql'` dispatch — any registry-supplied
+ * connector that declares `createSchemaManager()` gets one. Returns
+ * `undefined` for unknown types or connectors without schema introspection.
+ */
+export function getSchemaManager(type: string): SchemaManager | undefined {
+  return registry.get(type)?.createSchemaManager?.();
 }
 
 /**

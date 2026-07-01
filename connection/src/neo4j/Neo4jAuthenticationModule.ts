@@ -1,9 +1,9 @@
-import { AuthenticationModule } from "../generalized/AuthenticationModule";
+import { AuthenticationModule } from "@neoboard/connector-sdk";
 import {
   AuthConfig,
   AuthType,
   Neo4jAdvancedOptions,
-} from "../generalized/interfaces";
+} from "@neoboard/connector-sdk";
 import neo4j from "neo4j-driver";
 import { Driver } from "neo4j-driver-core";
 

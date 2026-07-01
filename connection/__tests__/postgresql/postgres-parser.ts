@@ -1,5 +1,5 @@
 import { PostgresRecordParser } from "../../src/postgresql/PostgresRecordParser";
-import { NeodashRecord } from "../../src/generalized/NeodashRecord";
+import { NeodashRecord } from "@neoboard/connector-sdk";
 
 describe("PostgreSQL Record Parser", () => {
   let parser: PostgresRecordParser;
