@@ -11,9 +11,10 @@
  *  - MAX_ROWS+1 capping (results capped at rowLimit, truncation flagged)
  *  - driver-level timeout (a slow query times out / fails)
  *
- * The contract has no generic cancel API, so cancellation-cleanup ("no leaked
- * cursor/portal after a timed-out query") is verified via the optional,
- * connector-supplied `assertNoLeak` hook rather than a generic check.
+ * Cancellation-cleanup ("no leaked cursor after a timed-out query") isn't
+ * covered here: the contract has no generic cancel API, and leak detection is
+ * connector-specific. Connectors that can observe it assert it in their own
+ * teardown (the built-ins are guarded by the #978 pg-cursor timeout tests).
  */
 
 import type { ConnectionModule } from "../generalized/ConnectionModule";
@@ -37,13 +38,6 @@ export interface ConformanceSetup {
    */
   baseConfig: ConnectionConfig;
   queries: ConformanceQueries;
-  /**
-   * Optional: assert the connector left no server-side resource (cursor,
-   * portal, session) leaked after a timed-out query. Connector-specific —
-   * e.g. PostgreSQL checks `pg_cursors`; connectors without observable
-   * server state omit it.
-   */
-  assertNoLeak?: () => Promise<void>;
 }
 
 export interface ConformanceCase {
@@ -158,9 +152,6 @@ export function buildConformanceCases(
             "timeout violation: a slow query neither timed out nor failed within the configured timeout",
           );
         }
-        // Cancellation-cleanup: after a timed-out query, no server-side
-        // cursor/portal should linger (connector-specific check).
-        if (setup.assertNoLeak) await setup.assertNoLeak();
       },
     },
   ];

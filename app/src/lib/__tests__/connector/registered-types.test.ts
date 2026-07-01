@@ -4,13 +4,9 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/connector/connection-adapter", () => ({
   getConnector: (type: string) =>
     type === "neo4j" || type === "postgresql" ? { type } : undefined,
-  getAllConnectors: () => [{ type: "neo4j" }, { type: "postgresql" }],
 }));
 
-import {
-  isRegisteredConnectorType,
-  registeredConnectorTypes,
-} from "@/lib/connector/registered-types";
+import { isRegisteredConnectorType } from "@/lib/connector/registered-types";
 
 describe("isRegisteredConnectorType", () => {
   it("returns true for a registered connector type", () => {
@@ -20,11 +16,5 @@ describe("isRegisteredConnectorType", () => {
 
   it("returns false for an unregistered type", () => {
     expect(isRegisteredConnectorType("mysql")).toBe(false);
-  });
-});
-
-describe("registeredConnectorTypes", () => {
-  it("lists all registered connector type identifiers", () => {
-    expect(registeredConnectorTypes()).toEqual(["neo4j", "postgresql"]);
   });
 });

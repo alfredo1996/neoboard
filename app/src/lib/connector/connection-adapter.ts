@@ -11,7 +11,6 @@ import {
   ConnectionTypes,
   getSchemaManager,
   getConnector,
-  getAllConnectors,
 } from "@neoboard/connection";
 
 export {
@@ -20,5 +19,4 @@ export {
   ConnectionTypes,
   getSchemaManager,
   getConnector,
-  getAllConnectors,
 };
