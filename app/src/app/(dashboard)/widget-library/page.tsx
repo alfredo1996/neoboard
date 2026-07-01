@@ -45,8 +45,8 @@ import {
   type ConnectorType,
   CONNECTOR_TYPES,
   CONNECTOR_LABELS,
-  CONNECTOR_LANGUAGES,
 } from "@/lib/connector/connector-types";
+import { CONNECTOR_QUERY_LANGUAGES } from "@neoboard/connection/query-languages";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({
@@ -182,10 +182,7 @@ function TemplateCard({
         ) : (
           <CodePreview
             value={template.query}
-            language={
-              CONNECTOR_LANGUAGES[template.connectorType as ConnectorType] ??
-              "Cypher"
-            }
+            language={CONNECTOR_QUERY_LANGUAGES[template.connectorType] ?? ""}
           />
         )}
 

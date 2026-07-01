@@ -5,7 +5,7 @@ import { FlaskConical } from "lucide-react";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import { CONNECTOR_LANGUAGES } from "@/lib/connector/connector-types";
+import { CONNECTOR_QUERY_LANGUAGES } from "@neoboard/connection/query-languages";
 import {
   Badge,
   Button,
@@ -87,8 +87,7 @@ export function TemplateBrowser({
                     <CodePreview
                       value={t.query}
                       language={
-                        CONNECTOR_LANGUAGES[t.connectorType as ConnectorType] ??
-                        "Cypher"
+                        CONNECTOR_QUERY_LANGUAGES[t.connectorType] ?? ""
                       }
                       maxLines={2}
                     />

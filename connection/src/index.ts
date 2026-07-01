@@ -23,11 +23,7 @@ export type {
 export { Neo4jSchemaManager } from "./schema/neo4j-schema";
 export { PostgresSchemaManager } from "./schema/pg-schema";
 /// Connector type constants
-export {
-  CONNECTOR_TYPES,
-  CONNECTOR_LABELS,
-  CONNECTOR_LANGUAGES,
-} from "./connector-types";
+export { CONNECTOR_TYPES, CONNECTOR_LABELS } from "./connector-types";
 export type { ConnectorType } from "./connector-types";
 /// Built-in connector form fields (client-safe — no drivers)
 export {

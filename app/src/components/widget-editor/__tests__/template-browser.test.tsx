@@ -34,8 +34,8 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (t: string) => ({ label: t }),
 }));
 
-vi.mock("@/lib/connector/connector-types", () => ({
-  CONNECTOR_LANGUAGES: { neo4j: "Cypher", postgresql: "SQL" },
+vi.mock("@neoboard/connection/query-languages", () => ({
+  CONNECTOR_QUERY_LANGUAGES: { neo4j: "cypher", postgresql: "sql" },
 }));
 
 import { TemplateBrowser } from "../template-browser";
