@@ -3,15 +3,22 @@ import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { ControlSize } from "@/components/ui/control-sizes";
 
-export interface PasswordInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
+export interface PasswordInputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "type" | "size"
+> {
   showPasswordByDefault?: boolean;
+  /** Shared design size scale (Epic C #1127), forwarded to Input. */
+  size?: ControlSize;
 }
 
 const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
   ({ showPasswordByDefault = false, className, ...props }, ref) => {
-    const [showPassword, setShowPassword] = React.useState(showPasswordByDefault);
+    const [showPassword, setShowPassword] = React.useState(
+      showPasswordByDefault,
+    );
 
     return (
       <div className="relative">
@@ -39,7 +46,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
         </Button>
       </div>
     );
-  }
+  },
 );
 PasswordInput.displayName = "PasswordInput";
 
