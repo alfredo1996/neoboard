@@ -105,6 +105,9 @@ export async function isPgReady(): Promise<boolean> {
     // Prefer the real protocol check when the client binary exists; fall
     // back to a TCP probe when the host lacks pg_isready (#1091) — a
     // missing binary must not read as "DB down" and dead-end the bootstrap.
+    // `command -v` is POSIX-only: on Windows (cmd/PowerShell) this probe
+    // itself fails, so the TCP fallback engages — the intended degradation
+    // there too, not an error path.
     if (runOrNull("command -v pg_isready") !== null) {
       return (
         runOrNull(
