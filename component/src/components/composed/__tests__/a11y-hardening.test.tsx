@@ -39,6 +39,35 @@ describe("focus ring coverage (#1128 D2)", () => {
       expect(btn.className).toContain(RING);
     }
   });
+
+  it("CrossFilterTag span remove control: click and Enter/Space remove without triggering the tag click", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <CrossFilterTag
+        field="country"
+        value="IT"
+        onClick={onClick}
+        onRemove={onRemove}
+      />,
+    );
+    // The outer <button> also matches by name (it contains the sr-only
+    // label), so pick the inner <span role="button"> remove control.
+    const remove = screen
+      .getAllByRole("button", { name: /remove cross-filter/i })
+      .find((el) => el.tagName === "SPAN")!;
+
+    await user.click(remove);
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled(); // stopPropagation
+
+    remove.focus();
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+    expect(onRemove).toHaveBeenCalledTimes(3);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });
 
 describe("keyboard contracts (#1128 D3)", () => {
