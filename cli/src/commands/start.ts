@@ -128,7 +128,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
  * failure (caller should `return` to abort the start flow).
  */
 async function checkHealthOrFail(opts: {
-  check: () => boolean;
+  check: () => boolean | Promise<boolean>;
   label: string;
   failName: string;
   localHint: string;

@@ -1,8 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../lib/docker-env.js", () => ({
   ensureDockerEnvFile: vi.fn(() => "/project/docker/.env"),
 }));
+
+// Fake TCP socket for the local-mode fallback (#1091): "connect" fires when
+// the port should read as open, "error" when it should read as closed.
+const { netConnectMock } = vi.hoisted(() => ({ netConnectMock: vi.fn() }));
+vi.mock("node:net", () => ({ createConnection: netConnectMock }));
 
 vi.mock("../../lib/exec.js", () => ({
   run: vi.fn(),
@@ -32,6 +37,7 @@ import {
   runOrNull,
   dockerExec as execInContainer,
 } from "../../lib/exec.js";
+import { getMode } from "../../lib/config.js";
 import {
   isDockerRunning,
   isComposeV2,
@@ -166,16 +172,59 @@ describe("dockerExec", () => {
 });
 
 describe("isPgReady", () => {
-  it("returns true when pg_isready succeeds", () => {
+  it("returns true when pg_isready succeeds", async () => {
     mockDockerExec.mockReturnValue("accepting connections");
-    expect(isPgReady()).toBe(true);
+    expect(await isPgReady()).toBe(true);
   });
 
-  it("returns false when pg_isready fails", () => {
+  it("returns false when pg_isready fails", async () => {
     mockDockerExec.mockImplementation(() => {
       throw new Error("not ready");
     });
-    expect(isPgReady()).toBe(false);
+    expect(await isPgReady()).toBe(false);
+  });
+});
+
+describe("isPgReady — local mode (#1091)", () => {
+  const fakeSocket = (event: "connect" | "error") => {
+    const handlers: Record<string, () => void> = {};
+    const sock = {
+      on: (ev: string, cb: () => void) => {
+        handlers[ev] = cb;
+        if (ev === event) setTimeout(() => handlers[ev](), 0);
+        return sock;
+      },
+      destroy: vi.fn(),
+    };
+    return sock;
+  };
+
+  beforeEach(() => {
+    vi.mocked(getMode).mockReturnValue("local");
+  });
+
+  afterEach(() => {
+    vi.mocked(getMode).mockReturnValue("docker");
+  });
+
+  it("uses pg_isready when the binary exists", async () => {
+    mockRunOrNull.mockImplementation((cmd: string) =>
+      cmd.startsWith("command -v") ? "/usr/bin/pg_isready" : "accepting",
+    );
+    expect(await isPgReady()).toBe(true);
+    expect(netConnectMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a TCP probe when pg_isready is missing and the port is open", async () => {
+    mockRunOrNull.mockReturnValue(null); // command -v fails → binary missing
+    netConnectMock.mockImplementation(() => fakeSocket("connect"));
+    expect(await isPgReady()).toBe(true);
+  });
+
+  it("reports not-ready when the binary is missing and the port is closed", async () => {
+    mockRunOrNull.mockReturnValue(null);
+    netConnectMock.mockImplementation(() => fakeSocket("error"));
+    expect(await isPgReady()).toBe(false);
   });
 });
 
