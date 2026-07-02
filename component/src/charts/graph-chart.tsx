@@ -576,7 +576,7 @@ function GraphChartInner({
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 shadow-sm backdrop-blur-sm">
         <button
           onClick={zoomIn}
-          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Zoom in"
           aria-label="Zoom in"
           data-testid="graph-zoom-in"
@@ -594,7 +594,7 @@ function GraphChartInner({
         </button>
         <button
           onClick={zoomOut}
-          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Zoom out"
           aria-label="Zoom out"
           data-testid="graph-zoom-out"
@@ -612,7 +612,7 @@ function GraphChartInner({
         </button>
         <button
           onClick={fitGraph}
-          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Fit graph"
           aria-label="Fit graph"
         >
@@ -649,7 +649,7 @@ function GraphChartInner({
             <Popover>
               <PopoverTrigger asChild>
                 <button
-                  className="flex h-6 items-center justify-center rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className="flex h-6 items-center justify-center rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   title="Label settings"
                   aria-label="Label settings"
                   data-testid="label-settings-button"

@@ -48,7 +48,7 @@ const SidebarItem = React.forwardRef<HTMLButtonElement, SidebarItemProps>(
         className={cn(
           // 2px transparent left border in every state so activation never
           // shifts layout — only the border/background colors change (#826).
-          "flex w-full items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-sm text-muted-foreground transition-[color,background-color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
+          "flex w-full items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-sm text-muted-foreground transition-[color,background-color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           "hover:bg-accent-soft hover:text-foreground",
           active &&
             "border-[hsl(var(--ring))] bg-accent-soft font-medium text-foreground",

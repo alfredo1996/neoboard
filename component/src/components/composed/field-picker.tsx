@@ -32,13 +32,11 @@ function FieldPicker({
             key={field.name}
             type="button"
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
-              isSelected && "bg-accent"
+              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              isSelected && "bg-accent",
             )}
             onClick={() =>
-              isSelected
-                ? onRemove?.(field.name)
-                : onSelect?.(field.name)
+              isSelected ? onRemove?.(field.name) : onSelect?.(field.name)
             }
           >
             <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -48,7 +46,7 @@ function FieldPicker({
                 variant="secondary"
                 className={cn(
                   "text-[10px] px-1.5 py-0 font-normal",
-                  fieldTypeColors[field.type]
+                  fieldTypeColors[field.type],
                 )}
               >
                 {field.type}

@@ -14,7 +14,15 @@ const frameworks = [
 const meta = {
   title: "Composed/MultiSelect",
   component: MultiSelect,
-  parameters: { layout: "centered" },
+  parameters: {
+    layout: "centered",
+    docs: {
+      description: {
+        component:
+          "**Keyboard (#1128):** `Tab` focuses the trigger · `Enter`/`Space` opens · type to filter · `ArrowUp`/`ArrowDown` move the highlight · `Enter` toggles the option (stays open for multi-pick) · `Escape` closes · badge remove buttons are tabbable.",
+      },
+    },
+  },
   tags: ["autodocs"],
   argTypes: {
     placeholder: { control: "text" },

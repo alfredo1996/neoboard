@@ -271,7 +271,10 @@ function BaseChart({
   return (
     <div
       ref={containerRef}
-      className={cn("h-full w-full", className)}
+      className={cn(
+        "h-full w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        className,
+      )}
       data-testid="base-chart"
       role="img"
       aria-label={ariaDescription ?? "Chart visualization"}
