@@ -24,21 +24,32 @@ function CrossFilterTag({
   const classes = cn(
     badgeVariants({ variant: "outline" }),
     "gap-1.5 pr-1 font-normal",
-    onClick && "cursor-pointer hover:bg-accent",
+    onClick &&
+      "cursor-pointer hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     className,
   );
 
   // When onClick is set the outer element is a <button>, so the remove
   // control must NOT be a <button> (nested buttons are invalid HTML and
   // cause React hydration errors). Use a <span role="button"> instead.
-  const removeControl = onRemove && (
-    onClick ? (
+  const removeControl =
+    onRemove &&
+    (onClick ? (
       <span
         role="button"
         tabIndex={0}
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); onRemove(); } }}
-        className="ml-1 rounded-full p-0.5 hover:bg-muted cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.stopPropagation();
+            e.preventDefault();
+            onRemove();
+          }
+        }}
+        className="ml-1 rounded-full p-0.5 hover:bg-muted cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <X className="h-3 w-3" />
         <span className="sr-only">Remove cross-filter</span>
@@ -46,14 +57,16 @@ function CrossFilterTag({
     ) : (
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="ml-1 rounded-full p-0.5 hover:bg-muted"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="ml-1 rounded-full p-0.5 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <X className="h-3 w-3" />
         <span className="sr-only">Remove cross-filter</span>
       </button>
-    )
-  );
+    ));
 
   const content = (
     <>
@@ -67,7 +80,12 @@ function CrossFilterTag({
 
   if (onClick) {
     return (
-      <button type="button" className={classes} onClick={onClick} title={tooltip}>
+      <button
+        type="button"
+        className={classes}
+        onClick={onClick}
+        title={tooltip}
+      >
         {content}
       </button>
     );

@@ -183,7 +183,15 @@ const moreData: Payment[] = [
 const meta = {
   title: "Composed/DataGrid",
   component: DataGrid,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+    docs: {
+      description: {
+        component:
+          "**Keyboard (#1128):** `Tab` walks sortable column headers, clickable cells (#980), pagination and toolbar controls in DOM order · `Enter`/`Space` activates (toggle sort, cell click action, expand group) · faceted filters/view options open Radix popovers with their standard arrow-key + `Escape` handling.",
+      },
+    },
+  },
   tags: ["autodocs"],
 } satisfies Meta<typeof DataGrid>;
 

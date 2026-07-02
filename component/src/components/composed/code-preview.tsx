@@ -17,13 +17,20 @@ export interface CodePreviewProps {
  * in cards and thumbnails. Designed to be an accent element, not the
  * primary content of the card.
  */
-function CodePreview({ value, language, maxLines = 3, className }: Readonly<CodePreviewProps>) {
+function CodePreview({
+  value,
+  language,
+  maxLines = 3,
+  className,
+}: Readonly<CodePreviewProps>) {
   const [expanded, setExpanded] = React.useState(false);
   const text = value || "No query";
 
   const lines = text.split("\n");
   const isTruncated = maxLines > 0 && lines.length > maxLines && !expanded;
-  const displayText = isTruncated ? lines.slice(0, maxLines).join("\n") + " …" : text;
+  const displayText = isTruncated
+    ? lines.slice(0, maxLines).join("\n") + " …"
+    : text;
 
   return (
     <div
@@ -46,8 +53,11 @@ function CodePreview({ value, language, maxLines = 3, className }: Readonly<Code
       {maxLines > 0 && lines.length > maxLines && (
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); setExpanded((prev) => !prev); }}
-          className="absolute bottom-0.5 right-1.5 text-[9px] font-medium text-primary hover:underline cursor-pointer select-none"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((prev) => !prev);
+          }}
+          className="absolute bottom-0.5 right-1.5 text-[9px] font-medium text-primary hover:underline cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {expanded ? "Less" : "More"}
         </button>

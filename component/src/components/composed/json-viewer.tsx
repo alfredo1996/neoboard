@@ -22,7 +22,11 @@ function JsonValue({ value }: { value: unknown }) {
 
   switch (type) {
     case "string":
-      return <span className={jsonSyntaxColors.string}>&quot;{String(value)}&quot;</span>;
+      return (
+        <span className={jsonSyntaxColors.string}>
+          &quot;{String(value)}&quot;
+        </span>
+      );
     case "number":
       return <span className={jsonSyntaxColors.number}>{String(value)}</span>;
     case "boolean":
@@ -42,7 +46,13 @@ interface JsonNodeProps {
   isLast: boolean;
 }
 
-function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodeProps) {
+function JsonNode({
+  keyName,
+  value,
+  depth,
+  initialExpanded,
+  isLast,
+}: JsonNodeProps) {
   const type = getType(value);
   const isExpandable = type === "object" || type === "array";
 
@@ -77,7 +87,7 @@ function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodePr
     <div>
       <button
         type="button"
-        className="flex items-center cursor-pointer hover:bg-muted/50 rounded-sm w-full text-left"
+        className="flex items-center cursor-pointer hover:bg-muted/50 rounded-sm w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         style={{ paddingLeft: depth * 16 }}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
@@ -86,7 +96,7 @@ function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodePr
         <ChevronRight
           className={cn(
             "h-3 w-3 mr-1 transition-transform text-muted-foreground",
-            expanded && "rotate-90"
+            expanded && "rotate-90",
           )}
         />
         {keyName !== undefined && (
@@ -95,7 +105,8 @@ function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodePr
         {isEmpty ? (
           <>
             <span className="text-muted-foreground">
-              {bracketOpen}{bracketClose}
+              {bracketOpen}
+              {bracketClose}
             </span>
             {!isLast && <span className="text-muted-foreground">,</span>}
           </>
@@ -135,17 +146,13 @@ function JsonNode({ keyName, value, depth, initialExpanded, isLast }: JsonNodePr
   );
 }
 
-function JsonViewer({
-  data,
-  initialExpanded = 1,
-  className,
-}: JsonViewerProps) {
+function JsonViewer({ data, initialExpanded = 1, className }: JsonViewerProps) {
   return (
     <div
       data-testid="json-viewer"
       className={cn(
         "font-mono text-sm rounded-md border bg-muted/30 p-3 overflow-auto",
-        className
+        className,
       )}
     >
       <JsonNode

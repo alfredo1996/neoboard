@@ -93,7 +93,7 @@ function MultiSelect({
                 {option.label}
                 <button
                   type="button"
-                  className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  className="ml-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   onClick={(e) => handleRemove(option.value, e)}
                 >
                   <X className="h-3 w-3" />
