@@ -46,7 +46,7 @@ describe("SingleValueChart", () => {
     );
     const trend = screen.getByText(/-5%/);
     expect(trend).toBeInTheDocument();
-    expect(trend).toHaveClass("text-[hsl(var(--danger))]");
+    expect(trend).toHaveClass("text-[hsl(var(--destructive))]");
   });
 
   it("shows loading state", () => {

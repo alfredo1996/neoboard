@@ -22,10 +22,18 @@ const buttonVariants = cva(
           "bg-[hsl(var(--ring)/0.14)] text-accent-foreground ring-1 ring-inset ring-[hsl(var(--ring)/0.30)] hover:bg-[hsl(var(--ring)/0.22)]",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md",
+        // Canonical semantic actions (Epic B #1126) — solid like destructive,
+        // sourced from --success/--warning tokens so they track theme.
+        success:
+          "bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] shadow-sm hover:bg-[hsl(var(--success)/0.9)] hover:shadow-md",
+        warning:
+          "bg-[hsl(var(--warning))] text-[hsl(var(--warning-foreground))] shadow-sm hover:bg-[hsl(var(--warning)/0.9)] hover:shadow-md",
         outline:
           "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground hover:border-[hsl(var(--ring)/0.5)]",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+        // ghost + link are Button-only interaction variants — the documented
+        // exceptions to the canonical union shared with Badge/Alert (#1126).
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
