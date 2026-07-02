@@ -72,20 +72,19 @@
   /* Brand mark accent — the warm citrine square in the wordmark. As of Epic A
      (#1125) the same citrine drives interaction (--ring / --accent) too. */
   --brand: 38 95% 55%;
-  --destructive: 0 84.2% 60.2%;
+  /* The one error red (Epic B #1126): deep enough for AA as text on white,
+     and the destructive-surface color. The old duplicate danger red is gone. */
+  --destructive: 0 72% 48%;
   --destructive-foreground: 0 0% 98%;
   /* Semantic status colors (#1059 follow-up): readable as text on the page
      surface AND as the base for low-alpha tonal badge tints. Mid-luminance
      in light mode; lifted in dark (see .dark). --warning is a deliberately
      more-orange (hue 28) and darker amber than the citrine --ring (hue 38) so
-     "warning" and "interactive" stay distinct. Danger is a text-legible red,
-     distinct from the heavier --destructive surface color. */
+     "warning" and "interactive" stay distinct. */
   --success: 142 64% 32%;
   --success-foreground: 0 0% 100%;
   --warning: 28 92% 40%;
   --warning-foreground: 0 0% 100%;
-  --danger: 0 72% 48%;
-  --danger-foreground: 0 0% 100%;
   --border: 220 13% 91%;
   /* Stronger border for inputs and emphasized dividers. */
   --border-strong: 220 13% 84%;
@@ -149,15 +148,15 @@
   --accent-soft: hsl(38 90% 60% / 0.2);
   /* Brand mark stays warm citrine (matches --chart-1 dark). */
   --brand: 38 95% 58%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
+  /* Lifted error red (Epic B #1126) so it reads as text against charcoal;
+     as a surface it's light, so its foreground flips to near-black. */
+  --destructive: 0 80% 66%;
+  --destructive-foreground: 220 13% 9%;
   /* Lifted luminance so the colors read as text/tints against charcoal. */
   --success: 142 58% 55%;
   --success-foreground: 220 13% 9%;
   --warning: 28 92% 58%;
   --warning-foreground: 220 13% 9%;
-  --danger: 0 80% 66%;
-  --danger-foreground: 220 13% 9%;
   --border: 220 13% 17%;
   --border-strong: 220 13% 25%;
   --input: 220 13% 25%;

@@ -12,9 +12,12 @@ const meta = {
       control: "select",
       options: [
         "default",
-        "destructive",
-        "outline",
         "secondary",
+        "tonal",
+        "destructive",
+        "success",
+        "warning",
+        "outline",
         "ghost",
         "link",
       ],
@@ -58,6 +61,8 @@ export const AllVariants: Story = {
       <Button variant="tonal">Tonal</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="destructive">Destructive</Button>
+      <Button variant="success">Success</Button>
+      <Button variant="warning">Warning</Button>
       <Button variant="outline">Outline</Button>
       <Button variant="ghost">Ghost</Button>
       <Button variant="link">Link</Button>
@@ -127,4 +132,12 @@ export const Disabled: Story = {
     children: "Disabled",
     disabled: true,
   },
+};
+
+export const Success: Story = {
+  args: { variant: "success", children: "Save changes" },
+};
+
+export const Warning: Story = {
+  args: { variant: "warning", children: "Proceed anyway" },
 };

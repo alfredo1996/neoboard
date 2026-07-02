@@ -157,3 +157,19 @@ describe("motion tokens (#833)", () => {
     expect(tokenValue(light, token)).toBe(value);
   });
 });
+
+describe("single error red (Epic B #1126)", () => {
+  it("--danger is gone — --destructive is the only error red", () => {
+    expect(css).not.toContain("--danger");
+  });
+
+  it("--destructive is the deeper AA red (light) / lifted text-safe red (dark)", () => {
+    expect(tokenValue(light, "--destructive")).toBe("0 72% 48%");
+    expect(tokenValue(dark, "--destructive")).toBe("0 80% 66%");
+  });
+
+  it("dark destructive foreground is near-black (light-red surface needs dark text)", () => {
+    expect(tokenValue(light, "--destructive-foreground")).toBe("0 0% 98%");
+    expect(tokenValue(dark, "--destructive-foreground")).toBe("220 13% 9%");
+  });
+});
