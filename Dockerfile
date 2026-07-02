@@ -86,15 +86,19 @@ ENV HOSTNAME="0.0.0.0"
 ENV MIGRATE_ON_START=1
 ENV MIGRATIONS_DIR=/app/app/drizzle/migrations
 
-# All config is via runtime env vars:
+# All config is via runtime env vars. Required:
 #   DATABASE_URL          — PostgreSQL connection string
 #   ENCRYPTION_KEY        — AES-256 key for connection credential encryption (64-char hex)
 #   NEXTAUTH_SECRET       — Auth.js session signing secret
 #   NEXTAUTH_URL          — Public URL of the app (e.g. https://neoboard.example.com)
-#   API_KEY_HMAC_SECRET   — (optional) HMAC key for API key hashing
-#   TENANT_ID             — (optional) Multi-tenant isolation key (default: "default")
+# The full catalogue of optional vars (auth/bootstrap, OIDC SSO, logging,
+# query scheduler tuning, CORS/HTTPS, edition) lives in app/.env.example —
+# the single documented list (#931). Don't duplicate it here.
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# start-period 30s: Next.js cold start with boot migrations easily exceeds
+# 10s — don't flap during startup (#931; matches what compose files used to
+# override).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 CMD ["node", "app/server.js"]
