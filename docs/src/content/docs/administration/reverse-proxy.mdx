@@ -1,0 +1,118 @@
+---
+title: Reverse proxy
+description: Example nginx, Caddy and Traefik configurations for running NeoBoard behind a reverse proxy.
+---
+
+NeoBoard is designed to run behind a reverse proxy in production:
+
+- HTTPS terminates at the proxy; NeoBoard honors `X-Forwarded-Proto` for its
+  `FORCE_HTTPS` redirect logic.
+- Auth.js needs the public URL in `NEXTAUTH_URL` and correct
+  `X-Forwarded-Host` / `X-Forwarded-Proto` headers to build callback URLs.
+- Load balancers should probe `GET /api/health` (200/degraded = healthy,
+  503 = unhealthy).
+
+Set these env vars in every proxied deployment:
+
+```bash
+NEXTAUTH_URL=https://neoboard.example.com
+FORCE_HTTPS=true   # optional — redirect stray http requests
+```
+
+## nginx
+
+```nginx
+server {
+  listen 443 ssl http2;
+  server_name neoboard.example.com;
+
+  ssl_certificate     /etc/letsencrypt/live/neoboard.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/neoboard.example.com/privkey.pem;
+
+  # Long-lived dashboard queries: keep read timeouts above the app's
+  # 30s query timeout so the proxy doesn't cut responses first.
+  proxy_read_timeout 60s;
+
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+  }
+
+  # Immutable Next.js build assets — cache aggressively at the proxy.
+  location /_next/static/ {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_cache_valid 200 7d;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+  }
+}
+
+server {
+  listen 80;
+  server_name neoboard.example.com;
+  return 301 https://$host$request_uri;
+}
+```
+
+## Caddy
+
+Caddy provisions TLS automatically and sets `X-Forwarded-*` headers by
+default, so the minimal config is genuinely minimal:
+
+```text
+neoboard.example.com {
+  reverse_proxy 127.0.0.1:3000
+}
+```
+
+Optional health-based upstream check:
+
+```text
+neoboard.example.com {
+  reverse_proxy 127.0.0.1:3000 {
+    health_uri      /api/health
+    health_interval 30s
+  }
+}
+```
+
+## Traefik (Docker labels)
+
+```yaml
+services:
+  neoboard:
+    image: neoboard/community:latest
+    environment:
+      NEXTAUTH_URL: https://neoboard.example.com
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.neoboard.rule=Host(`neoboard.example.com`)
+      - traefik.http.routers.neoboard.entrypoints=websecure
+      - traefik.http.routers.neoboard.tls.certresolver=letsencrypt
+      - traefik.http.services.neoboard.loadbalancer.server.port=3000
+      - traefik.http.services.neoboard.loadbalancer.healthcheck.path=/api/health
+      - traefik.http.services.neoboard.loadbalancer.healthcheck.interval=30s
+```
+
+Traefik forwards `X-Forwarded-*` headers automatically for HTTP providers.
+
+## Cloud load balancers
+
+For AWS ALB / GCP HTTPS LB, the same three rules apply:
+
+1. Target group / backend service on port `3000`.
+2. Health check path `/api/health` — treat **200 as healthy**; the endpoint
+   returns 503 when required config is missing or the metadata DB is
+   unreachable.
+3. Terminate TLS at the LB and make sure `X-Forwarded-Proto: https` reaches
+   the app (both ALB and GCP LB do this by default).
+
+## Checklist
+
+- [ ] `NEXTAUTH_URL` matches the public HTTPS URL exactly
+- [ ] `X-Forwarded-Proto` / `X-Forwarded-Host` reach the app
+- [ ] Health probes hit `/api/health`
+- [ ] Proxy read timeout ≥ the app's query timeout (default 30s)
