@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -270,6 +271,43 @@ describe("POST /api/query/write", () => {
     const body = await res.json();
     expect(body.error.message).toBe("Write query execution failed");
     expect(body.error.message).not.toMatch(/syntax error/i);
+  });
+
+  it("surfaces a specific reason for a NOT NULL violation without leaking row data (#1162)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockConnectionAndDashboard();
+    mockDecryptJson.mockReturnValue({
+      uri: "postgresql://localhost",
+      username: "neoboard",
+      password: "pass",
+    });
+    const pgError = Object.assign(
+      new Error('null value in column "rating" of relation "feedback" ...'),
+      {
+        code: "23502",
+        column: "rating",
+        table: "feedback",
+        detail: "Failing row contains (12, null, test, jpijpjp, ...).",
+      },
+    );
+    mockExecuteQuery.mockRejectedValue(
+      new ConnectorError("query failed", ConnectorErrorType.QUERY, pgError),
+    );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query:
+          "INSERT INTO feedback (category) VALUES ($param_category) RETURNING id",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error.message).toBe('The field "rating" is required.');
+    // No row data, driver message, or SQL leaks through.
+    expect(body.error.message).not.toMatch(/Failing row|null value|INSERT/i);
   });
 
   it("returns 404 when connection belongs to another user", async () => {

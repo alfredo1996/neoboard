@@ -19,6 +19,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { describeWriteError } from "@/lib/api/db-error-message";
 import { logRoute } from "@/lib/api/log-route";
 import { apiLogger } from "@/lib/logger";
 
@@ -163,7 +164,11 @@ async function handleWriteQuery(request: Request): Promise<Response> {
       "write_query_failed",
     );
     // safeMessage: write queries echo user SQL in driver errors — never leak.
-    return handleRouteError(error, "Write query execution failed", {
+    // But surface a specific, sanitized reason (constraint/column) when we can
+    // recognise the driver error, so form users see "The field X is required"
+    // instead of a bare "execution failed" (#1162).
+    const specific = describeWriteError(error);
+    return handleRouteError(error, specific ?? "Write query execution failed", {
       safeMessage: true,
     });
   }
