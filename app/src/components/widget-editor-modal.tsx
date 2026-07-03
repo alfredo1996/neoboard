@@ -49,10 +49,9 @@ import {
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
+  getSelectableChartTypes,
   chartSupportsClickAction,
   chartSupportsStyling,
-  getAllChartTypes,
-  DISABLED_CHART_TYPES,
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import type { ConnectorType } from "@/lib/connector/connector-types";
@@ -354,19 +353,17 @@ export function WidgetEditorModal({
   // (#1120) rather than its type; unknown / no connector → plain text.
   const editorLanguage = editorLanguageForConnector(selectedConnection?.type);
 
-  // Chart types offered in the picker. getCompatibleChartTypes already drops
-  // disabled types (#1158); apply the same filter to the no-connection
-  // fallback. Keep the widget's CURRENT type visible even if it's disabled, so
-  // editing a legacy (e.g. radar) widget still shows its type rather than a
-  // blank selector.
-  const compatibleChartTypes = useMemo(() => {
-    const base = selectedConnection
-      ? getCompatibleChartTypes(selectedConnection.type)
-      : getAllChartTypes().filter((t) => !DISABLED_CHART_TYPES.has(t));
-    const withCurrent =
-      chartType && !base.includes(chartType) ? [...base, chartType] : base;
-    return withCurrent as ChartType[];
-  }, [selectedConnection, chartType]);
+  // Chart types offered in the picker — excludes disabled types (#1158) and
+  // keeps the widget's current (possibly legacy) type visible for editing.
+  // Logic lives in the unit-tested getSelectableChartTypes helper.
+  const compatibleChartTypes = useMemo(
+    () =>
+      getSelectableChartTypes(
+        selectedConnection?.type,
+        chartType,
+      ) as ChartType[],
+    [selectedConnection, chartType],
+  );
 
   // Unified connection-change handler for both add and edit modes.
   const handleConnectionChange = useCallback(
