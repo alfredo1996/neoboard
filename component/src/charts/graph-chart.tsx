@@ -22,6 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useDarkMode } from "./base-chart";
 import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
+import { toNvlColor } from "./nvl-color";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
 
@@ -53,7 +54,8 @@ function buildLabelColorMap(
   const sorted = Array.from(labels).sort((a, b) => a.localeCompare(b));
   const map = new Map<string, string>();
   sorted.forEach((lbl, i) => {
-    map.set(lbl, palette[i % palette.length]);
+    // NVL only renders hex; the citrine palette is authored in hsl() (#1157).
+    map.set(lbl, toNvlColor(palette[i % palette.length]));
   });
   return map;
 }
@@ -237,13 +239,15 @@ function toNvlNode(
       ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
       : undefined;
 
-  // Color priority: styling rule > explicit node.color > label palette
-  const color =
+  // Color priority: styling rule > explicit node.color > label palette.
+  // Normalize to hex — NVL doesn't render hsl(), whatever the source (#1157).
+  const rawColor =
     ruleColor ??
     node.color ??
     (node.labels?.length
       ? labelColorMap.get(node.labels[node.labels.length - 1])
       : undefined);
+  const color = rawColor !== undefined ? toNvlColor(rawColor) : undefined;
 
   // Size: base from node.value, scaled by nodeSizeScale
   const baseSize = node.value
