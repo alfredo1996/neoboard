@@ -65,7 +65,9 @@ test.describe("New chart types — creation flow", () => {
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
   });
 
-  test("should create a Treemap widget", async ({ page }) => {
+  test("does not offer disabled chart types in the picker (#1158)", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
@@ -75,54 +77,17 @@ test.describe("New chart types — creation flow", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
-    // Select Treemap chart type
+    // Open the chart-type picker
     await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Treemap" }).click();
 
-    // Type query
-    await typeInEditor(
-      dialog,
-      page,
-      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 10",
-    );
-
-    await expect(
-      dialog.getByRole("button", { name: "Add Widget" }),
-    ).toBeEnabled({
-      timeout: 10_000,
-    });
-    await dialog.getByRole("button", { name: "Add Widget" }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
-  });
-
-  test("should create a Radar widget", async ({ page }) => {
-    test.setTimeout(60_000);
-
-    await page.getByRole("button", { name: "Add Widget" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add Widget" });
-
-    // Select Neo4j connection first
-    await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option").first().click();
-
-    // Select Radar chart type
-    await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Radar" }).click();
-
-    // Type query
-    await typeInEditor(
-      dialog,
-      page,
-      "MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value, 100 AS max",
-    );
-
-    await expect(
-      dialog.getByRole("button", { name: "Add Widget" }),
-    ).toBeEnabled({
-      timeout: 10_000,
-    });
-    await dialog.getByRole("button", { name: "Add Widget" }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    // The four disabled types (circle-packing, treemap, choropleth, radar)
+    // must not appear as options — their implementations stay in the codebase
+    // but they're not offered for new widgets.
+    for (const rx of [/^radar$/i, /treemap/i, /choropleth/i, /circle pack/i]) {
+      await expect(page.getByRole("option", { name: rx })).toHaveCount(0);
+    }
+    // A kept type is still offered (sanity check the picker is populated).
+    await expect(page.getByRole("option", { name: "Sankey" })).toBeVisible();
   });
 
   test("should create a Sankey widget", async ({ page }) => {

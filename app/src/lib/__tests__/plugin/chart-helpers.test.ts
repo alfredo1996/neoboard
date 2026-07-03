@@ -162,6 +162,39 @@ describe("getCompatibleChartTypes", () => {
   it("returns empty array for invalid connector type", () => {
     expect(getCompatibleChartTypes("invalid")).toEqual([]);
   });
+
+  // #1158 — ship fewer, better charts: these are disabled in the picker but
+  // their plugins stay registered so existing dashboards keep rendering.
+  it("excludes disabled chart types from the pickable list", () => {
+    const neo4j = getCompatibleChartTypes("neo4j");
+    const pg = getCompatibleChartTypes("postgresql");
+    for (const disabled of [
+      "circle-packing",
+      "treemap",
+      "choropleth",
+      "radar",
+    ]) {
+      expect(neo4j, `neo4j should not offer ${disabled}`).not.toContain(
+        disabled,
+      );
+      expect(pg, `postgresql should not offer ${disabled}`).not.toContain(
+        disabled,
+      );
+    }
+  });
+
+  it("keeps disabled chart plugins registered so existing widgets still render", () => {
+    // getChartConfig hits the registry directly (the render path) — must
+    // still resolve so a saved radar/treemap/etc. widget renders.
+    for (const disabled of [
+      "circle-packing",
+      "treemap",
+      "choropleth",
+      "radar",
+    ]) {
+      expect(getChartConfig(disabled), disabled).toBeDefined();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
