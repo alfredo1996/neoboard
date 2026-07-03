@@ -35,8 +35,9 @@ export async function runDemo(opts?: {
     "Demo environment ready!",
     "",
     "Login credentials:",
-    "  Email:    admin@neoboard.local",
-    "  Password: admin123",
+    "  admin:    admin@neoboard.local / admin123",
+    "  creator:  creator@neoboard.local / creator123",
+    "  reader:   reader@neoboard.local / reader123 (read-only)",
   ]);
   const appPort = readProjectConfig().ports.app;
   success(`Open http://localhost:${appPort} to get started`);

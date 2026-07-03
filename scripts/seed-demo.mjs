@@ -218,6 +218,26 @@ async function main() {
       console.log(`    Using existing user ${adminId}`);
     }
 
+    // 1b. Demo personas for role-based testing (#921) — idempotent by email.
+    // Matches the admin/creator/reader taxonomy; reader is read-only.
+    const personas = [
+      ["Creator", "creator@neoboard.local", "creator123", "creator", true],
+      ["Reader", "reader@neoboard.local", "reader123", "reader", false],
+    ];
+    for (const [name, email, password, role, canWrite] of personas) {
+      const existing = await sql`
+        SELECT id FROM "user" WHERE email = ${email} LIMIT 1
+      `;
+      if (existing.length === 0) {
+        console.log(`    Creating ${role} user (${email} / ${password})...`);
+        const personaHash = bcrypt.hashSync(password, 10);
+        await sql`
+          INSERT INTO "user" (id, name, email, "passwordHash", role, "can_write", "createdAt")
+          VALUES (${uuid()}, ${name}, ${email}, ${personaHash}, ${role}, ${canWrite}, NOW())
+        `;
+      }
+    }
+
     // `--reset` short-circuits: delete showcase dashboards + drop demo schema.
     if (args.reset) {
       await resetDemo(sql, adminId);
