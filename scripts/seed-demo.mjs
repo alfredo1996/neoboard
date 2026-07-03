@@ -24,6 +24,7 @@ import {
 } from "./demo/ecommerce-data.mjs";
 import { SHOWCASES, parseOnlyFlag } from "./demo/showcases.mjs";
 import { importShowcase } from "./demo/import-dashboard.mjs";
+import { resolveSeedHosts } from "./lib/seed-hosts.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(resolve(__dirname, "../app/") + "/");
@@ -246,18 +247,17 @@ async function main() {
     }
 
     // 2. Create connectors (idempotent by name)
-    // Connection URIs are always seeded with `localhost`. Docker compose
-    // publishes Postgres/Neo4j ports to the host, so both the host dev
-    // server and any container-app reach them the same way. Previously this
-    // honored NEO4J_HOST/PG_HOST env vars; when the seed ran inside the
-    // docker-app container those env vars baked container hostnames
-    // (`neoboard-neo4j`, `neoboard-postgres`) into the encrypted config,
-    // which then broke any `npm run dev` on the host (#898).
+    // The host baked into each connection URI must match where the *app* runs:
+    // in Docker full-stack mode the app is inside the `neoboard-app` container,
+    // where `localhost` is the container itself (connections refused) and the
+    // DBs are reachable only via the compose service hostnames. The CLI's
+    // `buildSeedEnv` passes those as PG_HOST / NEO4J_HOST in Docker mode and
+    // leaves them unset in local mode (→ localhost). See ./lib/seed-hosts.mjs
+    // for why a single hardcoded host can't serve both modes, and #898 for the
+    // footgun this deliberately avoids.
     //
-    // To target non-localhost connections, edit them in the Connections UI
-    // after seeding.
-    const neo4jHost = "localhost";
-    const pgHost = "localhost";
+    // To target other hosts, edit the connections in the Connections UI.
+    const { pgHost, neo4jHost } = resolveSeedHosts(process.env);
     const neo4jConfig = {
       uri: `bolt://${neo4jHost}:7687`,
       username: "neo4j",
