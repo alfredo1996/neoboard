@@ -63,6 +63,17 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       ]);
     });
 
+    it("bar value labels use the theme foreground with no halo (#1154)", () => {
+      // When a widget turns labels on, they must read against the canvas in
+      // both themes — not ECharts' default dark fill + light stroke, which is
+      // unreadable in dark mode.
+      const bar = theme.bar as Record<string, Record<string, unknown>>;
+      const label = bar.label as Record<string, unknown>;
+      const fg = (theme.textStyle as Record<string, unknown>).color;
+      expect(label.color).toBe(fg);
+      expect(label.textBorderWidth).toBe(0);
+    });
+
     it("lines: 1.5px stroke, round caps, smooth by default", () => {
       const line = theme.line as Record<string, Record<string, unknown>>;
       expect((line.lineStyle as Record<string, unknown>).width).toBe(1.5);
