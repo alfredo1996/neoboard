@@ -94,7 +94,11 @@ function axisStyle(line: string, label: string, split: string) {
 function seriesDefaults(popoverBg: string, border: string, fg: string) {
   return {
     bar: {
-      label: { show: false },
+      // Hidden by default; when a widget enables value labels they must read
+      // against the canvas in both themes. ECharts' default label is a dark
+      // fill with a light stroke halo — invisible in dark mode (#1154). Force
+      // the theme foreground and drop the halo.
+      label: { show: false, color: fg, textBorderWidth: 0 },
       itemStyle: { borderRadius: [3, 3, 0, 0] },
     },
     line: {
