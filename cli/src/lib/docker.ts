@@ -98,16 +98,24 @@ export function isTcpReady(host: string, port: number): Promise<boolean> {
   });
 }
 
-export function isPgReady(): boolean {
+export async function isPgReady(): Promise<boolean> {
   const config = readProjectConfig();
   const mode = getMode();
   if (mode === "local") {
-    // In local mode, use pg_isready directly against localhost
-    return (
-      runOrNull(
-        `pg_isready -h localhost -p ${config.ports.postgres} -U ${config.postgres.user}`,
-      ) !== null
-    );
+    // Prefer the real protocol check when the client binary exists; fall
+    // back to a TCP probe when the host lacks pg_isready (#1091) — a
+    // missing binary must not read as "DB down" and dead-end the bootstrap.
+    // `command -v` is POSIX-only: on Windows (cmd/PowerShell) this probe
+    // itself fails, so the TCP fallback engages — the intended degradation
+    // there too, not an error path.
+    if (runOrNull("command -v pg_isready") !== null) {
+      return (
+        runOrNull(
+          `pg_isready -h localhost -p ${config.ports.postgres} -U ${config.postgres.user}`,
+        ) !== null
+      );
+    }
+    return isTcpReady("localhost", config.ports.postgres);
   }
   try {
     execInContainer(

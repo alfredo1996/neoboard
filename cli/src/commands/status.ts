@@ -48,7 +48,7 @@ export async function runStatus(): Promise<void> {
   );
   info("");
 
-  const pgHealthy = isPgReady();
+  const pgHealthy = await isPgReady();
   const neo4jHealthy = isNeo4jReady();
   const appHealth = getAppHealth(config.ports.app);
 
