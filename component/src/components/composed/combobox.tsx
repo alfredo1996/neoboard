@@ -50,6 +50,22 @@ function Combobox({
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
+  // Radix Dialog's scroll-lock (react-remove-scroll) preventDefaults wheel
+  // events over this portaled popover, so the option list can't be wheel-
+  // scrolled when the Combobox is inside a modal (#1160). Attach a non-passive
+  // wheel listener via a ref callback (runs the moment the portaled list
+  // mounts) that drives the scroll manually; preventDefault avoids double-
+  // scrolling outside a dialog where native scroll still works.
+  const listRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const onWheel = (e: WheelEvent) => {
+      if (node.scrollHeight <= node.clientHeight) return;
+      node.scrollTop += e.deltaY;
+      e.preventDefault();
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+  }, []);
+
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
@@ -81,7 +97,7 @@ function Combobox({
       >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList ref={listRef}>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (

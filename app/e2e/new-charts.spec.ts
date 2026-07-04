@@ -90,6 +90,56 @@ test.describe("New chart types — creation flow", () => {
     await expect(page.getByRole("option", { name: "Sankey" })).toBeVisible();
   });
 
+  test("chart-type dropdown scrolls with the mouse wheel inside the modal (#1160)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    // Open the chart-type picker and wait for the options to render.
+    await dialog.getByRole("combobox").nth(1).click();
+    await expect(page.getByRole("option", { name: "Sankey" })).toBeVisible();
+    const box = await page.evaluate(() => {
+      // The scroll container is the [cmdk-list] that actually contains the
+      // options (a bare [cmdk-list] querySelector can match an empty one).
+      const opts = Array.from(
+        document.querySelectorAll('[role="option"]'),
+      ) as HTMLElement[];
+      const sankey = opts.find((o) => /sankey/i.test(o.textContent || ""));
+      const l = sankey?.closest("[cmdk-list]") as HTMLElement | null;
+      if (!l) return null;
+      l.scrollTop = 0;
+      const r = l.getBoundingClientRect();
+      return {
+        x: Math.round(r.x + r.width / 2),
+        y: Math.round(r.y + r.height / 2),
+        scrollH: l.scrollHeight,
+        clientH: l.clientHeight,
+        canScroll: l.scrollHeight > l.clientHeight + 2,
+      };
+    });
+    expect(box?.canScroll, `list dims: ${JSON.stringify(box)}`).toBe(true);
+
+    // Wheel over the list — Radix Dialog's scroll-lock used to swallow this.
+    await page.mouse.move(box!.x, box!.y);
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(250);
+
+    const after = await page.evaluate(() => {
+      const opts = Array.from(
+        document.querySelectorAll('[role="option"]'),
+      ) as HTMLElement[];
+      const sankey = opts.find((o) => /sankey/i.test(o.textContent || ""));
+      const l = sankey?.closest("[cmdk-list]") as HTMLElement | null;
+      return l?.scrollTop ?? -1;
+    });
+    expect(after).toBeGreaterThan(40);
+  });
+
   test("should create a Sankey widget", async ({ page }) => {
     test.setTimeout(60_000);
 
