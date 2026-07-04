@@ -251,9 +251,11 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Confirm Password"), "different456");
     await user.click(screen.getByText("Create account"));
 
-    await waitFor(() => {
-      expect(screen.getByText("Passwords do not match")).toBeDefined();
-    });
+    // findByRole("alert") with a generous timeout: the error renders inside
+    // an Alert, and under CI parallel load the default 1s waitFor poll can
+    // exhaust before React flushes the submit state (#1168 residual race).
+    const alert = await screen.findByRole("alert", {}, { timeout: 10_000 });
+    expect(alert.textContent).toContain("Passwords do not match");
   });
 
   it("shows error from signup server action", async () => {
