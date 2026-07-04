@@ -22,6 +22,7 @@ import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { ShortcutHint } from "@/components/shortcut-hint";
 import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
@@ -496,6 +497,7 @@ export default function DashboardViewerPage({
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
+                <ShortcutHint combo="Cmd+E" />
               </LoadingButton>
             </>
           )}

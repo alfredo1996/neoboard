@@ -19,6 +19,7 @@ import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { ShortcutHint } from "@/components/shortcut-hint";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { DashboardContainer } from "@/components/dashboard-container";
@@ -443,6 +444,7 @@ export default function DashboardEditorPage({
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Widget
+                <ShortcutHint combo="Cmd+Shift+N" />
               </Button>
               <ToolbarSeparator />
               <LoadingButton
@@ -454,6 +456,7 @@ export default function DashboardEditorPage({
               >
                 <Save className="mr-2 h-4 w-4" />
                 Save
+                <ShortcutHint combo="Cmd+S" />
               </LoadingButton>
             </>
           )}
