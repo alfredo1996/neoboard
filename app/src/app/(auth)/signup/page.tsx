@@ -25,6 +25,10 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [bootstrapRequired, setBootstrapRequired] = useState(false);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  // Don't render any view until the status fetch settles. Otherwise the form
+  // flashes with default state and then swaps once the fetch resolves — a UX
+  // flash, and the race that made these tests flaky (they'd interact mid-swap).
+  const [statusChecked, setStatusChecked] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/bootstrap-status")
@@ -35,7 +39,8 @@ export default function SignupPage() {
         setBootstrapRequired(payload?.bootstrapRequired === true);
         setRegistrationEnabled(payload?.registrationEnabled !== false);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setStatusChecked(true));
   }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -73,6 +78,19 @@ export default function SignupPage() {
     } else {
       router.push("/");
     }
+  }
+
+  // Hold the initial paint until we know the real registration status.
+  if (!statusChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+          role="status"
+          aria-label="Loading"
+        />
+      </div>
+    );
   }
 
   if (!registrationEnabled && !bootstrapRequired) {
