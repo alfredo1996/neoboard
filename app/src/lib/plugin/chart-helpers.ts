@@ -380,3 +380,25 @@ export function supportsColumnMapping(type: string): boolean {
 export function getAllChartTypes(): string[] {
   return pluginRegistry.getTypes();
 }
+
+/**
+ * The chart types to OFFER in the widget picker (#1158).
+ *
+ * - With a connector: its compatible types (already excludes disabled types).
+ * - Without a connector: all registered types minus disabled ones.
+ * - When editing a widget whose `currentType` is disabled (a legacy
+ *   radar/treemap/etc.), that type is appended so the selector still shows it
+ *   rather than a blank value.
+ */
+export function getSelectableChartTypes(
+  connectorType?: string,
+  currentType?: string,
+): string[] {
+  const base = connectorType
+    ? getCompatibleChartTypes(connectorType)
+    : getAllChartTypes().filter((t) => !DISABLED_CHART_TYPES.has(t));
+  if (currentType && !base.includes(currentType)) {
+    return [...base, currentType];
+  }
+  return base;
+}

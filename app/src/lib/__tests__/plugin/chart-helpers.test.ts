@@ -66,6 +66,7 @@ import {
   chartSupportsStyling,
   getStylingTargets,
   getCompatibleChartTypes,
+  getSelectableChartTypes,
   chartRequiresQuery,
   getChartDefaults,
   supportsColumnMapping,
@@ -257,5 +258,38 @@ describe("getAllChartTypes", () => {
     for (const t of CHART_TYPES) {
       expect(types).toContain(t);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSelectableChartTypes (#1158) — the widget picker's list
+// ---------------------------------------------------------------------------
+describe("getSelectableChartTypes", () => {
+  const DISABLED = ["circle-packing", "treemap", "choropleth", "radar"];
+
+  it("excludes disabled types for a connector", () => {
+    const types = getSelectableChartTypes("neo4j");
+    expect(types).toContain("bar");
+    for (const d of DISABLED) expect(types).not.toContain(d);
+  });
+
+  it("excludes disabled types for the no-connector fallback", () => {
+    const types = getSelectableChartTypes();
+    expect(types).toContain("bar");
+    for (const d of DISABLED) expect(types).not.toContain(d);
+  });
+
+  it("keeps the current type visible when it is disabled (editing a legacy widget)", () => {
+    const types = getSelectableChartTypes("neo4j", "radar");
+    expect(types).toContain("radar");
+  });
+
+  it("does not duplicate a current type that is already offered", () => {
+    const types = getSelectableChartTypes("neo4j", "bar");
+    expect(types.filter((t) => t === "bar")).toHaveLength(1);
+  });
+
+  it("returns an empty list for an invalid connector (no current type)", () => {
+    expect(getSelectableChartTypes("nope")).toEqual([]);
   });
 });
