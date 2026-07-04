@@ -329,11 +329,27 @@ describe("SignupPage", () => {
 
   // ----- Default state -----
 
-  it("renders NeoBoard title", () => {
-    global.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
+  it("shows a loading state until the status fetch settles, then the title", async () => {
+    // Pending fetch → the page holds a loading spinner instead of flashing the
+    // form with default state (#1168).
+    let resolve!: (v: unknown) => void;
+    global.fetch = vi.fn().mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
 
     render(<SignupPage />);
+    expect(screen.getByRole("status", { name: "Loading" })).toBeDefined();
+    expect(screen.queryByText("NeoBoard")).toBeNull();
 
-    expect(screen.getByText("NeoBoard")).toBeDefined();
+    // Resolve the status → the page renders (NeoBoard title present).
+    resolve({
+      json: () =>
+        Promise.resolve({
+          data: { bootstrapRequired: false, registrationEnabled: true },
+        }),
+    });
+    expect(await screen.findByText("NeoBoard")).toBeDefined();
   });
 });
