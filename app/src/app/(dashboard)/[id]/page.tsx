@@ -323,7 +323,9 @@ export default function DashboardViewerPage({
       handler: () => {
         if (layout) {
           const idx = Math.min(activePageIndex, layout.pages.length - 1);
-          router.push("/" + id + "/edit?page=" + idx);
+          // Preserve scroll position when entering edit mode (#1163) — view and
+          // edit are separate routes, so the default nav would jump to the top.
+          router.push("/" + id + "/edit?page=" + idx, { scroll: false });
         }
       },
       disabled: !canEdit || !layout,
@@ -485,7 +487,10 @@ export default function DashboardViewerPage({
                 title="Edit dashboard (Cmd+E)"
                 onClick={() =>
                   startTransition(() =>
-                    router.push(`/${id}/edit?page=${safeIndex}`),
+                    // Keep scroll position when entering edit mode (#1163).
+                    router.push(`/${id}/edit?page=${safeIndex}`, {
+                      scroll: false,
+                    }),
                   )
                 }
               >
