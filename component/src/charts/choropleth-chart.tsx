@@ -11,7 +11,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart } from "./base-chart";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption, isDark } from "./chart-utils";
+import { buildEmptyDataOption, fillLabelStyle, isDark } from "./chart-utils";
 
 echarts.use([
   EMapChart,
@@ -165,12 +165,18 @@ function ChoroplethChart({
           label: {
             show: showLabels,
             fontSize: 9,
+            // Dark mode: labels sit on near-black no-data regions and dark
+            // ramp fills, where ECharts' default dark text vanishes — use
+            // white with a dark shadow (treemap pattern, #1154). Light mode
+            // keeps the default dark text, which reads on the pale map.
+            ...(isDark() ? fillLabelStyle : {}),
           },
           emphasis: {
             label: {
               show: true,
               fontSize: 13,
               fontWeight: "bold",
+              ...(isDark() ? fillLabelStyle : {}),
             },
             // Keep the region's data color on hover (don't overwrite it with a
             // off-brand gold) — the border + shadow are the hover affordance.

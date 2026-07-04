@@ -108,6 +108,9 @@ function seriesDefaults(popoverBg: string, border: string, fg: string) {
     },
     pie: {
       itemStyle: { borderWidth: 2, borderColor: "transparent" },
+      // Slice labels: same dark-fill + light-halo ECharts default as bar —
+      // unreadable on the dark canvas (#1154). Theme foreground, no halo.
+      label: { color: fg, textBorderWidth: 0 },
     },
     tooltip: {
       backgroundColor: popoverBg,
@@ -150,6 +153,10 @@ export function registerNeoboardThemes(
       detail: { color: "#14161a" },
       title: { color: "#666d7a" },
     },
+    // Radar axisName and visualMap text don't inherit the global textStyle —
+    // their dim ECharts defaults are hard to read on the dark canvas (#1154).
+    radar: { axisName: { color: "#666d7a" } },
+    visualMap: { textStyle: { color: "#666d7a" } },
     ...seriesDefaults("#ffffff", "#e5e7eb", "#14161a"),
   });
 
@@ -170,6 +177,9 @@ export function registerNeoboardThemes(
       detail: { color: "#f3f4f6" },
       title: { color: "#959ba7" },
     },
+    // See the light theme note — radar/visualMap text needs explicit color.
+    radar: { axisName: { color: "#959ba7" } },
+    visualMap: { textStyle: { color: "#959ba7" } },
     ...seriesDefaults("#181b20", "#262931", "#f3f4f6"),
   });
 }
