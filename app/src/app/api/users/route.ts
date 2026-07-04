@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -48,7 +48,10 @@ export async function GET(request: Request) {
       .limit(limit)
       // Newest first — a just-created user must be visible on the first
       // page (the admin's create→verify workflow, and E2E, depend on it).
-      .orderBy(desc(users.createdAt))
+      // The id tiebreaker makes pagination deterministic: seeded users share
+      // a createdAt, and without it rows at a page boundary shuffle between
+      // requests — rows can appear on no page or two pages (#1004).
+      .orderBy(desc(users.createdAt), asc(users.id))
       .offset(offset);
 
     return apiList(rows, { total: Number(total), limit, offset });

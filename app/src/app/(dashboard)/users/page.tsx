@@ -568,6 +568,10 @@ export default function UsersPage() {
               columns={columns}
               data={users}
               enableSorting
+              // Per-column filters: with many users the list spans pages
+              // (client page size 20, newest first) — filtering is how an
+              // admin (and the E2E suite, #1004) pins down a specific row.
+              enableColumnFilters
               pageSize={20}
             />
           )}

@@ -1,5 +1,32 @@
 import { test, expect, ALICE, CAROL } from "./fixtures";
 
+/**
+ * Wait for the users table to have loaded at least one data row.
+ *
+ * Deterministic replacement for the old "alice@example.com visible" gate:
+ * the list is newest-first with a 20-row page, so under full-run concurrency
+ * (other specs create users) seeded alice can legitimately sit on page 2 —
+ * her absence from page 1 is not a load failure (#1004).
+ */
+async function waitForUsersTable(page: import("@playwright/test").Page) {
+  await expect(page.getByRole("row").nth(1)).toBeVisible({ timeout: 10_000 });
+}
+
+/**
+ * Narrow the users table to a single user via the Email column filter, and
+ * return their row. Works no matter which page the row would otherwise be on.
+ */
+async function filterToUser(
+  page: import("@playwright/test").Page,
+  email: string,
+) {
+  await waitForUsersTable(page);
+  await page.getByLabel("Filter Email").fill(email);
+  const row = page.getByRole("row").filter({ hasText: email });
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  return row;
+}
+
 test.describe("User management", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
@@ -10,15 +37,14 @@ test.describe("User management", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Users" }),
     ).toBeVisible();
-    // Should show at least the seeded users
-    await expect(page.getByText("alice@example.com")).toBeVisible();
+    // Should show at least the seeded users (filter — alice may be on a
+    // later page when concurrent specs have created many newer users, #1004)
+    await filterToUser(page, "alice@example.com");
   });
 
   test("should create a new user", async ({ page }) => {
     // Wait for user data to load (avoids duplicate "Create User" buttons from EmptyState)
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10000,
-    });
+    await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = Date.now();
@@ -32,9 +58,7 @@ test.describe("User management", () => {
 
   test("should change user role via dropdown", async ({ page }) => {
     // Wait for user data to load
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10000,
-    });
+    await waitForUsersTable(page);
     // Create a fresh user as "creator"
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
@@ -65,9 +89,7 @@ test.describe("User management", () => {
 
   test("should delete a user with confirmation", async ({ page }) => {
     // Wait for user data to load
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10000,
-    });
+    await waitForUsersTable(page);
     // Create a user to delete
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
@@ -98,9 +120,7 @@ test.describe("Force password change", () => {
   test("should create user with require password change checkbox", async ({
     page,
   }) => {
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10_000,
-    });
+    await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = Date.now();
@@ -119,9 +139,7 @@ test.describe("Force password change", () => {
     page,
   }) => {
     // Create a user first
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10_000,
-    });
+    await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = Date.now();
@@ -160,9 +178,7 @@ test.describe("can_write toggle", () => {
     label: string,
   ) {
     const email = `${label}-${Date.now()}@example.com`;
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10_000,
-    });
+    await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Test Creator");
@@ -216,21 +232,14 @@ test.describe("can_write toggle", () => {
   });
 
   test("Write switch is disabled for the admin's own row", async ({ page }) => {
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10_000,
-    });
-    const aliceRow = page
-      .getByRole("row")
-      .filter({ hasText: "alice@example.com" });
+    const aliceRow = await filterToUser(page, "alice@example.com");
     // Own row: switch is wrapped in a disabled span (cursor-not-allowed)
     await expect(aliceRow.getByRole("switch")).toBeDisabled();
   });
 
   test("Write switch is disabled for reader-role users", async ({ page }) => {
     const email = `reader-nowrite-${Date.now()}@example.com`;
-    await expect(page.getByText("alice@example.com")).toBeVisible({
-      timeout: 10_000,
-    });
+    await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Test Reader");
