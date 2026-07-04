@@ -276,6 +276,7 @@ function toNvlRelationship(
   edge: GraphEdge,
   index: number,
   showRelationshipLabels: boolean,
+  dark: boolean,
 ): NvlRelationship {
   return {
     id: `rel-${edge.source}-${edge.target}-${index}`,
@@ -283,7 +284,10 @@ function toNvlRelationship(
     to: edge.target,
     caption: showRelationshipLabels ? edge.label : undefined,
     type: edge.label,
-    color: edge.color,
+    // NVL's default relationship grey nearly vanishes on the dark canvas
+    // (#1154) — give uncolored edges an explicit mid-grey in dark mode.
+    // Normalize to hex either way; NVL doesn't render hsl() (#1157).
+    color: edge.color ? toNvlColor(edge.color) : dark ? "#6a7180" : undefined,
   };
 }
 
@@ -422,8 +426,11 @@ function GraphChartInner({
   );
 
   const nvlRels = useMemo(
-    () => edges.map((e, i) => toNvlRelationship(e, i, showRelationshipLabels)),
-    [edges, showRelationshipLabels],
+    () =>
+      edges.map((e, i) =>
+        toNvlRelationship(e, i, showRelationshipLabels, dark),
+      ),
+    [edges, showRelationshipLabels, dark],
   );
 
   const fitGraph = useCallback(() => {

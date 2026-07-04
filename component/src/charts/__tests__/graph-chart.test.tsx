@@ -104,6 +104,31 @@ describe("GraphChart", () => {
     expect(nvlRels[0].type).toBe("knows");
   });
 
+  it("gives uncolored edges an explicit mid-grey in dark mode (#1154)", () => {
+    document.documentElement.classList.add("dark");
+    try {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      const nvlRels = capturedProps.rels as NvlRelationship[];
+      // NVL's default relationship grey nearly vanishes on the dark canvas.
+      expect(nvlRels[0].color).toBe("#6a7180");
+    } finally {
+      document.documentElement.classList.remove("dark");
+    }
+  });
+
+  it("normalizes explicit edge colors to hex for NVL (#1157)", () => {
+    render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={[
+          { source: "1", target: "2", label: "x", color: "hsl(0, 100%, 50%)" },
+        ]}
+      />,
+    );
+    const nvlRels = capturedProps.rels as NvlRelationship[];
+    expect(nvlRels[0].color).toBe("#ff0000");
+  });
+
   // --- Layout mapping ---
 
   it("uses forceDirected layout by default", () => {
