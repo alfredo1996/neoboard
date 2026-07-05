@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Play, Loader2, RotateCcw, Clock } from "lucide-react";
+import { Play, RotateCcw, Clock } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -503,7 +504,7 @@ function QueryEditor({
             title="Run query (Ctrl+Enter / ⌘+Enter)"
           >
             {running ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Spinner size="sm" className="h-3 w-3" aria-hidden="true" />
             ) : (
               <Play className="h-3 w-3" />
             )}
