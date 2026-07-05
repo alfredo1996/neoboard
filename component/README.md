@@ -1,6 +1,8 @@
 # NeoBoard Component Library
 
-A comprehensive React component library built with shadcn/ui, TailwindCSS, and ECharts for dashboard applications.
+`@neoboard/components` — the React UI library for NeoBoard, built on shadcn/ui,
+Radix, Tailwind CSS, and ECharts. **No business logic, no API calls, no stores,
+no imports from `app/`** (enforced by hooks).
 
 ## Project Structure
 
@@ -8,83 +10,66 @@ A comprehensive React component library built with shadcn/ui, TailwindCSS, and E
 component/
 ├── src/
 │   ├── components/
-│   │   ├── ui/              # shadcn base components
-│   │   └── composed/        # Custom composed components
-│   ├── charts/              # ECharts-based visualization components
-│   ├── hooks/               # Custom React hooks
-│   │   ├── useContainerSize.ts
-│   │   └── useWidgetSize.ts
-│   ├── lib/
-│   │   └── utils.ts         # Utility functions (cn, etc)
-│   ├── utils/               # Additional utilities
-│   ├── index.css            # Tailwind CSS with custom theme
-│   └── index.ts             # Library entry point
-├── components.json          # shadcn configuration
-├── tailwind.config.js       # Tailwind CSS config
-├── postcss.config.js        # PostCSS config
-├── vite.config.ts           # Vite build config
-├── tsconfig.json            # TypeScript config
-└── package.json             # Dependencies and scripts
+│   │   ├── ui/              # Tier 1 — primitives (see tier rule below)
+│   │   └── composed/        # Tier 2 — orchestrations of 2+ primitives
+│   ├── charts/              # ECharts / NVL / Leaflet visualizations
+│   ├── hooks/               # UI-only hooks (useContainerSize, …)
+│   └── lib/                 # cn(), design tokens, pure UI utilities
+├── stories/                 # Storybook — one story file per public component
+├── design-tokens.css        # Graphite & Citrine theme tokens (light + dark)
+└── tailwind-preset.cjs      # Shared Tailwind theme (keyframes, durations)
 ```
 
-## Setup Status
+## The `ui` / `composed` tier rule
 
-✅ **Configured**
-- TypeScript (5.9.3)
-- Vite (7.2.4)
-- React (19.2.0)
-- TailwindCSS (3.4.1)
-- shadcn/ui MCP integration
-- Directory structure
-- Core utility hooks
+> **`ui/` holds a single Radix primitive or leaf element. `composed/`
+> orchestrates two or more primitives (or adds stateful behavior).**
 
-⏳ **Next Steps**
-1. Install dependencies: `npm install` (from component directory)
-2. Initialize shadcn: `npx shadcn-ui@latest init`
-3. Add Phase 1-5 base components
-4. Add Phase 6-13 composed components and features
-5. Set up Storybook for component documentation
-6. Add Vitest for component testing
+Practical test: if the file imports another component from `ui/` to build its
+UI, it belongs in `composed/`.
+
+Documented exceptions — these look primitive from the outside but are
+correctly placed in `composed/` under the rule:
+
+| Component         | Why it's composed                                       |
+| ----------------- | ------------------------------------------------------- |
+| `Combobox`        | Orchestrates `Popover` + `Command` (+ `Button` trigger) |
+| `MultiSelect`     | Same `Popover` + `Command` pair with multi-value state  |
+| `DateRangePicker` | Orchestrates `Popover` + `Calendar` with range state    |
+
+And the inverse: `ui/toggle-group.tsx` stays in `ui/` even though it renders
+`Toggle` styles — it wraps a single Radix primitive (`ToggleGroupPrimitive`)
+and shares variants via context, not by composing other components.
+
+## Conventions
+
+Every public component ships with:
+
+1. the component (`src/components/{ui,composed}/<name>.tsx`) with a JSDoc
+   block — one-line purpose + when to use / when not to (rendered by
+   Storybook autodocs and IDE hovers),
+2. a Storybook story (`stories/{ui,composed}/<name>.stories.tsx`) covering
+   each declared variant,
+3. a jsdom test (`src/components/*/__tests__/<name>.test.tsx`),
+4. an export from the package root (`@neoboard/components`).
+
+Internal satellites (e.g. the `data-grid-*` subcomponents, `sidebar-item`,
+`field-error`, the `Toaster` mount point) are demonstrated inside their
+parent's story rather than getting standalone stories.
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Start dev server
-npm run dev
-
-# Build library
-npm run build
-
-# Start Storybook
-npm run storybook
-
-# Run tests
-npm run test
+npm install          # from component/
+npm run storybook    # component gallery (port 6006)
+npm run test         # Vitest + React Testing Library
+npm run build        # Vite ESM/UMD bundles
 ```
 
-## Component Phases
+## Styling
 
-- **Phase 1-5**: shadcn Base Components (33 components)
-- **Phase 6**: Core Composed Components (6 components)
-- **Phase 7**: Widget Cards (5 components)
-- **Phase 8**: Dashboard Layout (4 components)
-- **Phase 9**: Filters (4 components)
-- **Phase 10**: Data Connection (3 components)
-- **Phase 11**: Data Grid (4 components)
-- **Phase 12**: Chart Config (3 components)
-- **Phase 13**: Utility Components (5 components)
-- **Charts**: Core and Chart Types (6 components)
-
-Total: ~75 components
-
-## Key Tools
-
-- **MCP Server**: shadcn for component installation
-- **Build**: Vite with ESM/UMD outputs
-- **Testing**: Vitest + React Testing Library
-- **Documentation**: Storybook
-- **Styling**: TailwindCSS + class-variance-authority
-- **Visualization**: ECharts + echarts-for-react
+- Tokens in `design-tokens.css` — Graphite surfaces + the Citrine amber
+  accent (`--ring` / `--accent`), light and dark.
+- `class-variance-authority` for variants; `tailwind-merge` via `cn()`.
+- Charts consume the Citrine palettes from `src/charts/theme.ts` — never
+  hardcode chart colors.

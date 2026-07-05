@@ -41,6 +41,14 @@ export interface BadgeProps
     React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
+/**
+ * Small non-interactive status pill; variants: default, tonal, success,
+ * warning, secondary, destructive, outline.
+ * When to use: labeling state or category — connection health (success/
+ * warning), connector labels, "Enterprise" feature tags, row counts.
+ * When not to: anything clickable — use Button (size="sm") or Toggle for
+ * pressed state; long messages — use Alert.
+ */
 function Badge({ className, variant, ...props }: BadgeProps) {
   return (
     <div className={cn(badgeVariants({ variant }), className)} {...props} />

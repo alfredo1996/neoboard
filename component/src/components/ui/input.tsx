@@ -16,6 +16,11 @@ export interface InputProps extends Omit<
   size?: ControlSize;
 }
 
+/**
+ * Single-line text input on the shared control size scale (`size`: sm/default/lg) with aria-invalid styling.
+ * When to use: short values — connection host, port, dashboard title, parameter defaults.
+ * When not to: use Textarea for multi-line text, QueryEditor for Cypher/SQL, Select or Combobox for picking from options.
+ */
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, size = "default", ...props }, ref) => {
     return (

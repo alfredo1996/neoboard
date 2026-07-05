@@ -29,6 +29,14 @@ const alertVariants = cva(
   },
 );
 
+/**
+ * Static inline callout (role="alert") with AlertTitle/AlertDescription;
+ * variants: default, secondary, tonal, destructive, success, warning, outline.
+ * When to use: persistent contextual messaging — e.g. a query-failed error
+ * above a widget, or the lost-ENCRYPTION_KEY warning on the connections page.
+ * When not to: transient feedback after an action — use Toast; blocking
+ * confirmations — use AlertDialog.
+ */
 const Alert = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>

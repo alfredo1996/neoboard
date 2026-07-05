@@ -6,6 +6,11 @@ import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Click-triggered action menu with items, checkboxes, radio groups, and nested submenus.
+ * When to use: overflow actions behind a visible trigger — e.g. the "Dashboard options" button (rename, share, delete).
+ * When not to: use ContextMenu for right-click actions, Select for form value selection, Command for searchable lists.
+ */
 const DropdownMenu = DropdownMenuPrimitive.Root;
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;

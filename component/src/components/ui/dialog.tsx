@@ -28,6 +28,11 @@ const dialogContentVariants = cva(
   },
 );
 
+/**
+ * Modal dialog centered over an overlay; DialogContent sizes sm–2xl/full and caps height to the viewport.
+ * When to use: focused create/edit tasks — the widget editor, connection setup, dashboard settings.
+ * When not to: use AlertDialog for destructive confirmations, Sheet for side panels, Popover for lightweight anchored content.
+ */
 const Dialog = DialogPrimitive.Root;
 
 const DialogTrigger = DialogPrimitive.Trigger;

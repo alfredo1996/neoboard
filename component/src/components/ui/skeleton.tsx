@@ -1,5 +1,10 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * Shape-mimicking loading placeholder with a shimmer sweep (static block under prefers-reduced-motion).
+ * When to use: reserving layout while widget data loads — chart areas, table rows, dashboard cards — to avoid layout shift.
+ * When not to: for indeterminate inline waits use Spinner; for blocking an already-rendered widget during refresh use LoadingOverlay.
+ */
 function Skeleton({
   className,
   ...props

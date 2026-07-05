@@ -11,6 +11,14 @@ import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 
+/**
+ * Themed react-day-picker month grid supporting single-date and range
+ * selection, dropdown caption layouts, and week numbers.
+ * When to use: date and date-range picking — e.g. a dashboard date-range
+ * parameter widget filtering queries; usually inside a Popover.
+ * When not to: freeform date entry where typing is faster — use Input with
+ * validation; picking from a short fixed list of periods — use Select.
+ */
 function Calendar({
   className,
   classNames,

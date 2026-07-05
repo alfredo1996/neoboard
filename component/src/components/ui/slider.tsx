@@ -3,6 +3,11 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Track-and-thumb slider that renders one thumb per value entry, so array values give a range slider automatically.
+ * When to use: bounded numeric dashboard parameters — a [min, max] number-range filter, chart opacity, refresh interval.
+ * When not to: when the user needs to type an exact or unbounded value, use Input type="number"; for on/off use Switch.
+ */
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>

@@ -5,6 +5,11 @@ import * as SwitchPrimitives from "@radix-ui/react-switch";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * On/off toggle that applies its effect immediately, styled on the Radix Switch primitive.
+ * When to use: instant-effect settings — enabling auto-refresh on a dashboard, toggling a widget's legend or click actions.
+ * When not to: for choices submitted with a form use Checkbox; for picking one of several options use RadioGroup or Select.
+ */
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>

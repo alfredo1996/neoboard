@@ -58,6 +58,14 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
+/**
+ * The action trigger; variants: default, tonal, destructive, success, warning,
+ * outline, secondary, ghost, link; sizes: default, sm, lg, icon; asChild slots.
+ * When to use: any one-shot action — Run Query, Save Dashboard, Add Widget;
+ * `tonal` for warm secondary actions, `destructive` for deletes.
+ * When not to: persistent on/off state — use Toggle or Switch; pure
+ * navigation styled as text — use BreadcrumbLink or variant="link" sparingly.
+ */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";

@@ -4,6 +4,11 @@ import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Right-click menu with items, checkboxes, radio groups, and nested submenus.
+ * When to use: contextual actions on a specific element — e.g. right-clicking a widget card to duplicate, edit, or delete it.
+ * When not to: for a menu opened from a visible button, use DropdownMenu; for picking a form value, use Select.
+ */
 const ContextMenu = ContextMenuPrimitive.Root;
 
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger;

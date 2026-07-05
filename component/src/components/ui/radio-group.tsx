@@ -4,6 +4,11 @@ import { Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Single-choice group of RadioGroupItem circles laid out in a grid.
+ * When to use: 2–5 mutually exclusive, always-visible options — e.g. choosing a widget's data source type or a chart orientation.
+ * When not to: use Select for longer option lists, Switch/Checkbox for on-off toggles, Tabs for switching visible content.
+ */
 const RadioGroup = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>

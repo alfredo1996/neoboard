@@ -38,6 +38,11 @@ const toastVariants = cva(
   },
 );
 
+/**
+ * Transient swipe-dismissable notification (default and destructive variants), rendered into the ToastViewport by Toaster.
+ * When to use: async operation feedback — "Dashboard saved", "Connection test failed" — fired via the useToast hook.
+ * When not to: for persistent inline messages that must stay visible in context (query errors in the widget editor) use Alert.
+ */
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &

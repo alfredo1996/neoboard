@@ -6,6 +6,14 @@ import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
+/**
+ * Filterable command palette (cmdk) — compose with CommandInput, CommandList,
+ * CommandGroup, CommandItem; CommandDialog wraps it in a Dialog.
+ * When to use: type-to-filter over many options — e.g. searching connections
+ * or dashboards in a combobox (Command inside a Popover).
+ * When not to: short single-choice form fields — use Select; static action
+ * menus on a trigger — use DropdownMenu or ContextMenu.
+ */
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive>
