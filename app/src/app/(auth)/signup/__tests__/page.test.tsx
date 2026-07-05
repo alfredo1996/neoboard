@@ -108,6 +108,9 @@ vi.mock("@neoboard/components", () => ({
   PasswordInput: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input type="password" {...props} />
   ),
+  Spinner: ({ label = "Loading" }: { label?: string; size?: string }) => (
+    <div role="status" aria-label={label} />
+  ),
 }));
 
 /* ---------- import under test ---------- */

@@ -127,11 +127,18 @@ module.exports = {
         shimmer: {
           "100%": { transform: "translateX(100%)" },
         },
+        // Indeterminate Progress (#1129): a segment sliding across the track.
+        "progress-indeterminate": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s var(--ease-standard)",
         "accordion-up": "accordion-up 0.2s var(--ease-standard)",
         shimmer: "shimmer 1.6s var(--ease-standard) infinite",
+        "progress-indeterminate":
+          "progress-indeterminate 1.4s var(--ease-standard) infinite",
       },
     },
   },

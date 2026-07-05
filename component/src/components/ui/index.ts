@@ -16,6 +16,10 @@ export { Badge, badgeVariants } from "./badge";
 export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
+export { Spinner, spinnerVariants } from "./spinner";
+export { Progress } from "./progress";
+export { Toggle, toggleVariants } from "./toggle";
+export { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 
 // Phase 2: Form Components
 export {

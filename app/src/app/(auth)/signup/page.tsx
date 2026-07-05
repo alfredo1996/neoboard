@@ -17,7 +17,7 @@ import {
   Alert,
   AlertDescription,
 } from "@neoboard/components";
-import { LoadingButton, PasswordInput } from "@neoboard/components";
+import { LoadingButton, PasswordInput, Spinner } from "@neoboard/components";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -84,11 +84,7 @@ export default function SignupPage() {
   if (!statusChecked) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
-          role="status"
-          aria-label="Loading"
-        />
+        <Spinner size="lg" />
       </div>
     );
   }
