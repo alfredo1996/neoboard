@@ -22,6 +22,11 @@ module.exports = {
   // NOTE: the setup/teardown helpers live in __tests__/utils/ — match the
   // full directory, never a bare substring: "utils" silently skipped
   // __tests__/postgresql/postgres-utils.ts for months (#974).
+  // __tests__/quality/ suites boot their OWN testcontainers (pool-size
+  // experiments, restart recovery, global schema introspection) — running
+  // them alongside the parallel shared-container suites starves those
+  // suites' Bolt/PG connections. The npm test script therefore runs them
+  // as a second, serial pass (see package.json).
   testPathIgnorePatterns: ["/__tests__/utils/", "/dist/"],
   globalSetup: "./__tests__/utils/setup.ts",
   globalTeardown: "./__tests__/utils/teardown.ts",
