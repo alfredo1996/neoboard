@@ -241,7 +241,7 @@ describe("SignupPage", () => {
   it("shows error when passwords do not match", async () => {
     mockFetchBootstrapStatus(false, true);
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -259,7 +259,7 @@ describe("SignupPage", () => {
     // exhaust before React flushes the submit state (#1168 residual race).
     const alert = await screen.findByRole("alert", {}, { timeout: 10_000 });
     expect(alert.textContent).toContain("Passwords do not match");
-  });
+  }, 15_000);
 
   it("shows error from signup server action", async () => {
     mockFetchBootstrapStatus(false, true);
@@ -268,7 +268,7 @@ describe("SignupPage", () => {
       error: "Email already registered",
     });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -284,14 +284,14 @@ describe("SignupPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Email already registered")).toBeDefined();
     });
-  });
+  }, 15_000);
 
   it("redirects to / after successful signup and auto-login", async () => {
     mockFetchBootstrapStatus(false, true);
     mockSignup.mockResolvedValue({ success: true });
     mockSignIn.mockResolvedValue({ error: null });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -307,14 +307,14 @@ describe("SignupPage", () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith("/");
     });
-  });
+  }, 15_000);
 
   it("redirects to /login when auto-login fails after signup", async () => {
     mockFetchBootstrapStatus(false, true);
     mockSignup.mockResolvedValue({ success: true });
     mockSignIn.mockResolvedValue({ error: "some-error" });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<SignupPage />);
 
     await waitFor(() => {
@@ -330,7 +330,7 @@ describe("SignupPage", () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith("/login");
     });
-  });
+  }, 15_000);
 
   // ----- Default state -----
 
