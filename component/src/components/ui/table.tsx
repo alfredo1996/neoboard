@@ -2,6 +2,11 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Styled semantic HTML table wrapped in an overflow-auto container; compose with TableHeader/TableBody/TableRow/TableCell.
+ * When to use: small static listings — connection lists, user management, a widget's metadata — where you control the rows.
+ * When not to: for query-result tables with sorting, pagination, and cell formatting use the composed DataGrid instead.
+ */
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>

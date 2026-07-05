@@ -5,6 +5,11 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Slide-in panel anchored to a screen edge (default right), built on the Radix Dialog primitive with overlay and close button.
+ * When to use: side panels that keep the dashboard visible behind them — widget detail views, filter panels, mobile navigation.
+ * When not to: for centered modal workflows (confirmations, widget editor forms) use Dialog; for small anchored menus use Popover or DropdownMenu.
+ */
 const Sheet = SheetPrimitive.Root;
 
 const SheetTrigger = SheetPrimitive.Trigger;
