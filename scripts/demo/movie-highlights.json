@@ -1,0 +1,171 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-07-06T00:00:00.000Z",
+  "dashboard": {
+    "name": "Movie Highlights",
+    "description": "A real-world showcase dashboard on the Neo4j movie graph — KPIs, top actors, filming locations, release trends, top reviews, and a live co-star network. Everything on this page is a live Cypher query against Neo4j."
+  },
+  "connections": {
+    "conn_neo4j": { "name": "Neo4j Movies (demo)", "type": "neo4j" }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "page-highlights",
+        "title": "Highlights",
+        "gridLayout": [
+          { "i": "mh-title", "x": 0, "y": 0, "w": 12, "h": 2 },
+          { "i": "mh-kpi-movies", "x": 0, "y": 2, "w": 3, "h": 2 },
+          { "i": "mh-kpi-actors", "x": 3, "y": 2, "w": 3, "h": 2 },
+          { "i": "mh-kpi-directors", "x": 6, "y": 2, "w": 3, "h": 2 },
+          { "i": "mh-kpi-reviews", "x": 9, "y": 2, "w": 3, "h": 2 },
+          { "i": "mh-bar-actors", "x": 0, "y": 4, "w": 6, "h": 5 },
+          { "i": "mh-map-cities", "x": 6, "y": 4, "w": 6, "h": 5 },
+          { "i": "mh-line-years", "x": 0, "y": 9, "w": 6, "h": 5 },
+          { "i": "mh-table-reviews", "x": 6, "y": 9, "w": 6, "h": 5 },
+          { "i": "mh-graph-network", "x": 0, "y": 14, "w": 12, "h": 7 }
+        ],
+        "widgets": [
+          {
+            "id": "mh-title",
+            "chartType": "markdown",
+            "connectionId": "conn_neo4j",
+            "query": "",
+            "settings": {
+              "title": "",
+              "chartOptions": {
+                "content": "# 🎬 Movie Highlights\n\nA live dashboard over the **Neo4j movie graph** — 38 films, 133 people, and the cities they were filmed in. Every widget below runs a **Cypher query in real time**: no extracts, no warehouse. Scroll down for the co-star network — double-click any node to expand it."
+              }
+            }
+          },
+          {
+            "id": "mh-kpi-movies",
+            "chartType": "single-value",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (m:Movie) RETURN count(m) AS value",
+            "settings": {
+              "title": "Movies",
+              "chartOptions": {
+                "numberFormat": "compact",
+                "decimalPlaces": 0,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "mh-kpi-actors",
+            "chartType": "single-value",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[:ACTED_IN]->(:Movie) RETURN count(DISTINCT p) AS value",
+            "settings": {
+              "title": "Actors",
+              "chartOptions": {
+                "numberFormat": "compact",
+                "decimalPlaces": 0,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "mh-kpi-directors",
+            "chartType": "single-value",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[:DIRECTED]->(:Movie) RETURN count(DISTINCT p) AS value",
+            "settings": {
+              "title": "Directors",
+              "chartOptions": {
+                "numberFormat": "compact",
+                "decimalPlaces": 0,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "mh-kpi-reviews",
+            "chartType": "single-value",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH ()-[r:REVIEWED]->() RETURN count(r) AS value",
+            "settings": {
+              "title": "Reviews",
+              "chartOptions": {
+                "numberFormat": "compact",
+                "decimalPlaces": 0,
+                "fontSize": "xl"
+              }
+            }
+          },
+          {
+            "id": "mh-bar-actors",
+            "chartType": "bar",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN p.name AS name, count(m) AS value ORDER BY value DESC LIMIT 10",
+            "settings": {
+              "title": "Top actors by film count",
+              "chartOptions": {
+                "colorPalette": "citrine",
+                "showValues": true,
+                "showLegend": false,
+                "orientation": "horizontal"
+              }
+            }
+          },
+          {
+            "id": "mh-map-cities",
+            "chartType": "map",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (m:Movie)-[:FILMED_IN]->(c:City) RETURN c.name AS name, c.latitude AS lat, c.longitude AS lng, count(m) AS movies ORDER BY movies DESC",
+            "settings": {
+              "title": "Where the movies were filmed",
+              "chartOptions": {
+                "autoFitBounds": true,
+                "clusterMarkers": false,
+                "zoom": 3
+              }
+            }
+          },
+          {
+            "id": "mh-line-years",
+            "chartType": "line",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (m:Movie) WHERE m.released IS NOT NULL RETURN toString(m.released) AS year, count(m) AS value ORDER BY year",
+            "settings": {
+              "title": "Movies released per year",
+              "chartOptions": {
+                "smooth": true,
+                "area": true,
+                "showLegend": false,
+                "colorPalette": "citrine"
+              }
+            }
+          },
+          {
+            "id": "mh-table-reviews",
+            "chartType": "table",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (p:Person)-[r:REVIEWED]->(m:Movie) RETURN m.title AS movie, p.name AS reviewer, r.rating AS rating, r.summary AS summary ORDER BY r.rating DESC LIMIT 15",
+            "settings": {
+              "title": "Top-rated reviews",
+              "chartOptions": {
+                "enableSorting": true,
+                "enablePagination": true,
+                "pageSize": 5,
+                "enableColumnResizing": true
+              }
+            }
+          },
+          {
+            "id": "mh-graph-network",
+            "chartType": "graph",
+            "connectionId": "conn_neo4j",
+            "query": "MATCH (hanks:Person {name: 'Tom Hanks'})-[r1:ACTED_IN]->(m:Movie) OPTIONAL MATCH (costar:Person)-[r2:ACTED_IN]->(m) WHERE costar <> hanks RETURN hanks, r1, m, costar, r2",
+            "settings": {
+              "title": "Tom Hanks — films and co-stars (double-click a node to expand)",
+              "chartOptions": { "layout": "force", "showLabels": true }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
