@@ -24,7 +24,8 @@
           { "i": "mh-map-cities", "x": 6, "y": 4, "w": 6, "h": 5 },
           { "i": "mh-line-years", "x": 0, "y": 9, "w": 6, "h": 5 },
           { "i": "mh-table-reviews", "x": 6, "y": 9, "w": 6, "h": 5 },
-          { "i": "mh-graph-network", "x": 0, "y": 14, "w": 12, "h": 7 }
+          { "i": "mh-actor-param", "x": 0, "y": 14, "w": 4, "h": 2 },
+          { "i": "mh-graph-network", "x": 0, "y": 16, "w": 12, "h": 7 }
         ],
         "widgets": [
           {
@@ -35,7 +36,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "# 🎬 Movie Highlights\n\nA live dashboard over the **Neo4j movie graph** — 38 films, 133 people, and the cities they were filmed in. Every widget below runs a **Cypher query in real time**: no extracts, no warehouse. Scroll down for the co-star network — double-click any node to expand it."
+                "content": "# 🎬 Movie Highlights\n\nA live dashboard over the **Neo4j movie graph** — 38 films, 133 people, and the cities they were filmed in. Every widget below runs a **Cypher query in real time**: no extracts, no warehouse.\n\n**Try it:** click any bar in *Top actors* — the co-star network at the bottom re-draws for that actor. Or pick one from the dropdown. Double-click a graph node to expand it."
               }
             }
           },
@@ -101,12 +102,25 @@
             "connectionId": "conn_neo4j",
             "query": "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN p.name AS name, count(m) AS value ORDER BY value DESC LIMIT 10",
             "settings": {
-              "title": "Top actors by film count",
+              "title": "Top actors by film count (click a bar)",
               "chartOptions": {
                 "colorPalette": "citrine",
                 "showValues": true,
                 "showLegend": false,
                 "orientation": "horizontal"
+              },
+              "clickAction": {
+                "type": "set-parameter",
+                "rules": [
+                  {
+                    "id": "mh-click-actor",
+                    "type": "set-parameter",
+                    "parameterMapping": {
+                      "parameterName": "actor",
+                      "sourceField": "name"
+                    }
+                  }
+                ]
               }
             }
           },
@@ -145,12 +159,59 @@
             "connectionId": "conn_neo4j",
             "query": "MATCH (p:Person)-[r:REVIEWED]->(m:Movie) RETURN m.title AS movie, p.name AS reviewer, r.rating AS rating, r.summary AS summary ORDER BY r.rating DESC LIMIT 15",
             "settings": {
-              "title": "Top-rated reviews",
+              "title": "Top-rated reviews (rating colored by score)",
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
                 "pageSize": 5,
                 "enableColumnResizing": true
+              },
+              "stylingConfig": {
+                "enabled": true,
+                "rules": [
+                  {
+                    "id": "mh-rev-high",
+                    "column": "rating",
+                    "operator": ">=",
+                    "value": 90,
+                    "color": "#16a34a",
+                    "target": "color",
+                    "bold": true
+                  },
+                  {
+                    "id": "mh-rev-mid",
+                    "column": "rating",
+                    "operator": ">=",
+                    "value": 70,
+                    "color": "#f59e0b",
+                    "target": "color"
+                  },
+                  {
+                    "id": "mh-rev-low",
+                    "column": "rating",
+                    "operator": "<",
+                    "value": 70,
+                    "color": "#ef4444",
+                    "target": "color"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "mh-actor-param",
+            "chartType": "parameter-select",
+            "connectionId": "conn_neo4j",
+            "query": "",
+            "settings": {
+              "title": "Actor",
+              "chartOptions": {
+                "parameterType": "select",
+                "parameterName": "actor",
+                "seedQuery": "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS name, count(m) AS c RETURN name AS value, name AS label ORDER BY c DESC",
+                "defaultValue": "Tom Hanks",
+                "searchable": true,
+                "placeholder": "Pick an actor…"
               }
             }
           },
@@ -158,9 +219,9 @@
             "id": "mh-graph-network",
             "chartType": "graph",
             "connectionId": "conn_neo4j",
-            "query": "MATCH (hanks:Person {name: 'Tom Hanks'})-[r1:ACTED_IN]->(m:Movie) OPTIONAL MATCH (costar:Person)-[r2:ACTED_IN]->(m) WHERE costar <> hanks RETURN hanks, r1, m, costar, r2",
+            "query": "MATCH (a:Person {name: $param_actor})-[r1:ACTED_IN]->(m:Movie) OPTIONAL MATCH (costar:Person)-[r2:ACTED_IN]->(m) WHERE costar <> a RETURN a, r1, m, costar, r2",
             "settings": {
-              "title": "Tom Hanks — films and co-stars (double-click a node to expand)",
+              "title": "Co-star network for the selected actor (double-click a node to expand)",
               "chartOptions": { "layout": "force", "showLabels": true }
             }
           }
