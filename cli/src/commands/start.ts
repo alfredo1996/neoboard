@@ -81,8 +81,14 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     if (!appOk) return false;
   }
 
-  // 4. Run migrations
-  await runDbMigrate({});
+  // 4. Run migrations — abort (don't print "ready") if they fail, so callers
+  // like setup/demo don't seed against a schema-less DB. (#MEDIUM)
+  const migrated = await runDbMigrate({});
+  if (!migrated) {
+    error("Migrations failed — the stack is not ready.");
+    process.exitCode = 1;
+    return false;
+  }
 
   // 5. Done
   const url = `http://localhost:${config.ports.app}`;

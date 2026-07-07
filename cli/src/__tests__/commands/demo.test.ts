@@ -141,7 +141,7 @@ describe("runDemoSeed", () => {
   it("invokes seed-demo.mjs with no --only when no filter given", async () => {
     await runDemoSeed();
     expect(mockExecRun).toHaveBeenCalledWith(
-      expect.stringMatching(/node .*seed-demo\.mjs$/),
+      expect.stringMatching(/node ".*seed-demo\.mjs"$/),
       expect.any(Object),
     );
   });

@@ -103,7 +103,7 @@ describe("seedPostgres", () => {
     await seedPostgres();
     expect(mockBuildSeedEnv).toHaveBeenCalledOnce();
     expect(mockRun).toHaveBeenCalledWith(
-      "node /project/scripts/seed-demo.mjs",
+      'node "/project/scripts/seed-demo.mjs"',
       { cwd: "/project", env: { SEED_ENV: "from-buildSeedEnv" } },
     );
   });

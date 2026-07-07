@@ -1,4 +1,4 @@
-import { execSync, spawn as nodeSpawn } from "node:child_process";
+import { execSync, execFileSync, spawn as nodeSpawn } from "node:child_process";
 import type { SpawnOptions, ChildProcess } from "node:child_process";
 
 /**
@@ -71,6 +71,39 @@ export function runOrNull(cmd: string, opts?: RunOptions): string | null {
     return run(cmd, opts);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Execute a command with an explicit argument array and NO shell (execFile).
+ *
+ * Security: unlike `run()`, arguments are passed to the process directly, so a
+ * value like a package name is a single argv element that can never be
+ * re-parsed by a shell — this is how the plugin commands install arbitrary
+ * user-supplied specs (names, scoped names, versions, file:/git URLs) without
+ * risking command injection. POSIX-first, consistent with the rest of the CLI.
+ */
+export function runFile(
+  file: string,
+  args: string[],
+  opts?: RunOptions,
+): string {
+  try {
+    const result = execFileSync(file, args, {
+      cwd: opts?.cwd,
+      env: opts?.env ?? process.env,
+      timeout: opts?.timeout,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return result.trim();
+  } catch (err: unknown) {
+    const e = err as { status?: number; stderr?: string | Buffer };
+    throw new ExecError(
+      [file, ...args].join(" "),
+      e.status ?? 1,
+      String(e.stderr ?? "").trim(),
+    );
   }
 }
 

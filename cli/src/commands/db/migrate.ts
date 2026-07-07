@@ -87,19 +87,25 @@ export function showDryRun(): void {
   }
 }
 
+/**
+ * Applies pending migrations. Returns true on success (or for the
+ * informational --status / --dry-run modes), false when a migration fails —
+ * so callers like `runStart`/`runDbReset` can abort instead of seeding against
+ * a schema-less database and reporting a false "ready". (#MEDIUM)
+ */
 export async function runDbMigrate(opts: {
   status?: boolean;
   to?: string;
   dryRun?: boolean;
-}): Promise<void> {
+}): Promise<boolean> {
   if (opts.status) {
     showMigrationStatus();
-    return;
+    return true;
   }
 
   if (opts.dryRun) {
     showDryRun();
-    return;
+    return true;
   }
 
   info("Tip: Run 'neoboard db dump' to backup before migrating");
@@ -125,11 +131,12 @@ export async function runDbMigrate(opts: {
     spinner.fail("Migration failed");
     reportMigrateFailure(err);
     process.exitCode = 1;
-    return;
+    return false;
   }
 
   spinner.succeed("Migrations applied");
   success("Database is up to date");
+  return true;
 }
 
 type MigrateErrorKind = "connection" | "lock" | "schema" | "unknown";

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../lib/exec.js", () => ({
-  run: vi.fn(() => "-- SQL dump"),
+// pg_dump now streams stdout straight to a file descriptor via spawnSync (no
+// shell, no 1 MiB execSync maxBuffer). Mock child_process + the fs handles.
+vi.mock("node:child_process", () => ({
+  spawnSync: vi.fn(() => ({ status: 0, stderr: Buffer.from("") })),
 }));
 
 vi.mock("../../../lib/config.js", () => ({
@@ -24,85 +26,89 @@ vi.mock("../../../lib/output.js", () => ({
 }));
 
 vi.mock("node:fs", () => ({
-  writeFileSync: vi.fn(),
+  openSync: vi.fn(() => 3),
+  closeSync: vi.fn(),
   statSync: vi.fn(() => ({ size: 2048 })),
 }));
 
-import { run } from "../../../lib/exec.js";
+import { spawnSync } from "node:child_process";
 import { getMode, readProjectConfig } from "../../../lib/config.js";
 import { error as logError } from "../../../lib/output.js";
-import { writeFileSync } from "node:fs";
+import { openSync, closeSync } from "node:fs";
 import { runDbDump } from "../../../commands/db/dump.js";
 
-const mockRun = vi.mocked(run);
+const mockSpawnSync = vi.mocked(spawnSync);
 const mockGetMode = vi.mocked(getMode);
-const mockWriteFileSync = vi.mocked(writeFileSync);
+const mockOpenSync = vi.mocked(openSync);
+const mockCloseSync = vi.mocked(closeSync);
 const mockReadProjectConfig = vi.mocked(readProjectConfig);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("docker");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockSpawnSync.mockReturnValue({ status: 0, stderr: Buffer.from("") } as any);
+  mockOpenSync.mockReturnValue(3);
   process.exitCode = 0;
 });
 
 describe("runDbDump", () => {
   it("dumps via docker exec in docker mode", async () => {
     await runDbDump({});
-    expect(mockRun).toHaveBeenCalledWith(
-      expect.stringContaining("docker exec neoboard-postgres pg_dump"),
+    expect(mockSpawnSync).toHaveBeenCalledWith(
+      "docker",
+      expect.arrayContaining(["exec", "neoboard-postgres", "pg_dump"]),
+      expect.objectContaining({ stdio: ["ignore", 3, "pipe"] }),
     );
   });
 
   it("dumps via local pg_dump in local mode", async () => {
     mockGetMode.mockReturnValue("local");
     await runDbDump({});
-    expect(mockRun).toHaveBeenCalledWith(
-      expect.stringContaining("pg_dump -h localhost"),
+    expect(mockSpawnSync).toHaveBeenCalledWith(
+      "pg_dump",
+      expect.arrayContaining(["-h", "localhost"]),
+      expect.any(Object),
     );
   });
 
-  it("uses custom output path", async () => {
+  it("streams to the custom output path (no shell)", async () => {
     await runDbDump({ output: "/tmp/backup.sql" });
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      "/tmp/backup.sql",
-      "-- SQL dump",
-    );
+    expect(mockOpenSync).toHaveBeenCalledWith("/tmp/backup.sql", "w");
+    expect(mockCloseSync).toHaveBeenCalledWith(3);
   });
 
-  it("generates timestamped default filename", async () => {
+  it("generates a timestamped default filename", async () => {
     await runDbDump({});
-    const path = mockWriteFileSync.mock.calls[0][0] as string;
+    const path = mockOpenSync.mock.calls[0][0] as string;
     expect(path).toMatch(
       /neoboard-dump-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.sql$/,
     );
   });
 
-  it("passes --data-only flag", async () => {
+  it("passes the --data-only flag", async () => {
     await runDbDump({ dataOnly: true });
-    expect(mockRun).toHaveBeenCalledWith(
-      expect.stringContaining("--data-only"),
-    );
-  });
-
-  it("writes sql output to file", async () => {
-    await runDbDump({});
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
+    expect(mockSpawnSync).toHaveBeenCalledWith(
       expect.any(String),
-      "-- SQL dump",
+      expect.arrayContaining(["--data-only"]),
+      expect.any(Object),
     );
   });
 
-  it("calls spinner.fail, logs error, and sets exitCode=1 when run throws", async () => {
-    mockRun.mockImplementationOnce(() => {
-      throw new Error("pg_dump failed");
-    });
+  it("closes the fd even when pg_dump fails, and reports stderr", async () => {
+    mockSpawnSync.mockReturnValue({
+      status: 1,
+      stderr: Buffer.from("pg_dump: connection refused"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     await runDbDump({});
-    expect(logError).toHaveBeenCalledWith("pg_dump failed");
+    expect(mockCloseSync).toHaveBeenCalledWith(3);
+    expect(logError).toHaveBeenCalledWith("pg_dump: connection refused");
     expect(process.exitCode).toBe(1);
   });
 
-  it("calls spinner.fail and sets exitCode=1 when writeFileSync throws", async () => {
-    mockWriteFileSync.mockImplementationOnce(() => {
+  it("sets exitCode=1 when the output file can't be opened", async () => {
+    mockOpenSync.mockImplementationOnce(() => {
       throw new Error("ENOSPC: no space left");
     });
     await runDbDump({});
@@ -110,7 +116,7 @@ describe("runDbDump", () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it("rejects unsafe postgres.user and sets exitCode=1", async () => {
+  it("rejects unsafe postgres.user before spawning", async () => {
     mockReadProjectConfig.mockReturnValueOnce({
       ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
       postgres: {
@@ -126,6 +132,6 @@ describe("runDbDump", () => {
       expect.stringContaining("Unsafe characters"),
     );
     expect(process.exitCode).toBe(1);
-    expect(mockRun).not.toHaveBeenCalled();
+    expect(mockSpawnSync).not.toHaveBeenCalled();
   });
 });

@@ -15,7 +15,7 @@ import { pathToFileURL } from "node:url";
 // Mock the CLI plumbing that runPluginAdd touches. We only care about the
 // hint-printing paths added in #799 — `info()` calls that follow a
 // missing-export error or a validator error with a known hint rule.
-vi.mock("../../lib/exec.js", () => ({ run: vi.fn() }));
+vi.mock("../../lib/exec.js", () => ({ run: vi.fn(), runFile: vi.fn() }));
 
 vi.mock("../../lib/config.js", () => ({
   findProjectRoot: vi.fn(() => "/project"),
