@@ -19,6 +19,16 @@ describe("PostgreSQL Record Parser", () => {
     expect(result.age).toBe(30);
   });
 
+  test("renders bytea (Buffer) as \\x hex, not a numeric-keyed object (#MEDIUM)", () => {
+    const row = { blob: Buffer.from([0x0a, 0xff, 0x00]) };
+
+    const result = parser["_parse"](row);
+
+    // Old bug flattened the Buffer to {"0":10,"1":255,"2":0}.
+    expect(result.blob).toBe("\\x0aff00");
+    expect(typeof result.blob).toBe("string");
+  });
+
   test("should implement bulkParse to return array of NeodashRecords", () => {
     const rows = [
       { id: 1, name: "Alice" },

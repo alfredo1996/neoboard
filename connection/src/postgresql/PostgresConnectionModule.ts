@@ -60,23 +60,41 @@ export class PostgresConnectionModule extends ConnectionModule {
 
     if (this.handleEmptyQuery(query, callbacks)) return;
 
-    // Ensure connection is established
-    if (!this.authModule.getPool()) {
-      const authenticated = await this.authModule
-        .verifyAuthentication()
-        .catch((err) => {
-          // Only swallow auth errors; re-throw network/pool/DNS failures for visibility
-          if (isAuthenticationError(err)) return false;
-          throw err;
-        });
-      if (!authenticated) {
-        callbacks.setStatus?.(QueryStatus.ERROR);
-        callbacks.onFail?.(new Error("Failed to authenticate with PostgreSQL"));
-        return;
+    // Invariant: runQuery must NEVER reject. The caller wraps this in a promise
+    // that settles only via onSuccess/onFail, so any thrown/rejected error here
+    // would leave that promise pending forever — hanging the request and pinning
+    // a scheduler slot. Funnel every failure (auth, pool.connect, network) to
+    // onFail. Neo4j already upholds this contract. (#CRITICAL)
+    try {
+      // Ensure connection is established
+      if (!this.authModule.getPool()) {
+        const authenticated = await this.authModule
+          .verifyAuthentication()
+          .catch((err) => {
+            // Only swallow auth errors; surface network/pool/DNS failures via
+            // the outer catch → onFail (not a rethrow that escapes runQuery).
+            if (isAuthenticationError(err)) return false;
+            throw err;
+          });
+        if (!authenticated) {
+          callbacks.setStatus?.(QueryStatus.ERROR);
+          callbacks.onFail?.(
+            new Error("Failed to authenticate with PostgreSQL"),
+          );
+          return;
+        }
       }
-    }
 
-    await this._runSqlQuery(query, callbacks, config, params);
+      await this._runSqlQuery(query, callbacks, config, params);
+    } catch (error: unknown) {
+      const wrapped = wrapError(error, "postgresql");
+      callbacks.setStatus?.(
+        wrapped.type === ConnectorErrorType.TIMEOUT
+          ? QueryStatus.TIMED_OUT
+          : QueryStatus.ERROR,
+      );
+      callbacks.onFail?.(wrapped);
+    }
   }
 
   /**
@@ -94,12 +112,21 @@ export class PostgresConnectionModule extends ConnectionModule {
   ): Promise<void> {
     // Pool is guaranteed to exist — runQuery ensures authentication before calling this method
     const pool = this.authModule.getPool()!;
-    const client = await pool.connect();
-    const releaseErrorGuard = attachClientErrorGuard(client);
+    // client is acquired INSIDE the try so a failed pool.connect() (DB down,
+    // pool saturated) routes to onFail instead of rejecting _runSqlQuery. (#CRITICAL)
+    let client: PoolClient | undefined;
+    let releaseErrorGuard: (() => void) | undefined;
 
     try {
-      // Start transaction based on access mode
-      const isReadOnly = config.accessMode === "READ";
+      client = await pool.connect();
+      releaseErrorGuard = attachClientErrorGuard(client);
+
+      // Start transaction based on access mode. Fail CLOSED: only an explicit
+      // "WRITE" gets a read-write transaction; any other value (undefined, or a
+      // mis-cased "read" that has reached this layer before, #1044) stays READ
+      // ONLY so a non-Form query can never write. Mirrors Neo4j's
+      // executeRead-unless-WRITE contract. (#HIGH)
+      const isReadOnly = config.accessMode !== "WRITE";
       await this._beginTransaction(client, isReadOnly);
 
       // Set statement timeout if specified.
@@ -192,16 +219,19 @@ export class PostgresConnectionModule extends ConnectionModule {
       // query-executor.ts wraps this as { data: result } for consumers.
       callbacks.onSuccess?.(parsedRecords as T);
     } catch (error: unknown) {
-      // Rollback transaction on error
-      try {
-        await client.query("ROLLBACK");
-      } catch (rollbackError) {
-        // Log only error type — never the full error which may contain connection details
-        const code =
-          rollbackError instanceof Error
-            ? rollbackError.message.split(":")[0]
-            : "unknown";
-        console.error("Error during rollback:", code);
+      // Rollback transaction on error — only if a client/transaction exists
+      // (a failed pool.connect() lands here with no client to roll back).
+      if (client) {
+        try {
+          await client.query("ROLLBACK");
+        } catch (rollbackError) {
+          // Log only error type — never the full error which may contain connection details
+          const code =
+            rollbackError instanceof Error
+              ? rollbackError.message.split(":")[0]
+              : "unknown";
+          console.error("Error during rollback:", code);
+        }
       }
 
       // Wrap raw error into normalized ConnectorError
@@ -213,8 +243,8 @@ export class PostgresConnectionModule extends ConnectionModule {
       );
       callbacks.onFail?.(wrapped);
     } finally {
-      releaseErrorGuard();
-      client.release();
+      releaseErrorGuard?.();
+      client?.release();
     }
   }
 

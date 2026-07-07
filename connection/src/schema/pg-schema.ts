@@ -42,34 +42,41 @@ export class PostgresSchemaManager implements SchemaManager {
       throw new Error("Failed to create PostgreSQL connection pool");
     }
 
-    const client = await pool.connect();
+    // pool.end() must run even if pool.connect() itself throws (bad creds,
+    // unreachable host) — otherwise every failed introspection leaks a Pool
+    // with its idle timers and error listener. So connect() lives inside the
+    // try whose finally ends the pool. (#MEDIUM)
     try {
-      const result = await client.query<SchemaRow>(SCHEMA_QUERY);
+      const client = await pool.connect();
+      try {
+        const result = await client.query<SchemaRow>(SCHEMA_QUERY);
 
-      const tableMap = new Map<string, ColumnDef[]>();
-      for (const row of result.rows) {
-        let columns = tableMap.get(row.table_name);
-        if (!columns) {
-          columns = [];
-          tableMap.set(row.table_name, columns);
+        const tableMap = new Map<string, ColumnDef[]>();
+        for (const row of result.rows) {
+          let columns = tableMap.get(row.table_name);
+          if (!columns) {
+            columns = [];
+            tableMap.set(row.table_name, columns);
+          }
+          columns.push({
+            name: row.column_name,
+            type: row.data_type,
+            nullable: row.is_nullable === "YES",
+          });
         }
-        columns.push({
-          name: row.column_name,
-          type: row.data_type,
-          nullable: row.is_nullable === "YES",
-        });
+
+        const tables: TableDef[] = Array.from(tableMap.entries()).map(
+          ([name, columns]) => ({
+            name,
+            columns,
+          }),
+        );
+
+        return { type: "postgresql", tables };
+      } finally {
+        client.release();
       }
-
-      const tables: TableDef[] = Array.from(tableMap.entries()).map(
-        ([name, columns]) => ({
-          name,
-          columns,
-        }),
-      );
-
-      return { type: "postgresql", tables };
     } finally {
-      client.release();
       await pool.end();
     }
   }
