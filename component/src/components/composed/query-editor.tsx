@@ -55,6 +55,8 @@ async function buildExtensions(
   langCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
   readOnlyCompartmentExt: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  placeholderCompartment: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
@@ -114,7 +116,7 @@ async function buildExtensions(
     runKeymap,
     langCompartmentExt,
     autocompletion(),
-    cmPlaceholder(placeholder),
+    placeholderCompartment.of(cmPlaceholder(placeholder)),
     oneDark,
     baseTheme,
     updateListener,
@@ -161,6 +163,7 @@ function QueryEditor({
   const languageRef = React.useRef(language);
   const readOnlyRef = React.useRef(readOnly);
   const schemaRef = React.useRef(schema);
+  const placeholderRef = React.useRef(placeholder);
   React.useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -182,6 +185,9 @@ function QueryEditor({
   React.useEffect(() => {
     schemaRef.current = schema;
   }, [schema]);
+  React.useEffect(() => {
+    placeholderRef.current = placeholder;
+  }, [placeholder]);
 
   // Shared abort signal so any new initEditor call cancels the previous one.
   const initAbortRef = React.useRef<{ aborted: boolean }>({ aborted: false });
@@ -195,6 +201,8 @@ function QueryEditor({
   const languageCompartmentRef = React.useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   const readOnlyCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  const placeholderCompartmentRef = React.useRef<any>(null);
   // Cache EditorState after first load so the readOnly effect can reconfigure
   // the compartment synchronously (no extra async import tick).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
@@ -244,8 +252,10 @@ function QueryEditor({
 
       const langCompartment = new Compartment();
       const readOnlyCompartment = new Compartment();
+      const placeholderCompartment = new Compartment();
       languageCompartmentRef.current = langCompartment;
       readOnlyCompartmentRef.current = readOnlyCompartment;
+      placeholderCompartmentRef.current = placeholderCompartment;
 
       // Capture the schema at the start — it may change while we await imports.
       const initialSchema = schemaRef.current;
@@ -270,11 +280,12 @@ function QueryEditor({
       };
 
       const extensions = await buildExtensions(
-        placeholder,
+        placeholderRef.current,
         onUpdate,
         onRunCallback,
         langCompartment.of(langExts),
         readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
+        placeholderCompartment,
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
@@ -309,7 +320,7 @@ function QueryEditor({
         (containerRef.current as any).__cmView = viewRef.current;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [placeholder],
+    [],
   );
 
   // Initial mount
@@ -351,6 +362,30 @@ function QueryEditor({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
+
+  // Placeholder change: reconfigure the placeholder compartment in place.
+  // Switching language (Cypher ↔ SQL) swaps the example query passed as the
+  // placeholder prop; without this the initial-mount placeholder stayed stale.
+  React.useEffect(() => {
+    if (!viewRef.current || !placeholderCompartmentRef.current) return;
+    let cancelled = false;
+    import("@codemirror/view")
+      .then(({ placeholder: cmPlaceholder }) => {
+        if (!cancelled && viewRef.current) {
+          viewRef.current.dispatch({
+            effects: placeholderCompartmentRef.current.reconfigure(
+              cmPlaceholder(placeholder),
+            ),
+          });
+        }
+      })
+      .catch(() => {
+        // Defensive: dynamic import can fail
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [placeholder]);
 
   // readOnly: synchronous compartment reconfigure — one path for all languages
   React.useEffect(() => {
