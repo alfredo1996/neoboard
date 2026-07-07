@@ -1,8 +1,7 @@
 import { existsSync } from "node:fs";
 import { buildSeedEnv } from "../../lib/docker-env.js";
 import { resolve, normalize } from "node:path";
-import { run } from "../../lib/exec.js";
-import { dockerExec } from "../../lib/docker.js";
+import { run, dockerExec } from "../../lib/exec.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
 import { success, createSpinner } from "../../lib/output.js";
 

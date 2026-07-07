@@ -9,9 +9,6 @@ vi.mock("node:fs", () => ({
 
 vi.mock("../../../lib/exec.js", () => ({
   run: vi.fn(),
-}));
-
-vi.mock("../../../lib/docker.js", () => ({
   dockerExec: vi.fn(),
 }));
 
@@ -47,8 +44,7 @@ vi.mock("../../../commands/db/seed.js", () => ({
 }));
 
 import { readFileSync } from "node:fs";
-import { run } from "../../../lib/exec.js";
-import { dockerExec } from "../../../lib/docker.js";
+import { run, dockerExec } from "../../../lib/exec.js";
 import { getMode } from "../../../lib/config.js";
 import { error as logError } from "../../../lib/output.js";
 import { confirm } from "../../../lib/prompt.js";

@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
-import { run } from "../../lib/exec.js";
-import { dockerExec } from "../../lib/docker.js";
+import { run, dockerExec } from "../../lib/exec.js";
 import { paths, readProjectConfig, getMode } from "../../lib/config.js";
 import {
   info,

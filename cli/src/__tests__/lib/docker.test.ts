@@ -40,12 +40,10 @@ import {
 import { getMode, readProjectConfig } from "../../lib/config.js";
 import {
   isDockerRunning,
-  isComposeV2,
   composeFile,
   composeUp,
   composeDown,
   composePs,
-  dockerExec,
   isPgReady,
   isNeo4jReady,
   isAppReady,
@@ -68,23 +66,6 @@ describe("isDockerRunning", () => {
   it("returns false when docker info fails", () => {
     mockRunOrNull.mockReturnValue(null);
     expect(isDockerRunning()).toBe(false);
-  });
-});
-
-describe("isComposeV2", () => {
-  it("returns true for v2 output", () => {
-    mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
-    expect(isComposeV2()).toBe(true);
-  });
-
-  it("returns false when compose not available", () => {
-    mockRunOrNull.mockReturnValue(null);
-    expect(isComposeV2()).toBe(false);
-  });
-
-  it("returns false for v1 output", () => {
-    mockRunOrNull.mockReturnValue("docker-compose version 1.29.0");
-    expect(isComposeV2()).toBe(false);
   });
 });
 
@@ -163,19 +144,6 @@ describe("composePs", () => {
     expect(mockRunOrNull).toHaveBeenCalledWith(
       expect.stringContaining('-f "/project/docker/docker-compose.yml"'),
       expect.any(Object),
-    );
-  });
-});
-
-describe("dockerExec", () => {
-  it("runs command in container via execInContainer", () => {
-    mockDockerExec.mockReturnValue("output");
-    const result = dockerExec("neoboard-postgres", "pg_isready");
-    expect(result).toBe("output");
-    expect(mockDockerExec).toHaveBeenCalledWith(
-      "neoboard-postgres",
-      "pg_isready",
-      undefined,
     );
   });
 });
