@@ -163,7 +163,12 @@ describe("useDashboardStore", () => {
   // ── addWidget ─────────────────────────────────────────────────────
 
   it("addWidget adds the widget and grid item to the active page", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "MATCH (n) RETURN n" };
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "MATCH (n) RETURN n",
+    };
     const gridItem = { i: "w1", x: 0, y: 0, w: 4, h: 3 };
     useDashboardStore.getState().addWidget(widget, gridItem);
     const page = useDashboardStore.getState().layout.pages[0];
@@ -176,17 +181,31 @@ describe("useDashboardStore", () => {
   it("addWidget targets the currently active page", () => {
     useDashboardStore.getState().addPage();
     useDashboardStore.getState().setActivePage(1);
-    const widget = { id: "w2", chartType: "line", connectionId: "c1", query: "q" };
+    const widget = {
+      id: "w2",
+      chartType: "line",
+      connectionId: "c1",
+      query: "q",
+    };
     const gridItem = { i: "w2", x: 0, y: 0, w: 2, h: 2 };
     useDashboardStore.getState().addWidget(widget, gridItem);
-    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(0);
-    expect(useDashboardStore.getState().layout.pages[1].widgets).toHaveLength(1);
+    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(
+      0,
+    );
+    expect(useDashboardStore.getState().layout.pages[1].widgets).toHaveLength(
+      1,
+    );
   });
 
   // ── removeWidget ──────────────────────────────────────────────────
 
   it("removeWidget removes widget and grid item by id", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
     const gridItem = { i: "w1", x: 0, y: 0, w: 4, h: 3 };
     useDashboardStore.getState().addWidget(widget, gridItem);
     useDashboardStore.getState().removeWidget("w1");
@@ -198,8 +217,12 @@ describe("useDashboardStore", () => {
   it("removeWidget does not affect other widgets", () => {
     const w1 = { id: "w1", chartType: "bar", connectionId: "c1", query: "q1" };
     const w2 = { id: "w2", chartType: "line", connectionId: "c1", query: "q2" };
-    useDashboardStore.getState().addWidget(w1, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
-    useDashboardStore.getState().addWidget(w2, { i: "w2", x: 4, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(w1, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(w2, { i: "w2", x: 4, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().removeWidget("w1");
     const page = useDashboardStore.getState().layout.pages[0];
     expect(page.widgets).toHaveLength(1);
@@ -209,8 +232,15 @@ describe("useDashboardStore", () => {
   // ── updateWidget ──────────────────────────────────────────────────
 
   it("updateWidget merges partial updates into the existing widget", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().updateWidget("w1", { chartType: "line" });
     const updated = useDashboardStore.getState().layout.pages[0].widgets[0];
     expect(updated.chartType).toBe("line");
@@ -220,10 +250,16 @@ describe("useDashboardStore", () => {
   it("updateWidget does not affect other widgets", () => {
     const w1 = { id: "w1", chartType: "bar", connectionId: "c1", query: "q1" };
     const w2 = { id: "w2", chartType: "pie", connectionId: "c1", query: "q2" };
-    useDashboardStore.getState().addWidget(w1, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
-    useDashboardStore.getState().addWidget(w2, { i: "w2", x: 0, y: 3, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(w1, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(w2, { i: "w2", x: 0, y: 3, w: 4, h: 3 });
     useDashboardStore.getState().updateWidget("w1", { chartType: "line" });
-    expect(useDashboardStore.getState().layout.pages[0].widgets[1].chartType).toBe("pie");
+    expect(
+      useDashboardStore.getState().layout.pages[0].widgets[1].chartType,
+    ).toBe("pie");
   });
 
   // ── updateGridLayout ──────────────────────────────────────────────
@@ -231,7 +267,9 @@ describe("useDashboardStore", () => {
   it("updateGridLayout replaces the grid layout on the active page", () => {
     const newGrid = [{ i: "w2", x: 0, y: 0, w: 6, h: 4 }];
     useDashboardStore.getState().updateGridLayout(newGrid);
-    expect(useDashboardStore.getState().layout.pages[0].gridLayout).toEqual(newGrid);
+    expect(useDashboardStore.getState().layout.pages[0].gridLayout).toEqual(
+      newGrid,
+    );
   });
 
   it("updateGridLayout only updates the active page", () => {
@@ -239,14 +277,48 @@ describe("useDashboardStore", () => {
     useDashboardStore.getState().setActivePage(0);
     const newGrid = [{ i: "w1", x: 0, y: 0, w: 3, h: 3 }];
     useDashboardStore.getState().updateGridLayout(newGrid);
-    expect(useDashboardStore.getState().layout.pages[1].gridLayout).toHaveLength(0);
+    expect(
+      useDashboardStore.getState().layout.pages[1].gridLayout,
+    ).toHaveLength(0);
+  });
+
+  it("updateGridLayout marks the dashboard dirty when positions change", () => {
+    useDashboardStore.getState().markSaved();
+    expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(false);
+    useDashboardStore
+      .getState()
+      .updateGridLayout([{ i: "w1", x: 3, y: 1, w: 4, h: 2 }]);
+    expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(true);
+  });
+
+  it("updateGridLayout is a no-op (stays clean) for a structurally identical layout", () => {
+    const grid = [
+      { i: "w1", x: 0, y: 0, w: 6, h: 4 },
+      { i: "w2", x: 6, y: 0, w: 6, h: 4 },
+    ];
+    useDashboardStore.getState().updateGridLayout(grid);
+    useDashboardStore.getState().markSaved();
+    expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(false);
+    // Same positions, new array/object identity and reordered → must not dirty.
+    useDashboardStore.getState().updateGridLayout([
+      { i: "w2", x: 6, y: 0, w: 6, h: 4 },
+      { i: "w1", x: 0, y: 0, w: 6, h: 4 },
+    ]);
+    expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(false);
   });
 
   // ── duplicateWidget ───────────────────────────────────────────────
 
   it("duplicateWidget adds a new widget with a unique ID", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "MATCH (n) RETURN n" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "MATCH (n) RETURN n",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const page = useDashboardStore.getState().layout.pages[0];
     expect(page.widgets).toHaveLength(2);
@@ -262,15 +334,24 @@ describe("useDashboardStore", () => {
       query: "q",
       settings: { title: "My Chart" },
     };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
     expect(copy.settings?.title).toBe("My Chart (Copy)");
   });
 
   it("duplicateWidget places clone at next available slot using grid gravity", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 2, y: 3, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 2, y: 3, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const page = useDashboardStore.getState().layout.pages[0];
     const copyGrid = page.gridLayout[1];
@@ -290,17 +371,28 @@ describe("useDashboardStore", () => {
       query: "q",
       settings: { title: "Chart", nested: { value: 42 } },
     };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     // Mutating the original should not affect the copy
-    useDashboardStore.getState().updateWidget("w1", { settings: { title: "Changed" } });
+    useDashboardStore
+      .getState()
+      .updateWidget("w1", { settings: { title: "Changed" } });
     const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
     expect(copy.settings?.title).toBe("Chart (Copy)");
   });
 
   it("duplicateWidget copies query and connectionId from the source widget", () => {
-    const widget = { id: "w1", chartType: "line", connectionId: "conn-abc", query: "MATCH (n) RETURN n" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "line",
+      connectionId: "conn-abc",
+      query: "MATCH (n) RETURN n",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
     expect(copy.chartType).toBe("line");
@@ -309,25 +401,52 @@ describe("useDashboardStore", () => {
   });
 
   it("duplicateWidget is a no-op for an unknown widgetId", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("does-not-exist");
-    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(1);
+    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(
+      1,
+    );
   });
 
   it("duplicateWidget operates only on the active page", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().addPage();
     useDashboardStore.getState().setActivePage(0);
     useDashboardStore.getState().duplicateWidget("w1");
-    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(2);
-    expect(useDashboardStore.getState().layout.pages[1].widgets).toHaveLength(0);
+    expect(useDashboardStore.getState().layout.pages[0].widgets).toHaveLength(
+      2,
+    );
+    expect(useDashboardStore.getState().layout.pages[1].widgets).toHaveLength(
+      0,
+    );
   });
 
   it("duplicateWidget sets title to undefined when source widget has no settings", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
     expect(copy.settings?.title).toBeUndefined();
@@ -351,14 +470,18 @@ describe("useDashboardStore", () => {
     it("moves a page from index 0 to index 2", () => {
       setupThreePages();
       useDashboardStore.getState().reorderPages(0, 2);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page B", "Page C", "Page A"]);
     });
 
     it("moves a page from index 2 to index 0", () => {
       setupThreePages();
       useDashboardStore.getState().reorderPages(2, 0);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page C", "Page A", "Page B"]);
     });
 
@@ -389,7 +512,9 @@ describe("useDashboardStore", () => {
       setupThreePages();
       useDashboardStore.getState().setActivePage(1);
       useDashboardStore.getState().reorderPages(1, 1);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page A", "Page B", "Page C"]);
       expect(useDashboardStore.getState().activePageIndex).toBe(1);
     });
@@ -397,28 +522,36 @@ describe("useDashboardStore", () => {
     it("is a no-op when fromIndex is out of bounds", () => {
       setupThreePages();
       useDashboardStore.getState().reorderPages(-1, 1);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page A", "Page B", "Page C"]);
     });
 
     it("is a no-op when toIndex is out of bounds", () => {
       setupThreePages();
       useDashboardStore.getState().reorderPages(0, 5);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page A", "Page B", "Page C"]);
     });
 
     it("is a no-op when fromIndex is not an integer", () => {
       setupThreePages();
       useDashboardStore.getState().reorderPages(0.5, 1);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page A", "Page B", "Page C"]);
     });
 
     it("is a no-op when toIndex is NaN", () => {
       setupThreePages();
       useDashboardStore.getState().reorderPages(0, NaN);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Page A", "Page B", "Page C"]);
     });
 
@@ -433,7 +566,9 @@ describe("useDashboardStore", () => {
       useDashboardStore.getState().setLayout(layout);
       useDashboardStore.getState().setActivePage(0);
       useDashboardStore.getState().reorderPages(0, 1);
-      const titles = useDashboardStore.getState().layout.pages.map((p) => p.title);
+      const titles = useDashboardStore
+        .getState()
+        .layout.pages.map((p) => p.title);
       expect(titles).toEqual(["Second", "First"]);
       expect(useDashboardStore.getState().activePageIndex).toBe(1);
     });
@@ -447,7 +582,9 @@ describe("useDashboardStore", () => {
       query: "q",
       settings: { title: 42 },
     };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
     expect(copy.settings?.title).toBeUndefined();
@@ -461,7 +598,9 @@ describe("useDashboardStore", () => {
       query: "q",
       settings: { title: "My Widget", color: "red", limit: 100 },
     };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().duplicateWidget("w1");
     const copy = useDashboardStore.getState().layout.pages[0].widgets[1];
     expect(copy.settings?.color).toBe("red");
@@ -470,8 +609,15 @@ describe("useDashboardStore", () => {
   });
 
   it("duplicateWidget assigns a grid item with the new widget's ID", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 6, h: 2 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 6, h: 2 });
     useDashboardStore.getState().duplicateWidget("w1");
     const page = useDashboardStore.getState().layout.pages[0];
     const copyWidget = page.widgets[1];
@@ -482,8 +628,15 @@ describe("useDashboardStore", () => {
   // ── Template linking (snapshot + sync) ───────────────────────────
 
   it("updateWidget can set templateId and templateSyncedAt on a widget", () => {
-    const widget = { id: "w1", chartType: "bar", connectionId: "c1", query: "q" };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    const widget = {
+      id: "w1",
+      chartType: "bar",
+      connectionId: "c1",
+      query: "q",
+    };
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     const ts = new Date("2025-01-01T00:00:00.000Z").toISOString();
     useDashboardStore.getState().updateWidget("w1", {
       templateId: "tmpl-1",
@@ -507,7 +660,9 @@ describe("useDashboardStore", () => {
       templateId: "tmpl-1",
       templateSyncedAt: ts,
     };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
 
     const newTs = new Date("2025-06-01T00:00:00.000Z").toISOString();
     useDashboardStore.getState().updateWidget("w1", {
@@ -534,7 +689,9 @@ describe("useDashboardStore", () => {
       templateId: "tmpl-1",
       templateSyncedAt: ts,
     };
-    useDashboardStore.getState().addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
+    useDashboardStore
+      .getState()
+      .addWidget(widget, { i: "w1", x: 0, y: 0, w: 4, h: 3 });
     useDashboardStore.getState().updateWidget("w1", {
       templateId: undefined,
       templateSyncedAt: undefined,
@@ -613,9 +770,9 @@ describe("useDashboardStore", () => {
       ],
     };
     useDashboardStore.getState().setLayout(layout);
-    useDashboardStore.getState().updateGridLayout([
-      { i: "w1", x: 0, y: 0, w: 6, h: 4 },
-    ]);
+    useDashboardStore
+      .getState()
+      .updateGridLayout([{ i: "w1", x: 0, y: 0, w: 6, h: 4 }]);
     expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(true);
   });
 

@@ -26,6 +26,26 @@ test.describe("Dashboard grid", () => {
     await expect(resizeHandle).toBeVisible();
   });
 
+  test("resizing the window in edit mode does not dirty the dashboard", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByText("Editing:")).toBeVisible({ timeout: 10000 });
+
+    // Pure responsive reflow across breakpoints — no user drag/resize.
+    await page.setViewportSize({ width: 900, height: 1024 });
+    await page.setViewportSize({ width: 700, height: 1024 });
+    await page.setViewportSize({ width: 1280, height: 1024 });
+
+    // Because a reflow is not a user edit, leaving via Back must navigate
+    // straight to view mode — no unsaved-changes confirmation dialog.
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(page.getByText("Editing:")).toBeHidden({ timeout: 10000 });
+    await expect(
+      page.getByRole("button", { name: "Edit", exact: true }),
+    ).toBeVisible();
+  });
+
   test("should save layout changes", async ({ page }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.getByText("Editing:")).toBeVisible({ timeout: 10000 });
