@@ -21,11 +21,6 @@ function assertPgIdentifier(value: string, label: string): void {
   }
 }
 
-export function isComposeV2(): boolean {
-  const out = runOrNull("docker compose version");
-  return out !== null && out.includes("v2");
-}
-
 export function composeFile(full = false): string {
   const name = full ? "docker-compose.full.yml" : "docker-compose.yml";
   return join(paths.dockerDir, name);
@@ -88,14 +83,6 @@ export function composePs(): ContainerInfo[] {
   } catch {
     return [];
   }
-}
-
-export function dockerExec(
-  container: string,
-  cmd: string,
-  opts?: { env?: Record<string, string> },
-): string {
-  return execInContainer(container, cmd, opts);
 }
 
 /** Check if a TCP port is accepting connections. */
