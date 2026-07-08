@@ -57,9 +57,9 @@ async function run(
       config,
     );
   } catch (e) {
-    // Pool-acquisition failures happen before the query runs and are THROWN
-    // by runQuery rather than routed to onFail — part of the contract these
-    // tests pin down.
+    // runQuery must NEVER reject — its promise settles only via the callbacks,
+    // so a rejection here would hang the caller (#CRITICAL). Captured so tests
+    // can assert it stays null even for pool-acquisition failures.
     thrown = e;
   }
   return { status, error, result, thrown };
@@ -109,10 +109,12 @@ describe("connection pool exhaustion (#742 item 11)", () => {
     await new Promise((r) => setTimeout(r, 200));
     const starved = await run(module, "SELECT 1");
 
-    // Contract: acquisition failures are thrown from runQuery (they happen
-    // before query execution, so the onFail path never engages).
-    expect(starved.thrown).toBeTruthy();
-    expect(String((starved.thrown as Error).message)).toMatch(
+    // Contract (#CRITICAL): a pool-acquisition failure must route to onFail,
+    // NOT reject runQuery — otherwise the caller's callback-settled promise
+    // hangs forever and pins a scheduler slot.
+    expect(starved.thrown).toBeNull();
+    expect(starved.error).toBeTruthy();
+    expect(String((starved.error as Error).message)).toMatch(
       /timeout|connect/i,
     );
 

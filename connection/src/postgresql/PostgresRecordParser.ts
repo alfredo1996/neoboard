@@ -44,6 +44,14 @@ export class PostgresRecordParser extends NeodashRecordParser {
     // plain-object branch — otherwise pgConvertPlainObject copies its (zero)
     // enumerable own properties and flattens it to {}. (#1054)
     if (this.isTemporal(value)) return this.parseTemporal(value);
+    // bytea arrives as a Buffer. A Buffer is `typeof === 'object'` and not a
+    // Date, so without this it falls into pgConvertPlainObject, which
+    // enumerates its numeric indices and returns {"0":12,"1":255,…} — the
+    // binary value is destroyed and a multi-MB blob explodes into a
+    // million-key object. Emit Postgres's canonical `\x…` hex text instead. (#MEDIUM)
+    if (Buffer.isBuffer(value)) {
+      return "\\x".concat(value.toString("hex"));
+    }
     if (typeof value === "object")
       return this.pgConvertPlainObject(value as object);
     return value;
