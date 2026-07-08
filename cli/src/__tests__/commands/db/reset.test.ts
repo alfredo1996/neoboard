@@ -68,6 +68,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("docker");
   mockConfirm.mockResolvedValue(true);
+  // Migrations succeed by default; reset now skips the seed when they fail.
+  mockRunDbMigrate.mockResolvedValue(true);
   mockReadFileSync.mockReturnValue(
     "DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard\n",
   );
@@ -136,5 +138,12 @@ describe("runDbReset", () => {
   it("skips seed with --no-seed", async () => {
     await runDbReset({ force: true, noSeed: true });
     expect(mockRunDbSeed).not.toHaveBeenCalled();
+  });
+
+  it("does NOT seed when migrations fail (#MEDIUM)", async () => {
+    mockRunDbMigrate.mockResolvedValue(false);
+    await runDbReset({ force: true });
+    expect(mockRunDbSeed).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 });

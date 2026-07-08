@@ -1,7 +1,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { paths, readProjectConfig, getMode } from "../lib/config.js";
-import { info, success, error as logError, banner } from "../lib/output.js";
+import {
+  info,
+  success,
+  warn,
+  error as logError,
+  banner,
+} from "../lib/output.js";
+import { confirm } from "../lib/prompt.js";
 
 const REQUIRED_VARS = [
   "DATABASE_URL",
@@ -97,6 +104,21 @@ export async function runEnv(opts: {
       process.exitCode = 1;
     }
     return;
+  }
+
+  // Regenerating overwrites app/.env.local with a brand-new ENCRYPTION_KEY.
+  // Every connector credential already stored in the DB was encrypted with the
+  // current key and becomes PERMANENTLY undecryptable — so gate it behind an
+  // explicit confirmation (defaults to No under a non-TTY). (#MEDIUM)
+  if (opts.regenerate && existsSync(paths.envFile)) {
+    warn("Regenerating app/.env.local will mint a NEW ENCRYPTION_KEY.");
+    warn("Connector credentials already stored in the database were encrypted");
+    warn("with the current key and will become PERMANENTLY undecryptable.");
+    const confirmed = await confirm("Overwrite the encryption key anyway?");
+    if (!confirmed) {
+      info("Aborted — app/.env.local unchanged.");
+      return;
+    }
   }
 
   generateEnvFile({ regenerate: opts.regenerate });

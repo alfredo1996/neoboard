@@ -71,7 +71,9 @@ export async function seedPostgres(): Promise<void> {
   // #1039); in local mode it returns process.env unchanged.
   const env = buildSeedEnv(config);
 
-  run(`node ${paths.root}/${config.seed.script}`, {
+  // Quote the path so a project checked out under a directory with a space
+  // still runs the seed script. (#MEDIUM)
+  run(`node "${paths.root}/${config.seed.script}"`, {
     cwd: paths.root,
     env,
   });

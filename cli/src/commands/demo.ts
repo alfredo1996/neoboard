@@ -74,7 +74,7 @@ export async function runDemoSeed(opts?: { only?: string }): Promise<void> {
   const spinner = createSpinner("Running seed-demo.mjs...");
   spinner.start();
   try {
-    run(`node ${scriptPath}${onlyArg}`, {
+    run(`node "${scriptPath}"${onlyArg}`, {
       cwd: paths.root,
       env: buildSeedEnv(readProjectConfig()),
     });
@@ -124,7 +124,7 @@ export async function runDemoReset(opts?: { force?: boolean }): Promise<void> {
   const spinner = createSpinner("Resetting demo state...");
   spinner.start();
   try {
-    run(`node ${scriptPath} --reset`, {
+    run(`node "${scriptPath}" --reset`, {
       cwd: paths.root,
       env: buildSeedEnv(readProjectConfig()),
     });

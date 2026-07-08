@@ -32,15 +32,21 @@ vi.mock("../../lib/output.js", () => ({
   banner: vi.fn(),
 }));
 
+vi.mock("../../lib/prompt.js", () => ({
+  confirm: vi.fn(),
+}));
+
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { getMode } from "../../lib/config.js";
 import { info, error as logError } from "../../lib/output.js";
+import { confirm } from "../../lib/prompt.js";
 import { validateEnv, generateEnvFile, runEnv } from "../../commands/env.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockGetMode = vi.mocked(getMode);
+const mockConfirm = vi.mocked(confirm);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -148,6 +154,21 @@ describe("runEnv", () => {
   it("generates env file by default", async () => {
     mockExistsSync.mockReturnValue(false);
     await runEnv({});
+    expect(mockWriteFileSync).toHaveBeenCalled();
+  });
+
+  it("regenerating an existing file aborts without confirmation (protects ENCRYPTION_KEY) (#MEDIUM)", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockConfirm.mockResolvedValue(false);
+    await runEnv({ regenerate: true });
+    expect(mockConfirm).toHaveBeenCalled();
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it("regenerating proceeds once the key overwrite is confirmed", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockConfirm.mockResolvedValue(true);
+    await runEnv({ regenerate: true });
     expect(mockWriteFileSync).toHaveBeenCalled();
   });
 });

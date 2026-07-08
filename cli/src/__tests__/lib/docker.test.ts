@@ -37,7 +37,7 @@ import {
   runOrNull,
   dockerExec as execInContainer,
 } from "../../lib/exec.js";
-import { getMode } from "../../lib/config.js";
+import { getMode, readProjectConfig } from "../../lib/config.js";
 import {
   isDockerRunning,
   isComposeV2,
@@ -156,6 +156,15 @@ describe("composePs", () => {
     mockRunOrNull.mockReturnValue("not json");
     expect(composePs()).toEqual([]);
   });
+
+  it("quotes the -f compose-file path so spaced checkout paths work (#MEDIUM)", () => {
+    mockRunOrNull.mockReturnValue(null);
+    composePs();
+    expect(mockRunOrNull).toHaveBeenCalledWith(
+      expect.stringContaining('-f "/project/docker/docker-compose.yml"'),
+      expect.any(Object),
+    );
+  });
 });
 
 describe("dockerExec", () => {
@@ -182,6 +191,17 @@ describe("isPgReady", () => {
       throw new Error("not ready");
     });
     expect(await isPgReady()).toBe(false);
+  });
+
+  it("rejects a postgres.user with shell metacharacters before probing (#MEDIUM)", async () => {
+    vi.mocked(readProjectConfig).mockReturnValueOnce({
+      ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+      postgres: { user: "x; rm -rf ~", password: "p", database: "neoboard" },
+      neo4j: { user: "neo4j", password: "p" },
+      seed: { script: "s.mjs", neo4j_cypher: "" },
+    });
+    await expect(isPgReady()).rejects.toThrow(/Invalid PostgreSQL identifier/);
+    expect(mockDockerExec).not.toHaveBeenCalled();
   });
 });
 
