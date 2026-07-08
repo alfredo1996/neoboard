@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
+import { parse as parseEnv } from "dotenv";
 import { paths, getMode } from "./config.js";
 import { info } from "./output.js";
 
@@ -93,13 +94,5 @@ export function ensureDockerEnvFile(): string {
 export function readDockerEnvSecrets(): Record<string, string> {
   const envPath = join(paths.root, DOCKER_ENV_PATH);
   if (!existsSync(envPath)) return {};
-  const out: Record<string, string> = {};
-  for (const line of readFileSync(envPath, "utf-8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    out[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
-  }
-  return out;
+  return parseEnv(readFileSync(envPath, "utf-8"));
 }

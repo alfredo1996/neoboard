@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { parse as parseEnv } from "dotenv";
 import { paths, readProjectConfig, getMode } from "../lib/config.js";
 import { info, success, error as logError, banner } from "../lib/output.js";
 
@@ -17,26 +18,11 @@ function generateSecret(): string {
   return randomBytes(32).toString("hex");
 }
 
-function parseEnvFile(content: string): Record<string, string> {
-  const vars: Record<string, string> = {};
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    const value = trimmed.slice(eqIdx + 1).trim();
-    vars[key] = value;
-  }
-  return vars;
-}
-
 export function validateEnv(): { ok: boolean; missing: string[] } {
   if (!existsSync(paths.envFile)) {
     return { ok: false, missing: ["(file does not exist)"] };
   }
-  const content = readFileSync(paths.envFile, "utf-8");
-  const vars = parseEnvFile(content);
+  const vars = parseEnv(readFileSync(paths.envFile, "utf-8"));
   const missing = REQUIRED_VARS.filter((k) => !vars[k]);
   return { ok: missing.length === 0, missing };
 }

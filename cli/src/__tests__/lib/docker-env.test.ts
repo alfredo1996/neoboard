@@ -83,6 +83,13 @@ describe("readDockerEnvSecrets (#969)", () => {
       NEXTAUTH_SECRET: "def456",
     });
   });
+
+  it("strips surrounding quotes (dotenv), which the old hand-rolled parser kept", async () => {
+    const { readDockerEnvSecrets } = await import("../../lib/docker-env.js");
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('ENCRYPTION_KEY="quoted-value"\n');
+    expect(readDockerEnvSecrets()).toEqual({ ENCRYPTION_KEY: "quoted-value" });
+  });
 });
 
 describe("buildSeedEnv (#1039)", () => {
