@@ -93,7 +93,6 @@ export interface ConnectorFormField {
   type: "text" | "password" | "number" | "select" | "boolean";
   required?: boolean;
   placeholder?: string;
-  default?: unknown;
   options?: { label: string; value: string }[];
   description?: string;
 }

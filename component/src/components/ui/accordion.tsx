@@ -6,6 +6,14 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Vertically stacked expand/collapse sections (Radix Accordion root); compose
+ * with AccordionItem, AccordionTrigger, and AccordionContent.
+ * When to use: progressive disclosure of grouped settings — e.g. collapsing
+ * advanced sections in the widget editor's chart options panel.
+ * When not to: switching between peer views — use Tabs; a single independent
+ * toggle-open region needs no accordion semantics at all.
+ */
 const Accordion = AccordionPrimitive.Root;
 
 const AccordionItem = React.forwardRef<

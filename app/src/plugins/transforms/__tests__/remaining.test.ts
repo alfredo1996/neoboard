@@ -205,6 +205,31 @@ describe("transformToHierarchicalData", () => {
   it("returns empty array for empty input", () => {
     expect(transformToHierarchicalData([])).toEqual([]);
   });
+
+  it("builds three levels from SQL-shaped rows with NULL root parents (#1159)", () => {
+    // Exact shape of the demo sunburst query: `name, parent, value` rows via
+    // UNION ALL, roots carrying a SQL NULL parent.
+    const data = [
+      { name: "Electronics", parent: null, value: 100 },
+      { name: "Laptops", parent: "Electronics", value: 60 },
+      { name: "Phones", parent: "Electronics", value: 40 },
+      { name: "UltraBook 13", parent: "Laptops", value: 35 },
+      { name: "UltraBook 15", parent: "Laptops", value: 25 },
+    ];
+    const result = transformToHierarchicalData(data) as Array<{
+      name: string;
+      children?: Array<{ name: string; children?: Array<{ name: string }> }>;
+    }>;
+    expect(result).toHaveLength(1); // single root ring
+    const root = result[0];
+    expect(root.name).toBe("Electronics");
+    expect(root.children?.map((c) => c.name).sort()).toEqual([
+      "Laptops",
+      "Phones",
+    ]);
+    const laptops = root.children?.find((c) => c.name === "Laptops");
+    expect(laptops?.children).toHaveLength(2); // third ring
+  });
 });
 
 // ── radar ──────────────────────────────────────────────────────────────────

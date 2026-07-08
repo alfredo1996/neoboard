@@ -10,7 +10,7 @@ const dialogContentVariants = cva(
   // push its footer off-screen on short windows (#1041). Tall dialogs that
   // want a pinned footer override `grid` with a flex column + a scrollable
   // body (see the connection dialog).
-  "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-1 sm:rounded-lg",
+  "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 sm:rounded-lg",
   {
     variants: {
       size: {
@@ -28,6 +28,11 @@ const dialogContentVariants = cva(
   },
 );
 
+/**
+ * Modal dialog centered over an overlay; DialogContent sizes sm–2xl/full and caps height to the viewport.
+ * When to use: focused create/edit tasks — the widget editor, connection setup, dashboard settings.
+ * When not to: use AlertDialog for destructive confirmations, Sheet for side panels, Popover for lightweight anchored content.
+ */
 const Dialog = DialogPrimitive.Root;
 
 const DialogTrigger = DialogPrimitive.Trigger;

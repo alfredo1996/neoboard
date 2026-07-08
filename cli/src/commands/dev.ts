@@ -28,7 +28,7 @@ export async function runDev(): Promise<void> {
   }
 
   // Check if databases are running; if not, start Docker containers for DBs
-  const pgUp = isPgReady();
+  const pgUp = await isPgReady();
   const neo4jUp = isNeo4jReady();
 
   if (!pgUp || !neo4jUp) {

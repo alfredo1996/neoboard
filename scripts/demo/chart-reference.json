@@ -2039,7 +2039,7 @@
             "id": "page-sunburst-v-102",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "default",
               "chartOptions": {}
@@ -2049,7 +2049,7 @@
             "id": "page-sunburst-v-103",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "showLabels = false",
               "chartOptions": {
@@ -2061,7 +2061,7 @@
             "id": "page-sunburst-v-104",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "maxLabelDepth = 1",
               "chartOptions": {
@@ -2073,7 +2073,7 @@
             "id": "page-sunburst-v-105",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "sort = asc (smallest first)",
               "chartOptions": {
@@ -2085,7 +2085,7 @@
             "id": "page-sunburst-v-106",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "sort = none (natural order)",
               "chartOptions": {
@@ -2097,7 +2097,7 @@
             "id": "page-sunburst-v-107",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "highlightOnHover = false",
               "chartOptions": {
@@ -2109,7 +2109,7 @@
             "id": "page-sunburst-v-108",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "palette = warm",
               "chartOptions": {
@@ -2121,7 +2121,7 @@
             "id": "page-sunburst-v-109",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
               "title": "palette = earth-tones",
               "chartOptions": {

@@ -3,6 +3,11 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Lightweight floating panel anchored to a trigger, dismissed on outside click.
+ * When to use: inline pickers and small option panels — a widget's color palette picker or date-range parameter.
+ * When not to: use Dialog for focused tasks needing full attention, Tooltip for hover-only hints, DropdownMenu for action lists.
+ */
 const Popover = PopoverPrimitive.Root;
 
 const PopoverTrigger = PopoverPrimitive.Trigger;

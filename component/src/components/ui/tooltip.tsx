@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils";
 
 const TooltipProvider = TooltipPrimitive.Provider;
 
+/**
+ * Hover/focus-triggered label bubble; compose Tooltip + TooltipTrigger + TooltipContent inside a TooltipProvider.
+ * When to use: naming icon-only controls — widget toolbar actions, refresh buttons, truncated dashboard titles.
+ * When not to: for click-triggered interactive or rich content (forms, links, pickers) use Popover; tooltips are text-only and unreachable on touch.
+ */
 const Tooltip = TooltipPrimitive.Root;
 
 const TooltipTrigger = TooltipPrimitive.Trigger;

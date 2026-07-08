@@ -5,6 +5,11 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Horizontal top-level navigation bar with hoverable dropdown panels rendered in a shared viewport.
+ * When to use: primary app navigation between top-level sections — dashboards, connections, admin.
+ * When not to: use Tabs for switching views within a page, DropdownMenu for action menus, Sidebar for vertical nav.
+ */
 const NavigationMenu = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Root>

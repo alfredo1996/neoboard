@@ -22,6 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useDarkMode } from "./base-chart";
 import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
+import { toNvlColor } from "./nvl-color";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
 
@@ -53,7 +54,8 @@ function buildLabelColorMap(
   const sorted = Array.from(labels).sort((a, b) => a.localeCompare(b));
   const map = new Map<string, string>();
   sorted.forEach((lbl, i) => {
-    map.set(lbl, palette[i % palette.length]);
+    // NVL only renders hex; the citrine palette is authored in hsl() (#1157).
+    map.set(lbl, toNvlColor(palette[i % palette.length]));
   });
   return map;
 }
@@ -237,13 +239,15 @@ function toNvlNode(
       ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
       : undefined;
 
-  // Color priority: styling rule > explicit node.color > label palette
-  const color =
+  // Color priority: styling rule > explicit node.color > label palette.
+  // Normalize to hex — NVL doesn't render hsl(), whatever the source (#1157).
+  const rawColor =
     ruleColor ??
     node.color ??
     (node.labels?.length
       ? labelColorMap.get(node.labels[node.labels.length - 1])
       : undefined);
+  const color = rawColor !== undefined ? toNvlColor(rawColor) : undefined;
 
   // Size: base from node.value, scaled by nodeSizeScale
   const baseSize = node.value
@@ -272,6 +276,7 @@ function toNvlRelationship(
   edge: GraphEdge,
   index: number,
   showRelationshipLabels: boolean,
+  dark: boolean,
 ): NvlRelationship {
   return {
     id: `rel-${edge.source}-${edge.target}-${index}`,
@@ -279,7 +284,10 @@ function toNvlRelationship(
     to: edge.target,
     caption: showRelationshipLabels ? edge.label : undefined,
     type: edge.label,
-    color: edge.color,
+    // NVL's default relationship grey nearly vanishes on the dark canvas
+    // (#1154) — give uncolored edges an explicit mid-grey in dark mode.
+    // Normalize to hex either way; NVL doesn't render hsl() (#1157).
+    color: edge.color ? toNvlColor(edge.color) : dark ? "#6a7180" : undefined,
   };
 }
 
@@ -418,8 +426,11 @@ function GraphChartInner({
   );
 
   const nvlRels = useMemo(
-    () => edges.map((e, i) => toNvlRelationship(e, i, showRelationshipLabels)),
-    [edges, showRelationshipLabels],
+    () =>
+      edges.map((e, i) =>
+        toNvlRelationship(e, i, showRelationshipLabels, dark),
+      ),
+    [edges, showRelationshipLabels, dark],
   );
 
   const fitGraph = useCallback(() => {
@@ -576,7 +587,7 @@ function GraphChartInner({
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 shadow-sm backdrop-blur-sm">
         <button
           onClick={zoomIn}
-          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Zoom in"
           aria-label="Zoom in"
           data-testid="graph-zoom-in"
@@ -594,7 +605,7 @@ function GraphChartInner({
         </button>
         <button
           onClick={zoomOut}
-          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Zoom out"
           aria-label="Zoom out"
           data-testid="graph-zoom-out"
@@ -612,7 +623,7 @@ function GraphChartInner({
         </button>
         <button
           onClick={fitGraph}
-          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Fit graph"
           aria-label="Fit graph"
         >
@@ -649,7 +660,7 @@ function GraphChartInner({
             <Popover>
               <PopoverTrigger asChild>
                 <button
-                  className="flex h-6 items-center justify-center rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className="flex h-6 items-center justify-center rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   title="Label settings"
                   aria-label="Label settings"
                   data-testid="label-settings-button"

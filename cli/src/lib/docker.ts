@@ -8,9 +8,17 @@ export function isDockerRunning(): boolean {
   return runOrNull("docker info") !== null;
 }
 
-export function isComposeV2(): boolean {
-  const out = runOrNull("docker compose version");
-  return out !== null && out.includes("v2");
+/**
+ * Reject a Postgres identifier that isn't a bare unquoted name before it is
+ * interpolated into a shell command. `config set` doesn't validate string
+ * values, so a `postgres.user` like `x; rm -rf ~` would otherwise reach the
+ * shell via the readiness probe. Mirrors the guards in `db reset` / `db dump`
+ * at their own shell boundaries. (#MEDIUM)
+ */
+function assertPgIdentifier(value: string, label: string): void {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
+    throw new Error(`Invalid PostgreSQL identifier for ${label}: "${value}"`);
+  }
 }
 
 export function composeFile(full = false): string {
@@ -52,7 +60,10 @@ export interface ContainerInfo {
 
 export function composePs(): ContainerInfo[] {
   const file = composeFile();
-  const out = runOrNull(`docker compose -f ${file} ps --format json`, {
+  // Quote the path — a checkout under a directory with a space (e.g.
+  // "/Users/John Doe/neoboard") otherwise splits the -f argument, the command
+  // fails, and status/orphan-sweep silently report "no containers". (#MEDIUM)
+  const out = runOrNull(`docker compose -f "${file}" ps --format json`, {
     cwd: paths.root,
   });
   if (!out) return [];
@@ -74,14 +85,6 @@ export function composePs(): ContainerInfo[] {
   }
 }
 
-export function dockerExec(
-  container: string,
-  cmd: string,
-  opts?: { env?: Record<string, string> },
-): string {
-  return execInContainer(container, cmd, opts);
-}
-
 /** Check if a TCP port is accepting connections. */
 export function isTcpReady(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -98,16 +101,25 @@ export function isTcpReady(host: string, port: number): Promise<boolean> {
   });
 }
 
-export function isPgReady(): boolean {
+export async function isPgReady(): Promise<boolean> {
   const config = readProjectConfig();
+  assertPgIdentifier(config.postgres.user, "postgres.user");
   const mode = getMode();
   if (mode === "local") {
-    // In local mode, use pg_isready directly against localhost
-    return (
-      runOrNull(
-        `pg_isready -h localhost -p ${config.ports.postgres} -U ${config.postgres.user}`,
-      ) !== null
-    );
+    // Prefer the real protocol check when the client binary exists; fall
+    // back to a TCP probe when the host lacks pg_isready (#1091) — a
+    // missing binary must not read as "DB down" and dead-end the bootstrap.
+    // `command -v` is POSIX-only: on Windows (cmd/PowerShell) this probe
+    // itself fails, so the TCP fallback engages — the intended degradation
+    // there too, not an error path.
+    if (runOrNull("command -v pg_isready") !== null) {
+      return (
+        runOrNull(
+          `pg_isready -h localhost -p ${config.ports.postgres} -U ${config.postgres.user}`,
+        ) !== null
+      );
+    }
+    return isTcpReady("localhost", config.ports.postgres);
   }
   try {
     execInContainer(

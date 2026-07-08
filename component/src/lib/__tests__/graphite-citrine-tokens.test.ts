@@ -42,9 +42,21 @@ describe("Graphite & Citrine locked palette values (#820)", () => {
     expect(tokenValue(light, "--primary")).toBe("220 13% 9%");
   });
 
-  it("focus/selection ring is the cool indigo accent (moved off amber)", () => {
-    expect(tokenValue(light, "--ring")).toBe("243 75% 59%");
-    expect(tokenValue(dark, "--ring")).toBe("243 85% 70%");
+  it("focus/selection ring is the amber accent (Epic A #1125: unified amber identity)", () => {
+    // Deep amber (38% L) so the focus ring clears WCAG 1.4.11 (~3.4:1) on white;
+    // lifted (60% L) for contrast on charcoal in dark mode.
+    expect(tokenValue(light, "--ring")).toBe("38 95% 38%");
+    expect(tokenValue(dark, "--ring")).toBe("38 95% 60%");
+  });
+
+  it("--warning stays a distinct hue from the amber ring (no warning/interactive collision)", () => {
+    const hue = (v: string | undefined) => Number(v?.match(/^(\d+)/)?.[1]);
+    expect(hue(tokenValue(light, "--warning"))).not.toBe(
+      hue(tokenValue(light, "--ring")),
+    );
+    expect(hue(tokenValue(dark, "--warning"))).not.toBe(
+      hue(tokenValue(dark, "--ring")),
+    );
   });
 
   it("brand mark stays the citrine amber in both modes", () => {
@@ -65,10 +77,10 @@ describe("new token surface (#820)", () => {
     expect(tokenValue(dark, token), `${token} dark`).toBeTruthy();
   });
 
-  it("--accent-soft is a low-alpha indigo tint in both modes", () => {
+  it("--accent-soft is a low-alpha amber tint in both modes", () => {
     for (const mode of [light, dark]) {
       const v = tokenValue(mode, "--accent-soft");
-      expect(v).toMatch(/^hsl\(243 \d{2}% \d{2}% \/ 0\.\d+\)$/);
+      expect(v).toMatch(/^hsl\(38 \d{2}% \d{2}% \/ 0\.\d+\)$/);
     }
   });
 
@@ -143,5 +155,21 @@ describe("motion tokens (#833)", () => {
     ["--duration-slow", "300ms"],
   ])("%s = %s", (token, value) => {
     expect(tokenValue(light, token)).toBe(value);
+  });
+});
+
+describe("single error red (Epic B #1126)", () => {
+  it("--danger is gone — --destructive is the only error red", () => {
+    expect(css).not.toContain("--danger");
+  });
+
+  it("--destructive is the deeper AA red (light) / lifted text-safe red (dark)", () => {
+    expect(tokenValue(light, "--destructive")).toBe("0 72% 48%");
+    expect(tokenValue(dark, "--destructive")).toBe("0 80% 66%");
+  });
+
+  it("dark destructive foreground is near-black (light-red surface needs dark text)", () => {
+    expect(tokenValue(light, "--destructive-foreground")).toBe("0 0% 98%");
+    expect(tokenValue(dark, "--destructive-foreground")).toBe("220 13% 9%");
   });
 });

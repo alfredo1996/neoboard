@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
-import { run } from "../../lib/exec.js";
-import { dockerExec } from "../../lib/docker.js";
+import { run, dockerExec } from "../../lib/exec.js";
 import { paths, readProjectConfig, getMode } from "../../lib/config.js";
 import {
   info,
@@ -88,8 +87,14 @@ export async function runDbReset(opts?: {
 
   spinner.succeed("Database dropped and recreated");
 
-  // Replay migrations
-  await runDbMigrate({});
+  // Replay migrations — bail before seeding if they fail, otherwise the seed
+  // runs against a schema-less database. (#MEDIUM)
+  const migrated = await runDbMigrate({});
+  if (!migrated) {
+    logError("Migrations failed — skipping seed. Database is not reset.");
+    process.exitCode = 1;
+    return;
+  }
 
   // Re-seed unless --no-seed
   if (!opts?.noSeed) {

@@ -55,6 +55,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("docker");
   mockPrintResults.mockReturnValue(false);
+  // Migrations succeed by default; runStart now aborts (no "ready" banner)
+  // when they fail. Failure is exercised in its own test.
+  mockRunDbMigrate.mockResolvedValue(true);
   process.exitCode = 0;
 });
 
@@ -200,6 +203,13 @@ describe("runStart", () => {
 
   it("returns true when everything starts", async () => {
     await expect(runStart({ full: true })).resolves.toBe(true);
+  });
+
+  it("returns false and does not print 'ready' when migrations fail (#MEDIUM)", async () => {
+    mockRunDbMigrate.mockResolvedValue(false);
+    await expect(runStart()).resolves.toBe(false);
+    expect(mockBanner).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 
   it("returns false when a healthcheck times out", async () => {

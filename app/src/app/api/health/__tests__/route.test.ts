@@ -3,6 +3,8 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 const mockValidate = vi.fn();
 const mockDbExecute = vi.fn();
+const mockRequireSession = vi.fn();
+const mockListSchedulers = vi.fn();
 
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/env-config", () => ({
@@ -13,6 +15,12 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("drizzle-orm", () => ({
   sql: (strings: TemplateStringsArray) => strings[0],
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireSession: mockRequireSession,
+}));
+vi.mock("@/lib/query/scheduler-registry", () => ({
+  listSchedulers: mockListSchedulers,
 }));
 
 describe("GET /api/health", () => {
@@ -33,6 +41,14 @@ describe("GET /api/health", () => {
     vi.doMock("drizzle-orm", () => ({
       sql: (strings: TemplateStringsArray) => strings[0],
     }));
+    vi.doMock("@/lib/auth/session", () => ({
+      requireSession: mockRequireSession,
+    }));
+    vi.doMock("@/lib/query/scheduler-registry", () => ({
+      listSchedulers: mockListSchedulers,
+    }));
+    mockRequireSession.mockRejectedValue(new Error("unauthenticated"));
+    mockListSchedulers.mockReturnValue([]);
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -135,5 +151,57 @@ describe("GET /api/health", () => {
     mockDbExecute.mockResolvedValue([{ "?column?": 1 }]);
     const res = await GET();
     expect(res.status).toBe(503);
+  });
+
+  // #930 — extended payload: version / migrations / schedulers, admin-gated.
+  describe("extended payload (#930)", () => {
+    const okConfig = {
+      status: "ok",
+      errors: [],
+      warnings: [],
+      config: {},
+    };
+
+    it("omits version/migrations/schedulers for unauthenticated probes", async () => {
+      mockValidate.mockReturnValue(okConfig);
+      const res = await GET();
+      const body = await res.json();
+      expect(body.data.version).toBeUndefined();
+      expect(body.data.migrations).toBeUndefined();
+      expect(body.data.schedulers).toBeUndefined();
+    });
+
+    it("includes version, migrations and scheduler stats for admins", async () => {
+      mockValidate.mockReturnValue(okConfig);
+      mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+      mockDbExecute.mockResolvedValue([
+        { applied: 1, last_applied_at: 1751400000000 },
+      ]);
+      mockListSchedulers.mockReturnValue([
+        {
+          connectionId: "conn-1",
+          scheduler: {
+            getStats: () => ({ queueDepth: 2, activeQueries: 1 }),
+          },
+        },
+      ]);
+
+      const res = await GET();
+      const body = await res.json();
+      expect(typeof body.data.version.app).toBe("string");
+      expect(body.data.migrations.applied).toBe(1);
+      expect(body.data.schedulers).toEqual([
+        { connectionId: "conn-1", queueDepth: 2, activeQueries: 1 },
+      ]);
+    });
+
+    it("does not extend the payload for non-admin sessions", async () => {
+      mockValidate.mockReturnValue(okConfig);
+      mockRequireSession.mockResolvedValue({ userId: "u2", role: "creator" });
+      const res = await GET();
+      const body = await res.json();
+      expect(body.data.version).toBeUndefined();
+      expect(body.data.schedulers).toBeUndefined();
+    });
   });
 });

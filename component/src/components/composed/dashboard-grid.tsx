@@ -91,6 +91,14 @@ function DashboardGrid({
     [layout],
   );
 
+  // Persist ONLY on real user drag/resize. `onLayoutChange` also fires on mount
+  // and on responsive reflow when the window is resized across a breakpoint;
+  // forwarding those would dirty the dashboard and — since a single layout is
+  // stored — overwrite it with the reflowed narrow-column arrangement on save.
+  const handleUserLayoutChange = (currentLayout: Layout) => {
+    onLayoutChange?.(currentLayout as LayoutItem[]);
+  };
+
   return (
     <div ref={containerRef} className={cn("w-full", className)}>
       {!mounted && (
@@ -111,9 +119,8 @@ function DashboardGrid({
           }}
           resizeConfig={{ enabled: isResizable, handles: ["se"] }}
           compactor={getCompactorByType(compactType)}
-          onLayoutChange={(currentLayout: Layout) => {
-            onLayoutChange?.(currentLayout as LayoutItem[]);
-          }}
+          onDragStop={handleUserLayoutChange}
+          onResizeStop={handleUserLayoutChange}
         >
           {children}
         </ResponsiveGridLayout>

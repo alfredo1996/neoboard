@@ -346,6 +346,37 @@ describe("QueryEditor — language switching", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Placeholder switching — compartment reconfigure (regression: placeholder
+// stayed on the Cypher example after switching the connection to SQL)
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — placeholder switching", () => {
+  it("reconfigures the placeholder compartment when the placeholder prop changes", async () => {
+    const { rerender } = render(
+      <QueryEditor
+        language="cypher"
+        placeholder="MATCH (n) RETURN n.name AS name LIMIT 10"
+      />,
+    );
+    await flushAsync();
+    mockDispatch.mockClear();
+
+    rerender(
+      <QueryEditor language="sql" placeholder="SELECT * FROM users LIMIT 10" />,
+    );
+    await flushAsync();
+
+    const placeholderDispatch = mockDispatch.mock.calls.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ([arg]: any[]) =>
+        arg?.effects?.ext?.type === "placeholder" &&
+        arg?.effects?.ext?.text === "SELECT * FROM users LIMIT 10",
+    );
+    expect(placeholderDispatch).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // readOnly prop
 // ---------------------------------------------------------------------------
 

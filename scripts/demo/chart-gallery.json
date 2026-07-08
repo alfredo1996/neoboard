@@ -55,8 +55,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "bar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "bar-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+          {
+            "i": "bar-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "bar-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 6
+          }
         ]
       },
       {
@@ -92,8 +104,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "line-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "line-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+          {
+            "i": "line-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "line-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 6
+          }
         ]
       },
       {
@@ -129,8 +153,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "pie-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "pie-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "pie-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "pie-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -166,8 +202,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "table-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "table-widget", "x": 0, "y": 3, "w": 12, "h": 7 }
+          {
+            "i": "table-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "table-widget",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 7
+          }
         ]
       },
       {
@@ -229,10 +277,34 @@
           }
         ],
         "gridLayout": [
-          { "i": "sv-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "sv-revenue", "x": 0, "y": 3, "w": 4, "h": 3 },
-          { "i": "sv-orders", "x": 4, "y": 3, "w": 4, "h": 3 },
-          { "i": "sv-customers", "x": 8, "y": 3, "w": 4, "h": 3 }
+          {
+            "i": "sv-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "sv-revenue",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "sv-orders",
+            "x": 4,
+            "y": 3,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "sv-customers",
+            "x": 8,
+            "y": 3,
+            "w": 4,
+            "h": 3
+          }
         ]
       },
       {
@@ -268,8 +340,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "gauge-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "gauge-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "gauge-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "gauge-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -289,7 +373,15 @@
             }
           }
         ],
-        "gridLayout": [{ "i": "md-explainer", "x": 0, "y": 0, "w": 12, "h": 9 }]
+        "gridLayout": [
+          {
+            "i": "md-explainer",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 9
+          }
+        ]
       },
       {
         "id": "page-iframe",
@@ -322,8 +414,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "iframe-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "iframe-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+          {
+            "i": "iframe-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "iframe-widget",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 8
+          }
         ]
       },
       {
@@ -356,8 +460,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "json-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "json-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+          {
+            "i": "json-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "json-widget",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 8
+          }
         ]
       },
       {
@@ -409,9 +525,27 @@
           }
         ],
         "gridLayout": [
-          { "i": "ps-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "ps-widget", "x": 0, "y": 3, "w": 6, "h": 3 },
-          { "i": "ps-bound", "x": 6, "y": 3, "w": 6, "h": 3 }
+          {
+            "i": "ps-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "ps-widget",
+            "x": 0,
+            "y": 3,
+            "w": 6,
+            "h": 3
+          },
+          {
+            "i": "ps-bound",
+            "x": 6,
+            "y": 3,
+            "w": 6,
+            "h": 3
+          }
         ]
       },
       {
@@ -485,9 +619,27 @@
           }
         ],
         "gridLayout": [
-          { "i": "form-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "form-widget", "x": 0, "y": 3, "w": 5, "h": 7 },
-          { "i": "form-results", "x": 5, "y": 3, "w": 7, "h": 7 }
+          {
+            "i": "form-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "form-widget",
+            "x": 0,
+            "y": 3,
+            "w": 5,
+            "h": 7
+          },
+          {
+            "i": "form-results",
+            "x": 5,
+            "y": 3,
+            "w": 7,
+            "h": 7
+          }
         ]
       },
       {
@@ -521,8 +673,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "graph-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "graph-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+          {
+            "i": "graph-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "graph-widget",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 8
+          }
         ]
       },
       {
@@ -557,8 +721,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "map-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "map-widget", "x": 0, "y": 3, "w": 12, "h": 8 }
+          {
+            "i": "map-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "map-widget",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 8
+          }
         ]
       },
       {
@@ -593,8 +769,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "sankey-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "sankey-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+          {
+            "i": "sankey-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "sankey-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 7
+          }
         ]
       },
       {
@@ -630,8 +818,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "treemap-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "treemap-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+          {
+            "i": "treemap-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "treemap-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 7
+          }
         ]
       },
       {
@@ -646,7 +846,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Sunburst\n\nRadial hierarchy. Center ring is the root; outer rings expand detail. Alternative to treemap when you want to emphasize hierarchy over proportions.\n\n**Options shown:** `showLabels: true`, `sort: desc`, `highlightOnHover: true`."
+                "content": "## Sunburst\n\nRadial hierarchy. Center ring is the root; outer rings expand detail. Alternative to treemap when you want to emphasize hierarchy over proportions.\n\nThis example nests **three levels** — category → subcategory → product — by returning `name, parent, value` rows (a `NULL` parent marks a root ring).\n\n**Options shown:** `showLabels: true`, `sort: desc`, `highlightOnHover: true`."
               }
             }
           },
@@ -654,9 +854,9 @@
             "id": "sunburst-chart",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
-              "title": "Top 30 products by revenue",
+              "title": "Revenue by category → subcategory → product",
               "chartOptions": {
                 "showLabels": true,
                 "sort": "desc",
@@ -667,8 +867,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "sunburst-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "sunburst-chart", "x": 2, "y": 3, "w": 8, "h": 7 }
+          {
+            "i": "sunburst-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "sunburst-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 7
+          }
         ]
       },
       {
@@ -704,8 +916,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "radar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "radar-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "radar-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "radar-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -741,8 +965,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "gantt-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "gantt-chart", "x": 1, "y": 3, "w": 10, "h": 7 }
+          {
+            "i": "gantt-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "gantt-chart",
+            "x": 1,
+            "y": 3,
+            "w": 10,
+            "h": 7
+          }
         ]
       },
       {
@@ -777,8 +1013,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "circle-packing-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "circle-packing-chart", "x": 2, "y": 3, "w": 8, "h": 7 }
+          {
+            "i": "circle-packing-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "circle-packing-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 7
+          }
         ]
       },
       {
@@ -815,8 +1063,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "choropleth-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "choropleth-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+          {
+            "i": "choropleth-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "choropleth-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 7
+          }
         ]
       }
     ]

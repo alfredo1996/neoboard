@@ -17,6 +17,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  */
 export const SHOWCASES = [
   {
+    key: "movie-highlights",
+    label: "Movie Highlights",
+    description:
+      "Real-world showcase on the Neo4j movie graph — KPIs, top actors, filming map, release trend, top reviews, and a live co-star network.",
+    jsonPath: join(__dirname, "movie-highlights.json"),
+  },
+  {
     key: "chart-gallery",
     label: "Chart Gallery",
     description: "One page per chart type — 17 pages covering every registered widget.",

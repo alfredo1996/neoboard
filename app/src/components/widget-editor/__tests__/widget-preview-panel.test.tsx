@@ -117,6 +117,26 @@ describe("WidgetPreviewPanel", () => {
     expect(screen.queryByText("Run")).not.toBeInTheDocument();
   });
 
+  it("keeps the Run button grouped with the error icon so it doesn't shift on error", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: {
+            isPending: false,
+            isError: true,
+            error: new Error("boom"),
+            data: undefined,
+          },
+        })}
+      />,
+    );
+    const runButton = screen.getByText("Run").closest("button")!;
+    const errorButton = screen.getByLabelText(/Query failed: boom/);
+    // Both live in the same action group (not as separate justify-between
+    // children), so adding the error icon can't push the Run button inward.
+    expect(runButton.parentElement).toBe(errorButton.parentElement);
+  });
+
   it("shows a waiting state instead of running an unbound-param query (#1055)", () => {
     render(
       <WidgetPreviewPanel

@@ -19,34 +19,6 @@ export function extractTableSchemaFromFields(fields: FieldDef[]): string[][] {
 }
 
 /**
- * Detects if a PostgreSQL error is a timeout error.
- * @param error - The error object
- * @returns true if the error is a timeout
- */
-export function isTimeoutError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-
-  const message =
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-      ? (error as { message: string }).message
-      : "";
-  const code =
-    "code" in error && typeof (error as { code: unknown }).code === "string"
-      ? (error as { code: string }).code
-      : "";
-
-  // PostgreSQL timeout error codes and messages
-  return (
-    code === "57014" || // query_canceled
-    code === "57P01" || // admin_shutdown
-    message.includes("timeout") ||
-    message.includes("canceling statement due to statement timeout") ||
-    message.includes("terminating connection due to administrator command")
-  );
-}
-
-/**
  * Checks if an error is an authentication error.
  * @param error - The error object
  * @returns true if the error is an authentication issue

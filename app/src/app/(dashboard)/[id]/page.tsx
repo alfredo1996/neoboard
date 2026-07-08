@@ -22,6 +22,7 @@ import { useParameterStore } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { ShortcutHint } from "@/components/shortcut-hint";
 import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
@@ -323,7 +324,9 @@ export default function DashboardViewerPage({
       handler: () => {
         if (layout) {
           const idx = Math.min(activePageIndex, layout.pages.length - 1);
-          router.push("/" + id + "/edit?page=" + idx);
+          // Preserve scroll position when entering edit mode (#1163) — view and
+          // edit are separate routes, so the default nav would jump to the top.
+          router.push("/" + id + "/edit?page=" + idx, { scroll: false });
         }
       },
       disabled: !canEdit || !layout,
@@ -485,12 +488,16 @@ export default function DashboardViewerPage({
                 title="Edit dashboard (Cmd+E)"
                 onClick={() =>
                   startTransition(() =>
-                    router.push(`/${id}/edit?page=${safeIndex}`),
+                    // Keep scroll position when entering edit mode (#1163).
+                    router.push(`/${id}/edit?page=${safeIndex}`, {
+                      scroll: false,
+                    }),
                   )
                 }
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
+                <ShortcutHint combo="Cmd+E" />
               </LoadingButton>
             </>
           )}

@@ -63,6 +63,45 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       ]);
     });
 
+    it("bar value labels use the theme foreground with no halo (#1154)", () => {
+      // When a widget turns labels on, they must read against the canvas in
+      // both themes — not ECharts' default dark fill + light stroke, which is
+      // unreadable in dark mode.
+      const bar = theme.bar as Record<string, Record<string, unknown>>;
+      const label = bar.label as Record<string, unknown>;
+      const fg = (theme.textStyle as Record<string, unknown>).color;
+      expect(label.color).toBe(fg);
+      expect(label.textBorderWidth).toBe(0);
+    });
+
+    it("pie slice labels use the theme foreground with no halo (#1154)", () => {
+      // Same failure mode as bar: ECharts' default slice-label style is a dark
+      // fill with a light stroke — black-on-dark in dark mode.
+      const pie = theme.pie as Record<string, Record<string, unknown>>;
+      const label = pie.label as Record<string, unknown>;
+      const fg = (theme.textStyle as Record<string, unknown>).color;
+      expect(label.color).toBe(fg);
+      expect(label.textBorderWidth).toBe(0);
+    });
+
+    it("radar indicator labels use a readable theme color (#1154)", () => {
+      // ECharts radar axisName does NOT inherit the global textStyle — its
+      // dim default gray is hard to read on the dark canvas.
+      const radar = theme.radar as Record<string, Record<string, unknown>>;
+      const axisName = radar.axisName as Record<string, unknown>;
+      expect(axisName.color).toBe(
+        (theme.legend as { textStyle: { color: string } }).textStyle.color,
+      );
+    });
+
+    it("visualMap legend text uses a readable theme color (#1154)", () => {
+      // Choropleth's visualMap text doesn't inherit textStyle either.
+      const vm = theme.visualMap as Record<string, Record<string, unknown>>;
+      expect((vm.textStyle as Record<string, unknown>).color).toBe(
+        (theme.legend as { textStyle: { color: string } }).textStyle.color,
+      );
+    });
+
     it("lines: 1.5px stroke, round caps, smooth by default", () => {
       const line = theme.line as Record<string, Record<string, unknown>>;
       expect((line.lineStyle as Record<string, unknown>).width).toBe(1.5);

@@ -9,9 +9,6 @@ vi.mock("node:fs", () => ({
 
 vi.mock("../../../lib/exec.js", () => ({
   run: vi.fn(),
-}));
-
-vi.mock("../../../lib/docker.js", () => ({
   dockerExec: vi.fn(),
 }));
 
@@ -47,8 +44,7 @@ vi.mock("../../../commands/db/seed.js", () => ({
 }));
 
 import { readFileSync } from "node:fs";
-import { run } from "../../../lib/exec.js";
-import { dockerExec } from "../../../lib/docker.js";
+import { run, dockerExec } from "../../../lib/exec.js";
 import { getMode } from "../../../lib/config.js";
 import { error as logError } from "../../../lib/output.js";
 import { confirm } from "../../../lib/prompt.js";
@@ -68,6 +64,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("docker");
   mockConfirm.mockResolvedValue(true);
+  // Migrations succeed by default; reset now skips the seed when they fail.
+  mockRunDbMigrate.mockResolvedValue(true);
   mockReadFileSync.mockReturnValue(
     "DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard\n",
   );
@@ -136,5 +134,12 @@ describe("runDbReset", () => {
   it("skips seed with --no-seed", async () => {
     await runDbReset({ force: true, noSeed: true });
     expect(mockRunDbSeed).not.toHaveBeenCalled();
+  });
+
+  it("does NOT seed when migrations fail (#MEDIUM)", async () => {
+    mockRunDbMigrate.mockResolvedValue(false);
+    await runDbReset({ force: true });
+    expect(mockRunDbSeed).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 });

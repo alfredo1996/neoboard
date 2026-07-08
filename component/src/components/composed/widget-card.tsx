@@ -81,7 +81,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
               <button
                 type="button"
                 className={cn(
-                  "drag-handle cursor-grab active:cursor-grabbing touch-none",
+                  "drag-handle cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   !draggable && "invisible",
                 )}
                 onMouseDown={draggable ? onDragHandleMouseDown : undefined}

@@ -1,8 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../lib/docker-env.js", () => ({
   ensureDockerEnvFile: vi.fn(() => "/project/docker/.env"),
 }));
+
+// Fake TCP socket for the local-mode fallback (#1091): "connect" fires when
+// the port should read as open, "error" when it should read as closed.
+const { netConnectMock } = vi.hoisted(() => ({ netConnectMock: vi.fn() }));
+vi.mock("node:net", () => ({ createConnection: netConnectMock }));
 
 vi.mock("../../lib/exec.js", () => ({
   run: vi.fn(),
@@ -32,14 +37,13 @@ import {
   runOrNull,
   dockerExec as execInContainer,
 } from "../../lib/exec.js";
+import { getMode, readProjectConfig } from "../../lib/config.js";
 import {
   isDockerRunning,
-  isComposeV2,
   composeFile,
   composeUp,
   composeDown,
   composePs,
-  dockerExec,
   isPgReady,
   isNeo4jReady,
   isAppReady,
@@ -62,23 +66,6 @@ describe("isDockerRunning", () => {
   it("returns false when docker info fails", () => {
     mockRunOrNull.mockReturnValue(null);
     expect(isDockerRunning()).toBe(false);
-  });
-});
-
-describe("isComposeV2", () => {
-  it("returns true for v2 output", () => {
-    mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
-    expect(isComposeV2()).toBe(true);
-  });
-
-  it("returns false when compose not available", () => {
-    mockRunOrNull.mockReturnValue(null);
-    expect(isComposeV2()).toBe(false);
-  });
-
-  it("returns false for v1 output", () => {
-    mockRunOrNull.mockReturnValue("docker-compose version 1.29.0");
-    expect(isComposeV2()).toBe(false);
   });
 });
 
@@ -150,32 +137,82 @@ describe("composePs", () => {
     mockRunOrNull.mockReturnValue("not json");
     expect(composePs()).toEqual([]);
   });
-});
 
-describe("dockerExec", () => {
-  it("runs command in container via execInContainer", () => {
-    mockDockerExec.mockReturnValue("output");
-    const result = dockerExec("neoboard-postgres", "pg_isready");
-    expect(result).toBe("output");
-    expect(mockDockerExec).toHaveBeenCalledWith(
-      "neoboard-postgres",
-      "pg_isready",
-      undefined,
+  it("quotes the -f compose-file path so spaced checkout paths work (#MEDIUM)", () => {
+    mockRunOrNull.mockReturnValue(null);
+    composePs();
+    expect(mockRunOrNull).toHaveBeenCalledWith(
+      expect.stringContaining('-f "/project/docker/docker-compose.yml"'),
+      expect.any(Object),
     );
   });
 });
 
 describe("isPgReady", () => {
-  it("returns true when pg_isready succeeds", () => {
+  it("returns true when pg_isready succeeds", async () => {
     mockDockerExec.mockReturnValue("accepting connections");
-    expect(isPgReady()).toBe(true);
+    expect(await isPgReady()).toBe(true);
   });
 
-  it("returns false when pg_isready fails", () => {
+  it("returns false when pg_isready fails", async () => {
     mockDockerExec.mockImplementation(() => {
       throw new Error("not ready");
     });
-    expect(isPgReady()).toBe(false);
+    expect(await isPgReady()).toBe(false);
+  });
+
+  it("rejects a postgres.user with shell metacharacters before probing (#MEDIUM)", async () => {
+    vi.mocked(readProjectConfig).mockReturnValueOnce({
+      ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+      postgres: { user: "x; rm -rf ~", password: "p", database: "neoboard" },
+      neo4j: { user: "neo4j", password: "p" },
+      seed: { script: "s.mjs", neo4j_cypher: "" },
+    });
+    await expect(isPgReady()).rejects.toThrow(/Invalid PostgreSQL identifier/);
+    expect(mockDockerExec).not.toHaveBeenCalled();
+  });
+});
+
+describe("isPgReady — local mode (#1091)", () => {
+  const fakeSocket = (event: "connect" | "error") => {
+    const handlers: Record<string, () => void> = {};
+    const sock = {
+      on: (ev: string, cb: () => void) => {
+        handlers[ev] = cb;
+        if (ev === event) setTimeout(() => handlers[ev](), 0);
+        return sock;
+      },
+      destroy: vi.fn(),
+    };
+    return sock;
+  };
+
+  beforeEach(() => {
+    vi.mocked(getMode).mockReturnValue("local");
+  });
+
+  afterEach(() => {
+    vi.mocked(getMode).mockReturnValue("docker");
+  });
+
+  it("uses pg_isready when the binary exists", async () => {
+    mockRunOrNull.mockImplementation((cmd: string) =>
+      cmd.startsWith("command -v") ? "/usr/bin/pg_isready" : "accepting",
+    );
+    expect(await isPgReady()).toBe(true);
+    expect(netConnectMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a TCP probe when pg_isready is missing and the port is open", async () => {
+    mockRunOrNull.mockReturnValue(null); // command -v fails → binary missing
+    netConnectMock.mockImplementation(() => fakeSocket("connect"));
+    expect(await isPgReady()).toBe(true);
+  });
+
+  it("reports not-ready when the binary is missing and the port is closed", async () => {
+    mockRunOrNull.mockReturnValue(null);
+    netConnectMock.mockImplementation(() => fakeSocket("error"));
+    expect(await isPgReady()).toBe(false);
   });
 });
 

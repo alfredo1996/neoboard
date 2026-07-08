@@ -1,4 +1,4 @@
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast";
 import {
   Toast,
   ToastClose,
@@ -6,10 +6,15 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-} from "@/components/ui/toast"
+} from "@/components/ui/toast";
 
+/**
+ * Singleton mount-point for Toast: subscribes to the useToast store and renders queued toasts into the viewport.
+ * When to use: mount exactly once in the app shell (root layout); then fire notifications anywhere via useToast.
+ * When not to: never render per-page or per-widget — duplicates show every toast twice; for inline messages use Alert.
+ */
 export function Toaster() {
-  const { toasts } = useToast()
+  const { toasts } = useToast();
 
   return (
     <ToastProvider>
@@ -25,9 +30,9 @@ export function Toaster() {
             {action}
             <ToastClose />
           </Toast>
-        )
+        );
       })}
       <ToastViewport />
     </ToastProvider>
-  )
+  );
 }

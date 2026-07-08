@@ -5,7 +5,15 @@ import { QueryEditor } from "@/components/composed/query-editor";
 const meta = {
   title: "Composed/QueryEditor",
   component: QueryEditor,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+    docs: {
+      description: {
+        component:
+          "**Keyboard (#1128):** standard CodeMirror editing · `Ctrl/Cmd+Enter` runs the query (onRun) · `Ctrl/Cmd+Space` opens completion (also auto-opens while typing; covered by the code-completion E2E suite) · `ArrowUp`/`ArrowDown` navigate completions, `Enter`/`Tab` accepts, `Escape` dismisses · `Tab` indents (use `Escape` then `Tab` to leave the editor).",
+      },
+    },
+  },
   tags: ["autodocs"],
 } satisfies Meta<typeof QueryEditor>;
 
@@ -18,7 +26,8 @@ export const Default: Story = {
 
 export const WithQuery: Story = {
   args: {
-    defaultValue: "MATCH (n:Person)-[:KNOWS]->(m:Person)\nRETURN n.name, m.name\nLIMIT 25",
+    defaultValue:
+      "MATCH (n:Person)-[:KNOWS]->(m:Person)\nRETURN n.name, m.name\nLIMIT 25",
   },
 };
 
@@ -43,7 +52,8 @@ export const SQLMode: Story = {
   args: {
     language: "SQL",
     placeholder: "Write your SQL query...",
-    defaultValue: "SELECT users.name, COUNT(orders.id) as order_count\nFROM users\nJOIN orders ON users.id = orders.user_id\nGROUP BY users.name\nORDER BY order_count DESC\nLIMIT 10;",
+    defaultValue:
+      "SELECT users.name, COUNT(orders.id) as order_count\nFROM users\nJOIN orders ON users.id = orders.user_id\nGROUP BY users.name\nORDER BY order_count DESC\nLIMIT 10;",
   },
 };
 

@@ -54,9 +54,25 @@ const emptyLayout: DashboardLayoutV2 = {
 function updatePage(
   pages: DashboardPage[],
   index: number,
-  updater: (page: DashboardPage) => DashboardPage
+  updater: (page: DashboardPage) => DashboardPage,
 ): DashboardPage[] {
   return pages.map((p, i) => (i === index ? updater(p) : p));
+}
+
+/** Order-independent comparison of grid positions ({i,x,y,w,h}). */
+function sameGridLayout(a: GridLayoutItem[], b: GridLayoutItem[]): boolean {
+  if (a.length !== b.length) return false;
+  const byId = new Map(b.map((item) => [item.i, item]));
+  return a.every((item) => {
+    const other = byId.get(item.i);
+    return (
+      !!other &&
+      other.x === item.x &&
+      other.y === item.y &&
+      other.w === item.w &&
+      other.h === item.h
+    );
+  });
 }
 
 function withActivePage(
@@ -85,12 +101,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       _dirty: false,
       activePageIndex: Math.min(
         isNaN(initialPageIndex) ? 0 : initialPageIndex,
-        layout.pages.length - 1
+        layout.pages.length - 1,
       ),
     }),
   setEditMode: (editMode) => set({ editMode }),
   reset: () =>
-    set({ layout: emptyLayout, savedLayout: null, _dirty: false, activePageIndex: 0, editMode: false }),
+    set({
+      layout: emptyLayout,
+      savedLayout: null,
+      _dirty: false,
+      activePageIndex: 0,
+      editMode: false,
+    }),
 
   // Unsaved changes tracking — uses dirty flag for O(1) checks
   hasUnsavedChanges: () => {
@@ -101,7 +123,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   markSaved: () =>
     set((state) => ({
       savedLayout: JSON.parse(
-        JSON.stringify(state.layout)
+        JSON.stringify(state.layout),
       ) as DashboardLayoutV2,
       _dirty: false,
     })),
@@ -130,11 +152,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set((state) => {
       if (state.layout.pages.length <= 1) return state;
       const pages = state.layout.pages.filter((_, i) => i !== index);
-      const activePageIndex = Math.min(
-        state.activePageIndex,
-        pages.length - 1
-      );
-      return { layout: { ...state.layout, pages }, activePageIndex, _dirty: true };
+      const activePageIndex = Math.min(state.activePageIndex, pages.length - 1);
+      return {
+        layout: { ...state.layout, pages },
+        activePageIndex,
+        _dirty: true,
+      };
     }),
 
   renamePage: (index, title) =>
@@ -178,7 +201,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       ) {
         newActive = state.activePageIndex + 1;
       }
-      return { layout: { ...state.layout, pages }, activePageIndex: newActive, _dirty: true };
+      return {
+        layout: { ...state.layout, pages },
+        activePageIndex: newActive,
+        _dirty: true,
+      };
     }),
 
   // ── Widget management (active page) ──────────────────────────────
@@ -215,13 +242,22 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     })),
 
   updateGridLayout: (gridLayout) =>
-    set((state) => ({
-      ...withActivePage(state, (p) => ({
-        ...p,
-        gridLayout,
-      })),
-      _dirty: true,
-    })),
+    set((state) => {
+      // react-grid-layout fires onLayoutChange on mount and breakpoint reflow,
+      // not only on user edits. Skip no-op updates so those don't mark the
+      // dashboard dirty (and can't clobber the saved layout on save).
+      const active = state.layout.pages[state.activePageIndex];
+      if (active && sameGridLayout(active.gridLayout, gridLayout)) {
+        return state;
+      }
+      return {
+        ...withActivePage(state, (p) => ({
+          ...p,
+          gridLayout,
+        })),
+        _dirty: true,
+      };
+    }),
 
   duplicateWidget: (widgetId) =>
     set((state) => {

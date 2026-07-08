@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   Select,
   SelectContent,
@@ -7,22 +7,22 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const meta = {
-  title: 'UI/Select',
+  title: "UI/Select",
   component: Select,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     disabled: {
-      control: 'boolean',
-      description: 'Whether the select is disabled',
+      control: "boolean",
+      description: "Whether the select is disabled",
     },
     defaultValue: {
-      control: 'text',
-      description: 'The default selected value',
+      control: "text",
+      description: "The default selected value",
     },
   },
 } satisfies Meta<typeof Select>;
@@ -104,5 +104,23 @@ export const Disabled: Story = {
         <SelectItem value="banana">Banana</SelectItem>
       </SelectContent>
     </Select>
+  ),
+};
+
+// Epic C (#1127): shared size scale on the trigger.
+export const Sizes: Story = {
+  render: () => (
+    <div className="flex w-64 flex-col gap-2">
+      {(["sm", "default", "lg"] as const).map((size) => (
+        <Select key={size}>
+          <SelectTrigger size={size}>
+            <SelectValue placeholder={size} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="a">Option A</SelectItem>
+          </SelectContent>
+        </Select>
+      ))}
+    </div>
   ),
 };

@@ -1,7 +1,7 @@
 import { createSpinner } from "./output.js";
 
 export interface HealthCheckOptions {
-  check: () => boolean;
+  check: () => boolean | Promise<boolean>;
   label: string;
   interval?: number;
   timeout?: number;
@@ -14,7 +14,7 @@ export async function waitForHealth(opts: HealthCheckOptions): Promise<void> {
 
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    if (check()) {
+    if (await check()) {
       spinner.succeed(`${label} is ready`);
       return;
     }

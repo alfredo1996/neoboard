@@ -72,8 +72,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "bar-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "bar-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+          {
+            "i": "bar-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "bar-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 6
+          }
         ]
       },
       {
@@ -127,8 +139,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "line-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "line-chart", "x": 0, "y": 3, "w": 12, "h": 6 }
+          {
+            "i": "line-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "line-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 6
+          }
         ]
       },
       {
@@ -181,8 +205,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "pie-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "pie-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "pie-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "pie-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -295,10 +331,34 @@
           }
         ],
         "gridLayout": [
-          { "i": "sv-md", "x": 0, "y": 0, "w": 12, "h": 4 },
-          { "i": "sv-param", "x": 0, "y": 4, "w": 4, "h": 2 },
-          { "i": "sv-delivery", "x": 4, "y": 4, "w": 4, "h": 3 },
-          { "i": "sv-revenue", "x": 8, "y": 4, "w": 4, "h": 3 }
+          {
+            "i": "sv-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 4
+          },
+          {
+            "i": "sv-param",
+            "x": 0,
+            "y": 4,
+            "w": 4,
+            "h": 2
+          },
+          {
+            "i": "sv-delivery",
+            "x": 4,
+            "y": 4,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "i": "sv-revenue",
+            "x": 8,
+            "y": 4,
+            "w": 4,
+            "h": 3
+          }
         ]
       },
       {
@@ -358,8 +418,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "gauge-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "gauge-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "gauge-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "gauge-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -382,9 +454,9 @@
             "id": "sb-chart",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
+            "query": "WITH line AS (SELECT parent.name AS cat, sub.name AS subcat, p.name AS product, oi.qty * oi.price AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id) SELECT cat AS name, NULL AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat UNION ALL SELECT subcat AS name, cat AS parent, SUM(revenue)::float AS value FROM line GROUP BY cat, subcat UNION ALL SELECT product AS name, subcat AS parent, SUM(revenue)::float AS value FROM line GROUP BY subcat, product",
             "settings": {
-              "title": "Top 30 products — colored by revenue band",
+              "title": "Revenue hierarchy — colored by revenue band",
               "stylingConfig": {
                 "enabled": true,
                 "rules": [
@@ -416,8 +488,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "sb-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "sb-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "sb-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "sb-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -470,8 +554,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "tm-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "tm-chart", "x": 0, "y": 3, "w": 12, "h": 7 }
+          {
+            "i": "tm-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "tm-chart",
+            "x": 0,
+            "y": 3,
+            "w": 12,
+            "h": 7
+          }
         ]
       },
       {
@@ -525,8 +621,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "rd-md", "x": 0, "y": 0, "w": 12, "h": 3 },
-          { "i": "rd-chart", "x": 2, "y": 3, "w": 8, "h": 6 }
+          {
+            "i": "rd-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 3
+          },
+          {
+            "i": "rd-chart",
+            "x": 2,
+            "y": 3,
+            "w": 8,
+            "h": 6
+          }
         ]
       },
       {
@@ -592,8 +700,20 @@
           }
         ],
         "gridLayout": [
-          { "i": "tbl-md", "x": 0, "y": 0, "w": 12, "h": 4 },
-          { "i": "tbl-widget", "x": 0, "y": 4, "w": 12, "h": 8 }
+          {
+            "i": "tbl-md",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 4
+          },
+          {
+            "i": "tbl-widget",
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 8
+          }
         ]
       }
     ]

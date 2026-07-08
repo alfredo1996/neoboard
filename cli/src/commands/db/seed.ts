@@ -1,8 +1,7 @@
 import { existsSync } from "node:fs";
 import { buildSeedEnv } from "../../lib/docker-env.js";
 import { resolve, normalize } from "node:path";
-import { run } from "../../lib/exec.js";
-import { dockerExec } from "../../lib/docker.js";
+import { run, dockerExec } from "../../lib/exec.js";
 import { paths, readProjectConfig } from "../../lib/config.js";
 import { success, createSpinner } from "../../lib/output.js";
 
@@ -71,7 +70,9 @@ export async function seedPostgres(): Promise<void> {
   // #1039); in local mode it returns process.env unchanged.
   const env = buildSeedEnv(config);
 
-  run(`node ${paths.root}/${config.seed.script}`, {
+  // Quote the path so a project checked out under a directory with a space
+  // still runs the seed script. (#MEDIUM)
+  run(`node "${paths.root}/${config.seed.script}"`, {
     cwd: paths.root,
     env,
   });

@@ -1058,10 +1058,10 @@
                   "id": "pg-ff-rating",
                   "label": "Rating (1–5)",
                   "parameterName": "pg_rating",
-                  "parameterType": "number-range",
-                  "rangeMin": 1,
-                  "rangeMax": 5,
-                  "rangeStep": 1
+                  "parameterType": "select",
+                  "staticOptions": "1,2,3,4,5",
+                  "required": true,
+                  "placeholder": "Pick a rating"
                 },
                 {
                   "id": "pg-ff-category",

@@ -4,6 +4,14 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
+/**
+ * Modal confirmation dialog (Radix AlertDialog root) that blocks interaction
+ * until the user picks AlertDialogAction or AlertDialogCancel.
+ * When to use: destructive or irreversible confirmations — deleting a
+ * dashboard, removing a connection, revoking a sharing link.
+ * When not to: general modal content (forms, editors) — use Dialog; passive
+ * inline messaging — use Alert; transient feedback — use Toast.
+ */
 const AlertDialog = AlertDialogPrimitive.Root;
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;

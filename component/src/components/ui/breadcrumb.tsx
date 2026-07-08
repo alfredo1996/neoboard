@@ -4,6 +4,14 @@ import { ChevronRight, MoreHorizontal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Hierarchy trail nav (aria-label="breadcrumb"); compose with BreadcrumbList,
+ * BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, and BreadcrumbSeparator.
+ * When to use: showing location in nested navigation — e.g.
+ * Dashboards > Sales Overview > Edit Widget.
+ * When not to: switching sibling views on one page — use Tabs; top-level app
+ * navigation — use NavigationMenu.
+ */
 const Breadcrumb = React.forwardRef<
   HTMLElement,
   React.ComponentPropsWithoutRef<"nav"> & {

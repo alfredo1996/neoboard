@@ -27,15 +27,60 @@ export interface ChartTypePickerProps {
 }
 
 const defaultOptions: ChartTypeOption[] = [
-  { type: "bar", label: "Bar", icon: <BarChart3 className="h-5 w-5" />, description: "Compare categories" },
-  { type: "line", label: "Line", icon: <LineChartIcon className="h-5 w-5" />, description: "Show trends" },
-  { type: "pie", label: "Pie", icon: <PieChartIcon className="h-5 w-5" />, description: "Show proportions" },
-  { type: "single-value", label: "Value", icon: <Hash className="h-5 w-5" />, description: "Single metric" },
-  { type: "graph", label: "Graph", icon: <GitGraph className="h-5 w-5" />, description: "Node-link" },
-  { type: "map", label: "Map", icon: <Map className="h-5 w-5" />, description: "Geographic data" },
-  { type: "table", label: "Table", icon: <Table2 className="h-5 w-5" />, description: "Data table" },
-  { type: "json", label: "JSON", icon: <Braces className="h-5 w-5" />, description: "Raw data view" },
-  { type: "parameter-select", label: "Param", icon: <SlidersHorizontal className="h-5 w-5" />, description: "Filter control" },
+  {
+    type: "bar",
+    label: "Bar",
+    icon: <BarChart3 className="h-5 w-5" />,
+    description: "Compare categories",
+  },
+  {
+    type: "line",
+    label: "Line",
+    icon: <LineChartIcon className="h-5 w-5" />,
+    description: "Show trends",
+  },
+  {
+    type: "pie",
+    label: "Pie",
+    icon: <PieChartIcon className="h-5 w-5" />,
+    description: "Show proportions",
+  },
+  {
+    type: "single-value",
+    label: "Value",
+    icon: <Hash className="h-5 w-5" />,
+    description: "Single metric",
+  },
+  {
+    type: "graph",
+    label: "Graph",
+    icon: <GitGraph className="h-5 w-5" />,
+    description: "Node-link",
+  },
+  {
+    type: "map",
+    label: "Map",
+    icon: <Map className="h-5 w-5" />,
+    description: "Geographic data",
+  },
+  {
+    type: "table",
+    label: "Table",
+    icon: <Table2 className="h-5 w-5" />,
+    description: "Data table",
+  },
+  {
+    type: "json",
+    label: "JSON",
+    icon: <Braces className="h-5 w-5" />,
+    description: "Raw data view",
+  },
+  {
+    type: "parameter-select",
+    label: "Param",
+    icon: <SlidersHorizontal className="h-5 w-5" />,
+    description: "Filter control",
+  },
 ];
 
 function ChartTypePicker({
@@ -52,10 +97,10 @@ function ChartTypePicker({
           type="button"
           onClick={() => onValueChange?.(option.type)}
           className={cn(
-            "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors hover:bg-accent",
+            "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             value === option.type
               ? "border-primary bg-accent text-accent-foreground"
-              : "border-border"
+              : "border-border",
           )}
         >
           {option.icon && (

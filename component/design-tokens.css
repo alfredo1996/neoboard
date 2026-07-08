@@ -36,6 +36,17 @@
   font-display: swap;
 }
 
+/*
+ * Token format (two-layer rule — keep it consistent):
+ *   • Colors are stored as bare HSL channels ("H S% L%") and consumed via
+ *     hsl(var(--x) / <alpha>). This keeps every color alpha-composable and
+ *     theme-aware. (--accent-soft stores the full hsl(... / a) form because it
+ *     bakes in a fixed tint alpha — still hue-channel based, never hex.)
+ *   • Shadows are stored as pre-resolved CSS strings (with embedded hsl()),
+ *     because a box-shadow value isn't a single composable color. This is the
+ *     one intentional exception — do not "normalize" it.
+ * Never store a color as hex/rgba. Interaction = citrine amber (Epic A #1125).
+ */
 :root {
   --background: 220 14% 98%;
   --foreground: 220 13% 9%;
@@ -48,38 +59,40 @@
   --popover-foreground: 220 13% 9%;
   --muted: 220 14% 94%;
   --muted-foreground: 220 9% 44%;
-  /* Indigo-tinted hover/selected fill (shadcn semantics). Selection/interaction
-     moved off amber to a cool indigo: amber reads as "warning" (and IS the
-     --warning hue), and amber focus rings are low-contrast on white. Citrine
-     stays the brand mark (--brand) + chart data palette. */
-  --accent: 243 100% 97%;
+  /* Amber-tinted hover/selected fill. Epic A (#1125) unifies brand AND
+     interaction on citrine amber. The two historical concerns (warning-hue
+     collision; low contrast on white) are mitigated: --ring uses a denser amber
+     (38% L) for contrast, and --warning is nudged to hue 28 so "warning" and
+     "interactive" stay distinct. */
+  --accent: 38 100% 96%;
   --accent-foreground: 220 13% 9%;
-  /* Low-alpha indigo tint for hover/active fills on arbitrary surfaces —
+  /* Low-alpha amber tint for hover/active fills on arbitrary surfaces —
      alpha-based so it adapts to theme mode automatically. */
-  --accent-soft: hsl(243 75% 59% / 0.14);
-  /* Brand mark accent — the warm citrine square in the wordmark. Kept warm so
-     the brand identity stays "Graphite & Citrine" while UI selection is cool. */
+  --accent-soft: hsl(38 95% 50% / 0.14);
+  /* Brand mark accent — the warm citrine square in the wordmark. As of Epic A
+     (#1125) the same citrine drives interaction (--ring / --accent) too. */
   --brand: 38 95% 55%;
-  --destructive: 0 84.2% 60.2%;
+  /* The one error red (Epic B #1126): deep enough for AA as text on white,
+     and the destructive-surface color. The old duplicate danger red is gone. */
+  --destructive: 0 72% 48%;
   --destructive-foreground: 0 0% 98%;
   /* Semantic status colors (#1059 follow-up): readable as text on the page
      surface AND as the base for low-alpha tonal badge tints. Mid-luminance
      in light mode; lifted in dark (see .dark). --warning is a deliberately
-     warmer/darker amber than the citrine brand --ring so "warning" and
-     "accent" stay distinct. Danger is a text-legible red, distinct from the
-     heavier --destructive surface color. */
+     more-orange (hue 28) and darker amber than the citrine --ring (hue 38) so
+     "warning" and "interactive" stay distinct. */
   --success: 142 64% 32%;
   --success-foreground: 0 0% 100%;
-  --warning: 33 92% 40%;
+  --warning: 28 92% 40%;
   --warning-foreground: 0 0% 100%;
-  --danger: 0 72% 48%;
-  --danger-foreground: 0 0% 100%;
   --border: 220 13% 91%;
   /* Stronger border for inputs and emphasized dividers. */
   --border-strong: 220 13% 84%;
   --input: 220 13% 84%;
-  /* Selection/focus accent — cool indigo (was citrine amber). */
-  --ring: 243 75% 59%;
+  /* Selection/focus accent — citrine amber, deep (38% L vs --brand's 55%) so the
+     2px focus ring clears WCAG 1.4.11 non-text contrast (~3.4:1) against the
+     near-white page (Epic A #1125). */
+  --ring: 38 95% 38%;
   --font-display: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
   /* Radius scale (#831): precise small controls, softer large containers. */
@@ -129,26 +142,26 @@
   --popover-foreground: 220 14% 96%;
   --muted: 220 13% 15%;
   --muted-foreground: 220 9% 62%;
-  /* Deep indigo hover fill; readable cool-white text. */
-  --accent: 243 40% 22%;
-  --accent-foreground: 243 100% 93%;
-  --accent-soft: hsl(243 85% 70% / 0.2);
+  /* Deep amber hover fill; readable warm-white text. */
+  --accent: 38 45% 22%;
+  --accent-foreground: 38 100% 92%;
+  --accent-soft: hsl(38 90% 60% / 0.2);
   /* Brand mark stays warm citrine (matches --chart-1 dark). */
   --brand: 38 95% 58%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
+  /* Lifted error red (Epic B #1126) so it reads as text against charcoal;
+     as a surface it's light, so its foreground flips to near-black. */
+  --destructive: 0 80% 66%;
+  --destructive-foreground: 220 13% 9%;
   /* Lifted luminance so the colors read as text/tints against charcoal. */
   --success: 142 58% 55%;
   --success-foreground: 220 13% 9%;
-  --warning: 38 92% 60%;
+  --warning: 28 92% 58%;
   --warning-foreground: 220 13% 9%;
-  --danger: 0 80% 66%;
-  --danger-foreground: 220 13% 9%;
   --border: 220 13% 17%;
   --border-strong: 220 13% 25%;
   --input: 220 13% 25%;
-  /* Lifted indigo focus/selection ring for contrast on charcoal. */
-  --ring: 243 85% 70%;
+  /* Lifted amber focus/selection ring for contrast on charcoal. */
+  --ring: 38 95% 60%;
   --primary: 220 14% 96%;
   --primary-foreground: 220 13% 9%;
   --secondary: 220 13% 15%;

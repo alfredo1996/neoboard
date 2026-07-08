@@ -6,6 +6,14 @@ import { Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Binary form control (Radix Checkbox) that stays inert until the enclosing
+ * form is submitted; pair with Label via the `peer` class.
+ * When to use: opt-in form fields and multi-select lists — e.g. "Enable click
+ * action" in the widget editor, or picking columns in the field picker.
+ * When not to: settings that apply immediately on toggle — use Switch;
+ * mutually exclusive choices — use RadioGroup.
+ */
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>

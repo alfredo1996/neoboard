@@ -204,6 +204,11 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
     expect(token).not.toBeNull();
   });
 
+  it("seeds the creator and reader demo personas (#921)", async () => {
+    expect(await login("creator@neoboard.local", "creator123")).not.toBeNull();
+    expect(await login("reader@neoboard.local", "reader123")).not.toBeNull();
+  });
+
   // -------------------------------------------------------------------
   // Connections — encrypted config integrity
   // -------------------------------------------------------------------

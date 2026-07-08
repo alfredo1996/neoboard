@@ -49,9 +49,9 @@ import {
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
+  getSelectableChartTypes,
   chartSupportsClickAction,
   chartSupportsStyling,
-  getAllChartTypes,
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import type { ConnectorType } from "@/lib/connector/connector-types";
@@ -353,13 +353,16 @@ export function WidgetEditorModal({
   // (#1120) rather than its type; unknown / no connector → plain text.
   const editorLanguage = editorLanguageForConnector(selectedConnection?.type);
 
-  // Chart types compatible with the selected connector
+  // Chart types offered in the picker — excludes disabled types (#1158) and
+  // keeps the widget's current (possibly legacy) type visible for editing.
+  // Logic lives in the unit-tested getSelectableChartTypes helper.
   const compatibleChartTypes = useMemo(
     () =>
-      selectedConnection
-        ? (getCompatibleChartTypes(selectedConnection.type) as ChartType[])
-        : (getAllChartTypes() as ChartType[]),
-    [selectedConnection],
+      getSelectableChartTypes(
+        selectedConnection?.type,
+        chartType,
+      ) as ChartType[],
+    [selectedConnection, chartType],
   );
 
   // Unified connection-change handler for both add and edit modes.

@@ -103,8 +103,19 @@ test.describe("Widget editor", () => {
       await expect(
         page.getByRole("option", { name: "Sunburst" }),
       ).toBeVisible();
-      await expect(page.getByRole("option", { name: "Radar" })).toBeVisible();
-      await expect(page.getByRole("option", { name: "Treemap" })).toBeVisible();
+      // Disabled in the picker (#1158) — implementations kept, not offered.
+      await expect(page.getByRole("option", { name: /^radar$/i })).toHaveCount(
+        0,
+      );
+      await expect(page.getByRole("option", { name: /treemap/i })).toHaveCount(
+        0,
+      );
+      await expect(
+        page.getByRole("option", { name: /choropleth/i }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("option", { name: /circle pack/i }),
+      ).toHaveCount(0);
       await expect(
         page.getByRole("option", { name: "Markdown" }),
       ).toBeVisible();

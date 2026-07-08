@@ -307,45 +307,43 @@ export function WidgetPreviewPanel({
       <div className="flex items-center justify-between">
         <Label className="mb-0">Preview</Label>
         {!isParamSelect && !isForm && !isContentOnly && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRunPreview}
-            disabled={isRunDisabled(
-              connectionId,
-              query,
-              previewQuery.isPending,
+          <div className="flex items-center gap-2">
+            {!waitingForParams && previewQuery.isError && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center text-destructive"
+                    aria-label={`Query failed: ${previewQuery.error?.message}`}
+                  >
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-sm text-xs">
+                  <p className="font-medium">Query failed</p>
+                  <p className="opacity-80">{previewQuery.error?.message}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
-          >
-            {previewQuery.isPending ? (
-              <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
-            ) : (
-              <Play className="h-3 w-3 mr-1.5" />
-            )}
-            Run
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRunPreview}
+              disabled={isRunDisabled(
+                connectionId,
+                query,
+                previewQuery.isPending,
+              )}
+            >
+              {previewQuery.isPending ? (
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
+              ) : (
+                <Play className="h-3 w-3 mr-1.5" />
+              )}
+              Run
+            </Button>
+          </div>
         )}
-        {!isParamSelect &&
-          !isForm &&
-          !isContentOnly &&
-          !waitingForParams &&
-          previewQuery.isError && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center text-destructive"
-                  aria-label={`Query failed: ${previewQuery.error?.message}`}
-                >
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-sm text-xs">
-                <p className="font-medium">Query failed</p>
-                <p className="opacity-80">{previewQuery.error?.message}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
       </div>
 
       <div

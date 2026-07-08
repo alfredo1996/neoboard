@@ -123,7 +123,7 @@ function SingleValueChart({
     trend?.direction === "up"
       ? "text-[hsl(var(--success))]"
       : trend?.direction === "down"
-        ? "text-[hsl(var(--danger))]"
+        ? "text-[hsl(var(--destructive))]"
         : "text-muted-foreground";
 
   const trendArrow =

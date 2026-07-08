@@ -75,20 +75,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3000/api/health",
-        ]
-      interval: 30s
-      timeout: 10s
-      # Next.js cold start with migration verification can exceed the
-      # Dockerfile default of 10s — don't flap during boot.
-      start_period: 30s
-      retries: 3
+    # Healthcheck comes from the image (30s start-period since #931) — no
+    # per-compose override needed.
     restart: unless-stopped

@@ -7,9 +7,6 @@ vi.mock("node:fs", async (importOriginal) => {
 
 vi.mock("../../../lib/exec.js", () => ({
   run: vi.fn(),
-}));
-
-vi.mock("../../../lib/docker.js", () => ({
   dockerExec: vi.fn(),
 }));
 
@@ -44,8 +41,7 @@ vi.mock("../../../lib/output.js", () => ({
   })),
 }));
 
-import { run } from "../../../lib/exec.js";
-import { dockerExec } from "../../../lib/docker.js";
+import { run, dockerExec } from "../../../lib/exec.js";
 import { buildSeedEnv } from "../../../lib/docker-env.js";
 import {
   seedNeo4j,
@@ -103,7 +99,7 @@ describe("seedPostgres", () => {
     await seedPostgres();
     expect(mockBuildSeedEnv).toHaveBeenCalledOnce();
     expect(mockRun).toHaveBeenCalledWith(
-      "node /project/scripts/seed-demo.mjs",
+      'node "/project/scripts/seed-demo.mjs"',
       { cwd: "/project", env: { SEED_ENV: "from-buildSeedEnv" } },
     );
   });

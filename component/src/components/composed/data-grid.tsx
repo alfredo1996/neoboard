@@ -438,7 +438,7 @@ function DataGrid<TData>({
                           <TableCell key={cell.id} colSpan={1}>
                             <button
                               type="button"
-                              className="flex items-center gap-1 text-left"
+                              className="flex items-center gap-1 text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               onClick={() => row.toggleExpanded()}
                               aria-label="Toggle group"
                             >
