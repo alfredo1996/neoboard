@@ -53,6 +53,7 @@ app/e2e/.containers-state.json
 # Coverage reports (generated — never commit)
 coverage/
 app/coverage-e2e/
+connection/coverage-quality/
 *.lcov
 
 # Screenshot review (temporary per-PR artifacts)
