@@ -75,6 +75,32 @@ describe("PostgresConnectionModule — runQuery never rejects (#CRITICAL)", () =
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onFail).toHaveBeenCalledTimes(1);
   });
+
+  it("routes a non-auth verifyAuthentication failure to onFail (no hang)", async () => {
+    const mod = makeModule();
+    // No pool yet → runQuery calls verifyAuthentication, which rejects with a
+    // NETWORK error (not an auth error). It must reach the outer catch → onFail,
+    // never escape runQuery.
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(null);
+    jest
+      .spyOn(mod.authModule, "verifyAuthentication")
+      .mockRejectedValue(new Error("getaddrinfo ENOTFOUND db.internal"));
+
+    const onFail = jest.fn();
+    const onSuccess = jest.fn();
+
+    await expect(
+      mod.runQuery(
+        { query: "SELECT 1", params: {} },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { onFail, onSuccess } as any,
+        CONFIG({}),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onFail).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("PostgresConnectionModule — read-only fails closed (#HIGH)", () => {
