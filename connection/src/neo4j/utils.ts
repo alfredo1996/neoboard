@@ -1,5 +1,3 @@
-export { errorHasMessage } from "@neoboard/connector-sdk";
-
 /**
  * Collects all node labels and node properties in a set of Neo4j records.
  * @param records : a list of Neo4j records.
