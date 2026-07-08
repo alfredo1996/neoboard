@@ -1,4 +1,4 @@
-import { PostgresAuthenticationModule } from "../../src/postgresql";
+import { PostgresAuthenticationModule } from "../../src/postgresql/PostgresAuthenticationModule";
 import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,

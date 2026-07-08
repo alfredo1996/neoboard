@@ -1,7 +1,6 @@
 import {
   errorHasMessage,
   extractTableSchemaFromFields,
-  isTimeoutError,
   isAuthenticationError,
 } from "../../src/postgresql/utils";
 import type { FieldDef } from "pg";
@@ -71,45 +70,6 @@ describe("PostgreSQL Utils", () => {
       expect(schema[0]).toContain("field2");
       expect(schema[0]).toContain("field3");
       expect(schema[0]).toContain("field4");
-    });
-  });
-
-  describe("isTimeoutError", () => {
-    test("should detect query_canceled error code", () => {
-      const error = { code: "57014", message: "query canceled" };
-      expect(isTimeoutError(error)).toBe(true);
-    });
-
-    test("should detect admin_shutdown error code", () => {
-      const error = { code: "57P01", message: "admin shutdown" };
-      expect(isTimeoutError(error)).toBe(true);
-    });
-
-    test("should detect timeout in message", () => {
-      const error = { message: "statement timeout exceeded" };
-      expect(isTimeoutError(error)).toBe(true);
-    });
-
-    test("should detect canceling statement message", () => {
-      const error = { message: "canceling statement due to statement timeout" };
-      expect(isTimeoutError(error)).toBe(true);
-    });
-
-    test("should detect terminating connection message", () => {
-      const error = {
-        message: "terminating connection due to administrator command",
-      };
-      expect(isTimeoutError(error)).toBe(true);
-    });
-
-    test("should return false for non-timeout errors", () => {
-      expect(isTimeoutError({ code: "23505", message: "duplicate key" })).toBe(
-        false,
-      );
-      expect(isTimeoutError({ message: "syntax error" })).toBe(false);
-      expect(isTimeoutError({})).toBe(false);
-      expect(isTimeoutError(null)).toBe(false);
-      expect(isTimeoutError(undefined)).toBe(false);
     });
   });
 

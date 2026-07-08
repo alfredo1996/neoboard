@@ -10,7 +10,7 @@ import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
-import { PostgresConnectionModule } from "../../src/postgresql";
+import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
 import { AuthType } from "@neoboard/connector-sdk";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
