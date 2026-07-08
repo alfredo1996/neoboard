@@ -225,11 +225,12 @@ export class PostgresConnectionModule extends ConnectionModule {
         try {
           await client.query("ROLLBACK");
         } catch (rollbackError) {
-          // Log only error type — never the full error which may contain connection details
+          // Log only the SQLSTATE code / error name — NEVER the message, which
+          // can carry connection details. (message.split(":")[0] leaked the
+          // whole message when it had no colon — CodeRabbit.)
           const code =
-            rollbackError instanceof Error
-              ? rollbackError.message.split(":")[0]
-              : "unknown";
+            (rollbackError as { code?: string })?.code ??
+            (rollbackError instanceof Error ? rollbackError.name : "unknown");
           console.error("Error during rollback:", code);
         }
       }
