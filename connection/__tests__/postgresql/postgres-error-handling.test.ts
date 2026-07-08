@@ -151,3 +151,70 @@ describe("PostgresConnectionModule — read-only fails closed (#HIGH)", () => {
     expect(queries).not.toContain("BEGIN TRANSACTION READ ONLY");
   });
 });
+
+describe("PostgresConnectionModule — error-path routing", () => {
+  it("routes an auth failure (verifyAuthentication rejects with an auth error) to onFail", async () => {
+    const mod = makeModule();
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(null);
+    // Auth-classified rejection → swallowed to `false` → "Failed to authenticate".
+    jest.spyOn(mod.authModule, "verifyAuthentication").mockRejectedValue({
+      code: "28P01",
+      message: "password authentication failed",
+    });
+
+    const onFail = jest.fn();
+    const onSuccess = jest.fn();
+    await mod.runQuery(
+      { query: "SELECT 1", params: {} },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { onFail, onSuccess } as any,
+      CONFIG({}),
+    );
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onFail).toHaveBeenCalledTimes(1);
+    expect(String((onFail.mock.calls[0][0] as Error).message)).toMatch(
+      /authenticate/i,
+    );
+  });
+
+  it("still reports onFail when ROLLBACK itself fails (rollback error logged, not rethrown)", async () => {
+    const mod = makeModule();
+    const client = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      query: jest.fn((q: string): Promise<any> => {
+        if (q === "BEGIN") return Promise.resolve({});
+        if (q.startsWith("INSERT"))
+          return Promise.reject(new Error("insert exploded"));
+        if (q === "ROLLBACK")
+          return Promise.reject({ code: "25P02", message: "in failed txn" });
+        return Promise.resolve({ rows: [], fields: [], rowCount: 0 });
+      }),
+      release: jest.fn(),
+      on: jest.fn(),
+      removeListener: jest.fn(),
+    };
+    const pool = { connect: jest.fn().mockResolvedValue(client) };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+    const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    const onFail = jest.fn();
+    await mod.runQuery(
+      { query: "INSERT INTO t VALUES (1)", params: {} },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { onFail, onSuccess: jest.fn() } as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      CONFIG({ accessMode: "WRITE" as any, parseToNeodashRecord: false }),
+    );
+
+    // The original query error surfaces; the ROLLBACK failure is only logged
+    // (by SQLSTATE code), never rethrown — runQuery still resolves.
+    expect(onFail).toHaveBeenCalledTimes(1);
+    expect(String((onFail.mock.calls[0][0] as Error).message)).toMatch(
+      /insert exploded/i,
+    );
+    expect(client.release).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+});
