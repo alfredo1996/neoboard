@@ -225,6 +225,7 @@ export function GraphExplorationWrapper({
     initialEdges: storedIsValid ? stored.edges : initialEdges,
     fetchNeighbors,
     maxDepth: 3,
+    resultId,
   });
 
   // Persist exploration state to the store whenever it changes, always
