@@ -131,10 +131,8 @@ describe("useGraphExploration", () => {
   it("cascading collapse: collapsing A removes B's expansion too", async () => {
     // Start with just [A], expand A → [B], expand B → [C]
     const fetchNeighbors = vi.fn(async (node: GraphNode) => {
-      if (node.id === "a")
-        return { nodes: [nodeB], edges: [edgeAB] };
-      if (node.id === "b")
-        return { nodes: [nodeC], edges: [edgeBC] };
+      if (node.id === "a") return { nodes: [nodeB], edges: [edgeAB] };
+      if (node.id === "b") return { nodes: [nodeC], edges: [edgeBC] };
       return { nodes: [], edges: [] };
     });
 
@@ -167,8 +165,7 @@ describe("useGraphExploration", () => {
     const fetchNeighbors = vi.fn(async (node: GraphNode) => {
       if (node.id === "a")
         return { nodes: [nodeD], edges: [{ source: "a", target: "d" }] };
-      if (node.id === "b")
-        return { nodes: [nodeD], edges: [edgeBD] };
+      if (node.id === "b") return { nodes: [nodeD], edges: [edgeBD] };
       return { nodes: [], edges: [] };
     });
 
@@ -187,10 +184,8 @@ describe("useGraphExploration", () => {
 
   it("respects maxDepth", async () => {
     const fetchNeighbors = vi.fn(async (node: GraphNode) => {
-      if (node.id === "b")
-        return { nodes: [nodeC], edges: [edgeBC] };
-      if (node.id === "c")
-        return { nodes: [nodeD], edges: [edgeCD] };
+      if (node.id === "b") return { nodes: [nodeC], edges: [edgeBC] };
+      if (node.id === "c") return { nodes: [nodeD], edges: [edgeCD] };
       return { nodes: [], edges: [] };
     });
 
@@ -262,6 +257,58 @@ describe("useGraphExploration", () => {
     expect(result.current.expandingNodeId).toBeNull();
   });
 
+  it("re-seeds when resultId changes (new query result)", async () => {
+    const fetchNeighbors = vi.fn(async () => ({
+      nodes: [nodeC],
+      edges: [edgeBC],
+    }));
+    const { result, rerender } = renderHook(
+      (props: UseGraphExplorationOptions) => useGraphExploration(props),
+      { initialProps: makeOptions({ fetchNeighbors, resultId: "q1" }) },
+    );
+
+    // Expand + select against the first result.
+    await act(() => result.current.onExpandRequest(nodeB));
+    act(() => result.current.onNodeSelect(["a", "c"]));
+    expect(ids(result.current.nodes)).toEqual(["a", "b", "c"]);
+
+    // A new query feeds a different graph under a new resultId.
+    rerender(
+      makeOptions({
+        initialNodes: [nodeC, nodeD],
+        initialEdges: [edgeCD],
+        fetchNeighbors,
+        resultId: "q2",
+      }),
+    );
+
+    // Stale first result (and its expansion + selection) is gone.
+    expect(ids(result.current.nodes)).toEqual(["c", "d"]);
+    expect(edgeKeys(result.current.edges)).toEqual(["c->d"]);
+    expect(result.current.expandedNodeIds).toEqual([]);
+    expect(result.current.selectedNodeIds).toEqual([]);
+  });
+
+  it("does not reset on re-render while resultId is unchanged", async () => {
+    const fetchNeighbors = vi.fn(async () => ({
+      nodes: [nodeC],
+      edges: [edgeBC],
+    }));
+    const { result, rerender } = renderHook(
+      (props: UseGraphExplorationOptions) => useGraphExploration(props),
+      { initialProps: makeOptions({ fetchNeighbors, resultId: "q1" }) },
+    );
+
+    await act(() => result.current.onExpandRequest(nodeB));
+    expect(ids(result.current.nodes)).toEqual(["a", "b", "c"]);
+
+    // Same resultId, fresh option arrays (as an unmemoized parent would pass) —
+    // the expansion must survive rather than reset every render.
+    rerender(makeOptions({ fetchNeighbors, resultId: "q1" }));
+    expect(ids(result.current.nodes)).toEqual(["a", "b", "c"]);
+    expect(result.current.expandedNodeIds).toEqual(["b"]);
+  });
+
   it("manages selection state", () => {
     const { result } = renderHook(() => useGraphExploration(makeOptions()));
 
@@ -291,7 +338,10 @@ describe("useGraphExploration", () => {
   });
 
   it("sets expandingNodeId during async expansion", async () => {
-    let resolveExpand!: (value: { nodes: GraphNode[]; edges: GraphEdge[] }) => void;
+    let resolveExpand!: (value: {
+      nodes: GraphNode[];
+      edges: GraphEdge[];
+    }) => void;
     const fetchNeighbors = vi.fn(
       () =>
         new Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }>((resolve) => {
@@ -324,7 +374,10 @@ describe("useGraphExploration", () => {
   });
 
   it("blocks concurrent expansions", async () => {
-    let resolveFirst!: (value: { nodes: GraphNode[]; edges: GraphEdge[] }) => void;
+    let resolveFirst!: (value: {
+      nodes: GraphNode[];
+      edges: GraphEdge[];
+    }) => void;
     const fetchNeighbors = vi.fn(
       () =>
         new Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }>((resolve) => {

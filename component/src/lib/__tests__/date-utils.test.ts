@@ -25,6 +25,22 @@ describe("parseIsoDate", () => {
     expect(parseIsoDate("2025")).toBeUndefined();
   });
 
+  it("returns undefined for overflow dates that silently roll over", () => {
+    // new Date(2024, 1, 30) rolls to Mar 1 — must be rejected, not accepted.
+    expect(parseIsoDate("2024-02-30")).toBeUndefined();
+    expect(parseIsoDate("2025-02-29")).toBeUndefined(); // not a leap year
+    expect(parseIsoDate("2025-13-01")).toBeUndefined(); // month 13
+    expect(parseIsoDate("2025-04-31")).toBeUndefined(); // April has 30 days
+    expect(parseIsoDate("2025-00-10")).toBeUndefined(); // month 0
+  });
+
+  it("accepts a valid leap day", () => {
+    const date = parseIsoDate("2024-02-29");
+    expect(date).toBeInstanceOf(Date);
+    expect(date!.getMonth()).toBe(1);
+    expect(date!.getDate()).toBe(29);
+  });
+
   it("parses dates in local time (not UTC)", () => {
     const date = parseIsoDate("2025-01-01");
     // getDate() returns local day — should be 1, not 31 (which would happen with UTC midnight shift)
