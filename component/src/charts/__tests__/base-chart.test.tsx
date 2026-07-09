@@ -11,6 +11,7 @@ const mockOn = vi.fn();
 const mockOff = vi.fn();
 const mockShowLoading = vi.fn();
 const mockHideLoading = vi.fn();
+const mockClear = vi.fn();
 
 vi.mock("echarts/core", () => {
   const use = vi.fn();
@@ -23,6 +24,7 @@ vi.mock("echarts/core", () => {
     off: mockOff,
     showLoading: mockShowLoading,
     hideLoading: mockHideLoading,
+    clear: mockClear,
   }));
   return { use, init, registerTheme, default: { use, init, registerTheme } };
 });
@@ -89,6 +91,22 @@ describe("BaseChart", () => {
     render(<BaseChart options={{}} error={new Error("Failed to load")} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Failed to load");
     expect(screen.queryByTestId("base-chart")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a render error (setOption throws) instead of crashing the widget", () => {
+    // ECharts throws synchronously on malformed data (e.g. a cyclic Sankey).
+    mockSetOption.mockImplementationOnce(() => {
+      throw new Error("Sankey is a DAG, the original data has cycle");
+    });
+    render(<BaseChart options={{ series: [{ type: "sankey" }] }} />);
+    // Container stays mounted (ECharts instance keeps its DOM binding)...
+    expect(screen.getByTestId("base-chart")).toBeInTheDocument();
+    // ...and the error is shown, not thrown.
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Chart failed to render");
+    expect(alert).toHaveTextContent("data has cycle");
+    // The half-drawn chart is cleared.
+    expect(mockClear).toHaveBeenCalled();
   });
 
   it("registers click handler", () => {
