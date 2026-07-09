@@ -5,11 +5,13 @@
  * Imported by app/src/app/globals.css and component/src/index.css.
  *
  * Palette intent: near-black graphite primaries on a cool off-white page.
- * UI selection/interaction (focus rings, active/selected, tonal, hover fills)
- * uses a cool INDIGO accent (--ring/--accent). Warm citrine is the BRAND mark
- * (--brand, the wordmark) + the chart data palette (--chart-1). Amber is
- * reserved for --warning. (Selection moved off amber: it collided with the
- * warning hue and was low-contrast on white.)
+ * Epic A (#1125) unifies BRAND and INTERACTION on citrine amber (hue 38):
+ * --brand is the wordmark square (55% L), and --ring/--accent drive selection,
+ * focus rings, active/selected, tonal, and hover fills — using a denser amber
+ * (--ring at 38% L) so the focus ring clears WCAG non-text contrast on white.
+ * The chart data palette also starts at citrine (--chart-1). --warning is
+ * nudged to hue 28 (more orange, darker) so "warning" stays distinct from the
+ * hue-38 interactive citrine.
  *
  * Elevation: page background < --surface (cards) < --surface-2 (nested).
  * Shadows are warm-tinted (hue 30) rather than pure black — see --shadow-*.
