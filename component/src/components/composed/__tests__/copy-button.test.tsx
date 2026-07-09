@@ -54,6 +54,24 @@ describe("CopyButton", () => {
     expect(screen.getByRole("button")).toHaveClass("custom-class");
   });
 
+  it("clears the pending reset timer when copied twice in a row", async () => {
+    const user = userEvent.setup();
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+    render(<CopyButton value="x" />);
+    const btn = screen.getByRole("button", { name: /copy/i });
+
+    await user.click(btn);
+    await waitFor(() =>
+      expect(screen.getByText("Copied!")).toBeInTheDocument(),
+    );
+
+    // Second copy while the first reset is still pending exercises the
+    // `if (timeoutRef.current) clearTimeout(...)` branch.
+    await user.click(btn);
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
+  });
+
   it("does not flash 'Copied!' when the clipboard write fails (#component-review)", async () => {
     const user = userEvent.setup();
     const writeSpy = vi

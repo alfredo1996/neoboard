@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { MultiSelect } from "../multi-select";
 
@@ -84,6 +84,30 @@ describe("MultiSelect", () => {
     // Click the first remove button (React)
     removeButtons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onChange).toHaveBeenCalledWith(["vue"]);
+  });
+
+  it("removes an item via keyboard (Enter/Space) on the remove control (#component-review)", () => {
+    const onChange = vi.fn();
+    render(
+      <MultiSelect
+        options={options}
+        value={["react", "vue"]}
+        onChange={onChange}
+      />,
+    );
+    const removeReact = screen.getByRole("button", { name: "Remove React" });
+
+    fireEvent.keyDown(removeReact, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith(["vue"]);
+
+    onChange.mockClear();
+    fireEvent.keyDown(removeReact, { key: " " });
+    expect(onChange).toHaveBeenCalledWith(["vue"]);
+
+    // A non-activating key must not remove anything.
+    onChange.mockClear();
+    fireEvent.keyDown(removeReact, { key: "a" });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("shows correct overflow count with maxDisplay=1", () => {
