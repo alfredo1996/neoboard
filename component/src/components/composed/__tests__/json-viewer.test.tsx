@@ -41,10 +41,7 @@ describe("JsonViewer", () => {
 
   it("collapses nested objects at depth > initialExpanded", () => {
     render(
-      <JsonViewer
-        data={{ nested: { deep: "value" } }}
-        initialExpanded={1}
-      />
+      <JsonViewer data={{ nested: { deep: "value" } }} initialExpanded={1} />,
     );
     // The root is expanded (depth 0 < 1), but "nested" (depth 1) is collapsed
     expect(screen.getByText(/nested:/)).toBeInTheDocument();
@@ -57,7 +54,7 @@ describe("JsonViewer", () => {
       <JsonViewer
         data={{ nested: { deep: "value" } }}
         initialExpanded={true}
-      />
+      />,
     );
     expect(screen.getByText(/deep:/)).toBeInTheDocument();
     expect(screen.getByText('"value"')).toBeInTheDocument();
@@ -65,10 +62,7 @@ describe("JsonViewer", () => {
 
   it("collapses everything when initialExpanded is 0", () => {
     render(
-      <JsonViewer
-        data={{ name: "Alice", age: 30 }}
-        initialExpanded={0}
-      />
+      <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={0} />,
     );
     // Root object is collapsed, shows item count
     expect(screen.getByText("2 items")).toBeInTheDocument();
@@ -76,32 +70,19 @@ describe("JsonViewer", () => {
   });
 
   it("shows item count for collapsed objects", () => {
-    render(
-      <JsonViewer
-        data={{ a: 1, b: 2, c: 3 }}
-        initialExpanded={0}
-      />
-    );
+    render(<JsonViewer data={{ a: 1, b: 2, c: 3 }} initialExpanded={0} />);
     expect(screen.getByText("3 items")).toBeInTheDocument();
   });
 
   it("shows '1 item' for single-entry collapsed objects", () => {
-    render(
-      <JsonViewer
-        data={{ a: 1 }}
-        initialExpanded={0}
-      />
-    );
+    render(<JsonViewer data={{ a: 1 }} initialExpanded={0} />);
     expect(screen.getByText("1 item")).toBeInTheDocument();
   });
 
   it("toggles expansion when clicking a node", async () => {
     const user = userEvent.setup();
     render(
-      <JsonViewer
-        data={{ name: "Alice", age: 30 }}
-        initialExpanded={0}
-      />
+      <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={0} />,
     );
 
     // Initially collapsed
@@ -127,5 +108,23 @@ describe("JsonViewer", () => {
     // Array items should not have key names like "0:"
     expect(screen.queryByText(/0:/)).not.toBeInTheDocument();
     expect(screen.getByText('"hello"')).toBeInTheDocument();
+  });
+
+  it("renders [Circular] for self-referential data instead of recursing", () => {
+    const obj: Record<string, unknown> = { name: "root" };
+    obj.self = obj; // cycle — would infinitely recurse without a guard
+    render(<JsonViewer data={obj} initialExpanded={10} />);
+    expect(screen.getByText("[Circular]")).toBeInTheDocument();
+    expect(screen.getByText(/root/)).toBeInTheDocument();
+  });
+
+  it("caps very large collections with a '… N more' row", () => {
+    const big = Array.from({ length: 150 }, (_, i) => i);
+    render(<JsonViewer data={big} initialExpanded={10} />);
+    // 150 entries, capped at 100 → 50 hidden.
+    expect(screen.getByText(/50 more items/)).toBeInTheDocument();
+    // The first item renders, the 150th does not.
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.queryByText("149")).not.toBeInTheDocument();
   });
 });

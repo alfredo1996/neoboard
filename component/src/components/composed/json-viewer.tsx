@@ -38,12 +38,18 @@ function JsonValue({ value }: { value: unknown }) {
   }
 }
 
+/** Cap children rendered per node so a giant array/object can't lock the tab. */
+const MAX_ENTRIES = 100;
+
 interface JsonNodeProps {
   keyName?: string;
   value: unknown;
   depth: number;
   initialExpanded: boolean | number;
   isLast: boolean;
+  /** Object/array values on the path from the root to this node — used to
+   *  detect cycles (e.g. `obj.self = obj`) so rendering can't recurse forever. */
+  ancestors: ReadonlySet<object>;
 }
 
 function JsonNode({
@@ -52,9 +58,25 @@ function JsonNode({
   depth,
   initialExpanded,
   isLast,
+  ancestors,
 }: JsonNodeProps) {
   const type = getType(value);
   const isExpandable = type === "object" || type === "array";
+  // A value already on our own path is a circular reference — render a marker
+  // instead of recursing into it.
+  const isCircular = isExpandable && ancestors.has(value as object);
+
+  if (isCircular) {
+    return (
+      <div className="flex items-start" style={{ paddingLeft: depth * 16 }}>
+        {keyName !== undefined && (
+          <span className="text-foreground font-medium">{keyName}: </span>
+        )}
+        <span className="text-muted-foreground italic">[Circular]</span>
+        {!isLast && <span className="text-muted-foreground">,</span>}
+      </div>
+    );
+  }
 
   const shouldStartExpanded =
     typeof initialExpanded === "boolean"
@@ -82,6 +104,13 @@ function JsonNode({
   const bracketOpen = type === "array" ? "[" : "{";
   const bracketClose = type === "array" ? "]" : "}";
   const isEmpty = entries.length === 0;
+  // Bound how many children we render at once; the rest collapse into a
+  // "… N more" row so a 100k-row result can't freeze the browser.
+  const visibleEntries = entries.slice(0, MAX_ENTRIES);
+  const hiddenCount = entries.length - visibleEntries.length;
+  // Extend the ancestor path with this node's value for the children's cycle
+  // checks.
+  const childAncestors = new Set(ancestors).add(value as object);
 
   return (
     <div>
@@ -126,16 +155,25 @@ function JsonNode({
       </button>
       {expanded && !isEmpty && (
         <>
-          {entries.map(([key, val], index) => (
+          {visibleEntries.map(([key, val], index) => (
             <JsonNode
               key={key}
               keyName={type === "object" ? key : undefined}
               value={val}
               depth={depth + 1}
               initialExpanded={initialExpanded}
-              isLast={index === entries.length - 1}
+              isLast={hiddenCount === 0 && index === visibleEntries.length - 1}
+              ancestors={childAncestors}
             />
           ))}
+          {hiddenCount > 0 && (
+            <div
+              className="text-xs text-muted-foreground italic"
+              style={{ paddingLeft: (depth + 1) * 16 }}
+            >
+              … {hiddenCount} more {hiddenCount === 1 ? "item" : "items"}
+            </div>
+          )}
           <div style={{ paddingLeft: depth * 16 }}>
             <span className="text-muted-foreground ml-4">{bracketClose}</span>
             {!isLast && <span className="text-muted-foreground">,</span>}
@@ -160,6 +198,7 @@ function JsonViewer({ data, initialExpanded = 1, className }: JsonViewerProps) {
         depth={0}
         initialExpanded={initialExpanded}
         isLast={true}
+        ancestors={new Set()}
       />
     </div>
   );

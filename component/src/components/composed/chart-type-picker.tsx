@@ -89,31 +89,71 @@ function ChartTypePicker({
   options = defaultOptions,
   className,
 }: ChartTypePickerProps) {
+  const btnRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
+
+  const selectedIndex = options.findIndex((o) => o.type === value);
+  // Roving tabindex: the checked radio is the single tab stop; if nothing is
+  // selected yet, the first option takes it (WAI-ARIA radiogroup pattern).
+  const tabStop = selectedIndex === -1 ? 0 : selectedIndex;
+
+  function handleKeyDown(e: React.KeyboardEvent, index: number) {
+    let next = index;
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        next = (index + 1) % options.length;
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        next = (index - 1 + options.length) % options.length;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    onValueChange?.(options[next].type);
+    btnRefs.current[next]?.focus();
+  }
+
   return (
-    <div className={cn("grid grid-cols-4 gap-2", className)}>
-      {options.map((option) => (
-        <button
-          key={option.type}
-          type="button"
-          onClick={() => onValueChange?.(option.type)}
-          className={cn(
-            "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            value === option.type
-              ? "border-primary bg-accent text-accent-foreground"
-              : "border-border",
-          )}
-        >
-          {option.icon && (
-            <span className="text-muted-foreground">{option.icon}</span>
-          )}
-          <span className="text-xs font-medium">{option.label}</span>
-          {option.description && (
-            <span className="text-[10px] text-muted-foreground leading-tight">
-              {option.description}
-            </span>
-          )}
-        </button>
-      ))}
+    <div
+      role="radiogroup"
+      aria-label="Chart type"
+      className={cn("grid grid-cols-4 gap-2", className)}
+    >
+      {options.map((option, index) => {
+        const checked = value === option.type;
+        return (
+          <button
+            key={option.type}
+            ref={(el) => {
+              btnRefs.current[index] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={index === tabStop ? 0 : -1}
+            onClick={() => onValueChange?.(option.type)}
+            onKeyDown={(e) => handleKeyDown(e, index)}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              checked
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-border",
+            )}
+          >
+            {option.icon && (
+              <span className="text-muted-foreground">{option.icon}</span>
+            )}
+            <span className="text-xs font-medium">{option.label}</span>
+            {option.description && (
+              <span className="text-[10px] text-muted-foreground leading-tight">
+                {option.description}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

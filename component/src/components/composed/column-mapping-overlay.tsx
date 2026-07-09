@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   Select,
   SelectContent,
@@ -50,6 +51,10 @@ function ColumnMappingOverlay({
   onMappingChange,
   className,
 }: ColumnMappingOverlayProps) {
+  // Stable base for label/trigger ids so each Select is programmatically
+  // labeled by its visible field name (assistive tech otherwise hears only
+  // the current value, e.g. "auto", with no idea which axis it controls).
+  const uid = useId();
   if (availableColumns.length === 0) return null;
 
   const isPie = chartType === "pie";
@@ -82,17 +87,25 @@ function ColumnMappingOverlay({
     <div
       className={cn(
         "flex flex-wrap items-center gap-2 px-3 py-1.5 border-t bg-muted/40 text-xs",
-        className
+        className,
       )}
       data-testid="column-mapping-overlay"
     >
       {/* X / Name */}
       <div className="flex items-center gap-1.5">
-        <span className="font-medium text-muted-foreground whitespace-nowrap">
+        <span
+          id={`${uid}-x`}
+          className="font-medium text-muted-foreground whitespace-nowrap"
+        >
           {xLabel}
         </span>
-        <Select value={toSelectValue(mapping.xAxis)} onValueChange={handleXChange}>
+        <Select
+          value={toSelectValue(mapping.xAxis)}
+          onValueChange={handleXChange}
+        >
           <SelectTrigger
+            id={`${uid}-xt`}
+            aria-labelledby={`${uid}-x ${uid}-xt`}
             className="h-6 text-xs w-28 min-w-[7rem]"
             data-testid="column-mapping-x-trigger"
           >
@@ -111,11 +124,16 @@ function ColumnMappingOverlay({
 
       {/* Y / Value */}
       <div className="flex items-center gap-1.5">
-        <span className="font-medium text-muted-foreground whitespace-nowrap">
+        <span
+          id={`${uid}-y`}
+          className="font-medium text-muted-foreground whitespace-nowrap"
+        >
           {yLabel}
         </span>
         <Select value={toSelectValue(currentY)} onValueChange={handleYChange}>
           <SelectTrigger
+            id={`${uid}-yt`}
+            aria-labelledby={`${uid}-y ${uid}-yt`}
             className="h-6 text-xs w-28 min-w-[7rem]"
             data-testid="column-mapping-y-trigger"
           >
@@ -135,7 +153,10 @@ function ColumnMappingOverlay({
       {/* Group By — not shown for pie charts */}
       {!isPie && (
         <div className="flex items-center gap-1.5">
-          <span className="font-medium text-muted-foreground whitespace-nowrap">
+          <span
+            id={`${uid}-g`}
+            className="font-medium text-muted-foreground whitespace-nowrap"
+          >
             Group By
           </span>
           <Select
@@ -143,6 +164,8 @@ function ColumnMappingOverlay({
             onValueChange={handleGroupByChange}
           >
             <SelectTrigger
+              id={`${uid}-gt`}
+              aria-labelledby={`${uid}-g ${uid}-gt`}
               className="h-6 text-xs w-28 min-w-[7rem]"
               data-testid="column-mapping-groupby-trigger"
             >

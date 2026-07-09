@@ -25,6 +25,17 @@ describe("design-tokens", () => {
     );
   });
 
+  it("connectionStatusColors uses semantic tokens, not raw palette", () => {
+    // Dots must track the theme via semantic tokens (bg-success etc.), never
+    // hardcoded palette shades like bg-green-500.
+    for (const cls of Object.values(connectionStatusColors)) {
+      expect(cls).not.toMatch(/bg-(red|green|yellow|blue|gray|orange)-\d/);
+    }
+    expect(connectionStatusColors.connected).toContain("bg-success");
+    expect(connectionStatusColors.error).toContain("bg-destructive");
+    expect(connectionStatusColors.connecting).toContain("bg-warning");
+  });
+
   it("jsonSyntaxColors has string, number, boolean", () => {
     expect(jsonSyntaxColors.string).toBeDefined();
     expect(jsonSyntaxColors.number).toBeDefined();

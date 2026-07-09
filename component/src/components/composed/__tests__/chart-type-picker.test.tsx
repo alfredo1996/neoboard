@@ -38,4 +38,32 @@ describe("ChartTypePicker", () => {
     expect(screen.getByText("Compare categories")).toBeInTheDocument();
     expect(screen.getByText("Show trends")).toBeInTheDocument();
   });
+
+  it("exposes radiogroup semantics with the selected option checked", () => {
+    render(<ChartTypePicker value="line" />);
+    expect(
+      screen.getByRole("radiogroup", { name: "Chart type" }),
+    ).toBeInTheDocument();
+    const line = screen.getByRole("radio", { name: /Line/ });
+    expect(line).toHaveAttribute("aria-checked", "true");
+    // Roving tabindex: the checked radio is the single tab stop.
+    expect(line).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("radio", { name: /Bar/ })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+  });
+
+  it("moves selection with arrow keys (roving radiogroup)", () => {
+    const onChange = vi.fn();
+    render(<ChartTypePicker value="bar" onValueChange={onChange} />);
+    const bar = screen.getByRole("radio", { name: /Bar/ });
+    bar.focus();
+    fireEvent.keyDown(bar, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith("line");
+    onChange.mockClear();
+    // Wraps from the first option backwards to the last.
+    fireEvent.keyDown(bar, { key: "ArrowLeft" });
+    expect(onChange).toHaveBeenCalledWith("parameter-select");
+  });
 });
