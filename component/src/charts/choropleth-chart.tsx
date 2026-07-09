@@ -9,9 +9,9 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption, fillLabelStyle, isDark } from "./chart-utils";
+import { buildEmptyDataOption, fillLabelStyle } from "./chart-utils";
 
 echarts.use([
   EMapChart,
@@ -73,6 +73,9 @@ function ChoroplethChart({
 }: ChoroplethChartProps) {
   const [mapRegistered, setMapRegistered] = useState(false);
   const registering = useRef(false);
+  // Reactive theme so the memo rebuilds on toggle — otherwise the no-data
+  // region fill and label styles freeze at their mount-time value. (#chart-review)
+  const dark = useDarkMode();
 
   const normalizedData = useMemo(() => normalizeData(data), [data]);
 
@@ -169,14 +172,14 @@ function ChoroplethChart({
             // ramp fills, where ECharts' default dark text vanishes — use
             // white with a dark shadow (treemap pattern, #1154). Light mode
             // keeps the default dark text, which reads on the pale map.
-            ...(isDark() ? fillLabelStyle : {}),
+            ...(dark ? fillLabelStyle : {}),
           },
           emphasis: {
             label: {
               show: true,
               fontSize: 13,
               fontWeight: "bold",
-              ...(isDark() ? fillLabelStyle : {}),
+              ...(dark ? fillLabelStyle : {}),
             },
             // Keep the region's data color on hover (don't overwrite it with a
             // off-brand gold) — the border + shadow are the hover affordance.
@@ -194,7 +197,7 @@ function ChoroplethChart({
             borderWidth: 0.5,
             // No-data fill — theme-aware (was a hardcoded #eee, glaringly
             // bright in dark mode).
-            areaColor: isDark() ? "#23262d" : "#eceef1",
+            areaColor: dark ? "#23262d" : "#eceef1",
           },
           data: normalizedData,
         },
@@ -209,6 +212,7 @@ function ChoroplethChart({
     minColor,
     maxColor,
     showLabels,
+    dark,
   ]);
 
   return (

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PieChart } from "../pie-chart";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
@@ -190,5 +190,30 @@ describe("PieChart", () => {
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data as Array<{ name: string }>;
     expect(seriesData).toHaveLength(3);
+  });
+
+  describe("theme reactivity (dark not frozen)", () => {
+    afterEach(() => {
+      document.documentElement.classList.remove("dark");
+    });
+
+    it("rebuilds theme-dependent colors on toggle instead of freezing at mount", () => {
+      render(<PieChart data={sampleData} />);
+      // Light mode: emphasis shadow is the dark-on-light variant.
+      expect(JSON.stringify(mockSetOption.mock.calls.at(-1)![0])).toContain(
+        "rgba(0, 0, 0, 0.5)",
+      );
+
+      act(() => {
+        document.documentElement.classList.add("dark");
+        globalThis.dispatchEvent(new Event("neoboard-theme-change"));
+      });
+
+      // After toggle the option is recomputed with the dark variant (before the
+      // fix the memo froze and this stayed the light color).
+      expect(JSON.stringify(mockSetOption.mock.calls.at(-1)![0])).toContain(
+        "rgba(255, 255, 255, 0.15)",
+      );
+    });
   });
 });

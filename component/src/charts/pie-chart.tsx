@@ -1,12 +1,11 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps, PieChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
   getCompactState,
-  isDark,
   resolveItemColor,
   groupTopN,
 } from "./chart-utils";
@@ -66,6 +65,10 @@ function PieChart({
   const { width, height, containerRef } = useContainerSize();
   const compact = width > 0 && (width < 300 || height < 200);
   const { hideLegend } = getCompactState(width, height);
+  // Reactive theme value — memo must rebuild on toggle so the donut center
+  // text / emphasis shadow don't freeze at their mount-time (often invisible)
+  // dark color. (#chart-review)
+  const dark = useDarkMode();
 
   // EChartsOption from modular imports may not include 'graphic' —
   // we use GraphicComponent which extends the option type at runtime.
@@ -139,7 +142,7 @@ function PieChart({
             itemStyle: {
               shadowBlur: 10,
               shadowOffsetX: 0,
-              shadowColor: isDark()
+              shadowColor: dark
                 ? "rgba(255, 255, 255, 0.15)"
                 : "rgba(0, 0, 0, 0.5)",
             },
@@ -162,7 +165,7 @@ function PieChart({
                   fontSize: 20,
                   fontWeight: "bold",
                   // Theme foreground (matches the registered ECharts themes).
-                  fill: isDark() ? "#f3f4f6" : "#14161a",
+                  fill: dark ? "#f3f4f6" : "#14161a",
                 },
               },
             ],
@@ -184,6 +187,7 @@ function PieChart({
     paramValues,
     compact,
     hideLegend,
+    dark,
   ]);
 
   return (
