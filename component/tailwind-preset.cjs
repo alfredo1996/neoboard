@@ -27,6 +27,18 @@ module.exports = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        // Status tokens (defined in design-tokens.css for both themes). Exposed
+        // as utilities so components use `text-success`/`bg-warning` instead of
+        // raw palette classes (`emerald-*`) or arbitrary `hsl(var(--success))`.
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        brand: "hsl(var(--brand))",
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",

@@ -157,9 +157,7 @@ const CardKpi = React.forwardRef<HTMLDivElement, CardKpiProps>(
         <span
           className={cn(
             "mt-1 inline-flex items-center gap-1 text-xs font-medium tabular-nums",
-            trend >= 0
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-destructive",
+            trend >= 0 ? "text-success" : "text-destructive",
           )}
         >
           {trend >= 0 ? (
