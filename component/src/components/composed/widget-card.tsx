@@ -77,11 +77,11 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
               headerClassName,
             )}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <button
                 type="button"
                 className={cn(
-                  "drag-handle cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "shrink-0 drag-handle cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   !draggable && "invisible",
                 )}
                 onMouseDown={draggable ? onDragHandleMouseDown : undefined}
@@ -89,20 +89,22 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
                 <span className="sr-only">Drag to reorder</span>
               </button>
-              <div>
+              {/* min-w-0 + truncate so a long unbroken title doesn't push the
+                  action buttons off the card / expand the header. (#component-review) */}
+              <div className="min-w-0">
                 {title && (
-                  <h3 className="text-sm font-semibold leading-none">
+                  <h3 className="truncate text-sm font-semibold leading-none">
                     {title}
                   </h3>
                 )}
                 {subtitle && (
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="truncate text-xs text-muted-foreground mt-1">
                     {subtitle}
                   </p>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               {onRefresh && (
                 <Button
                   type="button"

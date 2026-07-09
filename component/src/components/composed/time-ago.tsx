@@ -50,15 +50,29 @@ function TimeAgo({ date, className, showTooltip = true }: TimeAgoProps) {
     return new Date(date);
   }, [date]);
 
-  const [timeAgo, setTimeAgo] = React.useState(() => formatTimeAgo(dateObj));
+  // An unparseable/undefined timestamp yields an Invalid Date; both
+  // `toISOString()` (in the <time dateTime>) and the minute interval below would
+  // then throw RangeError and crash the surrounding render. (#component-review)
+  const valid = !Number.isNaN(dateObj.getTime());
+
+  const [timeAgo, setTimeAgo] = React.useState(() =>
+    valid ? formatTimeAgo(dateObj) : "",
+  );
 
   React.useEffect(() => {
+    if (!valid) return;
     const interval = setInterval(() => {
       setTimeAgo(formatTimeAgo(dateObj));
     }, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [dateObj]);
+  }, [dateObj, valid]);
+
+  if (!valid) {
+    return (
+      <span className={cn("text-sm text-muted-foreground", className)}>—</span>
+    );
+  }
 
   const content = (
     <time dateTime={dateObj.toISOString()} className={cn("text-sm", className)}>
