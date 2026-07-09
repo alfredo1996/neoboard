@@ -66,4 +66,22 @@ describe("ContextMenu", () => {
     openMenu();
     expect(await screen.findByTestId("cm-content")).toHaveClass("rounded-lg");
   });
+
+  it("highlights items via :focus so mouse hover works (#component-review)", async () => {
+    render(
+      <ContextMenu>
+        <ContextMenuTrigger>Right click</ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem data-testid="cm-item">Item</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>,
+    );
+    openMenu();
+    const item = await screen.findByTestId("cm-item");
+    // Radix moves DOM focus onto items on pointer-move; :focus-visible does NOT
+    // match pointer-initiated focus, so the highlight must key off :focus
+    // (matches DropdownMenu) — otherwise the menu looks dead until click.
+    expect(item.className).toContain("focus:bg-accent");
+    expect(item.className).not.toContain("focus-visible:bg-accent");
+  });
 });

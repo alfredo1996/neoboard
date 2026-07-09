@@ -38,8 +38,9 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn(
         "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
-        String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
-        String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
+        // v3.4 arbitrary variant (the v4 `**:` universal variant no-ops here).
+        String.raw`rtl:[&_.rdp-button\_next>svg]:rotate-180`,
+        String.raw`rtl:[&_.rdp-button\_previous>svg]:rotate-180`,
         className,
       )}
       captionLayout={captionLayout}
@@ -78,7 +79,10 @@ function Calendar({
           defaultClassNames.dropdowns,
         ),
         dropdown_root: cn(
-          "has-focus:border-ring border-input shadow-xs has-focus:ring-ring has-focus:ring-2 relative rounded-md border",
+          // v3.4: `has-[:focus]:` (the v4 `has-focus:` shorthand + `shadow-xs`
+          // silently no-op under 3.4, leaving the month/year dropdown with no
+          // keyboard-focus ring).
+          "has-[:focus]:border-ring border-input shadow-sm has-[:focus]:ring-ring has-[:focus]:ring-2 relative rounded-md border",
           defaultClassNames.dropdown_root,
         ),
         dropdown: cn(
