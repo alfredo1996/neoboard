@@ -8,6 +8,13 @@ describe("SidebarItem", () => {
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
   });
 
+  it("exposes the active item via aria-current (#component-review)", () => {
+    const { rerender } = render(<SidebarItem label="Dashboard" active />);
+    expect(screen.getByRole("button")).toHaveAttribute("aria-current", "page");
+    rerender(<SidebarItem label="Dashboard" />);
+    expect(screen.getByRole("button")).not.toHaveAttribute("aria-current");
+  });
+
   it("renders icon", () => {
     render(
       <SidebarItem

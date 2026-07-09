@@ -22,6 +22,14 @@ describe("MultiSelect", () => {
     expect(screen.getByText("Vue")).toBeInTheDocument();
   });
 
+  it("gives each remove control an accessible label (#component-review)", () => {
+    render(<MultiSelect options={options} value={["react"]} />);
+    // role="button" span (not a nested <button>), labeled "Remove React".
+    expect(
+      screen.getByRole("button", { name: "Remove React" }),
+    ).toBeInTheDocument();
+  });
+
   it("hides placeholder when items are selected", () => {
     render(
       <MultiSelect options={options} value={["react"]} placeholder="Pick..." />,

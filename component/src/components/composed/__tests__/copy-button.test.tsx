@@ -53,4 +53,21 @@ describe("CopyButton", () => {
     render(<CopyButton value="test" className="custom-class" />);
     expect(screen.getByRole("button")).toHaveClass("custom-class");
   });
+
+  it("does not flash 'Copied!' when the clipboard write fails (#component-review)", async () => {
+    const user = userEvent.setup();
+    const writeSpy = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValueOnce(new Error("Document is not focused"));
+
+    render(<CopyButton value="secret" />);
+    await user.click(screen.getByRole("button", { name: /copy/i }));
+
+    expect(writeSpy).toHaveBeenCalledWith("secret");
+    // The rejection is swallowed and the button stays "Copy" — no false success.
+    await waitFor(() => {
+      expect(screen.queryByText("Copied!")).not.toBeInTheDocument();
+    });
+    writeSpy.mockRestore();
+  });
 });

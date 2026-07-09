@@ -67,7 +67,7 @@ function MultiSelect({
     onChange?.(newValue);
   };
 
-  const handleRemove = (optionValue: string, e: React.MouseEvent) => {
+  const handleRemove = (optionValue: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     onChange?.(value.filter((v) => v !== optionValue));
   };
@@ -91,13 +91,24 @@ function MultiSelect({
             {selectedOptions.slice(0, maxDisplay).map((option) => (
               <Badge key={option.value} variant="secondary" className="text-xs">
                 {option.label}
-                <button
-                  type="button"
-                  className="ml-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                {/* role="button" span, not a nested <button> — the trigger is
+                    already a <button>, and interactive-in-interactive is invalid
+                    HTML (hydration warnings). Keyboard-operable + labeled. (#component-review) */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Remove ${option.label}`}
+                  className="ml-1 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   onClick={(e) => handleRemove(option.value, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleRemove(option.value, e);
+                    }
+                  }}
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </span>
               </Badge>
             ))}
             {selectedOptions.length > maxDisplay && (
