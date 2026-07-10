@@ -15,7 +15,7 @@ jobs:
       contents: write # softprops/action-gh-release creates the release
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Extract changelog for this version
         id: changelog
@@ -45,7 +45,7 @@ jobs:
       packages: write # ghcr.io push
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # need all tags to compute the highest version
 
@@ -106,7 +106,7 @@ jobs:
       id-token: write # for npm provenance
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
