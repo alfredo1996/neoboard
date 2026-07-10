@@ -44,20 +44,21 @@ describe("ChartTypePicker", () => {
     expect(
       screen.getByRole("radiogroup", { name: "Chart type" }),
     ).toBeInTheDocument();
-    const line = screen.getByRole("radio", { name: /Line/ });
-    expect(line).toHaveAttribute("aria-checked", "true");
+    // Query by role without the name filter (accessible-name computation over
+    // 9 icon+label+description radios is slow); index by the known default order.
+    const radios = screen.getAllByRole("radio");
+    // Default order: bar(0), line(1), ...
+    expect(radios[1]).toHaveAttribute("aria-checked", "true");
     // Roving tabindex: the checked radio is the single tab stop.
-    expect(line).toHaveAttribute("tabindex", "0");
-    expect(screen.getByRole("radio", { name: /Bar/ })).toHaveAttribute(
-      "tabindex",
-      "-1",
-    );
+    expect(radios[1]).toHaveAttribute("tabindex", "0");
+    expect(radios[0]).toHaveAttribute("aria-checked", "false");
+    expect(radios[0]).toHaveAttribute("tabindex", "-1");
   });
 
   it("moves selection with arrow keys (roving radiogroup)", () => {
     const onChange = vi.fn();
     render(<ChartTypePicker value="bar" onValueChange={onChange} />);
-    const bar = screen.getByRole("radio", { name: /Bar/ });
+    const bar = screen.getAllByRole("radio")[0];
     bar.focus();
     fireEvent.keyDown(bar, { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("line");

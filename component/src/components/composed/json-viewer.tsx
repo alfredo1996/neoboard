@@ -41,6 +41,30 @@ function JsonValue({ value }: { value: unknown }) {
 /** Cap children rendered per node so a giant array/object can't lock the tab. */
 const MAX_ENTRIES = 100;
 
+/** A single non-expandable line: optional `key:`, its content, trailing comma.
+ *  Shared by leaf values and the [Circular] marker. */
+function SimpleRow({
+  depth,
+  keyName,
+  isLast,
+  children,
+}: {
+  depth: number;
+  keyName?: string;
+  isLast: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start" style={{ paddingLeft: depth * 16 }}>
+      {keyName !== undefined && (
+        <span className="text-foreground font-medium">{keyName}: </span>
+      )}
+      {children}
+      {!isLast && <span className="text-muted-foreground">,</span>}
+    </div>
+  );
+}
+
 interface JsonNodeProps {
   keyName?: string;
   value: unknown;
@@ -62,38 +86,31 @@ function JsonNode({
 }: JsonNodeProps) {
   const type = getType(value);
   const isExpandable = type === "object" || type === "array";
-  // A value already on our own path is a circular reference — render a marker
-  // instead of recursing into it.
-  const isCircular = isExpandable && ancestors.has(value as object);
 
-  if (isCircular) {
-    return (
-      <div className="flex items-start" style={{ paddingLeft: depth * 16 }}>
-        {keyName !== undefined && (
-          <span className="text-foreground font-medium">{keyName}: </span>
-        )}
-        <span className="text-muted-foreground italic">[Circular]</span>
-        {!isLast && <span className="text-muted-foreground">,</span>}
-      </div>
-    );
-  }
-
+  // All hooks must run before any early return (Rules of Hooks), so compute
+  // the expanded state up front even for leaf/circular nodes that ignore it.
   const shouldStartExpanded =
     typeof initialExpanded === "boolean"
       ? initialExpanded
       : depth < initialExpanded;
-
   const [expanded, setExpanded] = React.useState(shouldStartExpanded);
+
+  // A value already on our own path is a circular reference — render a marker
+  // instead of recursing into it.
+  const isCircular = isExpandable && ancestors.has(value as object);
+  if (isCircular) {
+    return (
+      <SimpleRow depth={depth} keyName={keyName} isLast={isLast}>
+        <span className="text-muted-foreground italic">[Circular]</span>
+      </SimpleRow>
+    );
+  }
 
   if (!isExpandable) {
     return (
-      <div className="flex items-start" style={{ paddingLeft: depth * 16 }}>
-        {keyName !== undefined && (
-          <span className="text-foreground font-medium">{keyName}: </span>
-        )}
+      <SimpleRow depth={depth} keyName={keyName} isLast={isLast}>
         <JsonValue value={value} />
-        {!isLast && <span className="text-muted-foreground">,</span>}
-      </div>
+      </SimpleRow>
     );
   }
 

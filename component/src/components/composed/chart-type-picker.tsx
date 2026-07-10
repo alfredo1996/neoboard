@@ -97,7 +97,7 @@ function ChartTypePicker({
   const tabStop = selectedIndex === -1 ? 0 : selectedIndex;
 
   function handleKeyDown(e: React.KeyboardEvent, index: number) {
-    let next = index;
+    let next: number;
     switch (e.key) {
       case "ArrowRight":
       case "ArrowDown":
