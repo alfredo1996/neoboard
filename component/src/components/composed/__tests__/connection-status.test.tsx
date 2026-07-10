@@ -37,7 +37,8 @@ describe("ConnectionStatus", () => {
     // root too — select the dot by its fixed size classes.
     const dot = container.querySelector(".h-2.w-2.rounded-full");
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveClass("bg-green-500");
+    // Semantic token (theme-tracking), not a raw palette shade (#component-review).
+    expect(dot).toHaveClass("bg-success");
   });
 
   it("applies pulse animation for connecting status", () => {

@@ -14,12 +14,16 @@ export const fieldTypeColors: Record<string, string> = {
   object: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
-/** Dot indicator colors for connection status badges. */
+/**
+ * Dot indicator colors for connection status badges. Semantic tokens (not raw
+ * palette) so the dots track the theme and match their Badge variant:
+ * success / muted / warning / destructive.
+ */
 export const connectionStatusColors: Record<string, string> = {
-  connected: "bg-green-500",
-  disconnected: "bg-gray-400",
-  connecting: "bg-yellow-500 animate-pulse",
-  error: "bg-red-500",
+  connected: "bg-success",
+  disconnected: "bg-muted-foreground",
+  connecting: "bg-warning animate-pulse",
+  error: "bg-destructive",
 };
 
 /** Syntax-highlight colors for the JSON viewer. */
