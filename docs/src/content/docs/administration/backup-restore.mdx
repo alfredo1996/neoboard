@@ -9,6 +9,10 @@ NeoBoard stores all persistent data in PostgreSQL. Backing up NeoBoard means bac
 If you lose your `ENCRYPTION_KEY`, **all stored database credentials and SSO secrets become permanently unrecoverable**. Back up this key separately and store it in a secure location (e.g., a secrets manager or encrypted vault).
 :::
 
+:::caution[Backups are tied to the key active when they were taken]
+A backup can only be decrypted with the `ENCRYPTION_KEY` that was active **at the time it was created**. If you [rotate the key](/getting-started/configuration#how-to-rotate-zero-data-loss) and discard the old one, every backup taken before that rotation becomes permanently undecryptable. Either retain the old key alongside such backups, or re-take a full backup immediately after each rotation.
+:::
+
 ## What to back up
 
 | Item | Location | Why |
@@ -112,15 +116,23 @@ If using Docker for PostgreSQL:
 # Stop NeoBoard (keep PostgreSQL running)
 docker stop neoboard
 
-# Restore into the running PostgreSQL container
+# Plain SQL dumps contain no DROP statements, so the PostgreSQL container
+# still holds the old data — drop and recreate the database first:
+docker exec neoboard-postgres dropdb -U neoboard --if-exists neoboard
+docker exec neoboard-postgres createdb -U neoboard neoboard
 cat neoboard_backup.sql | docker exec -i neoboard-postgres psql -U neoboard -d neoboard
 
-# Or for custom-format dumps:
-docker exec -i neoboard-postgres pg_restore -U neoboard -d neoboard < neoboard_backup.dump
+# Or for custom-format dumps, --clean --if-exists drops existing objects
+# before recreating them so the restore works against a non-empty database:
+docker exec -i neoboard-postgres pg_restore --clean --if-exists -U neoboard -d neoboard < neoboard_backup.dump
 
 # Restart NeoBoard
 docker start neoboard
 ```
+
+:::note[`docker stop neoboard` only stops the app]
+It stops the NeoBoard app container, **not** the PostgreSQL container — Postgres keeps running with its existing data. A plain `pg_restore`/`psql` into that live database would error on existing objects or duplicate rows, so you must clear the existing schema first (`--clean --if-exists`, or an explicit `dropdb`/`createdb`) as shown above.
+:::
 
 ### Selective restore (single table)
 
@@ -128,6 +140,10 @@ docker start neoboard
 # Restore only dashboards
 pg_restore -d neoboard -t dashboard neoboard_backup.dump
 ```
+
+:::caution[Watch foreign keys when restoring a single table]
+`dashboard.userId` is a `NOT NULL` foreign key referencing `users.id`. Restoring `dashboard` on its own fails unless the target database already contains every referenced user — restore (or otherwise create) the `users` table first, then the dashboards.
+:::
 
 ## Environment variable backup
 
@@ -161,10 +177,15 @@ To migrate NeoBoard from one server to another:
 
 2. **Copy the backup and env vars to the new server**
 
-3. **Set up the new server:**
+3. **Set up the new server _without auto-migrating_:**
    ```bash
    # Use the SAME ENCRYPTION_KEY as the source
    cp .env.source app/.env.local
+
+   # The app auto-migrates on start (MIGRATE_ON_START defaults to 1 per the
+   # Dockerfile). Leaving it on would create the schema now and collide with
+   # the restore in the next step — disable it for this first boot.
+   echo "MIGRATE_ON_START=0" >> app/.env.local
    docker compose -f docker/docker-compose.prod-full.yml up -d
    ```
 
@@ -173,7 +194,14 @@ To migrate NeoBoard from one server to another:
    pg_restore -h new-host -U neoboard -d neoboard migration.dump
    ```
 
-5. **Verify:** Log in and check dashboards, connections, and users
+5. **Re-enable migrations and restart:**
+   ```bash
+   # Restore the default so future upgrades migrate normally.
+   sed -i 's/^MIGRATE_ON_START=0/MIGRATE_ON_START=1/' app/.env.local
+   docker compose -f docker/docker-compose.prod-full.yml up -d
+   ```
+
+6. **Verify:** Log in and check dashboards, connections, and users
 
 :::tip
 The `ENCRYPTION_KEY` must be identical on both servers. If you use a different key, all stored credentials will fail to decrypt.
