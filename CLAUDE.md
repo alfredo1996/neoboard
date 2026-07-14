@@ -144,7 +144,7 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 ## Migrations
 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
-Test version-skip paths. `--skip-migrations` flag exists for emergency debugging.
+Test version-skip paths. Migrations run on boot when `MIGRATE_ON_START=1` (the production Docker image sets this); set the env var `MIGRATE_ON_START=0` to skip — for emergency debugging or when applying migrations as a separate step. There is no `--skip-migrations` CLI flag.
 
 ## Automated Guardrails (Hooks)
 

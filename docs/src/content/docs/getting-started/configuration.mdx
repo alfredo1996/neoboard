@@ -45,6 +45,7 @@ openssl rand -hex 32
 | `DEFAULT_TENANT_ID` | Default tenant for single-tenant deployments | `default` |
 | `MAX_QUERY_ROWS` | Maximum rows returned per query | `1000` |
 | `QUERY_TIMEOUT_MS` | Default query timeout in milliseconds | `30000` |
+| `MIGRATE_ON_START` | Apply pending schema migrations on boot. The production Docker image sets this to `1` (on); set `0` to skip (see [Deployment Checklist → Database migrations](/administration/deployment-checklist#database-migrations)). | `1` (Docker image) |
 
 ## Enterprise Variables
 

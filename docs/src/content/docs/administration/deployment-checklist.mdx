@@ -51,6 +51,21 @@ ADMIN_BOOTSTRAP_TOKEN=<random-64-char-hex>
 ```
 Navigate to `/signup` and enter the token to create the admin account.
 
+### Database migrations
+
+Schema migrations run **automatically on boot** in the production Docker image (`MIGRATE_ON_START=1`). Concurrent replicas serialize on a Postgres advisory lock: the first to boot applies pending migrations, the rest wait and then no-op.
+
+Set `MIGRATE_ON_START=0` to skip boot migrations when you want to:
+
+- apply migrations as a separate, gated deploy step, or
+- restore a database backup before the app loads data — bring the app up with migrations off, run the [restore](/administration/backup-restore#restore-from-backup), then re-enable.
+
+- [ ] Decide how migrations are applied (on-boot vs. separate step) and set `MIGRATE_ON_START` accordingly
+
+:::note
+The schema currently ships as a single consolidated initial migration (pre-launch). Multi-version-skip upgrade paths (old install → current) will only be exercised once migrations accumulate after launch.
+:::
+
 ## Post-deployment
 
 ### Verify

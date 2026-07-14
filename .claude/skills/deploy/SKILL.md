@@ -174,7 +174,7 @@ ls app/src/lib/db/migrations/
 **Capture as issues**:
 
 - Migration runner missing the advisory lock (memory rule: "Advisory lock prevents concurrent runs")
-- `--skip-migrations` flag missing or undocumented
+- `MIGRATE_ON_START` boot-migration opt-out (`MIGRATE_ON_START=0`) missing or undocumented
 - No version-skip test path (can a v0.5 → v1.1 install succeed?)
 - Rollback story undocumented (forward-only is fine, but operators need to know that)
 
