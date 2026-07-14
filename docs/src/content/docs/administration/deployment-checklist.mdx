@@ -21,6 +21,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 
 - [ ] PostgreSQL 16+ running and accessible from the NeoBoard container
 - [ ] TLS/SSL certificate configured on the reverse proxy
+- [ ] `NEOBOARD_IMAGE` pinned to an explicit version tag (e.g. `ghcr.io/…/neoboard:v1.3.0`), **not** `:latest`, so deploys are reproducible and `docker compose pull` can't cross a major version unintentionally
 - [ ] Docker resource limits set (CPU: 2 cores, Memory: 1GB recommended)
 - [ ] Log rotation configured (max 10MB, 3 files)
 - [ ] Backup strategy in place (see [Backup & Restore](/administration/backup-restore))
