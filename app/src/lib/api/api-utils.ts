@@ -4,6 +4,20 @@ import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 import { isTransientQueryError } from "@/lib/query/transient-error-classifier";
 import { apiLogger } from "@/lib/logger";
+import { headers } from "next/headers";
+
+/**
+ * Read the per-request correlation id that proxy.ts stamps on every request
+ * (`x-request-id`). Returns undefined outside a request context (e.g. unit
+ * tests calling handleRouteError directly), so error logging never throws.
+ */
+async function currentRequestId(): Promise<string | undefined> {
+  try {
+    return (await headers()).get("x-request-id") ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Shared API route utilities to reduce duplication across route handlers.
@@ -85,7 +99,7 @@ export function validateBody<T>(
 // Generic catch handler
 // ---------------------------------------------------------------------------
 
-export function handleRouteError(
+export async function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
   options?: {
@@ -98,7 +112,7 @@ export function handleRouteError(
      */
     safeMessage?: boolean;
   },
-): ReturnType<typeof apiError> {
+): Promise<ReturnType<typeof apiError>> {
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
   }
@@ -144,6 +158,10 @@ export function handleRouteError(
   apiLogger.error(
     {
       event: "api_error",
+      // Correlation id (proxy.ts stamps x-request-id) so an error log can be
+      // tied back to the same request's other logs — every route through this
+      // handler is now traceable, not just the two using logRoute (#1220).
+      requestId: await currentRequestId(),
       // `err` key triggers pino.stdSerializers → message + stack + code
       err: error instanceof Error ? error : String(error),
       errorCode:

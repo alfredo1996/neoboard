@@ -41,6 +41,18 @@ curl -s http://localhost:3000/api/health | jq
 | `degraded` | 200 | Functional but with warnings (e.g., slow DB) |
 | `error` | 503 | Missing required configuration or DB unreachable |
 
+The public payload above never exposes secret **values** — `config` only reports each variable as `set`/`unset`.
+
+### Extended payload for admin sessions
+
+When called with an authenticated **admin** session, `/api/health` returns extra operational intel (kept off the unauthenticated surface):
+
+- `version` — app + Node version
+- `migrations` — `applied` / `expected` / `upToDate` and `lastAppliedAt` (detects migration drift after an upgrade)
+- `schedulers` — per-connector query-scheduler stats (queue depth, in-flight, shed counts) for spotting backpressure
+
+An anonymous or non-admin caller always gets the public shape, so health probes remain unauthenticated.
+
 ### Using with Docker
 
 Docker Compose health check (already configured in `docker-compose.prod.yml`):
@@ -126,13 +138,17 @@ For external uptime monitoring, point your preferred tool at the health endpoint
 
 NeoBoard outputs JSON-structured logs (when configured with structured logging). Key log fields:
 
-| Field | Description |
-|-------|-------------|
-| `level` | Log severity: `info`, `warn`, `error` |
-| `msg` | Human-readable message |
-| `requestId` | Correlation ID for tracing requests |
-| `userId` | Authenticated user (if applicable) |
-| `duration` | Request duration in milliseconds |
+| Field | Description | Where it appears |
+|-------|-------------|------------------|
+| `level` | Log severity: `info`, `warn`, `error` | all logs |
+| `msg` / `event` | Human-readable message / structured event name | all logs |
+| `requestId` | Correlation ID for tracing a request end-to-end | **every** `api_error` log, plus the query routes' `request_start`/`request_end` and query audit logs |
+| `durationMs` | Request/query duration in milliseconds | query request logs (`request_end`) and query audit logs |
+| `userId` | Authenticated user | where a session is resolved (e.g. audit logs) |
+
+:::note
+`requestId` is stamped on every request by the proxy layer and is included in **all** error logs, so any failed request can be traced across its logs by that id. Full request-lifecycle timing (`durationMs`, `status`) is currently emitted for the query-execution routes (`/api/query`, `/api/query/write`) and audit logs — not yet every CRUD route — so the duration filter below applies to that traffic.
+:::
 
 ### Filtering logs
 
@@ -140,10 +156,13 @@ NeoBoard outputs JSON-structured logs (when configured with structured logging).
 # View errors only
 docker logs neoboard 2>&1 | jq 'select(.level == "error")'
 
-# View slow requests (> 1s)
-docker logs neoboard 2>&1 | jq 'select(.duration > 1000)'
+# Trace one request across all its logs by correlation id
+docker logs neoboard 2>&1 | jq 'select(.requestId == "REQUEST-ID")'
 
-# View specific user's activity
+# View slow query requests (> 1s) — query routes / audit logs carry durationMs
+docker logs neoboard 2>&1 | jq 'select(.durationMs > 1000)'
+
+# View a specific user's activity (audit logs)
 docker logs neoboard 2>&1 | jq 'select(.userId == "user-uuid")'
 ```
 
