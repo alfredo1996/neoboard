@@ -18,7 +18,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={[]}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -34,7 +34,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("X Axis")).toBeInTheDocument();
     expect(screen.getByText("Y Axis")).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("X Axis")).toBeInTheDocument();
     expect(screen.getByText("Y Axis")).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Value")).toBeInTheDocument();
@@ -85,10 +85,10 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(
-      screen.queryByTestId("column-mapping-groupby-trigger")
+      screen.queryByTestId("column-mapping-groupby-trigger"),
     ).not.toBeInTheDocument();
   });
 
@@ -99,10 +99,10 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(
-      screen.getByTestId("column-mapping-groupby-trigger")
+      screen.getByTestId("column-mapping-groupby-trigger"),
     ).toBeInTheDocument();
   });
 
@@ -117,11 +117,9 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
-    expect(
-      screen.getByTestId("column-mapping-overlay")
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("column-mapping-overlay")).toBeInTheDocument();
   });
 
   it("applies a custom className", () => {
@@ -132,11 +130,11 @@ describe("ColumnMappingOverlay", () => {
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
         className="my-custom-class"
-      />
+      />,
     );
-    expect(
-      screen.getByTestId("column-mapping-overlay")
-    ).toHaveClass("my-custom-class");
+    expect(screen.getByTestId("column-mapping-overlay")).toHaveClass(
+      "my-custom-class",
+    );
   });
 
   it("renders three select triggers for bar chart", () => {
@@ -146,16 +144,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
+    expect(screen.getByTestId("column-mapping-x-trigger")).toBeInTheDocument();
+    expect(screen.getByTestId("column-mapping-y-trigger")).toBeInTheDocument();
     expect(
-      screen.getByTestId("column-mapping-x-trigger")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId("column-mapping-y-trigger")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId("column-mapping-groupby-trigger")
+      screen.getByTestId("column-mapping-groupby-trigger"),
     ).toBeInTheDocument();
   });
 
@@ -166,16 +160,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
+    expect(screen.getByTestId("column-mapping-x-trigger")).toBeInTheDocument();
+    expect(screen.getByTestId("column-mapping-y-trigger")).toBeInTheDocument();
     expect(
-      screen.getByTestId("column-mapping-x-trigger")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId("column-mapping-y-trigger")
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("column-mapping-groupby-trigger")
+      screen.queryByTestId("column-mapping-groupby-trigger"),
     ).not.toBeInTheDocument();
   });
 
@@ -190,7 +180,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-x-trigger"));
     // All column names should appear as options (they may appear multiple times across
@@ -207,7 +197,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-y-trigger"));
     COLUMNS.forEach((col) => {
@@ -222,7 +212,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-groupby-trigger"));
     COLUMNS.forEach((col) => {
@@ -242,7 +232,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={mapping}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     // The selected value "name" should be shown inside the trigger
     const xTrigger = screen.getByTestId("column-mapping-x-trigger");
@@ -257,7 +247,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={mapping}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     const yTrigger = screen.getByTestId("column-mapping-y-trigger");
     expect(yTrigger).toHaveTextContent("value");
@@ -271,7 +261,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={mapping}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     const groupByTrigger = screen.getByTestId("column-mapping-groupby-trigger");
     expect(groupByTrigger).toHaveTextContent("category");
@@ -284,7 +274,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     const xTrigger = screen.getByTestId("column-mapping-x-trigger");
     // The placeholder text "auto" should be present when no mapping is set
@@ -298,7 +288,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     const yTrigger = screen.getByTestId("column-mapping-y-trigger");
     expect(yTrigger).toHaveTextContent("auto");
@@ -316,14 +306,14 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     // Open the X select
     fireEvent.click(screen.getByTestId("column-mapping-x-trigger"));
     // Click the "name" option
     fireEvent.click(screen.getByRole("option", { name: "name" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ xAxis: "name" })
+      expect.objectContaining({ xAxis: "name" }),
     );
   });
 
@@ -336,12 +326,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={mapping}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-x-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "auto" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ xAxis: undefined })
+      expect.objectContaining({ xAxis: undefined }),
     );
   });
 
@@ -353,12 +343,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-y-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "value" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ yAxis: ["value"] })
+      expect.objectContaining({ yAxis: ["value"] }),
     );
   });
 
@@ -371,12 +361,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={mapping}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-y-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "auto" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ yAxis: [] })
+      expect.objectContaining({ yAxis: [] }),
     );
   });
 
@@ -388,12 +378,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-groupby-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "category" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ groupBy: "category" })
+      expect.objectContaining({ groupBy: "category" }),
     );
   });
 
@@ -406,12 +396,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={mapping}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-groupby-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "none" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ groupBy: undefined })
+      expect.objectContaining({ groupBy: undefined }),
     );
   });
 
@@ -427,12 +417,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-x-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "category" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ xAxis: "category" })
+      expect.objectContaining({ xAxis: "category" }),
     );
   });
 
@@ -444,12 +434,12 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={EMPTY_MAPPING}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-y-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "value" }));
     expect(onMappingChange).toHaveBeenCalledWith(
-      expect.objectContaining({ yAxis: ["value"] })
+      expect.objectContaining({ yAxis: ["value"] }),
     );
   });
 
@@ -464,7 +454,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={["onlyCol"]}
         mapping={EMPTY_MAPPING}
         onMappingChange={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByTestId("column-mapping-overlay")).toBeInTheDocument();
     // The single column should be visible in all select dropdowns
@@ -478,14 +468,17 @@ describe("ColumnMappingOverlay", () => {
 
   it("preserves existing mapping fields when xAxis changes", () => {
     const onMappingChange = vi.fn();
-    const existingMapping: ColumnMapping = { yAxis: ["value"], groupBy: "category" };
+    const existingMapping: ColumnMapping = {
+      yAxis: ["value"],
+      groupBy: "category",
+    };
     render(
       <ColumnMappingOverlay
         chartType="bar"
         availableColumns={COLUMNS}
         mapping={existingMapping}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-x-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "name" }));
@@ -497,14 +490,17 @@ describe("ColumnMappingOverlay", () => {
 
   it("preserves existing mapping fields when yAxis changes", () => {
     const onMappingChange = vi.fn();
-    const existingMapping: ColumnMapping = { xAxis: "name", groupBy: "category" };
+    const existingMapping: ColumnMapping = {
+      xAxis: "name",
+      groupBy: "category",
+    };
     render(
       <ColumnMappingOverlay
         chartType="bar"
         availableColumns={COLUMNS}
         mapping={existingMapping}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-y-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "value" }));
@@ -523,7 +519,7 @@ describe("ColumnMappingOverlay", () => {
         availableColumns={COLUMNS}
         mapping={existingMapping}
         onMappingChange={onMappingChange}
-      />
+      />,
     );
     fireEvent.click(screen.getByTestId("column-mapping-groupby-trigger"));
     fireEvent.click(screen.getByRole("option", { name: "category" }));
@@ -531,5 +527,40 @@ describe("ColumnMappingOverlay", () => {
     expect(called.xAxis).toBe("name");
     expect(called.yAxis).toEqual(["value"]);
     expect(called.groupBy).toBe("category");
+  });
+
+  it("labels each axis Select with its visible field name (#component-review)", () => {
+    render(
+      <ColumnMappingOverlay
+        chartType="bar"
+        availableColumns={COLUMNS}
+        mapping={EMPTY_MAPPING}
+        onMappingChange={vi.fn()}
+      />,
+    );
+    // Each Radix Select trigger (role=combobox) is now programmatically named
+    // by its visible field label rather than announcing only "auto".
+    expect(
+      screen.getByRole("combobox", { name: /X Axis/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /Y Axis/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /Group By/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("uses Name/Value labels for pie charts", () => {
+    render(
+      <ColumnMappingOverlay
+        chartType="pie"
+        availableColumns={COLUMNS}
+        mapping={EMPTY_MAPPING}
+        onMappingChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: /Name/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Value/ })).toBeInTheDocument();
   });
 });

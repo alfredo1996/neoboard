@@ -59,6 +59,23 @@ describe("escapeCsvCell", () => {
   it("handles empty string without wrapping", () => {
     expect(escapeCsvCell("")).toBe("");
   });
+
+  it("neutralizes formula injection by prefixing a single quote", () => {
+    // Prefixed so Excel/Sheets treat it as text, not an executable formula.
+    expect(escapeCsvCell("=1+1")).toBe("'=1+1");
+    expect(escapeCsvCell("@SUM(A1:A9)")).toBe("'@SUM(A1:A9)");
+    expect(escapeCsvCell("+cmd")).toBe("'+cmd");
+    expect(escapeCsvCell("\tstart-with-tab")).toBe("'\tstart-with-tab");
+  });
+
+  it("quotes and neutralizes a formula cell that also needs quoting", () => {
+    expect(escapeCsvCell("=HYPERLINK(1,2)")).toBe('"\'=HYPERLINK(1,2)"');
+  });
+
+  it("does not prefix genuine negative numbers", () => {
+    expect(escapeCsvCell(-5)).toBe("-5");
+    expect(escapeCsvCell(-3.14)).toBe("-3.14");
+  });
 });
 
 describe("buildCsvString", () => {

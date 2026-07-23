@@ -1,16 +1,26 @@
 /**
- * Escape a CSV cell value per RFC 4180.
- * Wraps in quotes if the value contains comma, double-quote, newline, or carriage return.
+ * Escape a CSV cell value per RFC 4180, and neutralize spreadsheet formula
+ * injection. Wraps in quotes if the value contains comma, double-quote,
+ * newline, or carriage return; prefixes a single quote if the value would
+ * otherwise be executed as a formula by Excel/Sheets.
  */
 export function escapeCsvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const str = typeof value === "object" ? JSON.stringify(value) : String(value);
+  const isNumeric = typeof value === "number" || typeof value === "bigint";
+  let str = typeof value === "object" ? JSON.stringify(value) : String(value);
+  // Neutralize formula injection: cells beginning with =, +, -, @, tab, or CR
+  // are executed by Excel/Sheets. Quoting does NOT stop this — the CSV parser
+  // strips the quotes before the spreadsheet evaluates the cell — so prefix a
+  // single quote to force text. Skip genuine numbers so negative values stay
+  // numeric in the export.
+  if (!isNumeric && /^[=@+\-\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
   const needsQuoting =
     str.includes(",") ||
     str.includes('"') ||
     str.includes("\n") ||
-    str.includes("\r") ||
-    /^[=@+\-]/.test(str);
+    str.includes("\r");
   if (needsQuoting) {
     return `"${str.replace(/"/g, '""')}"`;
   }

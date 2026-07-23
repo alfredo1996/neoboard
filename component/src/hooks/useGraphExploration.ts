@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { GraphNode, GraphEdge } from "@/charts/types";
 
 export interface FetchNeighborsResult {
@@ -15,6 +15,15 @@ export interface UseGraphExplorationOptions {
   fetchNeighbors: (node: GraphNode) => Promise<FetchNeighborsResult>;
   /** Maximum expansion depth (0 = initial only, 1 = one hop, etc.) */
   maxDepth?: number;
+  /**
+   * Identity of the query result behind initialNodes/initialEdges. When it
+   * changes (a new query ran), the exploration re-seeds to the new graph and
+   * drops stale expansions/selection. Keyed on this stable id rather than
+   * array identity, which churns on every parent render. Undefined disables
+   * re-seeding (preview mode) — the same condition the wrapper's stale-state
+   * check uses.
+   */
+  resultId?: string;
 }
 
 export interface UseGraphExplorationReturn {
@@ -155,6 +164,7 @@ export function useGraphExploration({
   initialEdges,
   fetchNeighbors,
   maxDepth,
+  resultId,
 }: UseGraphExplorationOptions): UseGraphExplorationReturn {
   const [graphState, setGraphState] = useState<GraphState>(() => ({
     nodes: initialNodes,
@@ -262,6 +272,22 @@ export function useGraphExploration({
     setSelectedNodeIds([]);
     setExpandingNodeId(null);
   }, []);
+
+  // Re-seed when a new query result arrives. Without this, the initialNodes/
+  // initialEdges captured at mount win forever and every expansion/reset
+  // replays the stale first result. Keyed on resultId (a stable id) — not
+  // array identity, which the parent recreates on every render and would loop
+  // this back into a reset. undefined resultId disables re-seeding.
+  const seededResultIdRef = useRef(resultId);
+  useEffect(() => {
+    if (resultId === undefined || resultId === seededResultIdRef.current) {
+      return;
+    }
+    seededResultIdRef.current = resultId;
+    initialNodesRef.current = initialNodes;
+    initialEdgesRef.current = initialEdges;
+    reset();
+  }, [resultId, initialNodes, initialEdges, reset]);
 
   const canExpand = useCallback(
     (nodeId: string) => {

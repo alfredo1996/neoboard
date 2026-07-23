@@ -65,6 +65,14 @@ const data: SalesRow[] = [
   },
 ];
 
+// userEvent-driven tests dispatch ~8 events, each yielding a macrotask. In CI the
+// 4 packages' coverage suites run in parallel (see .github/workflows/ci.yml),
+// oversubscribing the runner and starving those macrotasks so these tests creep
+// toward the default 5s testTimeout and flake. Give them headroom here.
+// ponytail: raising the timeout tolerates the oversubscription; the real root cause
+// is that parallel fan-out — bound it in ci.yml if this flakiness spreads.
+const SLOW_UI_TIMEOUT_MS = 15000;
+
 describe("DataGrid grouping", () => {
   it("renders group rows when grouping is enabled", () => {
     render(
@@ -81,36 +89,40 @@ describe("DataGrid grouping", () => {
     expect(screen.getByText(/UK/)).toBeInTheDocument();
   });
 
-  it("collapses and expands groups on click", async () => {
-    const user = userEvent.setup();
-    render(
-      <DataGrid
-        columns={columns}
-        data={data}
-        enableGrouping
-        initialGrouping={["country"]}
-        enablePagination={false}
-      />,
-    );
-    // All rows should be visible initially (groups expanded by default)
-    await waitFor(() => {
-      expect(screen.getAllByRole("row").length).toBeGreaterThan(2);
-    });
+  it(
+    "collapses and expands groups on click",
+    async () => {
+      const user = userEvent.setup({ delay: null });
+      render(
+        <DataGrid
+          columns={columns}
+          data={data}
+          enableGrouping
+          initialGrouping={["country"]}
+          enablePagination={false}
+        />,
+      );
+      // All rows should be visible initially (groups expanded by default)
+      await waitFor(() => {
+        expect(screen.getAllByRole("row").length).toBeGreaterThan(2);
+      });
 
-    // Click the first group toggle to collapse
-    const toggles = await screen.findAllByRole("button", {
-      name: /toggle group/i,
-    });
-    expect(toggles.length).toBeGreaterThan(0);
-    await user.click(toggles[0]);
+      // Click the first group toggle to collapse
+      const toggles = await screen.findAllByRole("button", {
+        name: /toggle group/i,
+      });
+      expect(toggles.length).toBeGreaterThan(0);
+      await user.click(toggles[0]);
 
-    // After collapsing, fewer rows should be visible
-    await waitFor(() => {
-      const rowsAfterCollapse = screen.getAllByRole("row");
-      // Header + collapsed group + remaining group rows
-      expect(rowsAfterCollapse.length).toBeLessThan(data.length + 3);
-    });
-  });
+      // After collapsing, fewer rows should be visible
+      await waitFor(() => {
+        const rowsAfterCollapse = screen.getAllByRole("row");
+        // Header + collapsed group + remaining group rows
+        expect(rowsAfterCollapse.length).toBeLessThan(data.length + 3);
+      });
+    },
+    SLOW_UI_TIMEOUT_MS,
+  );
 
   it("shows aggregation values in group header rows", () => {
     const columnsWithAgg: ColumnDef<SalesRow, unknown>[] = [
@@ -157,28 +169,32 @@ describe("DataGrid grouping", () => {
     expect(screen.getByText(/London/)).toBeInTheDocument();
   });
 
-  it("renders expand/collapse all toggle", async () => {
-    const user = userEvent.setup();
-    render(
-      <DataGrid
-        columns={columns}
-        data={data}
-        enableGrouping
-        initialGrouping={["country"]}
-        enablePagination={false}
-      />,
-    );
-    const collapseAllBtn = screen.getByRole("button", {
-      name: /collapse all/i,
-    });
-    expect(collapseAllBtn).toBeInTheDocument();
-    await user.click(collapseAllBtn);
+  it(
+    "renders expand/collapse all toggle",
+    async () => {
+      const user = userEvent.setup({ delay: null });
+      render(
+        <DataGrid
+          columns={columns}
+          data={data}
+          enableGrouping
+          initialGrouping={["country"]}
+          enablePagination={false}
+        />,
+      );
+      const collapseAllBtn = screen.getByRole("button", {
+        name: /collapse all/i,
+      });
+      expect(collapseAllBtn).toBeInTheDocument();
+      await user.click(collapseAllBtn);
 
-    // After collapsing all, only header + group header rows remain
-    // 1 header row + 2 group rows (US, UK) = 3 total
-    const rows = screen.getAllByRole("row");
-    expect(rows.length).toBe(3);
-  });
+      // After collapsing all, only header + group header rows remain
+      // 1 header row + 2 group rows (US, UK) = 3 total
+      const rows = screen.getAllByRole("row");
+      expect(rows.length).toBe(3);
+    },
+    SLOW_UI_TIMEOUT_MS,
+  );
 
   it("shows row count in group header", () => {
     render(

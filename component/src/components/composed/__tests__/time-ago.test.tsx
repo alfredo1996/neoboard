@@ -92,4 +92,12 @@ describe("TimeAgo", () => {
     // When showTooltip=true (default), the time is wrapped in a Tooltip
     expect(screen.getByText("5m ago")).toBeInTheDocument();
   });
+
+  it("renders a fallback for an invalid date instead of crashing (#component-review)", () => {
+    // Before the fix, dateObj.toISOString() threw RangeError and blanked the render.
+    expect(() =>
+      render(<TimeAgo date="not-a-date" showTooltip={false} />),
+    ).not.toThrow();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
 });

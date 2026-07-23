@@ -145,6 +145,8 @@ function BaseChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const dark = useDarkMode();
+  // Surfaced when setOption() throws on malformed data (see the update effect).
+  const [renderError, setRenderError] = useState<Error | null>(null);
 
   // Initialize / dispose ECharts instance — reinit when dark mode toggles
   useEffect(() => {
@@ -205,11 +207,22 @@ function BaseChart({
         decal: { show: colorblindMode, ...userDecal },
       },
     };
-    instance.setOption(merged, { notMerge: true });
-    // Fix blank render on initial widget placement: if the container was
-    // 0x0 when ECharts initialized, the first setOption draws to a 0x0
-    // canvas. Force a resize after setOption so it picks up the real size.
-    instance.resize();
+    try {
+      instance.setOption(merged, { notMerge: true });
+      // Fix blank render on initial widget placement: if the container was
+      // 0x0 when ECharts initialized, the first setOption draws to a 0x0
+      // canvas. Force a resize after setOption so it picks up the real size.
+      instance.resize();
+      setRenderError(null);
+    } catch (err) {
+      // ECharts throws synchronously on malformed data — a Sankey with a cyclic
+      // flow, duplicate node names, or a link to a missing node (all reachable
+      // from ordinary Neo4j/PG results). Clear the half-drawn chart and surface
+      // the error instead of letting the throw crash the whole widget/dashboard
+      // (there is no error boundary around individual charts).
+      instance.clear();
+      setRenderError(err instanceof Error ? err : new Error(String(err)));
+    }
   }, [
     options,
     enableDataZoom,
@@ -268,18 +281,31 @@ function BaseChart({
     );
   }
 
+  // The container stays mounted (so the ECharts instance keeps its DOM binding)
+  // even when a render error occurs — the error is shown as an overlay on top.
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "h-full w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        className,
+    <div className="relative h-full w-full">
+      <div
+        ref={containerRef}
+        className={cn(
+          "h-full w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          className,
+        )}
+        data-testid="base-chart"
+        role="img"
+        aria-label={ariaDescription ?? "Chart visualization"}
+        tabIndex={0}
+      />
+      {renderError && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-center text-sm text-destructive"
+          role="alert"
+        >
+          <span className="font-medium">Chart failed to render</span>
+          <span className="text-xs">{renderError.message}</span>
+        </div>
       )}
-      data-testid="base-chart"
-      role="img"
-      aria-label={ariaDescription ?? "Chart visualization"}
-      tabIndex={0}
-    />
+    </div>
   );
 }
 

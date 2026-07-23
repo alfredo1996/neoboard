@@ -4,14 +4,13 @@ import { GaugeChart as EGaugeChart } from "echarts/charts";
 import { TitleComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
   resolveItemColor,
   parseGaugeThresholdZones,
-  isDark,
 } from "./chart-utils";
 import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
 import type { StylingRule } from "./styling-rule";
@@ -70,6 +69,8 @@ function GaugeChart({
   const { width, height, containerRef } = useContainerSize();
   const measured = width > 0;
   const compact = measured && (width < 200 || height < 200);
+  // Reactive theme so the accent shade rebuilds on toggle. (#chart-review)
+  const dark = useDarkMode();
 
   const options = useMemo((): EChartsOption | undefined => {
     // Defer rendering until the container has been measured to prevent
@@ -110,7 +111,7 @@ function GaugeChart({
     const progressColor =
       resolvedColor ??
       thresholdColor ??
-      (isDark() ? CITRINE_DARK[0] : CITRINE_LIGHT[0]);
+      (dark ? CITRINE_DARK[0] : CITRINE_LIGHT[0]);
 
     // Track color — light gray that works in both themes
     const trackColor = hasCustomZones
@@ -201,6 +202,7 @@ function GaugeChart({
     compact,
     stylingRules,
     paramValues,
+    dark,
   ]);
 
   return (
