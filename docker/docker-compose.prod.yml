@@ -21,6 +21,12 @@ services:
     # Released images are published by .github/workflows/release.yml on each
     # version tag. When the image is not available locally or remotely (e.g.
     # before the first release), compose builds from source instead.
+    #
+    # ⚠ Production: PIN an explicit version. The `:latest` default below is a
+    # convenience for local/first-run only — relying on it in production makes
+    # deploys non-reproducible and lets `docker compose pull` cross a major
+    # version unintentionally. Set an explicit tag instead:
+    #   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z
     image: ${NEOBOARD_IMAGE:-ghcr.io/alfredo1996/neoboard:latest}
     build:
       context: ..
