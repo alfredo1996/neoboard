@@ -22,6 +22,8 @@ const mockDb = {
   insert: vi.fn(),
 };
 
+const mockAuditRequest = vi.fn();
+
 class UnauthorizedError extends Error {
   constructor() {
     super("Unauthorized");
@@ -36,6 +38,11 @@ class ForbiddenError extends Error {
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/auth/api-key", () => ({ generateApiKey: mockGenerateApiKey }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 
 // ---------------------------------------------------------------------------
@@ -231,6 +238,56 @@ describe("POST /api/keys", () => {
     expect(body.data.key).toBe("nb_" + "a".repeat(64));
     // The non-secret display prefix is returned to clients (#1038).
     expect(body.data.keyPrefix).toBe("nb_aaaaaaaa");
+  });
+
+  it("records a key.create audit entry without leaking the key (#1234)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "creator",
+      canWrite: true,
+    });
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([
+        {
+          id: "new-key-id",
+          name: "My CI Key",
+          keyPrefix: "nb_aaaaaaaa",
+          expiresAt: null,
+          createdAt: new Date(),
+        },
+      ]),
+    );
+
+    await POST(makeRequest({ name: "My CI Key" }));
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      tenantId: "default",
+      userId: "user-1",
+      action: "key.create",
+      resourceType: "api_key",
+      resourceId: "new-key-id",
+    });
+    // The plaintext key and its hash must never reach the audit trail.
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toContain("a".repeat(64));
+    expect(serialized).not.toContain("hash_");
+  });
+
+  it("writes no audit entry when the request is rejected (#1234)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      tenantId: "default",
+      role: "reader",
+      canWrite: false,
+    });
+
+    const res = await POST(makeRequest({ name: "Nope" }));
+
+    expect(res.status).toBe(403);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("returned key starts with nb_ prefix", async () => {
