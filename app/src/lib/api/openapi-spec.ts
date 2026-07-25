@@ -128,6 +128,20 @@ const SPEC = {
     },
     "/api/connections/{id}": {
       parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      get: {
+        tags: ["Connections"],
+        summary: "Get connection",
+        description:
+          "Returns connection metadata plus its config with the password stripped. Owner, tenant-shared, or admin access required.",
+        responses: {
+          200: jsonResponse(
+            "Connection detail",
+            "#/components/schemas/ConnectionSummary",
+          ),
+          401: R.unauthorized,
+          404: R.notFound,
+        },
+      },
       patch: {
         tags: ["Connections"],
         summary: "Update connection",
@@ -454,6 +468,17 @@ const SPEC = {
     },
     "/api/users/{id}": {
       parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      get: {
+        tags: ["Users"],
+        summary: "Get user",
+        description: "Returns a single tenant-scoped user. **Admin only.**",
+        responses: {
+          200: jsonResponse("User detail", "#/components/schemas/User"),
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+        },
+      },
       patch: {
         tags: ["Users"],
         summary: "Update user",
