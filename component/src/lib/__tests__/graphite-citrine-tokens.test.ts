@@ -77,11 +77,24 @@ describe("new token surface (#820)", () => {
     expect(tokenValue(dark, token), `${token} dark`).toBeTruthy();
   });
 
-  it("--accent-soft is a low-alpha amber tint in both modes", () => {
-    for (const mode of [light, dark]) {
-      const v = tokenValue(mode, "--accent-soft");
-      expect(v).toMatch(/^hsl\(38 \d{2}% \d{2}% \/ 0\.\d+\)$/);
-    }
+  it("--accent-soft is a low-alpha amber tint in light mode", () => {
+    // Over the near-white background a warm tint reads as intended cream.
+    expect(tokenValue(light, "--accent-soft")).toMatch(
+      /^hsl\(38 \d{2}% \d{2}% \/ 0\.\d+\)$/,
+    );
+  });
+
+  it("--accent-soft is neutral in dark mode (#1244)", () => {
+    // A warm hue at low alpha over a near-black surface composites to brown,
+    // not to subtle amber — selection looked like a dull smear. Dark selection
+    // is expressed as neutral elevation instead; the citrine signal is carried
+    // at full strength by the active item's left rail (--ring).
+    const v = tokenValue(dark, "--accent-soft");
+    const saturation = Number(v?.match(/^hsl\(\d+ (\d+)%/)?.[1]);
+    expect(
+      saturation,
+      `dark --accent-soft must be neutral, got ${v}`,
+    ).toBeLessThanOrEqual(10);
   });
 
   it("dark surfaces step progressively lighter than the background", () => {

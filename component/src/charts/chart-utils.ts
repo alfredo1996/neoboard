@@ -415,6 +415,37 @@ export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
   };
 }
 
+/**
+ * Return `color` at zero alpha, preserving its hue (#1244).
+ *
+ * Gradient fades must end on the same colour transparent — NOT on
+ * `rgba(255,255,255,0)`. Canvas interpolates gradients in non-premultiplied
+ * RGBA, so fading a saturated colour to transparent white washes through pale
+ * grey, which is half of why the dark-mode area fill looked muddy.
+ */
+export function fadeToTransparent(color: string): string {
+  const c = color.trim();
+  if (c.startsWith("hsla(") || c.startsWith("rgba(")) {
+    // Already has an alpha channel — replace it with 0.
+    return c.replace(/,\s*[\d.]+\s*\)$/, ", 0)");
+  }
+  if (c.startsWith("hsl(")) {
+    return `hsla(${c.slice(4, -1)}, 0)`;
+  }
+  if (c.startsWith("rgb(")) {
+    return `rgba(${c.slice(4, -1)}, 0)`;
+  }
+  // #rgb / #rrggbb → 8-digit hex with zero alpha.
+  if (/^#[0-9a-f]{6}$/i.test(c)) return `${c}00`;
+  if (/^#[0-9a-f]{3}$/i.test(c)) {
+    const [, r, g, b] = c;
+    return `#${r}${r}${g}${g}${b}${b}00`;
+  }
+  // Unknown format (e.g. a raw CSS var). Fade to transparent black rather
+  // than white — white is the bug this function exists to prevent.
+  return "rgba(0, 0, 0, 0)";
+}
+
 /** Detect whether the document is currently in dark mode. */
 export function isDark(): boolean {
   if (typeof document === "undefined") return false;

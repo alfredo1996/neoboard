@@ -16,6 +16,8 @@ import {
   parseReferenceLines,
   buildMarkLineFromRefs,
   isTimeSeriesData,
+  fadeToTransparent,
+  isDark,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -195,7 +197,10 @@ function LineChart({
         areaStyle: area
           ? seriesColor
             ? {
-                opacity: 0.15,
+                // Dark composites a warm fill into brown, so it needs to be
+                // much fainter there to read as a tint rather than a stain
+                // (#1244). Tuned visually against appshell-dark, not guessed.
+                opacity: isDark() ? 0.06 : 0.15,
                 color: {
                   type: "linear" as const,
                   x: 0,
@@ -204,11 +209,13 @@ function LineChart({
                   y2: 1,
                   colorStops: [
                     { offset: 0, color: seriesColor },
-                    { offset: 1, color: "rgba(255,255,255,0)" },
+                    // Fade to the SAME colour transparent — fading to
+                    // transparent white washed through pale grey (#1244).
+                    { offset: 1, color: fadeToTransparent(seriesColor) },
                   ],
                 },
               }
-            : { opacity: 0.12 }
+            : { opacity: isDark() ? 0.08 : 0.12 }
           : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // LTTB downsampling for large datasets

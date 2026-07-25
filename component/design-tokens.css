@@ -147,7 +147,12 @@
   /* Deep amber hover fill; readable warm-white text. */
   --accent: 38 45% 22%;
   --accent-foreground: 38 100% 92%;
-  --accent-soft: hsl(38 90% 60% / 0.2);
+  /* Neutral, not amber (#1244). A warm hue at low alpha over charcoal
+     composites to brown — selection read as a dull smear rather than a
+     deliberate state. Dark selection is neutral elevation; the citrine
+     signal is carried at full strength by the active item's left rail
+     (--ring), which is a small area and therefore stays crisp. */
+  --accent-soft: hsl(0 0% 100% / 0.07);
   /* Brand mark stays warm citrine (matches --chart-1 dark). */
   --brand: 38 95% 58%;
   /* Lifted error red (Epic B #1126) so it reads as text against charcoal;
