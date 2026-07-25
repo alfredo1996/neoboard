@@ -197,9 +197,9 @@ app/src/
 └── proxy.ts                # Edge middleware (auth guard)
 
 component/src/
-├── charts/                 # ECharts wrappers (BaseChart + 12 types)
+├── charts/                 # ECharts wrappers (BaseChart + 14 types)
 ├── components/
-│   ├── ui/                 # 33 shadcn/ui primitives
+│   ├── ui/                 # 38 shadcn/ui primitives
 │   └── composed/           # 42 higher-order components
 ├── hooks/                  # useWidgetSize, useContainerSize
 └── lib/                    # Utilities, design tokens, Cypher language
