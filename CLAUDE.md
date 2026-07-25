@@ -52,7 +52,7 @@ Rules:
 
 | Layer                | Tool                    | Examples                                                                         |
 | -------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| Pure functions/utils | Vitest (no DOM)         | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| Pure functions/utils | Vitest (no DOM)         | chart-plugin-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
 | API routes           | Vitest (mocked DB/auth) | Validation, permissions, error handling                                          |
 | Zustand stores       | Vitest (no mocks)       | State transitions, cascading logic                                               |
 | Store orchestration  | Vitest (no DOM)         | parameter-widget-renderer interactions, type coercion                            |
@@ -125,7 +125,8 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 ## Multi-Tenancy
 
-- `tenant_id` column on ALL tables. Every DB query MUST include tenant filter at ORM/middleware level.
+- `tenant_id` column on ALL tables. Every DB query MUST include an explicit tenant filter — `eq(table.tenantId, session.tenantId)` — written **per query, in the route**. There is no ORM-level or middleware-level enforcement today (`app/src/lib/db/index.ts` is a plain Drizzle client), so a forgotten filter is a cross-tenant leak that nothing catches. Adding a guard is tracked in #1226.
+- Take `tenantId` from `requireSession()`, NEVER from the request body.
 - JWT tokens include `tenantId` claim. Validate before ANY DB or API access.
 - SaaS vs on-prem: env vars only, never code branches.
 
@@ -144,7 +145,7 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 ## Migrations
 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
-Test version-skip paths. `--skip-migrations` flag exists for emergency debugging.
+Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`1`/`true` to run; set `0` to skip for emergency debugging) — there is no `--skip-migrations` CLI flag.
 
 ## Automated Guardrails (Hooks)
 
