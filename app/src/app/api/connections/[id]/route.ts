@@ -9,6 +9,7 @@ import { closeConnection } from "@/lib/query/query-executor";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { updateConnectionSchema } from "@/lib/shared/schemas";
 import type { ConnectorType } from "@/lib/connector/connector-types";
+import { auditRequest } from "@/lib/audit/audit";
 import {
   validateBody,
   notFound,
@@ -198,6 +199,19 @@ export async function PATCH(
       );
     }
 
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "connection.update",
+      resourceType: "connection",
+      resourceId: id,
+      // Record *that* credentials changed, never what they changed to.
+      details: {
+        name: connection.name,
+        credentialsChanged: Boolean(finalConfig),
+      },
+    });
+
     return apiSuccess(connection);
   } catch (error) {
     return handleRouteError(error, "Failed to update connection");
@@ -254,6 +268,7 @@ export async function DELETE(
     // Fetch credentials before deletion so we can evict the cached driver
     const [toDelete] = await db
       .select({
+        name: connections.name,
         type: connections.type,
         configEncrypted: connections.configEncrypted,
       })
@@ -281,6 +296,15 @@ export async function DELETE(
         // Corrupted credentials — nothing to evict
       }
     }
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "connection.delete",
+      resourceType: "connection",
+      resourceId: id,
+      details: { name: toDelete?.name, forced: force },
+    });
 
     return apiSuccess({ deleted: true });
   } catch (error) {

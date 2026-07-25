@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/session";
 import { generateApiKey } from "@/lib/auth/api-key";
 import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { auditRequest } from "@/lib/audit/audit";
 
 const createKeySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -85,6 +86,16 @@ export async function POST(request: Request) {
         expiresAt: apiKeys.expiresAt,
         createdAt: apiKeys.createdAt,
       });
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "key.create",
+      resourceType: "api_key",
+      resourceId: inserted.id,
+      // keyPrefix only — never the plaintext key or its hash.
+      details: { name: inserted.name, keyPrefix: inserted.keyPrefix },
+    });
 
     return apiSuccess({ ...inserted, key: plaintext }, 201);
   } catch (e) {
