@@ -11,6 +11,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { auditRequest } from "@/lib/audit/audit";
 
 const updateUserSchema = z
   .object({
@@ -129,6 +130,28 @@ export async function PATCH(
       return notFound("User not found");
     }
 
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "user.update",
+      resourceType: "user",
+      resourceId: id,
+    });
+
+    // A privilege change is the most audit-relevant event in the product —
+    // emit it as its own action so it stays greppable instead of being buried
+    // inside a generic user.update.
+    if (result.data.role !== undefined || result.data.canWrite !== undefined) {
+      auditRequest(request, {
+        tenantId,
+        userId,
+        action: "user.role.change",
+        resourceType: "user",
+        resourceId: id,
+        details: { role: updated.role, canWrite: updated.canWrite },
+      });
+    }
+
     return apiSuccess(updated);
   } catch (e) {
     return handleRouteError(e);
@@ -136,7 +159,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -156,6 +179,14 @@ export async function DELETE(
     if (!deleted.length) {
       return notFound("User not found");
     }
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "user.disable",
+      resourceType: "user",
+      resourceId: id,
+    });
 
     return apiSuccess({ deleted: true });
   } catch (e) {

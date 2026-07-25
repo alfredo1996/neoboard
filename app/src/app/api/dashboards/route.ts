@@ -6,6 +6,7 @@ import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
+import { auditRequest } from "@/lib/audit/audit";
 
 function countWidgets(layout: DashboardLayoutV2 | null | undefined): number {
   if (!layout?.pages) return 0;
@@ -157,6 +158,15 @@ export async function POST(request: Request) {
         updatedBy: userId,
       })
       .returning();
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "dashboard.create",
+      resourceType: "dashboard",
+      resourceId: dashboard.id,
+      details: { name: dashboard.name },
+    });
 
     return apiSuccess(dashboard, 201);
   } catch (error) {

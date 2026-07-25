@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { handleRouteError, notFound } from "@/lib/api/api-utils";
+import { auditRequest } from "@/lib/audit/audit";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -30,6 +31,14 @@ export async function DELETE(
     if (deleted.length === 0) {
       return notFound("API key not found");
     }
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "key.revoke",
+      resourceType: "api_key",
+      resourceId: id,
+    });
 
     return NextResponse.json({
       data: { success: true },

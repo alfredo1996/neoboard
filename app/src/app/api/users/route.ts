@@ -12,6 +12,7 @@ import {
   parsePagination,
 } from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
+import { auditRequest } from "@/lib/audit/audit";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await requireAdmin();
+    const { userId: actorId, tenantId } = await requireAdmin();
 
     const body = await request.json();
     const result = validateBody(createUserSchema, body);
@@ -102,6 +103,15 @@ export async function POST(request: Request) {
         canWrite: users.canWrite,
         createdAt: users.createdAt,
       });
+
+    auditRequest(request, {
+      tenantId,
+      userId: actorId,
+      action: "user.create",
+      resourceType: "user",
+      resourceId: user.id,
+      details: { role: user.role, canWrite: user.canWrite },
+    });
 
     return apiSuccess(user, 201);
   } catch (e) {

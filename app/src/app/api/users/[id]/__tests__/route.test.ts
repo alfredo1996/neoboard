@@ -15,6 +15,8 @@ const mockRequireAdmin =
     () => Promise<{ userId: string; canWrite: boolean; tenantId: string }>
   >();
 
+const mockAuditRequest = vi.fn();
+
 const mockDb = {
   select: vi.fn(),
   update: vi.fn(),
@@ -37,6 +39,11 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 
 const ADMIN = { userId: "admin-1", canWrite: true, tenantId: "default" };
@@ -170,6 +177,67 @@ describe("PATCH /api/users/[id]", () => {
     const body = await res.json();
     expect(body.data.role).toBe("creator");
     expect(body.data.canWrite).toBe(false);
+  });
+
+  it("emits both user.update and user.role.change on a privilege change (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([
+        {
+          id: "u2",
+          name: "Eve",
+          email: "eve@example.com",
+          role: "admin",
+          canWrite: true,
+          createdAt: new Date(),
+        },
+      ]),
+    );
+
+    await PATCH(makeRequest({ role: "admin" }), makeParams("u2"));
+
+    const actions = mockAuditRequest.mock.calls.map(([, e]) => e.action);
+    expect(actions).toEqual(["user.update", "user.role.change"]);
+
+    const roleChange = mockAuditRequest.mock.calls[1][1];
+    expect(roleChange).toMatchObject({
+      resourceType: "user",
+      resourceId: "u2",
+      details: { role: "admin", canWrite: true },
+    });
+  });
+
+  it("emits only user.update when no privilege field changes (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([
+        {
+          id: "u3",
+          name: "Renamed",
+          email: "r@example.com",
+          role: "creator",
+          canWrite: true,
+          createdAt: new Date(),
+        },
+      ]),
+    );
+
+    await PATCH(makeRequest({ disabled: false }), makeParams("u3"));
+
+    const actions = mockAuditRequest.mock.calls.map(([, e]) => e.action);
+    expect(actions).toEqual(["user.update"]);
+  });
+
+  it("writes no audit entry when an admin tries to change their own role (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+
+    const res = await PATCH(
+      makeRequest({ role: "reader" }),
+      makeParams(ADMIN.userId),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("returns 400 when body is empty", async () => {
