@@ -34,7 +34,10 @@
     "setup:enterprise": "bash scripts/setup-enterprise.sh",
     "dev:enterprise": "bash scripts/setup-enterprise.sh && npm run dev",
     "prepare": "husky",
-    "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)"
+    "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)",
+    "verify": "npm run typecheck && npm run lint && npm run test",
+    "typecheck": "npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
+    "sonar:local": "node scripts/sonar-local.mjs"
   },
   "lint-staged": {
     "app/**/*.{ts,tsx}": [

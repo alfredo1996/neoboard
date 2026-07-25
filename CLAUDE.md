@@ -19,6 +19,8 @@ Before editing any file, check which package it belongs to and respect its bound
 All commands run from the repo root unless noted.
 
 ```bash
+npm run verify                       # Local CI mirror: typecheck + lint + all unit suites
+npm run sonar:local                  # Scan the current branch against SonarCloud (real gate)
 npm run dev                          # Dev server (Turbopack, proxies to app/)
 npm run build                        # Production build (webpack) + type-check
 npm run lint                         # ESLint all packages (root config)
