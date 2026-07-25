@@ -92,6 +92,8 @@ describe("documentation accuracy", () => {
     // it exists is not. The real escape hatch is MIGRATE_ON_START=0 (#1222).
     const doc = readDoc("CLAUDE.md");
     expect(doc).toContain("MIGRATE_ON_START");
-    expect(doc).not.toMatch(/`--skip-migrations`\s+flag\s+exists/);
+    // Assert the canonical debunk is present rather than blocklisting one
+    // phrasing — "use `--skip-migrations`" would slip past a negative regex.
+    expect(doc).toContain("there is no `--skip-migrations` CLI flag");
   });
 });
