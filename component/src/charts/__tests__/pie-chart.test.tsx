@@ -117,17 +117,27 @@ describe("PieChart", () => {
     expect(optionsCall.series[0].label.position).toBe("outside");
   });
 
+  // These previously asserted the ECharts template string ("{d}%" / "{c}"),
+  // i.e. the implementation rather than the behaviour — so they broke when the
+  // formatter became a function even though the output was correct. Now they
+  // call the formatter and assert what a user would actually see (#1248).
+  const runLabelFormatter = () =>
+    mockSetOption.mock.calls[0][0].series[0].label.formatter({
+      name: "Desktop",
+      value: 60,
+      percent: 60,
+    });
+
   it("shows percentage in labels when showPercentage is true (default)", () => {
     render(<PieChart data={sampleData} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].label.formatter).toContain("{d}%");
+    expect(runLabelFormatter()).toBe("Desktop: 60.0%");
   });
 
   it("shows value instead of percentage when showPercentage is false", () => {
     render(<PieChart data={sampleData} showPercentage={false} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].label.formatter).toContain("{c}");
-    expect(optionsCall.series[0].label.formatter).not.toContain("{d}%");
+    const label = runLabelFormatter();
+    expect(label).toBe("Desktop: 60");
+    expect(label).not.toContain("%");
   });
 
   it("sorts slices by value descending when sortSlices is true", () => {
@@ -215,5 +225,106 @@ describe("PieChart", () => {
         "rgba(255, 255, 255, 0.15)",
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Number formatting (#1248)
+// ---------------------------------------------------------------------------
+
+describe("PieChart number formatting (#1248)", () => {
+  // Values large enough that a missing thousands separator is visible, and
+  // percentages that are not round so decimal precision is observable.
+  const bigData = [
+    { name: "Desktop", value: 1048 },
+    { name: "Mobile", value: 735 },
+    { name: "Tablet", value: 580 },
+    { name: "Smart TV", value: 234 },
+    { name: "Other", value: 154 },
+  ];
+  const total = bigData.reduce((s, d) => s + d.value, 0); // 2751
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const option = () => mockSetOption.mock.calls[0][0];
+
+  it("formats the donut centre total with thousands separators", () => {
+    // Was String(total) -> "2751", while KPI cards on the same dashboard
+    // rendered "2,350". Mixed formatting in one view reads as untended.
+    render(<PieChart data={bigData} donut />);
+    const centre = option().graphic[0].style.text;
+    expect(centre).toBe("2,751");
+    expect(centre).not.toBe(String(total));
+  });
+
+  it("keeps an explicit donutCenterText untouched", () => {
+    // Formatting the auto-total must not start formatting user-supplied text.
+    render(<PieChart data={bigData} donut donutCenterText="All devices" />);
+    expect(option().graphic[0].style.text).toBe("All devices");
+  });
+
+  it("renders label percentages to one decimal place", () => {
+    // ECharts' {d} template defaults to 2dp ("38.09%"), which is precision
+    // the data does not justify.
+    render(<PieChart data={bigData} showPercentage />);
+    const label = option().series[0].label.formatter({
+      name: "Desktop",
+      value: 1048,
+      percent: 38.0952,
+    });
+    expect(label).toBe("Desktop: 38.1%");
+  });
+
+  it("formats label values with thousands separators when not showing percent", () => {
+    render(<PieChart data={bigData} showPercentage={false} />);
+    const label = option().series[0].label.formatter({
+      name: "Desktop",
+      value: 1048,
+      percent: 38.0952,
+    });
+    expect(label).toBe("Desktop: 1,048");
+  });
+
+  it("formats the tooltip value and percentage consistently with the labels", () => {
+    render(<PieChart data={bigData} />);
+    const tip = option().tooltip.formatter({
+      name: "Desktop",
+      value: 1048,
+      percent: 38.0952,
+    });
+    expect(tip).toContain("1,048");
+    expect(tip).toContain("38.1%");
+    expect(tip).not.toContain("38.09");
+  });
+
+  it("does not add trailing decimals to whole numbers", () => {
+    // formatNumber defaults to 2dp when nothing is specified; passing
+    // numberFormat alone must leave integers clean rather than "2,751.00".
+    render(<PieChart data={bigData} donut />);
+    expect(option().graphic[0].style.text).not.toMatch(/\.00$/);
+  });
+});
+
+describe("PieChart tooltip escaping (#1248)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("escapes the slice name, which comes from query results", () => {
+    // The tooltip return value is rendered as HTML by ECharts, and slice names
+    // are user data. Building the string by hand made escaping our job — the
+    // previous "{b}: {c} ({d}%)" template did not escape it either.
+    render(
+      <PieChart data={[{ name: "<img src=x onerror=alert(1)>", value: 1 }]} />,
+    );
+    const tip = mockSetOption.mock.calls[0][0].tooltip.formatter({
+      name: "<img src=x onerror=alert(1)>",
+      value: 1,
+      percent: 100,
+    });
+    expect(tip).not.toContain("<img");
+    expect(tip).toContain("&lt;img");
   });
 });
