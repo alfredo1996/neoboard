@@ -35,10 +35,11 @@
     "dev:enterprise": "bash scripts/setup-enterprise.sh && npm run dev",
     "prepare": "husky",
     "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)",
-    "verify": "npm run typecheck && npm run lint && npm run test",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run test:scripts",
     "typecheck": "npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
     "sonar:local": "node scripts/sonar-local.mjs",
-    "review:local": "coderabbit review --base release/1.4 --committed -c CLAUDE.md -c .coderabbit.yaml"
+    "review:local": "coderabbit review --base release/1.4 --committed -c CLAUDE.md -c .coderabbit.yaml",
+    "test:scripts": "vitest run scripts/__tests__ --exclude '**/.claude/**' && node --test 'scripts/__tests__/*.node-test.mjs'"
   },
   "lint-staged": {
     "app/**/*.{ts,tsx}": [
