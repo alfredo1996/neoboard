@@ -26,6 +26,12 @@ describe("fadeToTransparent", () => {
     expect(fadeToTransparent("#f9a91f")).toBe("#f9a91f00");
   });
 
+  it("expands 3-digit hex before appending the alpha channel", () => {
+    // #f9a00 would be a malformed 5-digit value, so the shorthand has to be
+    // expanded first rather than naively suffixed.
+    expect(fadeToTransparent("#f9a")).toBe("#ff99aa00");
+  });
+
   it("passes through a colour that is already fully transparent", () => {
     expect(fadeToTransparent("hsla(38, 95%, 55%, 0)")).toBe(
       "hsla(38, 95%, 55%, 0)",
