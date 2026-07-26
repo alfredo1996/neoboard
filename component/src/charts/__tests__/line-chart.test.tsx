@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
@@ -90,6 +90,53 @@ describe("LineChart", () => {
     render(<LineChart data={sampleData} area />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].areaStyle).toBeDefined();
+  });
+
+  describe("area fill is theme-aware (#1244)", () => {
+    // seriesColor comes from a matched styling rule, not the colors prop —
+    // that is what activates the gradient branch of areaStyle.
+    const amberRule = [
+      { id: "r1", operator: ">=" as const, value: 0, color: "#f9a91f" },
+    ];
+
+    afterEach(() => document.documentElement.classList.remove("dark"));
+
+    it("uses a fainter fill in dark mode", () => {
+      // A warm fill over charcoal composites to brown, so dark needs to be
+      // fainter to read as a tint rather than a stain.
+      render(<LineChart data={sampleData} area stylingRules={amberRule} />);
+      const light = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
+
+      mockSetOption.mockClear();
+      document.documentElement.classList.add("dark");
+      render(<LineChart data={sampleData} area stylingRules={amberRule} />);
+      const dark = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
+
+      expect(dark).toBeLessThan(light);
+    });
+
+    it("fades the gradient to the same hue, never to transparent white", () => {
+      // Canvas interpolates gradients in non-premultiplied RGBA, so fading to
+      // rgba(255,255,255,0) washes a saturated colour through pale grey.
+      render(<LineChart data={sampleData} area stylingRules={amberRule} />);
+      const stops =
+        mockSetOption.mock.calls[0][0].series[0].areaStyle.color.colorStops;
+      const last = stops[stops.length - 1].color;
+      expect(last).not.toMatch(/255,\s*255,\s*255/);
+      expect(last).toContain("f9a91f");
+    });
+
+    it("still dims the flat fallback fill when no series colour is resolved", () => {
+      render(<LineChart data={sampleData} area />);
+      const light = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
+
+      mockSetOption.mockClear();
+      document.documentElement.classList.add("dark");
+      render(<LineChart data={sampleData} area />);
+      const dark = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
+
+      expect(dark).toBeLessThan(light);
+    });
   });
 
   it("sets x-axis label", () => {
