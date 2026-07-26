@@ -194,29 +194,35 @@ function LineChart({
         // Subtle fill (#822): a soft gradient when the series color is
         // known, otherwise a low flat opacity (ECharts applies the series
         // color automatically).
-        areaStyle: area
-          ? seriesColor
-            ? {
-                // Dark composites a warm fill into brown, so it needs to be
-                // much fainter there to read as a tint rather than a stain
-                // (#1244). Tuned visually against appshell-dark, not guessed.
-                opacity: isDark() ? 0.06 : 0.15,
-                color: {
-                  type: "linear" as const,
-                  x: 0,
-                  y: 0,
-                  x2: 0,
-                  y2: 1,
-                  colorStops: [
-                    { offset: 0, color: seriesColor },
-                    // Fade to the SAME colour transparent — fading to
-                    // transparent white washed through pale grey (#1244).
-                    { offset: 1, color: fadeToTransparent(seriesColor) },
-                  ],
-                },
-              }
-            : { opacity: isDark() ? 0.08 : 0.12 }
-          : undefined,
+        // No area fill in dark mode at all (#1264). A warm fill over charcoal
+        // composites to brown at ANY alpha — the technique is the problem, not
+        // the value. #1244 lowered the opacity (0.15 -> 0.06) and it still read
+        // as a stain, so dark keeps the line and drops the wash. The fill is a
+        // light-mode affordance only, which is why the opacities below are no
+        // longer theme-dependent.
+        areaStyle:
+          area && !isDark()
+            ? seriesColor
+              ? {
+                  opacity: 0.15,
+                  color: {
+                    type: "linear" as const,
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [
+                      { offset: 0, color: seriesColor },
+                      // Fade to the SAME colour transparent — fading to
+                      // transparent white washed through pale grey (#1244).
+                      { offset: 1, color: fadeToTransparent(seriesColor) },
+                    ],
+                  },
+                }
+              : // Flat fill, no gradient: ECharts applies the series colour
+                // itself here because no styling rule resolved one.
+                { opacity: 0.12 }
+            : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // LTTB downsampling for large datasets
         ...(useSampling
