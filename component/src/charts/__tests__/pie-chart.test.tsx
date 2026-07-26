@@ -327,4 +327,27 @@ describe("PieChart tooltip escaping (#1248)", () => {
     expect(tip).not.toContain("<img");
     expect(tip).toContain("&lt;img");
   });
+
+  it("does NOT escape label names — they are canvas/SVG text, not HTML", () => {
+    // Deliberate asymmetry with the tooltip above, and the reason is worth
+    // pinning down: ECharts renders a TOOLTIP formatter's return as HTML
+    // (innerHTML), so it must be escaped. LABELS are drawn as canvas/SVG text
+    // by zrender and are never HTML-parsed, so escaping them would be visible
+    // corruption — a slice legitimately named "R&D" would read "R&amp;D".
+    //
+    // Across the codebase escapeHtml appears only in HTML contexts (this
+    // tooltip, the Leaflet popup, buildTooltipFormatter) and in no label
+    // formatter. A local CodeRabbit review proposed escaping labels "for
+    // consistency"; this test records why that was declined.
+    render(
+      <PieChart data={[{ name: "R&D", value: 1 }]} showPercentage={false} />,
+    );
+    const label = mockSetOption.mock.calls[0][0].series[0].label.formatter({
+      name: "R&D",
+      value: 1,
+      percent: 100,
+    });
+    expect(label).toBe("R&D: 1");
+    expect(label).not.toContain("&amp;");
+  });
 });
