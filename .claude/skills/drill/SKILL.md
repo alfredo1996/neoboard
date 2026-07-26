@@ -33,6 +33,20 @@ Use the Explore agent to quickly scan the codebase for:
 
 Use `AskUserQuestion` to ask structured questions. Each round should cover one dimension:
 
+**Round 0 — Justification (do this FIRST, and be willing to conclude "don't build it")**
+
+Nothing else in the pipeline asks whether the work should happen at all. `project-architect` plans a feature; it does not question it. There is a standing **no new features** directive, and pre-launch is the cheapest moment to decline something.
+
+- Does this need to exist, or is it a speculative need? Speculative = say so and stop.
+- Is the capability **already in the codebase**? A helper, type, or pattern a few files over — re-implementing what exists is the most common waste here.
+- Would the stdlib, a native platform feature, or an already-installed dependency cover it? Never add a dependency for what a few lines do.
+- Is this the **symptom or the cause**? If the issue names one call site, grep the others — a guard in the shared function is a smaller diff than a guard in each caller.
+- What is the smallest thing that resolves the actual complaint?
+
+Record the answer in the drill output even when it is "proceed" — the reasoning is what makes scope arguable later.
+
+If the honest answer is that it should not be built, **say so in the issue and stop.** That is a successful drill, not a failed one.
+
 **Round 1 — Scope & Boundaries**
 
 - What's in scope vs explicitly out of scope?

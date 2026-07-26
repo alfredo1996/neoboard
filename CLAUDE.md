@@ -189,7 +189,8 @@ Agents work together in a pipeline. Each stage gates the next:
 3. **`test-runner`** + **`lint-fix`** — Verify code compiles, lints, tests pass
 4. **`code-reviewer`** — Reviews code for security, architecture, quality. Runs unit + E2E tests.
 5. **`feature-reviewer`** — Opens the browser (Playwright CLI), tests the feature UX + functionality
-6. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
+6. **`design-reviewer`** — Judges whether the change *looks* right: captures Storybook in light **and** dark, compares against the taste doc, reports token-level causes
+7. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
 
 ### Quick reference
 
@@ -199,7 +200,8 @@ Agents work together in a pipeline. Each stage gates the next:
 | `test-runner` | Run affected tests | haiku | After code changes |
 | `lint-fix` | Lint + auto-fix | haiku | After code changes |
 | `code-reviewer` | Code review + tests | sonnet | Pre-push, PR review |
-| `feature-reviewer` | Browser-based feature testing | sonnet | After implementing UI |
+| `feature-reviewer` | Browser-based feature testing (does it **work**) | sonnet | After implementing UI |
+| `design-reviewer` | Does it **look right** — both themes, token-level | sonnet | After token/chart/appearance changes |
 | `ux-crawler` | Full app UX audit | sonnet | Before releases, major changes |
 
 The browser agents (`feature-reviewer`, `ux-crawler`, `user-sim-admin`, `user-sim-creator`) drive the running app via `npx @playwright/cli` — ensure Docker is up before invoking them. Their CLI usage, token-discipline rules, and NeoBoard browser gotchas live in each agent's own definition, not here.
