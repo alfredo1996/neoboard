@@ -93,7 +93,7 @@ describe("LineChart", () => {
     expect(optionsCall.series[0].areaStyle).toBeDefined();
   });
 
-  describe("area fill is theme-aware (#1244)", () => {
+  describe("area fill: light only (#1264)", () => {
     // seriesColor comes from a matched styling rule, not the colors prop —
     // that is what activates the gradient branch of areaStyle.
     const amberRule = [
@@ -102,29 +102,36 @@ describe("LineChart", () => {
 
     afterEach(() => document.documentElement.classList.remove("dark"));
 
-    it("uses a fainter fill in dark mode", () => {
-      // A warm fill over charcoal composites to brown, so dark needs to be
-      // fainter to read as a tint rather than a stain.
-      render(<LineChart data={sampleData} area stylingRules={amberRule} />);
-      const light = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
+    const areaStyleOf = () =>
+      mockSetOption.mock.calls[0][0].series[0].areaStyle;
 
-      mockSetOption.mockClear();
+    it.each([
+      ["with a resolved series colour", amberRule],
+      ["with no series colour (default path)", undefined],
+    ])("omits the fill entirely in dark mode %s", (_label, rules) => {
+      // A warm fill over charcoal composites to brown at ANY alpha — the
+      // technique is the problem, not the value. #1244 lowered the opacity and
+      // it still read as a stain, so dark drops the fill and keeps the line.
+      // Both paths asserted: #1244 fixed only the styling-rule branch and left
+      // the default one muddy precisely because they were tested separately.
       document.documentElement.classList.add("dark");
-      render(<LineChart data={sampleData} area stylingRules={amberRule} />);
-      const dark = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
-
-      // Exact values, not just dark < light — a change that scaled both
-      // proportionally would keep the ordering while losing the tuning.
-      expect(light).toBe(0.15);
-      expect(dark).toBe(0.06);
+      render(<LineChart data={sampleData} area stylingRules={rules} />);
+      expect(areaStyleOf()).toBeUndefined();
     });
 
-    it("fades the gradient to the same hue, never to transparent white", () => {
+    it.each([
+      ["with a resolved series colour", amberRule, 0.15],
+      ["with no series colour (default path)", undefined, 0.12],
+    ])("keeps the fill in light mode %s", (_label, rules, opacity) => {
+      render(<LineChart data={sampleData} area stylingRules={rules} />);
+      expect(areaStyleOf().opacity).toBe(opacity);
+    });
+
+    it("fades the light gradient to the same hue, never to transparent white", () => {
       // Canvas interpolates gradients in non-premultiplied RGBA, so fading to
       // rgba(255,255,255,0) washes a saturated colour through pale grey.
       render(<LineChart data={sampleData} area stylingRules={amberRule} />);
-      const stops =
-        mockSetOption.mock.calls[0][0].series[0].areaStyle.color.colorStops;
+      const stops = areaStyleOf().color.colorStops;
       const last = stops[stops.length - 1].color;
       expect(last).not.toMatch(/255,\s*255,\s*255/);
       // Assert the exact fadeToTransparent output, not just the hue: an
@@ -134,17 +141,14 @@ describe("LineChart", () => {
       expect(last).toMatch(/00$/);
     });
 
-    it("still dims the flat fallback fill when no series colour is resolved", () => {
-      render(<LineChart data={sampleData} area />);
-      const light = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
-
-      mockSetOption.mockClear();
+    it("still draws the line itself in dark mode", () => {
+      // Dropping the fill must not drop the series — the chart still has to
+      // render, just without the wash.
       document.documentElement.classList.add("dark");
       render(<LineChart data={sampleData} area />);
-      const dark = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
-
-      expect(light).toBe(0.12);
-      expect(dark).toBe(0.08);
+      const series = mockSetOption.mock.calls[0][0].series[0];
+      expect(series.type).toBe("line");
+      expect(series.lineStyle.width).toBe(1.5);
     });
   });
 
