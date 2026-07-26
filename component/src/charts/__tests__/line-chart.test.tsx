@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
+import { fadeToTransparent } from "../chart-utils";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -112,7 +113,10 @@ describe("LineChart", () => {
       render(<LineChart data={sampleData} area stylingRules={amberRule} />);
       const dark = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
 
-      expect(dark).toBeLessThan(light);
+      // Exact values, not just dark < light — a change that scaled both
+      // proportionally would keep the ordering while losing the tuning.
+      expect(light).toBe(0.15);
+      expect(dark).toBe(0.06);
     });
 
     it("fades the gradient to the same hue, never to transparent white", () => {
@@ -123,7 +127,11 @@ describe("LineChart", () => {
         mockSetOption.mock.calls[0][0].series[0].areaStyle.color.colorStops;
       const last = stops[stops.length - 1].color;
       expect(last).not.toMatch(/255,\s*255,\s*255/);
-      expect(last).toContain("f9a91f");
+      // Assert the exact fadeToTransparent output, not just the hue: an
+      // OPAQUE same-hue colour ("#f9a91f") would satisfy a hue-only check
+      // while completely defeating the fade this test exists to protect.
+      expect(last).toBe(fadeToTransparent("#f9a91f"));
+      expect(last).toMatch(/00$/);
     });
 
     it("still dims the flat fallback fill when no series colour is resolved", () => {
@@ -135,7 +143,8 @@ describe("LineChart", () => {
       render(<LineChart data={sampleData} area />);
       const dark = mockSetOption.mock.calls[0][0].series[0].areaStyle.opacity;
 
-      expect(dark).toBeLessThan(light);
+      expect(light).toBe(0.12);
+      expect(dark).toBe(0.08);
     });
   });
 
