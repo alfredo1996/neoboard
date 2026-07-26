@@ -48,9 +48,22 @@ describe("buildCategoryAxisLabel", () => {
     expect(result.tooltip).toEqual({ show: true });
   });
 
-  it("returns show: false when compact is true", () => {
-    const result = buildCategoryAxisLabel(10, { compact: true });
-    expect(result.show).toBe(false);
+  it("keeps labels in compact mode, truncated not hidden (#1247)", () => {
+    const result = buildCategoryAxisLabel(4, {
+      containerWidth: 280,
+    });
+    expect(result.show).toBe(true);
+    const fmt = result.formatter as (value: string) => string;
+    expect(fmt("Electronics")).toBe("Electroni…");
+    expect(fmt("Home")).toBe("Home");
+  });
+
+  it("keeps common-prefix labels distinguishable in a compact container", () => {
+    const result = buildCategoryAxisLabel(7, {
+      containerWidth: 280,
+    });
+    const fmt = result.formatter as (value: string) => string;
+    expect(new Set(["Widget A", "Widget G"].map(fmt)).size).toBe(2);
   });
 
   it("normalizes -1 sentinel to automatic rotation", () => {

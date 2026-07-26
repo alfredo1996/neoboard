@@ -251,7 +251,9 @@ function LineChart({
         name: compact ? undefined : xAxisLabel,
         nameLocation: "middle",
         nameGap: 30,
-        axisLabel: { show: !compact },
+        // Compact drops the axis *name* and the value numbers, never the x
+        // labels — ECharts already thins overlapping ones itself (#1247).
+        axisLabel: { show: true },
       },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
       series: seriesKeys.map((key, idx) => buildSeries(key, idx)),

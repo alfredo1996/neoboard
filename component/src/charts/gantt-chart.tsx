@@ -247,10 +247,9 @@ function GanttChart({
       },
       xAxis: {
         type: "time",
-        splitLine: {
-          show: showGridLines,
-          lineStyle: { type: "dashed", opacity: 0.3 },
-        },
+        // No local lineStyle: the registered theme owns gridline weight and
+        // colour so every cartesian chart draws the same grid (#1247).
+        splitLine: { show: showGridLines },
       },
       yAxis: {
         type: "category",

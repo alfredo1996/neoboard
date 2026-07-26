@@ -136,7 +136,6 @@ function BarChart({
 
     const categoryLabels = data.map((d) => d.label);
     const axisLabelConfig = buildCategoryAxisLabel(categoryLabels.length, {
-      compact,
       rotateOverride: axisLabelRotation,
       containerWidth: width,
     });
