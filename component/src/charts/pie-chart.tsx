@@ -8,8 +8,17 @@ import {
   getCompactState,
   resolveItemColor,
   groupTopN,
+  formatNumber,
+  escapeHtml,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
+
+/** The subset of ECharts' pie label/tooltip params this chart formats (#1248). */
+interface PieLabelParams {
+  name?: string;
+  value?: unknown;
+  percent?: unknown;
+}
 
 export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of `{ name, value }` slices */
@@ -88,13 +97,40 @@ function PieChart({
       return color ? { ...d, itemStyle: { color } } : d;
     });
 
-    // Build label formatter based on showPercentage option
-    const labelFormatter = showPercentage ? "{b}: {d}%" : "{b}: {c}";
+    // Numeric output goes through the shared formatter so the same value reads
+    // identically in a chart label and a KPI card (#1248). ECharts' own {c}/{d}
+    // templates give an unseparated value and 2dp percentages ("38.09%"), which
+    // is more precision than the data justifies.
+    //
+    // Passing `numberFormat` alone deliberately leaves `decimalPlaces`
+    // undefined, so integers stay clean ("2,751") instead of gaining the
+    // helper's 2dp default ("2,751.00").
+    const fmtValue = (v: unknown) =>
+      typeof v === "number" ? formatNumber(v, { numberFormat: "comma" }) : "";
+    const fmtPercent = (p: unknown) =>
+      `${(typeof p === "number" ? p : 0).toFixed(1)}%`;
+
+    const labelFormatter = (p: PieLabelParams) =>
+      showPercentage
+        ? `${p.name}: ${fmtPercent(p.percent)}`
+        : `${p.name}: ${fmtValue(p.value)}`;
 
     return {
       tooltip: {
         trigger: "item",
-        formatter: "{b}: {c} ({d}%)",
+        // Built by hand rather than via the "{b}: {c} ({d}%)" template so the
+        // value and percentage match the labels (#1248). ECharts renders the
+        // return value as HTML, and the name comes from query results, so it
+        // must be escaped — the template form did not escape it either.
+        // Typed as `unknown` and narrowed, matching buildTooltipFormatter:
+        // ECharts' callback signature also admits an array (axis trigger),
+        // which a narrower parameter type would reject at compile time.
+        formatter: (params: unknown) => {
+          const p = (
+            Array.isArray(params) ? params[0] : params
+          ) as PieLabelParams;
+          return `${escapeHtml(String(p?.name ?? ""))}: ${fmtValue(p?.value)} (${fmtPercent(p?.percent)})`;
+        },
       },
       legend: effectiveShowLegend
         ? {
@@ -160,7 +196,9 @@ function PieChart({
                 style: {
                   text:
                     donutCenterText ??
-                    String(sortedData.reduce((s, d) => s + d.value, 0)),
+                    // Auto-total gets separators; an explicit donutCenterText
+                    // is user copy and is left exactly as given (#1248).
+                    fmtValue(sortedData.reduce((s, d) => s + d.value, 0)),
                   align: "center",
                   fontSize: 20,
                   fontWeight: "bold",

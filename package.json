@@ -37,7 +37,8 @@
     "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && npm link ./cli)",
     "verify": "npm run typecheck && npm run lint && npm run test",
     "typecheck": "npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
-    "sonar:local": "node scripts/sonar-local.mjs"
+    "sonar:local": "node scripts/sonar-local.mjs",
+    "review:local": "coderabbit review --base release/1.4 --committed -c CLAUDE.md -c .coderabbit.yaml"
   },
   "lint-staged": {
     "app/**/*.{ts,tsx}": [
