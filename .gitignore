@@ -47,6 +47,9 @@ out
 *storybook.log
 storybook-static
 
+# Local cache written by the design-sync tool — generated previews, not source.
+.design-sync/
+
 # Environment
 .env
 .env*.local

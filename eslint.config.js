@@ -19,6 +19,10 @@ export default defineConfig([
     ".claude",
     "**/e2e",
     "docs",
+    // Local cache written by the design-sync tool. Not source, not tracked —
+    // without this, `npm run lint` reports hundreds of errors from generated
+    // preview files on any machine that has run design-sync (#1253).
+    ".design-sync",
   ]),
   {
     files: ["**/*.{ts,tsx}"],
