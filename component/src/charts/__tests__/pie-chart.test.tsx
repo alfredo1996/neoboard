@@ -351,3 +351,45 @@ describe("PieChart tooltip escaping (#1248)", () => {
     expect(label).not.toContain("&amp;");
   });
 });
+
+describe("PieChart formatter edge cases (#1248)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const formatters = () => {
+    render(
+      <PieChart data={[{ name: "A", value: 1 }]} showPercentage={false} />,
+    );
+    const opt = mockSetOption.mock.calls[0][0];
+    return { label: opt.series[0].label.formatter, tip: opt.tooltip.formatter };
+  };
+
+  it("renders an empty value rather than 'undefined' for non-numeric data", () => {
+    // Query results are arbitrary — a value column can contain a string. The
+    // old {c} template would have printed it raw; printing "undefined" or
+    // "NaN" in a chart label is worse than printing nothing.
+    const { label } = formatters();
+    expect(label({ name: "A", value: "not-a-number" })).toBe("A: ");
+  });
+
+  it("treats a missing percentage as zero rather than NaN%", () => {
+    render(<PieChart data={[{ name: "A", value: 1 }]} showPercentage />);
+    const label = mockSetOption.mock.calls[0][0].series[0].label.formatter;
+    expect(label({ name: "A" })).toBe("A: 0.0%");
+  });
+
+  it("unwraps an array param, which ECharts passes for axis-trigger charts", () => {
+    // This is why the formatter takes `unknown` and narrows: the callback
+    // signature admits an array, and a narrower type fails typecheck.
+    const { tip } = formatters();
+    expect(tip([{ name: "A", value: 1048, percent: 38.0952 }])).toBe(
+      "A: 1,048 (38.1%)",
+    );
+  });
+
+  it("survives a null-ish name without printing 'null'", () => {
+    const { tip } = formatters();
+    expect(tip({ value: 1, percent: 100 })).toBe(": 1 (100.0%)");
+  });
+});
