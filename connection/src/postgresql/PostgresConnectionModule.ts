@@ -11,7 +11,7 @@ import {
 } from "@neoboard/connector-sdk";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
-import { readBoundedCursor } from "./cursor-read";
+import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
 import { determineQueryStatus } from "@neoboard/connector-sdk";
 import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
@@ -150,12 +150,15 @@ export class PostgresConnectionModule extends ConnectionModule {
               .map((k) => params[k])
           : [];
 
-      // Fetch rows. READ queries stream through a server-side cursor so a
-      // huge result set never buffers in memory — we pull at most rowLimit + 1
-      // rows (the MAX_ROWS+1 truncation probe). WRITE queries (Form widgets)
-      // keep the direct path: their result sets are small and we need the
-      // driver's affected-row count so an INSERT without RETURNING still
-      // reports COMPLETE rather than NO_DATA.
+      // Both paths stream through a server-side cursor so a huge result set
+      // never buffers in memory; each pulls at most rowLimit + 1 rows for the
+      // MAX_ROWS+1 truncation probe. They differ in how they STOP:
+      //   READ  stops as soon as truncation is known, releasing the portal.
+      //   WRITE drains to exhaustion, because PostgreSQL applies an
+      //         UPDATE ... RETURNING incrementally — rows never pulled are
+      //         never modified — and then reports the driver's affected-row
+      //         count so an INSERT without RETURNING still reads as COMPLETE
+      //         rather than NO_DATA (#1298, #1326).
       let fetchedRows: Record<string, unknown>[];
       let fields: FieldDef[] | undefined;
       let affectedRowCount: number | undefined;
@@ -170,10 +173,20 @@ export class PostgresConnectionModule extends ConnectionModule {
         fetchedRows = batch.rows;
         fields = batch.fields;
       } else {
-        const result = await client.query(query, paramValues);
-        fetchedRows = result.rows;
-        fields = result.fields;
-        affectedRowCount = result.rowCount ?? undefined;
+        // Writes stream too, but they must be DRAINED rather than stopped
+        // early: PostgreSQL applies an UPDATE ... RETURNING incrementally, so
+        // rows never pulled are never modified. readBoundedCursor stops after
+        // one bounded read and closes the portal — correct for a SELECT,
+        // silently partially-applied for a write (#1298, #1326).
+        const batch = await drainBoundedCursor(
+          client,
+          query,
+          paramValues,
+          config.rowLimit + 1,
+        );
+        fetchedRows = batch.rows;
+        fields = batch.fields;
+        affectedRowCount = batch.affectedRowCount;
       }
 
       // Commit transaction
