@@ -29,5 +29,5 @@ NeoBoard supports multi-tenancy for SaaS deployments and team isolation.
 
 Multi-tenancy is controlled by environment variables — no code branches:
 
-- `DEFAULT_TENANT_ID`: Used for single-tenant deployments
+- `TENANT_ID`: Fallback tenant for single-tenant deployments (default: `default`)
 - Tenant assignment happens at user creation time

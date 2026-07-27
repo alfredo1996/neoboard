@@ -13,7 +13,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 - [ ] `ENCRYPTION_KEY` generated and stored securely (secrets manager or encrypted vault)
 - [ ] `NEXTAUTH_SECRET` generated (minimum 32 characters)
 - [ ] `NEXTAUTH_URL` set to the public URL (e.g., `https://neoboard.example.com`)
-- [ ] `API_KEY_HMAC_SECRET` generated (if using API keys)
+- [ ] `API_KEY_HMAC_SECRET` generated — **required in every install**, not just when using API keys; the app refuses to start without it
 - [ ] `REGISTRATION_ENABLED` left unset or `false` (closed by default since v1.0 — set to `true` only if open signup is desired)
 - [ ] `FORCE_HTTPS` left unset (HTTPS redirect is **on by default** in production) — set to `false` only if TLS terminates at a reverse proxy or load balancer that does not forward `X-Forwarded-Proto`
 
@@ -32,7 +32,6 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 - [ ] `ENCRYPTION_KEY` backed up in a separate secure location
 - [ ] No `.env` files committed to version control
 - [ ] Reverse proxy configured (nginx, Caddy, Traefik, or cloud LB)
-- [ ] CORS origins configured if embedding (`CORS_ALLOWED_ORIGINS`)
 - [ ] Database user has minimum required privileges
 
 ### First admin
