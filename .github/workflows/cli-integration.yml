@@ -120,3 +120,44 @@ jobs:
       - name: Cleanup
         if: always()
         run: docker compose -f docker/docker-compose.full.yml down -v 2>/dev/null || true
+
+  clean-clone-install:
+    name: Clean-clone install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Guards #1309: `bash install.sh` failed on every fresh clone because
+    # install.sh passed `--prefix "$ROOT_DIR"`, which npm treats as the GLOBAL
+    # install location and leaks into lifecycle scripts — so the root
+    # postinstall's `npm link ./cli` tried to write "$ROOT_DIR/lib".
+    #
+    # This break was invisible to everyone: existing working copies already
+    # have node_modules and the link, and the postinstall short-circuits on
+    # `[ -n "$CI" ]`. Only a clean clone with CI unset reaches it, which is
+    # exactly what this job does.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Clone into a pristine directory
+        run: git clone --no-hardlinks . "$RUNNER_TEMP/clean-clone"
+
+      - name: Run install.sh exactly as a new user does
+        # `env -u CI` is load-bearing: with CI set, postinstall short-circuits
+        # and the npm link path — the thing that broke — never runs.
+        run: env -u CI NEOBOARD_BOOTSTRAP_ONLY=1 bash install.sh
+        working-directory: ${{ runner.temp }}/clean-clone
+
+      - name: Assert the CLI is built and linked
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/clean-clone/cli/dist/index.js" \
+            || { echo "::error::install.sh did not build cli/dist/index.js"; exit 1; }
+          command -v neoboard >/dev/null \
+            || { echo "::error::install.sh did not put 'neoboard' on PATH"; exit 1; }
+          neoboard --version
