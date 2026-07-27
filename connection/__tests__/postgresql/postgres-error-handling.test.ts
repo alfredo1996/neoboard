@@ -17,6 +17,15 @@ import {
 // (which can't back a real pg-cursor) still exercises the transaction logic.
 jest.mock("../../src/postgresql/cursor-read", () => ({
   readBoundedCursor: jest.fn().mockResolvedValue({ rows: [], fields: [] }),
+  // Writes drain rather than stopping early (#1298); the write path calls
+  // this one, so the double has to provide it or every write test fails on
+  // "drainBoundedCursor is not a function" rather than on its own assertion.
+  drainBoundedCursor: jest.fn().mockResolvedValue({
+    rows: [],
+    fields: [],
+    affectedRowCount: 0,
+    truncated: false,
+  }),
 }));
 
 function makeModule(): PostgresConnectionModule {
@@ -198,6 +207,15 @@ describe("PostgresConnectionModule — error-path routing", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
     const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    // Writes now stream through drainBoundedCursor rather than client.query
+    // (#1298), so that is where the statement failure originates. The test's
+    // subject is unchanged: a failing query whose ROLLBACK also fails must
+    // still surface the ORIGINAL error through onFail.
+    const { drainBoundedCursor } = require("../../src/postgresql/cursor-read");
+    (drainBoundedCursor as jest.Mock).mockRejectedValueOnce(
+      new Error("insert exploded"),
+    );
 
     const onFail = jest.fn();
     await mod.runQuery(

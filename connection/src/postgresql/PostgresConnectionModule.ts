@@ -11,7 +11,7 @@ import {
 } from "@neoboard/connector-sdk";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
-import { readBoundedCursor } from "./cursor-read";
+import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
 import { determineQueryStatus } from "@neoboard/connector-sdk";
 import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
@@ -170,10 +170,20 @@ export class PostgresConnectionModule extends ConnectionModule {
         fetchedRows = batch.rows;
         fields = batch.fields;
       } else {
-        const result = await client.query(query, paramValues);
-        fetchedRows = result.rows;
-        fields = result.fields;
-        affectedRowCount = result.rowCount ?? undefined;
+        // Writes stream too, but they must be DRAINED rather than stopped
+        // early: PostgreSQL applies an UPDATE ... RETURNING incrementally, so
+        // rows never pulled are never modified. readBoundedCursor stops after
+        // one bounded read and closes the portal — correct for a SELECT,
+        // silently partially-applied for a write (#1298, #1326).
+        const batch = await drainBoundedCursor(
+          client,
+          query,
+          paramValues,
+          config.rowLimit + 1,
+        );
+        fetchedRows = batch.rows;
+        fields = batch.fields;
+        affectedRowCount = batch.affectedRowCount;
       }
 
       // Commit transaction
