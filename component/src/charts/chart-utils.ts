@@ -280,8 +280,6 @@ export interface CategoryAxisLabelOptions {
   rotateOverride?: number;
   /** Maximum label length before truncation (default: 15). */
   maxLabelLength?: number;
-  /** Whether the chart is in compact mode (hides labels). */
-  compact?: boolean;
   /** Container width in pixels — used for width-based auto-rotation. */
   containerWidth?: number;
 }
@@ -299,6 +297,8 @@ export interface CategoryAxisLabelConfig {
  * - 15+ categories: rotate 45°
  * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
  * - ECharts axisPointer tooltip shows the full text on hover
+ * - Category labels are never hidden: a compact container drops the value
+ *   axis, since a chart with no category names identifies nothing (#1247)
  *
  * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
  * normalized to undefined so the category-count heuristic applies.
@@ -307,7 +307,7 @@ export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { maxLabelLength = 15, compact = false, containerWidth } = options;
+  const { maxLabelLength = 15, containerWidth } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
   const rotateOverride =
@@ -337,7 +337,10 @@ export function buildCategoryAxisLabel(
     rotate = 0;
   }
 
-  // Width-aware truncation: tighter limit in narrow containers
+  // Width-aware truncation: tighter limit in narrow containers. A compact
+  // container is by definition under 400px, so it already gets the tight
+  // budget — going tighter still collapses common-prefix labels
+  // ("Widget A".."Widget G") into seven identical stubs (#1247).
   const effectiveMaxLength =
     containerWidth && containerWidth < 400
       ? Math.min(maxLabelLength, 10)
@@ -353,7 +356,7 @@ export function buildCategoryAxisLabel(
     : undefined;
 
   return {
-    show: !compact,
+    show: true,
     rotate,
     formatter,
     tooltip: { show: true },

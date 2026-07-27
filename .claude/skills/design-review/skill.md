@@ -132,6 +132,13 @@ grid: { left: 16, right: 16, top: 16, bottom: 24, containLabel: true }
 
 // Compact mode (container < 300px)
 grid: { left: 8, right: 8, top: 8, bottom: 8 }
+// Compact drops the axis NAME and the value-axis numbers. Category labels
+// stay — truncated to 10 chars under 400px — because a chart with no
+// category names identifies nothing (#1247).
+
+// Gridlines: one weight and colour for every cartesian chart, from the
+// registered theme (GRID_LINE_COLOR in charts/theme.ts). Charts set only
+// `splitLine: { show }` — never `splitLine.lineStyle`.
 
 // Legend position
 legend: { bottom: 0 }  // ALWAYS bottom-aligned
@@ -146,6 +153,8 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 - NEVER set chart colors inline — always use `resolveChartColors()`.
 - NEVER add title inside the chart — widget card header IS the title.
 - NEVER register additional ECharts themes — use `neoboard-light` / `neoboard-dark` only.
+- NEVER set `splitLine.lineStyle` in a chart module — gridline weight belongs to the theme (#1247).
+- NEVER let a responsive breakpoint hide category labels — degrade to truncation, not to nothing (#1247).
 - Dark mode chart colors are DIFFERENT from light mode — this is by design (higher lightness for contrast).
 
 ### Graph Chart (NVL)
