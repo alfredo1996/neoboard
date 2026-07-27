@@ -1,4 +1,7 @@
-import { collectUpToLimit } from "../src/generalized/stream-rows";
+import {
+  collectUpToLimit,
+  drainRetainingUpTo,
+} from "../src/generalized/stream-rows";
 
 /**
  * Builds an async iterable that yields `total` numbers (1..total) and records
@@ -81,5 +84,60 @@ describe("collectUpToLimit", () => {
 
     expect(rows).toEqual([]);
     expect(truncated).toBe(false);
+  });
+});
+
+describe("drainRetainingUpTo (#1298)", () => {
+  it("pulls EVERY row even when far beyond the limit", async () => {
+    const { iterable, state } = countingSource(1000);
+
+    const { rows, truncated } = await drainRetainingUpTo(iterable, 10);
+
+    // The whole point: a write's side effects only execute for rows that are
+    // actually pulled. Stopping early leaves a partially-applied transaction.
+    expect(state.pulled).toBe(1000);
+    expect(rows).toHaveLength(10);
+    expect(truncated).toBe(true);
+  });
+
+  it("retains only the first rowLimit rows, in order", async () => {
+    const { iterable } = countingSource(50);
+
+    const { rows } = await drainRetainingUpTo(iterable, 3);
+
+    expect(rows).toEqual([1, 2, 3]);
+  });
+
+  it("returns everything and truncated=false when under the limit", async () => {
+    const { iterable, state } = countingSource(4);
+
+    const { rows, truncated } = await drainRetainingUpTo(iterable, 10);
+
+    expect(rows).toEqual([1, 2, 3, 4]);
+    expect(truncated).toBe(false);
+    expect(state.pulled).toBe(4);
+  });
+
+  it("drains without retaining anything when rowLimit is 0", async () => {
+    const { iterable, state } = countingSource(25);
+
+    const { rows, truncated } = await drainRetainingUpTo(iterable, 0);
+
+    expect(rows).toEqual([]);
+    expect(truncated).toBe(true);
+    expect(state.pulled).toBe(25);
+  });
+
+  it("does not abandon the source early, unlike collectUpToLimit", async () => {
+    const drained = countingSource(100);
+    const collected = countingSource(100);
+
+    await drainRetainingUpTo(drained.iterable, 5);
+    await collectUpToLimit(collected.iterable, 5);
+
+    expect(drained.state.pulled).toBe(100);
+    expect(drained.state.returned).toBe(false);
+    expect(collected.state.pulled).toBe(6);
+    expect(collected.state.returned).toBe(true);
   });
 });

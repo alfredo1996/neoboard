@@ -44,7 +44,10 @@ export { NeodashRecord } from "./generalized/NeodashRecord";
 export { NeodashRecordParser } from "./generalized/NeodashRecordParser";
 
 /// Query-safety helpers
-export { collectUpToLimit } from "./generalized/stream-rows";
+export {
+  collectUpToLimit,
+  drainRetainingUpTo,
+} from "./generalized/stream-rows";
 export type { CollectedRows } from "./generalized/stream-rows";
 export { errorHasMessage, determineQueryStatus } from "./generalized/utils";
 
