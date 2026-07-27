@@ -23,7 +23,10 @@ const mockDb = {
   update: vi.fn(),
 };
 const mockInvalidateCache = vi.fn();
-const mockAuditRequest = vi.fn();
+// vi.hoisted: vi.mock factories are hoisted above top-level consts, so the
+// mock must be created in the hoisted scope to stay safe if a future refactor
+// switches this file to a static import of the route.
+const { mockAuditRequest } = vi.hoisted(() => ({ mockAuditRequest: vi.fn() }));
 
 class UnauthorizedError extends Error {
   constructor() {

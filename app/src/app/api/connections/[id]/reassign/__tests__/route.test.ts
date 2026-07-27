@@ -29,7 +29,10 @@ class ForbiddenError extends Error {
   }
 }
 
-const mockAuditRequest = vi.fn();
+// vi.hoisted: vi.mock factories are hoisted above top-level consts, so the
+// mock must be created in the hoisted scope to stay safe if a future refactor
+// switches this file to a static import of the route.
+const { mockAuditRequest } = vi.hoisted(() => ({ mockAuditRequest: vi.fn() }));
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
