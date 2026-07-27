@@ -5,6 +5,7 @@ import {
 } from "@/lib/connector/connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
 import { QueryStatus } from "@neoboard/connection";
+import { createHash } from "node:crypto";
 
 /**
  * Default row cap applied to read queries when a connection doesn't
@@ -138,9 +139,30 @@ export async function closeAllConnections(): Promise<void> {
   await Promise.all(closePromises);
 }
 
+/** Visible for testing — the live cache keys, to assert no secret leaks in. */
+export function _getCacheKeysForTesting(): string[] {
+  return [...moduleCache.keys()];
+}
+
 /** Visible for testing — returns current cache size. */
 export function _getCacheSize(): number {
   return moduleCache.size;
+}
+
+/**
+ * Digest of the password, for the cache key (#1300).
+ *
+ * The key omitted the password entirely, so two connections differing only by
+ * password collided: the second caller was handed the pool the first had
+ * already authenticated, and a WRONG password still produced a working
+ * connection. Where two tenants point at the same host with the same
+ * username, that is one tenant querying through another's credentials.
+ *
+ * Hashed, never raw: cache keys reach diagnostics and error paths, and a
+ * credential must not be recoverable from one.
+ */
+function passwordFingerprint(password: string): string {
+  return createHash("sha256").update(password).digest("hex").slice(0, 16);
 }
 
 function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
@@ -154,7 +176,7 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
     credentials.sslRejectUnauthorized,
     credentials.maxRows,
   ].join(",");
-  return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}|${advancedKey}`;
+  return `${type}|${credentials.uri}|${credentials.username}|${passwordFingerprint(credentials.password)}|${credentials.database ?? ""}|${advancedKey}`;
 }
 
 function effectiveQueryTimeout(

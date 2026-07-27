@@ -50,6 +50,7 @@ describe("query-executor", () => {
   let closeConnection: typeof import("@/lib/query/query-executor").closeConnection;
   let closeAllConnections: typeof import("@/lib/query/query-executor").closeAllConnections;
   let _getCacheSize: typeof import("@/lib/query/query-executor")._getCacheSize;
+  let _getCacheKeysForTesting: typeof import("@/lib/query/query-executor")._getCacheKeysForTesting;
   let _evictStaleEntries: typeof import("@/lib/query/query-executor")._evictStaleEntries;
 
   beforeEach(async () => {
@@ -66,6 +67,7 @@ describe("query-executor", () => {
     closeConnection = mod.closeConnection;
     closeAllConnections = mod.closeAllConnections;
     _getCacheSize = mod._getCacheSize;
+    _getCacheKeysForTesting = mod._getCacheKeysForTesting;
     _evictStaleEntries = mod._evictStaleEntries;
   });
 
@@ -566,6 +568,47 @@ describe("query-executor", () => {
     closeConnection("neo4j", neo4jCreds);
     expect(_getCacheSize()).toBe(0);
     expect(mockClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reuse a cached module when only the password differs (#1300)", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    // Same host, same user, DIFFERENT password. Keying without the password
+    // meant the second caller was handed the pool the first caller had already
+    // authenticated — so a wrong password still got a working connection.
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+    await executeQuery(
+      "neo4j",
+      { ...neo4jCreds, password: "a-different-password" },
+      { query: "RETURN 1" },
+    );
+
+    expect(_getCacheSize()).toBe(2);
+    expect(mockCreateConnectionModule).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the raw password out of the cache key (#1300)", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery(
+      "neo4j",
+      { ...neo4jCreds, password: "sup3r-s3cret-value" },
+      { query: "RETURN 1" },
+    );
+
+    // Cache keys land in diagnostics and error paths; a credential must never
+    // be recoverable from one. Only a digest of it may appear.
+    const keys = _getCacheKeysForTesting();
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).not.toContain("sup3r-s3cret-value");
   });
 
   it("closeConnection is a no-op for unknown keys", () => {
