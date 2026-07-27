@@ -5,7 +5,10 @@ import {
   AuthType,
   ConnectionTypes,
 } from "@neoboard/connector-sdk";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 
 /**
  * Write-path row limiting against a REAL PostgreSQL (#1298 / #1326).
@@ -25,7 +28,7 @@ import { PostgreSqlContainer } from "@testcontainers/postgresql";
  * cannot prove any of it; only a real database can.
  */
 describe("PostgreSQL write path — row limit must not truncate side effects", () => {
-  let container: PostgreSqlContainer;
+  let container: StartedPostgreSqlContainer;
   let connectionModule: PostgresConnectionModule;
 
   const ROW_COUNT = 1000;
