@@ -29,8 +29,18 @@ class ForbiddenError extends Error {
   }
 }
 
+// vi.hoisted: vi.mock factories are hoisted above top-level consts, so the
+// mock must be created in the hoisted scope to stay safe if a future refactor
+// switches this file to a static import of the route.
+const { mockAuditRequest } = vi.hoisted(() => ({ mockAuditRequest: vi.fn() }));
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("@/lib/db/connection-reassign", () => ({
   reassignConnectionWidgets: mockReassignConnectionWidgets,
 }));
@@ -153,6 +163,49 @@ describe("POST /api/connections/[id]/reassign", () => {
       false,
       "t1",
     );
+  });
+
+  it("records a connection.reassign audit entry (#1234)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ id: "c1", type: "postgresql" }]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c2", type: "postgresql" }]));
+    mockReassignConnectionWidgets.mockResolvedValue({
+      dashboardsUpdated: 3,
+      widgetsReassigned: 7,
+    });
+
+    await POST(makeRequest({ targetConnectionId: "c2" }), makeParams("c1"));
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "connection.reassign",
+      resourceType: "connection",
+      resourceId: "c1",
+      tenantId: SESSION.tenantId,
+      userId: SESSION.userId,
+      details: {
+        targetConnectionId: "c2",
+        dashboardsUpdated: 3,
+        widgetsReassigned: 7,
+      },
+    });
+  });
+
+  it("writes no audit entry when the type check rejects the reassign (#1234)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ id: "c1", type: "postgresql" }]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c2", type: "neo4j" }]));
+
+    const res = await POST(
+      makeRequest({ targetConnectionId: "c2" }),
+      makeParams("c1"),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("allows admins to reassign any connection in their tenant", async () => {

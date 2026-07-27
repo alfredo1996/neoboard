@@ -11,6 +11,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
+import { auditRequest } from "@/lib/audit/audit";
 
 const shareSchema = z.object({
   email: z.string().email(),
@@ -149,6 +150,15 @@ export async function POST(
       });
     }
 
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "dashboard.share",
+      resourceType: "dashboard",
+      resourceId: id,
+      details: { targetUserId: targetUser.id, role: result.data.role },
+    });
+
     return apiSuccess({ success: true }, 201);
   } catch (error) {
     return handleRouteError(error, "Failed to create share");
@@ -189,6 +199,15 @@ export async function DELETE(
           eq(dashboardShares.tenantId, tenantId),
         ),
       );
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "dashboard.share.revoke",
+      resourceType: "dashboard",
+      resourceId: id,
+      details: { shareId },
+    });
 
     return apiSuccess({ success: true });
   } catch (error) {

@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { reassignConnectionWidgets } from "@/lib/db/connection-reassign";
+import { auditRequest } from "@/lib/audit/audit";
 
 const reassignSchema = z.object({
   targetConnectionId: z.string().min(1),
@@ -100,6 +101,15 @@ export async function POST(
       isAdmin,
       tenantId,
     );
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "connection.reassign",
+      resourceType: "connection",
+      resourceId: id,
+      details: { targetConnectionId, ...result },
+    });
 
     return apiSuccess(result);
   } catch (error) {

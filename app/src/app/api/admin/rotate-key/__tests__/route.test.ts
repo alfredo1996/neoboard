@@ -51,6 +51,19 @@ const mockDb = {
   transaction: vi.fn(),
 };
 
+// vi.hoisted: vi.mock factories are hoisted above top-level consts, so the
+// mock must be created in the hoisted scope to stay safe if a future refactor
+// switches this file to a static import of the route.
+const { mockAuditRequest } = vi.hoisted(() => ({ mockAuditRequest: vi.fn() }));
+
+/** Minimal request — the route only forwards it to auditRequest. */
+function makeRotateRequest(): Request {
+  return {
+    headers: new Headers(),
+    url: "http://localhost/api/admin/rotate-key",
+  } as unknown as Request;
+}
+
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 
 // Mock NextResponse
@@ -72,7 +85,7 @@ describe("POST /api/admin/rotate-key", () => {
   const originalOldKey = process.env.ENCRYPTION_KEY_OLD;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let POST: () => Promise<any>;
+  let POST: (req: Request) => Promise<any>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -87,6 +100,11 @@ describe("POST /api/admin/rotate-key", () => {
       encrypt: (s: string) => mockEncrypt(s),
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    // Audit is mocked so route assertions aren't polluted by its own db.insert.
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("next/server", () => ({
       NextResponse: {
         json: (body: unknown, init?: ResponseInit) => ({
@@ -111,7 +129,7 @@ describe("POST /api/admin/rotate-key", () => {
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
-    const res = await POST();
+    const res = await POST(makeRotateRequest());
     expect(res.status).toBe(401);
   });
 
@@ -122,7 +140,7 @@ describe("POST /api/admin/rotate-key", () => {
       canWrite: true,
       tenantId: "default",
     });
-    const res = await POST();
+    const res = await POST(makeRotateRequest());
     expect(res.status).toBe(403);
   });
 
@@ -134,7 +152,7 @@ describe("POST /api/admin/rotate-key", () => {
       canWrite: true,
       tenantId: "default",
     });
-    const res = await POST();
+    const res = await POST(makeRotateRequest());
     expect(res.status).toBe(400);
     expect(res._body.error.message).toContain("ENCRYPTION_KEY_OLD");
   });
@@ -178,7 +196,7 @@ describe("POST /api/admin/rotate-key", () => {
       async (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
     );
 
-    const res = await POST();
+    const res = await POST(makeRotateRequest());
     expect(res.status).toBe(200);
     expect(res._body.data.connections).toBe(2);
     expect(res._body.data.ssoProviders).toBe(1);
@@ -189,6 +207,62 @@ describe("POST /api/admin/rotate-key", () => {
     expect(mockEncrypt).toHaveBeenCalledTimes(3);
     // Verify update was called for each row
     expect(mockTx.update).toHaveBeenCalledTimes(3);
+  });
+
+  it("records an admin.key.rotate audit entry with no key material (#1234)", async () => {
+    process.env.ENCRYPTION_KEY_OLD = "c".repeat(64);
+    mockRequireSession.mockResolvedValue({
+      userId: "admin-1",
+      role: "admin",
+      canWrite: true,
+      tenantId: "default",
+    });
+
+    const mockTx = { select: vi.fn(), update: vi.fn() };
+    mockTx.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ id: "conn-1", configEncrypted: "old-cipher-1" }]),
+      )
+      .mockReturnValueOnce(
+        makeSelectChain([{ id: "sso-1", clientSecretEncrypted: "old-sso-1" }]),
+      );
+    mockTx.update.mockReturnValue(makeUpdateChain());
+    mockDecrypt.mockImplementation((s: string) => `plain:${s}`);
+    mockEncrypt.mockImplementation((s: string) => `new:${s}`);
+    mockDb.transaction.mockImplementation(
+      async (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
+    );
+
+    await POST(makeRotateRequest());
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "admin.key.rotate",
+      resourceType: "encryption_key",
+      tenantId: "default",
+      userId: "admin-1",
+      details: { connections: 1, ssoProviders: 1 },
+    });
+    // Neither the keys nor any ciphertext may reach the trail.
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toContain("c".repeat(64));
+    expect(serialized).not.toContain("cipher");
+  });
+
+  it("writes no audit entry when rotation is rejected (#1234)", async () => {
+    delete process.env.ENCRYPTION_KEY_OLD;
+    mockRequireSession.mockResolvedValue({
+      userId: "admin-1",
+      role: "admin",
+      canWrite: true,
+      tenantId: "default",
+    });
+
+    const res = await POST(makeRotateRequest());
+
+    expect(res.status).toBe(400);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("returns 200 with zero counts when no records exist", async () => {
@@ -213,7 +287,7 @@ describe("POST /api/admin/rotate-key", () => {
       async (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
     );
 
-    const res = await POST();
+    const res = await POST(makeRotateRequest());
     expect(res.status).toBe(200);
     expect(res._body.data.connections).toBe(0);
     expect(res._body.data.ssoProviders).toBe(0);

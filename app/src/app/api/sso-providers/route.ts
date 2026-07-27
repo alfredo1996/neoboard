@@ -8,6 +8,7 @@ import { validateBody, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { invalidateProviderCache } from "@/lib/auth/sso/provider-cache";
 import { requireFeature } from "@/lib/features/require-feature";
+import { auditRequest } from "@/lib/audit/audit";
 
 const MAX_PROVIDERS_PER_TENANT = 5;
 
@@ -79,7 +80,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     requireFeature("sso");
-    const { tenantId } = await requireAdmin();
+    const { userId, tenantId } = await requireAdmin();
 
     const body = await request.json();
     const result = validateBody(createProviderSchema, body);
@@ -145,6 +146,17 @@ export async function POST(request: Request) {
         });
 
       invalidateProviderCache(tenantId);
+
+      auditRequest(request, {
+        tenantId,
+        userId,
+        action: "sso.provider.create",
+        resourceType: "sso_provider",
+        resourceId: provider.id,
+        // Never the client secret, raw or encrypted.
+        details: { name, issuer, defaultRole, enforceSso },
+      });
+
       return apiSuccess(provider, 201);
     } catch (err: unknown) {
       // Unique constraint violation on (tenantId, issuer) — duplicate provider
@@ -167,7 +179,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     requireFeature("sso");
-    const { tenantId } = await requireAdmin();
+    const { userId, tenantId } = await requireAdmin();
 
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
@@ -186,6 +198,16 @@ export async function DELETE(request: Request) {
     }
 
     invalidateProviderCache(tenantId);
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "sso.provider.delete",
+      resourceType: "sso_provider",
+      resourceId: id,
+      details: { name: deleted[0].name },
+    });
+
     return apiSuccess(deleted[0]);
   } catch (e) {
     return handleRouteError(e);
@@ -195,7 +217,7 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   try {
     requireFeature("sso");
-    const { tenantId } = await requireAdmin();
+    const { userId, tenantId } = await requireAdmin();
 
     const body = await request.json();
     const result = validateBody(updateProviderSchema, body);
@@ -244,6 +266,20 @@ export async function PATCH(request: Request) {
     }
 
     invalidateProviderCache(tenantId);
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "sso.provider.update",
+      resourceType: "sso_provider",
+      resourceId: id,
+      // Field names only — a rotated client secret must not leak its value.
+      details: {
+        fields: Object.keys(updateSet).filter((k) => k !== "updatedAt"),
+        secretRotated: clientSecret !== undefined,
+      },
+    });
+
     return apiSuccess(updated);
   } catch (e) {
     return handleRouteError(e);

@@ -26,10 +26,20 @@ class ForbiddenError extends Error {
   }
 }
 
+// vi.hoisted: vi.mock factories are hoisted above top-level consts, so the
+// mock must be created in the hoisted scope to stay safe if a future refactor
+// switches this file to a static import of the route.
+const { mockAuditRequest } = vi.hoisted(() => ({ mockAuditRequest: vi.fn() }));
+
 vi.mock("@/lib/auth/session", () => ({
   requireAdmin: mockRequireAdmin,
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -157,6 +167,68 @@ describe("POST /api/users/[id]/reset-password", () => {
     expect(body.data.reset).toBe(true);
     expect(body.data.generatedPassword).toBeDefined();
     expect(typeof body.data.generatedPassword).toBe("string");
+  });
+
+  it("records a user.password.reset audit entry with no password (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
+
+    await POST(
+      makeRequest({ newPassword: "NewPassword1!", forcePasswordChange: true }),
+      makeParams("user-2"),
+    );
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "user.password.reset",
+      resourceType: "user",
+      resourceId: "user-2",
+      tenantId: "tenant-a",
+      userId: "admin-1",
+    });
+    // The password — supplied or generated — must never reach the trail.
+    expect(JSON.stringify(entry)).not.toContain("NewPassword1!");
+  });
+
+  it("does not record the generated password either (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
+
+    const res = await POST(
+      makeRequest({ generatePassword: true }),
+      makeParams("user-2"),
+    );
+    const { data } = await res.json();
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(JSON.stringify(entry)).not.toContain(data.generatedPassword);
+  });
+
+  it("writes no audit entry when the target user is not found (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      canWrite: true,
+      tenantId: "tenant-a",
+    });
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+
+    const res = await POST(
+      makeRequest({ newPassword: "NewPassword1!" }),
+      makeParams("user-in-tenant-b"),
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("sets passwordChangedAt when admin resets password", async () => {
