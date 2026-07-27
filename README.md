@@ -43,7 +43,7 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 
 `install.sh` bootstraps the bundled `neoboard` CLI, brings up Postgres + Neo4j in Docker, runs migrations, and prints the next-step commands. After it finishes:
 
-- Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed during setup
+- Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed in the ready banner (also in `docker/.env` as `ADMIN_BOOTSTRAP_TOKEN`)
 - Run `neoboard demo` to seed the showcase dashboards (optional, see below)
 - Run `neoboard doctor` to check service health if anything looks off; `neoboard --help` for the full command list
 

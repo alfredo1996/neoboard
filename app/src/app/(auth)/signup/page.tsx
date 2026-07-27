@@ -139,7 +139,10 @@ export default function SignupPage() {
             <Alert className="mb-4">
               <AlertDescription>
                 No users exist yet. You are setting up the first admin account.
-                Enter the bootstrap token from your <code>.env</code> file.
+                Enter the bootstrap token printed by <code>neoboard setup</code>
+                — or read <code>ADMIN_BOOTSTRAP_TOKEN</code> from{" "}
+                <code>docker/.env</code> (Docker) or <code>app/.env.local</code>{" "}
+                (local).
               </AlertDescription>
             </Alert>
           )}

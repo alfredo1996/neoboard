@@ -5,6 +5,19 @@ import { readProjectConfig, getMode } from "../lib/config.js";
 import { info, success, warn, banner, error } from "../lib/output.js";
 import { runDoctor, printResults } from "./doctor.js";
 import { runDbMigrate } from "./db/migrate.js";
+import { readDockerEnvSecrets } from "../lib/docker-env.js";
+import { isBootstrapPending } from "../lib/bootstrap-status.js";
+
+/**
+ * Show the bootstrap token only while it is still usable: a token is spent
+ * once an admin exists, and printing a live secret nobody needs is gratuitous.
+ * Also stays quiet when no token was generated (a docker/.env predating #1312),
+ * rather than printing "Token: undefined".
+ */
+async function shouldShowBootstrapToken(): Promise<boolean> {
+  if (!readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN) return false;
+  return isBootstrapPending();
+}
 
 export interface StartOptions {
   /**
@@ -98,6 +111,21 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   // said `neoboard dev`, which dead-ended Docker users.
   const startAppHint =
     mode === "docker" ? "neoboard start --full" : "neoboard dev";
+
+  // The first admin can only be created by entering ADMIN_BOOTSTRAP_TOKEN on
+  // the signup screen. The CLI generated it into docker/.env moments ago, so
+  // it is the one component that knows both the value and the file — showing
+  // it here removes the "find a secret nobody told you about" dead end
+  // (#1312). Local mode already prints its token when generating .env.local.
+  const bootstrapLines =
+    appRunning && (await shouldShowBootstrapToken())
+      ? [
+          "",
+          `Token:      ${readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN}`,
+          "            (bootstrap token, from docker/.env — needed once, at signup)",
+        ]
+      : [];
+
   banner([
     appRunning ? "NeoBoard is running!" : "Databases are ready!",
     "",
@@ -115,6 +143,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     appRunning
       ? "First run:  open the App URL to create your admin account"
       : "First run:  start the app, then create your admin account in the browser",
+    ...bootstrapLines,
     "",
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,

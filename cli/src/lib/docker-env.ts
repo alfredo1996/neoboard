@@ -78,6 +78,11 @@ export function ensureDockerEnvFile(): string {
     `ENCRYPTION_KEY=${secret()}`,
     `NEXTAUTH_SECRET=${secret()}`,
     `API_KEY_HMAC_SECRET=${secret()}`,
+    // Required to create the very first admin: signup.ts rejects the
+    // first-user branch unless ADMIN_BOOTSTRAP_TOKEN is set on the server.
+    // Omitting it left Docker installs with an instance nobody could log
+    // into — no value the user typed could ever match an unset var (#1312).
+    `ADMIN_BOOTSTRAP_TOKEN=${secret()}`,
     "",
   ];
   writeFileSync(envPath, lines.join("\n"));

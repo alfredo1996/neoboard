@@ -35,12 +35,22 @@ vi.mock("../../commands/db/migrate.js", () => ({
   runDbMigrate: vi.fn(),
 }));
 
+vi.mock("../../lib/docker-env.js", () => ({
+  readDockerEnvSecrets: vi.fn(() => ({ ADMIN_BOOTSTRAP_TOKEN: "tok-abc123" })),
+}));
+
+vi.mock("../../lib/bootstrap-status.js", () => ({
+  isBootstrapPending: vi.fn(async () => true),
+}));
+
 import { composeUp } from "../../lib/docker.js";
 import { waitForHealth } from "../../lib/health.js";
 import { getMode } from "../../lib/config.js";
 import { banner, error } from "../../lib/output.js";
 import { printResults } from "../../commands/doctor.js";
 import { runDbMigrate } from "../../commands/db/migrate.js";
+import { readDockerEnvSecrets } from "../../lib/docker-env.js";
+import { isBootstrapPending } from "../../lib/bootstrap-status.js";
 import { runStart } from "../../commands/start.js";
 
 const mockComposeUp = vi.mocked(composeUp);
@@ -49,6 +59,8 @@ const mockPrintResults = vi.mocked(printResults);
 const mockRunDbMigrate = vi.mocked(runDbMigrate);
 const mockGetMode = vi.mocked(getMode);
 const mockBanner = vi.mocked(banner);
+const mockReadDockerEnvSecrets = vi.mocked(readDockerEnvSecrets);
+const mockIsBootstrapPending = vi.mocked(isBootstrapPending);
 const mockError = vi.mocked(error);
 
 beforeEach(() => {
@@ -58,6 +70,8 @@ beforeEach(() => {
   // Migrations succeed by default; runStart now aborts (no "ready" banner)
   // when they fail. Failure is exercised in its own test.
   mockRunDbMigrate.mockResolvedValue(true);
+  mockReadDockerEnvSecrets.mockReturnValue({ ADMIN_BOOTSTRAP_TOKEN: "tok-abc123" });
+  mockIsBootstrapPending.mockResolvedValue(true);
   process.exitCode = 0;
 });
 
@@ -222,5 +236,38 @@ describe("runStart", () => {
   it("returns false when doctor finds failures in docker mode", async () => {
     mockPrintResults.mockReturnValue(true);
     await expect(runStart()).resolves.toBe(false);
+  });
+
+  it("prints the bootstrap token while a bootstrap is pending (#1312)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("tok-abc123"))).toBe(true);
+  });
+
+  it("names the file the token came from, so the user can find it again (#1312)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("docker/.env"))).toBe(true);
+  });
+
+  it("hides the token once an admin exists — it is a secret, not decoration (#1312)", async () => {
+    mockIsBootstrapPending.mockResolvedValue(false);
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("tok-abc123"))).toBe(false);
+  });
+
+  it("does not print a token that was never generated (#1312)", async () => {
+    mockReadDockerEnvSecrets.mockReturnValue({});
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => /bootstrap token/i.test(l))).toBe(false);
+  });
+
+  it("does not reach for the docker token in local mode (#1312)", async () => {
+    mockGetMode.mockReturnValue("local");
+    await runStart({ full: false });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("docker/.env"))).toBe(false);
   });
 });
