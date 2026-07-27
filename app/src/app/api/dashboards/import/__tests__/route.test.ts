@@ -24,6 +24,8 @@ const mockDb = {
   insert: vi.fn(),
 };
 
+const mockAuditRequest = vi.fn();
+
 class UnauthorizedError extends Error {
   constructor() {
     super("Unauthorized");
@@ -39,6 +41,11 @@ vi.mock("@/lib/auth/session", () => ({
   requireSession: mockRequireSession,
 }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -180,6 +187,44 @@ describe("POST /api/dashboards/import", () => {
     expect(Array.isArray(body.data.notes)).toBe(true);
     // Happy-path NeoBoard import has no notes (mapping fully applied)
     expect(body.data.notes).toEqual([]);
+  });
+
+  it("records a dashboard.import audit entry (#1234)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([{ id: "real-conn-id" }]),
+    );
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([{ id: "new-dash", name: "Imported Dashboard" }]),
+    );
+
+    await POST(
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "dashboard.import",
+      resourceType: "dashboard",
+      resourceId: "new-dash",
+      tenantId: SESSION.tenantId,
+      userId: SESSION.userId,
+      details: { name: "Imported Dashboard", widgetCount: 1 },
+    });
+  });
+
+  it("writes no audit entry when the payload is rejected (#1234)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+
+    const res = await POST(makeRequest({ payload: { nope: true } }));
+
+    expect(res.status).toBe(400);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("auto-converts NeoDash format and returns 201 with mapped connection", async () => {

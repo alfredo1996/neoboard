@@ -17,18 +17,25 @@ export type AuditAction =
   | "dashboard.update"
   | "dashboard.delete"
   | "dashboard.share"
+  | "dashboard.share.revoke"
   | "dashboard.export"
   | "dashboard.import"
   | "dashboard.duplicate"
   | "connection.create"
   | "connection.update"
   | "connection.delete"
+  | "connection.reassign"
   | "user.create"
   | "user.update"
   | "user.disable"
   | "user.role.change"
+  | "user.password.reset"
   | "key.create"
-  | "key.revoke";
+  | "key.revoke"
+  | "admin.key.rotate"
+  | "sso.provider.create"
+  | "sso.provider.update"
+  | "sso.provider.delete";
 
 export interface AuditEntry {
   tenantId: string;

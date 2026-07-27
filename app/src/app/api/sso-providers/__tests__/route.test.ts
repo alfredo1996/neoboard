@@ -23,6 +23,7 @@ const mockDb = {
   update: vi.fn(),
 };
 const mockInvalidateCache = vi.fn();
+const mockAuditRequest = vi.fn();
 
 class UnauthorizedError extends Error {
   constructor() {
@@ -37,6 +38,11 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireAdmin: mockRequireAdmin }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/sso/provider-cache", () => ({
@@ -77,6 +83,10 @@ describe("GET /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -95,6 +105,10 @@ describe("GET /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -173,6 +187,10 @@ describe("POST /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
@@ -190,6 +208,10 @@ describe("POST /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -338,6 +360,47 @@ describe("POST /api/sso-providers", () => {
     expect(body.data).not.toHaveProperty("clientSecretEncrypted");
   });
 
+  it("records an sso.provider.create audit entry with no secret (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([
+        {
+          id: "new-sso",
+          name: "Company SSO",
+          issuer: "https://idp.example.com",
+        },
+      ]),
+    );
+
+    await POST(makeRequest(validProvider));
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "sso.provider.create",
+      resourceType: "sso_provider",
+      resourceId: "new-sso",
+      tenantId: ADMIN_SESSION.tenantId,
+      userId: ADMIN_SESSION.userId,
+    });
+    // The client secret — raw or encrypted — must never reach the trail.
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toContain("secret-456");
+    expect(serialized).not.toContain("encrypted:");
+  });
+
+  it("writes no audit entry when the payload is rejected (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+
+    const res = await POST(makeRequest({ ...validProvider, name: "" }));
+
+    expect(res.status).toBe(400);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
+  });
+
   it("stores tenantId from session", async () => {
     mockRequireAdmin.mockResolvedValue({
       ...ADMIN_SESSION,
@@ -408,6 +471,10 @@ describe("DELETE /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -425,6 +492,10 @@ describe("DELETE /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -475,6 +546,39 @@ describe("DELETE /api/sso-providers", () => {
     expect(res.status).toBe(200);
     expect(mockInvalidateCache).toHaveBeenCalledWith("default");
   });
+
+  it("records an sso.provider.delete audit entry (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.delete.mockReturnValue(
+      makeDeleteChain([{ id: "sso-1", name: "Company SSO" }]),
+    );
+
+    await DELETE(
+      makeRequest(null, "http://localhost/api/sso-providers?id=sso-1"),
+    );
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "sso.provider.delete",
+      resourceType: "sso_provider",
+      resourceId: "sso-1",
+      tenantId: ADMIN_SESSION.tenantId,
+      userId: ADMIN_SESSION.userId,
+    });
+  });
+
+  it("writes no audit entry when the provider is not found (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.delete.mockReturnValue(makeDeleteChain([]));
+
+    const res = await DELETE(
+      makeRequest(null, "http://localhost/api/sso-providers?id=nope"),
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -492,6 +596,10 @@ describe("PATCH /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -510,6 +618,10 @@ describe("PATCH /api/sso-providers", () => {
       requireAdmin: mockRequireAdmin,
     }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
+    vi.doMock("@/lib/audit/audit", () => ({
+      auditRequest: mockAuditRequest,
+      auditLog: vi.fn(),
+    }));
     vi.doMock("@/lib/crypto/crypto", () => ({ encrypt: mockEncrypt }));
     vi.doMock("next/server", () => nextResponseMockFactory());
     vi.doMock("@/lib/auth/sso/provider-cache", () => ({
@@ -569,5 +681,43 @@ describe("PATCH /api/sso-providers", () => {
     mockDb.update.mockReturnValue(makeUpdateChain([]));
     const res = await PATCH(makeRequest({ id: "nonexistent", name: "Nope" }));
     expect(res.status).toBe(404);
+  });
+
+  it("records an sso.provider.update audit entry with no secret (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ id: "sso-1", name: "Updated SSO" }]),
+    );
+
+    await PATCH(
+      makeRequest({
+        id: "sso-1",
+        name: "Updated SSO",
+        clientSecret: "new-secret-789",
+      }),
+    );
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "sso.provider.update",
+      resourceType: "sso_provider",
+      resourceId: "sso-1",
+      tenantId: ADMIN_SESSION.tenantId,
+      userId: ADMIN_SESSION.userId,
+    });
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toContain("new-secret-789");
+    expect(serialized).not.toContain("encrypted:");
+  });
+
+  it("writes no audit entry when the provider is not found (#1234)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+
+    const res = await PATCH(makeRequest({ id: "nonexistent", name: "Nope" }));
+
+    expect(res.status).toBe(404);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 });

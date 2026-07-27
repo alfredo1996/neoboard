@@ -15,6 +15,7 @@ import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { formatImportError } from "@/lib/dashboard/format-import-error";
+import { auditRequest } from "@/lib/audit/audit";
 
 const importRequestSchema = z.object({
   payload: z.unknown(),
@@ -167,6 +168,22 @@ export async function POST(request: Request) {
         updatedBy: userId,
       })
       .returning();
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "dashboard.import",
+      resourceType: "dashboard",
+      resourceId: created.id,
+      details: {
+        name,
+        widgetCount: mappedLayout.pages.reduce(
+          (sum, page) => sum + page.widgets.length,
+          0,
+        ),
+        source: isNeoDash ? "neodash" : "neoboard",
+      },
+    });
 
     return apiSuccess({ ...created, notes: importNotes }, 201);
   } catch (e) {

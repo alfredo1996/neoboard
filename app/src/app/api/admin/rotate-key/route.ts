@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { decrypt, encrypt } from "@/lib/crypto/crypto";
 import { apiSuccess } from "@/lib/api/api-response";
 import { badRequest, forbidden, handleRouteError } from "@/lib/api/api-utils";
+import { auditRequest } from "@/lib/audit/audit";
 
 /**
  * POST /api/admin/rotate-key
@@ -15,9 +16,9 @@ import { badRequest, forbidden, handleRouteError } from "@/lib/api/api-utils";
  *
  * Admin-only. Runs inside a transaction for atomicity.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const { role } = await requireSession();
+    const { userId, role, tenantId } = await requireSession();
 
     if (role !== "admin") {
       return forbidden();
@@ -69,6 +70,15 @@ export async function POST() {
         connections: allConnections.length,
         ssoProviders: allSsoProviders.length,
       };
+    });
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "admin.key.rotate",
+      resourceType: "encryption_key",
+      // Counts only — never key material or ciphertext.
+      details: result,
     });
 
     return apiSuccess(result);
