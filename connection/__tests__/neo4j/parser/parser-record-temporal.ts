@@ -49,9 +49,11 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
         const currentDateTime = parsed[0]["currentDateTime"];
         expect(currentDateTime).toBeDefined();
         expect(typeof currentDateTime).toBe("string");
-        // Expect YYYY-MM-DD HH:mm:ss format
+        // ISO-8601 with a zone designator. The old space-separated form was
+        // not ISO, so a client-side `new Date(str)` reinterpreted it in the
+        // browser's local zone, and it carried no offset at all (#1306).
         expect(currentDateTime).toMatch(
-          /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/,
         );
       },
       onFail: (error) => {
@@ -81,9 +83,12 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
         const currentLocalDateTime = parsed[0]["currentLocalDateTime"];
         expect(currentLocalDateTime).toBeDefined();
 
-        // Check if the parsed value is a valid JS Date object
-        expect(currentLocalDateTime instanceof Date).toBe(true);
-        expect(!isNaN(currentLocalDateTime.getTime())).toBe(true); // Ensure valid timestamp
+        // A zone-LESS ISO string, not a Date. A Date is an absolute instant,
+        // which is precisely what a localdatetime() is not (#1306).
+        expect(typeof currentLocalDateTime).toBe("string");
+        expect(currentLocalDateTime).toMatch(
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/,
+        );
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -149,7 +154,9 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
 
         expect(typeof currentTime).toBe("string");
 
-        const timeFormatRegex = /^\d{1,2}:\d{1,2}:\d{1,2}\.\d{1,9}$/;
+        // Exact widths: the old \d{1,2} / \d{1,9} form passed on "12:5:3.400",
+        // which is what let a 10^6 nanosecond error through review (#1306).
+        const timeFormatRegex = /^\d{2}:\d{2}:\d{2}\.\d{9}$/;
         expect(timeFormatRegex.test(currentTime)).toBe(true);
       },
       onFail: (error) => {
