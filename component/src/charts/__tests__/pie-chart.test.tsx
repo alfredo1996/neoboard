@@ -195,6 +195,54 @@ describe("PieChart", () => {
     expect(seriesData[2].value).toBe(10);
   });
 
+  it("keeps the N LARGEST slices, not the first N rows (#1287)", () => {
+    // Query order, not value order — which is what a database returns unless
+    // the user wrote ORDER BY. "Top 2" must mean Tablet(90) and Desktop(60),
+    // not Desktop(60) and Mobile(30) with the biggest slice buried in Other.
+    render(
+      <PieChart
+        data={[
+          { name: "Desktop", value: 60 },
+          { name: "Mobile", value: 30 },
+          { name: "Tablet", value: 90 },
+        ]}
+        topN={2}
+      />,
+    );
+    const seriesData = mockSetOption.mock.calls[0][0].series[0].data as Array<{
+      name: string;
+      value: number;
+    }>;
+
+    const names = seriesData.map((d) => d.name);
+    expect(names).toContain("Tablet");
+    expect(names).not.toContain("Mobile");
+    expect(seriesData.find((d) => d.name === "Other")?.value).toBe(30);
+  });
+
+  it("selects the top N by value even when sortSlices is off (#1287)", () => {
+    // sortSlices controls DISPLAY order; it must not decide which slices
+    // survive. With it off the survivors keep query order.
+    render(
+      <PieChart
+        data={[
+          { name: "A", value: 5 },
+          { name: "B", value: 100 },
+          { name: "C", value: 50 },
+        ]}
+        topN={2}
+        sortSlices={false}
+      />,
+    );
+    const seriesData = mockSetOption.mock.calls[0][0].series[0].data as Array<{
+      name: string;
+      value: number;
+    }>;
+
+    expect(seriesData.map((d) => d.name)).toEqual(["B", "C", "Other"]);
+    expect(seriesData[2].value).toBe(5);
+  });
+
   it("shows all slices when topN is 0", () => {
     render(<PieChart data={sampleData} topN={0} />);
     const optionsCall = mockSetOption.mock.calls[0][0];

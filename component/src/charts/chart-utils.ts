@@ -670,18 +670,39 @@ export function parseGaugeThresholdZones(
 // ---------------------------------------------------------------------------
 
 /**
- * Group pie chart data by keeping the top N slices and aggregating the rest
- * into an "Other" slice. Returns the original data when topN is 0 or >= data length.
- * Data must already be sorted descending by value.
+ * Group pie chart data by keeping the N largest slices and aggregating the
+ * rest into an "Other" slice. Returns the original data when topN is 0 or
+ * >= data length.
+ *
+ * Selects by VALUE, not by position. The previous version sliced the first N
+ * rows and documented "data must already be sorted descending" — a
+ * precondition nothing enforced. The pie chart's `sortSlices` defaults to
+ * false, so a query without ORDER BY meant "Top 5" showed the first five rows
+ * and could bury the largest value in "Other" (#1287).
+ *
+ * Survivors keep their INPUT order, so `sortSlices` still decides display
+ * order; this only decides which slices survive.
  */
 export function groupTopN(
   data: PieChartDataPoint[],
   topN: number,
 ): PieChartDataPoint[] {
   if (!data.length || topN <= 0 || topN >= data.length) return data;
-  const top = data.slice(0, topN);
-  const rest = data.slice(topN);
-  const otherValue = rest.reduce((sum, d) => sum + d.value, 0);
+
+  const cutoff = [...data]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, topN)
+    .map((d) => d.name);
+  const keep = new Set(cutoff);
+
+  const top: PieChartDataPoint[] = [];
+  let otherValue = 0;
+  for (const d of data) {
+    // Delete on match so duplicate names don't all survive on one slot.
+    if (keep.delete(d.name)) top.push(d);
+    else otherValue += d.value;
+  }
+
   return [...top, { name: "Other", value: otherValue }];
 }
 
