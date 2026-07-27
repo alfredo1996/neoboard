@@ -150,12 +150,15 @@ export class PostgresConnectionModule extends ConnectionModule {
               .map((k) => params[k])
           : [];
 
-      // Fetch rows. READ queries stream through a server-side cursor so a
-      // huge result set never buffers in memory — we pull at most rowLimit + 1
-      // rows (the MAX_ROWS+1 truncation probe). WRITE queries (Form widgets)
-      // keep the direct path: their result sets are small and we need the
-      // driver's affected-row count so an INSERT without RETURNING still
-      // reports COMPLETE rather than NO_DATA.
+      // Both paths stream through a server-side cursor so a huge result set
+      // never buffers in memory; each pulls at most rowLimit + 1 rows for the
+      // MAX_ROWS+1 truncation probe. They differ in how they STOP:
+      //   READ  stops as soon as truncation is known, releasing the portal.
+      //   WRITE drains to exhaustion, because PostgreSQL applies an
+      //         UPDATE ... RETURNING incrementally — rows never pulled are
+      //         never modified — and then reports the driver's affected-row
+      //         count so an INSERT without RETURNING still reads as COMPLETE
+      //         rather than NO_DATA (#1298, #1326).
       let fetchedRows: Record<string, unknown>[];
       let fields: FieldDef[] | undefined;
       let affectedRowCount: number | undefined;

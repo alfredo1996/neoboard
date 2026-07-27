@@ -24,7 +24,6 @@ jest.mock("../../src/postgresql/cursor-read", () => ({
     rows: [],
     fields: [],
     affectedRowCount: 0,
-    truncated: false,
   }),
 }));
 

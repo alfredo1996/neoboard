@@ -86,8 +86,6 @@ export interface DrainedCursor extends CursorBatch {
    * nothing, e.g. an INSERT without RETURNING.
    */
   affectedRowCount: number | undefined;
-  /** True when the statement produced more rows than `maxRows`. */
-  truncated: boolean;
 }
 
 /** Rows pulled per round-trip while draining. Bounds memory, not correctness. */
@@ -173,6 +171,5 @@ export async function drainBoundedCursor(
     // UPDATE that changed a thousand rows. When rows were produced, let the
     // caller derive the count from them.
     affectedRowCount: total > 0 ? undefined : affectedRowCount,
-    truncated: total > maxRows,
   };
 }

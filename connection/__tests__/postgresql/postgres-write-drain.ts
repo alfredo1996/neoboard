@@ -58,7 +58,9 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
   }, 120_000);
 
   afterAll(async () => {
-    await connectionModule.close();
+    // Guarded: if beforeAll throws before construction, an unguarded close()
+    // raises a TypeError that masks the real setup failure.
+    await connectionModule?.close();
     await container?.stop();
   }, 60_000);
 
@@ -68,7 +70,7 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
       (resolve, reject) => {
         const statuses: QueryStatus[] = [];
         connectionModule.runQuery(
-          { query, parameters: {} },
+          { query, params: {} },
           {
             onSuccess: (rows: unknown) =>
               resolve({ rows: rows as unknown[], statuses }),
@@ -79,7 +81,7 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
           },
           {
             ...DEFAULT_CONNECTION_CONFIG,
-            type: ConnectionTypes.POSTGRESQL,
+            connectionType: ConnectionTypes.POSTGRESQL,
             rowLimit: ROW_LIMIT,
             accessMode: "WRITE",
           },
@@ -93,8 +95,10 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
       `UPDATE counters SET n = n + 1 RETURNING *`,
     );
 
-    // The caller sees only the capped page...
-    expect(rows.length).toBeLessThanOrEqual(ROW_LIMIT);
+    // Exactly the cap, not merely "no more than" — `<=` would also pass if
+    // the drain returned nothing, which is the regression this suite exists
+    // to catch.
+    expect(rows).toHaveLength(ROW_LIMIT);
 
     // ...but every row must have been updated. This is the assertion that
     // fails on any implementation which stops reading the portal early.
