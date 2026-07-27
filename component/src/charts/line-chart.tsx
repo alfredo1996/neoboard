@@ -16,6 +16,7 @@ import {
   parseReferenceLines,
   buildMarkLineFromRefs,
   isTimeSeriesData,
+  buildCategoryAxisLabel,
   fadeToTransparent,
   isDark,
 } from "./chart-utils";
@@ -245,16 +246,32 @@ function LineChart({
           (useDualAxis && !compact ? 56 : 0) +
             (legendPos === "right" ? 40 : 0) || undefined,
       },
-      xAxis: {
-        type: useTimeAxis ? "time" : "category",
-        ...(useTimeAxis ? {} : { data: xValues.map(String) }),
-        name: compact ? undefined : xAxisLabel,
-        nameLocation: "middle",
-        nameGap: 30,
-        // Compact drops the axis *name* and the value numbers, never the x
-        // labels — ECharts already thins overlapping ones itself (#1247).
-        axisLabel: { show: true },
-      },
+      // Built as two literals rather than one object with ternaries: ECharts
+      // discriminates the axis union on `type`, so a `"time" | "category"`
+      // union defeats narrowing and the whole option fails to type-check.
+      // Compact drops the axis *name* and the value numbers, never the x
+      // labels (#1247). The category branch takes the shared config so long
+      // labels truncate exactly as they do on the bar chart; the time branch
+      // keeps plain labels, since ECharts formats and thins dates itself and
+      // the rotation heuristic is meaningless for them.
+      xAxis: useTimeAxis
+        ? {
+            type: "time" as const,
+            name: compact ? undefined : xAxisLabel,
+            nameLocation: "middle" as const,
+            nameGap: 30,
+            axisLabel: { show: true },
+          }
+        : {
+            type: "category" as const,
+            data: xValues.map(String),
+            name: compact ? undefined : xAxisLabel,
+            nameLocation: "middle" as const,
+            nameGap: 30,
+            axisLabel: buildCategoryAxisLabel(xValues.length, {
+              containerWidth: width,
+            }),
+          },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
       series: seriesKeys.map((key, idx) => buildSeries(key, idx)),
     };
@@ -278,6 +295,7 @@ function LineChart({
     rightYAxisLabel,
     compact,
     hideLegend,
+    width,
     samplingThreshold,
     samplingMethod,
   ]);

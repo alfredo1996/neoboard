@@ -145,6 +145,21 @@ describe("compact containers keep category identification (#1247)", () => {
     expect(axis.axisLabel?.show).toBe(false);
   });
 
+  it("line chart truncates long category labels like the bar chart does", () => {
+    const axis = categoryAxis(
+      axesOf(
+        <LineChart
+          data={[
+            { x: "Electronics & Media", value: 10 },
+            { x: "Home", value: 20 },
+          ]}
+        />,
+      ),
+    );
+    const formatter = axis.axisLabel?.formatter as (v: string) => string;
+    expect(formatter("Electronics & Media")).toBe("Electroni\u2026");
+  });
+
   it("line chart still labels its x axis", () => {
     const axes = axesOf(<LineChart data={lineData} />);
     expect(categoryAxis(axes).axisLabel?.show).toBe(true);
