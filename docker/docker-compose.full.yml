@@ -67,6 +67,12 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?missing — run `neoboard start`/`demo` (generates docker/.env) or set it}
       NEXTAUTH_URL: http://localhost:3000
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:?missing — run `neoboard start`/`demo` (generates docker/.env) or set it}
+      # Required to create the first admin. Unset means signup rejects every
+      # attempt, so the instance is unusable (#1312). Both prod compose files
+      # already pass it; this one did not. Optional (`:-`) rather than
+      # required (`:?`) so an existing docker/.env from before #1312 does not
+      # break the stack on upgrade — the CLI adds the value on next generate.
+      ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
