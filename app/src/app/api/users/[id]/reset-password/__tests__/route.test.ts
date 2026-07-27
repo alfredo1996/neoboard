@@ -209,6 +209,7 @@ describe("POST /api/users/[id]/reset-password", () => {
     );
     const { data } = await res.json();
 
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
     const [, entry] = mockAuditRequest.mock.calls[0];
     expect(JSON.stringify(entry)).not.toContain(data.generatedPassword);
   });
