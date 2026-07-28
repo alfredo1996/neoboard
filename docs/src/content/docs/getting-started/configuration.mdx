@@ -101,8 +101,33 @@ Default is synchronous JSON to stdout — 12-factor friendly, zero config. Every
 | `LOG_FILE_PATH` | File destination when `LOG_OUTPUT` includes `file` | `./logs/neoboard.log` |
 | `LOG_MAX_SIZE` | Rotation threshold | `50M` |
 | `LOG_MAX_FILES` | Retained rotated files | `7` |
-| `LOG_ANONYMIZE` | Hash `userId`/email, redact params and tokens, mask connection URIs before writing | `false` |
+| `LOG_ANONYMIZE` | Hash `userId`/email, redact query params, and mask the database username in connection URIs before writing | `false` |
 | `LOG_ANONYMIZE_SECRET` | Salt for the anonymizing hash. **Set this** if you enable anonymization — the built-in default is public | built-in |
+| `LOG_QUERY_TEXT` | Include the user's query text in the query audit trail | `true` |
+
+#### Credential redaction
+
+Credentials are stripped from every log line unconditionally — there is no
+variable to turn this off, and no call site has to ask for it. NeoBoard removes:
+
+- the password from any `scheme://user:password@host` URI, wherever it appears
+  — a field value, a log message, a driver error message, or a stack frame;
+- values under credential-shaped keys (`password`, `apiKey`, `token`,
+  `authorization`, `clientSecret`, …) at any depth, including inside arrays;
+- inline `PASSWORD '…'` and `password=…` literals in SQL, Cypher, and
+  libpq-style connection strings.
+
+What survives, because logs you cannot debug with are worse than none: the URI
+scheme, username, host, port and database; the error type, message, stack and
+driver code (SQLSTATE, `ECONNREFUSED`); and the connection, tenant and request
+identifiers.
+
+`LOG_ANONYMIZE` is a separate, additive concern — privacy rather than secrecy.
+It hashes user identities and masks the database username too.
+
+Set `LOG_QUERY_TEXT=false` if you would rather lose the "who ran what" audit
+trail than risk a user pasting a literal secret into a query. Credential
+redaction applies to query text either way.
 
 See [Monitoring](/administration/monitoring#log-monitoring) for log fields and aggregation.
 
