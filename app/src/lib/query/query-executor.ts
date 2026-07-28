@@ -205,10 +205,10 @@ function buildAdvancedOptions(credentials: ConnectionCredentials) {
   };
 }
 
-function getOrCreateModule(
+async function getOrCreateModule(
   type: DbType,
   credentials: ConnectionCredentials,
-): unknown {
+): Promise<unknown> {
   const key = getCacheKey(type, credentials);
   const entry = moduleCache.get(key);
   if (entry) {
@@ -221,7 +221,7 @@ function getOrCreateModule(
     // container, so a loopback URI can never reach the user's database. The
     // stored connection keeps what they typed; only the driver sees the
     // rewrite (#1346).
-    uri: resolveContainerHost(
+    uri: await resolveContainerHost(
       ensureDatabaseInUri(credentials.uri, credentials.database),
     ),
     username: credentials.username,
@@ -276,7 +276,7 @@ export async function executeQuery(
   truncated: boolean;
   rowLimit: number;
 }> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     runQuery: (
       params: unknown,
       callbacks: Record<string, unknown>,
@@ -352,7 +352,7 @@ export async function testConnection(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<boolean> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     checkConnection: (config: unknown) => Promise<boolean>;
   };
 
@@ -373,7 +373,7 @@ export async function listDatabases(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<string[]> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     listDatabases: () => Promise<string[]>;
   };
   return connModule.listDatabases();
@@ -387,7 +387,7 @@ export async function listSchemas(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<string[]> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     listSchemas?: () => Promise<string[]>;
   };
   if (typeof connModule.listSchemas !== "function") return [];
