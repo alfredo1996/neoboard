@@ -240,13 +240,25 @@ describe("the --expose-host overlay backs the hint that names it", () => {
           join(ROOT, "docker/docker-compose.full.yml"),
           "-f",
           join(ROOT, "docker/docker-compose.expose-host.yml"),
-          "--env-file",
-          join(ROOT, "docker/.env"),
           "config",
           "--format",
           "json",
         ],
-        { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] },
+        {
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+          // Placeholders for the compose file's `:?` required vars, rather
+          // than --env-file docker/.env: that file is gitignored and
+          // CLI-generated, so it exists on a developer machine and NOT in CI.
+          // Depending on it is how this check passed locally and failed there
+          // — the same trap as #1221, in the test written to avoid traps.
+          env: {
+            ...process.env,
+            ENCRYPTION_KEY: "0".repeat(64),
+            NEXTAUTH_SECRET: "test-secret",
+            API_KEY_HMAC_SECRET: "0".repeat(64),
+          },
+        },
       ),
     );
     expect(resolved.services.neoboard.extra_hosts).toContain(
