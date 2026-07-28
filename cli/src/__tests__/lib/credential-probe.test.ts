@@ -127,7 +127,7 @@ describe("probeCredentialDecryption (#1274)", () => {
     expect(vi.mocked(runFileOrNull).mock.calls[0][1]).toContain("5432");
   });
 
-  it("passes the SQL as ONE argv entry, with the identifier still quoted", () => {
+  it("passes the SQL as ONE argv entry, with the identifier still quoted", async () => {
     // The bug this replaces: the query went through a shell as
     //   psql ... -tAc "SELECT \"configEncrypted\" FROM connection LIMIT 1"
     // The inner quotes terminated the outer ones, so the shell delivered
@@ -143,7 +143,10 @@ describe("probeCredentialDecryption (#1274)", () => {
     // the command was malformed.
     vi.mocked(getMode).mockReturnValue("local");
     vi.mocked(runFileOrNull).mockReturnValue("");
-    void probeCredentialDecryption(KEY_A);
+    // await, not void: the query happens in the synchronous prefix of an
+    // async function today, so this passes either way — but an await added
+    // ahead of it later would make the assertions race the call.
+    await probeCredentialDecryption(KEY_A);
 
     const [file, args] = vi.mocked(runFileOrNull).mock.calls[0];
     expect(file).toBe("psql");
