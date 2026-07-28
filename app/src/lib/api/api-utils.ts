@@ -4,6 +4,7 @@ import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 import { isTransientQueryError } from "@/lib/query/transient-error-classifier";
 import { apiLogger } from "@/lib/logger";
+import { redactString } from "@/lib/log-redact";
 import { headers } from "next/headers";
 
 /**
@@ -58,6 +59,11 @@ export function serverError(msg = "Internal server error") {
  *   `(0 , __TURBOPACK__imported__module__$5b$project$5d...) is not a function`
  * These are meaningless to users and should be replaced with a clean
  * fallback. Also collapses stack-trace noise.
+ *
+ * Then strips credentials, using the same patterns as the logger rather than
+ * a second copy of them. This path is a response, not a log — but it carries
+ * the same raw driver messages, and a reader can trigger a query against a
+ * connection whose URI they have no right to see (#1227).
  */
 export function sanitizeErrorMessage(
   msg: string,
@@ -72,7 +78,7 @@ export function sanitizeErrorMessage(
   ) {
     return fallback;
   }
-  return msg;
+  return redactString(msg);
 }
 
 // ---------------------------------------------------------------------------
