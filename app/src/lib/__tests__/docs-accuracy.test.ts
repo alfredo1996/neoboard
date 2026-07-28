@@ -102,6 +102,27 @@ describe("documentation accuracy", () => {
     expect(doc).toContain("there is no `--skip-migrations` CLI flag");
   });
 
+  it("CLAUDE.md points at the tenant guard by path, and that path exists", () => {
+    // The section used to say a forgotten tenant filter is "a leak that
+    // nothing catches. Adding a guard is tracked in #1226." The guard shipped
+    // (#1351), so that was false in a direction that changes behaviour: an
+    // agent reading it would either duplicate the guard or reason more
+    // defensively than the code requires (#1355).
+    //
+    // Pinned by PATH rather than by phrasing, so a rewrite that drops the
+    // pointer fails while a rewrite that keeps it is free to reword.
+    const doc = readDoc("CLAUDE.md");
+    const guardPath = "app/src/lib/db/__tests__/tenant-scope.test.ts";
+    expect(doc).toContain(guardPath);
+    expect(existsSync(resolve(REPO_ROOT, guardPath))).toBe(true);
+
+    // The mandate itself is load-bearing and must survive any rewording: the
+    // ratchet is a test-time safety net, NOT runtime enforcement. An agent
+    // that believes the ORM scopes queries will write an unscoped one.
+    expect(doc).toMatch(/per query, in the route/);
+    expect(doc).toMatch(/not runtime enforcement/);
+  });
+
   it("the deploy skill does not send auditors looking for a flag that does not exist", () => {
     // CLAUDE.md was corrected but the deploy skill still listed
     // "`--skip-migrations` flag missing or undocumented" as a gap to capture

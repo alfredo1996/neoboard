@@ -128,7 +128,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 ## Multi-Tenancy
 
-- `tenant_id` column on ALL tables. Every DB query MUST include an explicit tenant filter — `eq(table.tenantId, session.tenantId)` — written **per query, in the route**. There is no ORM-level or middleware-level enforcement today (`app/src/lib/db/index.ts` is a plain Drizzle client), so a forgotten filter is a cross-tenant leak that nothing catches. Adding a guard is tracked in #1226.
+- `tenant_id` column on ALL tables. Every DB query MUST include an explicit tenant filter — `eq(table.tenantId, session.tenantId)` — written **per query, in the route**. There is no ORM-level or middleware-level enforcement today (`app/src/lib/db/index.ts` is a plain Drizzle client), so a forgotten filter is a cross-tenant leak that the ORM will not catch. A test-time ratchet (`app/src/lib/db/__tests__/tenant-scope.test.ts`, #1226) fails the build on any unscoped query against a tenant table — it is a safety net, not runtime enforcement, so the per-query filter is still mandatory.
 - Take `tenantId` from `requireSession()`, NEVER from the request body.
 - JWT tokens include `tenantId` claim. Validate before ANY DB or API access.
 - SaaS vs on-prem: env vars only, never code branches.
