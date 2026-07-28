@@ -45,6 +45,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepare": "[ ! -d src ] || npm run build",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "prepublishOnly": "npm run build"

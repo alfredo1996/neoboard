@@ -8,6 +8,11 @@ on:
       - 'docker/**'
       - 'scripts/seed-demo.mjs'
       - 'Dockerfile'
+      # connector-sdk's `prepare` runs during the Dockerfile's deps-stage
+      # `npm ci`, which has only the package manifests — no source. An
+      # unguarded prepare there fails the image build outright (#1356), and
+      # this is the only job that builds the image outside a release.
+      - 'connector-sdk/package.json'
       - '.github/workflows/cli-integration.yml'
   pull_request:
     branches: [main, dev, 'release/*']
@@ -16,6 +21,7 @@ on:
       - 'docker/**'
       - 'scripts/seed-demo.mjs'
       - 'Dockerfile'
+      - 'connector-sdk/package.json'
       - '.github/workflows/cli-integration.yml'
   workflow_dispatch:
 
@@ -45,9 +51,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Deliberately does NOT build connector-sdk first (#1356). `connection`
+      # cannot compile without `connector-sdk/dist`, and that directory is now
+      # produced by connector-sdk's `prepare` script during `npm ci` above.
+      # Open-coding the prerequisite here would still pass if `prepare` were
+      # removed — which is the regression worth catching, since it is what
+      # every fresh clone and worktree hits. So this step doubles as the check
+      # that a plain `npm ci` leaves the tree buildable.
+      #
+      # No `continue-on-error`: it previously hid the fact that this step had
+      # never once succeeded (42 TS2307, exit 1, on every run since it landed).
       - name: Build connection package
         run: npm -w connection run build
-        continue-on-error: true
 
       - name: Generate env files (app/.env.local + docker/.env)
         run: |
