@@ -198,9 +198,24 @@ describe("loopback from inside a container (#1346)", () => {
     expect(classifyConnectionError(DISCOVERY_ERROR)).toBe("network");
   });
 
-  it("names Docker and host.docker.internal in the hint", () => {
+  it("names Docker, the CLI flag, and host.docker.internal in the hint", () => {
     const hint = hintForConnectionErrorCode("container_loopback");
     expect(hint).toMatch(/host\.docker\.internal/);
     expect(hint).toMatch(/container/i);
+    // The hostname only resolves on Linux when the overlay is applied, so the
+    // hint has to say how to apply it.
+    expect(hint).toMatch(/--expose-host/);
+  });
+
+  it("says WHOSE localhost, because the URI is resolved server-side", () => {
+    // The connection is opened by the NeoBoard server, not the browser. On a
+    // deployed instance, a user typing `localhost` means the SERVER's
+    // localhost — and host.docker.internal is the server's host too, not
+    // theirs. A hint saying "not your machine" reads as though their own
+    // laptop were reachable. It is not, and the copy has to say so.
+    const hint = hintForConnectionErrorCode("container_loopback");
+    expect(hint).toMatch(/server/i);
+    expect(hint).toMatch(/your own computer/i);
+    expect(hint).toMatch(/not reachable|cannot see your machine/i);
   });
 });

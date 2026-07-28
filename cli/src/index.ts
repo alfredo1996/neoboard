@@ -48,12 +48,20 @@ program
   .description(
     "Start NeoBoard services, run migrations\n" +
       "  Docker mode: starts database containers (add --full for the app)\n" +
+      "  --expose-host: reach a database on this machine, outside Docker\n" +
       "  Local mode: connects to your running PostgreSQL + Neo4j",
   )
   .option("--full", "Docker mode: also start the app container (#968)", false)
+  .option(
+    "--expose-host",
+    "Let the app reach databases running on this machine, outside Docker " +
+      "(maps host.docker.internal). Then connect with " +
+      "host.docker.internal instead of localhost.",
+    false,
+  )
   .action(async (opts) => {
     const { runStart } = await import("./commands/start.js");
-    await runStart({ full: opts.full });
+    await runStart({ full: opts.full, exposeHost: opts.exposeHost });
   });
 
 program

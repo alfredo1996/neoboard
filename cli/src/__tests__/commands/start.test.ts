@@ -89,7 +89,10 @@ describe("runStart", () => {
 
   it("starts DB containers (not full stack) in docker mode", async () => {
     await runStart();
-    expect(mockComposeUp).toHaveBeenCalledWith({ full: false });
+    expect(mockComposeUp).toHaveBeenCalledWith({
+      full: false,
+      exposeHost: false,
+    });
   });
 
   it("skips composeUp in local mode", async () => {
@@ -269,5 +272,15 @@ describe("runStart", () => {
     await runStart({ full: false });
     const lines = mockBanner.mock.calls[0][0];
     expect(lines.some((l) => l.includes("docker/.env"))).toBe(false);
+  });
+
+  it("passes --expose-host through to compose (#1346)", () => {
+    // Off by default above; on only when asked for.
+    return runStart({ full: true, exposeHost: true }).then(() => {
+      expect(mockComposeUp).toHaveBeenCalledWith({
+        full: true,
+        exposeHost: true,
+      });
+    });
   });
 });

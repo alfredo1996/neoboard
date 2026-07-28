@@ -56,12 +56,6 @@ services:
       context: ..
       dockerfile: Dockerfile
     container_name: neoboard-app
-    # host.docker.internal resolves automatically on Docker Desktop but NOT
-    # on Linux without this. The connection-failure hint names it when a
-    # user points at a database on the host, so it has to resolve
-    # everywhere or the hint sends them somewhere that does not exist (#1346).
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "${NEOBOARD_PORT_APP:-3000}:3000"
     environment:

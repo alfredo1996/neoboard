@@ -26,6 +26,12 @@ export interface StartOptions {
    * Only applies to Docker mode.
    */
   full?: boolean;
+  /**
+   * Let the app container reach databases on the HOST machine, by mapping
+   * host.docker.internal (#1346). Opt-in: most installs do not need it, and it
+   * routes from the container out to the host's network.
+   */
+  exposeHost?: boolean;
 }
 
 /**
@@ -37,6 +43,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   const mode = getMode();
   const config = readProjectConfig();
   const full = opts?.full ?? false;
+  const exposeHost = opts?.exposeHost ?? false;
 
   // 1. Prerequisite checks
   const results = await runDoctor();
@@ -53,7 +60,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     } else {
       info("Starting database containers via Docker Compose...");
     }
-    composeUp({ full });
+    composeUp({ full, exposeHost });
   } else {
     info(
       "Local mode — skipping Docker. Ensure PostgreSQL and Neo4j are running.",

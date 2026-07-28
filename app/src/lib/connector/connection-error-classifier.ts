@@ -145,7 +145,7 @@ const HINTS: Record<ConnectionErrorCode, string> = {
   bad_uri:
     "The connection URI looks malformed. Confirm the scheme (e.g. `bolt://` or `neo4j+s://` for Neo4j, `postgresql://` for PostgreSQL) and that the host/port are present.",
   container_loopback:
-    "NeoBoard is running inside a container, so `localhost` means the container itself — not your machine. To reach a database running on your host, use `host.docker.internal` instead of `localhost` (e.g. `neo4j://host.docker.internal:7687`). A database in the same Docker network can be reached by its service name.",
+    "The connection is opened by the NeoBoard **server**, not by your browser — so `localhost` means the machine NeoBoard runs on, and right now that is the container it runs inside. If the database is on that same host, restart NeoBoard with `neoboard start --full --expose-host` and use `host.docker.internal` in place of `localhost` (e.g. `neo4j://host.docker.internal:7687`). A database in the same Docker network is reached by its service name. If the database is on **your own computer** and NeoBoard is deployed elsewhere, it is not reachable at all — the server cannot see your machine; expose it at a routable address first.",
   unknown:
     "Connection test failed for an unrecognised reason. Check the server logs for more detail.",
 };
