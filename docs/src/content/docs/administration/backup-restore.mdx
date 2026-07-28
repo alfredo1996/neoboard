@@ -9,6 +9,25 @@ NeoBoard stores all persistent data in PostgreSQL. Backing up NeoBoard means bac
 If you lose your `ENCRYPTION_KEY`, **all stored database credentials and SSO secrets become permanently unrecoverable**. Back up this key separately and store it in a secure location (e.g., a secrets manager or encrypted vault).
 :::
 
+:::danger[Rotating the key expires every earlier backup]
+A backup is only restorable with the key that was active when it was **taken**.
+[Key rotation](/getting-started/configuration) re-encrypts the live database
+with the new key, and its final step tells you to remove `ENCRYPTION_KEY_OLD` —
+at which point every dump taken before the rotation still holds ciphertext for
+the old key, and nothing can read it.
+
+Nothing in the rotation procedure warns you about this, and nothing in the
+backup itself signals which key it needs. Before rotating:
+
+1. Take a fresh backup **after** the rotation completes, and verify it restores.
+2. Keep the old key archived for as long as you keep pre-rotation backups —
+   discarding it is what makes them unrecoverable, not the rotation itself.
+3. Record which key each retained backup belongs to. The dump gives no hint.
+
+The database restores fine either way. It is the connector credentials and SSO
+client secrets inside it that become unreadable.
+:::
+
 ## What to back up
 
 | Item | Location | Why |
@@ -112,15 +131,29 @@ If using Docker for PostgreSQL:
 # Stop NeoBoard (keep PostgreSQL running)
 docker stop neoboard
 
-# Restore into the running PostgreSQL container
-cat neoboard_backup.sql | docker exec -i neoboard-postgres psql -U neoboard -d neoboard
+# Restore into the running PostgreSQL container.
+# --clean --if-exists drops each object before recreating it. Without it the
+# restore hits "already exists" and duplicate-key errors, because `docker stop
+# neoboard` stops the APP container — PostgreSQL keeps every row it had.
+docker exec -i neoboard-postgres pg_restore -U neoboard -d neoboard \
+  --clean --if-exists < neoboard_backup.dump
 
-# Or for custom-format dumps:
-docker exec -i neoboard-postgres pg_restore -U neoboard -d neoboard < neoboard_backup.dump
+# For plain-SQL dumps, drop and recreate the database instead — psql has no
+# equivalent flag, and a plain dump does not carry the DROP statements.
+docker exec -i neoboard-postgres dropdb -U neoboard --if-exists neoboard
+docker exec -i neoboard-postgres createdb -U neoboard neoboard
+cat neoboard_backup.sql | docker exec -i neoboard-postgres psql -U neoboard -d neoboard
 
 # Restart NeoBoard
 docker start neoboard
 ```
+
+:::caution[`--clean` is destructive by design]
+It drops the objects in the target before restoring. That is what makes the
+restore work against a non-empty database, and it means a restore of the wrong
+dump destroys the current data. Take a fresh dump of the target first if there
+is any doubt.
+:::
 
 ### Selective restore (single table)
 
@@ -128,6 +161,23 @@ docker start neoboard
 # Restore only dashboards
 pg_restore -d neoboard -t dashboard neoboard_backup.dump
 ```
+
+:::caution[Foreign keys make single-table restores order-dependent]
+`dashboard.userId` is `NOT NULL` and references `users.id`, so restoring
+`dashboard` into a database whose `users` rows are missing fails with a foreign
+key violation. Restore the referenced tables first, or restore the whole dump.
+
+The same applies to any table with a `NOT NULL` reference — check the target's
+constraints before assuming a table is standalone.
+
+`pg_restore` does **not** exit non-zero for this. It prints the violation and
+then `errors ignored on restore: 1`, leaving the table empty. Check the row
+count afterwards rather than trusting the exit status:
+
+```bash
+psql -U neoboard -d neoboard -c 'SELECT count(*) FROM dashboard;'
+```
+:::
 
 ## Environment variable backup
 
@@ -161,16 +211,27 @@ To migrate NeoBoard from one server to another:
 
 2. **Copy the backup and env vars to the new server**
 
-3. **Set up the new server:**
+3. **Set up the new server, without letting it migrate:**
    ```bash
    # Use the SAME ENCRYPTION_KEY as the source
    cp .env.source app/.env.local
-   docker compose -f docker/docker-compose.prod-full.yml up -d
+
+   # MIGRATE_ON_START defaults to 1 in the production image (Dockerfile), so
+   # booting normally here creates the schema on the empty database — and the
+   # restore in step 4 then collides with it. Start with migrations off.
+   MIGRATE_ON_START=0 docker compose -f docker/docker-compose.prod-full.yml up -d
    ```
 
 4. **Restore the database:**
    ```bash
-   pg_restore -h new-host -U neoboard -d neoboard migration.dump
+   pg_restore -h new-host -U neoboard -d neoboard --clean --if-exists migration.dump
+   ```
+
+   Then restart without the override, so the app applies any migrations the
+   dump predates:
+
+   ```bash
+   docker compose -f docker/docker-compose.prod-full.yml up -d --force-recreate
    ```
 
 5. **Verify:** Log in and check dashboards, connections, and users
