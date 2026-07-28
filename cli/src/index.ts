@@ -305,6 +305,20 @@ db.command("dump")
     await runDbDump({ output: opts.output, dataOnly: opts.dataOnly });
   });
 
+db.command("restore")
+  .description(
+    "Restore a database dump taken with `neoboard db dump` or pg_dump\n" +
+      "  --clean  Drop existing objects first (required for a non-empty target)\n" +
+      "  --force  Skip the confirmation and the running-app check",
+  )
+  .argument("<file>", "Path to the dump file (plain SQL or pg_dump -Fc)")
+  .option("--clean", "Drop existing objects before restoring")
+  .option("--force", "Skip confirmation prompt and preflight blocks")
+  .action(async (file, opts) => {
+    const { runDbRestore } = await import("./commands/db/restore.js");
+    await runDbRestore(file, { clean: opts.clean, force: opts.force });
+  });
+
 // Only parse when run directly (not when imported in tests)
 const isDirectRun =
   process.argv[1]?.endsWith("index.js") ||

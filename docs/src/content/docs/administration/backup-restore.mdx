@@ -108,6 +108,23 @@ dropdb neoboard_verify
 Restoring a backup replaces all current data. Make sure you have a backup of the current state before restoring.
 :::
 
+### Recommended: `neoboard db restore`
+
+```bash
+neoboard db restore backup.sql --clean
+```
+
+Prefer this over the manual recipes below. The preconditions the manual steps
+depend on are the ones that are easiest to skip under recovery pressure, and
+each fails late: a non-empty target collides partway through, a running app
+recreates the schema underneath the restore, and a mismatched `ENCRYPTION_KEY`
+surfaces only when a widget fails hours later. The command checks all three
+before touching anything, and verifies the key against the restored data
+afterwards. See [`db restore`](/cli/commands/#db-restore) for the flags.
+
+The manual procedures below remain correct, and are what you need when
+restoring somewhere the CLI is not installed.
+
 ### Full restore
 
 ```bash
