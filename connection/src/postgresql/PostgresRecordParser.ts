@@ -5,13 +5,43 @@ import { NeodashRecord } from "@neoboard/connector-sdk";
  * PostgreSQL Record Parser
  * Converts PostgreSQL result sets to NeodashRecord format.
  */
+/** pg type OIDs that arrive as TEXT because pg-types registers no parser. */
+const OID_INT8 = 20;
+const OID_NUMERIC = 1700;
+
 export class PostgresRecordParser extends NeodashRecordParser {
+  /**
+   * Parses rows, optionally promoting int8/numeric columns to numbers (#1307).
+   *
+   * `fields` is passed per call rather than stored on the instance: the parser
+   * is constructed once and shared across every concurrent query the scheduler
+   * dispatches on a connection, so per-query state here would corrupt across
+   * queries.
+   */
+  bulkParse(
+    records: Record<string, unknown>[],
+    fields?: ReadonlyArray<{ name: string; dataTypeID: number }>,
+  ): NeodashRecord[] {
+    const numericColumns = new Set(
+      (fields ?? [])
+        .filter(
+          (f) => f.dataTypeID === OID_INT8 || f.dataTypeID === OID_NUMERIC,
+        )
+        .map((f) => f.name),
+    );
+    return records.map((r) => this._parse(r, numericColumns));
+  }
+
   /**
    * Parses a single PostgreSQL row into a NeodashRecord.
    * @param _record - A single row from PostgreSQL query results
+   * @param _numericColumns - column names whose text should become numbers
    * @returns A NeodashRecord instance
    */
-  _parse(_record: Record<string, unknown>): NeodashRecord {
+  _parse(
+    _record: Record<string, unknown>,
+    _numericColumns?: ReadonlySet<string>,
+  ): NeodashRecord {
     // If already a NeodashRecord, return as is
     if (_record instanceof NeodashRecord) {
       return _record;
@@ -21,7 +51,11 @@ export class PostgresRecordParser extends NeodashRecordParser {
 
     for (const key in _record) {
       if (Object.hasOwn(_record, key)) {
-        parsed[key] = this._pgToNative(_record[key]);
+        const raw = _record[key];
+        parsed[key] =
+          _numericColumns?.has(key) && typeof raw === "string"
+            ? promoteNumericText(raw)
+            : this._pgToNative(raw);
       }
     }
 
@@ -51,6 +85,15 @@ export class PostgresRecordParser extends NeodashRecordParser {
     // million-key object. Emit Postgres's canonical `\x…` hex text instead. (#MEDIUM)
     if (Buffer.isBuffer(value)) {
       return "\\x".concat(value.toString("hex"));
+    }
+    // interval arrives as a prototype-bearing PostgresInterval whose own
+    // enumerable keys are only the NON-ZERO components, so the generic object
+    // copier below produced {days:1} for one row and {hours:2} for the next —
+    // a consumer reading .seconds got undefined rather than 0, and the
+    // prototype's toPostgres()/toISOString() were dropped. Emit Postgres's own
+    // canonical text instead, mirroring the bytea branch above (#1307).
+    if (isPostgresInterval(value)) {
+      return value.toPostgres();
     }
     if (typeof value === "object")
       return this.pgConvertPlainObject(value as object);
@@ -99,4 +142,43 @@ export class PostgresRecordParser extends NeodashRecordParser {
   private pgConvertPlainObject(value: object): Record<string, unknown> {
     return super.convertPlainObject(value, (v) => this._pgToNative(v));
   }
+}
+
+/**
+ * Promote int8/numeric text to a number when the VALUE survives a double.
+ *
+ * Mirrors the contract the Neo4j side applies via inSafeRange(): precision
+ * beats type-consistency. "9007199254740993" is 2^53+1 and would silently
+ * become ...992, so it stays a string — that is real data loss.
+ *
+ * A literal `String(n) === value` check is too strict, and would have left the
+ * single most common case broken: numeric(10,2) money arrives as "-12.50",
+ * whose round-trip is "-12.5". A trailing zero is FORMATTING, not value —
+ * display precision belongs to formatNumber, and refusing to promote here is
+ * exactly what makes a table sort "100" before "9" and a CSV export land as
+ * text in Excel. So the comparison normalises insignificant zeros away and
+ * still rejects anything that changes magnitude or significant digits.
+ */
+function promoteNumericText(value: string): string | number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value;
+  return canonicalNumeric(value) === canonicalNumeric(String(n)) ? n : value;
+}
+
+/** Strip formatting-only differences: leading +, trailing fraction zeros. */
+function canonicalNumeric(text: string): string {
+  const trimmed = text.trim().replace(/^\+/, "");
+  if (!trimmed.includes(".")) return trimmed;
+  return trimmed.replace(/0+$/, "").replace(/\.$/, "");
+}
+
+/** postgres-interval instances expose toPostgres() on their prototype. */
+function isPostgresInterval(
+  value: unknown,
+): value is { toPostgres: () => string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { toPostgres?: unknown }).toPostgres === "function"
+  );
 }

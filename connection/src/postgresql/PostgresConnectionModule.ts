@@ -213,13 +213,16 @@ export class PostgresConnectionModule extends ConnectionModule {
 
       // Parse results to NeodashRecord format
       const parsedRecords = config.parseToNeodashRecord
-        ? this.parser.bulkParse(limitedRows)
+        ? this.parser.bulkParse(limitedRows, fields)
         : limitedRows;
 
       // Set fields if callback is provided
       if (callbacks.setFields) {
         if (limitedRows.length > 0 && config.parseToNeodashRecord) {
-          const firstRecord = this.parser.bulkParse([limitedRows[0]])[0];
+          const firstRecord = this.parser.bulkParse(
+            [limitedRows[0]],
+            fields,
+          )[0];
           callbacks.setFields(
             firstRecord.getFields(config.useNodePropsAsFields),
           );
