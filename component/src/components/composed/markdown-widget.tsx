@@ -314,11 +314,15 @@ function processInline(text: string): string {
   // Tags this function emits, parked behind placeholders so the emphasis
   // passes below cannot see them. They used to: a `_` inside a URL, or the one
   // in the generated target="_blank", read as user emphasis and got <em>
-  // spliced into href/src/target, leaving a dead link (#1290). The placeholder
-  // holds no markdown metacharacter, and only the TAG is stashed — link text
-  // stays in the stream so [*emphasised*](url) still works.
+  // spliced into href/src/target, leaving a dead link (#1290). Only the TAG is
+  // stashed — link text stays in the stream so [*emphasised*](url) still works.
+  //
+  // `<tN>` is collision-proof by construction, not by luck: escapeHtml has
+  // already turned every user `<` into `&lt;`, so any raw `<` remaining in the
+  // stream is one we wrote. It also carries no markdown metacharacter, so the
+  // bold/italic/strikethrough passes below step over it.
   const tags: string[] = [];
-  const stash = (tag: string) => `\u0000t${tags.push(tag) - 1}\u0000`;
+  const stash = (tag: string) => `<t${tags.push(tag) - 1}>`;
 
   // Inline code — $1 is already HTML-escaped, safe to embed directly.
   result = result.replace(
@@ -370,13 +374,7 @@ function processInline(text: string): string {
   // Strikethrough: ~~text~~
   result = result.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
-  // `?? _m`: escapeHtml does not strip control characters, so content holding
-  // a literal NUL could shape a placeholder we never emitted. Out of range
-  // leaves the text as-is rather than substituting "undefined".
-  return result.replace(
-    /\u0000t(\d+)\u0000/g,
-    (_m, i: string) => tags[+i] ?? _m,
-  );
+  return result.replace(/<t(\d+)>/g, (_m, i: string) => tags[+i]);
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
