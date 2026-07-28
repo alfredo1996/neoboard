@@ -219,3 +219,23 @@ describe("docs accuracy guards (#1316)", () => {
     expect(broken).toEqual([]);
   });
 });
+
+// Not docs, but the same class of silent-wrong: a hint that names a hostname
+// which does not resolve is worse than no hint. The connection-failure hint
+// tells users to reach a host database via host.docker.internal, which Docker
+// Desktop provides automatically and Linux does NOT — it needs an explicit
+// host-gateway mapping. Nothing else would catch its absence (#1346).
+describe("compose guarantees the hostname our hints name", () => {
+  it("maps host.docker.internal in every compose file that runs the app", () => {
+    const withApp = ["full", "prod", "prod-full"].map(
+      (n) => `docker/docker-compose.${n}.yml`,
+    );
+    const missing = withApp.filter(
+      (f) =>
+        !readFileSync(join(ROOT, f), "utf8").includes(
+          "host.docker.internal:host-gateway",
+        ),
+    );
+    expect(missing).toEqual([]);
+  });
+});
