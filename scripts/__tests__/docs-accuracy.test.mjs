@@ -170,6 +170,22 @@ describe("docs accuracy guards (#1316)", () => {
     expect([...unknown]).toEqual([]);
   });
 
+  it("documents no Bearer token the app would reject", () => {
+    // `resolveApiKeyAuth` resolves `Authorization: Bearer` ONLY for the `nb_`
+    // API-key prefix; anything else falls through to cookie auth and 401s. The
+    // key-rotation runbook told operators to send a session cookie as a Bearer
+    // token (#1277) — during a suspected key compromise, mid-procedure, with
+    // the next step being "delete the old key". A wrong auth scheme in a curl
+    // is prose to every other check here, so it gets its own.
+    const bad = [];
+    for (const { path, text } of DOCS)
+      for (const m of text.matchAll(/Authorization:\s*Bearer\s+(\S+)/g))
+        if (!m[1].startsWith("nb_") && !m[1].startsWith("`nb_"))
+          bad.push(`${m[1]} (${path})`);
+
+    expect(bad).toEqual([]);
+  });
+
   it("has no broken internal links", () => {
     // Starlight slug: path under the content root, minus extension, with
     // index collapsing to its directory. Trailing slash is optional in links.
