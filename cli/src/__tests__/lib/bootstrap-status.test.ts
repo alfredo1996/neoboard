@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../lib/exec.js", () => ({ runOrNull: vi.fn() }));
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   readProjectConfig: vi.fn(() => ({ ports: { app: 3000 } })),
 }));
 

@@ -12,6 +12,7 @@ vi.mock("../../lib/health.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   readProjectConfig: vi.fn(() => ({
     ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
   })),

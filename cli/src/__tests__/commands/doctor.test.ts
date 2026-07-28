@@ -9,6 +9,7 @@ vi.mock("../../lib/ports.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: {
     root: "/project",
     appDir: "/project/app",

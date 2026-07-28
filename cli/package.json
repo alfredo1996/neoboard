@@ -28,6 +28,7 @@
   },
   "files": [
     "dist",
+    "docker",
     "README.md",
     "LICENSE"
   ],
@@ -41,7 +42,9 @@
     "test": "SKIP_INTEGRATION=1 vitest run",
     "test:integration": "vitest run src/__tests__/integration",
     "test:watch": "vitest",
-    "test:coverage": "SKIP_INTEGRATION=1 vitest run --coverage"
+    "test:coverage": "SKIP_INTEGRATION=1 vitest run --coverage",
+    "prepack": "node scripts/stage-compose.mjs",
+    "postpack": "rm -rf docker"
   },
   "dependencies": {
     "chalk": "^5.0.0",

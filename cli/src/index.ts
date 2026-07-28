@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { error as logError } from "./lib/output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -302,5 +303,12 @@ const isDirectRun =
   process.argv[1]?.endsWith("neoboard");
 
 if (isDirectRun) {
-  program.parse();
+  // A rejected command action otherwise surfaces as Node's unhandled-rejection
+  // dump: the message buried under a stack trace rooted in dist/, which reads
+  // as a crash rather than as the CLI telling you something (#1315). Commands
+  // throw to say "you cannot do that here"; print that and nothing else.
+  program.parseAsync().catch((err: unknown) => {
+    logError(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+  });
 }

@@ -7,6 +7,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 vi.mock("../../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { root: "/project" },
   readProjectConfig: vi.fn(() => ({
     ports: { postgres: 5432 },

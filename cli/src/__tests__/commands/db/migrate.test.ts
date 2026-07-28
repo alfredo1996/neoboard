@@ -20,6 +20,7 @@ vi.mock("../../../lib/exec.js", () => ({
 }));
 
 vi.mock("../../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: {
     journalPath: "/project/app/drizzle/migrations/meta/_journal.json",
     appDir: "/project/app",
