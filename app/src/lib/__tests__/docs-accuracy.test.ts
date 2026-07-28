@@ -121,6 +121,13 @@ describe("documentation accuracy", () => {
     // that believes the ORM scopes queries will write an unscoped one.
     expect(doc).toMatch(/per query, in the route/);
     expect(doc).toMatch(/not runtime enforcement/);
+
+    // And the stale claim must stay gone. Asserting only that the NEW text is
+    // present would pass if someone reintroduced "nothing catches it /
+    // tracked in #1226" alongside it — leaving the document contradicting
+    // itself, which is worse for a reader than either version alone.
+    expect(doc).not.toMatch(/tracked in #1226/i);
+    expect(doc).not.toMatch(/leak that nothing catches/i);
   });
 
   it("the deploy skill does not send auditors looking for a flag that does not exist", () => {
