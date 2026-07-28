@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
@@ -142,6 +142,19 @@ function MapChart({
 
   const dark = useDarkMode();
 
+  // Leaflet's LatLng constructor throws on non-finite input, and MapChart does
+  // not go through BaseChart's setOption try/catch — so one row whose latitude
+  // column held "40.7128 N" took down the entire map, all 999 good markers
+  // with it, showing only "Chart failed to render" (#1288). Filtered here
+  // rather than in the map transform because markers reaching this component
+  // are not required to have come from it.
+  const validMarkers = useMemo(
+    () =>
+      markers.filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng)),
+    [markers],
+  );
+  const skippedCount = markers.length - validMarkers.length;
+
   // Latest-ref for the click callback so a fresh inline `onMarkerClick`
   // identity (the common case — parents pass an arrow) does not re-run the
   // marker-build effect and tear down/rebuild every marker on each render.
@@ -220,7 +233,7 @@ function MapChart({
     ).addTo(map);
     markersLayerRef.current = layer;
 
-    markers.forEach((m) => {
+    validMarkers.forEach((m) => {
       // Rule-based color: evaluate against marker.value
       const ruleColor =
         stylingRules?.length && m.value != null
@@ -257,7 +270,7 @@ function MapChart({
       circleMarker.addTo(layer);
     });
   }, [
-    markers,
+    validMarkers,
     markerSize,
     clusterMarkers,
     showPopup,
@@ -270,12 +283,12 @@ function MapChart({
   // the markers themselves change, preserving the user's pan/zoom otherwise.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !autoFitBounds || markers.length === 0) return;
+    if (!map || !autoFitBounds || validMarkers.length === 0) return;
     const bounds = L.latLngBounds(
-      markers.map((m) => [m.lat, m.lng] as [number, number]),
+      validMarkers.map((m) => [m.lat, m.lng] as [number, number]),
     );
     map.fitBounds(bounds, { padding: fitBoundsPadding });
-  }, [markers, autoFitBounds, fitBoundsPadding]);
+  }, [validMarkers, autoFitBounds, fitBoundsPadding]);
 
   if (error) {
     return (
@@ -298,6 +311,16 @@ function MapChart({
         className="h-full w-full"
         data-testid="map-chart"
       />
+      {skippedCount > 0 && (
+        // Dropping the rows silently would hide the data problem, which is the
+        // part the operator can actually fix.
+        <div
+          role="status"
+          className="absolute bottom-2 left-2 z-[1000] rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground"
+        >
+          {skippedCount} rows skipped (invalid coordinates)
+        </div>
+      )}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-[1000]">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />

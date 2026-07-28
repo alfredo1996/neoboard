@@ -359,4 +359,60 @@ describe("MapChart", () => {
       expect(calls[0][1].fillColor).not.toBe("#ff0000");
     });
   });
+  // Leaflet's LatLng constructor throws on non-finite input, and MapChart is
+  // the one chart in the package that does not route through BaseChart's
+  // try/catch — so a single dirty row replaced the whole map, every valid
+  // marker with it, with the generic "Chart failed to render" card (#1288).
+  describe("non-finite coordinates (#1288)", () => {
+    const good = { id: "1", lat: 40.7128, lng: -74.006 };
+    const bad = { id: "2", lat: NaN, lng: NaN };
+
+    it("draws only the finite markers", () => {
+      render(<MapChart markers={[good, bad]} />);
+      const calls = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls).toHaveLength(1);
+      expect(calls[0][0]).toEqual([40.7128, -74.006]);
+    });
+
+    it("excludes them from the auto-fit bounds", () => {
+      render(<MapChart markers={[good, bad]} autoFitBounds />);
+      const calls = (L.latLngBounds as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls[0][0]).toEqual([[40.7128, -74.006]]);
+    });
+
+    it("skips fitBounds entirely when no marker is finite", () => {
+      render(
+        <MapChart
+          markers={[bad, { id: "3", lat: 1, lng: NaN }]}
+          autoFitBounds
+        />,
+      );
+      expect(mockFitBounds).not.toHaveBeenCalled();
+      expect(screen.getByTestId("map-chart")).toBeInTheDocument();
+    });
+
+    it("tells the user how many rows were skipped", () => {
+      // Silently dropping them would hide the data problem, which is the
+      // thing the operator actually needs to fix.
+      render(
+        <MapChart
+          markers={[
+            good,
+            { id: "4", lat: 1, lng: 2 },
+            { id: "5", lat: 3, lng: 4 },
+            bad,
+            { id: "6", lat: NaN, lng: 5 },
+          ]}
+        />,
+      );
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "2 rows skipped (invalid coordinates)",
+      );
+    });
+
+    it("shows no notice when every marker is finite", () => {
+      render(<MapChart markers={[good]} />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+  });
 });
