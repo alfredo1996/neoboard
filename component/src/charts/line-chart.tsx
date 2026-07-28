@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps, LineChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -18,7 +18,6 @@ import {
   isTimeSeriesData,
   buildCategoryAxisLabel,
   fadeToTransparent,
-  isDark,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -133,9 +132,12 @@ function LineChart({
 }: LineChartProps & { samplingThreshold?: number; samplingMethod?: string }) {
   const { width, height, containerRef } = useContainerSize();
   const { compact, hideLegend } = getCompactState(width, height);
+  // Subscribed, not sampled: the memo below decides the area fill and the
+  // empty-state colour from the theme, so it has to rebuild on a toggle (#1286).
+  const dark = useDarkMode();
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) return buildEmptyDataOption();
+    if (!data.length) return buildEmptyDataOption(dark);
 
     const seriesKeys = collectSeriesKeys(data);
     const effectiveShowLegend = resolveShowLegend(
@@ -202,7 +204,7 @@ function LineChart({
         // light-mode affordance only, which is why the opacities below are no
         // longer theme-dependent.
         areaStyle:
-          area && !isDark()
+          area && !dark
             ? seriesColor
               ? {
                   opacity: 0.15,
@@ -298,6 +300,7 @@ function LineChart({
     width,
     samplingThreshold,
     samplingMethod,
+    dark,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the

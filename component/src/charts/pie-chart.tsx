@@ -82,7 +82,7 @@ function PieChart({
   // EChartsOption from modular imports may not include 'graphic' —
   // we use GraphicComponent which extends the option type at runtime.
   const options = useMemo((): EChartsOption & { graphic?: unknown } => {
-    if (!data.length) return buildEmptyDataOption();
+    if (!data.length) return buildEmptyDataOption(dark);
 
     const effectiveShowLabel = compact ? false : showLabel;
     const effectiveShowLegend = hideLegend ? false : showLegend;

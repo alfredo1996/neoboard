@@ -449,31 +449,26 @@ export function fadeToTransparent(color: string): string {
   return "rgba(0, 0, 0, 0)";
 }
 
-/** Detect whether the document is currently in dark mode. */
-export function isDark(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.documentElement.classList.contains("dark");
-}
-
 /**
  * Build the "No data" option with a theme-aware text color.
- * Falls back to neutral gray when document is unavailable (SSR).
  *
  * Matches the exact --muted-foreground hex the registered ECharts themes use
  * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
  * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
+ *
+ * `dark` is a required argument, not a DOM read. This used to call an isDark()
+ * helper that read <html class="dark"> synchronously; every caller invokes it
+ * from inside a useMemo whose deps carry no theme entry, so the colour froze
+ * at mount-time theme (#1286). Making it a parameter forces each caller to
+ * subscribe via useDarkMode() and makes the compiler the enforcement.
  */
-function resolveEmptyDataColor(): string {
-  return isDark() ? "#959ba7" : "#666d7a";
-}
-
-export function buildEmptyDataOption(): EChartsOption {
+export function buildEmptyDataOption(dark: boolean): EChartsOption {
   return {
     title: {
       text: "No data",
       left: "center",
       top: "center",
-      textStyle: { color: resolveEmptyDataColor(), fontSize: 14 },
+      textStyle: { color: dark ? "#959ba7" : "#666d7a", fontSize: 14 },
     },
   };
 }

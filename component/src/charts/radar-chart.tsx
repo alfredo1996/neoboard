@@ -8,7 +8,7 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
@@ -76,9 +76,13 @@ function RadarChart({
   const compact = width > 0 && (width < 300 || height < 200);
   const hideLegend = width > 0 && height < 200;
 
+  // The empty-state colour comes from the theme, so this memo has to
+  // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
+  const dark = useDarkMode();
+
   const options = useMemo((): EChartsOption => {
     if (!data.indicators.length || !data.series.length)
-      return buildEmptyDataOption();
+      return buildEmptyDataOption(dark);
 
     const effectiveShowLegend =
       hideLegend || compact ? false : showLegend && data.series.length > 1;
@@ -149,6 +153,7 @@ function RadarChart({
     hideLegend,
     stylingRules,
     paramValues,
+    dark,
   ]);
 
   return (
