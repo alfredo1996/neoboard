@@ -52,7 +52,8 @@ vi.mock("dotenv", () => ({
 
 import { runOrNull } from "../../lib/exec.js";
 import { isPortAvailable } from "../../lib/ports.js";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { getMode } from "../../lib/config.js";
 import {
   checkDockerRunning,
   checkDockerComposeV2,
@@ -213,6 +214,47 @@ describe("runDoctor", () => {
         outcome: "unavailable",
       });
       expect((await credentialCheck())?.status).toBe("skip");
+    });
+
+    it("reads the key from docker/.env in Docker mode", async () => {
+      vi.mocked(getMode).mockReturnValue("docker");
+      await runDoctor();
+      expect(vi.mocked(readFileSync).mock.calls.at(-1)?.[0]).toBe(
+        "/project/docker/.env",
+      );
+      expect(vi.mocked(probeCredentialDecryption)).toHaveBeenCalledWith(
+        "a".repeat(64),
+      );
+    });
+
+    it("reads app/.env.local in local mode", async () => {
+      // Different file per mode, or doctor checks a key the app never loads.
+      vi.mocked(getMode).mockReturnValue("local");
+      await runDoctor();
+      expect(vi.mocked(readFileSync).mock.calls.at(-1)?.[0]).toBe(
+        "/project/app/.env.local",
+      );
+    });
+
+    it("probes with no key when the env file is absent", async () => {
+      mockExistsSync.mockReturnValue(false);
+      await runDoctor();
+      expect(vi.mocked(probeCredentialDecryption)).toHaveBeenCalledWith(
+        undefined,
+      );
+    });
+
+    it("probes with no key when the env file cannot be parsed", async () => {
+      // A truncated or half-written .env must not crash doctor — the command
+      // an operator runs when things are already broken.
+      vi.mocked(readFileSync).mockImplementationOnce(() => {
+        throw new Error("EACCES");
+      });
+      const results = await runDoctor();
+      expect(vi.mocked(probeCredentialDecryption)).toHaveBeenCalledWith(
+        undefined,
+      );
+      expect(results).toHaveLength(10);
     });
 
     it("leaks no ciphertext or key material into any message", async () => {

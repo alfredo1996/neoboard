@@ -33,6 +33,13 @@ export type CredentialDecryptionStatus =
  * travelling any further.
  */
 export async function probeCredentialDecryption(): Promise<CredentialDecryptionStatus> {
+  // A missing or malformed key is a configuration problem, already reported by
+  // env-config at boot. Reporting it as "mismatch" would send the operator to
+  // rotate a key that does not exist — the same misdiagnosis as calling
+  // malformed ciphertext a key failure. Matches the CLI probe's behaviour.
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key || key.length !== 64) return "unknown";
+
   try {
     const rows = await db.execute<{ configEncrypted: string }>(
       sql`SELECT "configEncrypted" FROM connection LIMIT 1`,
