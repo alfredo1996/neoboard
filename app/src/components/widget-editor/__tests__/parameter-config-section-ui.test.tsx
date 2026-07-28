@@ -389,6 +389,23 @@ describe("ParameterConfigSection", () => {
     expect(mockSetChartOptions).toHaveBeenCalled();
   });
 
+  it("ignores a cleared range input instead of committing 0 (#1292)", () => {
+    mockStoreState.paramUIType = "number-range";
+    mockStoreState.chartOptions = { rangeMin: 0, rangeMax: 100, rangeStep: 1 };
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Range maximum"), {
+      target: { value: "" },
+    });
+    // Number("") is 0 — clearing the field used to write rangeMax: 0, which
+    // the controlled input then rendered back, so it could not be retyped.
+    expect(mockSetChartOptions).not.toHaveBeenCalled();
+  });
+
   // ── cascading editor (regression: #861) ────────────────────────────
   it("shows parent-parameter input for cascading type", () => {
     mockStoreState.paramUIType = "cascading";
