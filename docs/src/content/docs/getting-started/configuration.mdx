@@ -18,10 +18,11 @@ API_KEY_HMAC_SECRET="your-64-char-hex-key-here"
 NEXTAUTH_URL="http://localhost:3000"
 ```
 
-Generate all four secrets at once:
+Generate every secret at once — including `ADMIN_BOOTSTRAP_TOKEN`, which you need
+minutes later to create the first admin account:
 
 ```bash
-neoboard env init
+neoboard env
 ```
 
 Or by hand:

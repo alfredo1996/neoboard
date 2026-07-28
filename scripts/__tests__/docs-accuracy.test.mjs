@@ -108,31 +108,66 @@ describe("docs accuracy guards (#1316)", () => {
   });
 
   it("references no CLI command the CLI does not register", () => {
-    // commander registers each verb as .command("name") or .command("name <arg>").
+    // Validates the FULL invocation, not just the first verb. `neoboard env
+    // init` shipped on three docs pages and errored on every run (#1311) —
+    // `env` is registered, so a first-verb-only check waves it through. That
+    // check was this test's first version, and it did exactly that.
+    //
+    // The signal for "may a word follow this command?" is commander's own
+    // registration string: `.command("logs [service]")` declares an argument,
+    // `.command("env")` declares none, and a variable-assigned command is a
+    // sub-command group whose children are the only words allowed after it.
     const cliSrc = readFileSync(join(ROOT, "cli/src/index.ts"), "utf8");
-    const registered = new Set(
-      [...cliSrc.matchAll(/\.command\(\s*"([a-z][a-z-]*)/g)].map((m) => m[1]),
-    );
-    // Sub-commands are registered on their parent (`config list`), so a flat
-    // set of verbs is the right granularity — `neoboard list` and
-    // `neoboard config list` both resolve to a registered "list".
+
+    const takesArg = {}; // name -> declares <arg> or [arg]
+    const children = {}; // name -> Set of registered sub-commands
+    const known = new Set();
+
+    const declare = (sig) => {
+      const name = sig.split(/[\s<[]/)[0];
+      known.add(name);
+      takesArg[name] = /[<[]/.test(sig);
+      return name;
+    };
+    for (const m of cliSrc.matchAll(/program\s*\n?\s*\.command\(\s*"([^"]+)"/g))
+      declare(m[1]);
+    for (const m of cliSrc.matchAll(
+      /(?:const|let)\s+(\w+)\s*=\s*program\s*\n?\s*\.command\(\s*"([^"]+)"/g,
+    )) {
+      const group = declare(m[2]);
+      children[group] = new Set(
+        [
+          ...cliSrc.matchAll(
+            new RegExp(`\\b${m[1]}\\s*\\n?\\s*\\.command\\(\\s*"([^"]+)"`, "g"),
+          ),
+        ].map((c) => {
+          const child = declare(c[1]);
+          return child;
+        }),
+      );
+    }
+    expect(known.size).toBeGreaterThan(5); // the regexes still match
 
     // "neoboard" is also the Postgres user and database name, so it appears
     // mid-line in pg_dump invocations. Only count it at a command position:
     // start of line (optionally after a `$` prompt) or opening a code span.
-    const referenced = new Set();
+    const unknown = new Set();
     for (const { path, text } of DOCS)
       for (const m of text.matchAll(
-        /(?:^[ \t]*\$?[ \t]*|`)neoboard[ \t]+([a-z][a-z-]{2,})\b/gm,
-      ))
-        referenced.add(`${m[1]}|${path}`);
+        /(?:^[ \t]*\$?[ \t]*|`)neoboard[ \t]+([a-z][a-z-]{2,})(?:[ \t]+([a-z][a-z-]{2,}))?/gm,
+      )) {
+        const [, verb, next] = m;
+        if (!known.has(verb)) {
+          unknown.add(`neoboard ${verb} (${path})`);
+        } else if (next && !takesArg[verb]) {
+          // No declared argument, so the only legal next word is a registered
+          // sub-command of this group.
+          if (!children[verb]?.has(next))
+            unknown.add(`neoboard ${verb} ${next} (${path})`);
+        }
+      }
 
-    const unknown = [...referenced]
-      .filter((entry) => !registered.has(entry.split("|")[0]))
-      .map((entry) => entry.replace("|", " ("))
-      .map((s) => `${s})`);
-
-    expect(unknown).toEqual([]);
+    expect([...unknown]).toEqual([]);
   });
 
   it("has no broken internal links", () => {

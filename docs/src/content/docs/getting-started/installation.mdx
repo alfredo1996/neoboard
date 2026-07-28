@@ -39,9 +39,16 @@ npm install
 # Start the dev database containers
 docker compose -f docker/docker-compose.yml up -d
 
-# Configure environment + generate secrets
-cp app/.env.example app/.env.local
-neoboard env init   # generates ENCRYPTION_KEY, NEXTAUTH_SECRET, API_KEY_HMAC_SECRET
+# Configure environment + generate secrets.
+# `neoboard env` WRITES app/.env.local — no copy needed, and copying first only
+# leaves example placeholders for the generator to reconcile.
+neoboard env
+
+# Writes DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET, NEXTAUTH_URL,
+# API_KEY_HMAC_SECRET and ADMIN_BOOTSTRAP_TOKEN into app/.env.local.
+# ADMIN_BOOTSTRAP_TOKEN is the one you need minutes later to create the first
+# admin — the command prints it, so keep the output. (Docker mode writes the
+# same set to docker/.env instead.)
 
 # Run migrations and start the dev server
 npm run db:migrate
