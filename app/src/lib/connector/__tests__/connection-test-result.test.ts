@@ -32,4 +32,35 @@ describe("connection-test-result (#1043)", () => {
     expect(r.success).toBe(false);
     expect(r.code).toBe("unknown");
   });
+
+  // The URI has to reach the classifier for it to spot a Docker networking
+  // miss — the route already has it, and passing it is the whole wiring (#1346).
+  it("passes the URI and container flag through to the classifier", () => {
+    expect(
+      connectionTestErrorResult(
+        new Error("Could not perform discovery. No routing servers available."),
+        { uri: "neo4j://localhost:7688", containerised: true },
+      ).code,
+    ).toBe("container_loopback");
+  });
+
+  it("still classifies as network when no context is given", () => {
+    // Both call sites must keep working unchanged if the context is absent.
+    expect(
+      connectionTestErrorResult(
+        new Error("Could not perform discovery. No routing servers available."),
+      ).code,
+    ).toBe("network");
+  });
+
+  it("never echoes the URI into the user-facing error", () => {
+    // A URI can carry a password. The classifier reads it; the result must not
+    // carry it back out.
+    const r = connectionTestErrorResult(new Error("ECONNREFUSED"), {
+      uri: "postgresql://admin:hunter2@localhost:5432/app",
+      containerised: true,
+    });
+    expect(JSON.stringify(r)).not.toContain("hunter2");
+    expect(JSON.stringify(r)).not.toContain("localhost:5432");
+  });
 });

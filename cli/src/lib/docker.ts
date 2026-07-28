@@ -59,20 +59,45 @@ function composeEnv(): NodeJS.ProcessEnv {
   };
 }
 
-export function composeUp(opts?: { full?: boolean }): void {
+/**
+ * Overlay that lets the app container reach databases on the HOST (#1346).
+ *
+ * Opt-in per run rather than baked into the base compose files: most installs
+ * do not need it — a database in the same compose network is reached by its
+ * service name, a remote one by its hostname — and it routes from the
+ * container to the host's network, which is not something to enable for
+ * everyone by default.
+ *
+ * Layered AFTER the base file: compose merges left to right, so an overlay
+ * listed first would be overridden by the base and silently do nothing.
+ */
+function exposeHostFlag(exposeHost: boolean | undefined): string {
+  return exposeHost
+    ? ` -f "${join(paths.dockerDir, "docker-compose.expose-host.yml")}"`
+    : "";
+}
+
+export function composeUp(opts?: {
+  full?: boolean;
+  exposeHost?: boolean;
+}): void {
   const file = composeFile(opts?.full);
+  const overlay = exposeHostFlag(opts?.exposeHost);
   const env = composeEnv();
   if (opts?.full) {
     // The full stack needs per-install secrets (#970); generated once,
     // reused forever. OS env still overrides --env-file values (CI).
     const envFile = ensureDockerEnvFile();
-    run(`docker compose -f "${file}" --env-file "${envFile}" up -d --build`, {
-      cwd: paths.root,
-      env,
-    });
+    run(
+      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d --build`,
+      { cwd: paths.root, env },
+    );
     return;
   }
-  run(`docker compose -f "${file}" up -d --build`, { cwd: paths.root, env });
+  run(`docker compose -f "${file}"${overlay} up -d --build`, {
+    cwd: paths.root,
+    env,
+  });
 }
 
 export function composeDown(opts?: { volumes?: boolean }): void {

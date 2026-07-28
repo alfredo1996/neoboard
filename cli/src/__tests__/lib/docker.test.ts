@@ -97,6 +97,43 @@ describe("composeUp", () => {
     );
   });
 
+  // Reaching a database on the HOST is opt-in per run (#1346): most installs
+  // do not need it — a database in the same compose network is reached by its
+  // service name — and it punches a route from the container to the host's
+  // network, so it should not be on by default for everyone.
+  describe("--expose-host overlay (#1346)", () => {
+    const cmd = (n = 0) => vi.mocked(run).mock.calls[n][0] as string;
+
+    it("is absent unless asked for", () => {
+      composeUp({ full: true });
+      expect(cmd()).not.toContain("expose-host");
+    });
+
+    it.each([[false], [true]])(
+      "adds the overlay when requested (full=%s)",
+      (full) => {
+        composeUp({ full, exposeHost: true });
+        expect(cmd()).toContain("docker-compose.expose-host.yml");
+      },
+    );
+
+    it("layers the overlay AFTER the base file", () => {
+      // Compose merges left to right; an overlay listed first would be
+      // overridden by the base and silently do nothing.
+      composeUp({ full: true, exposeHost: true });
+      const c = cmd();
+      expect(c.indexOf("docker-compose.full.yml")).toBeLessThan(
+        c.indexOf("docker-compose.expose-host.yml"),
+      );
+    });
+
+    it("keeps the generated env-file for the full stack", () => {
+      // The overlay must not displace the per-install secrets (#970).
+      composeUp({ full: true, exposeHost: true });
+      expect(cmd()).toContain('--env-file "/project/docker/.env"');
+    });
+  });
+
   // The configured ports were consumed by every readiness probe, the generated
   // DATABASE_URL and the banner URLs — but NOT by the thing that binds them.
   // `neoboard config set ports.app 4000` published on 3000, polled 4000, and

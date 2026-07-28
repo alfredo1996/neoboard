@@ -26,6 +26,12 @@ export interface StartOptions {
    * Only applies to Docker mode.
    */
   full?: boolean;
+  /**
+   * Let the app container reach databases on the HOST machine, by mapping
+   * host.docker.internal (#1346). Opt-in: most installs do not need it, and it
+   * routes from the container out to the host's network.
+   */
+  exposeHost?: boolean;
 }
 
 /**
@@ -37,6 +43,23 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   const mode = getMode();
   const config = readProjectConfig();
   const full = opts?.full ?? false;
+  const exposeHost = opts?.exposeHost ?? false;
+
+  // --expose-host overlays extra_hosts onto the `neoboard` service, which only
+  // the FULL docker compose defines. Without --full the overlay lands on a
+  // service that does not exist and compose refuses the whole project with
+  // "service neoboard has neither an image nor a build context specified" —
+  // an error about the wrong thing entirely. In local mode the app runs on the
+  // host, where localhost already reaches the host and the flag is meaningless.
+  if (exposeHost && (mode !== "docker" || !full)) {
+    error(
+      mode === "docker"
+        ? "--expose-host needs --full: it maps a hostname for the app container, which only the full stack starts. Try: neoboard start --full --expose-host"
+        : "--expose-host applies to Docker mode only. In local mode the app runs on this machine, so `localhost` already reaches your databases.",
+    );
+    process.exitCode = 1;
+    return false;
+  }
 
   // 1. Prerequisite checks
   const results = await runDoctor();
@@ -53,7 +76,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     } else {
       info("Starting database containers via Docker Compose...");
     }
-    composeUp({ full });
+    composeUp({ full, exposeHost });
   } else {
     info(
       "Local mode — skipping Docker. Ensure PostgreSQL and Neo4j are running.",

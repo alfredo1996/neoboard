@@ -219,3 +219,69 @@ describe("docs accuracy guards (#1316)", () => {
     expect(broken).toEqual([]);
   });
 });
+
+// Not docs, but the same class of silent-wrong: a hint that names a hostname
+// which does not resolve is worse than no hint. The connection-failure hint
+// tells users to reach a host database via host.docker.internal, which Docker
+// Desktop provides automatically and Linux does NOT — it needs an explicit
+// host-gateway mapping. The CLI supplies that via an opt-in overlay, so the
+// overlay is the thing that has to keep existing and keep saying it (#1346).
+describe("the --expose-host overlay backs the hint that names it", () => {
+  it("maps host.docker.internal on the APP service", () => {
+    // Resolved by compose, not substring-matched: the raw string would also
+    // pass from a comment, an unrelated service, or malformed YAML — and a
+    // mapping on the wrong service is exactly the failure this guards.
+    const resolved = JSON.parse(
+      execFileSync(
+        "docker",
+        [
+          "compose",
+          "-f",
+          join(ROOT, "docker/docker-compose.full.yml"),
+          "-f",
+          join(ROOT, "docker/docker-compose.expose-host.yml"),
+          "config",
+          "--format",
+          "json",
+        ],
+        {
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+          // Placeholders for the compose file's `:?` required vars, rather
+          // than --env-file docker/.env: that file is gitignored and
+          // CLI-generated, so it exists on a developer machine and NOT in CI.
+          // Depending on it is how this check passed locally and failed there
+          // — the same trap as #1221, in the test written to avoid traps.
+          env: {
+            ...process.env,
+            ENCRYPTION_KEY: "0".repeat(64),
+            NEXTAUTH_SECRET: "test-secret",
+            API_KEY_HMAC_SECRET: "0".repeat(64),
+          },
+        },
+      ),
+    );
+    // Compose normalises extra_hosts differently across versions and shapes:
+    // an array with `:`, an array with `=`, or a host->target map. CI emits
+    // `host.docker.internal=host-gateway` where this machine emits `:`, which
+    // failed a literal comparison. Compare the MAPPING, not the spelling.
+    const raw = resolved.services.neoboard.extra_hosts ?? [];
+    const mappings = (
+      Array.isArray(raw) ? raw : Object.entries(raw).map((e) => e.join("="))
+    ).map((entry) => entry.replace(/[:=]/, "="));
+
+    expect(mappings).toContain("host.docker.internal=host-gateway");
+  }, 60_000);
+
+  it("is the ONLY place that maps it — otherwise the flag is a no-op", () => {
+    // If a base compose file also carried the mapping, --expose-host would
+    // appear to work while actually doing nothing, and removing the overlay
+    // would break nothing visible until a Linux user hit it.
+    const carriers = readdirSync(join(ROOT, "docker"))
+      .filter((f) => f.endsWith(".yml"))
+      .filter((f) =>
+        readFileSync(join(ROOT, "docker", f), "utf8").includes("host-gateway"),
+      );
+    expect(carriers).toEqual(["docker-compose.expose-host.yml"]);
+  });
+});
