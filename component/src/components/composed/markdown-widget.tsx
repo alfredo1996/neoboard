@@ -77,6 +77,9 @@ function isTableAlignmentRow(line: string): boolean {
  * Does NOT use a full markdown library (like marked/remark) to keep the bundle
  * minimal. For a dashboard widget, the common subset is sufficient.
  */
+/** h1/h2 take the preset's display sizes; h3-h6 stay at body size. */
+const HEADING_SIZE = { 1: "text-h2", 2: "text-h3" } as const;
+
 function parseMarkdown(md: string): string {
   // Process line-by-line for block elements
   const lines = md.split("\n");
@@ -151,8 +154,15 @@ function parseMarkdown(md: string): string {
         inBlockquote = false;
       }
       const level = headingMatch[1].length;
+      // The wrapper used to carry `prose prose-sm dark:prose-invert`, which
+      // emits no CSS — @tailwindcss/typography is not a dependency. Preflight
+      // resets headings to font-size: inherit and the wrapper pins text-sm, so
+      // every level rendered at 14px, differing only by weight (#1290). Sizes
+      // come from the preset's own heading scale (component/tailwind-preset.cjs).
+      const size =
+        HEADING_SIZE[level as keyof typeof HEADING_SIZE] ?? "text-sm";
       result.push(
-        `<h${level} class="font-semibold mt-3 mb-1">${processInline(headingMatch[2])}</h${level}>`,
+        `<h${level} class="${size} font-semibold mt-3 mb-1">${processInline(headingMatch[2])}</h${level}>`,
       );
       continue;
     }
@@ -301,6 +311,15 @@ function processInline(text: string): string {
   // Subsequent regex captures are already escaped; only URLs need attribute-safe quoting.
   let result = escapeHtml(text);
 
+  // Tags this function emits, parked behind placeholders so the emphasis
+  // passes below cannot see them. They used to: a `_` inside a URL, or the one
+  // in the generated target="_blank", read as user emphasis and got <em>
+  // spliced into href/src/target, leaving a dead link (#1290). The placeholder
+  // holds no markdown metacharacter, and only the TAG is stashed — link text
+  // stays in the stream so [*emphasised*](url) still works.
+  const tags: string[] = [];
+  const stash = (tag: string) => `\u0000t${tags.push(tag) - 1}\u0000`;
+
   // Inline code — $1 is already HTML-escaped, safe to embed directly.
   result = result.replace(
     /`([^`]+)`/g,
@@ -313,7 +332,9 @@ function processInline(text: string): string {
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_match, alt: string, url: string) => {
       if (!isSafeImageUrl(url)) return `[image blocked: unsafe URL]`;
-      return `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`;
+      return stash(
+        `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`,
+      );
     },
   );
 
@@ -324,7 +345,13 @@ function processInline(text: string): string {
     /\[([^\]]{1,500})\]\(([^)\s]{1,2000})\)/g,
     (_match, linkText: string, url: string) => {
       if (!isSafeLinkUrl(url)) return linkText;
-      return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">${linkText}</a>`;
+      return (
+        stash(
+          `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80">`,
+        ) +
+        linkText +
+        stash("</a>")
+      );
     },
   );
 
@@ -343,7 +370,7 @@ function processInline(text: string): string {
   // Strikethrough: ~~text~~
   result = result.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
-  return result;
+  return result.replace(/\u0000t(\d+)\u0000/g, (_m, i: string) => tags[+i]);
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
@@ -390,7 +417,7 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
     <div
       data-testid="markdown-widget"
       className={cn(
-        "h-full overflow-auto p-4 prose prose-sm dark:prose-invert max-w-none",
+        "h-full overflow-auto p-4 max-w-none",
         "text-sm text-foreground",
         className,
       )}
