@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
 import { fadeToTransparent } from "../chart-utils";
@@ -139,6 +139,58 @@ describe("LineChart", () => {
       // while completely defeating the fade this test exists to protect.
       expect(last).toBe(fadeToTransparent("#f9a91f"));
       expect(last).toMatch(/00$/);
+    });
+
+    const lastAreaStyleOf = () =>
+      mockSetOption.mock.calls[mockSetOption.mock.calls.length - 1][0].series[0]
+        .areaStyle;
+
+    // Toggling the theme on a MOUNTED chart. Every test above sets the class
+    // before render and reads calls[0], which is exactly why #1286 survived:
+    // the memo read the theme once at mount and never rebuilt, so light → dark
+    // left the warm wash sitting over charcoal until the widget re-queried.
+    const toggleTo = (theme: "dark" | "light") => {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      act(() => {
+        globalThis.dispatchEvent(new Event("neoboard-theme-change"));
+      });
+    };
+
+    it.each([
+      ["with a resolved series colour", amberRule, 0.15],
+      ["with no series colour (default path)", undefined, 0.12],
+    ])("drops the fill when toggled light → dark %s", (_l, rules, opacity) => {
+      render(<LineChart data={sampleData} area stylingRules={rules} />);
+      expect(areaStyleOf().opacity).toBe(opacity);
+      toggleTo("dark");
+      expect(lastAreaStyleOf()).toBeUndefined();
+    });
+
+    it.each([
+      ["with a resolved series colour", amberRule, 0.15],
+      ["with no series colour (default path)", undefined, 0.12],
+    ])(
+      "restores the fill when toggled dark → light %s",
+      (_l, rules, opacity) => {
+        document.documentElement.classList.add("dark");
+        render(<LineChart data={sampleData} area stylingRules={rules} />);
+        expect(areaStyleOf()).toBeUndefined();
+        toggleTo("light");
+        expect(lastAreaStyleOf().opacity).toBe(opacity);
+      },
+    );
+
+    it('re-colors the "No data" label on toggle (#1286)', () => {
+      // Same root cause as the fill: buildEmptyDataOption() read the theme
+      // from the DOM inside the memo body, so the empty label kept the
+      // previous theme's grey. Asserted on LineChart because BarChart's empty
+      // state is DOM, not canvas (#1053) — its option never reaches ECharts.
+      render(<LineChart data={[]} />);
+      const colorOf = (i: number) =>
+        mockSetOption.mock.calls[i][0].title.textStyle.color;
+      expect(colorOf(0)).toBe("#666d7a");
+      toggleTo("dark");
+      expect(colorOf(mockSetOption.mock.calls.length - 1)).toBe("#959ba7");
     });
 
     it("still draws the line itself in dark mode", () => {

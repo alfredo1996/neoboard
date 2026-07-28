@@ -70,7 +70,7 @@ function CirclePackingChart({
     // Brand citrine palette, indexed by depth (was a stock ECharts palette).
     const depthColors = dark ? CITRINE_DARK : CITRINE_LIGHT;
     if (!measured) return undefined;
-    if (!data.length) return buildEmptyDataOption();
+    if (!data.length) return buildEmptyDataOption(dark);
 
     // Wrap in a virtual root if multiple top-level items
     const root =
