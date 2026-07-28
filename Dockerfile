@@ -90,6 +90,10 @@ ENV MIGRATIONS_DIR=/app/app/drizzle/migrations
 #   DATABASE_URL          — PostgreSQL connection string
 #   ENCRYPTION_KEY        — AES-256 key for connection credential encryption (64-char hex)
 #   NEXTAUTH_SECRET       — Auth.js session signing secret
+#   API_KEY_HMAC_SECRET   — HMAC secret for hashing API keys at rest. Required
+#                           on every install: API keys are a community feature
+#                           and env-config marks it required, so the app exits
+#                           at boot without it.
 #   NEXTAUTH_URL          — Public URL of the app (e.g. https://neoboard.example.com)
 # The full catalogue of optional vars (auth/bootstrap, OIDC SSO, logging,
 # query scheduler tuning, CORS/HTTPS, edition) lives in app/.env.example —
