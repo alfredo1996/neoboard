@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 /**
@@ -17,6 +24,7 @@ import { execFileSync } from "node:child_process";
  */
 
 let tmp: string;
+let originalNeoboardDir: string | undefined;
 
 async function loadConfig() {
   const mod = await import("../../lib/config.js");
@@ -26,12 +34,16 @@ async function loadConfig() {
 
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "nb-standalone-"));
+  originalNeoboardDir = process.env.NEOBOARD_DIR;
 });
 
 afterEach(async () => {
   const mod = await import("../../lib/config.js");
   mod._setRootForTesting(null);
-  delete process.env.NEOBOARD_DIR;
+  // Restore rather than delete — a developer or CI process may have set it,
+  // and clobbering it leaks this suite's state outward.
+  if (originalNeoboardDir === undefined) delete process.env.NEOBOARD_DIR;
+  else process.env.NEOBOARD_DIR = originalNeoboardDir;
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -87,6 +99,10 @@ describe("resolveRoot — standalone working directory (#1315)", () => {
     process.env.NEOBOARD_DIR = dir;
     const { resolveRoot, isStandalone } = await loadConfig();
     expect(resolveRoot(join(tmp, "nowhere"))).toBe(dir);
+    // Asserting the returned path alone would still pass with mkdirSync
+    // removed — and a standalone install has nowhere to write config, .env or
+    // generated secrets if the directory is not actually created.
+    expect(existsSync(dir)).toBe(true);
     expect(isStandalone(join(tmp, "nowhere"))).toBe(true);
   });
 
@@ -110,6 +126,50 @@ describe("resolveRoot — standalone working directory (#1315)", () => {
     const { resolveRoot } = await loadConfig();
     const resolved = resolveRoot(join(tmp, "npm-cache"));
     expect(resolved).toBe(join(process.cwd(), "neoboard"));
+    expect(existsSync(resolved)).toBe(true);
+    rmSync(resolved, { recursive: true, force: true });
+  });
+});
+
+describe("invocation directory wins over install location (#1315)", () => {
+  const withCwd = async (dir: string, fn: () => Promise<void> | void) => {
+    const prev = process.cwd();
+    process.chdir(dir);
+    try {
+      await fn();
+    } finally {
+      process.chdir(prev);
+    }
+  };
+
+  it("uses the checkout you are standing in, not ./neoboard", async () => {
+    // A globally installed or npx'd CLI run from inside a checkout must use
+    // that checkout. Searching only from the CLI's install location would call
+    // it standalone, refuse `dev`, and create ./neoboard inside the user's own
+    // source tree with the repo right there.
+    writeFileSync(
+      join(tmp, "package.json"),
+      JSON.stringify({ name: "neoboard" }),
+    );
+    const { resolveRoot, isStandalone, assertCheckout } = await loadConfig();
+
+    await withCwd(tmp, () => {
+      expect(resolveRoot()).toBe(process.cwd());
+      expect(isStandalone()).toBe(false);
+      expect(() => assertCheckout("dev")).not.toThrow();
+      expect(existsSync(join(tmp, "neoboard"))).toBe(false);
+    });
+  });
+
+  it("falls back to the install location when cwd has no checkout", async () => {
+    // The monorepo's own `node cli/dist/index.js` run from an unrelated
+    // directory still has to find its root.
+    const { isStandalone } = await loadConfig();
+    await withCwd(tmp, () => {
+      // This suite's own module lives inside the monorepo, so the fallback
+      // finds it even though cwd is a bare temp dir.
+      expect(isStandalone()).toBe(false);
+    });
   });
 });
 
@@ -147,7 +207,11 @@ describe("packaged files (#1315)", () => {
   // So this runs the real `npm pack --dry-run` and reads what would actually
   // be published.
   const packedFiles = (): string[] => {
-    const cliDir = new URL("../../..", import.meta.url).pathname;
+    // fileURLToPath, not .pathname: the latter keeps the leading slash and
+    // percent-encodes spaces, so a checkout under "Program Files" would pass a
+    // broken cwd. This repo has already been bitten by a Windows path bug
+    // (#991).
+    const cliDir = fileURLToPath(new URL("../../..", import.meta.url));
     const out = execFileSync("npm", ["pack", "--dry-run", "--json"], {
       cwd: cliDir,
       encoding: "utf8",

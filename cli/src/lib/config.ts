@@ -63,7 +63,7 @@ export function findProjectRoot(startDir?: string): string | null {
  * generated secrets otherwise.
  */
 export function resolveRoot(startDir?: string): string {
-  const monorepo = findProjectRoot(startDir);
+  const monorepo = findCheckout(startDir);
   if (monorepo) return monorepo;
 
   const dir = process.env.NEOBOARD_DIR || join(process.cwd(), "neoboard");
@@ -94,7 +94,22 @@ export function assertCheckout(command: string, startDir?: string): void {
 
 /** True when there is no monorepo checkout — i.e. an npx/global install. */
 export function isStandalone(startDir?: string): boolean {
-  return findProjectRoot(startDir) === null;
+  return findCheckout(startDir) === null;
+}
+
+/**
+ * Look for a checkout from where the user is STANDING first, then from where
+ * the CLI is installed.
+ *
+ * cwd matters because a globally installed or npx'd CLI run from inside a
+ * checkout should use that checkout — otherwise `neoboard dev` would refuse,
+ * and `config list` would create ./neoboard inside the user's own source tree,
+ * with the repo right there. The module path is the fallback that covers the
+ * monorepo's own `node cli/dist/index.js` from an unrelated directory.
+ */
+function findCheckout(startDir?: string): string | null {
+  if (startDir !== undefined) return findProjectRoot(startDir);
+  return findProjectRoot(process.cwd()) ?? findProjectRoot();
 }
 
 // Path constants (lazy-initialized)
