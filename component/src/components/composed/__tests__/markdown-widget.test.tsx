@@ -554,6 +554,19 @@ describe("MarkdownWidget", () => {
       expect(container().querySelector("img")!.getAttribute("src")).toBe(url);
     });
 
+    it("leaves a forged placeholder alone", () => {
+      // escapeHtml does not strip control characters, so content can shape a
+      // placeholder we never emitted. Out of range must leave the text as-is,
+      // not render the string "undefined".
+      render(<MarkdownWidget content={"before \u0000t9\u0000 after"} />);
+      // The HTML parser drops the NUL bytes on the way into the DOM, so the
+      // assertion is on what must NOT appear: an out-of-range lookup rendering
+      // the string "undefined" into the user's widget.
+      expect(container().textContent).not.toContain("undefined");
+      expect(container().textContent).toContain("before");
+      expect(container().textContent).toContain("after");
+    });
+
     it("still emphasises plain prose", () => {
       render(<MarkdownWidget content="*a* and **b** and _c_" />);
       expect(container().querySelectorAll("em")).toHaveLength(2);

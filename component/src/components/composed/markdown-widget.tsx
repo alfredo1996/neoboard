@@ -370,7 +370,13 @@ function processInline(text: string): string {
   // Strikethrough: ~~text~~
   result = result.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
-  return result.replace(/\u0000t(\d+)\u0000/g, (_m, i: string) => tags[+i]);
+  // `?? _m`: escapeHtml does not strip control characters, so content holding
+  // a literal NUL could shape a placeholder we never emitted. Out of range
+  // leaves the text as-is rather than substituting "undefined".
+  return result.replace(
+    /\u0000t(\d+)\u0000/g,
+    (_m, i: string) => tags[+i] ?? _m,
+  );
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
