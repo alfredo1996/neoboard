@@ -25,7 +25,10 @@ function docsFiles(dir = DOCS_ROOT) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...docsFiles(full));
     else if (/\.mdx?$/.test(entry.name))
-      out.push({ path: relative(ROOT, full), text: readFileSync(full, "utf8") });
+      out.push({
+        path: relative(ROOT, full),
+        text: readFileSync(full, "utf8"),
+      });
   }
   return out;
 }
@@ -75,6 +78,33 @@ describe("docs accuracy guards (#1316)", () => {
       .map(({ path, token }) => `${token} (${path})`);
 
     expect(phantom).toEqual([]);
+  });
+
+  it("documents every environment variable the app requires", () => {
+    // The inverse of the check above, and the one that was missing: docs can
+    // be wrong by omitting as well as by inventing. Both production setup
+    // snippets left out API_KEY_HMAC_SECRET, which env-config marks required,
+    // so a deployment that followed the page failed startup validation.
+    const registry = readFileSync(
+      join(ROOT, "app/src/lib/env-config.ts"),
+      "utf8",
+    );
+    const required = [
+      ...registry.matchAll(/key:\s*"([A-Z0-9_]+)"[^}]*?required:\s*true/gs),
+    ].map((m) => m[1]);
+    expect(required.length).toBeGreaterThan(0); // the regex still matches
+
+    const documented = new Set(
+      backtickedTokens()
+        .map(({ token }) => token)
+        .concat(
+          DOCS.flatMap(({ text }) =>
+            [...text.matchAll(/[A-Z][A-Z0-9_]{3,}/g)].map((m) => m[0]),
+          ),
+        ),
+    );
+
+    expect(required.filter((k) => !documented.has(k))).toEqual([]);
   });
 
   it("references no CLI command the CLI does not register", () => {
