@@ -245,12 +245,15 @@ export function ParameterConfigSection({
               type="number"
               aria-label="Range minimum"
               value={(chartOptions.rangeMin as number | undefined) ?? 0}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Number("") is 0 — clearing the field would commit a value
+                // the user never typed (#1292).
+                if (e.target.value === "") return;
                 onChartOptionsChange((prev) => ({
                   ...prev,
                   rangeMin: Number(e.target.value),
-                }))
-              }
+                }));
+              }}
               className="w-24"
             />
             <span className="text-xs text-muted-foreground">to</span>
@@ -259,12 +262,15 @@ export function ParameterConfigSection({
               type="number"
               aria-label="Range maximum"
               value={(chartOptions.rangeMax as number | undefined) ?? 100}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Number("") is 0 — clearing the field would commit a value
+                // the user never typed (#1292).
+                if (e.target.value === "") return;
                 onChartOptionsChange((prev) => ({
                   ...prev,
                   rangeMax: Number(e.target.value),
-                }))
-              }
+                }));
+              }}
               className="w-24"
             />
             <span className="text-xs text-muted-foreground">step</span>
@@ -274,12 +280,15 @@ export function ParameterConfigSection({
               aria-label="Range step"
               min={0}
               value={(chartOptions.rangeStep as number | undefined) ?? 1}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Number("") is 0 — clearing the field would commit a value
+                // the user never typed (#1292).
+                if (e.target.value === "") return;
                 onChartOptionsChange((prev) => ({
                   ...prev,
                   rangeStep: Number(e.target.value),
-                }))
-              }
+                }));
+              }}
               className="w-20"
             />
           </div>

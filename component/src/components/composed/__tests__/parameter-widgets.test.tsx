@@ -899,6 +899,67 @@ describe("DateRelativePicker", () => {
 // ─── NumberRangeSlider ────────────────────────────────────────────────────────
 
 describe("NumberRangeSlider", () => {
+  // Number("") is 0, not NaN, so `if (isNaN(Number(raw))) return` never fires
+  // for the ONE value that can reach it. Per the HTML spec an
+  // <input type="number">.value is either a valid numeric string or "", so the
+  // empty string is the only input the guard was ever meant to catch (#1292).
+  it("ignores an emptied minimum instead of writing 0", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[200, 800]}
+        onChange={onChange}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("price minimum"), {
+      target: { value: "" },
+    });
+    // Today: called with [0, 800] — the min snaps to the axis minimum and the
+    // max handle collapses, re-running the query with a bound nobody asked for.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("ignores an emptied maximum instead of collapsing the range", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[200, 800]}
+        onChange={onChange}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("price maximum"), {
+      target: { value: "" },
+    });
+    // Today: called with [200, 200].
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("still commits a real edit, so the guard cannot be a disabled handler", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[200, 800]}
+        onChange={onChange}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("price minimum"), {
+      target: { value: "300" },
+    });
+    expect(onChange).toHaveBeenCalledWith([300, 800]);
+  });
+
   it("renders the parameter label", () => {
     render(
       <NumberRangeSlider

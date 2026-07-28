@@ -100,6 +100,24 @@ describe("ChartOptionsPanel", () => {
     );
   });
 
+  it("ignores a cleared number input instead of committing 0 (#1292)", () => {
+    const onChange = vi.fn();
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{}}
+        onSettingsChange={onChange}
+      />,
+    );
+    expandAllCategories();
+    fireEvent.change(screen.getByLabelText("Page Size"), {
+      target: { value: "" },
+    });
+    // Number("") is 0, so clearing the field used to commit pageSize: 0 —
+    // a value the user never typed, and one they could not undo by blanking.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("groups options by category", () => {
     render(
       <ChartOptionsPanel

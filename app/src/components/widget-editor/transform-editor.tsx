@@ -403,12 +403,15 @@ function TransformCard({
               type="number"
               className="w-[100px] h-8 text-xs"
               value={transform.count}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Math.max(1, Number("") || 1) is 1, so clearing the field
+                // silently committed 1 and made it unclearable (#1292).
+                if (e.target.value === "") return;
                 onChange({
                   ...transform,
                   count: Math.max(1, Number(e.target.value) || 1),
-                })
-              }
+                });
+              }}
             />
           </div>
         )}

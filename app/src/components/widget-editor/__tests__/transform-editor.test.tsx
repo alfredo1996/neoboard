@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Transform } from "@/lib/query/data-transforms";
 
@@ -265,6 +265,28 @@ describe("TransformEditor", () => {
     );
     expect(screen.getByText("1. Limit")).toBeInTheDocument();
     expect(screen.getByDisplayValue("50")).toBeInTheDocument();
+  });
+
+  it("ignores a cleared limit count instead of committing 1 (#1292)", () => {
+    const onChange = vi.fn();
+    render(
+      <TransformEditor
+        transforms={[{ type: "limit", count: 50 }]}
+        onChange={onChange}
+        columns={columns}
+      />,
+    );
+    fireEvent.change(screen.getByDisplayValue("50"), {
+      target: { value: "" },
+    });
+    // Math.max(1, Number("") || 1) is 1, so clearing silently committed 1.
+    expect(onChange).not.toHaveBeenCalled();
+
+    // The guard must not swallow real edits.
+    fireEvent.change(screen.getByDisplayValue("50"), {
+      target: { value: "25" },
+    });
+    expect(onChange).toHaveBeenCalledWith([{ type: "limit", count: 25 }]);
   });
 
   it("renders multiple transforms with correct numbering", () => {

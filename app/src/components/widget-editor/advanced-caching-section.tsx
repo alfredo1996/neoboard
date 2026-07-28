@@ -35,9 +35,12 @@ export function AdvancedCachingSection() {
             min={1}
             max={1440}
             value={cacheTtlMinutes}
-            onChange={(e) =>
-              setCacheTtlMinutes(Math.max(1, Number(e.target.value)))
-            }
+            onChange={(e) => {
+              // Math.max(1, Number("")) is 1, so clearing the field silently
+              // committed 1 and made it unclearable (#1292).
+              if (e.target.value === "") return;
+              setCacheTtlMinutes(Math.max(1, Number(e.target.value)));
+            }}
             className="w-24"
           />
           <p className="text-xs text-muted-foreground">
