@@ -367,8 +367,16 @@ describe("MapChart", () => {
     const good = { id: "1", lat: 40.7128, lng: -74.006 };
     const bad = { id: "2", lat: NaN, lng: NaN };
 
-    it("draws only the finite markers", () => {
-      render(<MapChart markers={[good, bad]} />);
+    // Infinity as well as NaN: Leaflet only throws on NaN, but an infinite
+    // coordinate fits the map to an infinite bounds instead — broken either
+    // way, and an implementation written with Number.isNaN would pass a
+    // NaN-only suite while still shipping that.
+    it.each([
+      ["NaN", bad],
+      ["Infinity", { id: "9", lat: Infinity, lng: -74.006 }],
+      ["-Infinity", { id: "9", lat: 40.7128, lng: -Infinity }],
+    ])("draws only the finite markers, excluding %s", (_label, dirty) => {
+      render(<MapChart markers={[good, dirty]} />);
       const calls = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls;
       expect(calls).toHaveLength(1);
       expect(calls[0][0]).toEqual([40.7128, -74.006]);
