@@ -25,7 +25,7 @@ Write operations are only allowed through **Form widgets** with the `can_write` 
 
 Every query has a timeout enforced inside the transaction, not in application code — so it still applies if the app process dies mid-query:
 
-- **PostgreSQL**: `SET LOCAL statement_timeout` inside the read-only transaction
+- **PostgreSQL**: `SET LOCAL statement_timeout` inside the current transaction
 - **Neo4j**: the managed-transaction `timeout` option, enforced by the server
 - Default: **30 seconds**, set per connection in the Connections UI
 

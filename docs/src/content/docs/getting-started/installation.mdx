@@ -67,6 +67,7 @@ Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall bac
 export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+export API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
 export NEXTAUTH_URL=https://neoboard.example.com   # the public URL users hit
 ```
 

@@ -89,6 +89,7 @@ All Compose files live in [`docker/`](docker/) — there is intentionally no roo
 export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 export ENCRYPTION_KEY=$(openssl rand -hex 32)     # lost key = stored credentials unrecoverable
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+export API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
 docker compose -f docker/docker-compose.prod-full.yml up -d
 ```
 
