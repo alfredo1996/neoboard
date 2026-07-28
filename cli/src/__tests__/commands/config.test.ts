@@ -21,8 +21,12 @@ vi.mock("../../lib/output.js", () => ({
   error: vi.fn(),
 }));
 
-import { readProjectConfig, writeProjectConfig } from "../../lib/config.js";
-import { info, success, error as logError } from "../../lib/output.js";
+import {
+  readProjectConfig,
+  writeProjectConfig,
+  getMode,
+} from "../../lib/config.js";
+import { info, success, warn, error as logError } from "../../lib/output.js";
 import {
   runConfigList,
   runConfigGet,
@@ -91,6 +95,23 @@ describe("runConfigSet", () => {
       }),
     );
     expect(success).toHaveBeenCalledWith(expect.stringContaining("ports.app"));
+  });
+
+  it("does not warn that Docker ignores the port (#1313)", () => {
+    // It used to, and correctly: the compose files hardcoded their host
+    // bindings, so the setting was fictional in Docker mode. #1313 made the
+    // bindings read ${NEOBOARD_PORT_*}, and the warning became not just stale
+    // but actively harmful — it told the user to hand-edit the compose file,
+    // which now fights the substitution.
+    //
+    // Nothing caught the drift because the warning had no test. A stated
+    // limitation is a claim about behaviour and needs pinning like any other.
+    vi.mocked(getMode).mockReturnValue("docker");
+    runConfigSet("ports.app", "4000");
+    expect(warn).not.toHaveBeenCalled();
+    expect(mockWriteProjectConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ ports: expect.objectContaining({ app: 4000 }) }),
+    );
   });
 
   it("parses port values as integers", () => {
