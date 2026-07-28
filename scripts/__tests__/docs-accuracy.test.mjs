@@ -227,11 +227,32 @@ describe("docs accuracy guards (#1316)", () => {
 // host-gateway mapping. The CLI supplies that via an opt-in overlay, so the
 // overlay is the thing that has to keep existing and keep saying it (#1346).
 describe("the --expose-host overlay backs the hint that names it", () => {
-  it("maps host.docker.internal", () => {
-    expect(
-      readFileSync(join(ROOT, "docker/docker-compose.expose-host.yml"), "utf8"),
-    ).toContain("host.docker.internal:host-gateway");
-  });
+  it("maps host.docker.internal on the APP service", () => {
+    // Resolved by compose, not substring-matched: the raw string would also
+    // pass from a comment, an unrelated service, or malformed YAML — and a
+    // mapping on the wrong service is exactly the failure this guards.
+    const resolved = JSON.parse(
+      execFileSync(
+        "docker",
+        [
+          "compose",
+          "-f",
+          join(ROOT, "docker/docker-compose.full.yml"),
+          "-f",
+          join(ROOT, "docker/docker-compose.expose-host.yml"),
+          "--env-file",
+          join(ROOT, "docker/.env"),
+          "config",
+          "--format",
+          "json",
+        ],
+        { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] },
+      ),
+    );
+    expect(resolved.services.neoboard.extra_hosts).toContain(
+      "host.docker.internal:host-gateway",
+    );
+  }, 60_000);
 
   it("is the ONLY place that maps it — otherwise the flag is a no-op", () => {
     // If a base compose file also carried the mapping, --expose-host would

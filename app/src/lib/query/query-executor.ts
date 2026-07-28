@@ -7,6 +7,7 @@ import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
 import { QueryStatus } from "@neoboard/connection";
 import { createHash } from "node:crypto";
 
+import { resolveContainerHost } from "@/lib/connector/container-host";
 /**
  * Default row cap applied to read queries when a connection doesn't
  * specify its own `maxRows`. Matches the connection package's own
@@ -216,7 +217,13 @@ function getOrCreateModule(
   }
 
   const authConfig = {
-    uri: ensureDatabaseInUri(credentials.uri, credentials.database),
+    // resolveContainerHost LAST: from inside a container `localhost` is the
+    // container, so a loopback URI can never reach the user's database. The
+    // stored connection keeps what they typed; only the driver sees the
+    // rewrite (#1346).
+    uri: resolveContainerHost(
+      ensureDatabaseInUri(credentials.uri, credentials.database),
+    ),
     username: credentials.username,
     password: credentials.password,
     authType: 1, // NATIVE

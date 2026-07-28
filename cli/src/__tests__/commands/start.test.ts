@@ -283,4 +283,39 @@ describe("runStart", () => {
       });
     });
   });
+
+  // --expose-host overlays extra_hosts onto the `neoboard` service, which only
+  // the FULL compose defines. Without --full, compose refuses the entire
+  // project with "service neoboard has neither an image nor a build context
+  // specified" — an error about the wrong thing entirely. Verified against
+  // real `docker compose config` (#1346).
+  describe("--expose-host requires Docker full-stack mode", () => {
+    it("rejects --expose-host without --full, naming the fix", async () => {
+      vi.mocked(getMode).mockReturnValue("docker");
+      const ok = await runStart({ full: false, exposeHost: true });
+      expect(ok).toBe(false);
+      expect(process.exitCode).toBe(1);
+      expect(vi.mocked(error).mock.calls[0][0]).toContain("--full");
+      expect(mockComposeUp).not.toHaveBeenCalled();
+    });
+
+    it("rejects --expose-host in local mode, saying why it is moot", async () => {
+      // The app runs on the host there, so localhost already reaches the
+      // databases and the flag has nothing to do.
+      vi.mocked(getMode).mockReturnValue("local");
+      const ok = await runStart({ full: true, exposeHost: true });
+      expect(ok).toBe(false);
+      expect(vi.mocked(error).mock.calls[0][0]).toMatch(/local mode/i);
+      expect(mockComposeUp).not.toHaveBeenCalled();
+    });
+
+    it("allows the valid combination", async () => {
+      vi.mocked(getMode).mockReturnValue("docker");
+      await runStart({ full: true, exposeHost: true });
+      expect(mockComposeUp).toHaveBeenCalledWith({
+        full: true,
+        exposeHost: true,
+      });
+    });
+  });
 });
