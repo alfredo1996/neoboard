@@ -89,6 +89,19 @@ describe("transformToMapData", () => {
   it("returns empty array for empty input", () => {
     expect(transformToMapData([])).toEqual([]);
   });
+
+  it("emits NaN for a non-numeric latitude (#1288)", () => {
+    // The row filter only requires that SOME column be numeric, so a row whose
+    // latitude reads "unknown" survives it and Number() coerces to NaN. Pinned
+    // rather than fixed here: MapChart drops non-finite markers, which covers
+    // every caller, not only rows that came through this transform.
+    const result = transformToMapData([
+      { lat: "unknown", lng: -74.006, population: 8000000 },
+    ]) as Array<{ lat: number; lng: number }>;
+    expect(result).toHaveLength(1);
+    expect(Number.isNaN(result[0].lat)).toBe(true);
+    expect(result[0].lng).toBeCloseTo(-74.006);
+  });
 });
 
 describe("validateMapData", () => {
