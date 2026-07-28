@@ -45,6 +45,10 @@ function NumberRangeSlider({
   };
 
   const handleMinInput = (raw: string) => {
+    // Guard the RAW string: Number("") is 0, not NaN, so an isNaN check on the
+    // coerced value never fires for the one input that reaches it — the empty
+    // string a user produces by clearing the field to retype it (#1292).
+    if (raw.trim() === "") return;
     const num = Number(raw);
     if (isNaN(num)) return;
     const clamped = Math.min(Math.max(num, min), current[1]);
@@ -52,6 +56,10 @@ function NumberRangeSlider({
   };
 
   const handleMaxInput = (raw: string) => {
+    // Guard the RAW string: Number("") is 0, not NaN, so an isNaN check on the
+    // coerced value never fires for the one input that reaches it — the empty
+    // string a user produces by clearing the field to retype it (#1292).
+    if (raw.trim() === "") return;
     const num = Number(raw);
     if (isNaN(num)) return;
     const clamped = Math.max(Math.min(num, max), current[0]);
@@ -61,7 +69,10 @@ function NumberRangeSlider({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between">
-        <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
           {parameterName}
         </Label>
         {hasValue && (
@@ -91,7 +102,9 @@ function NumberRangeSlider({
             className="w-20 text-center text-sm h-7"
             aria-label={`${parameterName} minimum`}
           />
-          <span className="text-xs text-muted-foreground flex-shrink-0">to</span>
+          <span className="text-xs text-muted-foreground flex-shrink-0">
+            to
+          </span>
           <Input
             type="number"
             value={current[1]}
