@@ -39,10 +39,19 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    // expect.assertions guards against the case passing vacuously if
+    // onSuccess is never invoked.
+    expect.assertions(3);
+
     const queryCallback: QueryCallback<any> = {
       onSuccess: (result: NeodashRecord[]) => {
         expect(result.length).toBe(1);
-        expect(result[0]["number"]).toBe(9223372036854775807n);
+        // A string, not a bigint. JSON.stringify cannot serialize a BigInt, so
+        // the old value failed the WHOLE query with an opaque 500 the moment
+        // it reached the API boundary — and disagreed with what PostgreSQL
+        // emits for the same logical int8 (#1304).
+        expect(result[0]["number"]).toBe("9223372036854775807");
+        expect(() => JSON.stringify(result)).not.toThrow();
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);

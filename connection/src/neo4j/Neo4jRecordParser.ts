@@ -108,12 +108,23 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * otherwise returns as string to avoid precision loss.
    *
    * @param {any} value - The Neo4j primitive value to convert.
-   * @returns {number|string|boolean|bigint} The JavaScript representation of the value.
+   * @returns {number|string|boolean} The JavaScript representation of the value.
    */
 
-  parsePrimitive(value: unknown): number | string | boolean | bigint {
+  parsePrimitive(value: unknown): number | string | boolean {
     if (isInt(value)) {
-      return value.inSafeRange() ? value.toNumber() : value.toBigInt();
+      // String, not BigInt, beyond the safe range. JSON.stringify throws on a
+      // BigInt, so the old branch failed the entire query with an opaque 500
+      // the moment such a value reached the API boundary — RETURN id(n) on a
+      // large graph was enough. A string is JSON-safe, lossless, and matches
+      // what the PostgreSQL connector already emits for int8, so a widget no
+      // longer has to know which database a column came from (#1304).
+      //
+      // NOT fixed by disableLosslessIntegers on the driver: that returns plain
+      // numbers for EVERY integer, silently rounding exactly the values this
+      // is about. The parser must keep receiving Integer objects so
+      // inSafeRange() can decide per value.
+      return value.inSafeRange() ? value.toNumber() : value.toString();
     }
 
     if (
