@@ -21,7 +21,7 @@ services:
       POSTGRES_PASSWORD: neoboard
       POSTGRES_DB: neoboard
     ports:
-      - "5432:5432"
+      - "${NEOBOARD_PORT_POSTGRES:-5432}:5432"
     volumes:
       - neoboard_pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -39,8 +39,8 @@ services:
       # Advertise Docker hostname so the routing driver connects correctly
       NEO4J_server_default__advertised__address: neoboard-neo4j
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "${NEOBOARD_PORT_NEO4J_HTTP:-7474}:7474"
+      - "${NEOBOARD_PORT_NEO4J_BOLT:-7687}:7687"
     volumes:
       - neoboard_neo4jdata:/data
       - ./neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     container_name: neoboard-app
     ports:
-      - "3000:3000"
+      - "${NEOBOARD_PORT_APP:-3000}:3000"
     environment:
       DATABASE_URL: postgresql://neoboard:neoboard@postgres:5432/neoboard
       # Per-install secrets — generated into docker/.env by the CLI
@@ -65,7 +65,7 @@ services:
       # the variables in your environment to override (CI does this).
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?missing — run `neoboard start`/`demo` (generates docker/.env) or set it}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?missing — run `neoboard start`/`demo` (generates docker/.env) or set it}
-      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:?missing — run `neoboard start`/`demo` (generates docker/.env) or set it}
       # Required to create the first admin. Unset means signup rejects every
       # attempt, so the instance is unusable (#1312). Both prod compose files

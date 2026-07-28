@@ -26,18 +26,53 @@ export function composeFile(full = false): string {
   return join(paths.dockerDir, name);
 }
 
+/**
+ * Host-port bindings for compose, read from the project config on every
+ * invocation (#1313).
+ *
+ * The configured ports already drove every readiness probe, the generated
+ * DATABASE_URL and the banner URLs — but not the thing that actually binds
+ * them, which was hardcoded in the compose files. So `neoboard config set
+ * ports.app 4000` published on 3000, polled 4000, and reported "NeoBoard app
+ * failed to start" for a stack that was up and healthy. The advertised remedy
+ * for a busy port made the install worse than leaving it alone.
+ *
+ * Passed in the process env rather than the --env-file, for two reasons: the
+ * env file is written once and never regenerated (it holds per-install
+ * secrets), so a later `config set` would not reach it; and the DB-only
+ * compose has no --env-file at all. Process env also outranks --env-file in
+ * compose's precedence, which keeps the CI override working.
+ *
+ * Only the HOST side is configurable — container ports stay fixed, since
+ * service-to-service URLs inside the compose network depend on them.
+ */
+function composeEnv(): NodeJS.ProcessEnv {
+  const { ports } = readProjectConfig();
+  return {
+    ...process.env,
+    NEOBOARD_PORT_APP: String(ports.app),
+    NEOBOARD_PORT_POSTGRES: String(ports.postgres),
+    NEOBOARD_PORT_NEO4J_HTTP: String(ports.neo4j_http),
+    NEOBOARD_PORT_NEO4J_BOLT: String(ports.neo4j_bolt),
+    // Must follow the app port or auth callbacks break on a remapped install.
+    NEXTAUTH_URL: `http://localhost:${ports.app}`,
+  };
+}
+
 export function composeUp(opts?: { full?: boolean }): void {
   const file = composeFile(opts?.full);
+  const env = composeEnv();
   if (opts?.full) {
     // The full stack needs per-install secrets (#970); generated once,
     // reused forever. OS env still overrides --env-file values (CI).
     const envFile = ensureDockerEnvFile();
     run(`docker compose -f "${file}" --env-file "${envFile}" up -d --build`, {
       cwd: paths.root,
+      env,
     });
     return;
   }
-  run(`docker compose -f "${file}" up -d --build`, { cwd: paths.root });
+  run(`docker compose -f "${file}" up -d --build`, { cwd: paths.root, env });
 }
 
 export function composeDown(opts?: { volumes?: boolean }): void {

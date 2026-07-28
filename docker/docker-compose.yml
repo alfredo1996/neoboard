@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: neoboard
       POSTGRES_DB: neoboard
     ports:
-      - "5432:5432"
+      - "${NEOBOARD_PORT_POSTGRES:-5432}:5432"
     volumes:
       - neoboard_pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -32,8 +32,8 @@ services:
       NEO4J_dbms_logs_query_enabled: "INFO"
       NEO4J_dbms_logs_query_threshold: "0ms"
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "${NEOBOARD_PORT_NEO4J_HTTP:-7474}:7474"
+      - "${NEOBOARD_PORT_NEO4J_BOLT:-7687}:7687"
     volumes:
       - neoboard_neo4jdata:/data
       - ./neo4j/init.cypher:/var/lib/neo4j/import/init.cypher

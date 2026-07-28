@@ -11,7 +11,7 @@ export async function runDev(): Promise<void> {
 
   if (mode === "docker") {
     info(
-      "In Docker mode, the app runs inside the container. Use 'neoboard start' and visit http://localhost:3000.",
+      `In Docker mode, the app runs inside the container. Use 'neoboard start' and visit http://localhost:${config.ports.app}.`,
     );
     process.exitCode = 1;
     return;
@@ -56,7 +56,14 @@ export async function runDev(): Promise<void> {
     "Press Ctrl+C to stop.",
   ]);
 
-  const child = spawn("npm", ["run", "dev"], { cwd: paths.appDir });
+  // PORT, or the banner above lies: Next defaults to 3000 regardless of what
+  // `config set ports.app` says, so local mode had the same mismatch the
+  // Docker path did — the CLI announcing one port and the server serving
+  // another (#1313).
+  const child = spawn("npm", ["run", "dev"], {
+    cwd: paths.appDir,
+    env: { ...process.env, PORT: String(config.ports.app) },
+  });
 
   const cleanup = () => child.kill();
   process.on("SIGINT", cleanup);
