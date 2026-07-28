@@ -261,9 +261,16 @@ describe("the --expose-host overlay backs the hint that names it", () => {
         },
       ),
     );
-    expect(resolved.services.neoboard.extra_hosts).toContain(
-      "host.docker.internal:host-gateway",
-    );
+    // Compose normalises extra_hosts differently across versions and shapes:
+    // an array with `:`, an array with `=`, or a host->target map. CI emits
+    // `host.docker.internal=host-gateway` where this machine emits `:`, which
+    // failed a literal comparison. Compare the MAPPING, not the spelling.
+    const raw = resolved.services.neoboard.extra_hosts ?? [];
+    const mappings = (
+      Array.isArray(raw) ? raw : Object.entries(raw).map((e) => e.join("="))
+    ).map((entry) => entry.replace(/[:=]/, "="));
+
+    expect(mappings).toContain("host.docker.internal=host-gateway");
   }, 60_000);
 
   it("is the ONLY place that maps it — otherwise the flag is a no-op", () => {
