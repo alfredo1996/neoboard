@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { validateEnvConfig } from "@/lib/env-config";
 import { requireSession } from "@/lib/auth/session";
+import { probeCredentialDecryption } from "@/lib/crypto/credential-health";
 import { listSchedulers } from "@/lib/query/scheduler-registry";
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -17,6 +18,18 @@ import pkg from "../../../../package.json";
  * scheduler stats (#930) — deploy intel stays off the unauthenticated surface.
  * Returns 200 for ok/degraded, 503 for error.
  */
+
+/**
+ * Never let a diagnostic break the endpoint. A throwing probe would take down
+ * the page an operator opens precisely when something is already wrong.
+ */
+async function credentialDecryptionStatus() {
+  try {
+    return await probeCredentialDecryption();
+  } catch {
+    return "unknown";
+  }
+}
 
 /** Applied-migration status from drizzle's bookkeeping table + the journal. */
 async function migrationStatus() {
@@ -86,6 +99,10 @@ export async function GET() {
       extended = {
         version: { app: pkg.version, node: process.version },
         migrations: await migrationStatus(),
+        // Whether the configured ENCRYPTION_KEY can actually read the stored
+        // credentials — admin-only, because "this instance cannot decrypt its
+        // own secrets" is a gift to an attacker (#1274).
+        credentials: { decryption: await credentialDecryptionStatus() },
         schedulers: listSchedulers().map(({ connectionId, scheduler }) => ({
           connectionId,
           ...scheduler.getStats(),

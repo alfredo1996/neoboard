@@ -5,6 +5,7 @@ const mockValidate = vi.fn();
 const mockDbExecute = vi.fn();
 const mockRequireSession = vi.fn();
 const mockListSchedulers = vi.fn();
+const mockProbe = vi.fn();
 
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/env-config", () => ({
@@ -21,6 +22,9 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 vi.mock("@/lib/query/scheduler-registry", () => ({
   listSchedulers: mockListSchedulers,
+}));
+vi.mock("@/lib/crypto/credential-health", () => ({
+  probeCredentialDecryption: mockProbe,
 }));
 
 describe("GET /api/health", () => {
@@ -47,8 +51,12 @@ describe("GET /api/health", () => {
     vi.doMock("@/lib/query/scheduler-registry", () => ({
       listSchedulers: mockListSchedulers,
     }));
+    vi.doMock("@/lib/crypto/credential-health", () => ({
+      probeCredentialDecryption: mockProbe,
+    }));
     mockRequireSession.mockRejectedValue(new Error("unauthenticated"));
     mockListSchedulers.mockReturnValue([]);
+    mockProbe.mockResolvedValue("ok");
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -202,6 +210,70 @@ describe("GET /api/health", () => {
       const body = await res.json();
       expect(body.data.version).toBeUndefined();
       expect(body.data.schedulers).toBeUndefined();
+    });
+
+    // Everything checks the key's SHAPE; nothing checked it was the RIGHT key,
+    // so a mismatched instance passed health and then failed on every widget
+    // (#1274). Admin-only: "this instance cannot decrypt its own secrets" is a
+    // gift to an attacker.
+    describe("credential decryption status (#1274)", () => {
+      it("reports ok to an admin when a stored credential decrypts", async () => {
+        mockValidate.mockReturnValue(okConfig);
+        mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+        mockDbExecute.mockResolvedValue([{ applied: 1, last_applied_at: 1 }]);
+        mockListSchedulers.mockReturnValue([]);
+        mockProbe.mockResolvedValue("ok");
+
+        const body = await (await GET()).json();
+        expect(body.data.credentials).toEqual({ decryption: "ok" });
+      });
+
+      it("reports the mismatch without turning health into a 503", async () => {
+        // The app is up; its secrets are unreadable. Those are different
+        // alarms, and conflating them takes the instance out of a load
+        // balancer for a problem no restart fixes.
+        mockValidate.mockReturnValue(okConfig);
+        mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+        mockDbExecute.mockResolvedValue([{ applied: 1, last_applied_at: 1 }]);
+        mockListSchedulers.mockReturnValue([]);
+        mockProbe.mockResolvedValue("mismatch");
+
+        const res = await GET();
+        const body = await res.json();
+        expect(body.data.credentials).toEqual({ decryption: "mismatch" });
+        expect(res.status).toBe(200);
+        expect(body.data.status).not.toBe("error");
+      });
+
+      it("hides it from unauthenticated probes", async () => {
+        mockValidate.mockReturnValue(okConfig);
+        mockProbe.mockResolvedValue("mismatch");
+        const body = await (await GET()).json();
+        expect(body.data.credentials).toBeUndefined();
+      });
+
+      it("hides it from non-admin sessions", async () => {
+        mockValidate.mockReturnValue(okConfig);
+        mockRequireSession.mockResolvedValue({ userId: "u2", role: "creator" });
+        mockProbe.mockResolvedValue("mismatch");
+        const body = await (await GET()).json();
+        expect(body.data.credentials).toBeUndefined();
+      });
+
+      it("degrades to unknown rather than throwing when the probe fails", async () => {
+        // Health must never fail on a diagnostic. A probe that throws would
+        // take down the endpoint an operator uses to find out why.
+        mockValidate.mockReturnValue(okConfig);
+        mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+        mockDbExecute.mockResolvedValue([{ applied: 1, last_applied_at: 1 }]);
+        mockListSchedulers.mockReturnValue([]);
+        mockProbe.mockRejectedValue(new Error("boom"));
+
+        const res = await GET();
+        const body = await res.json();
+        expect(res.status).toBe(200);
+        expect(body.data.credentials).toEqual({ decryption: "unknown" });
+      });
     });
   });
 });
