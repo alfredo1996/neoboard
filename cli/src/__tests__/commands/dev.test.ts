@@ -8,6 +8,7 @@ vi.mock("../../lib/exec.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { appDir: "/project/app" },
   getMode: vi.fn(() => "local"),
   readProjectConfig: vi.fn(() => ({

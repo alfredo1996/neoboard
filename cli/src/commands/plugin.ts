@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { findProjectRoot } from "../lib/config.js";
+import { findProjectRoot, assertCheckout } from "../lib/config.js";
 import { run, runFile } from "../lib/exec.js";
 import {
   success,
@@ -29,7 +29,8 @@ export async function runPluginAdd(
   packageName: string,
   opts?: { override?: boolean; export?: string },
 ): Promise<void> {
-  const root = findProjectRoot();
+  assertCheckout("plugin");
+  const root = findProjectRoot() as string;
   const overrides = opts?.override ?? false;
   const exportName = opts?.export ?? "default";
 
@@ -141,7 +142,8 @@ export async function runPluginAdd(
  * List all registered plugins (built-in chart types + external from manifests).
  */
 export function runPluginList(): void {
-  const root = findProjectRoot();
+  assertCheckout("plugin");
+  const root = findProjectRoot() as string;
 
   // Keep in sync with app/src/plugins/chart-types.ts
   const builtInCharts = [
@@ -219,7 +221,8 @@ export function runPluginList(): void {
  * Remove an external plugin by package name and uninstall it.
  */
 export async function runPluginRemove(packageName: string): Promise<void> {
-  const root = findProjectRoot();
+  assertCheckout("plugin");
+  const root = findProjectRoot() as string;
 
   // Try both manifests
   let removed = removeFromManifest(

@@ -13,6 +13,7 @@ vi.mock("node:crypto", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { root: "/project" },
   getMode: vi.fn(() => "docker"),
 }));

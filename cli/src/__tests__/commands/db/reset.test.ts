@@ -13,6 +13,7 @@ vi.mock("../../../lib/exec.js", () => ({
 }));
 
 vi.mock("../../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { envFile: "/project/app/.env.local" },
   readProjectConfig: vi.fn(() => ({
     postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },

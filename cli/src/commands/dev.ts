@@ -1,11 +1,12 @@
 import { spawn } from "../lib/exec.js";
-import { paths, getMode, readProjectConfig } from "../lib/config.js";
+import { paths, getMode, readProjectConfig , assertCheckout } from "../lib/config.js";
 import { info, warn, banner } from "../lib/output.js";
 import { isPgReady, isNeo4jReady, composeUp } from "../lib/docker.js";
 import { waitForHealth } from "../lib/health.js";
 import { validateEnv } from "./env.js";
 
 export async function runDev(): Promise<void> {
+  assertCheckout("dev");
   const mode = getMode();
   const config = readProjectConfig();
 

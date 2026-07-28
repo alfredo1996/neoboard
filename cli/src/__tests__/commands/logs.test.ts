@@ -10,6 +10,7 @@ vi.mock("../../lib/docker.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { root: "/project" },
 }));
 

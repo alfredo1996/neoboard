@@ -50,20 +50,24 @@ describe("findProjectRoot", () => {
     expect(findProjectRoot("/a/b/c")).toBe("/a");
   });
 
-  it("throws when no project root found", () => {
+  it("returns null when no project root is found", () => {
+    // Was `toThrow`. Changed deliberately in #1315: under `npx`, the CLI lives
+    // in an npm cache directory with no monorepo above it, and throwing this
+    // deep in a path helper surfaced as an unrelated-looking crash. Absence is
+    // a normal state now; only the caller knows whether it is a problem.
     mockExistsSync.mockReturnValue(false);
-    expect(() => findProjectRoot("/nowhere")).toThrow(
-      "Could not find NeoBoard project root",
-    );
+    expect(findProjectRoot("/nowhere")).toBeNull();
   });
 
   it("terminates instead of looping when run from a Windows drive root (#991)", () => {
     // dirname("C:\\") === "C:\\" — the old `while (dir !== "/")` loop
     // never terminated. The fixed loop stops when dirname stops changing.
+    //
+    // Returning null still proves termination: a non-terminating loop would
+    // hang the test rather than return anything. The assertion changed with
+    // #1315; what it protects did not.
     mockExistsSync.mockReturnValue(false);
-    expect(() => findProjectRoot("C:\\")).toThrow(
-      "Could not find NeoBoard project root",
-    );
+    expect(findProjectRoot("C:\\")).toBeNull();
   });
 });
 

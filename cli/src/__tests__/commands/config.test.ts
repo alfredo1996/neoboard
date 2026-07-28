@@ -8,6 +8,7 @@ const mockConfig = {
 };
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { projectConfig: "/project/neoboard.config.json" },
   readProjectConfig: vi.fn(() => ({ ...mockConfig })),
   writeProjectConfig: vi.fn(),

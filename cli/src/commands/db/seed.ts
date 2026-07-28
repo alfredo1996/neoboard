@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { buildSeedEnv } from "../../lib/docker-env.js";
 import { resolve, normalize } from "node:path";
 import { run, dockerExec } from "../../lib/exec.js";
-import { paths, readProjectConfig } from "../../lib/config.js";
+import { paths, readProjectConfig , assertCheckout } from "../../lib/config.js";
 import { success, createSpinner } from "../../lib/output.js";
 
 /** Validate a seed script path stays within the project root. */
@@ -83,6 +83,7 @@ export async function runDbSeed(opts?: {
   neo4j?: boolean;
   demo?: boolean;
 }): Promise<void> {
+  assertCheckout("db seed");
   const seedNeo4jOnly = opts?.neo4j && !opts?.demo;
   const seedDemoOnly = opts?.demo && !opts?.neo4j;
   const seedBoth = (!opts?.neo4j && !opts?.demo) || (opts?.neo4j && opts?.demo);

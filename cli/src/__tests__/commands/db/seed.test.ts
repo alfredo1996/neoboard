@@ -11,6 +11,7 @@ vi.mock("../../../lib/exec.js", () => ({
 }));
 
 vi.mock("../../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { root: "/project" },
   getMode: vi.fn(() => "docker"),
   readProjectConfig: vi.fn(() => ({

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   findProjectRoot: vi.fn(() => "/project"),
 }));
 
