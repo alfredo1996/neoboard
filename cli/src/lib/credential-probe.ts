@@ -1,5 +1,5 @@
 import { createDecipheriv } from "node:crypto";
-import { runOrNull, dockerExec } from "./exec.js";
+import { runFileOrNull, dockerExec } from "./exec.js";
 import { readProjectConfig, getMode } from "./config.js";
 
 /**
@@ -81,9 +81,24 @@ function readOneCiphertext(): string | null {
           "neoboard-postgres",
           `psql -U ${user} -d ${database} -tAc '${sql}'`,
         )
-      : runOrNull(
-          `psql -h localhost -p ${config.ports.postgres} -U ${user} -d ${database} -tAc "${sql}"`,
-        );
+      : // argv, not a shell string. The SQL contains a double-quoted
+        // identifier, and interpolating it into a double-quoted command let
+        // the shell strip those quotes AND split the statement across four
+        // argv slots — so Postgres folded `configEncrypted` to lowercase, the
+        // column did not exist, and the resulting null read as
+        // "no-credentials". doctor reported that on every local-mode install.
+        runFileOrNull("psql", [
+          "-h",
+          "localhost",
+          "-p",
+          String(config.ports.postgres),
+          "-U",
+          user,
+          "-d",
+          database,
+          "-tAc",
+          sql,
+        ]);
 
   const value = out?.trim();
   return value ? value : null;
