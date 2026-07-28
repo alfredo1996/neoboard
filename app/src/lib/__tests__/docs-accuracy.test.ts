@@ -9,6 +9,11 @@ import { fileURLToPath } from "node:url";
  * CLAUDE.md is loaded as ground truth by agent sessions, so a stale path or
  * count there becomes a wrong assumption in generated code. These tests fail
  * loudly instead.
+ *
+ * Scope: the repo's OWN docs (CLAUDE.md, ARCHITECTURE.md, .claude/skills).
+ * The published site under docs/src has its own guard —
+ * scripts/__tests__/docs-accuracy.test.mjs — with the same name and a
+ * different target. Add site checks there, repo checks here.
  */
 
 const REPO_ROOT = resolve(
@@ -95,5 +100,15 @@ describe("documentation accuracy", () => {
     // Assert the canonical debunk is present rather than blocklisting one
     // phrasing — "use `--skip-migrations`" would slip past a negative regex.
     expect(doc).toContain("there is no `--skip-migrations` CLI flag");
+  });
+
+  it("the deploy skill does not send auditors looking for a flag that does not exist", () => {
+    // CLAUDE.md was corrected but the deploy skill still listed
+    // "`--skip-migrations` flag missing or undocumented" as a gap to capture
+    // — so the audit that produced #1222 was instructed to hunt a flag that
+    // was never implemented. A prompt is documentation too (#1222).
+    const skill = readDoc(".claude/skills/deploy/SKILL.md");
+    expect(skill).toContain("MIGRATE_ON_START");
+    expect(skill).toContain("there is no `--skip-migrations` CLI flag");
   });
 });

@@ -90,18 +90,30 @@ If a deployment fails:
    docker compose -f docker/docker-compose.prod.yml down
    ```
 
-2. **Restore the previous image:**
+2. **Restore the previous image.** Start it with `MIGRATE_ON_START=0`: the
+   image defaults to `1`, and migrations are **forward-only**, so an older
+   binary booting against a newer schema will try to migrate and can fail in a
+   worse state than it started.
+
    ```bash
    NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
      docker compose -f docker/docker-compose.prod.yml pull neoboard
-   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
+   MIGRATE_ON_START=0 NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
      docker compose -f docker/docker-compose.prod.yml up -d --force-recreate
    ```
 
-3. **If database was migrated, restore from backup:**
+3. **If the database was migrated, restore from backup.** `--clean --if-exists`
+   is required — the target is not empty, it holds the migrated schema, and
+   without it `pg_restore` fails with `already exists` (see
+   [Backup & Restore](/administration/backup-restore)).
+
    ```bash
-   pg_restore -d neoboard neoboard_pre_upgrade.dump
+   pg_restore -d neoboard --clean --if-exists neoboard_pre_upgrade.dump
    ```
+
+   There is no "down migration". Restoring the pre-upgrade dump **is** the
+   rollback for the schema; the forward-only policy means nothing reverses it
+   in place.
 
 4. **Verify the rollback:**
    ```bash
@@ -111,3 +123,22 @@ If a deployment fails:
 :::tip
 Always create a database backup **before** upgrading NeoBoard, especially if the new version includes database migrations.
 :::
+
+### Controlling migrations at boot
+
+`MIGRATE_ON_START` is the only switch. The production image sets it to `1`, so a
+container applies pending migrations as it starts; set it to `0` to boot without
+migrating.
+
+```bash
+MIGRATE_ON_START=0 docker compose -f docker/docker-compose.prod.yml up -d
+```
+
+Use it for exactly two things: rolling back to an older image (step 2 above),
+and restoring a dump into a fresh database before the app can create a schema
+that collides with it (see [Backup & Restore](/administration/backup-restore)).
+Leave it at `1` otherwise — a NeoBoard that boots without its schema fails at
+the first query rather than at startup, which is the harder failure to read.
+
+There is no CLI flag for this. `neoboard start` and `neoboard db migrate` do not
+take one; the env var is the whole interface.

@@ -14,6 +14,11 @@ import { join, relative } from "node:path";
 // ANYWHERE in source, not whether the surrounding sentence is true. That is
 // the part a machine can decide, and it is exactly the class of error that
 // slipped through.
+//
+// Scope: the PUBLISHED site under docs/src. The repo's own docs (CLAUDE.md,
+// ARCHITECTURE.md, .claude/skills) have their own guard —
+// app/src/lib/__tests__/docs-accuracy.test.ts — same name, different target.
+// Add site checks here, repo checks there.
 
 const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const DOCS_ROOT = join(ROOT, "docs/src/content/docs");
