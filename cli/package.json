@@ -38,13 +38,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepublishOnly": "npm run build",
     "test": "SKIP_INTEGRATION=1 vitest run",
     "test:integration": "vitest run src/__tests__/integration",
     "test:watch": "vitest",
     "test:coverage": "SKIP_INTEGRATION=1 vitest run --coverage",
-    "prepack": "node scripts/stage-compose.mjs",
-    "postpack": "rm -rf docker"
+    "prepack": "npm run build && node scripts/stage-compose.mjs",
+    "postpack": "node scripts/stage-compose.mjs --clean"
   },
   "dependencies": {
     "chalk": "^5.0.0",

@@ -9,7 +9,15 @@
  * manifest-only test asserting `files.includes("docker")` passes while proving
  * nothing. That is how #1315's second half would have shipped twice.
  *
- * Run by `prepack`, removed by `postpack`. `cli/docker/` is gitignored.
+ * Run by `prepack` (after the build — a package without dist/ is as broken as
+ * one without compose files, and prepack is the hook that guarantees BOTH for
+ * anyone who packs, not just for the release workflow which happens to build
+ * first). `--clean`, from `postpack`, removes the staged copy.
+ *
+ * Both paths are computed from import.meta.url, never from cwd. A bare
+ * `rm -rf docker` in postpack would be relative to whatever directory npm
+ * happened to run it from — and one level up is the repo's real docker/.
+ * `cli/docker/` is gitignored.
  */
 import { mkdirSync, copyFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -30,6 +38,12 @@ const FILES = [
 ];
 
 rmSync(dest, { recursive: true, force: true });
+
+if (process.argv.includes("--clean")) {
+  console.error("removed staged cli/docker/");
+  process.exit(0);
+}
+
 for (const rel of FILES) {
   const to = join(dest, rel);
   mkdirSync(dirname(to), { recursive: true });
