@@ -3,6 +3,7 @@ import { createCipheriv, randomBytes } from "node:crypto";
 
 vi.mock("../../lib/exec.js", () => ({
   runOrNull: vi.fn(),
+  runFileOrNull: vi.fn(),
   dockerExec: vi.fn(),
 }));
 
@@ -15,7 +16,7 @@ vi.mock("../../lib/config.js", () => ({
   getMode: vi.fn(() => "docker"),
 }));
 
-import { runOrNull, dockerExec } from "../../lib/exec.js";
+import { runOrNull, runFileOrNull, dockerExec } from "../../lib/exec.js";
 import { getMode, readProjectConfig } from "../../lib/config.js";
 import { probeCredentialDecryption } from "../../lib/credential-probe.js";
 
@@ -120,10 +121,37 @@ describe("probeCredentialDecryption (#1274)", () => {
 
   it("queries through psql on the host in local mode", async () => {
     vi.mocked(getMode).mockReturnValue("local");
-    vi.mocked(runOrNull).mockReturnValue(encryptWith(KEY_A, "x"));
+    vi.mocked(runFileOrNull).mockReturnValue(encryptWith(KEY_A, "x"));
     expect(await probeCredentialDecryption(KEY_A)).toEqual({ outcome: "ok" });
     expect(dockerExec).not.toHaveBeenCalled();
-    expect(vi.mocked(runOrNull).mock.calls[0][0]).toContain("-p 5432");
+    expect(vi.mocked(runFileOrNull).mock.calls[0][1]).toContain("5432");
+  });
+
+  it("passes the SQL as ONE argv entry, with the identifier still quoted", () => {
+    // The bug this replaces: the query went through a shell as
+    //   psql ... -tAc "SELECT \"configEncrypted\" FROM connection LIMIT 1"
+    // The inner quotes terminated the outer ones, so the shell delivered
+    //   psql -tAc SELECT configEncrypted FROM connection LIMIT 1
+    // — the SQL split across four argv slots AND the identifier unquoted, so
+    // Postgres folded it to `configencrypted`, the column did not exist, the
+    // query failed, and runOrNull's null read as "no-credentials". `neoboard
+    // doctor` therefore reported "no stored credentials yet" on every local
+    // -mode install, silently disabling the whole #1274 check.
+    //
+    // Asserting the ARGV is the point. The previous tests mocked the exec
+    // helper and asserted only the outcome mapping, so they were green while
+    // the command was malformed.
+    vi.mocked(getMode).mockReturnValue("local");
+    vi.mocked(runFileOrNull).mockReturnValue("");
+    void probeCredentialDecryption(KEY_A);
+
+    const [file, args] = vi.mocked(runFileOrNull).mock.calls[0];
+    expect(file).toBe("psql");
+    const sql = args[args.indexOf("-tAc") + 1];
+    expect(sql).toContain('"configEncrypted"');
+    expect(sql).toContain("FROM connection");
+    // One argv entry, not four.
+    expect(args.filter((a) => a.includes("FROM connection"))).toHaveLength(1);
   });
 
   it("refuses a postgres identifier that would reach the shell", async () => {
