@@ -281,6 +281,12 @@ describe("TransformEditor", () => {
     });
     // Math.max(1, Number("") || 1) is 1, so clearing silently committed 1.
     expect(onChange).not.toHaveBeenCalled();
+
+    // The guard must not swallow real edits.
+    fireEvent.change(screen.getByDisplayValue("50"), {
+      target: { value: "25" },
+    });
+    expect(onChange).toHaveBeenCalledWith([{ type: "limit", count: 25 }]);
   });
 
   it("renders multiple transforms with correct numbering", () => {
