@@ -41,13 +41,32 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     permissions:
-      contents: read
-      packages: write # ghcr.io push
+      contents: read # actions/checkout
+      # ghcr.io push. Also covers the cosign signature and the SBOM/provenance
+      # attestations — all three are OCI artifacts pushed to the SAME ghcr
+      # package as the image, so no extra scope is needed for them.
+      packages: write
+      # Mints the OIDC token cosign exchanges with Fulcio for a short-lived
+      # signing certificate. This is what makes keyless signing possible and
+      # is the reason there is no long-lived private key to store or rotate.
+      id-token: write
+      # Lets github/codeql-action/upload-sarif file the Trivy findings as code
+      # scanning alerts. Without it the scan output dies with the runner.
+      security-events: write
+      # NOT granted: `attestations: write`. That scope is for GitHub's
+      # attestations API (actions/attest-*). BuildKit's `sbom:`/`provenance:`
+      # write OCI attestations into the registry instead, so granting it would
+      # hand out a capability nothing here uses.
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0 # need all tags to compute the highest version
+
+      # arm64 on an x86 runner is emulated. buildx does not install the binfmt
+      # handlers itself, so without this the linux/arm64 leg fails immediately.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -62,11 +81,20 @@ jobs:
       # `latest` must only move forward — back-publishing an older patch
       # (e.g. v1.0.1 after v1.1.0) must NOT steal it (#982). Compare the
       # pushed tag against the highest semver tag in the repo.
+      #
+      # The grep narrows that to plain `vX.Y.Z` releases (#1224). `sort -V`
+      # ranks v1.4.0-rc.1 ABOVE v1.4.0, so without it a throwaway rc tag takes
+      # `latest` and then keeps it even after the real release ships. Filtering
+      # positively (rather than excluding `-`) also drops `vnext`-style junk
+      # tags and avoids relying on how a given grep treats `-` as a pattern.
+      # Consequence, and intended: a pre-release tag never becomes `latest`,
+      # which is what makes an rc tag a safe way to rehearse this workflow.
+      # No stable tags yet => HIGHEST empty => is_latest=false. Safe default.
       - name: Determine if this is the newest release
         id: newest
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          HIGHEST=$(git tag -l 'v*' | sort -V | tail -n1)
+          HIGHEST=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
           if [ "$TAG" = "$HIGHEST" ]; then
             echo "is_latest=true" >> "$GITHUB_OUTPUT"
           else
@@ -88,14 +116,103 @@ jobs:
             type=raw,value=latest,enable=${{ steps.newest.outputs.is_latest == 'true' }}
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
+          # The arm64 leg is QEMU-emulated, roughly 5-10x slower than native,
+          # so this job goes from ~10 min to something closer to an hour. That
+          # is the price of `docker run` working on Apple Silicon and Graviton
+          # without emulation on the customer's side. Nothing downstream pins
+          # a platform — docker/*.prod*.yml just reference the tag, and a
+          # manifest list resolves per-host — so this is transparent to users.
+          # If the wall-clock cost stops being worth it, the upgrade is a
+          # per-arch matrix (ubuntu-latest + ubuntu-24.04-arm, both free on
+          # public repos) building by digest and merged with `buildx
+          # imagetools create`. Not done here: 3x the YAML, and every line of
+          # it would be unexercised until a real tag.
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # BuildKit generates the SBOM (via syft internally) and the build
+          # provenance and attaches both to the pushed manifest as OCI
+          # attestations — no separate syft step or artifact upload. `mode=max`
+          # records the full build context; safe here because the Dockerfile
+          # takes no ARGs and no build secrets, so there is nothing to leak.
+          # Side effect: the manifest list gains `unknown/unknown` attestation
+          # entries. That is normal; `docker pull` ignores them.
+          sbom: true
+          provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Install cosign
+        # No moving `v4` tag is published for this action (only v3 has one),
+        # so this is pinned exactly rather than to a major like its neighbours.
+        uses: sigstore/cosign-installer@v4.1.2
+
+      # Keyless: no key material anywhere, the identity is this workflow.
+      # Signs the digest rather than a tag — a tag can be re-pointed at other
+      # content later, a digest cannot, so only the digest signature means
+      # anything. Consumers verify with:
+      #   cosign verify ghcr.io/<owner>/<repo>@<digest> \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      #     --certificate-identity-regexp '/\.github/workflows/release\.yml@'
+      - name: Sign the image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      # Reports, does not gate. Two structural reasons, not squeamishness:
+      #
+      #  1. A multi-platform build cannot be `load: true`-ed into the local
+      #     daemon, so the image can only be scanned after it is pushed.
+      #     Failing this step would not unpublish anything — it would paint a
+      #     live, pullable release red. A gate that cannot withhold the
+      #     artifact is theatre.
+      #  2. node:22-alpine will always carry some unfixed HIGH/CRITICAL. A
+      #     release gate that fires on things nobody can fix gets deleted, and
+      #     then there is no scan at all.
+      #
+      # So: `ignore-unfixed` keeps this to findings someone can act on, and
+      # the SARIF upload below parks them in the Security tab where they
+      # persist instead of scrolling off a log nobody opens.
+      #
+      # Want a real gate? Add a prior amd64-only `load: true` build and scan
+      # THAT with exit-code 1; the gha cache makes the amd64 half of the push
+      # build nearly free. Deliberately not done pre-launch.
+      #
+      # Scans the runner's platform (amd64) only. The arm64 layers differ in
+      # compiled binaries, not in apk package versions, so the OS-package
+      # findings are the same set.
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # The image is not public until the package is, so Trivy needs the
+          # same credentials the push used rather than relying on it picking
+          # up the docker/login-action config.
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          # Without this, `severity` applies only to the table output and the
+          # SARIF still carries UNKNOWN/LOW/MEDIUM (trivy-action defaults it
+          # off). A Security tab full of unactionable LOWs is a Security tab
+          # nobody reads, which would defeat the point of reporting.
+          limit-severities-for-sarif: true
+          ignore-unfixed: true
+          exit-code: "0" # report-only — see above before changing
+
+      - name: Upload scan results to code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
 
   publish-cli:
     name: Publish @neoboard/cli to npm
