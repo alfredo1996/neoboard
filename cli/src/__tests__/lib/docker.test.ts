@@ -84,7 +84,7 @@ describe("composeUp", () => {
     composeUp();
     expect(mockRun).toHaveBeenCalledWith(
       'docker compose -f "/project/docker/docker-compose.yml" up -d --build',
-      { cwd: "/project" },
+      expect.objectContaining({ cwd: "/project" }),
     );
   });
 
@@ -92,8 +92,65 @@ describe("composeUp", () => {
     composeUp({ full: true });
     expect(mockRun).toHaveBeenCalledWith(
       'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d --build',
-      { cwd: "/project" },
+      expect.objectContaining({ cwd: "/project" }),
     );
+  });
+
+  // The configured ports were consumed by every readiness probe, the generated
+  // DATABASE_URL and the banner URLs — but NOT by the thing that binds them.
+  // `neoboard config set ports.app 4000` published on 3000, polled 4000, and
+  // reported "NeoBoard app failed to start" for a stack that was up (#1313).
+  describe("configured host ports (#1313)", () => {
+    const DEFAULT_CONFIG = {
+      ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+      postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+      neo4j: { user: "neo4j", password: "neoboard123" },
+      seed: { script: "s.mjs", neo4j_cypher: "i.cypher" },
+    };
+    // mockReturnValue, not Once: clearAllMocks does not drain a queued Once,
+    // so a value the code under test never consumes leaks into the next test.
+    // That is what happened on the red run here.
+    const withPorts = (ports: Record<string, number>) =>
+      vi.mocked(readProjectConfig).mockReturnValue({
+        ...DEFAULT_CONFIG,
+        ports,
+      } as ReturnType<typeof readProjectConfig>);
+    afterEach(() =>
+      vi
+        .mocked(readProjectConfig)
+        .mockReturnValue(DEFAULT_CONFIG as ReturnType<typeof readProjectConfig>),
+    );
+
+    const envOfFirstRun = () => vi.mocked(run).mock.calls[0][1]?.env;
+
+    it.each([[false], [true]])(
+      "passes them into the compose environment (full=%s)",
+      (full) => {
+        withPorts({ app: 4000, postgres: 55432, neo4j_http: 7475, neo4j_bolt: 7688 });
+        composeUp({ full });
+        expect(envOfFirstRun()).toMatchObject({
+          NEOBOARD_PORT_APP: "4000",
+          NEOBOARD_PORT_POSTGRES: "55432",
+          NEOBOARD_PORT_NEO4J_HTTP: "7475",
+          NEOBOARD_PORT_NEO4J_BOLT: "7688",
+        });
+      },
+    );
+
+    it("points NEXTAUTH_URL at the configured app port", () => {
+      // Hardcoded to localhost:3000 in docker-compose.full.yml — on a remapped
+      // install the auth callback URL no longer matches where the app is.
+      withPorts({ app: 4000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 });
+      composeUp({ full: true });
+      expect(envOfFirstRun()).toMatchObject({
+        NEXTAUTH_URL: "http://localhost:4000",
+      });
+    });
+
+    it("keeps the ambient environment so OS overrides still win", () => {
+      composeUp();
+      expect(envOfFirstRun()).toMatchObject({ PATH: process.env.PATH });
+    });
   });
 });
 
