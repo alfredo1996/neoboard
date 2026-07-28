@@ -57,6 +57,18 @@ describe("CLI program", () => {
     expect(subNames).toContain("reset");
     expect(subNames).toContain("seed");
     expect(subNames).toContain("dump");
+    expect(subNames).toContain("restore");
+  });
+
+  it("db restore takes a required backup file and has --clean/--force", () => {
+    const dbCmd = program.commands.find((c) => c.name() === "db");
+    const restoreCmd = dbCmd!.commands.find((c) => c.name() === "restore");
+    const args = restoreCmd!.registeredArguments;
+    expect(args.map((a) => a.name())).toEqual(["file"]);
+    expect(args[0].required).toBe(true);
+    const opts = restoreCmd!.options.map((o) => o.long);
+    expect(opts).toContain("--clean");
+    expect(opts).toContain("--force");
   });
 
   it("init has --mode option", () => {

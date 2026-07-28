@@ -413,3 +413,51 @@ neoboard db dump --output backup.sql
 # Dump data only
 neoboard db dump --data-only
 ```
+
+## db restore
+
+Restore a dump taken with `neoboard db dump` or `pg_dump`. Accepts both plain
+SQL and custom-format (`pg_dump -Fc`) archives — the format is detected from the
+file, not its extension.
+
+```bash
+neoboard db restore <file> [--clean] [--force]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--clean` | `false` | Drop the existing objects first. Required when the target database is not empty. |
+| `--force` | `false` | Skip the confirmation prompt and the running-app check. |
+
+Before restoring, the command checks the things that otherwise fail late and
+confusingly:
+
+- **The database must be reachable.** It refuses rather than reporting an empty
+  target it could not actually read.
+- **A non-empty target needs `--clean`.** Without it the restore collides
+  partway through with duplicate-key errors; the command names the tables it
+  found instead.
+- **NeoBoard must not be running.** The app image boots with
+  `MIGRATE_ON_START=1`, so a live instance recreates the schema underneath the
+  restore and holds connections that block dropping the database.
+
+Afterwards it prints the row count of every restored table, and verifies that
+the configured `ENCRYPTION_KEY` can actually decrypt the restored credentials —
+a mismatch there exits non-zero, because the data is back but every connector is
+unusable.
+
+```bash
+# Restore into a fresh database
+neoboard db restore neoboard-dump-2026-07-20T09-30-00.sql
+
+# Replace the contents of an existing database
+neoboard db restore backup.sql --clean
+
+# Unattended (no prompt, no running-app check)
+neoboard db restore backup.dump --clean --force
+```
+
+:::caution[`--clean` is destructive by design]
+It drops what is in the target before restoring. Take a fresh `neoboard db dump`
+of the current state first if there is any doubt about which backup you have.
+:::
