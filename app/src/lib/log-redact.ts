@@ -55,16 +55,19 @@ const URI_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]+):([^\s/@]*)@/gi;
  * Requires a quoted literal so that a *column* reference survives intact:
  * "SELECT id, password FROM users" must stay readable — redacting it would
  * destroy the audit trail to protect nothing.
+ *
+ * No leading `\b`: `PGPASSWORD=…` and `dbPassword=…` have no word boundary
+ * before the keyword, and those are exactly the spellings that leak.
  */
 const QUOTED_PASSWORD =
-  /\b(password|passwd|pwd|identified\s+by)(\s*=\s*|\s+)('(?:[^']|'')*'|"[^"]*"|`[^`]*`)/gi;
+  /(password|passwd|pwd|identified\s+by)(\s*=\s*|\s+)('(?:[^']|'')*'|"[^"]*"|`[^`]*`)/gi;
 
 /**
  * `password=literal` with no quotes — libpq conninfo and env-var style.
  * Only the `=` form, never bare whitespace, for the same column-reference
  * reason as above.
  */
-const ASSIGNED_PASSWORD = /\b(password|passwd|pwd)(\s*=\s*)([^\s'"`;,)]+)/gi;
+const ASSIGNED_PASSWORD = /(password|passwd|pwd)(\s*=\s*)([^\s'"`;,)]+)/gi;
 
 /** Cheap pre-filter so the expensive patterns skip the overwhelming majority. */
 const PASSWORD_HINT = /passw|pwd|identified/i;

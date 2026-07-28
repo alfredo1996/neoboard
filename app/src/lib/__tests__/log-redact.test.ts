@@ -109,6 +109,22 @@ describe("redactString — inline password literals", () => {
     expect(out).toContain("user=neoboard");
   });
 
+  it("strips an unquoted password from a libpq conninfo string", () => {
+    const out = redactString(
+      `host=db.internal port=5432 user=neoboard password=${SECRET} dbname=analytics`,
+    );
+    expect(out).not.toContain(SECRET);
+    expect(out).toContain("host=db.internal");
+    expect(out).toContain("user=neoboard");
+    expect(out).toContain("dbname=analytics");
+  });
+
+  it("strips a PGPASSWORD-style assignment with no word boundary", () => {
+    const out = redactString(`PGPASSWORD=${SECRET} psql -h db.internal`);
+    expect(out).not.toContain(SECRET);
+    expect(out).toContain("db.internal");
+  });
+
   it("leaves a password COLUMN reference readable", () => {
     const sql = "SELECT id, password FROM users WHERE id = $1";
     expect(redactString(sql)).toBe(sql);
