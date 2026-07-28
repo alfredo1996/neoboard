@@ -9,7 +9,11 @@ vi.mock("../../lib/ports.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
-  paths: { appDir: "/project/app", envFile: "/project/app/.env.local" },
+  paths: {
+    root: "/project",
+    appDir: "/project/app",
+    envFile: "/project/app/.env.local",
+  },
   readProjectConfig: vi.fn(() => ({
     ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
     postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
@@ -25,11 +29,25 @@ vi.mock("../../lib/config.js", () => ({
 vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
   warn: vi.fn(),
+  info: vi.fn(),
   error: vi.fn(),
 }));
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
+  readFileSync: vi.fn(() => "ENCRYPTION_KEY=" + "a".repeat(64)),
+}));
+
+vi.mock("../../lib/credential-probe.js", () => ({
+  probeCredentialDecryption: vi.fn(),
+}));
+
+vi.mock("../../lib/docker-env.js", () => ({
+  DOCKER_ENV_PATH: "docker/.env",
+}));
+
+vi.mock("dotenv", () => ({
+  parse: vi.fn(() => ({ ENCRYPTION_KEY: "a".repeat(64) })),
 }));
 
 import { runOrNull } from "../../lib/exec.js";
@@ -46,6 +64,7 @@ import {
   printResults,
 } from "../../commands/doctor.js";
 import { success, warn, error as logError } from "../../lib/output.js";
+import { probeCredentialDecryption } from "../../lib/credential-probe.js";
 
 const mockRunOrNull = vi.mocked(runOrNull);
 const mockIsPortAvailable = vi.mocked(isPortAvailable);
@@ -129,15 +148,82 @@ describe("checkEnvFileExists", () => {
 });
 
 describe("runDoctor", () => {
+  beforeEach(() => {
+    vi.mocked(probeCredentialDecryption).mockResolvedValue({
+      outcome: "ok",
+    });
+  });
+
   it("returns all check results", async () => {
     mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
     mockIsPortAvailable.mockResolvedValue(true);
     mockExistsSync.mockReturnValue(true);
 
     const results = await runDoctor();
-    // 3 sync checks + 4 port checks + 2 file checks = 9
-    expect(results.length).toBe(9);
+    // 3 sync checks + 4 port checks + 2 file checks + 1 credential probe = 10
+    expect(results.length).toBe(10);
     expect(results.every((r) => r.status === "ok")).toBe(true);
+  });
+
+  // A well-formed key is not the RIGHT key. env-config validates the 64-hex
+  // shape, /api/health reports it `set`, and doctor never looked at it — so an
+  // instance with a mismatched key booted clean, passed every check, and then
+  // failed on EVERY widget with Node's raw "Unsupported state or unable to
+  // authenticate data", naming neither the key nor the fix (#1274).
+  describe("credential decryption check (#1274)", () => {
+    const credentialCheck = async () =>
+      (await runDoctor()).find((r) => r.name === "Credential decryption");
+
+    beforeEach(() => {
+      mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
+      mockIsPortAvailable.mockResolvedValue(true);
+      mockExistsSync.mockReturnValue(true);
+    });
+
+    it("reports ok when a stored credential decrypts", async () => {
+      vi.mocked(probeCredentialDecryption).mockResolvedValue({ outcome: "ok" });
+      expect((await credentialCheck())?.status).toBe("ok");
+    });
+
+    it("fails, naming ENCRYPTION_KEY, when it does not", async () => {
+      vi.mocked(probeCredentialDecryption).mockResolvedValue({
+        outcome: "mismatch",
+      });
+      const check = await credentialCheck();
+      expect(check?.status).toBe("fail");
+      expect(check?.message).toContain("ENCRYPTION_KEY");
+    });
+
+    it("skips rather than claiming ok when there is nothing to decrypt", async () => {
+      // "ok" here would assert a verification that never happened — the exact
+      // false-confidence this check exists to remove.
+      vi.mocked(probeCredentialDecryption).mockResolvedValue({
+        outcome: "no-credentials",
+      });
+      const check = await credentialCheck();
+      expect(check?.status).toBe("skip");
+      expect(check?.message).not.toContain("ENCRYPTION_KEY does not match");
+    });
+
+    it("skips when the database is unreachable, rather than failing", async () => {
+      // An unreachable database is a different alarm, already covered by the
+      // port checks. Reporting it as a key mismatch would send the operator
+      // to rotate a key that is fine.
+      vi.mocked(probeCredentialDecryption).mockResolvedValue({
+        outcome: "unavailable",
+      });
+      expect((await credentialCheck())?.status).toBe("skip");
+    });
+
+    it("leaks no ciphertext or key material into any message", async () => {
+      vi.mocked(probeCredentialDecryption).mockResolvedValue({
+        outcome: "mismatch",
+      });
+      const check = await credentialCheck();
+      // The probe returns an outcome, never the row it read — so there is
+      // nothing for a message to accidentally interpolate.
+      expect(JSON.stringify(check)).not.toMatch(/[A-Za-z0-9+/]{40,}={0,2}/);
+    });
   });
 });
 
