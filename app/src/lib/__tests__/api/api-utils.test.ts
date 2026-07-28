@@ -319,4 +319,24 @@ describe("sanitizeErrorMessage", () => {
   it("preserves short error messages", () => {
     expect(sanitizeErrorMessage("ECONNREFUSED")).toBe("ECONNREFUSED");
   });
+
+  // Driver messages become API responses. A reader can trigger a query
+  // against a connection whose URI they are not allowed to see, so a driver
+  // that echoes the connection string must not hand them the password (#1227).
+  it("strips a connection URI password out of a driver message", () => {
+    const out = sanitizeErrorMessage(
+      "connect ECONNREFUSED postgresql://neoboard:Tr0ub4dor-hunter2@db.internal:5432/analytics",
+    );
+    expect(out).not.toContain("Tr0ub4dor-hunter2");
+    expect(out).toContain("ECONNREFUSED");
+    expect(out).toContain("db.internal");
+  });
+
+  it("strips an inline password literal out of an echoed statement", () => {
+    const out = sanitizeErrorMessage(
+      "syntax error at or near \"WITH\": ALTER USER bob WITH PASSWORD 'Tr0ub4dor-hunter2'",
+    );
+    expect(out).not.toContain("Tr0ub4dor-hunter2");
+    expect(out).toContain("syntax error at or near");
+  });
 });
