@@ -1111,4 +1111,52 @@ describe("GraphChart", () => {
       ).not.toThrow();
     });
   });
+
+  // --- Synthetic (APOC virtual) nodes (#1361) ---
+
+  describe("synthetic nodes", () => {
+    const mixedNodes = [
+      { id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0", label: "Document" },
+      { id: "-289", label: "Totals", synthetic: true },
+    ];
+
+    function captionValues(node: NvlNode): (string | undefined)[] {
+      return (node.captions ?? []).map((c) => c.value);
+    }
+
+    it("gives a synthetic node a distinct italic 'virtual' caption line", () => {
+      render(<GraphChart nodes={mixedNodes} edges={[]} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const synthetic = nvlNodes.find((n) => n.id === "-289")!;
+
+      expect(captionValues(synthetic)).toContain("virtual");
+      expect(
+        synthetic.captions?.find((c) => c.value === "virtual")?.styles,
+      ).toContain("italic");
+    });
+
+    it("keeps the node's own caption alongside the marker", () => {
+      render(<GraphChart nodes={mixedNodes} edges={[]} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const synthetic = nvlNodes.find((n) => n.id === "-289")!;
+      expect(captionValues(synthetic)).toEqual(["Totals", "virtual"]);
+    });
+
+    it("does not mark a real node", () => {
+      render(<GraphChart nodes={mixedNodes} edges={[]} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const real = nvlNodes.find((n) => n.id !== "-289")!;
+      expect(real.captions).toBeUndefined();
+      expect(real.caption).toBe("Document");
+    });
+
+    it("still marks a synthetic node when captions are turned off", () => {
+      // showLabels=false hides every caption, but "this is not a real node"
+      // is not a label — it must survive.
+      render(<GraphChart nodes={mixedNodes} edges={[]} showLabels={false} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const synthetic = nvlNodes.find((n) => n.id === "-289")!;
+      expect(captionValues(synthetic)).toEqual(["virtual"]);
+    });
+  });
 });

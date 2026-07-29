@@ -449,3 +449,65 @@ describe("useGraphExploration", () => {
     expect(fetchNeighbors).toHaveBeenCalledTimes(2);
   });
 });
+
+/**
+ * An APOC virtual node has no rows behind it — `MATCH (n) WHERE elementId(n) =
+ * $id` returns nothing for a negative id. Fetching anyway produced an empty
+ * result the user could not tell apart from "no neighbours" (#1361).
+ */
+describe("useGraphExploration — synthetic nodes", () => {
+  const virtualNode: GraphNode = {
+    id: "-289",
+    label: "Totals",
+    labels: ["Summary"],
+    synthetic: true,
+  };
+
+  it("reports a synthetic node as not expandable", () => {
+    const { result } = renderHook(() =>
+      useGraphExploration(makeOptions({ initialNodes: [nodeA, virtualNode] })),
+    );
+    expect(result.current.canExpand("a")).toBe(true);
+    expect(result.current.canExpand("-289")).toBe(false);
+  });
+
+  it("never queries the database for a synthetic node's neighbours", async () => {
+    const fetchNeighbors = vi.fn(async () => ({
+      nodes: [nodeC],
+      edges: [edgeBC],
+    }));
+    const { result } = renderHook(() =>
+      useGraphExploration(
+        makeOptions({ initialNodes: [nodeA, virtualNode], fetchNeighbors }),
+      ),
+    );
+
+    await act(() => result.current.onExpandRequest(virtualNode));
+
+    expect(fetchNeighbors).not.toHaveBeenCalled();
+    expect(ids(result.current.nodes)).toEqual(["-289", "a"]);
+    expect(result.current.expandedNodeIds).toEqual([]);
+    expect(result.current.expandingNodeId).toBeNull();
+  });
+
+  it("still expands real nodes in a graph that contains synthetic ones", async () => {
+    const fetchNeighbors = vi.fn(async () => ({
+      nodes: [nodeC],
+      edges: [{ source: "a", target: "c" }],
+    }));
+    const { result } = renderHook(() =>
+      useGraphExploration(
+        makeOptions({
+          initialNodes: [nodeA, virtualNode],
+          initialEdges: [{ source: "a", target: "-289" }],
+          fetchNeighbors,
+        }),
+      ),
+    );
+
+    await act(() => result.current.onExpandRequest(nodeA));
+
+    expect(fetchNeighbors).toHaveBeenCalledTimes(1);
+    expect(ids(result.current.nodes)).toEqual(["-289", "a", "c"]);
+  });
+});

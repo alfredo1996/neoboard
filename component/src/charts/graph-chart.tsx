@@ -254,9 +254,29 @@ function toNvlNode(
     ? Math.max(20, Math.min(60, node.value))
     : undefined;
 
+  const caption = showLabels ? resolveCaption(node, captionMap) : undefined;
+
+  // A synthetic node gets a second, italic caption line so it reads as
+  // "computed, not stored" at a glance. NVL exposes no border or stroke
+  // styling, so the dashed outline that usually signals this is not available;
+  // a caption is text, so it inherits NVL's own contrast handling and stays
+  // legible on both the light and dark canvas.
+  // The marker survives showLabels=false on purpose — "this is not a real
+  // node" is not a label, and hiding it there would restore the exact silent
+  // ambiguity this fixes.
+  // ponytail: caption-only. A real dashed ring needs a custom NVL renderer;
+  // revisit if NVL ever exposes stroke styling.
+  const captions = node.synthetic
+    ? [
+        ...(caption === undefined ? [] : [{ value: caption }]),
+        { value: "virtual", styles: ["italic"] },
+      ]
+    : undefined;
+
   return {
     id: node.id,
-    caption: showLabels ? resolveCaption(node, captionMap) : undefined,
+    caption,
+    captions,
     color,
     size:
       baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
