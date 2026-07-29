@@ -92,6 +92,18 @@ function makeProps(
 }
 
 describe("WidgetPreviewPanel", () => {
+  // #1374: `flex-shrink-0` here was always inert — the panel's own root is a
+  // flex column with no definite height, and the editor lives in a *sibling
+  // grid column*, so the preview never competed for the editor's height.
+  // Dropping the dead token; `h-[500px]` stays because chart/graph renderers
+  // measure their container.
+  it("keeps a real preview height without the inert flex-shrink-0 token", () => {
+    render(<WidgetPreviewPanel {...makeProps()} />);
+    const preview = screen.getByTestId("widget-preview");
+    expect(preview.className).toContain("h-[500px]");
+    expect(preview.className).not.toContain("flex-shrink-0");
+  });
+
   it("renders 'Run a query to see the preview' when no connection", () => {
     render(
       <WidgetPreviewPanel {...makeProps({ connectionId: "", query: "" })} />,

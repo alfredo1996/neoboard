@@ -349,7 +349,7 @@ export function WidgetPreviewPanel({
       <div
         ref={previewRef}
         data-testid="widget-preview"
-        className="h-[500px] flex-shrink-0 overflow-hidden border rounded-lg relative"
+        className="h-[500px] overflow-hidden border rounded-lg relative"
       >
         {renderPreviewContent()}
       </div>
