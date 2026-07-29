@@ -3,6 +3,7 @@ import {
   classifyConnectionError,
   CONNECTION_CHECK_FALSE_MESSAGE,
   type ConnectionErrorCode,
+  type ConnectionErrorContext,
 } from "@/lib/connector/connection-error-classifier";
 
 /**
@@ -28,11 +29,14 @@ export function connectionCheckFalseResult(): ConnectionTestResult {
 /** A thrown driver error — classify for a targeted hint, then sanitize for display. */
 export function connectionTestErrorResult(
   thrown: unknown,
+  context?: ConnectionErrorContext,
 ): ConnectionTestResult {
   const rawMessage =
     thrown instanceof Error ? thrown.message : "Connection test failed";
   // Classify BEFORE sanitization — the classifier needs the raw driver text.
-  const code = classifyConnectionError(rawMessage);
+  // The context is read here and never returned: a URI can carry a password,
+  // so it informs the code and goes no further (#1346).
+  const code = classifyConnectionError(rawMessage, context);
   const error = sanitizeErrorMessage(rawMessage, "Connection test failed");
   return { success: false, code, error };
 }

@@ -12,6 +12,7 @@ vi.mock("../../lib/health.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   readProjectConfig: vi.fn(() => ({
     ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
   })),
@@ -35,12 +36,22 @@ vi.mock("../../commands/db/migrate.js", () => ({
   runDbMigrate: vi.fn(),
 }));
 
+vi.mock("../../lib/docker-env.js", () => ({
+  readDockerEnvSecrets: vi.fn(() => ({ ADMIN_BOOTSTRAP_TOKEN: "tok-abc123" })),
+}));
+
+vi.mock("../../lib/bootstrap-status.js", () => ({
+  isBootstrapPending: vi.fn(async () => true),
+}));
+
 import { composeUp } from "../../lib/docker.js";
 import { waitForHealth } from "../../lib/health.js";
 import { getMode } from "../../lib/config.js";
 import { banner, error } from "../../lib/output.js";
 import { printResults } from "../../commands/doctor.js";
 import { runDbMigrate } from "../../commands/db/migrate.js";
+import { readDockerEnvSecrets } from "../../lib/docker-env.js";
+import { isBootstrapPending } from "../../lib/bootstrap-status.js";
 import { runStart } from "../../commands/start.js";
 
 const mockComposeUp = vi.mocked(composeUp);
@@ -49,6 +60,8 @@ const mockPrintResults = vi.mocked(printResults);
 const mockRunDbMigrate = vi.mocked(runDbMigrate);
 const mockGetMode = vi.mocked(getMode);
 const mockBanner = vi.mocked(banner);
+const mockReadDockerEnvSecrets = vi.mocked(readDockerEnvSecrets);
+const mockIsBootstrapPending = vi.mocked(isBootstrapPending);
 const mockError = vi.mocked(error);
 
 beforeEach(() => {
@@ -58,6 +71,8 @@ beforeEach(() => {
   // Migrations succeed by default; runStart now aborts (no "ready" banner)
   // when they fail. Failure is exercised in its own test.
   mockRunDbMigrate.mockResolvedValue(true);
+  mockReadDockerEnvSecrets.mockReturnValue({ ADMIN_BOOTSTRAP_TOKEN: "tok-abc123" });
+  mockIsBootstrapPending.mockResolvedValue(true);
   process.exitCode = 0;
 });
 
@@ -75,7 +90,10 @@ describe("runStart", () => {
 
   it("starts DB containers (not full stack) in docker mode", async () => {
     await runStart();
-    expect(mockComposeUp).toHaveBeenCalledWith({ full: false });
+    expect(mockComposeUp).toHaveBeenCalledWith({
+      full: false,
+      exposeHost: false,
+    });
   });
 
   it("skips composeUp in local mode", async () => {
@@ -222,5 +240,83 @@ describe("runStart", () => {
   it("returns false when doctor finds failures in docker mode", async () => {
     mockPrintResults.mockReturnValue(true);
     await expect(runStart()).resolves.toBe(false);
+  });
+
+  it("prints the bootstrap token while a bootstrap is pending (#1312)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("tok-abc123"))).toBe(true);
+  });
+
+  it("names the file the token came from, so the user can find it again (#1312)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("docker/.env"))).toBe(true);
+  });
+
+  it("hides the token once an admin exists — it is a secret, not decoration (#1312)", async () => {
+    mockIsBootstrapPending.mockResolvedValue(false);
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("tok-abc123"))).toBe(false);
+  });
+
+  it("does not print a token that was never generated (#1312)", async () => {
+    mockReadDockerEnvSecrets.mockReturnValue({});
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => /bootstrap token/i.test(l))).toBe(false);
+  });
+
+  it("does not reach for the docker token in local mode (#1312)", async () => {
+    mockGetMode.mockReturnValue("local");
+    await runStart({ full: false });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("docker/.env"))).toBe(false);
+  });
+
+  it("passes --expose-host through to compose (#1346)", () => {
+    // Off by default above; on only when asked for.
+    return runStart({ full: true, exposeHost: true }).then(() => {
+      expect(mockComposeUp).toHaveBeenCalledWith({
+        full: true,
+        exposeHost: true,
+      });
+    });
+  });
+
+  // --expose-host overlays extra_hosts onto the `neoboard` service, which only
+  // the FULL compose defines. Without --full, compose refuses the entire
+  // project with "service neoboard has neither an image nor a build context
+  // specified" — an error about the wrong thing entirely. Verified against
+  // real `docker compose config` (#1346).
+  describe("--expose-host requires Docker full-stack mode", () => {
+    it("rejects --expose-host without --full, naming the fix", async () => {
+      vi.mocked(getMode).mockReturnValue("docker");
+      const ok = await runStart({ full: false, exposeHost: true });
+      expect(ok).toBe(false);
+      expect(process.exitCode).toBe(1);
+      expect(vi.mocked(error).mock.calls[0][0]).toContain("--full");
+      expect(mockComposeUp).not.toHaveBeenCalled();
+    });
+
+    it("rejects --expose-host in local mode, saying why it is moot", async () => {
+      // The app runs on the host there, so localhost already reaches the
+      // databases and the flag has nothing to do.
+      vi.mocked(getMode).mockReturnValue("local");
+      const ok = await runStart({ full: true, exposeHost: true });
+      expect(ok).toBe(false);
+      expect(vi.mocked(error).mock.calls[0][0]).toMatch(/local mode/i);
+      expect(mockComposeUp).not.toHaveBeenCalled();
+    });
+
+    it("allows the valid combination", async () => {
+      vi.mocked(getMode).mockReturnValue("docker");
+      await runStart({ full: true, exposeHost: true });
+      expect(mockComposeUp).toHaveBeenCalledWith({
+        full: true,
+        exposeHost: true,
+      });
+    });
   });
 });

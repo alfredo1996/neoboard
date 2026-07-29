@@ -75,6 +75,18 @@ export function formatAxisCompact(value: number | string): string {
   return String(value);
 }
 
+/**
+ * One gridline colour per theme, for every cartesian chart (#1247).
+ *
+ * Charts must not set `splitLine.lineStyle` themselves — differing grid
+ * weight makes two widgets on one dashboard look like they came from
+ * different tools. Enforced by cartesian-axis-defaults.test.tsx.
+ */
+export const GRID_LINE_COLOR = {
+  light: "#f0f2f4",
+  dark: "#1d2025",
+} as const;
+
 function axisStyle(line: string, label: string, split: string) {
   return {
     axisLine: { lineStyle: { color: line } },
@@ -134,7 +146,7 @@ export function registerNeoboardThemes(
 ) {
   // Light: border hsl(220 13% 91%) ≈ #e5e7eb, muted-fg hsl(220 9% 44%) ≈ #666d7a
   const lightAxis = {
-    ...axisStyle("#e5e7eb", "#666d7a", "#f0f2f4"),
+    ...axisStyle("#e5e7eb", "#666d7a", GRID_LINE_COLOR.light),
   };
   registerTheme(THEME_LIGHT, {
     color: CITRINE_LIGHT,
@@ -142,6 +154,9 @@ export function registerNeoboardThemes(
     textStyle: { color: "#14161a" }, // foreground hsl(220 13% 9%)
     title: { textStyle: { color: "#14161a" } },
     categoryAxis: lightAxis,
+    // A time axis is a cartesian axis too — without this entry the gantt and
+    // any date-based line chart draw ECharts' un-themed grid (#1247).
+    timeAxis: lightAxis,
     valueAxis: {
       ...lightAxis,
       axisLabel: { color: "#666d7a", formatter: formatAxisCompact },
@@ -161,13 +176,15 @@ export function registerNeoboardThemes(
   });
 
   // Dark: border hsl(220 13% 17%) ≈ #262931, muted-fg hsl(220 9% 62%) ≈ #959ba7
-  const darkAxis = axisStyle("#262931", "#959ba7", "#1d2025");
+  const darkAxis = axisStyle("#262931", "#959ba7", GRID_LINE_COLOR.dark);
   registerTheme(THEME_DARK, {
     color: CITRINE_DARK,
     backgroundColor: "transparent",
     textStyle: { color: "#f3f4f6" }, // foreground hsl(220 14% 96%)
     title: { textStyle: { color: "#f3f4f6" } },
     categoryAxis: darkAxis,
+    // See the light theme note — time axes need the entry too (#1247).
+    timeAxis: darkAxis,
     valueAxis: {
       ...darkAxis,
       axisLabel: { color: "#959ba7", formatter: formatAxisCompact },

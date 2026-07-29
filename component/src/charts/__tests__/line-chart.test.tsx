@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
+import { fadeToTransparent } from "../chart-utils";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -90,6 +91,117 @@ describe("LineChart", () => {
     render(<LineChart data={sampleData} area />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].areaStyle).toBeDefined();
+  });
+
+  describe("area fill: light only (#1264)", () => {
+    // seriesColor comes from a matched styling rule, not the colors prop —
+    // that is what activates the gradient branch of areaStyle.
+    const amberRule = [
+      { id: "r1", operator: ">=" as const, value: 0, color: "#f9a91f" },
+    ];
+
+    afterEach(() => document.documentElement.classList.remove("dark"));
+
+    const areaStyleOf = () =>
+      mockSetOption.mock.calls[0][0].series[0].areaStyle;
+
+    it.each([
+      ["with a resolved series colour", amberRule],
+      ["with no series colour (default path)", undefined],
+    ])("omits the fill entirely in dark mode %s", (_label, rules) => {
+      // A warm fill over charcoal composites to brown at ANY alpha — the
+      // technique is the problem, not the value. #1244 lowered the opacity and
+      // it still read as a stain, so dark drops the fill and keeps the line.
+      // Both paths asserted: #1244 fixed only the styling-rule branch and left
+      // the default one muddy precisely because they were tested separately.
+      document.documentElement.classList.add("dark");
+      render(<LineChart data={sampleData} area stylingRules={rules} />);
+      expect(areaStyleOf()).toBeUndefined();
+    });
+
+    it.each([
+      ["with a resolved series colour", amberRule, 0.15],
+      ["with no series colour (default path)", undefined, 0.12],
+    ])("keeps the fill in light mode %s", (_label, rules, opacity) => {
+      render(<LineChart data={sampleData} area stylingRules={rules} />);
+      expect(areaStyleOf().opacity).toBe(opacity);
+    });
+
+    it("fades the light gradient to the same hue, never to transparent white", () => {
+      // Canvas interpolates gradients in non-premultiplied RGBA, so fading to
+      // rgba(255,255,255,0) washes a saturated colour through pale grey.
+      render(<LineChart data={sampleData} area stylingRules={amberRule} />);
+      const stops = areaStyleOf().color.colorStops;
+      const last = stops[stops.length - 1].color;
+      expect(last).not.toMatch(/255,\s*255,\s*255/);
+      // Assert the exact fadeToTransparent output, not just the hue: an
+      // OPAQUE same-hue colour ("#f9a91f") would satisfy a hue-only check
+      // while completely defeating the fade this test exists to protect.
+      expect(last).toBe(fadeToTransparent("#f9a91f"));
+      expect(last).toMatch(/00$/);
+    });
+
+    const lastAreaStyleOf = () =>
+      mockSetOption.mock.calls[mockSetOption.mock.calls.length - 1][0].series[0]
+        .areaStyle;
+
+    // Toggling the theme on a MOUNTED chart. Every test above sets the class
+    // before render and reads calls[0], which is exactly why #1286 survived:
+    // the memo read the theme once at mount and never rebuilt, so light → dark
+    // left the warm wash sitting over charcoal until the widget re-queried.
+    const toggleTo = (theme: "dark" | "light") => {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      act(() => {
+        globalThis.dispatchEvent(new Event("neoboard-theme-change"));
+      });
+    };
+
+    it.each([
+      ["with a resolved series colour", amberRule, 0.15],
+      ["with no series colour (default path)", undefined, 0.12],
+    ])("drops the fill when toggled light → dark %s", (_l, rules, opacity) => {
+      render(<LineChart data={sampleData} area stylingRules={rules} />);
+      expect(areaStyleOf().opacity).toBe(opacity);
+      toggleTo("dark");
+      expect(lastAreaStyleOf()).toBeUndefined();
+    });
+
+    it.each([
+      ["with a resolved series colour", amberRule, 0.15],
+      ["with no series colour (default path)", undefined, 0.12],
+    ])(
+      "restores the fill when toggled dark → light %s",
+      (_l, rules, opacity) => {
+        document.documentElement.classList.add("dark");
+        render(<LineChart data={sampleData} area stylingRules={rules} />);
+        expect(areaStyleOf()).toBeUndefined();
+        toggleTo("light");
+        expect(lastAreaStyleOf().opacity).toBe(opacity);
+      },
+    );
+
+    it('re-colors the "No data" label on toggle (#1286)', () => {
+      // Same root cause as the fill: buildEmptyDataOption() read the theme
+      // from the DOM inside the memo body, so the empty label kept the
+      // previous theme's grey. Asserted on LineChart because BarChart's empty
+      // state is DOM, not canvas (#1053) — its option never reaches ECharts.
+      render(<LineChart data={[]} />);
+      const colorOf = (i: number) =>
+        mockSetOption.mock.calls[i][0].title.textStyle.color;
+      expect(colorOf(0)).toBe("#666d7a");
+      toggleTo("dark");
+      expect(colorOf(mockSetOption.mock.calls.length - 1)).toBe("#959ba7");
+    });
+
+    it("still draws the line itself in dark mode", () => {
+      // Dropping the fill must not drop the series — the chart still has to
+      // render, just without the wash.
+      document.documentElement.classList.add("dark");
+      render(<LineChart data={sampleData} area />);
+      const series = mockSetOption.mock.calls[0][0].series[0];
+      expect(series.type).toBe("line");
+      expect(series.lineStyle.width).toBe(1.5);
+    });
   });
 
   it("sets x-axis label", () => {

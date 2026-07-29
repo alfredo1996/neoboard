@@ -8,6 +8,11 @@ on:
       - 'component/**'
       - 'connection/**'
       - 'cli/**'
+      # Root-level code the lint job actually covers. Without these, a change
+      # confined to scripts/ skipped CI entirely while still being lintable
+      # code — and scripts/ holds the predev/prebuild import generators (#1263).
+      - 'scripts/**'
+      - 'eslint.config.js'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -20,6 +25,11 @@ on:
       - 'component/**'
       - 'connection/**'
       - 'cli/**'
+      # Root-level code the lint job actually covers. Without these, a change
+      # confined to scripts/ skipped CI entirely while still being lintable
+      # code — and scripts/ holds the predev/prebuild import generators (#1263).
+      - 'scripts/**'
+      - 'eslint.config.js'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -83,6 +93,14 @@ jobs:
 
       - name: Lint all packages
         run: npm run lint
+
+      # scripts/__tests__ was previously run by NO workflow (#1263) — 71 tests
+      # covering, among other things, the plugin/connector import generators
+      # that run as predev/prebuild. A break there stops every dev and build.
+      # Runs here rather than in unit-tests to keep it off the oversubscribed
+      # four-package runner (#1240).
+      - name: Test root scripts
+        run: npm run test:scripts
 
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
   # All three packages run in parallel within a single job.

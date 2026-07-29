@@ -265,6 +265,18 @@ export default async function globalSetup() {
     NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
     NEXTAUTH_URL: `http://localhost:${serverPort}`,
     REGISTRATION_ENABLED: "true",
+    // Relax the auth rate limiters for the suite (#1323). Both read
+    // `NODE_ENV === "test" || CI === "true"` (app/src/lib/crypto/rate-limiter.ts,
+    // app/src/lib/api/with-rate-limit.ts) and `next start` needs
+    // NODE_ENV=production, so CI is the only reachable switch.
+    //
+    // Every test logs in from 127.0.0.1, so the whole suite shares one IP
+    // bucket. GitHub Actions sets CI=true itself, which is why this only ever
+    // failed locally: two auth specs in one invocation cross the production
+    // ceiling of 20 logins/minute, and the limiter returns null — rendered as
+    // "Invalid email or password", indistinguishable from a wrong password
+    // and emitting no 429 for anyone grepping the logs.
+    CI: "true",
   };
 
   // Build once — skip if a previous build exists and E2E_SKIP_BUILD is set,

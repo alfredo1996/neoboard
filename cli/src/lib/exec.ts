@@ -66,6 +66,23 @@ export function run(cmd: string, opts?: RunOptions): string {
   }
 }
 
+/**
+ * runFile, returning null instead of throwing. The argv counterpart to
+ * runOrNull, for commands whose arguments must not pass through a shell —
+ * anything carrying quoted SQL identifiers, paths, or user-supplied values.
+ */
+export function runFileOrNull(
+  file: string,
+  args: string[],
+  opts?: RunOptions,
+): string | null {
+  try {
+    return runFile(file, args, opts);
+  } catch {
+    return null;
+  }
+}
+
 export function runOrNull(cmd: string, opts?: RunOptions): string | null {
   try {
     return run(cmd, opts);

@@ -39,9 +39,16 @@ npm install
 # Start the dev database containers
 docker compose -f docker/docker-compose.yml up -d
 
-# Configure environment + generate secrets
-cp app/.env.example app/.env.local
-neoboard env init   # generates ENCRYPTION_KEY, NEXTAUTH_SECRET, API_KEY_HMAC_SECRET
+# Configure environment + generate secrets.
+# `neoboard env` WRITES app/.env.local — no copy needed, and copying first only
+# leaves example placeholders for the generator to reconcile.
+neoboard env
+
+# Writes DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET, NEXTAUTH_URL,
+# API_KEY_HMAC_SECRET and ADMIN_BOOTSTRAP_TOKEN into app/.env.local.
+# ADMIN_BOOTSTRAP_TOKEN is the one you need minutes later to create the first
+# admin — the command prints it, so keep the output. (Docker mode writes the
+# same set to docker/.env instead.)
 
 # Run migrations and start the dev server
 npm run db:migrate
@@ -52,7 +59,7 @@ The app will be available at `http://localhost:3000`. See [DEVELOPMENT.md](https
 
 ## Production Deployment
 
-The three options above set up a **development** stack. For production, use the dedicated compose files in `docker/`:
+Both options above set up a **development** stack. For production, use the dedicated compose files in `docker/`:
 
 | File                                          | Use when                                                                  |
 | --------------------------------------------- | ------------------------------------------------------------------------- |
@@ -67,6 +74,7 @@ Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall bac
 export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+export API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
 export NEXTAUTH_URL=https://neoboard.example.com   # the public URL users hit
 ```
 
@@ -117,26 +125,33 @@ The HTTPS redirect is **on by default** in production. Terminate TLS at your rev
 
 ## Verify Installation
 
-Run the doctor command to check that all services are healthy:
+Check that the services are up:
 
 ```bash
-neoboard doctor
+neoboard status
 ```
 
-Expected output:
+It reports whether the app, PostgreSQL, and Neo4j are `healthy` or `stopped`, with the host and port for each.
 
-```
-  NeoBoard Doctor
-  ---------------
-  Next.js server   ... running (http://localhost:3000)
-  PostgreSQL       ... connected (localhost:5432)
-  Neo4j            ... connected (localhost:7687)
-  Encryption key   ... set
-  Migrations       ... up to date
-  All checks passed.
+For the app itself, the health endpoint is the authoritative check:
+
+```bash
+curl -s localhost:3000/api/health | jq .data.status   # "ok"
 ```
 
 If you see the dashboard list page after signing in, NeoBoard is running correctly.
+
+### `neoboard doctor` — pre-flight, not health
+
+`doctor` is a **readiness check for the machine**, not a health check for a running install. It verifies:
+
+- Docker daemon running and Docker Compose v2 available (warnings instead of failures in local mode)
+- Node.js ≥ 20
+- Ports 3000 / 5432 / 7474 / 7687 are **free**
+- `app/node_modules` exists
+- `app/.env.local` exists
+
+Run it *before* installing, or when something won't start. Note the port checks warn when a port is **in use** — so once NeoBoard is running, four port warnings are expected and correct. Use `neoboard status` to ask whether things are healthy.
 
 ## When Something Goes Wrong
 

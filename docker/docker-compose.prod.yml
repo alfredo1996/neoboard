@@ -5,7 +5,8 @@
 # For a self-contained single-server stack, use docker-compose.prod-full.yml
 # instead — that is the recommended production entry point.
 #
-# Required env vars: DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET
+# Required env vars: DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET,
+#                    API_KEY_HMAC_SECRET
 # See ../app/.env.example for documentation on every variable.
 #
 # Usage:
@@ -41,7 +42,7 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       # ── Auth ──
       ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
-      API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:-}
+      API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:?API_KEY_HMAC_SECRET is required — generate with `openssl rand -hex 32`}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
       SESSION_MAX_AGE: ${SESSION_MAX_AGE:-}
       TENANT_ID: ${TENANT_ID:-}
@@ -51,7 +52,6 @@ services:
       # HTTPS redirect is ON by default in production. Set to "false" only
       # when TLS terminates upstream without forwarding X-Forwarded-Proto.
       FORCE_HTTPS: ${FORCE_HTTPS:-}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       # ── Enterprise / SSO ──
       NEOBOARD_EDITION: ${NEOBOARD_EDITION:-community}
       OIDC_ISSUER: ${OIDC_ISSUER:-}

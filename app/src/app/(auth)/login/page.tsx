@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useSyncExternalStore } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -18,6 +18,11 @@ import {
 } from "@neoboard/components";
 import { LoadingButton, PasswordInput } from "@neoboard/components";
 
+/** Hydration probe helpers — module scope so the refs stay stable (#1272). */
+const subscribeNoop = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,6 +31,19 @@ function LoginForm() {
   const passwordChanged = searchParams.get("passwordChanged") === "1";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Until React attaches onSubmit, a click runs the browser's NATIVE form
+  // submit — a GET that puts email and password in the URL, and therefore in
+  // history and access logs. Gate the button on hydration so that is
+  // unreachable, and expose the state so callers can wait for interactivity
+  // instead of clicking blind and retrying (#1272).
+  // useSyncExternalStore is the idiomatic hydration probe: the server
+  // snapshot is false, the client snapshot is true, and React swaps them
+  // when hydration completes. No setState-in-effect, no cascading render.
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    getHydratedSnapshot,
+    getServerSnapshot,
+  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,7 +76,11 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4"
+      data-hydrated={hydrated ? "true" : "false"}
+    >
       {passwordChanged && !error && (
         <Alert>
           <AlertDescription>
@@ -100,6 +122,7 @@ function LoginForm() {
         loading={loading}
         loadingText="Signing in..."
         className="w-full"
+        disabled={!hydrated}
       >
         Sign in
       </LoadingButton>

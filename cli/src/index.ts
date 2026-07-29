@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { error as logError } from "./lib/output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,12 +49,20 @@ program
   .description(
     "Start NeoBoard services, run migrations\n" +
       "  Docker mode: starts database containers (add --full for the app)\n" +
+      "  --expose-host: reach a database on this machine, outside Docker\n" +
       "  Local mode: connects to your running PostgreSQL + Neo4j",
   )
   .option("--full", "Docker mode: also start the app container (#968)", false)
+  .option(
+    "--expose-host",
+    "Let the app reach databases running on this machine, outside Docker " +
+      "(maps host.docker.internal). Then connect with " +
+      "host.docker.internal instead of localhost.",
+    false,
+  )
   .action(async (opts) => {
     const { runStart } = await import("./commands/start.js");
-    await runStart({ full: opts.full });
+    await runStart({ full: opts.full, exposeHost: opts.exposeHost });
   });
 
 program
@@ -296,11 +305,32 @@ db.command("dump")
     await runDbDump({ output: opts.output, dataOnly: opts.dataOnly });
   });
 
+db.command("restore")
+  .description(
+    "Restore a database dump taken with `neoboard db dump` or pg_dump\n" +
+      "  --clean  Drop existing objects first (required for a non-empty target)\n" +
+      "  --force  Skip the confirmation and the running-app check",
+  )
+  .argument("<file>", "Path to the dump file (plain SQL or pg_dump -Fc)")
+  .option("--clean", "Drop existing objects before restoring")
+  .option("--force", "Skip confirmation prompt and preflight blocks")
+  .action(async (file, opts) => {
+    const { runDbRestore } = await import("./commands/db/restore.js");
+    await runDbRestore(file, { clean: opts.clean, force: opts.force });
+  });
+
 // Only parse when run directly (not when imported in tests)
 const isDirectRun =
   process.argv[1]?.endsWith("index.js") ||
   process.argv[1]?.endsWith("neoboard");
 
 if (isDirectRun) {
-  program.parse();
+  // A rejected command action otherwise surfaces as Node's unhandled-rejection
+  // dump: the message buried under a stack trace rooted in dist/, which reads
+  // as a crash rather than as the CLI telling you something (#1315). Commands
+  // throw to say "you cannot do that here"; print that and nothing else.
+  program.parseAsync().catch((err: unknown) => {
+    logError(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+  });
 }

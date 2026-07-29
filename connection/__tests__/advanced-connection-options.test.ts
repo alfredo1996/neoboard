@@ -265,4 +265,73 @@ describe("DEFAULT_CONNECTION_CONFIG (#973)", () => {
       await import("@neoboard/connector-sdk");
     expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(30_000);
   });
+
+  // -------------------------------------------------------------------------
+  // sslmode in the connection URI (#1299)
+  //
+  // Every managed Postgres hands you a URI with ?sslmode=require. Dropping it
+  // means NeoBoard silently connects to a customer's production database in
+  // PLAINTEXT, with nothing in the UI or logs to say so.
+  // -------------------------------------------------------------------------
+
+  function moduleWithUri(uri: string, advanced?: PostgresAdvancedOptions) {
+    const {
+      PostgresAuthenticationModule,
+    } = require("../src/postgresql/PostgresAuthenticationModule");
+    // poolConstructorCalls accumulates across tests in this describe block, so
+    // reset and read the call this helper just made rather than index [0].
+    poolConstructorCalls.length = 0;
+    new PostgresAuthenticationModule({ ...pgAuth, uri }, advanced);
+    return poolConstructorCalls[poolConstructorCalls.length - 1];
+  }
+
+  it("honours sslmode=require from the URI (#1299)", () => {
+    // libpq semantics: require = encrypt, do not verify the certificate.
+    const cfg = moduleWithUri(
+      "postgresql://localhost:5432/testdb?sslmode=require",
+    );
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("honours sslmode=verify-full from the URI (#1299)", () => {
+    const cfg = moduleWithUri(
+      "postgresql://localhost:5432/testdb?sslmode=verify-full",
+    );
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: true });
+  });
+
+  it("honours sslmode=verify-ca from the URI (#1299)", () => {
+    const cfg = moduleWithUri(
+      "postgresql://localhost:5432/testdb?sslmode=verify-ca",
+    );
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: true });
+  });
+
+  it("treats sslmode=disable as explicitly no TLS (#1299)", () => {
+    const cfg = moduleWithUri(
+      "postgresql://localhost:5432/testdb?sslmode=disable",
+    );
+    expect(cfg.ssl).toBe(false);
+  });
+
+  it("lets the explicit advanced option override the URI (#1299)", () => {
+    // pgSslRejectUnauthorized is set deliberately by an operator in the
+    // connection form; a query param inherited from a copy-pasted URI must
+    // not silently win over it.
+    const cfg = moduleWithUri(
+      "postgresql://localhost:5432/testdb?sslmode=verify-full",
+      { pgSslRejectUnauthorized: false },
+    );
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("still omits ssl when neither the URI nor options ask for it (#1299)", () => {
+    const cfg = moduleWithUri("postgresql://localhost:5432/testdb");
+    expect(cfg.ssl).toBeUndefined();
+  });
+
+  it("does not mistake a database named like a param for sslmode (#1299)", () => {
+    const cfg = moduleWithUri("postgresql://localhost:5432/sslmode=require");
+    expect(cfg.ssl).toBeUndefined();
+  });
 });

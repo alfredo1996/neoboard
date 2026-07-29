@@ -62,7 +62,40 @@ describe("crypto — key rotation (dual-key decryption)", () => {
     delete process.env.ENCRYPTION_KEY_OLD;
     const { decrypt } = await loadCrypto();
 
-    expect(() => decrypt(ciphertext)).toThrow();
+    // Named, not bare toThrow(): the raw failure is Node's "Unsupported state
+    // or unable to authenticate data", which names neither the key nor the
+    // fix — the admin saw every widget break with no thread to pull (#1274).
+    // A bare toThrow() passes on exactly that message.
+    expect(() => decrypt(ciphertext)).toThrow(/ENCRYPTION_KEY/);
+    expect(() => decrypt(ciphertext)).toThrow(/ENCRYPTION_KEY_OLD/);
+  });
+
+  it("the decrypt failure names the cause without leaking key or ciphertext", async () => {
+    const keyA = randomKey();
+    const keyB = randomKey();
+    process.env.ENCRYPTION_KEY = keyA;
+    delete process.env.ENCRYPTION_KEY_OLD;
+    const { encrypt } = await loadCrypto();
+    const ciphertext = encrypt("sensitive-data");
+
+    vi.resetModules();
+    process.env.ENCRYPTION_KEY = keyB;
+    delete process.env.ENCRYPTION_KEY_OLD;
+    const { decrypt } = await loadCrypto();
+
+    let message = "";
+    try {
+      decrypt(ciphertext);
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    }
+
+    expect(message).toContain("ENCRYPTION_KEY");
+    // An error message is the one place secrets reliably end up in logs.
+    expect(message).not.toContain(keyA);
+    expect(message).not.toContain(keyB);
+    expect(message).not.toContain(ciphertext);
+    expect(message).not.toContain("sensitive-data");
   });
 
   it("decrypt works with current key without needing ENCRYPTION_KEY_OLD", async () => {

@@ -1,0 +1,19 @@
+# Opt-in overlay: let the app container reach databases on the HOST machine.
+#
+# Applied only when you pass `--expose-host`:
+#
+#   neoboard start --full --expose-host
+#
+# Off by default deliberately. This punches a route from the container to the
+# host's network, which most installs do not need — a database inside the same
+# compose network is reached by its service name, and a remote one by its real
+# hostname. Only reach for this when the database is running on your own
+# machine, outside Docker.
+#
+# On Docker Desktop (macOS/Windows) `host.docker.internal` already resolves
+# without this file; on Linux it does not, and this mapping is what makes the
+# connection-failure hint (#1346) true there rather than a dead end.
+services:
+  neoboard:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

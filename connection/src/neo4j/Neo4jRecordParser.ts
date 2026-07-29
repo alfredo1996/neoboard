@@ -108,12 +108,23 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * otherwise returns as string to avoid precision loss.
    *
    * @param {any} value - The Neo4j primitive value to convert.
-   * @returns {number|string|boolean|bigint} The JavaScript representation of the value.
+   * @returns {number|string|boolean} The JavaScript representation of the value.
    */
 
-  parsePrimitive(value: unknown): number | string | boolean | bigint {
+  parsePrimitive(value: unknown): number | string | boolean {
     if (isInt(value)) {
-      return value.inSafeRange() ? value.toNumber() : value.toBigInt();
+      // String, not BigInt, beyond the safe range. JSON.stringify throws on a
+      // BigInt, so the old branch failed the entire query with an opaque 500
+      // the moment such a value reached the API boundary — RETURN id(n) on a
+      // large graph was enough. A string is JSON-safe, lossless, and matches
+      // what the PostgreSQL connector already emits for int8, so a widget no
+      // longer has to know which database a column came from (#1304).
+      //
+      // NOT fixed by disableLosslessIntegers on the driver: that returns plain
+      // numbers for EVERY integer, silently rounding exactly the values this
+      // is about. The parser must keep receiving Integer objects so
+      // inSafeRange() can decide per value.
+      return value.inSafeRange() ? value.toNumber() : value.toString();
     }
 
     if (
@@ -158,10 +169,13 @@ export class Neo4jRecordParser extends NeodashRecordParser {
   /**
    * Converts Neo4j temporal types into JavaScript-native representations.
    * - Neo4jDate: "YYYY-MM-DD" string
-   * - DateTime: "YYYY-MM-DD HH:mm:ss" string
-   * - LocalDateTime: JS Date with manual component mapping
-   * - Time and LocalTime: formatted string (HH:mm:ss.nnnnnnnnn)
+   * - Time: "HH:mm:ss.nnnnnnnnn+HH:MM" string
    * - Duration: plain JS object with numeric fields
+   * - everything else: the driver's own lossless ISO-8601 toString()
+   *
+   * Strings, not Dates. A JS Date is an absolute instant, which a LocalDateTime
+   * deliberately is not — and an ISO string is what a browser can parse
+   * unambiguously (#1306).
    *
    * @param {object} value - A temporal value from Neo4j, possibly with fields like year, month, hour, etc.
    * @returns {Date|string|object} A native JS object or string, depending on the type.
@@ -191,34 +205,19 @@ export class Neo4jRecordParser extends NeodashRecordParser {
         .padStart(9, "0")}${sign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
     }
 
-    if (value instanceof LocalTime) {
-      return `${value.hour}:${value.minute}:${value.second}.${value.nanosecond}`;
-    }
-
-    if (value instanceof DateTime) {
-      const pad = (num: { toNumber: () => number }) =>
-        String(num.toNumber()).padStart(2, "0");
-      const y = value.year.toNumber();
-      const mo = pad(value.month);
-      const d = pad(value.day);
-      const h = pad(value.hour);
-      const mi = pad(value.minute);
-      const s = pad(value.second);
-      return `${y}-${mo}-${d} ${h}:${mi}:${s}`;
-    }
-
-    if (value instanceof LocalDateTime) {
-      return new Date(
-        value.year.toNumber(),
-        value.month.toNumber() - 1,
-        value.day.toNumber(),
-        value.hour.toNumber(),
-        value.minute.toNumber(),
-        value.second.toNumber(),
-        Math.floor(value.nanosecond.toNumber() / 1e6),
-      );
-    }
-
+    // Every remaining temporal type formats itself losslessly and in ISO-8601
+    // via the driver's own toString(): DateTime keeps its offset and all nine
+    // nanosecond digits, LocalTime pads to HH:mm:ss.nnnnnnnnn, and
+    // LocalDateTime stays zone-LESS.
+    //
+    // This replaced three hand-rolled formatters, two of which were lossy and
+    // one of which turned a zone-less value into an absolute instant in the
+    // server process's timezone — so the same row rendered differently
+    // depending on where the server ran. All three failed silently, showing a
+    // plausible-looking wrong value (#1306).
+    //
+    // Duration is the one exception below: it has no useful ISO round-trip for
+    // charts, and consumers already read the object form.
     if (value instanceof Duration) {
       return {
         months: value.months.toNumber(),
@@ -228,7 +227,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       };
     }
 
-    return value;
+    return value.toString();
   }
 
   /**

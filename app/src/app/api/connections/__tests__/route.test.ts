@@ -21,6 +21,8 @@ const mockRequireSession = vi.fn<
 const mockEncryptJson = vi.fn((v: unknown) => `enc:${JSON.stringify(v)}`);
 const mockPrefetchSchema = vi.fn();
 
+const mockAuditRequest = vi.fn();
+
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
@@ -39,6 +41,11 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+// Audit is mocked so route assertions aren't polluted by its own db.insert.
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
 vi.mock("@/lib/crypto/crypto", () => ({
   encryptJson: mockEncryptJson,
   decryptJson: vi.fn(),
@@ -257,6 +264,50 @@ describe("POST /api/connections", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("records a connection.create audit entry with no credentials (#1234)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([
+        { id: "c1", name: "Neo4j", type: "neo4j", createdAt: new Date() },
+      ]),
+    );
+
+    await POST(
+      makeRequest({
+        name: "Neo4j",
+        type: "neo4j",
+        config: {
+          uri: "bolt://localhost",
+          username: "neo4j",
+          password: "hunter2",
+        },
+      }),
+    );
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    const [, entry] = mockAuditRequest.mock.calls[0];
+    expect(entry).toMatchObject({
+      action: "connection.create",
+      resourceType: "connection",
+      resourceId: "c1",
+      tenantId: SESSION.tenantId,
+      userId: SESSION.userId,
+    });
+    // Credentials must never reach the audit trail.
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toContain("hunter2");
+    expect(serialized).not.toContain("bolt://localhost");
+  });
+
+  it("writes no audit entry when validation fails (#1234)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+
+    const res = await POST(makeRequest({ name: "", type: "neo4j" }));
+
+    expect(res.status).toBe(400);
+    expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
   it("creates connection and returns 201 envelope", async () => {

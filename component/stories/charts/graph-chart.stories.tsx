@@ -71,16 +71,100 @@ export const WithCategories: Story = {
   },
 };
 
+/**
+ * Synthetic (APOC virtual) nodes — created by `apoc.create.vNode` and returned
+ * only inside the query result, never stored. Ids and shapes are the real ones
+ * measured over Bolt against Neo4j 5 + APOC 5.26.25 (#1361).
+ *
+ * They carry a second, italic "virtual" caption line so a reader can tell
+ * computed nodes from stored ones at a glance, and the graph's context menu
+ * declines to expand them.
+ */
+export const SyntheticNodes: Story = {
+  args: {
+    nodes: [
+      {
+        id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
+        label: "MTO-1311-003",
+        labels: ["Document"],
+        value: 40,
+      },
+      {
+        id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:1",
+        label: "MTO-1311-004",
+        labels: ["Document"],
+        value: 40,
+      },
+      {
+        id: "-289",
+        label: "Totals",
+        labels: ["Summary"],
+        value: 40,
+        synthetic: true,
+      },
+      {
+        id: "-290",
+        label: "Averages",
+        labels: ["Summary"],
+        value: 40,
+        synthetic: true,
+      },
+    ],
+    edges: [
+      {
+        source: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
+        target: "-289",
+        label: "SUMMARISES",
+      },
+      {
+        source: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:1",
+        target: "-289",
+        label: "SUMMARISES",
+      },
+      {
+        source: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
+        target: "-290",
+        label: "SUMMARISES",
+      },
+    ],
+  },
+};
+
 export const WithProperties: Story = {
   args: {
     nodes: [
-      { id: "alice", label: "Alice", value: 40, properties: { age: 32, role: "Engineer", team: "Platform" } },
-      { id: "bob", label: "Bob", value: 30, properties: { age: 28, role: "Designer", team: "Product" } },
-      { id: "charlie", label: "Charlie", value: 35, properties: { age: 45, role: "Manager", team: "Platform" } },
+      {
+        id: "alice",
+        label: "Alice",
+        value: 40,
+        properties: { age: 32, role: "Engineer", team: "Platform" },
+      },
+      {
+        id: "bob",
+        label: "Bob",
+        value: 30,
+        properties: { age: 28, role: "Designer", team: "Product" },
+      },
+      {
+        id: "charlie",
+        label: "Charlie",
+        value: 35,
+        properties: { age: 45, role: "Manager", team: "Platform" },
+      },
     ],
     edges: [
-      { source: "alice", target: "bob", label: "collaborates", properties: { since: 2022 } },
-      { source: "alice", target: "charlie", label: "reports_to", properties: { since: 2021 } },
+      {
+        source: "alice",
+        target: "bob",
+        label: "collaborates",
+        properties: { since: 2022 },
+      },
+      {
+        source: "alice",
+        target: "charlie",
+        label: "reports_to",
+        properties: { since: 2021 },
+      },
     ],
   },
 };
@@ -114,9 +198,19 @@ export const ColoredEdges: Story = {
     nodes: socialNodes,
     edges: [
       { source: "alice", target: "bob", label: "friends", color: "#3b82f6" },
-      { source: "alice", target: "charlie", label: "colleagues", color: "#22c55e" },
+      {
+        source: "alice",
+        target: "charlie",
+        label: "colleagues",
+        color: "#22c55e",
+      },
       { source: "bob", target: "diana", label: "friends", color: "#3b82f6" },
-      { source: "charlie", target: "diana", label: "manages", color: "#f59e0b" },
+      {
+        source: "charlie",
+        target: "diana",
+        label: "manages",
+        color: "#f59e0b",
+      },
       { source: "diana", target: "eve", label: "mentors", color: "#a855f7" },
       { source: "eve", target: "alice", label: "reports_to", color: "#ef4444" },
     ],
@@ -127,8 +221,20 @@ export const ColoredEdges: Story = {
 const graphDb: Record<string, { nodes: GraphNode[]; edges: GraphEdge[] }> = {
   alice: {
     nodes: [
-      { id: "frank", label: "Frank", value: 30, color: "#8b5cf6", properties: { role: "Designer", team: "Product" } },
-      { id: "grace", label: "Grace", value: 25, color: "#ec4899", properties: { role: "PM", team: "Product" } },
+      {
+        id: "frank",
+        label: "Frank",
+        value: 30,
+        color: "#8b5cf6",
+        properties: { role: "Designer", team: "Product" },
+      },
+      {
+        id: "grace",
+        label: "Grace",
+        value: 25,
+        color: "#ec4899",
+        properties: { role: "PM", team: "Product" },
+      },
     ],
     edges: [
       { source: "alice", target: "frank", label: "collaborates" },
@@ -137,8 +243,19 @@ const graphDb: Record<string, { nodes: GraphNode[]; edges: GraphEdge[] }> = {
   },
   bob: {
     nodes: [
-      { id: "henry", label: "Henry", value: 20, color: "#f59e0b", properties: { role: "QA", team: "Platform" } },
-      { id: "alice", label: "Alice", value: 40, properties: { role: "Engineer", team: "Platform" } }, // already exists
+      {
+        id: "henry",
+        label: "Henry",
+        value: 20,
+        color: "#f59e0b",
+        properties: { role: "QA", team: "Platform" },
+      },
+      {
+        id: "alice",
+        label: "Alice",
+        value: 40,
+        properties: { role: "Engineer", team: "Platform" },
+      }, // already exists
     ],
     edges: [
       { source: "bob", target: "henry", label: "mentors" },
@@ -147,13 +264,25 @@ const graphDb: Record<string, { nodes: GraphNode[]; edges: GraphEdge[] }> = {
   },
   frank: {
     nodes: [
-      { id: "iris", label: "Iris", value: 35, color: "#14b8a6", properties: { role: "CEO", team: "Exec" } },
+      {
+        id: "iris",
+        label: "Iris",
+        value: 35,
+        color: "#14b8a6",
+        properties: { role: "CEO", team: "Exec" },
+      },
     ],
     edges: [{ source: "frank", target: "iris", label: "reports_to" }],
   },
   charlie: {
     nodes: [
-      { id: "henry", label: "Henry", value: 20, color: "#f59e0b", properties: { role: "QA", team: "Platform" } },
+      {
+        id: "henry",
+        label: "Henry",
+        value: 20,
+        color: "#f59e0b",
+        properties: { role: "QA", team: "Platform" },
+      },
     ],
     edges: [{ source: "charlie", target: "henry", label: "manages" }],
   },
@@ -167,7 +296,12 @@ interface NodeMenu {
   y: number;
 }
 
-function NodeContextMenu({ menu, onClose, onExpand, onCollapse }: {
+function NodeContextMenu({
+  menu,
+  onClose,
+  onExpand,
+  onCollapse,
+}: {
   menu: NodeMenu;
   onClose: () => void;
   onExpand?: () => void;
@@ -179,7 +313,9 @@ function NodeContextMenu({ menu, onClose, onExpand, onCollapse }: {
     const handleOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("mousedown", handleOutside);
     document.addEventListener("keydown", handleKey);
     return () => {
@@ -197,24 +333,58 @@ function NodeContextMenu({ menu, onClose, onExpand, onCollapse }: {
     <div
       ref={ref}
       style={{
-        position: "fixed", left: menu.x, top: menu.y, zIndex: 9999,
-        background: "white", border: "1px solid #e5e7eb", borderRadius: 6,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: "4px 0", minWidth: 160, fontSize: 13,
+        position: "fixed",
+        left: menu.x,
+        top: menu.y,
+        zIndex: 9999,
+        background: "white",
+        border: "1px solid #e5e7eb",
+        borderRadius: 6,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        padding: "4px 0",
+        minWidth: 160,
+        fontSize: 13,
       }}
     >
-      <div style={{ padding: "4px 12px 6px", fontSize: 11, color: "#9ca3af", fontWeight: 500, borderBottom: "1px solid #f3f4f6" }}>
+      <div
+        style={{
+          padding: "4px 12px 6px",
+          fontSize: 11,
+          color: "#9ca3af",
+          fontWeight: 500,
+          borderBottom: "1px solid #f3f4f6",
+        }}
+      >
         {menu.node.label ?? menu.node.id}
       </div>
       {items.length === 0 && (
-        <div style={{ padding: "6px 12px", color: "#9ca3af", fontSize: 12 }}>No actions</div>
+        <div style={{ padding: "6px 12px", color: "#9ca3af", fontSize: 12 }}>
+          No actions
+        </div>
       )}
       {items.map((item) => (
         <button
           key={item.label}
-          onClick={() => { item.action(); onClose(); }}
-          style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 12px", background: "none", border: "none", cursor: "pointer", color: "#111827" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f3f4f6"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+          onClick={() => {
+            item.action();
+            onClose();
+          }}
+          style={{
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            padding: "6px 12px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#111827",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "#f3f4f6";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "none";
+          }}
         >
           {item.label}
         </button>
@@ -228,9 +398,27 @@ function PathExpansionStory() {
   const [menu, setMenu] = useState<NodeMenu | null>(null);
 
   const startNodes: GraphNode[] = [
-    { id: "alice", label: "Alice", value: 40, color: "#3b82f6", properties: { role: "Engineer", team: "Platform" } },
-    { id: "bob", label: "Bob", value: 30, color: "#22c55e", properties: { role: "Backend", team: "Platform" } },
-    { id: "charlie", label: "Charlie", value: 35, color: "#ef4444", properties: { role: "Manager", team: "Platform" } },
+    {
+      id: "alice",
+      label: "Alice",
+      value: 40,
+      color: "#3b82f6",
+      properties: { role: "Engineer", team: "Platform" },
+    },
+    {
+      id: "bob",
+      label: "Bob",
+      value: 30,
+      color: "#22c55e",
+      properties: { role: "Backend", team: "Platform" },
+    },
+    {
+      id: "charlie",
+      label: "Charlie",
+      value: 35,
+      color: "#ef4444",
+      properties: { role: "Manager", team: "Platform" },
+    },
   ];
   const startEdges: GraphEdge[] = [
     { source: "alice", target: "bob", label: "knows" },
@@ -243,7 +431,9 @@ function PathExpansionStory() {
     fetchNeighbors: async (node) => {
       await new Promise((r) => setTimeout(r, 400));
       const result = graphDb[node.id] ?? { nodes: [], edges: [] };
-      setLog(`Expanded ${node.label}: +${result.nodes.length} nodes, +${result.edges.length} edges`);
+      setLog(
+        `Expanded ${node.label}: +${result.nodes.length} nodes, +${result.edges.length} edges`,
+      );
       return result;
     },
     maxDepth: 2,
@@ -251,10 +441,23 @@ function PathExpansionStory() {
 
   return (
     <div style={{ height: 500 }}>
-      <div style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div
+        style={{
+          marginBottom: 8,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           onClick={() => exploration.reset()}
-          style={{ padding: "4px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 12 }}
+          style={{
+            padding: "4px 12px",
+            border: "1px solid #ccc",
+            borderRadius: 4,
+            fontSize: 12,
+          }}
         >
           Reset
         </button>
@@ -269,18 +472,24 @@ function PathExpansionStory() {
         edges={exploration.edges}
         selectedNodeIds={exploration.selectedNodeIds}
         onNodeSelect={exploration.onNodeSelect}
-        onNodeRightClick={(e) => setMenu({ node: e.node, x: e.position.x, y: e.position.y })}
+        onNodeRightClick={(e) =>
+          setMenu({ node: e.node, x: e.position.x, y: e.position.y })
+        }
       />
       {menu && (
         <NodeContextMenu
           menu={menu}
           onClose={() => setMenu(null)}
-          onExpand={exploration.canExpand(menu.node.id)
-            ? () => exploration.onExpandRequest(menu.node)
-            : undefined}
-          onCollapse={exploration.canCollapse(menu.node.id)
-            ? () => exploration.collapse(menu.node.id)
-            : undefined}
+          onExpand={
+            exploration.canExpand(menu.node.id)
+              ? () => exploration.onExpandRequest(menu.node)
+              : undefined
+          }
+          onCollapse={
+            exploration.canCollapse(menu.node.id)
+              ? () => exploration.collapse(menu.node.id)
+              : undefined
+          }
         />
       )}
     </div>
@@ -298,11 +507,54 @@ export const PathExpansion: Story = {
 export const WithLabelSelector: Story = {
   args: {
     nodes: [
-      { id: "p1", label: "Tom Hanks", labels: ["Person"], value: 40, color: "#3b82f6", properties: { name: "Tom Hanks", born: 1956, role: "Actor" } },
-      { id: "p2", label: "Keanu Reeves", labels: ["Person"], value: 35, color: "#3b82f6", properties: { name: "Keanu Reeves", born: 1964, role: "Actor" } },
-      { id: "p3", label: "Carrie-Anne Moss", labels: ["Person"], value: 30, color: "#3b82f6", properties: { name: "Carrie-Anne Moss", born: 1967, role: "Actress" } },
-      { id: "m1", label: "The Matrix", labels: ["Movie"], value: 50, color: "#a855f7", properties: { title: "The Matrix", released: 1999, tagline: "Welcome to the Real World" } },
-      { id: "m2", label: "Forrest Gump", labels: ["Movie"], value: 45, color: "#a855f7", properties: { title: "Forrest Gump", released: 1994, tagline: "Life is like a box of chocolates" } },
+      {
+        id: "p1",
+        label: "Tom Hanks",
+        labels: ["Person"],
+        value: 40,
+        color: "#3b82f6",
+        properties: { name: "Tom Hanks", born: 1956, role: "Actor" },
+      },
+      {
+        id: "p2",
+        label: "Keanu Reeves",
+        labels: ["Person"],
+        value: 35,
+        color: "#3b82f6",
+        properties: { name: "Keanu Reeves", born: 1964, role: "Actor" },
+      },
+      {
+        id: "p3",
+        label: "Carrie-Anne Moss",
+        labels: ["Person"],
+        value: 30,
+        color: "#3b82f6",
+        properties: { name: "Carrie-Anne Moss", born: 1967, role: "Actress" },
+      },
+      {
+        id: "m1",
+        label: "The Matrix",
+        labels: ["Movie"],
+        value: 50,
+        color: "#a855f7",
+        properties: {
+          title: "The Matrix",
+          released: 1999,
+          tagline: "Welcome to the Real World",
+        },
+      },
+      {
+        id: "m2",
+        label: "Forrest Gump",
+        labels: ["Movie"],
+        value: 45,
+        color: "#a855f7",
+        properties: {
+          title: "Forrest Gump",
+          released: 1994,
+          tagline: "Life is like a box of chocolates",
+        },
+      },
     ],
     edges: [
       { source: "p2", target: "m1", label: "ACTED_IN" },

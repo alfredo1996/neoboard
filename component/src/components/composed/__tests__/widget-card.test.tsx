@@ -14,6 +14,41 @@ describe("WidgetCard", () => {
     expect(screen.getByText("Sales")).toBeInTheDocument();
   });
 
+  it("reserves the subtitle line when there is no subtitle (#1246)", () => {
+    // Two widgets side by side must start their content at the same height.
+    // Without a reserved line, a card with a subtitle pushes its chart down
+    // relative to its neighbour and the row visibly fails to align.
+    const { container } = render(
+      <WidgetCard title="Sales">Content</WidgetCard>,
+    );
+    const placeholder = container.querySelector("[data-subtitle-placeholder]");
+    expect(placeholder).toBeInTheDocument();
+    // Reserved space must be invisible to assistive tech — it carries no meaning.
+    expect(placeholder).toHaveAttribute("aria-hidden", "true");
+    expect(placeholder?.textContent).toBe("");
+  });
+
+  it("does not render a placeholder when a subtitle is present (#1246)", () => {
+    const { container } = render(
+      <WidgetCard title="Sales" subtitle="Last 30 days">
+        Content
+      </WidgetCard>,
+    );
+    expect(
+      container.querySelector("[data-subtitle-placeholder]"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Last 30 days")).toBeInTheDocument();
+  });
+
+  it("reserves no subtitle line when the card has no title either (#1246)", () => {
+    // A chrome-less card (no title, no subtitle) should not grow a phantom
+    // header line — the reservation exists to align titled cards with each other.
+    const { container } = render(<WidgetCard>Content</WidgetCard>);
+    expect(
+      container.querySelector("[data-subtitle-placeholder]"),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders subtitle", () => {
     render(
       <WidgetCard title="Sales" subtitle="Last 30 days">

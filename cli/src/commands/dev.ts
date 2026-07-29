@@ -1,17 +1,18 @@
 import { spawn } from "../lib/exec.js";
-import { paths, getMode, readProjectConfig } from "../lib/config.js";
+import { paths, getMode, readProjectConfig , assertCheckout } from "../lib/config.js";
 import { info, warn, banner } from "../lib/output.js";
 import { isPgReady, isNeo4jReady, composeUp } from "../lib/docker.js";
 import { waitForHealth } from "../lib/health.js";
 import { validateEnv } from "./env.js";
 
 export async function runDev(): Promise<void> {
+  assertCheckout("dev");
   const mode = getMode();
   const config = readProjectConfig();
 
   if (mode === "docker") {
     info(
-      "In Docker mode, the app runs inside the container. Use 'neoboard start' and visit http://localhost:3000.",
+      `In Docker mode, the app runs inside the container. Use 'neoboard start' and visit http://localhost:${config.ports.app}.`,
     );
     process.exitCode = 1;
     return;
@@ -56,7 +57,14 @@ export async function runDev(): Promise<void> {
     "Press Ctrl+C to stop.",
   ]);
 
-  const child = spawn("npm", ["run", "dev"], { cwd: paths.appDir });
+  // PORT, or the banner above lies: Next defaults to 3000 regardless of what
+  // `config set ports.app` says, so local mode had the same mismatch the
+  // Docker path did — the CLI announcing one port and the server serving
+  // another (#1313).
+  const child = spawn("npm", ["run", "dev"], {
+    cwd: paths.appDir,
+    env: { ...process.env, PORT: String(config.ports.app) },
+  });
 
   const cleanup = () => child.kill();
   process.on("SIGINT", cleanup);

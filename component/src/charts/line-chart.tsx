@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps, LineChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -16,6 +16,8 @@ import {
   parseReferenceLines,
   buildMarkLineFromRefs,
   isTimeSeriesData,
+  buildCategoryAxisLabel,
+  fadeToTransparent,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -130,9 +132,12 @@ function LineChart({
 }: LineChartProps & { samplingThreshold?: number; samplingMethod?: string }) {
   const { width, height, containerRef } = useContainerSize();
   const { compact, hideLegend } = getCompactState(width, height);
+  // Subscribed, not sampled: the memo below decides the area fill and the
+  // empty-state colour from the theme, so it has to rebuild on a toggle (#1286).
+  const dark = useDarkMode();
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) return buildEmptyDataOption();
+    if (!data.length) return buildEmptyDataOption(dark);
 
     const seriesKeys = collectSeriesKeys(data);
     const effectiveShowLegend = resolveShowLegend(
@@ -192,24 +197,35 @@ function LineChart({
         // Subtle fill (#822): a soft gradient when the series color is
         // known, otherwise a low flat opacity (ECharts applies the series
         // color automatically).
-        areaStyle: area
-          ? seriesColor
-            ? {
-                opacity: 0.15,
-                color: {
-                  type: "linear" as const,
-                  x: 0,
-                  y: 0,
-                  x2: 0,
-                  y2: 1,
-                  colorStops: [
-                    { offset: 0, color: seriesColor },
-                    { offset: 1, color: "rgba(255,255,255,0)" },
-                  ],
-                },
-              }
-            : { opacity: 0.12 }
-          : undefined,
+        // No area fill in dark mode at all (#1264). A warm fill over charcoal
+        // composites to brown at ANY alpha — the technique is the problem, not
+        // the value. #1244 lowered the opacity (0.15 -> 0.06) and it still read
+        // as a stain, so dark keeps the line and drops the wash. The fill is a
+        // light-mode affordance only, which is why the opacities below are no
+        // longer theme-dependent.
+        areaStyle:
+          area && !dark
+            ? seriesColor
+              ? {
+                  opacity: 0.15,
+                  color: {
+                    type: "linear" as const,
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [
+                      { offset: 0, color: seriesColor },
+                      // Fade to the SAME colour transparent — fading to
+                      // transparent white washed through pale grey (#1244).
+                      { offset: 1, color: fadeToTransparent(seriesColor) },
+                    ],
+                  },
+                }
+              : // Flat fill, no gradient: ECharts applies the series colour
+                // itself here because no styling rule resolved one.
+                { opacity: 0.12 }
+            : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // LTTB downsampling for large datasets
         ...(useSampling
@@ -232,14 +248,32 @@ function LineChart({
           (useDualAxis && !compact ? 56 : 0) +
             (legendPos === "right" ? 40 : 0) || undefined,
       },
-      xAxis: {
-        type: useTimeAxis ? "time" : "category",
-        ...(useTimeAxis ? {} : { data: xValues.map(String) }),
-        name: compact ? undefined : xAxisLabel,
-        nameLocation: "middle",
-        nameGap: 30,
-        axisLabel: { show: !compact },
-      },
+      // Built as two literals rather than one object with ternaries: ECharts
+      // discriminates the axis union on `type`, so a `"time" | "category"`
+      // union defeats narrowing and the whole option fails to type-check.
+      // Compact drops the axis *name* and the value numbers, never the x
+      // labels (#1247). The category branch takes the shared config so long
+      // labels truncate exactly as they do on the bar chart; the time branch
+      // keeps plain labels, since ECharts formats and thins dates itself and
+      // the rotation heuristic is meaningless for them.
+      xAxis: useTimeAxis
+        ? {
+            type: "time" as const,
+            name: compact ? undefined : xAxisLabel,
+            nameLocation: "middle" as const,
+            nameGap: 30,
+            axisLabel: { show: true },
+          }
+        : {
+            type: "category" as const,
+            data: xValues.map(String),
+            name: compact ? undefined : xAxisLabel,
+            nameLocation: "middle" as const,
+            nameGap: 30,
+            axisLabel: buildCategoryAxisLabel(xValues.length, {
+              containerWidth: width,
+            }),
+          },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
       series: seriesKeys.map((key, idx) => buildSeries(key, idx)),
     };
@@ -263,8 +297,10 @@ function LineChart({
     rightYAxisLabel,
     compact,
     hideLegend,
+    width,
     samplingThreshold,
     samplingMethod,
+    dark,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the

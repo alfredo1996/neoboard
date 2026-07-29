@@ -109,6 +109,17 @@ describe("AdvancedCachingSection", () => {
     expect(mockSetCacheTtlMinutes).toHaveBeenCalledWith(1);
   });
 
+  it("ignores a cleared TTL instead of committing 1 (#1292)", () => {
+    mockEnableCache = true;
+    render(<AdvancedCachingSection />);
+    fireEvent.change(screen.getByTestId("cache-ttl"), {
+      target: { value: "" },
+    });
+    // Math.max(1, Number("")) is 1, so clearing the field silently committed
+    // 1 and made the input unclearable.
+    expect(mockSetCacheTtlMinutes).not.toHaveBeenCalled();
+  });
+
   it("pluralizes minutes correctly", () => {
     mockEnableCache = true;
     mockCacheTtlMinutes = 1;

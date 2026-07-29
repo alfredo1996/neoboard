@@ -280,8 +280,6 @@ export interface CategoryAxisLabelOptions {
   rotateOverride?: number;
   /** Maximum label length before truncation (default: 15). */
   maxLabelLength?: number;
-  /** Whether the chart is in compact mode (hides labels). */
-  compact?: boolean;
   /** Container width in pixels — used for width-based auto-rotation. */
   containerWidth?: number;
 }
@@ -299,6 +297,8 @@ export interface CategoryAxisLabelConfig {
  * - 15+ categories: rotate 45°
  * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
  * - ECharts axisPointer tooltip shows the full text on hover
+ * - Category labels are never hidden: a compact container drops the value
+ *   axis, since a chart with no category names identifies nothing (#1247)
  *
  * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
  * normalized to undefined so the category-count heuristic applies.
@@ -307,7 +307,7 @@ export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { maxLabelLength = 15, compact = false, containerWidth } = options;
+  const { maxLabelLength = 15, containerWidth } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
   const rotateOverride =
@@ -337,7 +337,10 @@ export function buildCategoryAxisLabel(
     rotate = 0;
   }
 
-  // Width-aware truncation: tighter limit in narrow containers
+  // Width-aware truncation: tighter limit in narrow containers. A compact
+  // container is by definition under 400px, so it already gets the tight
+  // budget — going tighter still collapses common-prefix labels
+  // ("Widget A".."Widget G") into seven identical stubs (#1247).
   const effectiveMaxLength =
     containerWidth && containerWidth < 400
       ? Math.min(maxLabelLength, 10)
@@ -353,7 +356,7 @@ export function buildCategoryAxisLabel(
     : undefined;
 
   return {
-    show: !compact,
+    show: true,
     rotate,
     formatter,
     tooltip: { show: true },
@@ -415,31 +418,57 @@ export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
   };
 }
 
-/** Detect whether the document is currently in dark mode. */
-export function isDark(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.documentElement.classList.contains("dark");
+/**
+ * Return `color` at zero alpha, preserving its hue (#1244).
+ *
+ * Gradient fades must end on the same colour transparent — NOT on
+ * `rgba(255,255,255,0)`. Canvas interpolates gradients in non-premultiplied
+ * RGBA, so fading a saturated colour to transparent white washes through pale
+ * grey, which is half of why the dark-mode area fill looked muddy.
+ */
+export function fadeToTransparent(color: string): string {
+  const c = color.trim();
+  if (c.startsWith("hsla(") || c.startsWith("rgba(")) {
+    // Already has an alpha channel — replace it with 0.
+    return c.replace(/,\s*[\d.]+\s*\)$/, ", 0)");
+  }
+  if (c.startsWith("hsl(")) {
+    return `hsla(${c.slice(4, -1)}, 0)`;
+  }
+  if (c.startsWith("rgb(")) {
+    return `rgba(${c.slice(4, -1)}, 0)`;
+  }
+  // #rgb / #rrggbb → 8-digit hex with zero alpha.
+  if (/^#[0-9a-f]{6}$/i.test(c)) return `${c}00`;
+  if (/^#[0-9a-f]{3}$/i.test(c)) {
+    const [, r, g, b] = c;
+    return `#${r}${r}${g}${g}${b}${b}00`;
+  }
+  // Unknown format (e.g. a raw CSS var). Fade to transparent black rather
+  // than white — white is the bug this function exists to prevent.
+  return "rgba(0, 0, 0, 0)";
 }
 
 /**
  * Build the "No data" option with a theme-aware text color.
- * Falls back to neutral gray when document is unavailable (SSR).
  *
  * Matches the exact --muted-foreground hex the registered ECharts themes use
  * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
  * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
+ *
+ * `dark` is a required argument, not a DOM read. This used to call an isDark()
+ * helper that read <html class="dark"> synchronously; every caller invokes it
+ * from inside a useMemo whose deps carry no theme entry, so the colour froze
+ * at mount-time theme (#1286). Making it a parameter forces each caller to
+ * subscribe via useDarkMode() and makes the compiler the enforcement.
  */
-function resolveEmptyDataColor(): string {
-  return isDark() ? "#959ba7" : "#666d7a";
-}
-
-export function buildEmptyDataOption(): EChartsOption {
+export function buildEmptyDataOption(dark: boolean): EChartsOption {
   return {
     title: {
       text: "No data",
       left: "center",
       top: "center",
-      textStyle: { color: resolveEmptyDataColor(), fontSize: 14 },
+      textStyle: { color: dark ? "#959ba7" : "#666d7a", fontSize: 14 },
     },
   };
 }
@@ -636,18 +665,39 @@ export function parseGaugeThresholdZones(
 // ---------------------------------------------------------------------------
 
 /**
- * Group pie chart data by keeping the top N slices and aggregating the rest
- * into an "Other" slice. Returns the original data when topN is 0 or >= data length.
- * Data must already be sorted descending by value.
+ * Group pie chart data by keeping the N largest slices and aggregating the
+ * rest into an "Other" slice. Returns the original data when topN is 0 or
+ * >= data length.
+ *
+ * Selects by VALUE, not by position. The previous version sliced the first N
+ * rows and documented "data must already be sorted descending" — a
+ * precondition nothing enforced. The pie chart's `sortSlices` defaults to
+ * false, so a query without ORDER BY meant "Top 5" showed the first five rows
+ * and could bury the largest value in "Other" (#1287).
+ *
+ * Survivors keep their INPUT order, so `sortSlices` still decides display
+ * order; this only decides which slices survive.
  */
 export function groupTopN(
   data: PieChartDataPoint[],
   topN: number,
 ): PieChartDataPoint[] {
   if (!data.length || topN <= 0 || topN >= data.length) return data;
-  const top = data.slice(0, topN);
-  const rest = data.slice(topN);
-  const otherValue = rest.reduce((sum, d) => sum + d.value, 0);
+
+  const cutoff = [...data]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, topN)
+    .map((d) => d.name);
+  const keep = new Set(cutoff);
+
+  const top: PieChartDataPoint[] = [];
+  let otherValue = 0;
+  for (const d of data) {
+    // Delete on match so duplicate names don't all survive on one slot.
+    if (keep.delete(d.name)) top.push(d);
+    else otherValue += d.value;
+  }
+
   return [...top, { name: "Other", value: otherValue }];
 }
 

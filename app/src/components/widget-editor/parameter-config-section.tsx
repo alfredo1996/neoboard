@@ -28,16 +28,11 @@ import {
 //
 // `ParamUIType` is the editor's UX-facing taxonomy: each value corresponds
 // to a top-level dropdown choice. It's intentionally narrower than the
-// runtime `parameterType` (8 values) — `"date"` collapses 3 sub-modes
-// into one selector + a sub-radio, and `"select"` collapses single vs
-// multi via a checkbox. The remaining runtime types (`number-range`,
-// `cascading-select`) get their own top-level entries.
-export type ParamUIType =
-  | "date"
-  | "freetext"
-  | "select"
-  | "number-range"
-  | "cascading";
+// runtime `parameterType` — `"date"` collapses 3 sub-modes into one
+// selector + a sub-radio, and `"select"` collapses single vs multi via a
+// checkbox. Cascading is likewise a *configuration* of `select` (it names a
+// parent parameter), not a type of its own (#1360).
+export type ParamUIType = "date" | "freetext" | "select" | "number-range";
 export type DateSubType = "single" | "range" | "relative";
 
 export function resolveInternalParamType(
@@ -54,7 +49,6 @@ export function resolveInternalParamType(
   }
   if (ui === "freetext") return "text";
   if (ui === "number-range") return "number-range";
-  if (ui === "cascading") return "cascading-select";
   return multi ? "multi-select" : "select";
 }
 
@@ -76,9 +70,10 @@ export function reverseParamTypeMapping(t: string): {
       return { uiType: "select", dateSub: "single", multi: true };
     case "number-range":
       return { uiType: "number-range", dateSub: "single", multi: false };
-    case "cascading-select":
-      return { uiType: "cascading", dateSub: "single", multi: false };
     default:
+      // Includes the retired `cascading-select`, which reopens as the plain
+      // select it always was — its `parentParameterName` lives in
+      // chartOptions and is preserved (#1360).
       return { uiType: "select", dateSub: "single", multi: false };
   }
 }
@@ -89,7 +84,6 @@ const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> =
     freetext: { label: "Freetext", Icon: Type },
     select: { label: "Select", Icon: ListFilter },
     "number-range": { label: "Number Range", Icon: SlidersHorizontal },
-    cascading: { label: "Cascading Select", Icon: GitBranch },
   };
 
 const paramTypes = Object.keys(paramTypeMeta) as ParamUIType[];
@@ -221,18 +215,56 @@ export function ParameterConfigSection({
         </div>
       )}
 
-      {/* Multi-select toggle (only for select) */}
+      {/* Multi-select toggle + cascading parent (only for select) */}
       {paramUIType === "select" && (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="multi-select-toggle"
-            checked={multiSelect}
-            onCheckedChange={(checked) => onMultiSelectChange(!!checked)}
-          />
-          <Label htmlFor="multi-select-toggle" className="text-sm">
-            Allow multiple selections
-          </Label>
-        </div>
+        <>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="multi-select-toggle"
+              checked={multiSelect}
+              onCheckedChange={(checked) => onMultiSelectChange(!!checked)}
+            />
+            <Label htmlFor="multi-select-toggle" className="text-sm">
+              Allow multiple selections
+            </Label>
+          </div>
+
+          <div className="space-y-1.5" data-testid="param-cascading-config">
+            <Label htmlFor="parent-param-name">
+              <GitBranch className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+              {/* "Depends On", not "Parent Parameter Name": the latter CONTAINS
+                  "Parameter Name", which is the field directly above it. Two
+                  labels where one is a substring of the other are ambiguous to
+                  a human scanning the form and to any accessible-name lookup —
+                  Playwright's getByLabel matched both (#1360). */}
+              Depends On{" "}
+              <span className="text-muted-foreground font-normal">
+                (optional — the parameter that filters this one)
+              </span>
+            </Label>
+            <Input
+              id="parent-param-name"
+              value={(chartOptions.parentParameterName as string) ?? ""}
+              onChange={(e) =>
+                onChartOptionsChange((prev) => ({
+                  ...prev,
+                  parentParameterName: e.target.value,
+                }))
+              }
+              placeholder="e.g. country"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty for a plain select. Set it to cascade: the selector
+              stays disabled until the parent has a value, and the seed query
+              below can reference it via{" "}
+              <code className="bg-muted px-1 rounded">
+                $param_
+                {(chartOptions.parentParameterName as string) || "parent"}
+              </code>
+              . The cascade re-runs whenever the parent value changes.
+            </p>
+          </div>
+        </>
       )}
 
       {/* Number-range bounds (only for number-range) */}
@@ -245,12 +277,15 @@ export function ParameterConfigSection({
               type="number"
               aria-label="Range minimum"
               value={(chartOptions.rangeMin as number | undefined) ?? 0}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Number("") is 0 — clearing the field would commit a value
+                // the user never typed (#1292).
+                if (e.target.value === "") return;
                 onChartOptionsChange((prev) => ({
                   ...prev,
                   rangeMin: Number(e.target.value),
-                }))
-              }
+                }));
+              }}
               className="w-24"
             />
             <span className="text-xs text-muted-foreground">to</span>
@@ -259,12 +294,15 @@ export function ParameterConfigSection({
               type="number"
               aria-label="Range maximum"
               value={(chartOptions.rangeMax as number | undefined) ?? 100}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Number("") is 0 — clearing the field would commit a value
+                // the user never typed (#1292).
+                if (e.target.value === "") return;
                 onChartOptionsChange((prev) => ({
                   ...prev,
                   rangeMax: Number(e.target.value),
-                }))
-              }
+                }));
+              }}
               className="w-24"
             />
             <span className="text-xs text-muted-foreground">step</span>
@@ -274,12 +312,15 @@ export function ParameterConfigSection({
               aria-label="Range step"
               min={0}
               value={(chartOptions.rangeStep as number | undefined) ?? 1}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Number("") is 0 — clearing the field would commit a value
+                // the user never typed (#1292).
+                if (e.target.value === "") return;
                 onChartOptionsChange((prev) => ({
                   ...prev,
                   rangeStep: Number(e.target.value),
-                }))
-              }
+                }));
+              }}
               className="w-20"
             />
           </div>
@@ -290,34 +331,8 @@ export function ParameterConfigSection({
         </div>
       )}
 
-      {/* Cascading parent (only for cascading) */}
-      {paramUIType === "cascading" && (
-        <div className="space-y-1.5" data-testid="param-cascading-config">
-          <Label htmlFor="parent-param-name">Parent Parameter Name</Label>
-          <Input
-            id="parent-param-name"
-            value={(chartOptions.parentParameterName as string) ?? ""}
-            onChange={(e) =>
-              onChartOptionsChange((prev) => ({
-                ...prev,
-                parentParameterName: e.target.value,
-              }))
-            }
-            placeholder="e.g. country"
-          />
-          <p className="text-xs text-muted-foreground">
-            The seed query below can reference the parent via{" "}
-            <code className="bg-muted px-1 rounded">
-              $param_
-              {(chartOptions.parentParameterName as string) || "parent"}
-            </code>
-            . The cascade re-runs whenever the parent value changes.
-          </p>
-        </div>
-      )}
-
-      {/* Seed Query (for select and cascading) */}
-      {(paramUIType === "select" || paramUIType === "cascading") && (
+      {/* Seed Query (select only — the sole option-backed type) */}
+      {paramUIType === "select" && (
         <div className="space-y-1.5">
           <Label htmlFor="seed-query">
             Seed Query <span className="text-destructive">*</span>

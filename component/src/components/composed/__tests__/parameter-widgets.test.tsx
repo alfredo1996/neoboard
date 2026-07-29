@@ -15,7 +15,6 @@ import {
   DateRangeParameter,
   DateRelativePicker,
   NumberRangeSlider,
-  CascadingSelector,
   RELATIVE_DATE_PRESETS,
 } from "../parameter-widgets";
 import { PARAM_SELECTOR_EMPTY_SENTINEL } from "../parameter-widgets/param-selector";
@@ -899,6 +898,67 @@ describe("DateRelativePicker", () => {
 // ─── NumberRangeSlider ────────────────────────────────────────────────────────
 
 describe("NumberRangeSlider", () => {
+  // Number("") is 0, not NaN, so `if (isNaN(Number(raw))) return` never fires
+  // for the ONE value that can reach it. Per the HTML spec an
+  // <input type="number">.value is either a valid numeric string or "", so the
+  // empty string is the only input the guard was ever meant to catch (#1292).
+  it("ignores an emptied minimum instead of writing 0", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[200, 800]}
+        onChange={onChange}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("price minimum"), {
+      target: { value: "" },
+    });
+    // Today: called with [0, 800] — the min snaps to the axis minimum and the
+    // max handle collapses, re-running the query with a bound nobody asked for.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("ignores an emptied maximum instead of collapsing the range", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[200, 800]}
+        onChange={onChange}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("price maximum"), {
+      target: { value: "" },
+    });
+    // Today: called with [200, 200].
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("still commits a real edit, so the guard cannot be a disabled handler", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[200, 800]}
+        onChange={onChange}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("price minimum"), {
+      target: { value: "300" },
+    });
+    expect(onChange).toHaveBeenCalledWith([300, 800]);
+  });
+
   it("renders the parameter label", () => {
     render(
       <NumberRangeSlider
@@ -1155,9 +1215,9 @@ describe("NumberRangeSlider", () => {
   });
 });
 
-// ─── CascadingSelector ────────────────────────────────────────────────────────
+// ─── ParamSelector, cascading props (was CascadingSelector — #1360) ───────────
 
-describe("CascadingSelector", () => {
+describe("ParamSelector — cascading props (migrated from CascadingSelector)", () => {
   const options = [
     { value: "sub1", label: "Sub-Category 1" },
     { value: "sub2", label: "Sub-Category 2" },
@@ -1165,7 +1225,7 @@ describe("CascadingSelector", () => {
 
   it("renders the parameter label", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1177,7 +1237,7 @@ describe("CascadingSelector", () => {
 
   it("shows dependency hint when parentParameterName is provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1190,7 +1250,7 @@ describe("CascadingSelector", () => {
 
   it("disables the select when parentParameterName is set but parentValue is empty", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1206,7 +1266,7 @@ describe("CascadingSelector", () => {
 
   it("enables the select when parentValue is provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1221,7 +1281,7 @@ describe("CascadingSelector", () => {
 
   it("shows clear button when a value is selected", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value="sub1"
@@ -1236,7 +1296,7 @@ describe("CascadingSelector", () => {
   it("calls onChange with empty string when clear is clicked", () => {
     const onChange = vi.fn();
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value="sub1"
@@ -1249,7 +1309,7 @@ describe("CascadingSelector", () => {
 
   it("shows loading skeleton when loading=true", () => {
     const { container } = render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={[]}
         value=""
@@ -1268,7 +1328,7 @@ describe("CascadingSelector", () => {
 
   it("does not show dependency hint when parentParameterName is not provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1280,7 +1340,7 @@ describe("CascadingSelector", () => {
 
   it("shows 'Select parent first' placeholder when parent is absent", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1295,7 +1355,7 @@ describe("CascadingSelector", () => {
 
   it("uses a custom placeholder when provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1308,7 +1368,7 @@ describe("CascadingSelector", () => {
 
   it("does not show clear button when value is empty", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1320,7 +1380,7 @@ describe("CascadingSelector", () => {
 
   it("applies className to root element", () => {
     const { container } = render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1333,7 +1393,7 @@ describe("CascadingSelector", () => {
 
   it("is enabled when no parentParameterName and no parentValue", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="standalone"
         options={options}
         value=""
@@ -1342,5 +1402,124 @@ describe("CascadingSelector", () => {
     );
     const trigger = screen.getByRole("combobox");
     expect(trigger).not.toBeDisabled();
+  });
+});
+
+// ─── ParamMultiSelector, cascading props (#1360) ─────────────────────────────
+//
+// #1360 made "cascading" a *configuration* of select rather than its own
+// widget type — and the editor's "Depends On" field sits inside the same
+// block as the "Allow multiple selections" checkbox, so a cascading
+// multi-select is now configurable. `useSeedQueryOptions` already withholds
+// the seed query until the parent has a value for BOTH select and
+// multi-select, so without these props the multi-select renders an enabled,
+// permanently empty dropdown with nothing explaining why.
+
+describe("ParamMultiSelector — cascading props", () => {
+  const options = [
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta" },
+  ];
+
+  it("shows the dependency hint when parentParameterName is provided", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+      />,
+    );
+    expect(screen.getByText(/depends on country/i)).toBeInTheDocument();
+  });
+
+  it("describes the trigger with the hint rather than naming it", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+      />,
+    );
+    // The hint must not leak into the accessible name, or "cities" and a
+    // sibling "country" control stop being distinguishable by name.
+    const trigger = screen.getByRole("combobox", { name: "cities" });
+    expect(trigger).toHaveAccessibleDescription(/depends on country/i);
+  });
+
+  it("disables the trigger and prompts for the parent when parentValue is absent", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+      />,
+    );
+    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.getByText("Select country first…")).toBeInTheDocument();
+  });
+
+  it("enables the trigger once parentValue arrives", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+        parentValue="IT"
+      />,
+    );
+    expect(screen.getByRole("combobox")).not.toBeDisabled();
+    expect(screen.queryByText("Select country first…")).toBeNull();
+  });
+
+  it("treats an empty parentParameterName as no parent", () => {
+    // The editor's parent-name input writes "" when the user clears it.
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName=""
+      />,
+    );
+    expect(screen.getByRole("combobox")).not.toBeDisabled();
+    expect(screen.queryByText(/first…/)).toBeNull();
+    expect(screen.queryByText(/depends on/)).toBeNull();
+  });
+
+  it("lets an explicit placeholder win over the parent prompt", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        placeholder="Pick cities…"
+        parentParameterName="country"
+      />,
+    );
+    expect(screen.getByText("Pick cities…")).toBeInTheDocument();
+    expect(screen.queryByText("Select country first…")).toBeNull();
+  });
+
+  it("stays enabled and unannotated with no parent props at all", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="tags"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox")).not.toBeDisabled();
+    expect(screen.queryByText(/depends on/)).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ import { pathToFileURL } from "node:url";
 vi.mock("../../lib/exec.js", () => ({ run: vi.fn(), runFile: vi.fn() }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   findProjectRoot: vi.fn(() => "/project"),
 }));
 

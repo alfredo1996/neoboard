@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
+import { auditRequest } from "@/lib/audit/audit";
 
 const resetPasswordSchema = z
   .object({
@@ -71,6 +72,19 @@ export async function POST(
     if (!updated) {
       return notFound("User not found");
     }
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "user.password.reset",
+      resourceType: "user",
+      resourceId: id,
+      // Never the password — supplied or generated.
+      details: {
+        generated: !parsed.data.newPassword,
+        forcePasswordChange: parsed.data.forcePasswordChange,
+      },
+    });
 
     return apiSuccess({
       reset: true,

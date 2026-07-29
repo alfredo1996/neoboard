@@ -1,12 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { run, runOrNull, spawn, ExecError } from "../../lib/exec.js";
+import {
+  run,
+  runOrNull,
+  runFileOrNull,
+  spawn,
+  ExecError,
+} from "../../lib/exec.js";
 
 vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
+  execFileSync: vi.fn(),
   spawn: vi.fn(),
 }));
 
-import { execSync, spawn as nodeSpawn } from "node:child_process";
+import {
+  execSync,
+  execFileSync,
+  spawn as nodeSpawn,
+} from "node:child_process";
 
 const mockExecSync = vi.mocked(execSync);
 const mockSpawn = vi.mocked(nodeSpawn);
@@ -164,5 +175,47 @@ describe("dockerExec env forwarding (#967)", () => {
     dockerExec("c1", "echo hi");
     const [cmd] = mockExecSync.mock.calls[0] as [string];
     expect(cmd).toBe("docker exec c1 echo hi");
+  });
+});
+
+// runFileOrNull exists so a command carrying quoted SQL identifiers never
+// passes through a shell. It was added with #1274's fix and shipped at ZERO
+// coverage, because every caller's test mocks this whole module — the third
+// instance today of a mock making a module look tested. Exercised directly
+// here, against the real helper.
+describe("runFileOrNull", () => {
+  it("returns trimmed stdout on success", () => {
+    vi.mocked(execFileSync).mockReturnValue("  ciphertext  " as never);
+    expect(runFileOrNull("psql", ["-tAc", "SELECT 1"])).toBe("ciphertext");
+  });
+
+  it("passes argv through UNCHANGED — the whole point of it", () => {
+    // A quoted identifier must arrive as one argument with its quotes intact.
+    // Interpolating this into a shell string is what broke the credential
+    // probe: the inner quotes collapsed and the statement split into four.
+    vi.mocked(execFileSync).mockReturnValue("" as never);
+    const sql = 'SELECT "configEncrypted" FROM connection LIMIT 1';
+    runFileOrNull("psql", ["-tAc", sql]);
+    const [file, args] = vi.mocked(execFileSync).mock.calls[0];
+    expect(file).toBe("psql");
+    expect(args).toEqual(["-tAc", sql]);
+  });
+
+  it("returns null on failure rather than throwing", () => {
+    vi.mocked(execFileSync).mockImplementation(() => {
+      throw new Error("psql: command not found");
+    });
+    expect(runFileOrNull("psql", ["-tAc", "SELECT 1"])).toBeNull();
+  });
+
+  it("forwards options to execFileSync", () => {
+    vi.mocked(execFileSync).mockReturnValue("" as never);
+    runFileOrNull("psql", ["-l"], { cwd: "/tmp", timeout: 5000 });
+    const opts = vi.mocked(execFileSync).mock.calls[0][2] as Record<
+      string,
+      unknown
+    >;
+    expect(opts.cwd).toBe("/tmp");
+    expect(opts.timeout).toBe(5000);
   });
 });

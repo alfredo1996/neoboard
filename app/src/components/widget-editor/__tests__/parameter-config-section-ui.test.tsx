@@ -389,28 +389,63 @@ describe("ParameterConfigSection", () => {
     expect(mockSetChartOptions).toHaveBeenCalled();
   });
 
-  // ── cascading editor (regression: #861) ────────────────────────────
-  it("shows parent-parameter input for cascading type", () => {
-    mockStoreState.paramUIType = "cascading";
+  it.each(["Range minimum", "Range maximum", "Range step"])(
+    "ignores a cleared %s instead of committing 0 (#1292)",
+    (label) => {
+      mockStoreState.paramUIType = "number-range";
+      mockStoreState.chartOptions = {
+        rangeMin: 0,
+        rangeMax: 100,
+        rangeStep: 1,
+      };
+      render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
+      // Number("") is 0 — clearing the field used to write 0, which the
+      // controlled input rendered straight back, so it could not be retyped.
+      expect(mockSetChartOptions).not.toHaveBeenCalled();
+
+      // The guard must not swallow real edits.
+      fireEvent.change(screen.getByLabelText(label), {
+        target: { value: "7" },
+      });
+      expect(mockSetChartOptions).toHaveBeenCalled();
+    },
+  );
+
+  // ── cascading editor (regression: #861, reshaped by #1360) ─────────
+  // Cascading is now a *configuration* of `select`: the parent input sits
+  // in the select editor, so a user can turn any select into a cascade
+  // without switching widget type.
+  it("shows the parent-parameter input for the select type", () => {
+    mockStoreState.paramUIType = "select";
     render(
       <ParameterConfigSection
         seedQueryExecution={baseSeedExecution}
         seedPreviewOptions={null}
       />,
     );
-    expect(screen.getByText("Parent Parameter Name")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Depends On/)).toBeInTheDocument();
+    // …alongside the seed query it has always had.
+    expect(screen.getByText("Seed Query")).toBeInTheDocument();
   });
 
-  it("still shows seed query input for cascading type", () => {
-    mockStoreState.paramUIType = "cascading";
-    render(
-      <ParameterConfigSection
-        seedQueryExecution={baseSeedExecution}
-        seedPreviewOptions={null}
-      />,
-    );
-    // The same seed-query block used by `select` should also render here.
-    expect(screen.getByText("Seed Query")).toBeInTheDocument();
+  it("hides the parent-parameter input for non-select types", () => {
+    for (const t of ["date", "freetext", "number-range"] as const) {
+      mockStoreState.paramUIType = t;
+      const { unmount } = render(
+        <ParameterConfigSection
+          seedQueryExecution={baseSeedExecution}
+          seedPreviewOptions={null}
+        />,
+      );
+      expect(screen.queryByTestId("param-cascading-config")).toBeNull();
+      unmount();
+    }
   });
 
   it("hides seed query input for number-range type", () => {

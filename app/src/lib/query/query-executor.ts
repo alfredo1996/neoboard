@@ -5,7 +5,9 @@ import {
 } from "@/lib/connector/connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
 import { QueryStatus } from "@neoboard/connection";
+import { createHash } from "node:crypto";
 
+import { resolveContainerHost } from "@/lib/connector/container-host";
 /**
  * Default row cap applied to read queries when a connection doesn't
  * specify its own `maxRows`. Matches the connection package's own
@@ -138,9 +140,30 @@ export async function closeAllConnections(): Promise<void> {
   await Promise.all(closePromises);
 }
 
+/** Visible for testing — the live cache keys, to assert no secret leaks in. */
+export function _getCacheKeysForTesting(): string[] {
+  return [...moduleCache.keys()];
+}
+
 /** Visible for testing — returns current cache size. */
 export function _getCacheSize(): number {
   return moduleCache.size;
+}
+
+/**
+ * Digest of the password, for the cache key (#1300).
+ *
+ * The key omitted the password entirely, so two connections differing only by
+ * password collided: the second caller was handed the pool the first had
+ * already authenticated, and a WRONG password still produced a working
+ * connection. Where two tenants point at the same host with the same
+ * username, that is one tenant querying through another's credentials.
+ *
+ * Hashed, never raw: cache keys reach diagnostics and error paths, and a
+ * credential must not be recoverable from one.
+ */
+function passwordFingerprint(password: string): string {
+  return createHash("sha256").update(password).digest("hex").slice(0, 16);
 }
 
 function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
@@ -154,7 +177,7 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
     credentials.sslRejectUnauthorized,
     credentials.maxRows,
   ].join(",");
-  return `${type}|${credentials.uri}|${credentials.username}|${credentials.database ?? ""}|${advancedKey}`;
+  return `${type}|${credentials.uri}|${credentials.username}|${passwordFingerprint(credentials.password)}|${credentials.database ?? ""}|${advancedKey}`;
 }
 
 function effectiveQueryTimeout(
@@ -182,10 +205,10 @@ function buildAdvancedOptions(credentials: ConnectionCredentials) {
   };
 }
 
-function getOrCreateModule(
+async function getOrCreateModule(
   type: DbType,
   credentials: ConnectionCredentials,
-): unknown {
+): Promise<unknown> {
   const key = getCacheKey(type, credentials);
   const entry = moduleCache.get(key);
   if (entry) {
@@ -194,7 +217,13 @@ function getOrCreateModule(
   }
 
   const authConfig = {
-    uri: ensureDatabaseInUri(credentials.uri, credentials.database),
+    // resolveContainerHost LAST: from inside a container `localhost` is the
+    // container, so a loopback URI can never reach the user's database. The
+    // stored connection keeps what they typed; only the driver sees the
+    // rewrite (#1346).
+    uri: await resolveContainerHost(
+      ensureDatabaseInUri(credentials.uri, credentials.database),
+    ),
     username: credentials.username,
     password: credentials.password,
     authType: 1, // NATIVE
@@ -247,7 +276,7 @@ export async function executeQuery(
   truncated: boolean;
   rowLimit: number;
 }> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     runQuery: (
       params: unknown,
       callbacks: Record<string, unknown>,
@@ -323,7 +352,7 @@ export async function testConnection(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<boolean> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     checkConnection: (config: unknown) => Promise<boolean>;
   };
 
@@ -344,7 +373,7 @@ export async function listDatabases(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<string[]> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     listDatabases: () => Promise<string[]>;
   };
   return connModule.listDatabases();
@@ -358,7 +387,7 @@ export async function listSchemas(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<string[]> {
-  const connModule = getOrCreateModule(type, credentials) as {
+  const connModule = (await getOrCreateModule(type, credentials)) as {
     listSchemas?: () => Promise<string[]>;
   };
   if (typeof connModule.listSchemas !== "function") return [];

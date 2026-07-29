@@ -15,6 +15,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { auditRequest } from "@/lib/audit/audit";
 import { sql } from "drizzle-orm";
 
 const gridLayoutItemSchema = z.object({
@@ -203,6 +204,14 @@ export async function PUT(
       );
     }
 
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "dashboard.update",
+      resourceType: "dashboard",
+      resourceId: id,
+    });
+
     return apiSuccess(updated);
   } catch (error) {
     return handleRouteError(error, "Failed to update dashboard");
@@ -210,7 +219,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -247,6 +256,14 @@ export async function DELETE(
     await db
       .delete(dashboards)
       .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)));
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "dashboard.delete",
+      resourceType: "dashboard",
+      resourceId: id,
+    });
 
     return apiSuccess({ deleted: true });
   } catch (error) {

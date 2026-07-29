@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 /**
  * Tests for use-countdown — pure helpers + useCountdown hook via renderHook.
  */

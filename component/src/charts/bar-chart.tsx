@@ -5,7 +5,6 @@ import type { BaseChartProps, BarChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildAutoAriaDescription,
-  buildEmptyDataOption,
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
@@ -96,7 +95,10 @@ function BarChart({
   const isStacked = stackMode === "stacked" || isPercent;
 
   const options = useMemo((): EChartsOption => {
-    if (!data.length) return buildEmptyDataOption();
+    // ponytail: no empty-data branch here. BarChart renders a DOM empty state
+    // and never mounts BaseChart when data is empty (#1053), so the option
+    // built on that path was never handed to ECharts. The body below is
+    // total over an empty array — it produces an unused option, not a throw.
 
     // Union keys across every row so sparse data (a series missing from the
     // first row) doesn't get dropped from the chart.
@@ -136,7 +138,6 @@ function BarChart({
 
     const categoryLabels = data.map((d) => d.label);
     const axisLabelConfig = buildCategoryAxisLabel(categoryLabels.length, {
-      compact,
       rotateOverride: axisLabelRotation,
       containerWidth: width,
     });

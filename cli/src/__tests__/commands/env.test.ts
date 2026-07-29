@@ -13,6 +13,7 @@ vi.mock("node:crypto", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: {
     envFile: "/project/app/.env.local",
     envExample: "/project/.env.example",

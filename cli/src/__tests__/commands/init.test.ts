@@ -10,6 +10,7 @@ vi.mock("../../lib/exec.js", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: {
     root: "/project",
     appDir: "/project/app",

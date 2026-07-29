@@ -11,6 +11,7 @@ import {
   connectionCheckFalseResult,
   connectionTestErrorResult,
 } from "@/lib/connector/connection-test-result";
+import { isContainerised } from "@/lib/connector/is-containerised";
 
 export async function POST(
   _request: Request,
@@ -60,7 +61,12 @@ export async function POST(
         success ? { success: true } : connectionCheckFalseResult(),
       );
     } catch (testError) {
-      return apiSuccess(connectionTestErrorResult(testError));
+      return apiSuccess(
+        connectionTestErrorResult(testError, {
+          uri: credentials.uri,
+          containerised: isContainerised(),
+        }),
+      );
     }
   } catch (error) {
     return handleRouteError(error, "Connection test failed");

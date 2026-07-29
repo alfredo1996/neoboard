@@ -76,7 +76,7 @@ function GaugeChart({
     // Defer rendering until the container has been measured to prevent
     // a flash of tick marks / axis labels with incorrect sizing.
     if (!measured) return undefined;
-    if (!data.length) return buildEmptyDataOption();
+    if (!data.length) return buildEmptyDataOption(dark);
 
     const point = data[0];
     const arcWidth = compact ? 10 : 18;

@@ -178,6 +178,31 @@ describe("LoginPage", () => {
     expect(screen.getByText("Sign in")).toBeDefined();
   });
 
+  it("marks the form hydrated so callers can wait for interactivity (#1272)", () => {
+    mockFetchBootstrapStatus(true);
+
+    const { container } = render(<LoginPage />);
+
+    // The submit handler only exists after hydration. Before it, a click
+    // performs the browser's native GET submit, which puts the password in
+    // the URL. The signal lets E2E — and anything else — wait instead of
+    // clicking blind and retrying.
+    const form = container.querySelector("form");
+    expect(form?.getAttribute("data-hydrated")).toBe("true");
+  });
+
+  it("keeps the submit button disabled until hydration attaches the handler (#1272)", () => {
+    mockFetchBootstrapStatus(true);
+
+    render(<LoginPage />);
+
+    // After mount the effect has run, so the button is live. The guarantee
+    // this pins is that `disabled` is driven by hydration state at all —
+    // without it, a pre-hydration click leaks credentials into the URL.
+    const button = screen.getByRole("button", { name: /sign in/i });
+    expect(button).not.toBeDisabled();
+  });
+
   it("renders the NeoBoard title", () => {
     mockFetchBootstrapStatus(true);
 

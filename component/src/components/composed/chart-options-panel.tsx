@@ -193,7 +193,12 @@ function OptionField({
             id={option.key}
             type="number"
             value={String(value ?? option.default ?? 0)}
-            onChange={(e) => onChange(option.key, Number(e.target.value))}
+            onChange={(e) => {
+              // Number("") is 0 — clearing the field would silently
+              // commit 0 rather than leaving the option alone (#1292).
+              if (e.target.value === "") return;
+              onChange(option.key, Number(e.target.value));
+            }}
           />
         </div>
       );

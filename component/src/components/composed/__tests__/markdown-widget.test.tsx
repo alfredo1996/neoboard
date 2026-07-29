@@ -519,4 +519,82 @@ describe("MarkdownWidget", () => {
     // No shiki class — no language means no highlighting
     expect(container.querySelector("pre.shiki")).toBeNull();
   });
+  // The inline emphasis passes ran over markup the link/image passes had
+  // already emitted, so underscores and asterisks living inside a URL — or
+  // inside the generated target="_blank" — were treated as user emphasis and
+  // spliced <em> into href/src/target (#1290). Not an XSS hole (escapeAttr
+  // still escapes quotes) but the links are dead.
+  describe("emphasis must not rewrite generated markup (#1290)", () => {
+    const container = () => screen.getByTestId("markdown-widget");
+
+    it('keeps target="_blank" intact across two links on one line', () => {
+      // The worst case: the _ from the first link's target="_blank" pairs with
+      // the _ from the second's, and the non-greedy <em> swallows everything
+      // between the two anchors.
+      render(
+        <MarkdownWidget content="[one](https://a.com) and [two](https://b.com)" />,
+      );
+      const anchors = container().querySelectorAll("a");
+      expect(anchors).toHaveLength(2);
+      for (const a of anchors) expect(a.getAttribute("target")).toBe("_blank");
+      expect(container().querySelector("em")).toBeNull();
+    });
+
+    it.each([
+      ["underscores", "https://ex.com/a_b_c"],
+      ["asterisks", "https://ex.com/a*b*c"],
+    ])("round-trips a URL containing %s", (_label, url) => {
+      render(<MarkdownWidget content={`See [docs](${url}) here`} />);
+      expect(container().querySelector("a")!.getAttribute("href")).toBe(url);
+    });
+
+    it("round-trips an image URL containing underscores", () => {
+      const url = "https://ex.com/my_photo_1.png";
+      render(<MarkdownWidget content={`![pic](${url})`} />);
+      expect(container().querySelector("img")!.getAttribute("src")).toBe(url);
+    });
+
+    it("cannot have its placeholder forged from user content", () => {
+      // The placeholder is <tN>, which is collision-proof because escapeHtml
+      // runs first: a user `<` is already &lt; by the time tags are stashed,
+      // so any raw `<` left in the stream is one we wrote.
+      render(<MarkdownWidget content={"before <t9> after"} />);
+      expect(container().textContent).toBe("before <t9> after");
+      expect(container().querySelector("t9")).toBeNull();
+    });
+
+    it("still emphasises plain prose", () => {
+      render(<MarkdownWidget content="*a* and **b** and _c_" />);
+      expect(container().querySelectorAll("em")).toHaveLength(2);
+      expect(container().querySelectorAll("strong")).toHaveLength(1);
+    });
+
+    it("still emphasises inside link text", () => {
+      render(<MarkdownWidget content="[*link text*](https://a.com)" />);
+      const anchors = container().querySelectorAll("a");
+      expect(anchors).toHaveLength(1);
+      expect(anchors[0].innerHTML).toContain("<em>");
+      expect(anchors[0].getAttribute("target")).toBe("_blank");
+    });
+  });
+
+  // prose/prose-sm/dark:prose-invert emit no CSS — @tailwindcss/typography is
+  // not a dependency and never was. With preflight resetting headings to
+  // font-size: inherit and the wrapper pinning text-sm, every heading level
+  // rendered at 14px, differing only by weight (#1290).
+  describe("heading scale (#1290)", () => {
+    it("gives h1, h2 and h3+ distinct sizes", () => {
+      render(<MarkdownWidget content={"# H1\n\n## H2\n\n### H3"} />);
+      expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-h2");
+      expect(screen.getByRole("heading", { level: 2 })).toHaveClass("text-h3");
+      expect(screen.getByRole("heading", { level: 3 })).toHaveClass("text-sm");
+    });
+
+    it("carries no dead prose classes", () => {
+      render(<MarkdownWidget content="# H1" />);
+      const cls = screen.getByTestId("markdown-widget").className;
+      for (const dead of ["prose", "prose-sm", "dark:prose-invert"])
+        expect(cls.split(/\s+/)).not.toContain(dead);
+    });
+  });
 });

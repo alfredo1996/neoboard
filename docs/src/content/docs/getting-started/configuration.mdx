@@ -8,89 +8,172 @@ NeoBoard is configured through environment variables and an optional config file
 ## Example `.env.local`
 
 ```bash
-# Required
+# Required — the app refuses to start without these
 DATABASE_URL="postgresql://neoboard:neoboard@localhost:5432/neoboard"
 NEXTAUTH_SECRET="your-random-secret-here"
 ENCRYPTION_KEY="your-64-char-hex-key-here"
+API_KEY_HMAC_SECRET="your-64-char-hex-key-here"
 
 # Optional
 NEXTAUTH_URL="http://localhost:3000"
-MAX_QUERY_ROWS=1000
-QUERY_TIMEOUT_MS=30000
 ```
 
-Generate secrets with:
+Generate every secret at once — including `ADMIN_BOOTSTRAP_TOKEN`, which you need
+minutes later to create the first admin account:
 
 ```bash
-# NEXTAUTH_SECRET
-openssl rand -base64 32
+neoboard env
+```
 
-# ENCRYPTION_KEY
-openssl rand -hex 32
+Or by hand:
+
+```bash
+openssl rand -base64 32   # NEXTAUTH_SECRET
+openssl rand -hex 32      # ENCRYPTION_KEY, API_KEY_HMAC_SECRET
 ```
 
 ## Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string for metadata | `postgresql://user:pass@localhost:5432/neoboard` |
-| `NEXTAUTH_SECRET` | Secret for signing session tokens | Output of `openssl rand -base64 32` |
-| `ENCRYPTION_KEY` | AES-256 key for encrypting stored credentials | Output of `openssl rand -hex 32` |
+Startup validation fails fast if any of these is missing or malformed — you get a clear error at boot rather than a mystery failure later.
+
+| Variable | Description | Format |
+|----------|-------------|--------|
+| `DATABASE_URL` | PostgreSQL connection string for NeoBoard's own metadata | `postgresql://user:pass@host:5432/neoboard` |
+| `ENCRYPTION_KEY` | AES-256-GCM key for stored credentials | Exactly 64 hex chars (`openssl rand -hex 32`) |
+| `NEXTAUTH_SECRET` | Signs session tokens | At least 32 characters |
+| `API_KEY_HMAC_SECRET` | Hashes API keys at rest | 64 hex chars, or any string ≥ 32 chars |
+
+:::caution
+`API_KEY_HMAC_SECRET` is **required in every install**, not just enterprise ones — API keys are a community feature. Without it the app fails at startup by design, so the problem surfaces at deploy time instead of when a user first clicks "Create API Key".
+:::
 
 ## Optional Variables
 
+### Auth and tenancy
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXTAUTH_URL` | Public URL of the NeoBoard instance | `http://localhost:3000` |
-| `DEFAULT_TENANT_ID` | Default tenant for single-tenant deployments | `default` |
-| `MAX_QUERY_ROWS` | Maximum rows returned per query | `1000` |
-| `QUERY_TIMEOUT_MS` | Default query timeout in milliseconds | `30000` |
+| `NEXTAUTH_URL` | Public URL of the instance. Required behind a reverse proxy so callback URLs are built correctly | `http://localhost:3000` |
+| `TENANT_ID` | Tenant for single-tenant deployments | `default` |
+| `SESSION_MAX_AGE` | Session lifetime in seconds | `28800` (8 hours) |
+| `REGISTRATION_ENABLED` | Allow open signup. Closed by default — only the first-user bootstrap works when unset | `false` |
+| `ADMIN_BOOTSTRAP_TOKEN` | One-time token for creating the first admin via `/signup` | unset |
+| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | Create the first admin automatically on first boot (dev/demo convenience) | unset |
 
-## Enterprise Variables
+### Security
 
-These enable enterprise features when set:
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FORCE_HTTPS` | Redirect plain HTTP to HTTPS. **On by default in production** — set to `false` only if your proxy cannot forward `X-Forwarded-Proto` | `true` |
+| `ENCRYPTION_KEY_OLD` | Previous encryption key, needed only during [key rotation](#how-to-rotate-zero-data-loss) | unset |
 
-| Variable | Description |
-|----------|-------------|
-| `SSO_ENABLED` | Enable SSO authentication providers |
-| `CUSTOM_ROLES_ENABLED` | Enable custom role definitions |
-| `CONNECTOR_LABELS_ENABLED` | Enable labeling connectors |
+### Database and migrations
 
-## Config File (Optional)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_POOL_MAX` | Max PostgreSQL connections in NeoBoard's metadata pool | `10` |
+| `MIGRATE_ON_START` | Run migrations at boot. Set to `0` for emergency debugging only | `1` in the Docker image |
+| `MIGRATIONS_DIR` | Migration directory, for unusual images | `drizzle/migrations` |
 
-You can also use a `neoboard.config.json` file in the project root for non-secret settings:
+### Query scheduler
+
+Each connection gets its own priority queue with per-user fairness and backpressure. These are the knobs that keep one heavy dashboard from taking down a shared database — see [Query Safety](/concepts/query-safety#concurrency-control) for how the tiers work.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `QUERY_MAX_CONCURRENT` | Max parallel queries per connection | `10` |
+| `QUERY_MAX_PER_USER` | Max parallel queries per user, per connection | `5` |
+| `QUERY_MAX_QUEUE_DEPTH` | Queued queries before new work is rejected with HTTP 503 | `200` |
+| `QUERY_QUEUE_TIMEOUT_MS` | Max wait in the queue before giving up | `15000` |
+| `QUERY_SHED_THRESHOLD` | Queue fill ratio (0–1) above which background auto-refresh is shed to protect interactive queries | `0.8` |
+
+Invalid values fall back to the default rather than failing the boot.
+
+### Logging
+
+Default is synchronous JSON to stdout — 12-factor friendly, zero config. Everything else is opt-in.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | `error` \| `warn` \| `info` \| `debug` | `info` |
+| `LOG_FORMAT` | `json` \| `pretty` (use `pretty` for local dev only) | `json` |
+| `LOG_OUTPUT` | `stdout` \| `file` \| `both` | `stdout` |
+| `LOG_FILE_PATH` | File destination when `LOG_OUTPUT` includes `file` | `./logs/neoboard.log` |
+| `LOG_MAX_SIZE` | Rotation threshold | `50M` |
+| `LOG_MAX_FILES` | Retained rotated files | `7` |
+| `LOG_ANONYMIZE` | Hash `userId`/email, redact query params, and mask the database username in connection URIs before writing | `false` |
+| `LOG_ANONYMIZE_SECRET` | Salt for the anonymizing hash. **Set this** if you enable anonymization — the built-in default is public | built-in |
+| `LOG_QUERY_TEXT` | Include the user's query text in the query audit trail | `true` |
+
+#### Credential redaction
+
+Credentials are stripped from every log line unconditionally — there is no
+variable to turn this off, and no call site has to ask for it. NeoBoard removes:
+
+- the password from any `scheme://user:password@host` URI, wherever it appears
+  — a field value, a log message, a driver error message, or a stack frame;
+- values under credential-shaped keys (`password`, `apiKey`, `token`,
+  `authorization`, `clientSecret`, …) at any depth, including inside arrays;
+- inline `PASSWORD '…'` and `password=…` literals in SQL, Cypher, and
+  libpq-style connection strings.
+
+What survives, because logs you cannot debug with are worse than none: the URI
+scheme, username, host, port and database; the error type, message, stack and
+driver code (SQLSTATE, `ECONNREFUSED`); and the connection, tenant and request
+identifiers.
+
+`LOG_ANONYMIZE` is a separate, additive concern — privacy rather than secrecy.
+It hashes user identities and masks the database username too.
+
+Set `LOG_QUERY_TEXT=false` if you would rather lose the "who ran what" audit
+trail than risk a user pasting a literal secret into a query. Credential
+redaction applies to query text either way.
+
+See [Monitoring](/administration/monitoring#log-monitoring) for log fields and aggregation.
+
+### Enterprise
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEOBOARD_EDITION` | Set to `enterprise` to enable licensed features (SSO, custom roles, connector labels, and more) | community |
+
+SSO adds its own `OIDC_*` variables — see [Single Sign-On](/authentication/sso).
+
+## Project config file
+
+`neoboard.config.json` in the repo root configures the **CLI's local and Docker workflow** — ports, dev database credentials, and seed script paths. It does *not* configure the running app; that's env vars only.
 
 ```json
 {
-  "maxQueryRows": 1000,
-  "queryTimeoutMs": 30000,
-  "defaultTenantId": "default",
-  "features": {
-    "sso": false,
-    "customRoles": false,
-    "connectorLabels": false
-  }
+  "ports": { "app": 3000, "postgres": 5432, "neo4j_http": 7474, "neo4j_bolt": 7687 },
+  "postgres": { "user": "neoboard", "password": "neoboard", "database": "neoboard" },
+  "neo4j": { "user": "neo4j", "password": "neoboard123" },
+  "seed": { "script": "scripts/seed-demo.mjs", "neo4j_cypher": "docker/neo4j/init.cypher" }
 }
 ```
 
-## View Current Config
-
-Use the CLI to see all active configuration values:
+Read and edit it through the CLI:
 
 ```bash
-neoboard config list
+neoboard config list             # print every key
+neoboard config get ports.app    # print one value
+neoboard config set ports.app 3100
 ```
 
+:::note
+`ports.*` remaps the **host** side in both modes — the compose files read these values, so a busy 5432 or 7474 is fixed with `neoboard config set` rather than by editing YAML. Container-side ports stay fixed, since service-to-service URLs inside the compose network depend on them.
+
+Restart the stack for a change to take effect: `neoboard stop && neoboard start`.
+:::
+
+## Validating your configuration
+
+```bash
+neoboard env --validate    # check the .env file for missing/malformed values
+curl -s localhost:3000/api/health | jq .data.config
 ```
-  NeoBoard Config
-  ---------------
-  DATABASE_URL       = postgresql://...@localhost:5432/neoboard
-  NEXTAUTH_URL       = http://localhost:3000
-  ENCRYPTION_KEY     = ******** (set)
-  MAX_QUERY_ROWS     = 1000
-  QUERY_TIMEOUT_MS   = 30000
-  DEFAULT_TENANT_ID  = default
-```
+
+`/api/health` reports each variable as `set` or `unset` — never its value — so it is safe to expose to an uptime probe. See [Monitoring](/administration/monitoring).
 
 ## Credential Encryption
 
@@ -136,11 +219,11 @@ Rotation re-encrypts every stored credential (connections + SSO providers) with 
 
 3. **Restart the app** so it picks up both env vars.
 
-4. **Call the rotation endpoint** as an admin:
+4. **Call the rotation endpoint** with an API key belonging to an **admin** user (Settings → API Keys). The key's own role is what the endpoint checks, so a creator's or reader's key returns `403`.
 
    ```bash
    curl -X POST https://your-neoboard.example.com/api/admin/rotate-key \
-     -H "Authorization: Bearer <admin-session-cookie>"
+     -H "Authorization: Bearer nb_<admin-api-key>"
    ```
 
    Response on success:
@@ -149,7 +232,20 @@ Rotation re-encrypts every stored credential (connections + SSO providers) with 
    { "data": { "connections": 12, "ssoProviders": 1 } }
    ```
 
-   The whole re-encryption runs inside one database transaction. If any row fails, the entire operation rolls back — you can safely re-run.
+   A browser session cookie also works, if you have one to hand — but it must be sent **as a cookie**, not as a Bearer token:
+
+   ```bash
+   curl -X POST https://your-neoboard.example.com/api/admin/rotate-key \
+     --cookie "authjs.session-token=<value>"
+   ```
+
+   :::caution[If you get a 401 or 403 here, nothing has been rotated]
+   The re-encryption runs inside one database transaction, and authorization is checked before it opens. A rejected call, or one that fails partway, leaves every row exactly as it was — including the ones already processed. Fix the credential and re-run.
+
+   Re-running after a **successful** rotation is also safe: decryption tries the current key before falling back to `ENCRYPTION_KEY_OLD`, so rows already on the new key are simply re-encrypted with it.
+   :::
+
+   Rotation is **instance-wide**, not per-tenant — it re-encrypts every connection and SSO provider in the database, because `ENCRYPTION_KEY` is a property of the deployment rather than of a tenant. Do not run it once per tenant and expect scoping.
 
 5. **Remove `ENCRYPTION_KEY_OLD`** from the environment and restart. After this point the old key is no longer needed.
 

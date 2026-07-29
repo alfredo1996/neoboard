@@ -83,7 +83,7 @@ export function ModalFooter({
           disabled={
             isParamSelect
               ? !paramWidgetName.trim() ||
-                ((paramUIType === "select" || paramUIType === "cascading") &&
+                (paramUIType === "select" &&
                   (!connectionId ||
                     !String(chartOptions.seedQuery ?? "").trim()))
               : isContentOnly

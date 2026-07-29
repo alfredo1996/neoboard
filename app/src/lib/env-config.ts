@@ -73,7 +73,6 @@ const ENV_VARS: EnvVar[] = [
 
   // ── Optional: Security ──
   { key: "FORCE_HTTPS", required: false },
-  { key: "CORS_ALLOWED_ORIGINS", required: false },
 
   // ── Optional: Enterprise ──
   { key: "NEOBOARD_EDITION", required: false },

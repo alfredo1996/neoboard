@@ -2,14 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { useParameterStore } from "@/stores/parameter-store";
-import type { ParameterType } from "@/stores/parameter-store";
 
 /**
- * Clears the child parameter when the parent value changes (cascading-select only).
+ * Clears the child parameter when its parent's value changes.
+ *
+ * A parameter is cascading exactly when it names a parent — there is no
+ * separate widget type to check (#1360).
  */
 export function useCascadingClear(
   parameterName: string,
-  parameterType: ParameterType,
   parentParameterName?: string,
   parentValue?: string,
 ) {
@@ -17,19 +18,9 @@ export function useCascadingClear(
   const prevParentValue = useRef(parentValue);
 
   useEffect(() => {
-    if (
-      parameterType === "cascading-select" &&
-      parentParameterName &&
-      prevParentValue.current !== parentValue
-    ) {
+    if (parentParameterName && prevParentValue.current !== parentValue) {
       prevParentValue.current = parentValue;
       clearParameter(parameterName);
     }
-  }, [
-    parameterType,
-    parentParameterName,
-    parentValue,
-    parameterName,
-    clearParameter,
-  ]);
+  }, [parentParameterName, parentValue, parameterName, clearParameter]);
 }

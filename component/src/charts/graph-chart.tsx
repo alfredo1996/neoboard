@@ -254,9 +254,29 @@ function toNvlNode(
     ? Math.max(20, Math.min(60, node.value))
     : undefined;
 
+  const caption = showLabels ? resolveCaption(node, captionMap) : undefined;
+
+  // A synthetic node gets a second, italic caption line so it reads as
+  // "computed, not stored" at a glance. NVL exposes no border or stroke
+  // styling, so the dashed outline that usually signals this is not available;
+  // a caption is text, so it inherits NVL's own contrast handling and stays
+  // legible on both the light and dark canvas.
+  // The marker survives showLabels=false on purpose — "this is not a real
+  // node" is not a label, and hiding it there would restore the exact silent
+  // ambiguity this fixes.
+  // ponytail: caption-only. A real dashed ring needs a custom NVL renderer;
+  // revisit if NVL ever exposes stroke styling.
+  const captions = node.synthetic
+    ? [
+        ...(caption === undefined ? [] : [{ value: caption }]),
+        { value: "virtual", styles: ["italic"] },
+      ]
+    : undefined;
+
   return {
     id: node.id,
-    caption: showLabels ? resolveCaption(node, captionMap) : undefined,
+    caption,
+    captions,
     color,
     size:
       baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
@@ -470,13 +490,32 @@ function GraphChartInner({
       onDrag: true,
       onZoom: true,
       onPan: true,
-      onNodeClick: (node) => {
+      onNodeClick: (node, _hit, event) => {
         if (!onNodeSelectRef.current) return;
         const current = selectedRef.current ?? [];
         const id = node.id;
-        const next = current.includes(id)
-          ? current.filter((x) => x !== id)
-          : [...current, id];
+        // Cmd/Ctrl toggles a node in/out of a multi-selection (file-manager and
+        // Neo4j Browser convention); Shift is accepted too — it is what plenty
+        // of people reach for first and nothing else in this widget claims it
+        // (the box-select and lasso interactions are not wired up). A plain
+        // click REPLACES the selection, so stepping through nodes one at a time
+        // keeps the single-node property inspector reachable (#1191).
+        // `event` is optional-chained only for callers that omit it; NVL always
+        // passes a MouseEvent as the third argument.
+        const additive = !!(
+          event?.metaKey ||
+          event?.ctrlKey ||
+          event?.shiftKey
+        );
+        let next: string[];
+        if (additive) {
+          next = current.includes(id)
+            ? current.filter((x) => x !== id)
+            : [...current, id];
+        } else {
+          // Clicking the already-sole-selected node clears the selection.
+          next = current.length === 1 && current[0] === id ? [] : [id];
+        }
         onNodeSelectRef.current(next);
       },
       onNodeDoubleClick: (node, _hit, event) => {

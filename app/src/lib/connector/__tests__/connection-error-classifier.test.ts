@@ -117,3 +117,105 @@ describe("hintForConnectionErrorCode", () => {
     }
   });
 });
+
+// The most common thing a user does after `neoboard demo` is connect their own
+// database. On a Docker install that database is on the HOST, so they type
+// neo4j://localhost:7688 — and localhost inside the app container is the
+// container. The driver says "Could not perform discovery. No routing servers
+// available", which classified as `network`, whose hint told them to verify the
+// host, the port, that the database is running, and their firewall. All four
+// are already correct. There was no thread to pull (#1346).
+describe("loopback from inside a container (#1346)", () => {
+  const DISCOVERY_ERROR =
+    "Could not perform discovery. No routing servers available.";
+
+  it.each([
+    ["localhost", "neo4j://localhost:7688"],
+    ["127.0.0.1", "postgresql://127.0.0.1:5432/app"],
+    ["::1", "neo4j://[::1]:7687"],
+    ["with credentials in the URI", "postgresql://u:p@localhost:5432/app"],
+    ["uppercase host", "neo4j://LOCALHOST:7687"],
+  ])("codes a network failure to %s as container_loopback", (_l, uri) => {
+    expect(
+      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
+    ).toBe("container_loopback");
+  });
+
+  it("stays `network` when the app is NOT containerised", () => {
+    // The regression that matters. In local mode the app runs on the host,
+    // where localhost is exactly right — telling that user to use a Docker
+    // hostname would send them somewhere that does not exist.
+    expect(
+      classifyConnectionError(DISCOVERY_ERROR, {
+        uri: "neo4j://localhost:7688",
+        containerised: false,
+      }),
+    ).toBe("network");
+  });
+
+  it.each([
+    ["a remote host", "neo4j://db.example.com:7687"],
+    ["a compose service name", "neo4j://neo4j:7687"],
+    ["a LAN address", "postgresql://192.168.1.50:5432/app"],
+  ])("stays `network` for %s", (_l, uri) => {
+    expect(
+      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
+    ).toBe("network");
+  });
+
+  it("does not outrank auth or bad_uri", () => {
+    // Priority order is unchanged: a loopback auth failure is still an auth
+    // failure, and the Docker hint would be a misdiagnosis.
+    expect(
+      classifyConnectionError("Authentication failure", {
+        uri: "neo4j://localhost:7688",
+        containerised: true,
+      }),
+    ).toBe("auth_failed");
+    expect(
+      classifyConnectionError("Invalid URI scheme", {
+        uri: "wat://localhost:7688",
+        containerised: true,
+      }),
+    ).toBe("bad_uri");
+  });
+
+  it.each([
+    ["a malformed URI", "not a uri at all"],
+    ["an empty URI", ""],
+  ])("degrades to `network` for %s rather than throwing", (_l, uri) => {
+    // This runs on an error path. A classifier that throws replaces a bad
+    // message with a 500.
+    expect(() =>
+      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
+    ).not.toThrow();
+    expect(
+      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
+    ).toBe("network");
+  });
+
+  it("is unchanged when no context is passed at all", () => {
+    expect(classifyConnectionError(DISCOVERY_ERROR)).toBe("network");
+  });
+
+  it("names Docker, the CLI flag, and host.docker.internal in the hint", () => {
+    const hint = hintForConnectionErrorCode("container_loopback");
+    expect(hint).toMatch(/host\.docker\.internal/);
+    expect(hint).toMatch(/container/i);
+    // The hostname only resolves on Linux when the overlay is applied, so the
+    // hint has to say how to apply it.
+    expect(hint).toMatch(/--expose-host/);
+  });
+
+  it("says WHOSE localhost, because the URI is resolved server-side", () => {
+    // The connection is opened by the NeoBoard server, not the browser. On a
+    // deployed instance, a user typing `localhost` means the SERVER's
+    // localhost — and host.docker.internal is the server's host too, not
+    // theirs. A hint saying "not your machine" reads as though their own
+    // laptop were reachable. It is not, and the copy has to say so.
+    const hint = hintForConnectionErrorCode("container_loopback");
+    expect(hint).toMatch(/server/i);
+    expect(hint).toMatch(/your own computer/i);
+    expect(hint).toMatch(/not reachable|cannot see your machine/i);
+  });
+});

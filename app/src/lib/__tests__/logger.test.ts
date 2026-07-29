@@ -140,4 +140,111 @@ describe("logger", () => {
       vi.doUnmock("@/lib/log-anonymizer");
     });
   });
+
+  describe("secret redaction is on by DEFAULT", () => {
+    // These drive a real pino instance built from the app's own options and
+    // capture the exact bytes that would hit stdout. Every assertion looks
+    // for the secret STRING anywhere in the line — a `password` key going
+    // missing proves nothing when the same value rides along in a URI, a
+    // driver message or a stack frame.
+    const SECRET = "Tr0ub4dor-hunter2";
+
+    /** Build a logger from the app's options, writing into a capture buffer. */
+    async function capture(
+      emit: (log: import("pino").Logger) => void,
+    ): Promise<string> {
+      const pino = (await import("pino")).default;
+      const { buildOptions } = await import("../logger");
+      let written = "";
+      const sink = {
+        write(chunk: string) {
+          written += chunk;
+        },
+      };
+      emit(
+        pino(
+          buildOptions(),
+          sink as unknown as import("pino").DestinationStream,
+        ),
+      );
+      return written;
+    }
+
+    beforeEach(() => {
+      delete process.env.LOG_ANONYMIZE;
+      delete process.env.LOG_QUERY_TEXT;
+    });
+
+    it("scrubs a connection URI password with LOG_ANONYMIZE unset", async () => {
+      const out = await capture((l) =>
+        l.info(
+          { uri: `postgresql://neoboard:${SECRET}@db.internal:5432/analytics` },
+          "connection_configured",
+        ),
+      );
+      expect(out).not.toContain(SECRET);
+      expect(out).toContain("db.internal");
+    });
+
+    it("scrubs a URI held under an unlisted key name", async () => {
+      const out = await capture((l) =>
+        l.info(
+          { config: { whateverKey: `bolt://neo4j:${SECRET}@graph:7687` } },
+          "loaded",
+        ),
+      );
+      expect(out).not.toContain(SECRET);
+    });
+
+    it("scrubs a secret carried by a thrown driver error", async () => {
+      const err = new Error(
+        `password authentication failed for postgresql://neoboard:${SECRET}@db.internal:5432/analytics`,
+      );
+      (err as Error & { code?: string }).code = "28P01";
+      const out = await capture((l) => l.error({ err }, "query_failed"));
+      expect(out).not.toContain(SECRET);
+      expect(out).toContain("28P01");
+      expect(out).toContain("password authentication failed");
+      // Redaction must not cost the ELK pipeline its error shape.
+      expect(out).toContain('"type":"Error"');
+      expect(out).toContain('"stack":');
+    });
+
+    it("scrubs a secret hidden in an Error cause chain", async () => {
+      const root = new Error(`bad creds: neo4j://neo4j:${SECRET}@graph:7687`);
+      const err = new Error("Connection test failed", { cause: root });
+      const out = await capture((l) => l.error({ err }, "connection_failed"));
+      expect(out).not.toContain(SECRET);
+      expect(out).toContain("Connection test failed");
+    });
+
+    it("scrubs the message string itself", async () => {
+      const out = await capture((l) =>
+        l.info({}, `connecting to postgresql://u:${SECRET}@h:5432/d`),
+      );
+      expect(out).not.toContain(SECRET);
+    });
+
+    it("scrubs a bare Error logged with no message argument", async () => {
+      const out = await capture((l) =>
+        l.error(new Error(`connect failed: postgresql://u:${SECRET}@h:5432/d`)),
+      );
+      expect(out).not.toContain(SECRET);
+    });
+
+    it("scrubs secrets logged through a child logger", async () => {
+      const out = await capture((l) =>
+        l.child({ module: "query" }).warn({ password: SECRET }, "oops"),
+      );
+      expect(out).not.toContain(SECRET);
+      expect(out).toContain('"module":"query"');
+    });
+
+    it("still emits query text by default", async () => {
+      const out = await capture((l) =>
+        l.info({ query: "MATCH (n) RETURN n" }, "query_executed"),
+      );
+      expect(out).toContain("MATCH (n) RETURN n");
+    });
+  });
 });

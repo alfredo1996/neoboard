@@ -19,6 +19,9 @@ Before editing any file, check which package it belongs to and respect its bound
 All commands run from the repo root unless noted.
 
 ```bash
+npm run verify                       # Local CI mirror: typecheck + lint + all unit suites
+npm run sonar:local                  # Scan the current branch against SonarCloud (real gate)
+npm run review:local                 # CodeRabbit review of committed changes vs release/1.4
 npm run dev                          # Dev server (Turbopack, proxies to app/)
 npm run build                        # Production build (webpack) + type-check
 npm run lint                         # ESLint all packages (root config)
@@ -52,7 +55,7 @@ Rules:
 
 | Layer                | Tool                    | Examples                                                                         |
 | -------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| Pure functions/utils | Vitest (no DOM)         | chart-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
+| Pure functions/utils | Vitest (no DOM)         | chart-plugin-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
 | API routes           | Vitest (mocked DB/auth) | Validation, permissions, error handling                                          |
 | Zustand stores       | Vitest (no mocks)       | State transitions, cascading logic                                               |
 | Store orchestration  | Vitest (no DOM)         | parameter-widget-renderer interactions, type coercion                            |
@@ -125,7 +128,8 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 ## Multi-Tenancy
 
-- `tenant_id` column on ALL tables. Every DB query MUST include tenant filter at ORM/middleware level.
+- `tenant_id` column on ALL tables. Every DB query MUST include an explicit tenant filter — `eq(table.tenantId, session.tenantId)` — written **per query, in the route**. There is no ORM-level or middleware-level enforcement today (`app/src/lib/db/index.ts` is a plain Drizzle client), so a forgotten filter is a cross-tenant leak that the ORM will not catch. A test-time ratchet (`app/src/lib/db/__tests__/tenant-scope.test.ts`, #1226) fails the build on any unscoped query against a tenant table — it is a safety net, not runtime enforcement, so the per-query filter is still mandatory.
+- Take `tenantId` from `requireSession()`, NEVER from the request body.
 - JWT tokens include `tenantId` claim. Validate before ANY DB or API access.
 - SaaS vs on-prem: env vars only, never code branches.
 
@@ -144,7 +148,7 @@ Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, 
 ## Migrations
 
 Forward-only. Idempotent. Advisory lock prevents concurrent runs.
-Test version-skip paths. `--skip-migrations` flag exists for emergency debugging.
+Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`1`/`true` to run; set `0` to skip for emergency debugging) — there is no `--skip-migrations` CLI flag.
 
 ## Automated Guardrails (Hooks)
 
@@ -186,7 +190,8 @@ Agents work together in a pipeline. Each stage gates the next:
 3. **`test-runner`** + **`lint-fix`** — Verify code compiles, lints, tests pass
 4. **`code-reviewer`** — Reviews code for security, architecture, quality. Runs unit + E2E tests.
 5. **`feature-reviewer`** — Opens the browser (Playwright CLI), tests the feature UX + functionality
-6. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
+6. **`design-reviewer`** — Judges whether the change *looks* right: captures Storybook in light **and** dark, compares against the taste doc, reports token-level causes
+7. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
 
 ### Quick reference
 
@@ -196,7 +201,8 @@ Agents work together in a pipeline. Each stage gates the next:
 | `test-runner` | Run affected tests | haiku | After code changes |
 | `lint-fix` | Lint + auto-fix | haiku | After code changes |
 | `code-reviewer` | Code review + tests | sonnet | Pre-push, PR review |
-| `feature-reviewer` | Browser-based feature testing | sonnet | After implementing UI |
+| `feature-reviewer` | Browser-based feature testing (does it **work**) | sonnet | After implementing UI |
+| `design-reviewer` | Does it **look right** — both themes, token-level | sonnet | After token/chart/appearance changes |
 | `ux-crawler` | Full app UX audit | sonnet | Before releases, major changes |
 
 The browser agents (`feature-reviewer`, `ux-crawler`, `user-sim-admin`, `user-sim-creator`) drive the running app via `npx @playwright/cli` — ensure Docker is up before invoking them. Their CLI usage, token-discipline rules, and NeoBoard browser gotchas live in each agent's own definition, not here.

@@ -107,7 +107,7 @@ function ChoroplethChart({
 
   const options = useMemo((): EChartsOption | undefined => {
     if (!mapRegistered) return undefined;
-    if (!normalizedData.length) return buildEmptyDataOption();
+    if (!normalizedData.length) return buildEmptyDataOption(dark);
 
     const values = normalizedData.map((d) => d.value);
     const minVal = Math.min(...values);

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useTheme } from "../use-theme";
@@ -18,7 +17,10 @@ function createMatchMedia() {
       addEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => {
         mediaListeners.add(cb);
       },
-      removeEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => {
+      removeEventListener: (
+        _: string,
+        cb: (e: MediaQueryListEvent) => void,
+      ) => {
         mediaListeners.delete(cb);
       },
       addListener: vi.fn(),

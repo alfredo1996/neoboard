@@ -12,7 +12,6 @@ import {
   ParamDateRange,
   ParamDateRelative,
   ParamNumberRange,
-  ParamCascadingSelect,
 } from "./parameters";
 
 // ─── Widget config ───────────────────────────────────────────────────────────
@@ -22,11 +21,14 @@ export interface ParameterWidgetConfig {
   parameterName: string;
   /** Which of the 8 selector types to render */
   parameterType: ParameterType;
-  /** DB connection for seed queries (select, multi-select, cascading) */
+  /** DB connection for seed queries (select, multi-select) */
   connectionId?: string;
   /** SQL/Cypher query that returns label+value rows for select types */
   seedQuery?: string;
-  /** For cascading: the parent parameter name whose value seeds this query */
+  /**
+   * Parent parameter whose value seeds this query. Setting it makes a
+   * select cascading — there is no separate cascading widget type (#1360).
+   */
   parentParameterName?: string;
   /** For number-range: the lower bound of the slider */
   rangeMin?: number;
@@ -72,12 +74,7 @@ export function ParameterWidgetRenderer({
     parentParameterName,
     searchable,
   );
-  useCascadingClear(
-    parameterName,
-    parameterType,
-    parentParameterName,
-    seed.parentValue,
-  );
+  useCascadingClear(parameterName, parentParameterName, seed.parentValue);
 
   switch (parameterType) {
     case "text":
@@ -96,6 +93,7 @@ export function ParameterWidgetRenderer({
           actions={actions}
           seed={seed}
           searchable={searchable}
+          parentParameterName={parentParameterName}
           placeholder={placeholder}
           className={className}
         />
@@ -107,6 +105,7 @@ export function ParameterWidgetRenderer({
           actions={actions}
           seed={seed}
           searchable={searchable}
+          parentParameterName={parentParameterName}
           placeholder={placeholder}
           className={className}
         />
@@ -146,18 +145,10 @@ export function ParameterWidgetRenderer({
           className={className}
         />
       );
-    case "cascading-select":
-      return (
-        <ParamCascadingSelect
-          parameterName={parameterName}
-          actions={actions}
-          seed={seed}
-          parentParameterName={parentParameterName}
-          placeholder={placeholder}
-          className={className}
-        />
-      );
     default:
+      // The retired `cascading-select` no longer passes the plugin's
+      // settings schema, so it never reaches here — it surfaces as the
+      // "No parameter name" empty state instead (#1360).
       return null;
   }
 }

@@ -174,8 +174,8 @@ ls app/src/lib/db/migrations/
 **Capture as issues**:
 
 - Migration runner missing the advisory lock (memory rule: "Advisory lock prevents concurrent runs")
-- `--skip-migrations` flag missing or undocumented
-- No version-skip test path (can a v0.5 → v1.1 install succeed?)
+- `MIGRATE_ON_START` undocumented for operators (it is the ONLY escape hatch — there is no `--skip-migrations` CLI flag, and audits kept looking for one)
+- No version-skip test path. NOTE: `app/drizzle/migrations/meta/_journal.json` currently holds a SINGLE entry — the schema was collapsed to one initial migration pre-launch, so there is no multi-version-skip path to test yet. Revisit once migrations accumulate post-launch; flagging it before then is a false positive.
 - Rollback story undocumented (forward-only is fine, but operators need to know that)
 
 ## Phase 4 — Observability (~15 min)

@@ -15,7 +15,43 @@ export type ConnectionErrorCode =
   | "auth_failed"
   | "network"
   | "bad_uri"
+  /** A loopback host, unreachable because we are inside a container (#1346). */
+  | "container_loopback"
   | "unknown";
+
+/** What the classifier needs beyond the message to spot a Docker networking miss. */
+export interface ConnectionErrorContext {
+  /** The URI the user entered. */
+  uri?: string;
+  /** Whether the app itself is running inside a container. */
+  containerised?: boolean;
+}
+
+/**
+ * Is this URI pointed at the machine it is running on?
+ *
+ * Parsed, not substring-matched: "myhost-localhost.example.com" contains
+ * "localhost" and is not loopback. Returns false for anything unparseable —
+ * this runs on an error path, where a throw would replace a bad message with
+ * a 500, and a malformed URI is already better served by `bad_uri`.
+ */
+function isLoopbackUri(uri: string | undefined): boolean {
+  if (!uri) return false;
+  let host: string;
+  try {
+    host = new URL(uri).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  // URL strips the brackets from [::1]; both forms normalise to "::1".
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    host.endsWith(".localhost")
+  );
+}
 
 /**
  * Shown when a connector's check returns false *without* throwing — there's no
@@ -77,13 +113,27 @@ function containsAny(text: string, keywords: string[]): boolean {
  * Why auth above network: failed auth attempts can be reported on top of
  * transient network warnings; the user's first step is to fix credentials.
  */
-export function classifyConnectionError(message: string): ConnectionErrorCode {
+export function classifyConnectionError(
+  message: string,
+  context?: ConnectionErrorContext,
+): ConnectionErrorCode {
   if (!message) return "unknown";
   const m = message.toLowerCase();
 
   if (containsAny(m, BAD_URI_KEYWORDS)) return "bad_uri";
   if (containsAny(m, AUTH_KEYWORDS)) return "auth_failed";
-  if (containsAny(m, NETWORK_KEYWORDS)) return "network";
+  if (containsAny(m, NETWORK_KEYWORDS)) {
+    // Narrowing a network failure, never overriding auth or bad_uri: a
+    // loopback auth failure is still an auth failure, and pointing at Docker
+    // there would be a misdiagnosis.
+    //
+    // The containerised check is what keeps this honest. In local mode the app
+    // runs on the host, where localhost is exactly right — that user must not
+    // be sent to a Docker hostname that does not exist for them.
+    return context?.containerised && isLoopbackUri(context.uri)
+      ? "container_loopback"
+      : "network";
+  }
   return "unknown";
 }
 
@@ -94,6 +144,8 @@ const HINTS: Record<ConnectionErrorCode, string> = {
     "The server is unreachable. Verify the host and port, confirm the database is running, and check that no firewall is blocking the connection.",
   bad_uri:
     "The connection URI looks malformed. Confirm the scheme (e.g. `bolt://` or `neo4j+s://` for Neo4j, `postgresql://` for PostgreSQL) and that the host/port are present.",
+  container_loopback:
+    "The connection is opened by the NeoBoard **server**, not by your browser — so `localhost` means the machine NeoBoard runs on, and right now that is the container it runs inside. If the database is on that same host, restart NeoBoard with `neoboard start --full --expose-host` and use `host.docker.internal` in place of `localhost` (e.g. `neo4j://host.docker.internal:7687`). A database in the same Docker network is reached by its service name. If the database is on **your own computer** and NeoBoard is deployed elsewhere, it is not reachable at all — the server cannot see your machine; expose it at a routable address first.",
   unknown:
     "Connection test failed for an unrecognised reason. Check the server logs for more detail.",
 };

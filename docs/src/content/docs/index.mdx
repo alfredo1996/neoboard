@@ -35,11 +35,11 @@ NeoBoard is an open-source dashboarding tool for hybrid database architectures. 
 
 Choose the path that fits your setup:
 
-| Method | Command | Time |
-|--------|---------|------|
-| **Docker (recommended)** | `neoboard demo` | ~5 minutes |
-| **Local + Docker DBs** | `neoboard setup --mode local` | ~10 minutes |
-| **Fully local** | `git clone` + `npm ci` + `npm run dev` | ~15 minutes |
+| Method | Command | Best for |
+|--------|---------|----------|
+| **Setup script (recommended)** | `git clone` + `bash install.sh` | Trying NeoBoard out — installs deps, starts Docker, runs migrations |
+| **Manual setup** | `npm install` + `neoboard env` + `npm run dev` | Contributors hacking on the source |
+| **Production** | `docker compose -f docker/docker-compose.prod-full.yml up -d` | Real deployments |
 
 See the [Installation guide](/getting-started/installation/) for full instructions.
 

@@ -2,9 +2,8 @@ import {
   readProjectConfig,
   writeProjectConfig,
   paths,
-  getMode,
 } from "../lib/config.js";
-import { warn, info, success, error as logError } from "../lib/output.js";
+import { info, success, error as logError } from "../lib/output.js";
 import type { ProjectConfig } from "../lib/config.js";
 
 type FlatKey =
@@ -101,15 +100,8 @@ export function runConfigSet(key: string, value: string): void {
   const updated = setNestedValue(config, key as FlatKey, value);
   writeProjectConfig(updated);
   success(`Set ${key} = ${value}`);
-
-  // Port changes are honored by the CLI's probes/banners, but the Docker
-  // compose files publish fixed host ports — so in Docker mode the new
-  // value is partially fictional (#998). Warn rather than silently mislead.
-  if (key.startsWith("ports.") && getMode() === "docker") {
-    warn(
-      `Docker mode publishes fixed ports from docker/docker-compose.yml — ` +
-        `${key} won't change the container's published port. ` +
-        `Edit the compose file (or use local mode) to remap it.`,
-    );
-  }
+  // No Docker-mode caveat any more: the compose files read ${NEOBOARD_PORT_*}
+  // and composeUp passes them from this config, so the value binds in both
+  // modes (#1313). The warning that used to live here (#998) told the user to
+  // hand-edit the compose file, which would now fight the substitution.
 }

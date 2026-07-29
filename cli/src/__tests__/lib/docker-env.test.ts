@@ -13,6 +13,7 @@ vi.mock("node:crypto", () => ({
 }));
 
 vi.mock("../../lib/config.js", () => ({
+  assertCheckout: vi.fn(),
   paths: { root: "/project" },
   getMode: vi.fn(() => "docker"),
 }));
@@ -55,6 +56,29 @@ describe("ensureDockerEnvFile", () => {
     expect(content).toContain("ENCRYPTION_KEY=");
     expect(content).toContain("NEXTAUTH_SECRET=");
     expect(content).toContain("API_KEY_HMAC_SECRET=");
+  });
+
+  it("generates ADMIN_BOOTSTRAP_TOKEN — without it the first admin can never be created (#1312)", () => {
+    // signup.ts requires process.env.ADMIN_BOOTSTRAP_TOKEN to be truthy for the
+    // first-user branch. When docker/.env omits it, the app container sees
+    // undefined and NO value the user types can validate — a fresh Docker
+    // install ends up with an instance nobody can log into.
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    const content = mockWriteFileSync.mock.calls[0][1] as string;
+    expect(content).toContain("ADMIN_BOOTSTRAP_TOKEN=");
+  });
+
+  it("writes the token in a form readDockerEnvSecrets can hand back to the banner", async () => {
+    const { readDockerEnvSecrets } = await import("../../lib/docker-env.js");
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    const written = mockWriteFileSync.mock.calls[0][1] as string;
+
+    // Round-trip the generated file through the reader the banner uses.
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(written);
+    expect(readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN).toBeTruthy();
   });
 
   it("never overwrites an existing file — the ENCRYPTION_KEY must be stable across restarts", () => {

@@ -90,7 +90,29 @@ export function decrypt(encryptedStr: string): string {
     if (oldKey) {
       return decryptWithKey(encryptedStr, oldKey);
     }
-    throw primaryError;
+    // A structurally invalid blob is NOT a key problem, and saying so would
+    // send the operator to rotate a key that is fine. Re-throw it untouched.
+    if (
+      primaryError instanceof Error &&
+      primaryError.message.startsWith("Invalid encrypted data format")
+    ) {
+      throw primaryError;
+    }
+    // Node throws "Unsupported state or unable to authenticate data" here,
+    // which names neither the key nor the fix. That message reached the user
+    // on EVERY widget of a mismatched instance, with no thread to pull
+    // (#1274). Name the likely cause instead; the original is kept as `cause`
+    // for anyone debugging the crypto rather than the deployment.
+    //
+    // No key material, no ciphertext, no plaintext — an error message is the
+    // one place secrets reliably end up in logs.
+    throw new Error(
+      "Failed to decrypt stored data — ENCRYPTION_KEY does not match the key " +
+        "it was encrypted with. If you are rotating keys, set " +
+        "ENCRYPTION_KEY_OLD to the previous key. Run `neoboard doctor` to " +
+        "confirm.",
+      { cause: primaryError },
+    );
   }
 }
 

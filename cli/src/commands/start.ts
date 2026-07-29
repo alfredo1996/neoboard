@@ -5,6 +5,19 @@ import { readProjectConfig, getMode } from "../lib/config.js";
 import { info, success, warn, banner, error } from "../lib/output.js";
 import { runDoctor, printResults } from "./doctor.js";
 import { runDbMigrate } from "./db/migrate.js";
+import { readDockerEnvSecrets } from "../lib/docker-env.js";
+import { isBootstrapPending } from "../lib/bootstrap-status.js";
+
+/**
+ * Show the bootstrap token only while it is still usable: a token is spent
+ * once an admin exists, and printing a live secret nobody needs is gratuitous.
+ * Also stays quiet when no token was generated (a docker/.env predating #1312),
+ * rather than printing "Token: undefined".
+ */
+async function shouldShowBootstrapToken(): Promise<boolean> {
+  if (!readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN) return false;
+  return isBootstrapPending();
+}
 
 export interface StartOptions {
   /**
@@ -13,6 +26,12 @@ export interface StartOptions {
    * Only applies to Docker mode.
    */
   full?: boolean;
+  /**
+   * Let the app container reach databases on the HOST machine, by mapping
+   * host.docker.internal (#1346). Opt-in: most installs do not need it, and it
+   * routes from the container out to the host's network.
+   */
+  exposeHost?: boolean;
 }
 
 /**
@@ -24,6 +43,23 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   const mode = getMode();
   const config = readProjectConfig();
   const full = opts?.full ?? false;
+  const exposeHost = opts?.exposeHost ?? false;
+
+  // --expose-host overlays extra_hosts onto the `neoboard` service, which only
+  // the FULL docker compose defines. Without --full the overlay lands on a
+  // service that does not exist and compose refuses the whole project with
+  // "service neoboard has neither an image nor a build context specified" —
+  // an error about the wrong thing entirely. In local mode the app runs on the
+  // host, where localhost already reaches the host and the flag is meaningless.
+  if (exposeHost && (mode !== "docker" || !full)) {
+    error(
+      mode === "docker"
+        ? "--expose-host needs --full: it maps a hostname for the app container, which only the full stack starts. Try: neoboard start --full --expose-host"
+        : "--expose-host applies to Docker mode only. In local mode the app runs on this machine, so `localhost` already reaches your databases.",
+    );
+    process.exitCode = 1;
+    return false;
+  }
 
   // 1. Prerequisite checks
   const results = await runDoctor();
@@ -40,7 +76,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     } else {
       info("Starting database containers via Docker Compose...");
     }
-    composeUp({ full });
+    composeUp({ full, exposeHost });
   } else {
     info(
       "Local mode — skipping Docker. Ensure PostgreSQL and Neo4j are running.",
@@ -98,6 +134,21 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   // said `neoboard dev`, which dead-ended Docker users.
   const startAppHint =
     mode === "docker" ? "neoboard start --full" : "neoboard dev";
+
+  // The first admin can only be created by entering ADMIN_BOOTSTRAP_TOKEN on
+  // the signup screen. The CLI generated it into docker/.env moments ago, so
+  // it is the one component that knows both the value and the file — showing
+  // it here removes the "find a secret nobody told you about" dead end
+  // (#1312). Local mode already prints its token when generating .env.local.
+  const bootstrapLines =
+    appRunning && (await shouldShowBootstrapToken())
+      ? [
+          "",
+          `Token:      ${readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN}`,
+          "            (bootstrap token, from docker/.env — needed once, at signup)",
+        ]
+      : [];
+
   banner([
     appRunning ? "NeoBoard is running!" : "Databases are ready!",
     "",
@@ -115,6 +166,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     appRunning
       ? "First run:  open the App URL to create your admin account"
       : "First run:  start the app, then create your admin account in the browser",
+    ...bootstrapLines,
     "",
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,

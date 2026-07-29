@@ -10,7 +10,7 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { buildEmptyDataOption } from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
@@ -71,8 +71,12 @@ function GanttChart({
   ariaDescription,
   ...rest
 }: GanttChartProps) {
+  // The empty-state colour comes from the theme, so this memo has to
+  // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
+  const dark = useDarkMode();
+
   const options = useMemo((): EChartsOption => {
-    if (!data.length) return buildEmptyDataOption();
+    if (!data.length) return buildEmptyDataOption(dark);
 
     const taskNames = data.map((d) => d.task);
     const barHeightRatio = 0.6;
@@ -247,10 +251,9 @@ function GanttChart({
       },
       xAxis: {
         type: "time",
-        splitLine: {
-          show: showGridLines,
-          lineStyle: { type: "dashed", opacity: 0.3 },
-        },
+        // No local lineStyle: the registered theme owns gridline weight and
+        // colour so every cartesian chart draws the same grid (#1247).
+        splitLine: { show: showGridLines },
       },
       yAxis: {
         type: "category",
@@ -321,6 +324,7 @@ function GanttChart({
     showGridLines,
     stylingRules,
     paramValues,
+    dark,
   ]);
 
   return (

@@ -43,9 +43,9 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 
 `install.sh` bootstraps the bundled `neoboard` CLI, brings up Postgres + Neo4j in Docker, runs migrations, and prints the next-step commands. After it finishes:
 
-- Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed during setup
+- Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed in the ready banner (also in `docker/.env` as `ADMIN_BOOTSTRAP_TOKEN`)
 - Run `neoboard demo` to seed the showcase dashboards (optional, see below)
-- Run `neoboard doctor` to check service health if anything looks off; `neoboard --help` for the full command list
+- Run `neoboard status` to check service health if anything looks off (`neoboard doctor` is a pre-flight check of the machine — Docker, Node, free ports); `neoboard --help` for the full command list
 
 > **Note:** an `npx @neoboard/cli` standalone install path is on the roadmap but the package is not on npm yet — clone the repo for now.
 
@@ -63,18 +63,21 @@ neoboard demo list                            # print available showcases
 neoboard demo reset --force                   # purge showcase dashboards + demo schema
 ```
 
-Four showcase dashboards get seeded:
+Seven showcase dashboards get seeded (run `neoboard demo list` for the live list):
 
-| Showcase           | Pages | What it demonstrates                                                                       |
-| ------------------ | ----- | ------------------------------------------------------------------------------------------ |
-| Chart Gallery      | 20    | One page per registered chart type on the demo e-commerce data                             |
-| Click Actions      | 5     | Drilldown, page navigation, and combined set-parameter-and-navigate                        |
-| Transformations    | 6     | Before/after for `filter`, `sort`, `groupBy`, `calculatedColumn`, `renameColumns`, `limit` |
-| Rule-Based Styling | 9     | Numeric, text, between-operator, and parameter-reference rules across chart types          |
+| Showcase           | What it demonstrates                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| Movie Highlights   | Real-world showcase on the Neo4j movie graph — KPIs, top actors, filming map, co-star network |
+| Chart Gallery      | One page per chart type — 17 pages covering every registered widget                           |
+| Click Actions      | Drilldown, page navigation, and combined set-parameter-and-navigate                           |
+| Transformations    | Before/after for `filter`, `sort`, `groupBy`, `calculatedColumn`, `renameColumns`, `limit`    |
+| Rule-Based Styling | Numeric, text, between-operator, and parameter-reference rules across chart types             |
+| Chart Playground   | Interactive sandbox — every chart with knobs to fiddle                                        |
+| Chart Reference    | Exhaustive customization reference — one page per chart type, all options demonstrated        |
 
 The showcases live as portable JSON files under `scripts/demo/*.json` validated against `neoboardExportSchema` — you can import them on any NeoBoard instance.
 
-The demo e-commerce data (customers, products, categories, orders, order_items, regions) is isolated in the `neoboard_demo_public` Postgres schema so `neoboard demo reset` can drop it without touching your own tables.
+Two connections are created: **Neo4j Movies** (the bundled movie graph) and the demo e-commerce data (customers, products, categories, orders, order_items, regions), isolated in the `neoboard_demo_public` Postgres schema so `neoboard demo reset` can drop it without touching your own tables.
 
 Demo login: `admin@neoboard.local` / `admin123`
 
@@ -86,6 +89,7 @@ All Compose files live in [`docker/`](docker/) — there is intentionally no roo
 export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 export ENCRYPTION_KEY=$(openssl rand -hex 32)     # lost key = stored credentials unrecoverable
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+export API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
 docker compose -f docker/docker-compose.prod-full.yml up -d
 ```
 

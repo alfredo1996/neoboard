@@ -12,4 +12,3 @@ export { ParamDate } from "./param-date";
 export { ParamDateRange } from "./param-date-range";
 export { ParamDateRelative } from "./param-date-relative";
 export { ParamNumberRange } from "./param-number-range";
-export { ParamCascadingSelect } from "./param-cascading-select";

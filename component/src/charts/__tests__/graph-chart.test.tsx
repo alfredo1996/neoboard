@@ -379,6 +379,121 @@ describe("GraphChart", () => {
     expect(() => callbacks.onNodeClick?.({ id: "1" })).not.toThrow();
   });
 
+  // --- Modifier-aware selection (#1191) ---
+  //
+  // NVL hands `onNodeClick` three arguments: (node, hitElements, event), where
+  // `event` is a DOM MouseEvent (see ClickInteractionCallbacks in
+  // @neo4j-nvl/interaction-handlers). A plain click must REPLACE the selection
+  // so the single-node property inspector stays reachable; Cmd/Ctrl (and Shift,
+  // which has no competing meaning — box/lasso select is not wired up here)
+  // toggle into a multi-selection.
+
+  describe("modifier-aware node selection (#1191)", () => {
+    type ClickCallback = (
+      node: { id: string },
+      hitElements: unknown,
+      event: Partial<MouseEvent>,
+    ) => void;
+
+    /** Render with a controlled selection and return a click driver. */
+    function setup(selectedNodeIds: string[]) {
+      const onNodeSelect = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          selectedNodeIds={selectedNodeIds}
+          onNodeSelect={onNodeSelect}
+        />,
+      );
+      const onNodeClick = (
+        capturedProps.mouseEventCallbacks as { onNodeClick?: ClickCallback }
+      ).onNodeClick;
+      return {
+        onNodeSelect,
+        click: (id: string, modifiers: Partial<MouseEvent> = {}) =>
+          onNodeClick?.({ id }, undefined, {
+            metaKey: false,
+            ctrlKey: false,
+            shiftKey: false,
+            ...modifiers,
+          }),
+      };
+    }
+
+    it("plain click REPLACES a multi-selection with just the clicked node", () => {
+      // The core bug: this used to produce ["1", "3", "2"].
+      const { onNodeSelect, click } = setup(["1", "3"]);
+      click("2");
+      expect(onNodeSelect).toHaveBeenCalledWith(["2"]);
+    });
+
+    it("plain click on the sole selected node deselects it", () => {
+      const { onNodeSelect, click } = setup(["1"]);
+      click("1");
+      expect(onNodeSelect).toHaveBeenCalledWith([]);
+    });
+
+    it("plain click on a selected node that is not the sole selection narrows to it", () => {
+      // Only the *sole* selection round-trips to empty; otherwise the user is
+      // narrowing a multi-selection down to the node they clicked.
+      const { onNodeSelect, click } = setup(["1", "2"]);
+      click("1");
+      expect(onNodeSelect).toHaveBeenCalledWith(["1"]);
+    });
+
+    it("plain click on an unselected node with nothing selected selects only it", () => {
+      const { onNodeSelect, click } = setup([]);
+      click("2");
+      expect(onNodeSelect).toHaveBeenCalledWith(["2"]);
+    });
+
+    it("Cmd+click adds a node to the selection", () => {
+      const { onNodeSelect, click } = setup(["1"]);
+      click("2", { metaKey: true });
+      expect(onNodeSelect).toHaveBeenCalledWith(["1", "2"]);
+    });
+
+    it("Ctrl+click adds a node to the selection (Windows/Linux)", () => {
+      const { onNodeSelect, click } = setup(["1"]);
+      click("2", { ctrlKey: true });
+      expect(onNodeSelect).toHaveBeenCalledWith(["1", "2"]);
+    });
+
+    it("Cmd+click on a selected node removes it from the selection", () => {
+      const { onNodeSelect, click } = setup(["1", "2"]);
+      click("1", { metaKey: true });
+      expect(onNodeSelect).toHaveBeenCalledWith(["2"]);
+    });
+
+    it("Ctrl+click on a selected node removes it from the selection", () => {
+      const { onNodeSelect, click } = setup(["1", "2"]);
+      click("2", { ctrlKey: true });
+      expect(onNodeSelect).toHaveBeenCalledWith(["1"]);
+    });
+
+    it("Shift+click also toggles (accepted alongside Cmd/Ctrl)", () => {
+      const { onNodeSelect, click } = setup(["1"]);
+      click("2", { shiftKey: true });
+      expect(onNodeSelect).toHaveBeenCalledWith(["1", "2"]);
+    });
+
+    it("Shift+click on a selected node removes it from the selection", () => {
+      const { onNodeSelect, click } = setup(["1", "2"]);
+      click("1", { shiftKey: true });
+      expect(onNodeSelect).toHaveBeenCalledWith(["2"]);
+    });
+
+    it("plain click always yields exactly one id, keeping the single-node inspector reachable", () => {
+      // The inspector in graph-exploration-wrapper opens only for
+      // `ids.length === 1`; walking a graph node by node must never exceed it.
+      const { onNodeSelect, click } = setup(["1", "2", "3"]);
+      click("3");
+      const ids = onNodeSelect.mock.calls[0][0] as string[];
+      expect(ids).toEqual(["3"]);
+    });
+  });
+
   // --- className ---
 
   it("applies custom className to wrapper when data is present", () => {
@@ -994,6 +1109,54 @@ describe("GraphChart", () => {
       expect(() =>
         fireEvent.click(screen.getByTestId("graph-zoom-out")),
       ).not.toThrow();
+    });
+  });
+
+  // --- Synthetic (APOC virtual) nodes (#1361) ---
+
+  describe("synthetic nodes", () => {
+    const mixedNodes = [
+      { id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0", label: "Document" },
+      { id: "-289", label: "Totals", synthetic: true },
+    ];
+
+    function captionValues(node: NvlNode): (string | undefined)[] {
+      return (node.captions ?? []).map((c) => c.value);
+    }
+
+    it("gives a synthetic node a distinct italic 'virtual' caption line", () => {
+      render(<GraphChart nodes={mixedNodes} edges={[]} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const synthetic = nvlNodes.find((n) => n.id === "-289")!;
+
+      expect(captionValues(synthetic)).toContain("virtual");
+      expect(
+        synthetic.captions?.find((c) => c.value === "virtual")?.styles,
+      ).toContain("italic");
+    });
+
+    it("keeps the node's own caption alongside the marker", () => {
+      render(<GraphChart nodes={mixedNodes} edges={[]} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const synthetic = nvlNodes.find((n) => n.id === "-289")!;
+      expect(captionValues(synthetic)).toEqual(["Totals", "virtual"]);
+    });
+
+    it("does not mark a real node", () => {
+      render(<GraphChart nodes={mixedNodes} edges={[]} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const real = nvlNodes.find((n) => n.id !== "-289")!;
+      expect(real.captions).toBeUndefined();
+      expect(real.caption).toBe("Document");
+    });
+
+    it("still marks a synthetic node when captions are turned off", () => {
+      // showLabels=false hides every caption, but "this is not a real node"
+      // is not a label — it must survive.
+      render(<GraphChart nodes={mixedNodes} edges={[]} showLabels={false} />);
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      const synthetic = nvlNodes.find((n) => n.id === "-289")!;
+      expect(captionValues(synthetic)).toEqual(["virtual"]);
     });
   });
 });

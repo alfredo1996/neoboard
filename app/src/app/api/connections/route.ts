@@ -8,6 +8,7 @@ import { prefetchSchema } from "@/lib/connector/schema-prefetch";
 import { createConnectionSchema } from "@/lib/shared/schemas";
 import { validateBody, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
+import { auditRequest } from "@/lib/audit/audit";
 
 export async function GET(request: Request) {
   try {
@@ -93,6 +94,16 @@ export async function POST(request: Request) {
 
     // Fire-and-forget: pre-warm the schema cache for the new connection
     prefetchSchema(type, result.data.config);
+
+    auditRequest(request, {
+      tenantId,
+      userId,
+      action: "connection.create",
+      resourceType: "connection",
+      resourceId: connection.id,
+      // Never the config — it holds credentials.
+      details: { name, connectorType: type },
+    });
 
     return apiSuccess(connection, 201);
   } catch (error) {

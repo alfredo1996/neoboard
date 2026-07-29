@@ -1,0 +1,142 @@
+import { describe, it, expect } from "vitest";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/**
+ * Guards the repo's own documentation against drift (#1235).
+ *
+ * CLAUDE.md is loaded as ground truth by agent sessions, so a stale path or
+ * count there becomes a wrong assumption in generated code. These tests fail
+ * loudly instead.
+ *
+ * Scope: the repo's OWN docs (CLAUDE.md, ARCHITECTURE.md, .claude/skills).
+ * The published site under docs/src has its own guard —
+ * scripts/__tests__/docs-accuracy.test.mjs — with the same name and a
+ * different target. Add site checks there, repo checks here.
+ */
+
+const REPO_ROOT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
+
+const readDoc = (name: string) =>
+  readFileSync(resolve(REPO_ROOT, name), "utf8");
+
+/** Top-level dirs that make a backticked token a repo path rather than an npm specifier. */
+const REPO_PREFIXES = [
+  "app/",
+  "component/",
+  "connection/",
+  "connector-sdk/",
+  "cli/",
+  "docs/",
+  "scripts/",
+  ".claude/",
+  ".github/",
+  "docker/",
+];
+
+function referencedPaths(markdown: string): string[] {
+  const backticked = markdown.match(/`[^`\s]+`/g) ?? [];
+  return [
+    ...new Set(
+      backticked
+        .map((t) => t.slice(1, -1))
+        .filter((t) => REPO_PREFIXES.some((p) => t.startsWith(p))),
+    ),
+  ];
+}
+
+const countFiles = (dir: string, ext = ".tsx") =>
+  readdirSync(resolve(REPO_ROOT, dir)).filter((f) => f.endsWith(ext)).length;
+
+describe("documentation accuracy", () => {
+  describe.each(["CLAUDE.md", "ARCHITECTURE.md"])("%s", (docName) => {
+    it("references only file paths that exist", () => {
+      const missing = referencedPaths(readDoc(docName)).filter(
+        (p) => !existsSync(resolve(REPO_ROOT, p)),
+      );
+      expect(missing).toEqual([]);
+    });
+  });
+
+  describe("ARCHITECTURE.md component counts match the filesystem", () => {
+    // Each regex must match: a reworded claim should fail here rather than
+    // silently stop being checked.
+    it.each([
+      [
+        "shadcn/ui primitives",
+        /(\d+) shadcn\/ui primitives/,
+        () => countFiles("component/src/components/ui"),
+      ],
+      [
+        "composed components",
+        /(\d+) higher-order components/,
+        () => countFiles("component/src/components/composed"),
+      ],
+      [
+        "chart modules",
+        /BaseChart \+ (\d+) types/,
+        // charts/ holds base-chart.tsx plus one module per chart type.
+        () => countFiles("component/src/charts") - 1,
+      ],
+    ])("%s", (_label, pattern, actual) => {
+      const match = readDoc("ARCHITECTURE.md").match(pattern);
+      expect(
+        match,
+        `claim matching ${pattern} not found — was it reworded?`,
+      ).not.toBeNull();
+      expect(Number(match![1])).toBe(actual());
+    });
+  });
+
+  it("CLAUDE.md documents MIGRATE_ON_START, not a --skip-migrations flag", () => {
+    // Naming the flag to debunk it is fine (readers search for it); asserting
+    // it exists is not. The real escape hatch is MIGRATE_ON_START=0 (#1222).
+    const doc = readDoc("CLAUDE.md");
+    expect(doc).toContain("MIGRATE_ON_START");
+    // Assert the canonical debunk is present rather than blocklisting one
+    // phrasing — "use `--skip-migrations`" would slip past a negative regex.
+    expect(doc).toContain("there is no `--skip-migrations` CLI flag");
+  });
+
+  it("CLAUDE.md points at the tenant guard by path, and that path exists", () => {
+    // The section used to say a forgotten tenant filter is "a leak that
+    // nothing catches. Adding a guard is tracked in #1226." The guard shipped
+    // (#1351), so that was false in a direction that changes behaviour: an
+    // agent reading it would either duplicate the guard or reason more
+    // defensively than the code requires (#1355).
+    //
+    // Pinned by PATH rather than by phrasing, so a rewrite that drops the
+    // pointer fails while a rewrite that keeps it is free to reword.
+    const doc = readDoc("CLAUDE.md");
+    const guardPath = "app/src/lib/db/__tests__/tenant-scope.test.ts";
+    expect(doc).toContain(guardPath);
+    expect(existsSync(resolve(REPO_ROOT, guardPath))).toBe(true);
+
+    // The mandate itself is load-bearing and must survive any rewording: the
+    // ratchet is a test-time safety net, NOT runtime enforcement. An agent
+    // that believes the ORM scopes queries will write an unscoped one.
+    expect(doc).toMatch(/per query, in the route/);
+    expect(doc).toMatch(/not runtime enforcement/);
+
+    // And the stale claim must stay gone. Asserting only that the NEW text is
+    // present would pass if someone reintroduced "nothing catches it /
+    // tracked in #1226" alongside it — leaving the document contradicting
+    // itself, which is worse for a reader than either version alone.
+    expect(doc).not.toMatch(/tracked in #1226/i);
+    expect(doc).not.toMatch(/leak that nothing catches/i);
+  });
+
+  it("the deploy skill does not send auditors looking for a flag that does not exist", () => {
+    // CLAUDE.md was corrected but the deploy skill still listed
+    // "`--skip-migrations` flag missing or undocumented" as a gap to capture
+    // — so the audit that produced #1222 was instructed to hunt a flag that
+    // was never implemented. A prompt is documentation too (#1222).
+    const skill = readDoc(".claude/skills/deploy/SKILL.md");
+    expect(skill).toContain("MIGRATE_ON_START");
+    expect(skill).toContain("there is no `--skip-migrations` CLI flag");
+  });
+});

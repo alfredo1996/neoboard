@@ -17,7 +17,6 @@ vi.mock("@neoboard/components", () => ({
   DateRangeParameter: () => <div data-testid="date-range" />,
   DateRelativePicker: () => <div data-testid="date-relative" />,
   NumberRangeSlider: () => <div data-testid="number-range" />,
-  CascadingSelector: () => <div data-testid="cascading" />,
   Button: ({
     children,
     ...rest

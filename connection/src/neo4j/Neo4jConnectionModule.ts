@@ -13,7 +13,7 @@ import {
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { extractNodeAndRelPropertiesFromRecords } from "./utils";
 import { determineQueryStatus } from "@neoboard/connector-sdk";
-import { collectUpToLimit } from "@neoboard/connector-sdk";
+import { collectUpToLimit, drainRetainingUpTo } from "@neoboard/connector-sdk";
 import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
 /**
@@ -92,17 +92,14 @@ export class Neo4jConnectionModule extends ConnectionModule {
       const { rows: records, truncated } = await execute(
         async (tx: ManagedTransaction) => {
           if (isWrite) {
-            // Writes must run to completion so every side effect executes; we
-            // only truncate what we hand back for display. Stopping a write
-            // stream early could skip un-pulled CREATE/SET/DELETE work, leaving
-            // a partially-applied transaction.
-            const res = await tx.run(query, params);
-            const all = res.records;
-            const writeTruncated = all.length > config.rowLimit;
-            return {
-              rows: writeTruncated ? all.slice(0, config.rowLimit) : all,
-              truncated: writeTruncated,
-            };
+            // Writes must run to completion so every side effect executes — but
+            // that argues for DRAINING the stream, not for retaining it. The
+            // old code awaited tx.run(), which buffers every record into
+            // QueryResult.records before the slice, so one Form submit against
+            // a large table could exhaust the heap shared by every tenant on
+            // the process (#1298). Draining pulls each record — all side
+            // effects run — while keeping only rowLimit of them.
+            return drainRetainingUpTo(tx.run(query, params), config.rowLimit);
           }
           // Reads stream lazily: do NOT await tx.run(...) (awaiting buffers the
           // whole result set). The Result is async-iterable, so stop after

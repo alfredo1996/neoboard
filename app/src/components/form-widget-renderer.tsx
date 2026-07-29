@@ -16,7 +16,6 @@ import {
   DateRangeParameter,
   DateRelativePicker,
   NumberRangeSlider,
-  CascadingSelector,
   Button,
   Label,
   type RelativeDatePreset,
@@ -69,10 +68,10 @@ function FieldInput({
     return () => clearTimeout(t);
   }, [searchTerm, field.searchable]);
 
-  const parentValue =
-    field.parameterType === "cascading-select" && field.parentParameterName
-      ? String(localValues[field.parentParameterName] ?? "")
-      : undefined;
+  // A named parent is what makes a field cascading — not its type (#1360).
+  const parentValue = field.parentParameterName
+    ? String(localValues[field.parentParameterName] ?? "")
+    : undefined;
 
   const parentParams = useMemo(
     () =>
@@ -101,17 +100,14 @@ function FieldInput({
     field.parameterType === "multi-select" ||
     field.parameterType === "cascading-select";
 
-  const cascadingEnabled =
-    field.parameterType !== "cascading-select" ||
-    (field.parentParameterName !== undefined ? !!parentValue : true);
+  const cascadingEnabled = !field.parentParameterName || !!parentValue;
 
   const seedExtraParams = useMemo(() => {
-    const base = field.parameterType === "cascading-select" ? parentParams : {};
     if (field.searchable && debouncedSearch) {
-      return { ...base, param_search: debouncedSearch };
+      return { ...parentParams, param_search: debouncedSearch };
     }
-    return Object.keys(base).length > 0 ? base : undefined;
-  }, [field.parameterType, field.searchable, parentParams, debouncedSearch]);
+    return Object.keys(parentParams).length > 0 ? parentParams : undefined;
+  }, [field.searchable, parentParams, debouncedSearch]);
 
   const {
     options: seedOptions,
@@ -127,24 +123,17 @@ function FieldInput({
 
   const options = hasStaticOptions ? staticOptionsList : seedOptions;
 
-  // Clear cascading child when parent changes
+  // Clear cascading child when parent changes. Also drop the typed search
+  // term, so it can't keep filtering the option set the new parent loads.
   const prevParentValue = useRef(parentValue);
   useEffect(() => {
-    if (
-      field.parameterType === "cascading-select" &&
-      field.parentParameterName &&
-      prevParentValue.current !== parentValue
-    ) {
+    if (field.parentParameterName && prevParentValue.current !== parentValue) {
       prevParentValue.current = parentValue;
+      setSearchTerm("");
+      setDebouncedSearch("");
       onChange(field.parameterName, undefined);
     }
-  }, [
-    field.parameterType,
-    field.parentParameterName,
-    parentValue,
-    field.parameterName,
-    onChange,
-  ]);
+  }, [field.parentParameterName, parentValue, field.parameterName, onChange]);
 
   // Show inline error when a seed query fails (e.g. bad SQL, connection down)
   if (needsSeed && seedError && !loading) {
@@ -170,7 +159,10 @@ function FieldInput({
       );
     }
 
-    case "select": {
+    // Cascading is the same control with a parent attached — one component,
+    // so a cascading form field gets search too (#1360).
+    case "select":
+    case "cascading-select": {
       const selectValue =
         value !== undefined && value !== null ? String(value) : "";
       return (
@@ -193,6 +185,8 @@ function FieldInput({
           loading={loading}
           searchable={field.searchable}
           onSearch={field.searchable ? setSearchTerm : undefined}
+          parentValue={parentValue}
+          parentParameterName={field.parentParameterName}
         />
       );
     }
@@ -288,33 +282,6 @@ function FieldInput({
           onChange={(vals) => onChange(field.parameterName, vals)}
           onClear={() => onChange(field.parameterName, undefined)}
           showInputs
-        />
-      );
-    }
-
-    case "cascading-select": {
-      const cascadeValue =
-        value !== undefined && value !== null ? String(value) : "";
-      return (
-        <CascadingSelector
-          parameterName={field.parameterName}
-          options={options}
-          value={cascadeValue}
-          onChange={(v) => {
-            if (!v) {
-              onChange(field.parameterName, undefined);
-              return;
-            }
-            const opt = options.find((o) => o.value === v);
-            onChange(
-              field.parameterName,
-              opt?.rawValue !== undefined ? opt.rawValue : v,
-            );
-          }}
-          parentValue={parentValue}
-          parentParameterName={field.parentParameterName}
-          loading={loading}
-          placeholder={field.placeholder}
         />
       );
     }

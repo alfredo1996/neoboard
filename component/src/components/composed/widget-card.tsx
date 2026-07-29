@@ -97,10 +97,24 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                     {title}
                   </h3>
                 )}
-                {subtitle && (
+                {subtitle ? (
                   <p className="truncate text-xs text-muted-foreground mt-1">
                     {subtitle}
                   </p>
+                ) : (
+                  title && (
+                    /* Reserve the subtitle line so titled cards in the same row
+                       start their content at the same height — otherwise a card
+                       with a subtitle pushes its chart down relative to its
+                       neighbour and the row visibly fails to align (#1246).
+                       h-4 matches text-xs line-height; empty + aria-hidden
+                       because the space carries no meaning. */
+                    <p
+                      data-subtitle-placeholder
+                      aria-hidden="true"
+                      className="mt-1 h-4"
+                    />
+                  )
                 )}
               </div>
             </div>
