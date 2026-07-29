@@ -10,7 +10,22 @@ const dialogContentVariants = cva(
   // push its footer off-screen on short windows (#1041). Tall dialogs that
   // want a pinned footer override `grid` with a flex column + a scrollable
   // body (see the connection dialog).
-  "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 sm:rounded-lg",
+  //
+  // DO NOT DELETE the four `slide-*-1/2` classes. They are CENTRING
+  // COMPENSATION, not motion (#1373). tailwindcss-animate's `enter` keyframe is
+  // `from`-only and `exit` is `to`-only, and both build one `transform` from
+  // `--tw-enter/exit-translate-x/y`, which default to 0. So without these the
+  // keyframe's transform is `translate3d(0,0,0)` — the box's top-left corner
+  // sitting on the centre anchor — and the browser interpolates all the way to
+  // the resting `translate(-50%,-50%)`: the dialog flies in from the
+  // bottom-right and flies back out to it. These classes set the variables to
+  // -50% on both axes so the keyframe starts and ends centred and only the
+  // scale and opacity animate. `1/2` on both axes (not upstream shadcn's
+  // `top-[48%]`, which is a deliberate 2%-of-height rise) keeps the visual
+  // centre mathematically invariant for the whole animation. Deleted twice
+  // already (`d723a127`, PR #1173); `stories/ui/dialog.stories.tsx` now scrubs
+  // the real animation in a browser so a third deletion fails a test.
+  "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-1/2 sm:rounded-lg",
   {
     variants: {
       size: {
