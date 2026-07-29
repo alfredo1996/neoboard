@@ -38,6 +38,18 @@ export interface ParamMultiSelectorProps {
   searchable?: boolean;
   /** Called with the search term as the user types (for server-side filtering). */
   onSearch?: (term: string) => void;
+  /**
+   * Current value of the parent parameter this multi-select cascades from.
+   * Absent while `parentParameterName` is set = the cascade is not ready yet.
+   */
+  parentValue?: string;
+  /**
+   * Name of the parent parameter whose value seeds this multi-select's
+   * options. Setting it makes the widget cascading: it stays disabled until
+   * the parent has a value. Mirrors `ParamSelector` — cascading is a
+   * configuration of select, single or multi, not a widget type (#1360).
+   */
+  parentParameterName?: string;
   className?: string;
 }
 
@@ -50,15 +62,36 @@ function ParamMultiSelector({
   options,
   values,
   onChange,
-  placeholder = "Select values…",
+  placeholder,
   loading = false,
   maxDisplay = 3,
   searchable = false,
   onSearch,
+  parentValue,
+  parentParameterName,
   className,
 }: ParamMultiSelectorProps) {
   const [open, setOpen] = React.useState(false);
   const labelId = `param-multi-label-${parameterName}`;
+
+  // Truthiness, not `!== undefined`: the editor's parent-name input writes ""
+  // when cleared, and an empty name is no parent (#1360).
+  const isWaitingForParent = !!parentParameterName && !parentValue;
+
+  // The parent was cleared while the popover was open — close it so the typed
+  // search term dies with the CommandInput instead of surviving as a stale
+  // filter over the next parent's option set.
+  if (open && isWaitingForParent) setOpen(false);
+
+  const resolvedPlaceholder =
+    placeholder ??
+    (isWaitingForParent
+      ? `Select ${parentParameterName} first…`
+      : "Select values…");
+
+  // The dependency hint is a DESCRIPTION, not part of the name — putting it in
+  // the <Label> would embed another control's name in this one's (#1360).
+  const hintId = parentParameterName ? `${labelId}-hint` : undefined;
 
   const selectedOptions = options.filter((opt) => values.includes(opt.value));
 
@@ -81,12 +114,22 @@ function ParamMultiSelector({
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center justify-between">
-        <Label
-          id={labelId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
+        <div>
+          <Label
+            id={labelId}
+            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+          >
+            {parameterName}
+          </Label>
+          {parentParameterName && (
+            <span
+              id={hintId}
+              className="ml-1 text-[10px] normal-case font-normal opacity-60 text-muted-foreground"
+            >
+              (depends on {parentParameterName})
+            </span>
+          )}
+        </div>
         {values.length > 0 && (
           <Button
             type="button"
@@ -107,12 +150,14 @@ function ParamMultiSelector({
             role="combobox"
             aria-expanded={open}
             aria-labelledby={labelId}
+            aria-describedby={hintId}
+            disabled={isWaitingForParent}
             className="w-full justify-between h-auto min-h-9 px-3"
           >
             <div className="flex flex-wrap gap-1 flex-1 min-w-0">
               {selectedOptions.length === 0 && (
                 <span className="text-muted-foreground font-normal text-sm">
-                  {placeholder}
+                  {resolvedPlaceholder}
                 </span>
               )}
               {selectedOptions.slice(0, maxDisplay).map((opt) => (

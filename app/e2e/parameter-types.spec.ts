@@ -16,8 +16,9 @@ import type { APIRequestContext } from "@playwright/test";
  *                          (use-widget-query.ts:150-158)
  *   6. multi-select      — popover with checkboxes → array parameter
  *                          (native Neo4j array binding for `IN $param_xs`)
- *   7. cascading-select  — child depends on parent value; clearing parent
- *                          resets child
+ *   7. cascading select  — a `select` naming a `parentParameterName`: child
+ *                          depends on parent value; clearing parent resets
+ *                          child (#1360 — no separate widget type)
  *
  * Setup strategy — same pattern form-widget.spec.ts:616 uses for its canWrite
  * test: create the dashboard via API, then PUT a complete layoutJson with
@@ -25,12 +26,11 @@ import type { APIRequestContext } from "@playwright/test";
  * UI interactions and keeps each test under ~30s.
  *
  * Note on coverage gaps found during drilling:
- *   - The widget editor UI only exposes 3 ParamUIType options (date, freetext,
- *     select). `number-range` and `cascading-select` exist in the runtime
- *     renderer and settings schema but cannot be configured via the current
- *     editor UI. These tests inject them via layoutJson directly — the
- *     runtime behavior is verified, but the "how does a creator make one?"
- *     question is a separate UX gap worth filing.
+ *   - `number-range` is exposed in the editor UI but these tests inject it
+ *     via layoutJson directly to stay under the time budget. Cascading is
+ *     configurable in the editor since #1360 (a parent-parameter field in
+ *     the select editor), so its "how does a creator make one?" gap is
+ *     closed; the runtime behaviour is still injected here for speed.
  */
 
 /** Helper: build a dashboard with a parameter widget + dependent widget. */
@@ -495,9 +495,13 @@ test.describe("Parameter widget types", () => {
             settings: {
               title: "Movie",
               chartOptions: {
-                parameterType: "cascading-select",
+                // Cascading is a select that names a parent (#1360).
+                parameterType: "select",
                 parameterName: "movie",
                 parentParameterName: "year",
+                // Keep the radix (non-searchable) variant so this case still
+                // exercises the plain dropdown path end to end.
+                searchable: false,
                 // The cascade passes the parent value as a STRING (see
                 // use-seed-query-options.ts:41), so we must cast back to
                 // integer here to match Neo4j's integer `released` field.
@@ -525,14 +529,10 @@ test.describe("Parameter widget types", () => {
     try {
       await page.goto(`/${id}`);
 
-      // Year widget uses ParamSelector which propagates aria-labelledby
-      // to its SelectTrigger — so the combobox has accessible name "year".
-      // Movie widget uses CascadingSelector which puts aria-labelledby on
-      // the Radix <Select> root (which doesn't render), so its combobox
-      // has no accessible name — we target it by DOM position (.last()).
-      // DOM order (confirmed via page snapshot): year first, movie second.
+      // Both widgets are ParamSelector, which puts aria-labelledby on the
+      // SelectTrigger itself — so each combobox carries its parameter name.
       const yearTrigger = page.getByRole("combobox", { name: "year" });
-      const movieTrigger = page.getByRole("combobox").last();
+      const movieTrigger = page.getByRole("combobox", { name: "movie" });
 
       // 1. Movie must start disabled (waiting for parent)
       await expect(yearTrigger).toBeVisible({ timeout: 15_000 });
@@ -548,10 +548,10 @@ test.describe("Parameter widget types", () => {
       await expect(movieTrigger).toBeEnabled({ timeout: 10_000 });
       await movieTrigger.click();
 
-      // Wait for real movie options to load — the CascadingSelector
-      // renders a disabled "No options available" placeholder until the
-      // seed query returns, so clicking too early lands on a disabled
-      // item. Assert that placeholder is gone before proceeding.
+      // Wait for real movie options to load — ParamSelector renders a
+      // disabled "No options available" placeholder until the seed query
+      // returns, so clicking too early lands on a disabled item. Assert
+      // that placeholder is gone before proceeding.
       await expect(
         page.getByRole("option", { name: /no options available/i }),
       ).not.toBeVisible({ timeout: 10_000 });

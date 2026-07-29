@@ -9,7 +9,6 @@ import {
   ParamSelector,
   ParamMultiSelector,
   NumberRangeSlider,
-  CascadingSelector,
 } from "@neoboard/components";
 import type { ParamUIType, DateSubType } from "./parameter-config-section";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
@@ -94,7 +93,13 @@ export function ParameterPreview({
             onChange={() => {}}
             options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
             loading={seedQueryPending}
-            placeholder={(chartOptions.placeholder as string) || "Select..."}
+            // Left undefined when unset so the component can show its own
+            // "Select <parent> first…" prompt for a cascading config.
+            placeholder={(chartOptions.placeholder as string) || undefined}
+            parentParameterName={
+              (chartOptions.parentParameterName as string) || undefined
+            }
+            parentValue={undefined}
           />
         )}
         {paramUIType === "select" && multiSelect && (
@@ -131,20 +136,6 @@ export function ParameterPreview({
               />
             );
           })()}
-        {paramUIType === "cascading" && (
-          <CascadingSelector
-            parameterName={paramWidgetName || "preview"}
-            value=""
-            onChange={() => {}}
-            options={seedPreviewOptions ?? DEFAULT_PREVIEW_OPTIONS}
-            parentParameterName={
-              (chartOptions.parentParameterName as string) || undefined
-            }
-            parentValue={undefined}
-            loading={seedQueryPending}
-            placeholder={(chartOptions.placeholder as string) || undefined}
-          />
-        )}
       </div>
     </div>
   );

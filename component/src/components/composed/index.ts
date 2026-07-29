@@ -173,11 +173,6 @@ export {
   NumberRangeSlider,
   type NumberRangeSliderProps,
 } from "./parameter-widgets/number-range-slider";
-export {
-  CascadingSelector,
-  type CascadingSelectorProps,
-  type CascadingSelectorOption,
-} from "./parameter-widgets/cascading-selector";
 
 // Form
 export {

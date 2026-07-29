@@ -9,6 +9,8 @@ interface ParamMultiSelectProps {
   actions: ParamActions;
   seed: SeedQueryResult;
   searchable: boolean;
+  /** Set to make this a cascading multi-select — gated on the named parent. */
+  parentParameterName?: string;
   placeholder?: string;
   className?: string;
 }
@@ -18,6 +20,7 @@ export function ParamMultiSelect({
   actions,
   seed,
   searchable,
+  parentParameterName,
   placeholder,
   className,
 }: ParamMultiSelectProps) {
@@ -48,6 +51,8 @@ export function ParamMultiSelect({
       loading={seed.loading}
       searchable={searchable}
       onSearch={searchable ? seed.setSearchTerm : undefined}
+      parentValue={seed.parentValue}
+      parentParameterName={parentParameterName}
       className={className}
     />
   );

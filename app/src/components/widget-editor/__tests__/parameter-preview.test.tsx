@@ -35,18 +35,21 @@ vi.mock("@neoboard/components", () => ({
     loading,
     options,
     placeholder,
+    parentParameterName,
   }: {
     parameterName: string;
     loading?: boolean;
     options: { value: string; label: string }[];
     placeholder?: string;
+    parentParameterName?: string;
   }) => (
     <div
       data-testid="select-single"
       data-name={parameterName}
       data-loading={String(loading ?? false)}
       data-option-count={options.length}
-      data-placeholder={placeholder}
+      data-placeholder={placeholder ?? ""}
+      data-parent={parentParameterName ?? ""}
     />
   ),
   ParamMultiSelector: ({
@@ -79,22 +82,6 @@ vi.mock("@neoboard/components", () => ({
       data-min={min}
       data-max={max}
       data-step={step}
-    />
-  ),
-  CascadingSelector: ({
-    parameterName,
-    parentParameterName,
-    placeholder,
-  }: {
-    parameterName: string;
-    parentParameterName?: string;
-    placeholder?: string;
-  }) => (
-    <div
-      data-testid="cascading"
-      data-name={parameterName}
-      data-parent={parentParameterName ?? ""}
-      data-placeholder={placeholder ?? ""}
     />
   ),
 }));
@@ -304,36 +291,55 @@ describe("ParameterPreview", () => {
     });
   });
 
-  describe("cascading branch", () => {
-    it("renders the cascading selector with parent param name", () => {
+  // Cascading is a configuration of `select`, not its own branch (#1360).
+  describe("cascading configuration of the select branch", () => {
+    it("passes the configured parent through to the select preview", () => {
       render(
         <ParameterPreview
           {...baseProps}
-          paramUIType="cascading"
+          paramUIType="select"
           chartOptions={{ parentParameterName: "region" }}
         />,
       );
-      const el = screen.getByTestId("cascading");
-      expect(el).toHaveAttribute("data-parent", "region");
+      expect(screen.getByTestId("select-single")).toHaveAttribute(
+        "data-parent",
+        "region",
+      );
     });
 
-    it("renders the cascading selector without parent when not set", () => {
-      render(<ParameterPreview {...baseProps} paramUIType="cascading" />);
-      const el = screen.getByTestId("cascading");
-      expect(el).toHaveAttribute("data-parent", "");
+    it("leaves the parent empty for a plain select", () => {
+      render(<ParameterPreview {...baseProps} paramUIType="select" />);
+      expect(screen.getByTestId("select-single")).toHaveAttribute(
+        "data-parent",
+        "",
+      );
     });
 
     it("propagates placeholder from chartOptions", () => {
       render(
         <ParameterPreview
           {...baseProps}
-          paramUIType="cascading"
+          paramUIType="select"
           chartOptions={{ placeholder: "Pick a city" }}
         />,
       );
-      expect(screen.getByTestId("cascading")).toHaveAttribute(
+      expect(screen.getByTestId("select-single")).toHaveAttribute(
         "data-placeholder",
         "Pick a city",
+      );
+    });
+
+    it("leaves placeholder unset so the component can prompt for the parent", () => {
+      render(
+        <ParameterPreview
+          {...baseProps}
+          paramUIType="select"
+          chartOptions={{ parentParameterName: "region" }}
+        />,
+      );
+      expect(screen.getByTestId("select-single")).toHaveAttribute(
+        "data-placeholder",
+        "",
       );
     });
   });

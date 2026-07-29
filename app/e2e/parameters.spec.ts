@@ -1562,7 +1562,8 @@ test.describe("Cascading-select parameter widget", () => {
               settings: {
                 title: "Movie by Director",
                 chartOptions: {
-                  parameterType: "cascading-select",
+                  // Cascading is a select that names a parent (#1360).
+                  parameterType: "select",
                   parameterName: "test_dir_movie",
                   parentParameterName: "test_director",
                   seedQuery:

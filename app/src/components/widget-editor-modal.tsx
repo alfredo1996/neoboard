@@ -682,10 +682,7 @@ export function WidgetEditorModal({
                         connections={connections}
                         showConnection={
                           !isContentOnly &&
-                          (isForm ||
-                            !isParamSelect ||
-                            paramUIType === "select" ||
-                            paramUIType === "cascading")
+                          (isForm || !isParamSelect || paramUIType === "select")
                         }
                       />
 

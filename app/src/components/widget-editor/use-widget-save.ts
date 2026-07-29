@@ -62,9 +62,9 @@ export function useBuildWidgetForSave(
           ),
           // Strip a leading param_ so the consumed token isn't doubled (#1055).
           parameterName: normalizeParamName(paramWidgetName),
-          // Seed query is only meaningful for the option-backed types.
+          // Seed query is only meaningful for the option-backed type.
           seedQuery:
-            paramUIType === "select" || paramUIType === "cascading"
+            paramUIType === "select"
               ? (chartOptions.seedQuery ?? "")
               : undefined,
         }
@@ -82,12 +82,10 @@ export function useBuildWidgetForSave(
       id: existingWidget?.id ?? crypto.randomUUID(),
       chartType,
       connectionId:
-        // Option-backed parameter types (select, cascading) need a connection
-        // to run the seed query. Date/freetext/number-range have no DB query.
-        (isParamSelect &&
-          paramUIType !== "select" &&
-          paramUIType !== "cascading") ||
-        isContentOnly
+        // The option-backed parameter type (select, cascading or not) needs a
+        // connection to run its seed query. Date/freetext/number-range have
+        // no DB query.
+        (isParamSelect && paramUIType !== "select") || isContentOnly
           ? ""
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
