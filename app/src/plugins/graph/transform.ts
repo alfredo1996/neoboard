@@ -17,6 +17,32 @@ function normalizeProps(
   return out;
 }
 
+/**
+ * Matches an id that is a negative integer, in the stringified form ids reach
+ * `addNode` in. Used to flag APOC virtual nodes (`apoc.create.vNode`), which
+ * exist only inside the query result and therefore have no neighbours to
+ * expand into (#1361).
+ *
+ * This is a HEURISTIC and there is no better signal available. Measured
+ * against a live Neo4j 5 + APOC 5.26.25: the driver returns an ordinary `Node`
+ * for a virtual node — same class, same fields, same `__isNode__` brand as a
+ * stored node. The sign of the id is APOC's own collision-avoidance convention
+ * and the only thing that distinguishes the two at ANY layer, so detecting it
+ * earlier (in `connection/`'s Neo4jRecordParser) would be no more certain —
+ * and would be strictly worse, because `parseGraphObject` returns Path and
+ * PathSegment untouched, so path-borne virtual nodes would go unflagged.
+ * `addNode` is the one funnel every node shape routes through.
+ *
+ * What it would misfire on: a non-Neo4j connector emitting Neo4j-shaped
+ * records (`{labels, properties}`) whose ids are genuinely negative integers.
+ * Nothing shipped does — Neo4j allocates ids from a non-negative counter, and
+ * the PostgreSQL connector produces no graph shapes at all.
+ *
+ * `-0` is excluded on purpose: node id 0 is a real node, JS stringifies `-0`
+ * as `"0"` anyway, and APOC's virtual counter starts at -1.
+ */
+const SYNTHETIC_ID_PATTERN = /^-[1-9]\d*$/;
+
 function isNode(v: Record<string, unknown>): boolean {
   return "labels" in v && "properties" in v;
 }
@@ -57,6 +83,7 @@ export function transformToGraphData(data: unknown): unknown {
         labels,
         category: labels[0],
         properties: props,
+        synthetic: SYNTHETIC_ID_PATTERN.test(id),
       });
     }
   }

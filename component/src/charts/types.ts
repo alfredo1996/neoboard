@@ -72,6 +72,12 @@ export interface GraphNode {
   fixed?: boolean;
   x?: number;
   y?: number;
+  /**
+   * True for a node that the query computed rather than the database stored —
+   * an APOC virtual node (`apoc.create.vNode`). It exists only in this result,
+   * so it can be rendered but never expanded (#1361).
+   */
+  synthetic?: boolean;
 }
 
 export interface GraphEdge {

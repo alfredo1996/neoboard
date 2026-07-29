@@ -182,6 +182,12 @@ export function useGraphExploration({
   const fetchNeighborsRef = useRef(fetchNeighbors);
   fetchNeighborsRef.current = fetchNeighbors;
 
+  // canExpand takes an id, but the synthetic flag lives on the node — mirror
+  // the current nodes into a ref so the callback can look it up without taking
+  // graphState as a dependency and changing identity on every render.
+  const nodesRef = useRef(graphState.nodes);
+  nodesRef.current = graphState.nodes;
+
   // Initialize depth map for initial nodes (runs once synchronously)
   if (depthMapRef.current.size === 0) {
     for (const n of initialNodes) {
@@ -226,6 +232,11 @@ export function useGraphExploration({
 
   const onExpandRequest = useCallback(
     async (node: GraphNode) => {
+      // A synthetic (APOC virtual) node has no rows behind it, so the neighbour
+      // query would return an empty result the user cannot tell apart from
+      // "no neighbours". Decline here rather than in the caller: this is the
+      // one place every expansion routes through (#1361).
+      if (node.synthetic) return;
       if (expansionsRef.current.has(node.id)) return;
       if (expandingRef.current) return;
 
@@ -291,6 +302,10 @@ export function useGraphExploration({
 
   const canExpand = useCallback(
     (nodeId: string) => {
+      // ponytail: linear scan — this runs once per context-menu open, not per
+      // frame. Build an index if it ever runs per node per render.
+      if (nodesRef.current.find((n) => n.id === nodeId)?.synthetic)
+        return false;
       if (expansionsRef.current.has(nodeId)) return false;
       if (maxDepth == null) return true;
       const depth = depthMapRef.current.get(nodeId) ?? 0;

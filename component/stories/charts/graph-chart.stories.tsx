@@ -71,6 +71,65 @@ export const WithCategories: Story = {
   },
 };
 
+/**
+ * Synthetic (APOC virtual) nodes — created by `apoc.create.vNode` and returned
+ * only inside the query result, never stored. Ids and shapes are the real ones
+ * measured over Bolt against Neo4j 5 + APOC 5.26.25 (#1361).
+ *
+ * They carry a second, italic "virtual" caption line so a reader can tell
+ * computed nodes from stored ones at a glance, and the graph's context menu
+ * declines to expand them.
+ */
+export const SyntheticNodes: Story = {
+  args: {
+    nodes: [
+      {
+        id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
+        label: "MTO-1311-003",
+        labels: ["Document"],
+        value: 40,
+      },
+      {
+        id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:1",
+        label: "MTO-1311-004",
+        labels: ["Document"],
+        value: 40,
+      },
+      {
+        id: "-289",
+        label: "Totals",
+        labels: ["Summary"],
+        value: 40,
+        synthetic: true,
+      },
+      {
+        id: "-290",
+        label: "Averages",
+        labels: ["Summary"],
+        value: 40,
+        synthetic: true,
+      },
+    ],
+    edges: [
+      {
+        source: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
+        target: "-289",
+        label: "SUMMARISES",
+      },
+      {
+        source: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:1",
+        target: "-289",
+        label: "SUMMARISES",
+      },
+      {
+        source: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
+        target: "-290",
+        label: "SUMMARISES",
+      },
+    ],
+  },
+};
+
 export const WithProperties: Story = {
   args: {
     nodes: [

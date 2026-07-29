@@ -40,6 +40,22 @@ Graph visualization is not available for PostgreSQL connectors. Use a Neo4j conn
 | Show Relationship Labels | boolean | true | Show the relationship type name on each edge |
 | Enable Physics | boolean | true | Enable physics simulation so nodes repel and edges act as springs |
 
+## Virtual (synthetic) nodes
+
+Nodes built by the query rather than read from the database -- APOC's
+`apoc.create.vNode` and `apoc.create.vRelationship` -- render normally and
+connect to real nodes as expected. They carry an italic `virtual` line in their
+caption, and their context menu offers no **Expand**: a virtual node exists only
+inside this result, so there are no neighbours in the database to fetch. To
+explore outward, expand the real node it was derived from instead.
+
+Detection is by convention, not by a flag: APOC gives virtual entities negative
+ids so they cannot collide with stored ones, and the Bolt driver returns them as
+ordinary nodes with no marker of their own. Anything whose id is a negative
+integer is therefore treated as virtual. A non-Neo4j connector that emitted
+graph-shaped rows with genuinely negative ids would be mislabelled the same way;
+none of the shipped connectors do.
+
 ## Tips
 
 - Add a `LIMIT` to your query to keep the graph readable -- more than 200 nodes can get cluttered.
