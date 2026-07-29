@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import {
@@ -41,6 +41,190 @@ function lastCallArgs(): SeedSpyArgs {
   return last;
 }
 
+describe("useSeedQueryOptions — cascading is keyed on the parent, not a type (#1360)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+  });
+
+  it("runs a plain select immediately when it has no parent", () => {
+    renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    const [, , enabled, extraParams] = lastCallArgs();
+    expect(enabled).toBe(true);
+    expect(extraParams).toBeUndefined();
+  });
+
+  it("gates a multi-select on its parent too", () => {
+    renderHook(() =>
+      useSeedQueryOptions(
+        "multi-select",
+        "conn-1",
+        "SELECT 1",
+        "country",
+        false,
+      ),
+    );
+    expect(lastCallArgs()[2]).toBe(false);
+
+    useParameterStore
+      .getState()
+      .setParameter(
+        "country",
+        "US",
+        "W",
+        "country",
+        "select",
+        "selector-widget",
+      );
+    renderHook(() =>
+      useSeedQueryOptions(
+        "multi-select",
+        "conn-1",
+        "SELECT 1",
+        "country",
+        false,
+      ),
+    );
+    const [, , enabled, extraParams] = lastCallArgs();
+    expect(enabled).toBe(true);
+    expect(extraParams).toEqual({ param_country: "US" });
+  });
+
+  it("treats an empty parent name as no parent at all", () => {
+    renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "", false),
+    );
+    expect(lastCallArgs()[2]).toBe(true);
+  });
+});
+
+describe("useSeedQueryOptions — search term resets with the parent (#1360)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("drops a typed search term when the parent value changes", () => {
+    useParameterStore
+      .getState()
+      .setParameter(
+        "country",
+        "US",
+        "W",
+        "country",
+        "select",
+        "selector-widget",
+      );
+
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "country", true),
+    );
+
+    act(() => result.current.setSearchTerm("cal"));
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+    expect(lastCallArgs()[3]).toEqual({
+      param_country: "US",
+      param_search: "cal",
+    });
+
+    // Parent switches to a different country: the options reload, so the
+    // term the user typed against the *previous* list must not keep
+    // filtering the new one.
+    act(() => {
+      useParameterStore
+        .getState()
+        .setParameter(
+          "country",
+          "FR",
+          "W",
+          "country",
+          "select",
+          "selector-widget",
+        );
+    });
+    expect(lastCallArgs()[3]).toEqual({ param_country: "FR" });
+
+    // …and it must stay dropped once the debounce timer drains.
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+    expect(lastCallArgs()[3]).toEqual({ param_country: "FR" });
+  });
+
+  it("drops the search term when the parent is cleared entirely", () => {
+    useParameterStore
+      .getState()
+      .setParameter(
+        "country",
+        "US",
+        "W",
+        "country",
+        "select",
+        "selector-widget",
+      );
+
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "country", true),
+    );
+
+    act(() => result.current.setSearchTerm("cal"));
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+    expect(lastCallArgs()[3]).toEqual({
+      param_country: "US",
+      param_search: "cal",
+    });
+
+    act(() => {
+      useParameterStore.getState().clearParameter("country");
+    });
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+
+    const [, , enabled, extraParams] = lastCallArgs();
+    expect(enabled).toBe(false);
+    expect(extraParams).toBeUndefined();
+  });
+
+  it("keeps the search term while the parent holds still", () => {
+    useParameterStore
+      .getState()
+      .setParameter(
+        "country",
+        "US",
+        "W",
+        "country",
+        "select",
+        "selector-widget",
+      );
+
+    const { rerender, result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "country", true),
+    );
+
+    act(() => result.current.setSearchTerm("cal"));
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+    rerender();
+
+    expect(lastCallArgs()[3]).toEqual({
+      param_country: "US",
+      param_search: "cal",
+    });
+  });
+});
+
 describe("useSeedQueryOptions — parent-value coercion (regression: #859)", () => {
   beforeEach(() => {
     seedQuerySpy.mockClear();
@@ -59,13 +243,7 @@ describe("useSeedQueryOptions — parent-value coercion (regression: #859)", () 
         "selector-widget",
       );
     renderHook(() =>
-      useSeedQueryOptions(
-        "cascading-select",
-        "conn-1",
-        "SELECT 1",
-        "country",
-        false,
-      ),
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "country", false),
     );
     const [, , enabled, extraParams] = lastCallArgs();
     expect(enabled).toBe(true);
@@ -84,13 +262,7 @@ describe("useSeedQueryOptions — parent-value coercion (regression: #859)", () 
         "selector-widget",
       );
     renderHook(() =>
-      useSeedQueryOptions(
-        "cascading-select",
-        "conn-1",
-        "SELECT 1",
-        "region_id",
-        false,
-      ),
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "region_id", false),
     );
     const [, , , extraParams] = lastCallArgs();
     expect(extraParams).toEqual({ param_region_id: "42" });
@@ -110,13 +282,7 @@ describe("useSeedQueryOptions — parent-value coercion (regression: #859)", () 
         "selector-widget",
       );
     renderHook(() =>
-      useSeedQueryOptions(
-        "cascading-select",
-        "conn-1",
-        "SELECT 1",
-        "tags",
-        false,
-      ),
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "tags", false),
     );
     const [, , enabled, extraParams] = lastCallArgs();
     expect(enabled).toBe(false);
@@ -136,13 +302,7 @@ describe("useSeedQueryOptions — parent-value coercion (regression: #859)", () 
         "selector-widget",
       );
     renderHook(() =>
-      useSeedQueryOptions(
-        "cascading-select",
-        "conn-1",
-        "SELECT 1",
-        "period",
-        false,
-      ),
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "period", false),
     );
     const [, , enabled, extraParams] = lastCallArgs();
     expect(enabled).toBe(false);
@@ -151,13 +311,7 @@ describe("useSeedQueryOptions — parent-value coercion (regression: #859)", () 
 
   it("disables the cascade when parent is unset", () => {
     renderHook(() =>
-      useSeedQueryOptions(
-        "cascading-select",
-        "conn-1",
-        "SELECT 1",
-        "country",
-        false,
-      ),
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", "country", false),
     );
     const [, , enabled] = lastCallArgs();
     expect(enabled).toBe(false);

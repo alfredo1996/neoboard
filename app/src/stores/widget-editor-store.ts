@@ -21,12 +21,7 @@ import type { Transform } from "@/lib/query/data-transforms";
 // the React component file (which pulls in @neoboard/components UI barrel).
 // Keep in sync with parameter-config-section.tsx — covered by
 // parameter-config-section.test.ts which round-trips every internal type.
-export type ParamUIType =
-  | "date"
-  | "freetext"
-  | "select"
-  | "number-range"
-  | "cascading";
+export type ParamUIType = "date" | "freetext" | "select" | "number-range";
 export type DateSubType = "single" | "range" | "relative";
 
 /** Reverse-map an internal parameterType to UI state. Duplicated from parameter-config-section to avoid UI import. */
@@ -48,9 +43,9 @@ function reverseParamTypeMapping(internalType: string): {
       return { uiType: "select", dateSub: "single", multi: true };
     case "number-range":
       return { uiType: "number-range", dateSub: "single", multi: false };
-    case "cascading-select":
-      return { uiType: "cascading", dateSub: "single", multi: false };
     default:
+      // Includes the retired `cascading-select` (#1360) — it reopens as the
+      // select it always was, with parentParameterName kept in chartOptions.
       return { uiType: "select", dateSub: "single", multi: false };
   }
 }

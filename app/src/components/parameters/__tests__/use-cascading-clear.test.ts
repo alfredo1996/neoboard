@@ -8,23 +8,27 @@ function resetStore() {
   useParameterStore.getState().clearAll();
 }
 
+function seedChild(name: string, value: string) {
+  useParameterStore
+    .getState()
+    .setParameter(
+      name,
+      value,
+      "Parameter Selector",
+      name,
+      "select",
+      "selector-widget",
+    );
+}
+
 describe("useCascadingClear", () => {
   beforeEach(resetStore);
 
   it("clears the child parameter when the parent value changes", () => {
-    const { setParameter } = useParameterStore.getState();
-    setParameter(
-      "city",
-      "Berlin",
-      "Parameter Selector",
-      "city",
-      "cascading-select",
-      "selector-widget",
-    );
+    seedChild("city", "Berlin");
 
     const { rerender } = renderHook(
-      ({ parentValue }) =>
-        useCascadingClear("city", "cascading-select", "country", parentValue),
+      ({ parentValue }) => useCascadingClear("city", "country", parentValue),
       { initialProps: { parentValue: "DE" } },
     );
 
@@ -32,57 +36,45 @@ describe("useCascadingClear", () => {
     expect(useParameterStore.getState().parameters["city"]).toBeDefined();
 
     // Re-set the child (simulating user selecting a value)
-    setParameter(
-      "city",
-      "Berlin",
-      "Parameter Selector",
-      "city",
-      "cascading-select",
-      "selector-widget",
-    );
+    seedChild("city", "Berlin");
 
     // Change parent value -- should clear the child
     rerender({ parentValue: "US" });
     expect(useParameterStore.getState().parameters["city"]).toBeUndefined();
   });
 
-  it("does not clear for non-cascading-select types", () => {
-    const { setParameter } = useParameterStore.getState();
-    setParameter(
-      "name",
-      "Alice",
-      "Parameter Selector",
-      "name",
-      "text",
-      "selector-widget",
-    );
+  it("clears the child when the parent is cleared entirely", () => {
+    seedChild("city", "Berlin");
 
     const { rerender } = renderHook(
-      ({ parentValue }) =>
-        useCascadingClear("name", "text", "parent", parentValue),
+      ({ parentValue }: { parentValue: string | undefined }) =>
+        useCascadingClear("city", "country", parentValue),
+      { initialProps: { parentValue: "DE" as string | undefined } },
+    );
+
+    seedChild("city", "Berlin");
+    rerender({ parentValue: undefined });
+    expect(useParameterStore.getState().parameters["city"]).toBeUndefined();
+  });
+
+  it("does not clear when parentParameterName is undefined", () => {
+    seedChild("item", "X");
+
+    const { rerender } = renderHook(
+      ({ parentValue }) => useCascadingClear("item", undefined, parentValue),
       { initialProps: { parentValue: "A" } },
     );
 
     rerender({ parentValue: "B" });
-    // Should NOT be cleared because type is "text", not "cascading-select"
-    expect(useParameterStore.getState().parameters["name"]).toBeDefined();
-    expect(useParameterStore.getState().parameters["name"].value).toBe("Alice");
+    expect(useParameterStore.getState().parameters["item"]).toBeDefined();
+    expect(useParameterStore.getState().parameters["item"].value).toBe("X");
   });
 
-  it("does not clear when parentParameterName is undefined", () => {
-    const { setParameter } = useParameterStore.getState();
-    setParameter(
-      "item",
-      "X",
-      "Parameter Selector",
-      "item",
-      "cascading-select",
-      "selector-widget",
-    );
+  it("does not clear when parentParameterName is an empty string", () => {
+    seedChild("item", "X");
 
     const { rerender } = renderHook(
-      ({ parentValue }) =>
-        useCascadingClear("item", "cascading-select", undefined, parentValue),
+      ({ parentValue }) => useCascadingClear("item", "", parentValue),
       { initialProps: { parentValue: "A" } },
     );
 
@@ -91,23 +83,17 @@ describe("useCascadingClear", () => {
   });
 
   it("does not clear when parent value stays the same", () => {
-    const { setParameter } = useParameterStore.getState();
-    setParameter(
-      "city",
-      "Berlin",
-      "Parameter Selector",
-      "city",
-      "cascading-select",
-      "selector-widget",
-    );
+    seedChild("city", "Berlin");
 
     const { rerender } = renderHook(
-      ({ parentValue }) =>
-        useCascadingClear("city", "cascading-select", "country", parentValue),
+      ({ parentValue }) => useCascadingClear("city", "country", parentValue),
       { initialProps: { parentValue: "DE" } },
     );
 
     rerender({ parentValue: "DE" });
     expect(useParameterStore.getState().parameters["city"]).toBeDefined();
+    expect(useParameterStore.getState().parameters["city"].value).toBe(
+      "Berlin",
+    );
   });
 });

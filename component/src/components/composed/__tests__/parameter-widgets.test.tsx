@@ -15,7 +15,6 @@ import {
   DateRangeParameter,
   DateRelativePicker,
   NumberRangeSlider,
-  CascadingSelector,
   RELATIVE_DATE_PRESETS,
 } from "../parameter-widgets";
 import { PARAM_SELECTOR_EMPTY_SENTINEL } from "../parameter-widgets/param-selector";
@@ -1216,9 +1215,9 @@ describe("NumberRangeSlider", () => {
   });
 });
 
-// ─── CascadingSelector ────────────────────────────────────────────────────────
+// ─── ParamSelector, cascading props (was CascadingSelector — #1360) ───────────
 
-describe("CascadingSelector", () => {
+describe("ParamSelector — cascading props (migrated from CascadingSelector)", () => {
   const options = [
     { value: "sub1", label: "Sub-Category 1" },
     { value: "sub2", label: "Sub-Category 2" },
@@ -1226,7 +1225,7 @@ describe("CascadingSelector", () => {
 
   it("renders the parameter label", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1238,7 +1237,7 @@ describe("CascadingSelector", () => {
 
   it("shows dependency hint when parentParameterName is provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1251,7 +1250,7 @@ describe("CascadingSelector", () => {
 
   it("disables the select when parentParameterName is set but parentValue is empty", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1267,7 +1266,7 @@ describe("CascadingSelector", () => {
 
   it("enables the select when parentValue is provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1282,7 +1281,7 @@ describe("CascadingSelector", () => {
 
   it("shows clear button when a value is selected", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value="sub1"
@@ -1297,7 +1296,7 @@ describe("CascadingSelector", () => {
   it("calls onChange with empty string when clear is clicked", () => {
     const onChange = vi.fn();
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value="sub1"
@@ -1310,7 +1309,7 @@ describe("CascadingSelector", () => {
 
   it("shows loading skeleton when loading=true", () => {
     const { container } = render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={[]}
         value=""
@@ -1329,7 +1328,7 @@ describe("CascadingSelector", () => {
 
   it("does not show dependency hint when parentParameterName is not provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1341,7 +1340,7 @@ describe("CascadingSelector", () => {
 
   it("shows 'Select parent first' placeholder when parent is absent", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1356,7 +1355,7 @@ describe("CascadingSelector", () => {
 
   it("uses a custom placeholder when provided", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1369,7 +1368,7 @@ describe("CascadingSelector", () => {
 
   it("does not show clear button when value is empty", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1381,7 +1380,7 @@ describe("CascadingSelector", () => {
 
   it("applies className to root element", () => {
     const { container } = render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="subCategory"
         options={options}
         value=""
@@ -1394,7 +1393,7 @@ describe("CascadingSelector", () => {
 
   it("is enabled when no parentParameterName and no parentValue", () => {
     render(
-      <CascadingSelector
+      <ParamSelector
         parameterName="standalone"
         options={options}
         value=""

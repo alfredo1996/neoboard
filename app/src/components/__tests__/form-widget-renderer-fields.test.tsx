@@ -26,7 +26,6 @@ const datePickerProps: Array<Record<string, unknown>> = [];
 const dateRangeProps: Array<Record<string, unknown>> = [];
 const dateRelativeProps: Array<Record<string, unknown>> = [];
 const numberRangeProps: Array<Record<string, unknown>> = [];
-const cascadingProps: Array<Record<string, unknown>> = [];
 
 vi.mock("@neoboard/components", () => ({
   ParamSelector: (p: Record<string, unknown>) => {
@@ -102,17 +101,6 @@ vi.mock("@neoboard/components", () => ({
           set
         </button>
       </div>
-    );
-  },
-  CascadingSelector: (p: Record<string, unknown>) => {
-    cascadingProps.push(p);
-    return (
-      <button
-        data-testid={`cascading-${p.parameterName}`}
-        onClick={() => (p.onChange as (v: string) => void)("child")}
-      >
-        Cascading
-      </button>
     );
   },
   Button: ({
@@ -224,7 +212,6 @@ beforeEach(() => {
   dateRangeProps.length = 0;
   dateRelativeProps.length = 0;
   numberRangeProps.length = 0;
-  cascadingProps.length = 0;
   mutateIsPending = false;
   mockUseSession.mockReturnValue(ADMIN_SESSION);
 });
@@ -399,7 +386,10 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     expect(lastProps.step).toBe(10);
   });
 
-  it("renders CascadingSelector for parameterType='cascading-select'", () => {
+  // #1360: cascading form fields render the same ParamSelector as plain
+  // selects, so they inherit its search input instead of being the one
+  // control you cannot type into.
+  it("renders a cascading field through ParamSelector, gated on its parent", () => {
     renderForm([
       makeField({
         id: "p",
@@ -413,9 +403,34 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
         parameterType: "cascading-select",
         parentParameterName: "country",
         seedQuery: "MATCH (n) RETURN n.city AS value",
+        searchable: true,
       }),
     ]);
-    expect(screen.getByTestId("cascading-city")).toBeDefined();
+    expect(screen.getByTestId("param-selector-city")).toBeDefined();
+
+    const cityProps = paramSelectorProps.filter(
+      (p) => p.parameterName === "city",
+    );
+    const last = cityProps[cityProps.length - 1];
+    expect(last.parentParameterName).toBe("country");
+    // No parent value chosen yet — the gate is closed.
+    expect(last.parentValue).toBe("");
+    expect(last.searchable).toBe(true);
+    expect(typeof last.onSearch).toBe("function");
+  });
+
+  it("passes a plain select's parentParameterName through as undefined", () => {
+    renderForm([
+      makeField({
+        id: "p",
+        parameterName: "country",
+        parameterType: "select",
+        staticOptions: "US,UK",
+      }),
+    ]);
+    const last = paramSelectorProps[paramSelectorProps.length - 1];
+    expect(last.parentParameterName).toBeUndefined();
+    expect(last.parentValue).toBeUndefined();
   });
 
   it("returns null for unknown parameterType (default branch)", () => {

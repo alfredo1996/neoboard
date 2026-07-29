@@ -419,7 +419,10 @@ describe("widget-editor-store", () => {
       expect(getState().paramWidgetName).toBe("price");
     });
 
-    it("loads parameter-select with cascading-select type", () => {
+    // #1360: `cascading-select` was retired. A stored widget still carrying
+    // it must reopen as the select it always was, with its parent intact so
+    // re-saving migrates it rather than silently dropping the cascade.
+    it("reopens a stored cascading-select as a select, keeping the parent", () => {
       getState().loadFromWidget({
         id: "w1",
         chartType: "parameter-select",
@@ -429,13 +432,15 @@ describe("widget-editor-store", () => {
           chartOptions: {
             parameterType: "cascading-select",
             parameterName: "city",
+            parentParameterName: "country",
           },
         },
       });
 
-      expect(getState().paramUIType).toBe("cascading");
+      expect(getState().paramUIType).toBe("select");
       expect(getState().multiSelect).toBe(false);
       expect(getState().paramWidgetName).toBe("city");
+      expect(getState().chartOptions.parentParameterName).toBe("country");
     });
   });
 

@@ -9,6 +9,8 @@ interface ParamSelectProps {
   actions: ParamActions;
   seed: SeedQueryResult;
   searchable: boolean;
+  /** Set to make this a cascading select — gated on the named parent. */
+  parentParameterName?: string;
   placeholder?: string;
   className?: string;
 }
@@ -18,6 +20,7 @@ export function ParamSelect({
   actions,
   seed,
   searchable,
+  parentParameterName,
   placeholder,
   className,
 }: ParamSelectProps) {
@@ -41,6 +44,8 @@ export function ParamSelect({
       loading={seed.loading}
       searchable={searchable}
       onSearch={searchable ? seed.setSearchTerm : undefined}
+      parentValue={seed.parentValue}
+      parentParameterName={parentParameterName}
       className={className}
     />
   );

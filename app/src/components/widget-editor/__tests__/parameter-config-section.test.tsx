@@ -18,6 +18,7 @@ vi.mock("@/stores/widget-editor-store", () => ({
 import {
   resolveInternalParamType,
   reverseParamTypeMapping,
+  type ParamUIType,
 } from "../parameter-config-section";
 
 describe("resolveInternalParamType", () => {
@@ -55,10 +56,21 @@ describe("resolveInternalParamType", () => {
     );
   });
 
-  it("maps cascading to cascading-select (regression: #861)", () => {
-    expect(resolveInternalParamType("cascading", "single", false)).toBe(
-      "cascading-select",
+  // #1360: `cascading` is no longer a UI type. A cascading select resolves
+  // to plain `select` — the parent lives in chartOptions, not in the type.
+  it("never produces the retired cascading-select type", () => {
+    const uiTypes = [
+      "date",
+      "freetext",
+      "select",
+      "number-range",
+    ] as ParamUIType[];
+    const produced = uiTypes.flatMap((ui) =>
+      (["single", "range", "relative"] as const).flatMap((sub) =>
+        [false, true].map((multi) => resolveInternalParamType(ui, sub, multi)),
+      ),
     );
+    expect(produced).not.toContain("cascading-select");
   });
 
   it("ignores dateSub for non-date types", () => {
@@ -135,9 +147,9 @@ describe("reverseParamTypeMapping", () => {
     });
   });
 
-  it("maps cascading-select back (regression: #861)", () => {
+  it("reopens a stored cascading-select as a plain select (#1360)", () => {
     expect(reverseParamTypeMapping("cascading-select")).toEqual({
-      uiType: "cascading",
+      uiType: "select",
       dateSub: "single",
       multi: false,
     });
@@ -152,7 +164,6 @@ describe("reverseParamTypeMapping", () => {
       { ui: "select" as const, sub: "single" as const, multi: false },
       { ui: "select" as const, sub: "single" as const, multi: true },
       { ui: "number-range" as const, sub: "single" as const, multi: false },
-      { ui: "cascading" as const, sub: "single" as const, multi: false },
     ];
     for (const { ui, sub, multi } of cases) {
       const internal = resolveInternalParamType(ui, sub, multi);

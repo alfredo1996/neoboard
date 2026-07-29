@@ -33,6 +33,14 @@ function scalarParentValue(raw: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Loads the option list for an option-backed parameter widget.
+ *
+ * "Cascading" is not a separate widget type — it is simply a select (or
+ * multi-select) that names a `parentParameterName`. When it does, the seed
+ * query is held back until the parent has a scalar value, and the parent is
+ * passed through as `param_<parent>` (#1360).
+ */
 export function useSeedQueryOptions(
   parameterType: ParameterType,
   connectionId?: string,
@@ -46,10 +54,15 @@ export function useSeedQueryOptions(
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
 
+  // A parent name is what makes this select cascading.
+  const hasParent = !!parentParameterName;
+  const parentValue = hasParent ? scalarParentValue(parentRawValue) : undefined;
+
   // Debounced search term — only used when `searchable` is true.
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [prevSearchable, setPrevSearchable] = useState(searchable);
+  const [prevParentValue, setPrevParentValue] = useState(parentValue);
 
   // If the widget flips from searchable→non-searchable mid-session, flush
   // any pending search term so it doesn't leak into the next seed query.
@@ -63,6 +76,15 @@ export function useSeedQueryOptions(
     }
   }
 
+  // The parent moved, so the option list is about to be replaced. Drop the
+  // term the user typed against the old list — otherwise it silently filters
+  // the freshly-loaded one (#1360).
+  if (parentValue !== prevParentValue) {
+    setPrevParentValue(parentValue);
+    setSearchTerm("");
+    setDebouncedSearch("");
+  }
+
   useEffect(() => {
     if (!searchable) return;
     const timer = setTimeout(
@@ -71,11 +93,6 @@ export function useSeedQueryOptions(
     );
     return () => clearTimeout(timer);
   }, [searchTerm, searchable]);
-
-  // Parent value (for cascading) — scalar only.
-  const parentValue = parentParameterName
-    ? scalarParentValue(parentRawValue)
-    : undefined;
 
   const parentParams = useMemo(
     () =>
@@ -87,26 +104,21 @@ export function useSeedQueryOptions(
 
   // Seed query enablement
   const needsSeed =
-    parameterType === "select" ||
-    parameterType === "multi-select" ||
-    parameterType === "cascading-select";
+    parameterType === "select" || parameterType === "multi-select";
 
-  const cascadingEnabled =
-    parameterType !== "cascading-select" ||
-    (parentParameterName !== undefined ? !!parentValue : true);
+  const parentReady = !hasParent || !!parentValue;
 
   const seedExtraParams = useMemo(() => {
-    const base = parameterType === "cascading-select" ? parentParams : {};
     if (searchable && debouncedSearch) {
-      return { ...base, param_search: debouncedSearch };
+      return { ...parentParams, param_search: debouncedSearch };
     }
-    return Object.keys(base).length > 0 ? base : undefined;
-  }, [parameterType, parentParams, searchable, debouncedSearch]);
+    return Object.keys(parentParams).length > 0 ? parentParams : undefined;
+  }, [parentParams, searchable, debouncedSearch]);
 
   const { options, loading } = useSeedQuery(
     connectionId,
     seedQuery,
-    needsSeed && cascadingEnabled,
+    needsSeed && parentReady,
     seedExtraParams,
     tenantId,
   );
