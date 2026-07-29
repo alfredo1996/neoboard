@@ -221,6 +221,11 @@ export function WidgetEditorModal({
   const createTemplate = useCreateWidgetTemplate();
   const updateTemplate = useUpdateWidgetTemplate();
   const previewRef = useRef<HTMLDivElement>(null);
+  /** #1374 — when true the editor takes the whole modal body and the preview
+   *  is unmounted. Local, not persisted: it's a while-I-type mode, not a
+   *  preference. Read `editorMaximized` below, not this, when laying out. */
+  const [editorMaximizedRequested, setEditorMaximizedRequested] =
+    useState(false);
   /** Tracks the initial chartType set when the dialog opens in edit mode.
    *  Used to skip the chart-options reset on first render (preserving saved options)
    *  while still resetting when the user explicitly changes the chart type. */
@@ -531,6 +536,12 @@ export function WidgetEditorModal({
   /** True for widget types that don't need a query or connection. */
   const isContentOnly = isMarkdown || isIframe;
 
+  /** #1374 — the maximize toggle lives in the query editor's header, and these
+   *  widget types don't render one. Honouring the request anyway would strand
+   *  the user in a one-column layout with no preview and no way back. */
+  const editorMaximized =
+    editorMaximizedRequested && !isParamSelect && !isContentOnly;
+
   function handleSave() {
     const widgetToSave = buildWidgetForSave();
     onSave(widgetToSave);
@@ -649,7 +660,9 @@ export function WidgetEditorModal({
               className="py-4 min-h-[520px] flex-1 overflow-y-auto"
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                gridTemplateColumns: editorMaximized
+                  ? "minmax(0, 1fr)"
+                  : "minmax(0, 1fr) minmax(0, 1fr)",
                 gap: "1.5rem",
               }}
             >
@@ -748,6 +761,10 @@ export function WidgetEditorModal({
                           onRun={isForm ? undefined : handlePreview}
                           editorLanguage={editorLanguage}
                           running={previewQuery.isPending}
+                          maximized={editorMaximized}
+                          onToggleMaximized={() =>
+                            setEditorMaximizedRequested((m) => !m)
+                          }
                         />
                       )}
 
@@ -878,45 +895,51 @@ export function WidgetEditorModal({
                 />
               </div>
 
-              {/* Right column: preview */}
-              <WidgetPreviewPanel
-                chartType={chartType}
-                connectionId={connectionId}
-                query={query}
-                title={title}
-                chartOptions={chartOptions}
-                colorScales={colorScales}
-                transforms={transforms}
-                transformsEnabled={transformsEnabled}
-                buildStylingConfig={buildStylingConfig}
-                isParamSelect={isParamSelect}
-                isForm={isForm}
-                isContentOnly={isContentOnly}
-                isMarkdown={isMarkdown}
-                isIframe={isIframe}
-                paramUIType={paramUIType}
-                dateSub={dateSub}
-                multiSelect={multiSelect}
-                paramWidgetName={paramWidgetName}
-                seedPreviewOptions={seedPreviewOptions}
-                seedQueryPending={seedQueryExecution.isPending}
-                seedQueryError={
-                  seedQueryExecution.isError
-                    ? seedQueryExecution.error.message
-                    : null
-                }
-                formFields={formFields}
-                previewRef={previewRef}
-                previewQuery={{
-                  isPending: previewQuery.isPending,
-                  isError: previewQuery.isError,
-                  error: previewQuery.error,
-                  data: previewQuery.data,
-                }}
-                initialPreviewData={initialPreviewData}
-                onRunPreview={handlePreview}
-                waitingForParams={previewWaitingForParams}
-              />
+              {/* Right column: preview — UNMOUNT when maximized, never hide.
+                  Chart/graph renderers measure their container and NVL's WebGL
+                  canvas does not survive a 0-height mount, so `display: none`
+                  would leave them alive at 0x0 and mis-measured on the way
+                  back (#1374). */}
+              {!editorMaximized && (
+                <WidgetPreviewPanel
+                  chartType={chartType}
+                  connectionId={connectionId}
+                  query={query}
+                  title={title}
+                  chartOptions={chartOptions}
+                  colorScales={colorScales}
+                  transforms={transforms}
+                  transformsEnabled={transformsEnabled}
+                  buildStylingConfig={buildStylingConfig}
+                  isParamSelect={isParamSelect}
+                  isForm={isForm}
+                  isContentOnly={isContentOnly}
+                  isMarkdown={isMarkdown}
+                  isIframe={isIframe}
+                  paramUIType={paramUIType}
+                  dateSub={dateSub}
+                  multiSelect={multiSelect}
+                  paramWidgetName={paramWidgetName}
+                  seedPreviewOptions={seedPreviewOptions}
+                  seedQueryPending={seedQueryExecution.isPending}
+                  seedQueryError={
+                    seedQueryExecution.isError
+                      ? seedQueryExecution.error.message
+                      : null
+                  }
+                  formFields={formFields}
+                  previewRef={previewRef}
+                  previewQuery={{
+                    isPending: previewQuery.isPending,
+                    isError: previewQuery.isError,
+                    error: previewQuery.error,
+                    data: previewQuery.data,
+                  }}
+                  initialPreviewData={initialPreviewData}
+                  onRunPreview={handlePreview}
+                  waitingForParams={previewWaitingForParams}
+                />
+              )}
             </div>
 
             <ModalFooter

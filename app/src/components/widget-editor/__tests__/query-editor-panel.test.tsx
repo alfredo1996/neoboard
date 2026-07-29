@@ -12,6 +12,7 @@ vi.mock("next/dynamic", () => ({
         data-language={props.language}
         data-read-only={String(props.readOnly ?? false)}
         data-has-on-run={String(typeof props.onRun === "function")}
+        data-class-name={String(props.className ?? "")}
       />
     );
     Stub.displayName = "QueryEditorStub";
@@ -243,6 +244,88 @@ describe("QueryEditorPanel", () => {
     expect(
       screen.queryByRole("button", { name: /refresh schema/i }),
     ).not.toBeInTheDocument();
+  });
+
+  // ── Maximize toggle (#1374) ──────────────────────────────────────────
+
+  it("does not render the maximize toggle when no handler is supplied", () => {
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.queryByRole("button", { name: /expand editor/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders an un-pressed 'Expand editor' toggle when collapsed", () => {
+    render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        maximized={false}
+        onToggleMaximized={vi.fn()}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /expand editor/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("renders a pressed 'Collapse editor' toggle when maximized", () => {
+    render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        maximized
+        onToggleMaximized={vi.fn()}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /collapse editor/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.queryByRole("button", { name: /expand editor/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("calls onToggleMaximized when the toggle is clicked", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const onToggleMaximized = vi.fn();
+    render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        maximized={false}
+        onToggleMaximized={onToggleMaximized}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /expand editor/i }));
+    expect(onToggleMaximized).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the editor a definite height class only when maximized", () => {
+    // Collapsed the editor has no definite height and grows with the document
+    // (measured 220px empty → 2391px at 120 lines), which makes the whole
+    // settings column scroll. Maximized it gets a definite height so it scrolls
+    // itself with the toolbar pinned — so this class is load-bearing, not
+    // cosmetic.
+    const { unmount } = render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        maximized={false}
+        onToggleMaximized={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-class-name",
+      "min-h-[220px]",
+    );
+    unmount();
+
+    render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        maximized
+        onToggleMaximized={vi.fn()}
+      />,
+    );
+    const className =
+      screen.getByTestId("query-editor").getAttribute("data-class-name") ?? "";
+    expect(className).toContain("h-[70vh]");
+    expect(className).toContain("min-h-[220px]");
   });
 });
 
