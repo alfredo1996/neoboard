@@ -15,7 +15,11 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return unwrapResponse<T>(res);
 }
 
-export function useWidgetTemplates(filters?: WidgetTemplateFilters) {
+export function useWidgetTemplates(
+  filters?: WidgetTemplateFilters,
+  /** `enabled: false` skips the request — dashboard view mode has no use for it. */
+  options?: { enabled?: boolean },
+) {
   const params = new URLSearchParams();
   if (filters?.chartType) params.set("chartType", filters.chartType);
   if (filters?.connectorType)
@@ -28,6 +32,7 @@ export function useWidgetTemplates(filters?: WidgetTemplateFilters) {
       const url = qs ? `/api/widget-templates?${qs}` : "/api/widget-templates";
       return fetchJson<WidgetTemplate[]>(url);
     },
+    enabled: options?.enabled ?? true,
   });
 }
 
