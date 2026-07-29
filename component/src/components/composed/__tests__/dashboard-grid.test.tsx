@@ -125,3 +125,70 @@ describe("DashboardGrid — persist only on user drag/resize", () => {
     expect(capturedProps.resizeConfig.enabled).toBe(true);
   });
 });
+
+// ─── Breakpoint column parity (#1375) ────────────────────────────────────────
+//
+// A single layout is stored per page, but ResponsiveGridLayout was given four
+// DIFFERENT column counts (lg:12, md:10, sm:6, xs:4) for that one layout. Below
+// `lg` the grid clamps every item into the narrower column count, and
+// onDragStop hands that clamped layout back — which then gets persisted as THE
+// layout. The authored 12-column arrangement is overwritten by its own squashed
+// projection, and since nothing ever widens it back, every save on a narrow
+// window ratchets it further toward one column.
+//
+// The container is the viewport minus the sidebar, so a 1280px window is
+// already below the lg:1200 breakpoint — this fires on ordinary laptops, which
+// is why it read as intermittent.
+//
+// Fix: one column count everywhere. If you store one layout, you must author at
+// one column count; the grid scales instead of reflowing, so a drag can never
+// return fewer columns than it was given.
+
+describe("DashboardGrid — breakpoint column parity (#1375)", () => {
+  it("uses the same column count at every breakpoint", () => {
+    render(
+      <DashboardGrid layout={layout}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    const cols = capturedProps.cols as Record<string, number>;
+    const counts = Object.values(cols);
+    expect(new Set(counts).size).toBe(1);
+    expect(counts.every((c) => c === 12)).toBe(true);
+  });
+
+  it("honours a custom cols at every breakpoint, not just lg", () => {
+    render(
+      <DashboardGrid layout={layout} cols={24}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    const cols = capturedProps.cols as Record<string, number>;
+    expect(Object.values(cols).every((c) => c === 24)).toBe(true);
+  });
+
+  it("keeps the authored column count at a narrow container width", () => {
+    // 1000px is inside the md range (996–1199) — the width a 1280px window
+    // actually produces once the sidebar is subtracted.
+    mockWidth = 1000;
+    render(
+      <DashboardGrid layout={layout}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    const cols = capturedProps.cols as Record<string, number>;
+    expect(Object.values(cols).every((c) => c === 12)).toBe(true);
+  });
+
+  it("still hands the same layout to every breakpoint", () => {
+    render(
+      <DashboardGrid layout={layout}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    const layouts = capturedProps.layouts as Record<string, unknown>;
+    for (const bp of ["lg", "md", "sm", "xs"]) {
+      expect(layouts[bp]).toBe(layout);
+    }
+  });
+});
