@@ -232,9 +232,14 @@ export function ParameterConfigSection({
           <div className="space-y-1.5" data-testid="param-cascading-config">
             <Label htmlFor="parent-param-name">
               <GitBranch className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
-              Parent Parameter Name{" "}
+              {/* "Depends On", not "Parent Parameter Name": the latter CONTAINS
+                  "Parameter Name", which is the field directly above it. Two
+                  labels where one is a substring of the other are ambiguous to
+                  a human scanning the form and to any accessible-name lookup —
+                  Playwright's getByLabel matched both (#1360). */}
+              Depends On{" "}
               <span className="text-muted-foreground font-normal">
-                (optional)
+                (optional — the parameter that filters this one)
               </span>
             </Label>
             <Input

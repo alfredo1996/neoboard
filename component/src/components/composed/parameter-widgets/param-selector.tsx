@@ -120,18 +120,30 @@ function ParamSelector({
       ? `Select ${parentParameterName} first…`
       : "Select a value…");
 
+  // The dependency hint is a DESCRIPTION, not part of the name. Putting it
+  // inside the <Label> made the child's accessible name "movie(depends on
+  // year)" — which embeds another control's name, so the two were no longer
+  // distinguishable by name, and a screen reader announced the dependency as
+  // if it were part of the control's identity. aria-describedby is the right
+  // split: the name identifies, the description explains (#1360).
+  const hintId = parentParameterName ? `${labelId}-hint` : undefined;
   const label = (
-    <Label
-      id={labelId}
-      className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-    >
-      {parameterName}
+    <>
+      <Label
+        id={labelId}
+        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+      >
+        {parameterName}
+      </Label>
       {parentParameterName && (
-        <span className="ml-1 text-[10px] normal-case font-normal opacity-60">
+        <span
+          id={hintId}
+          className="ml-1 text-[10px] normal-case font-normal opacity-60 text-muted-foreground"
+        >
           (depends on {parentParameterName})
         </span>
       )}
-    </Label>
+    </>
   );
 
   const clearButton = value && (
@@ -160,6 +172,7 @@ function ParamSelector({
                 role="combobox"
                 aria-expanded={open}
                 aria-labelledby={labelId}
+                aria-describedby={hintId}
                 disabled={isWaitingForParent}
                 className="flex-1 justify-between"
               >
@@ -221,7 +234,11 @@ function ParamSelector({
           onValueChange={onChange}
           disabled={isWaitingForParent}
         >
-          <SelectTrigger className="flex-1" aria-labelledby={labelId}>
+          <SelectTrigger
+            className="flex-1"
+            aria-labelledby={labelId}
+            aria-describedby={hintId}
+          >
             <SelectValue placeholder={resolvedPlaceholder} />
           </SelectTrigger>
           <SelectContent>

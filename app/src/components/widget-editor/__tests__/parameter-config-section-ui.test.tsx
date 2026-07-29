@@ -429,7 +429,7 @@ describe("ParameterConfigSection", () => {
         seedPreviewOptions={null}
       />,
     );
-    expect(screen.getByLabelText(/Parent Parameter Name/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Depends On/)).toBeInTheDocument();
     // …alongside the seed query it has always had.
     expect(screen.getByText("Seed Query")).toBeInTheDocument();
   });
