@@ -151,10 +151,9 @@ describe("DashboardGrid — breakpoint column parity (#1375)", () => {
         <div key="a">A</div>
       </DashboardGrid>,
     );
-    const cols = capturedProps.cols as Record<string, number>;
-    const counts = Object.values(cols);
-    expect(new Set(counts).size).toBe(1);
-    expect(counts.every((c) => c === 12)).toBe(true);
+    // Exact mapping, not "all values equal": `{ lg: 12 }` alone would satisfy a
+    // set-size check while leaving md/sm/xs unmapped, which is the very bug.
+    expect(capturedProps.cols).toEqual({ lg: 12, md: 12, sm: 12, xs: 12 });
   });
 
   it("honours a custom cols at every breakpoint, not just lg", () => {
@@ -163,8 +162,7 @@ describe("DashboardGrid — breakpoint column parity (#1375)", () => {
         <div key="a">A</div>
       </DashboardGrid>,
     );
-    const cols = capturedProps.cols as Record<string, number>;
-    expect(Object.values(cols).every((c) => c === 24)).toBe(true);
+    expect(capturedProps.cols).toEqual({ lg: 24, md: 24, sm: 24, xs: 24 });
   });
 
   it("keeps the authored column count at a narrow container width", () => {
@@ -176,8 +174,10 @@ describe("DashboardGrid — breakpoint column parity (#1375)", () => {
         <div key="a">A</div>
       </DashboardGrid>,
     );
-    const cols = capturedProps.cols as Record<string, number>;
-    expect(Object.values(cols).every((c) => c === 12)).toBe(true);
+    // Pin the measured width too, so the case cannot silently stop exercising
+    // the sub-lg path if the mock changes.
+    expect(capturedProps.width).toBe(1000);
+    expect(capturedProps.cols).toEqual({ lg: 12, md: 12, sm: 12, xs: 12 });
   });
 
   it("still hands the same layout to every breakpoint", () => {
