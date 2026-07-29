@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 /**
  * useConnectionSchema — pure-logic tests + renderHook tests.
  *
