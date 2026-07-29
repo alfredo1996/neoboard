@@ -105,6 +105,7 @@ export function ParameterWidgetRenderer({
           actions={actions}
           seed={seed}
           searchable={searchable}
+          parentParameterName={parentParameterName}
           placeholder={placeholder}
           className={className}
         />

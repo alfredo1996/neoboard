@@ -488,7 +488,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Parameter select\n\nDashboard-level filter widget. Sets a `$param_<name>` value that other widgets can reference in their queries. Supports `select`, `text`, `date`, `date-range`, `number-range`, `multi-select`, and `cascading-select`.\n\n**Options shown:** `parameterType: select`, seed query, searchable dropdown."
+                "content": "## Parameter select\n\nDashboard-level filter widget. Sets a `$param_<name>` value that other widgets can reference in their queries. Supports `select`, `text`, `date`, `date-range`, `date-relative`, `number-range`, and `multi-select`. Cascading is not a type — set **Depends On** on a select or multi-select and it waits for that parent's value.\n\n**Options shown:** `parameterType: select`, seed query, searchable dropdown."
               }
             }
           },

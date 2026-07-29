@@ -1404,3 +1404,122 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
     expect(trigger).not.toBeDisabled();
   });
 });
+
+// ─── ParamMultiSelector, cascading props (#1360) ─────────────────────────────
+//
+// #1360 made "cascading" a *configuration* of select rather than its own
+// widget type — and the editor's "Depends On" field sits inside the same
+// block as the "Allow multiple selections" checkbox, so a cascading
+// multi-select is now configurable. `useSeedQueryOptions` already withholds
+// the seed query until the parent has a value for BOTH select and
+// multi-select, so without these props the multi-select renders an enabled,
+// permanently empty dropdown with nothing explaining why.
+
+describe("ParamMultiSelector — cascading props", () => {
+  const options = [
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta" },
+  ];
+
+  it("shows the dependency hint when parentParameterName is provided", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+      />,
+    );
+    expect(screen.getByText(/depends on country/i)).toBeInTheDocument();
+  });
+
+  it("describes the trigger with the hint rather than naming it", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+      />,
+    );
+    // The hint must not leak into the accessible name, or "cities" and a
+    // sibling "country" control stop being distinguishable by name.
+    const trigger = screen.getByRole("combobox", { name: "cities" });
+    expect(trigger).toHaveAccessibleDescription(/depends on country/i);
+  });
+
+  it("disables the trigger and prompts for the parent when parentValue is absent", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+      />,
+    );
+    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.getByText("Select country first…")).toBeInTheDocument();
+  });
+
+  it("enables the trigger once parentValue arrives", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName="country"
+        parentValue="IT"
+      />,
+    );
+    expect(screen.getByRole("combobox")).not.toBeDisabled();
+    expect(screen.queryByText("Select country first…")).toBeNull();
+  });
+
+  it("treats an empty parentParameterName as no parent", () => {
+    // The editor's parent-name input writes "" when the user clears it.
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName=""
+      />,
+    );
+    expect(screen.getByRole("combobox")).not.toBeDisabled();
+    expect(screen.queryByText(/first…/)).toBeNull();
+    expect(screen.queryByText(/depends on/)).toBeNull();
+  });
+
+  it("lets an explicit placeholder win over the parent prompt", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="cities"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+        placeholder="Pick cities…"
+        parentParameterName="country"
+      />,
+    );
+    expect(screen.getByText("Pick cities…")).toBeInTheDocument();
+    expect(screen.queryByText("Select country first…")).toBeNull();
+  });
+
+  it("stays enabled and unannotated with no parent props at all", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="tags"
+        options={options}
+        values={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox")).not.toBeDisabled();
+    expect(screen.queryByText(/depends on/)).toBeNull();
+  });
+});
