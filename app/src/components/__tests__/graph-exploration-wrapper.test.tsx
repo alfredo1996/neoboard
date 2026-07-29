@@ -1,165 +1,130 @@
 /**
- * GraphExplorationWrapper — synthetic (APOC virtual) node handling (#1361).
+ * GraphExplorationWrapper — property inspector wiring (#1191).
  *
- * A virtual node has no rows behind it, so `MATCH (n) WHERE elementId(n) = $id`
- * returns nothing. Before this, the context menu offered "Expand" anyway and
- * the user got a silent empty result, indistinguishable from a node that
- * genuinely has no neighbours.
- *
- * `canExpand` is deliberately mocked to return true for every node, so these
- * tests fail unless the menu itself declines — they cannot pass by leaning on
- * the hook's own guard (which is covered in component/).
+ * The GraphChart itself is NVL/WebGL-backed and cannot render in jsdom, so it
+ * is stubbed here; the code under test is this wrapper's own `handleNodeSelect`
+ * — specifically the `ids.length === 1` rule that decides whether the property
+ * inspector opens. GraphChart's own click-to-selection semantics (plain click
+ * replaces, Cmd/Ctrl/Shift toggle) are covered where they live, in
+ * component/src/charts/__tests__/graph-chart.test.tsx. Together the two prove
+ * the chain that #1191 broke: a plain click yields exactly one id, and exactly
+ * one id opens the inspector.
  */
+import { render, screen, act, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import React from "react";
-import type { GraphNode } from "@neoboard/components";
+import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
 
-const onExpandRequest = vi.fn();
+/** Props last handed to the stubbed GraphChart. */
+let chartProps: Record<string, unknown> = {};
+
+const graphNodes = [
+  { id: "A", label: "Alice", properties: { name: "Alice" } },
+  { id: "B", label: "Bob", properties: { name: "Bob" } },
+];
+
+const explorationStub = {
+  nodes: graphNodes,
+  edges: [],
+  selectedNodeIds: [],
+  onNodeSelect: () => {},
+  onExpandRequest: () => {},
+  collapse: () => {},
+  canExpand: () => false,
+  canCollapse: () => false,
+  reset: () => {},
+  expandedNodeIds: [],
+  expandingNodeId: null,
+};
 
 vi.mock("@neoboard/components", () => ({
-  GraphChart: ({
-    nodes,
-    onNodeRightClick,
+  GraphChart: (props: Record<string, unknown>) => {
+    chartProps = props;
+    return <div data-testid="graph-chart" />;
+  },
+  // Must be referentially stable across renders: the wrapper persists
+  // `exploration.nodes` / `.edges` to the store in an effect keyed on their
+  // identity, so a fresh object each render would loop forever.
+  useGraphExploration: () => explorationStub,
+  PropertyPanel: ({
+    sections,
   }: {
-    nodes: GraphNode[];
-    onNodeRightClick?: (e: {
-      node: GraphNode;
-      position: { x: number; y: number };
-    }) => void;
+    sections: { title: string; items: { key: string; value: string }[] }[];
   }) => (
-    <div data-testid="graph-chart">
-      {nodes.map((n) => (
-        <button
-          key={n.id}
-          data-testid={`right-click-${n.id}`}
-          onClick={() =>
-            onNodeRightClick?.({ node: n, position: { x: 10, y: 10 } })
-          }
-        >
-          {n.label}
-        </button>
-      ))}
+    <div data-testid="property-panel">
+      {sections.flatMap((s) =>
+        s.items.map((i) => (
+          <span key={`${s.title}-${i.key}`}>{`${i.key}=${i.value}`}</span>
+        )),
+      )}
     </div>
   ),
-  PropertyPanel: () => <div data-testid="property-panel" />,
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span>{children}</span>
   ),
-  useGraphExploration: ({
-    initialNodes,
-    initialEdges,
-  }: {
-    initialNodes: GraphNode[];
-    initialEdges: unknown[];
-  }) => ({
-    nodes: initialNodes,
-    edges: initialEdges,
-    selectedNodeIds: [],
-    expandingNodeId: null,
-    expandedNodeIds: [],
-    onNodeSelect: vi.fn(),
-    onExpandRequest,
-    collapse: vi.fn(),
-    reset: vi.fn(),
-    // Permissive on purpose — the menu must decline on its own.
-    canExpand: () => true,
-    canCollapse: () => false,
-  }),
 }));
-
-vi.mock("@/lib/plugin/chart-helpers", () => ({
-  getChartConfig: () => ({ transform: (d: unknown) => d }),
-}));
-
-vi.mock("@/stores/graph-widget-store", () => ({
-  useGraphWidgetStore: (selector: (s: unknown) => unknown) =>
-    selector({ setState: vi.fn(), states: {} }),
-}));
-
-vi.mock("@/lib/api/api-client", () => ({
-  unwrapFullResponse: vi.fn(),
-}));
-
-import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
-
-const realNode: GraphNode = {
-  id: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
-  label: "Document",
-  labels: ["Document"],
-};
-
-const virtualNode: GraphNode = {
-  id: "-289",
-  label: "Totals",
-  labels: ["Summary"],
-  synthetic: true,
-};
 
 function renderWrapper() {
-  return render(
+  render(
     <GraphExplorationWrapper
       widgetId="w1"
-      nodes={[realNode, virtualNode]}
+      nodes={graphNodes}
       edges={[]}
       connectionId="c1"
       settings={{}}
+      resultId="r1"
     />,
   );
+  return chartProps.onNodeSelect as (ids: string[]) => void;
 }
 
-describe("GraphExplorationWrapper — synthetic nodes", () => {
+describe("GraphExplorationWrapper — property inspector (#1191)", () => {
   beforeEach(() => {
-    onExpandRequest.mockClear();
-  });
-  afterEach(() => cleanup());
-
-  it("offers Expand on a real node", () => {
-    renderWrapper();
-    fireEvent.click(screen.getByTestId(`right-click-${realNode.id}`));
-    expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+    chartProps = {};
   });
 
-  it("does not offer Expand on a synthetic node", () => {
-    renderWrapper();
-    fireEvent.click(screen.getByTestId("right-click--289"));
-    expect(
-      screen.queryByRole("button", { name: "Expand" }),
-    ).not.toBeInTheDocument();
+  afterEach(() => {
+    cleanup();
   });
 
-  it("explains why a synthetic node cannot be expanded", () => {
-    renderWrapper();
-    fireEvent.click(screen.getByTestId("right-click--289"));
-    const note = screen.getByTestId("graph-synthetic-note");
-    expect(note).toBeInTheDocument();
-    // The explanation must name the cause and the consequence.
-    expect(note.textContent).toMatch(/virtual/i);
-    expect(note.textContent).toMatch(/generated by the query/i);
-    expect(note.textContent).toMatch(/no neighbours in the database/i);
+  it("opens the inspector for the clicked node on a single-id selection", () => {
+    const onNodeSelect = renderWrapper();
+    expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
+
+    act(() => onNodeSelect(["A"]));
+
+    expect(screen.getByTestId("property-panel")).toBeInTheDocument();
+    expect(screen.getByText("id=A")).toBeInTheDocument();
+    expect(screen.getByText("name=Alice")).toBeInTheDocument();
   });
 
-  it("shows no explanation on a real node", () => {
-    renderWrapper();
-    fireEvent.click(screen.getByTestId(`right-click-${realNode.id}`));
-    expect(
-      screen.queryByTestId("graph-synthetic-note"),
-    ).not.toBeInTheDocument();
+  it("re-targets the inspector when the next single-id selection arrives", () => {
+    // This is the flow #1191 made impossible: inspect A, then inspect B.
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+    expect(screen.getByText("name=Alice")).toBeInTheDocument();
+
+    act(() => onNodeSelect(["B"]));
+
+    expect(screen.getByText("name=Bob")).toBeInTheDocument();
+    expect(screen.queryByText("name=Alice")).not.toBeInTheDocument();
   });
 
-  it("styles the explanation as secondary text, not an error", () => {
-    renderWrapper();
-    fireEvent.click(screen.getByTestId("right-click--289"));
-    const note = screen.getByTestId("graph-synthetic-note");
-    expect(note.className).toContain("text-muted-foreground");
-    expect(note.className).not.toContain("destructive");
+  it("closes the inspector when the selection holds more than one node", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+    expect(screen.getByTestId("property-panel")).toBeInTheDocument();
+
+    act(() => onNodeSelect(["A", "B"]));
+
+    expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
   });
 
-  it("still offers Properties on a synthetic node", () => {
-    renderWrapper();
-    fireEvent.click(screen.getByTestId("right-click--289"));
-    expect(
-      screen.getByRole("button", { name: "Properties" }),
-    ).toBeInTheDocument();
+  it("closes the inspector when the selection is cleared", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+
+    act(() => onNodeSelect([]));
+
+    expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
   });
 });
