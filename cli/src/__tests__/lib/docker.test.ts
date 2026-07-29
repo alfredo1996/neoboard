@@ -141,7 +141,11 @@ describe("composeUp", () => {
   describe("configured host ports (#1313)", () => {
     const DEFAULT_CONFIG = {
       ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
-      postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+      postgres: {
+        user: "neoboard",
+        password: "neoboard",
+        database: "neoboard",
+      },
       neo4j: { user: "neo4j", password: "neoboard123" },
       seed: { script: "s.mjs", neo4j_cypher: "i.cypher" },
     };
@@ -156,7 +160,9 @@ describe("composeUp", () => {
     afterEach(() =>
       vi
         .mocked(readProjectConfig)
-        .mockReturnValue(DEFAULT_CONFIG as ReturnType<typeof readProjectConfig>),
+        .mockReturnValue(
+          DEFAULT_CONFIG as ReturnType<typeof readProjectConfig>,
+        ),
     );
 
     const envOfFirstRun = () => vi.mocked(run).mock.calls[0][1]?.env;
@@ -164,7 +170,12 @@ describe("composeUp", () => {
     it.each([[false], [true]])(
       "passes them into the compose environment (full=%s)",
       (full) => {
-        withPorts({ app: 4000, postgres: 55432, neo4j_http: 7475, neo4j_bolt: 7688 });
+        withPorts({
+          app: 4000,
+          postgres: 55432,
+          neo4j_http: 7475,
+          neo4j_bolt: 7688,
+        });
         composeUp({ full });
         expect(envOfFirstRun()).toMatchObject({
           NEOBOARD_PORT_APP: "4000",
@@ -178,7 +189,12 @@ describe("composeUp", () => {
     it("points NEXTAUTH_URL at the configured app port", () => {
       // Hardcoded to localhost:3000 in docker-compose.full.yml — on a remapped
       // install the auth callback URL no longer matches where the app is.
-      withPorts({ app: 4000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 });
+      withPorts({
+        app: 4000,
+        postgres: 5432,
+        neo4j_http: 7474,
+        neo4j_bolt: 7687,
+      });
       composeUp({ full: true });
       expect(envOfFirstRun()).toMatchObject({
         NEXTAUTH_URL: "http://localhost:4000",
@@ -211,7 +227,7 @@ describe("composeDown", () => {
 });
 
 describe("composePs", () => {
-  it("parses json output into container info", () => {
+  it("parses newline-delimited json output into container info (older Compose)", () => {
     mockRunOrNull.mockReturnValue(
       '{"Name":"neoboard-postgres","State":"running","Status":"Up 5 minutes"}\n' +
         '{"Name":"neoboard-neo4j","State":"running","Status":"Up 5 minutes"}',
@@ -223,13 +239,76 @@ describe("composePs", () => {
     ]);
   });
 
+  // Current Compose emits a SINGLE line holding a JSON array. The old
+  // newline-only parser JSON.parse'd that array as one "object" — valid JSON,
+  // so no throw — and `.map` returned exactly ONE entry whose `Name` was
+  // undefined. Hence "running (1 containers)" for any number of them (#1369).
+  describe("single-line JSON array (current Compose, #1369)", () => {
+    it("returns one entry PER container, fields populated", () => {
+      mockRunOrNull.mockReturnValue(
+        '[{"ID":"ce158cea1f92","Name":"neoboard-app","State":"running","Status":"Up 36 minutes (healthy)"},' +
+          '{"ID":"a1","Name":"neoboard-neo4j","State":"running","Status":"Up 36 minutes"},' +
+          '{"ID":"b2","Name":"neoboard-postgres","State":"running","Status":"Up 36 minutes"}]',
+      );
+      expect(composePs()).toEqual([
+        {
+          name: "neoboard-app",
+          state: "running",
+          status: "Up 36 minutes (healthy)",
+        },
+        { name: "neoboard-neo4j", state: "running", status: "Up 36 minutes" },
+        {
+          name: "neoboard-postgres",
+          state: "running",
+          status: "Up 36 minutes",
+        },
+      ]);
+    });
+
+    it("treats an empty array as no containers, not one blank one", () => {
+      mockRunOrNull.mockReturnValue("[]");
+      expect(composePs()).toEqual([]);
+    });
+
+    it("parses a lone container in an array", () => {
+      mockRunOrNull.mockReturnValue(
+        '[{"Name":"neoboard-app","State":"running","Status":"Up"}]',
+      );
+      expect(composePs()).toEqual([
+        { name: "neoboard-app", state: "running", status: "Up" },
+      ]);
+    });
+  });
+
+  it("parses a single json object on one line", () => {
+    mockRunOrNull.mockReturnValue(
+      '{"Name":"neoboard-app","State":"running","Status":"Up"}',
+    );
+    expect(composePs()).toEqual([
+      { name: "neoboard-app", state: "running", status: "Up" },
+    ]);
+  });
+
   it("returns empty array when command fails", () => {
     mockRunOrNull.mockReturnValue(null);
     expect(composePs()).toEqual([]);
   });
 
+  it("returns empty array on empty output", () => {
+    mockRunOrNull.mockReturnValue("");
+    expect(composePs()).toEqual([]);
+  });
+
   it("returns empty array on invalid json", () => {
     mockRunOrNull.mockReturnValue("not json");
+    expect(composePs()).toEqual([]);
+  });
+
+  it("returns empty array — no throw — when a line among valid ones is malformed", () => {
+    mockRunOrNull.mockReturnValue(
+      '{"Name":"neoboard-app","State":"running","Status":"Up"}\nnot json',
+    );
+    expect(() => composePs()).not.toThrow();
     expect(composePs()).toEqual([]);
   });
 
