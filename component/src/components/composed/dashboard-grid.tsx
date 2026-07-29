@@ -27,7 +27,31 @@ export interface DashboardGridProps {
 }
 
 const defaultBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 480 };
-const defaultCols = { lg: 12, md: 10, sm: 6, xs: 4 };
+
+/**
+ * One column count for every breakpoint.
+ *
+ * A single layout is stored per page. Giving that one layout four different
+ * column counts (it used to be lg:12, md:10, sm:6, xs:4) made the grid clamp
+ * every item into the narrower count below `lg` — and `onDragStop` handed the
+ * clamped layout back, which was then persisted as THE layout. The authored
+ * 12-column arrangement got overwritten by its own squashed projection, and
+ * because nothing ever widened it again, each save on a narrow window ratcheted
+ * it further toward a single column (#1375).
+ *
+ * The container is the viewport minus the sidebar, so a 1280px window already
+ * measures below `lg` — this fired on ordinary laptops, which is why it looked
+ * intermittent.
+ *
+ * So the grid **scales** instead of reflowing: columns get narrower on a small
+ * window, the arrangement survives, and a drag can never return fewer columns
+ * than it was given. Responsive stacking, if it is ever wanted, has to be a
+ * deliberate feature with somewhere to store the per-breakpoint layouts — not a
+ * side effect that destroys the only one we keep.
+ */
+function colsForEveryBreakpoint(cols: number) {
+  return { lg: cols, md: cols, sm: cols, xs: cols };
+}
 
 function getCompactorByType(type: "vertical" | "horizontal" | null) {
   if (type === "horizontal") return horizontalCompactor;
@@ -109,7 +133,7 @@ function DashboardGrid({
           width={width}
           layouts={layouts}
           breakpoints={defaultBreakpoints}
-          cols={{ ...defaultCols, lg: cols }}
+          cols={colsForEveryBreakpoint(cols)}
           rowHeight={rowHeight}
           dragConfig={{
             enabled: isDraggable,
