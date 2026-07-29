@@ -327,14 +327,109 @@ test.describe("Graph-dense dashboard — WebGL context management (#1052)", () =
       lastCard.getByRole("button", { name: "Fit graph" }),
     ).toHaveCount(0);
 
-    // Scrolling it into view mounts it (earlier graphs may unmount to free
-    // their contexts — the live count stays bounded).
+    // Scrolling it into view mounts it. With N under the live-context budget
+    // nothing is evicted to make room; over the budget the oldest off-screen
+    // graphs would give theirs up, so the live count stays bounded either way.
     await lastCard.scrollIntoViewIfNeeded();
     await expect(
       lastCard.getByRole("button", { name: "Fit graph" }),
     ).toBeVisible({ timeout: 45_000 });
 
     // Never exhausted the browser's WebGL contexts.
+    expect(webglErrors, webglErrors.join("\n")).toHaveLength(0);
+  });
+});
+
+test.describe("Graph widget survives a scroll round-trip (#1367)", () => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await cleanup?.();
+  });
+
+  test("a graph scrolled out of view and back is not remounted", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const webglErrors: string[] = [];
+    page.on("console", (msg) => {
+      const t = msg.text();
+      if (/context lost|too many active webgl/i.test(t)) webglErrors.push(t);
+    });
+
+    const { id, cleanup: c } = await createTestDashboard(
+      page.request,
+      `Graph Scroll ${Date.now()}`,
+    );
+    cleanup = c;
+
+    // Four graph widgets — under the live-context budget of 8 by construction,
+    // so no eviction is ever warranted. 12 rows × 80px per tile puts the first
+    // one far above the viewport once the last is scrolled into view.
+    const N = 4;
+    const query =
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10";
+    const widgets = Array.from({ length: N }, (_, i) => ({
+      id: `g${i}`,
+      chartType: "graph",
+      connectionId: "conn-neo4j-001",
+      query,
+      settings: { title: `Graph ${i}` },
+    }));
+    const gridLayout = Array.from({ length: N }, (_, i) => ({
+      i: `g${i}`,
+      x: 0,
+      y: i * 12,
+      w: 12,
+      h: 12,
+    }));
+    await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [{ id: "p1", title: "Main", widgets, gridLayout }],
+        },
+      },
+    });
+
+    await page.goto(`/${id}`);
+
+    const firstCard = page.locator("[data-testid='widget-card']").first();
+    const fitButton = firstCard.getByRole("button", { name: "Fit graph" });
+    await expect(fitButton).toBeVisible({ timeout: 45_000 });
+
+    // Pin the live DOM node. A remount necessarily builds a new node, so a
+    // stale handle reports isConnected === false permanently — a state check
+    // with no polling window to miss, unlike watching for a skeleton flash.
+    const pinned = await fitButton.elementHandle();
+    expect(pinned).not.toBeNull();
+
+    const lastCard = page.locator("[data-testid='widget-card']").last();
+    await lastCard.scrollIntoViewIfNeeded();
+
+    // Guard against a vacuous pass: the tile has to actually leave the
+    // observer's range (viewport + 300px rootMargin) for the round-trip to mean
+    // anything.
+    expect(
+      await firstCard.evaluate((el) => el.getBoundingClientRect().bottom),
+    ).toBeLessThan(-300);
+    // Let the IntersectionObserver callback fire — this is where the pre-#1367
+    // behaviour tore the graph down.
+    await page.waitForTimeout(1_000);
+
+    await firstCard.scrollIntoViewIfNeeded();
+    await expect(fitButton).toBeVisible({ timeout: 45_000 });
+
+    // Same node as before the scroll: never unmounted, so NVL's force layout
+    // never restarted and the nodes did not reshuffle.
+    expect(await pinned!.evaluate((el) => el.isConnected)).toBe(true);
+    await expect(
+      firstCard.locator("[data-testid='graph-skeleton']"),
+    ).toHaveCount(0);
+
     expect(webglErrors, webglErrors.join("\n")).toHaveLength(0);
   });
 });

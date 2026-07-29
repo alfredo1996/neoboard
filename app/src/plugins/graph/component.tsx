@@ -70,12 +70,17 @@ function GraphPluginComponent({
     />
   );
 
-  // Only keep the WebGL-backed graph mounted while it's on/near screen, so a
-  // graph-dense dashboard doesn't exhaust the browser's WebGL contexts (#1052).
+  // Mount the WebGL-backed graph only once it's on/near screen, so a graph-dense
+  // dashboard doesn't build every context on initial load (#1052). Unmounting is
+  // budget-gated (see LazyVisible): an off-screen graph stays mounted unless the
+  // page is over the live-context budget, because a rebuild reshuffles the force
+  // layout (#1367).
   return (
     <LazyVisible
       className="w-full h-full"
-      fallback={<Skeleton className="w-full h-full" />}
+      fallback={
+        <Skeleton className="w-full h-full" data-testid="graph-skeleton" />
+      }
     >
       {graph}
     </LazyVisible>
