@@ -1060,7 +1060,28 @@ describe("DashboardWorkspace", () => {
     expect(useParameterStore.getState().parameters.year?.value).toBe("1999");
   });
 
-  it("mirrors parameter changes back into the URL", () => {
+  // URL sync is OPT-IN per widget (#1388): only a parameter-select widget that
+  // sets `syncToUrl: true` may put its parameter in the address bar. These two
+  // cases pin both directions of that contract — without the negative one, an
+  // implementation that synced everything would still pass.
+  function withSyncableParam() {
+    const d = makeDashboard(1);
+    d.layoutJson.pages[0].widgets.push({
+      id: "pw1",
+      chartType: "parameter-select",
+      connectionId: "c1",
+      query: "",
+      settings: { chartOptions: { parameterName: "dept", syncToUrl: true } },
+    } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+    return d;
+  }
+
+  it("mirrors an opted-in parameter into the URL", () => {
+    mockUseDashboard.mockReturnValue({
+      data: withSyncableParam(),
+      isLoading: false,
+      isFetching: false,
+    });
     render(<DashboardWorkspace id="d1" editMode={false} />);
 
     useParameterStore
@@ -1072,7 +1093,7 @@ describe("DashboardWorkspace", () => {
         "dept",
         "text",
         "selector-widget",
-        "w1",
+        "pw1",
       );
 
     expect(mockReplace).toHaveBeenCalledWith("/d1?param_dept=Sales", {
@@ -1080,13 +1101,66 @@ describe("DashboardWorkspace", () => {
     });
   });
 
-  it("drops the query string once every parameter is cleared", () => {
+  it("does NOT mirror a parameter whose widget never opted in", () => {
+    mockUseDashboard.mockReturnValue({
+      data: withSyncableParam(),
+      isLoading: false,
+      isFetching: false,
+    });
     render(<DashboardWorkspace id="d1" editMode={false} />);
 
     useParameterStore
       .getState()
-      .setParameter("dept", "", "", "dept", "text", "selector-widget", "w1");
+      .setParameter(
+        "region",
+        "EMEA",
+        "EMEA",
+        "region",
+        "text",
+        "selector-widget",
+        "w1",
+      );
 
+    expect(mockReplace).not.toHaveBeenCalledWith(
+      expect.stringContaining("param_region"),
+      expect.anything(),
+    );
+  });
+
+  it("drops the query string once every opted-in parameter is cleared", () => {
+    mockUseDashboard.mockReturnValue({
+      data: withSyncableParam(),
+      isLoading: false,
+      isFetching: false,
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    const store = useParameterStore.getState();
+
+    // Put it in the URL first — the drop is a transition, so there has to be
+    // something to drop. Asserting the bare pathname from a standing start
+    // would pass even if sync were broken entirely.
+    store.setParameter(
+      "dept",
+      "Sales",
+      "Sales",
+      "dept",
+      "text",
+      "selector-widget",
+      "pw1",
+    );
+    expect(mockReplace).toHaveBeenCalledWith("/d1?param_dept=Sales", {
+      scroll: false,
+    });
+
+    store.setParameter(
+      "dept",
+      "",
+      "",
+      "dept",
+      "text",
+      "selector-widget",
+      "pw1",
+    );
     expect(mockReplace).toHaveBeenCalledWith("/d1", { scroll: false });
   });
 

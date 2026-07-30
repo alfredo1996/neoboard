@@ -18,11 +18,16 @@ import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useParameterStore } from "@/stores/parameter-store";
+import type { ParameterEntry } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
-import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
+import {
+  parseUrlParams,
+  buildParamsUrl,
+  extractSyncParams,
+} from "@/lib/shared/url-params";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { classifySaveError } from "@/lib/dashboard/save-error";
@@ -108,27 +113,6 @@ export function DashboardWorkspace({
     }
   }, [searchParams]);
 
-  // Sync parameter store changes → URL (shallow replace, no navigation)
-  useEffect(() => {
-    return useParameterStore.subscribe((state) => {
-      const values: Record<string, unknown> = {};
-      for (const [key, entry] of Object.entries(state.parameters)) {
-        if (
-          entry?.value !== undefined &&
-          entry.value !== null &&
-          String(entry.value) !== ""
-        ) {
-          values[key] = entry.value;
-        }
-      }
-      const newParams = buildUrlParams(values);
-      const newUrl = newParams.toString()
-        ? `${pathname}?${newParams.toString()}`
-        : pathname;
-      router.replace(newUrl, { scroll: false });
-    });
-  }, [pathname, router]);
-
   // `?page=` is honoured once, on first load, so existing /[id]/edit?page=N
   // links keep working. After that the store owns the index — this rebuild
   // drops `page` from the query string, so re-reading it would reset the page.
@@ -194,6 +178,44 @@ export function DashboardWorkspace({
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
     [dashboard],
   );
+
+  // Parameters whose widget opted in to URL sync — the only ones allowed in
+  // the address bar. `null` until the layout loads, because we can't tell yet.
+  const syncParams = useMemo(
+    () => (serverLayout ? extractSyncParams(serverLayout) : null),
+    [serverLayout],
+  );
+
+  // Seeded from the URL we arrived on, so the first sync is a no-op unless it
+  // actually has something to strip.
+  const lastSyncedUrlRef = useRef<string | null>(null);
+  if (lastSyncedUrlRef.current === null) {
+    lastSyncedUrlRef.current = `${pathname}${typeof window === "undefined" ? "" : window.location.search}`;
+  }
+
+  // Sync parameter store changes → URL (shallow replace, no navigation).
+  // Lives here rather than beside the inbound-param effect because it needs
+  // `dashboard`, which is fetched below that point (#1370 moved this body out
+  // of [id]/page.tsx).
+  useEffect(() => {
+    if (!syncParams) return;
+    const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) => {
+      const next = buildParamsUrl(pathname, state.parameters, syncParams);
+      // Only navigate when the URL actually changes. Compared against what we
+      // last wrote, NOT window.location: a mocked router never updates the
+      // location, so reading it would make "clearing every parameter drops the
+      // query string" silently untestable. Without the guard at all, the
+      // initial strip replaces the URL we are already on — indistinguishable
+      // from a redirect, which made the reader test unfalsifiable.
+      if (next === lastSyncedUrlRef.current) return;
+      lastSyncedUrlRef.current = next;
+      router.replace(next, { scroll: false });
+    };
+    // Run once up front so a param that never opted in is stripped from an
+    // inbound URL, not merely omitted from later updates.
+    syncUrl(useParameterStore.getState());
+    return useParameterStore.subscribe(syncUrl);
+  }, [pathname, router, syncParams]);
   const activeLayout = editMode ? layout : (serverLayout ?? layout);
   const safeIndex = Math.max(
     0,
