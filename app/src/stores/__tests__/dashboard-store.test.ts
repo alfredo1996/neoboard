@@ -12,12 +12,11 @@ describe("useDashboardStore", () => {
   // ── Initial state ──────────────────────────────────────────────────
 
   it("starts with version-2 layout containing one page", () => {
-    const { layout, activePageIndex, editMode } = useDashboardStore.getState();
+    const { layout, activePageIndex } = useDashboardStore.getState();
     expect(layout.version).toBe(2);
     expect(layout.pages).toHaveLength(1);
     expect(layout.pages[0].title).toBe("Page 1");
     expect(activePageIndex).toBe(0);
-    expect(editMode).toBe(false);
   });
 
   // ── setLayout ─────────────────────────────────────────────────────
@@ -61,6 +60,19 @@ describe("useDashboardStore", () => {
     expect(useDashboardStore.getState().activePageIndex).toBe(1);
   });
 
+  it("setLayout clamps a negative initialPageIndex to 0", () => {
+    const newLayout = {
+      version: 2 as const,
+      pages: [
+        { id: "p1", title: "A", widgets: [], gridLayout: [] },
+        { id: "p2", title: "B", widgets: [], gridLayout: [] },
+      ],
+    };
+    // `?page=-1` reaches here as -1; a negative index renders a blank grid.
+    useDashboardStore.getState().setLayout(newLayout, -1);
+    expect(useDashboardStore.getState().activePageIndex).toBe(0);
+  });
+
   it("setLayout with initialPageIndex=0 behaves like the default (no-arg) case", () => {
     const newLayout = {
       version: 2 as const,
@@ -73,28 +85,14 @@ describe("useDashboardStore", () => {
     expect(useDashboardStore.getState().activePageIndex).toBe(0);
   });
 
-  // ── setEditMode ───────────────────────────────────────────────────
-
-  it("setEditMode(true) enables edit mode", () => {
-    useDashboardStore.getState().setEditMode(true);
-    expect(useDashboardStore.getState().editMode).toBe(true);
-  });
-
-  it("setEditMode(false) disables edit mode", () => {
-    useDashboardStore.getState().setEditMode(true);
-    useDashboardStore.getState().setEditMode(false);
-    expect(useDashboardStore.getState().editMode).toBe(false);
-  });
-
   // ── reset ─────────────────────────────────────────────────────────
 
   it("reset restores the initial state after modifications", () => {
     useDashboardStore.getState().addPage();
-    useDashboardStore.getState().setEditMode(true);
+    useDashboardStore.getState().setActivePage(1);
     useDashboardStore.getState().reset();
     const state = useDashboardStore.getState();
     expect(state.layout.pages).toHaveLength(1);
-    expect(state.editMode).toBe(false);
     expect(state.activePageIndex).toBe(0);
   });
 
