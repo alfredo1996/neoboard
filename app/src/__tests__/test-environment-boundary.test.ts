@@ -24,7 +24,7 @@
  * test is here so the next one fails fast and legibly instead.
  *
  * If this fails: rename your file to `.test.tsx` and drop the docblock. Do not
- * add an allowlist entry — the `unit` project has no DOM by design (CLAUDE.md,
+ * add an allowlist entry — the `unit` project has no DOM by design (.claude/CLAUDE.md,
  * "Testing Boundaries").
  */
 import { describe, it, expect } from "vitest";
