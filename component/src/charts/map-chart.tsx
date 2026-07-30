@@ -191,6 +191,13 @@ function MapChart({
 
     return () => {
       ro.disconnect();
+      // Leaflet's zoom animation arms a bare `setTimeout(_onZoomTransitionEnd,
+      // 250)` that `map.remove()` never cancels — unmounting mid-zoom lets it
+      // fire against a map whose `_mapPane` has just been deleted and throw
+      // "Cannot read properties of undefined (reading '_leaflet_pos')".
+      // `_onZoomTransitionEnd` early-returns on a falsy `_animatingZoom`, so
+      // clearing the flag disarms both that timer and the transitionend path.
+      (map as L.Map & { _animatingZoom: boolean })._animatingZoom = false;
       map.remove();
       mapRef.current = null;
       markersLayerRef.current = null;
