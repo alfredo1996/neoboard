@@ -4,7 +4,7 @@
  * `tenant_id` is on every application table, but nothing enforces that a
  * query filters by it: `app/src/lib/db/index.ts` is a plain Drizzle client
  * with no middleware, and there is no Postgres RLS. The rule ("every query
- * carries `eq(table.tenantId, session.tenantId)`") lives only in CLAUDE.md,
+ * carries `eq(table.tenantId, session.tenantId)`") lives only in .claude/CLAUDE.md,
  * so a handler that forgets it leaks across tenants and nothing fails.
  *
  * This test is that missing failure. It parses every file under `app/src`,

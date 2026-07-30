@@ -44,7 +44,7 @@ PR base = same `$BASE` detected above (release/X.Y when active, else dev).
 
 ## Step 3 — Run /drill
 
-Before implementing, run `/drill <number>` to gather requirements, edge cases, and acceptance criteria. This is mandatory per CLAUDE.md.
+Before implementing, run `/drill <number>` to gather requirements, edge cases, and acceptance criteria. This is mandatory per .claude/CLAUDE.md.
 
 ## Step 4 — Read the issue and relevant docs
 
@@ -53,7 +53,7 @@ Identify which package(s) are affected: app/, component/, connection/.
 
 ## Step 5 — Implement
 
-Follow all CLAUDE.md rules. Respect package boundaries.
+Follow all .claude/CLAUDE.md rules. Respect package boundaries.
 If building UI, check existing components first (`find component/src -name '*.tsx'`).
 
 ## Step 6 — Test and lint

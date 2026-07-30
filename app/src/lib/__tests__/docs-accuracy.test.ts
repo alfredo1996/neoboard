@@ -6,11 +6,11 @@ import { fileURLToPath } from "node:url";
 /**
  * Guards the repo's own documentation against drift (#1235).
  *
- * CLAUDE.md is loaded as ground truth by agent sessions, so a stale path or
+ * .claude/CLAUDE.md is loaded as ground truth by agent sessions, so a stale path or
  * count there becomes a wrong assumption in generated code. These tests fail
  * loudly instead.
  *
- * Scope: the repo's OWN docs (CLAUDE.md, ARCHITECTURE.md, .claude/skills).
+ * Scope: the repo's OWN docs (.claude/CLAUDE.md, ARCHITECTURE.md, .claude/skills).
  * The published site under docs/src has its own guard —
  * scripts/__tests__/docs-accuracy.test.mjs — with the same name and a
  * different target. Add site checks there, repo checks here.
@@ -53,7 +53,7 @@ const countFiles = (dir: string, ext = ".tsx") =>
   readdirSync(resolve(REPO_ROOT, dir)).filter((f) => f.endsWith(ext)).length;
 
 describe("documentation accuracy", () => {
-  describe.each(["CLAUDE.md", "ARCHITECTURE.md"])("%s", (docName) => {
+  describe.each([".claude/CLAUDE.md", "ARCHITECTURE.md"])("%s", (docName) => {
     it("references only file paths that exist", () => {
       const missing = referencedPaths(readDoc(docName)).filter(
         (p) => !existsSync(resolve(REPO_ROOT, p)),
@@ -92,17 +92,17 @@ describe("documentation accuracy", () => {
     });
   });
 
-  it("CLAUDE.md documents MIGRATE_ON_START, not a --skip-migrations flag", () => {
+  it(".claude/CLAUDE.md documents MIGRATE_ON_START, not a --skip-migrations flag", () => {
     // Naming the flag to debunk it is fine (readers search for it); asserting
     // it exists is not. The real escape hatch is MIGRATE_ON_START=0 (#1222).
-    const doc = readDoc("CLAUDE.md");
+    const doc = readDoc(".claude/CLAUDE.md");
     expect(doc).toContain("MIGRATE_ON_START");
     // Assert the canonical debunk is present rather than blocklisting one
     // phrasing — "use `--skip-migrations`" would slip past a negative regex.
     expect(doc).toContain("there is no `--skip-migrations` CLI flag");
   });
 
-  it("CLAUDE.md points at the tenant guard by path, and that path exists", () => {
+  it(".claude/CLAUDE.md points at the tenant guard by path, and that path exists", () => {
     // The section used to say a forgotten tenant filter is "a leak that
     // nothing catches. Adding a guard is tracked in #1226." The guard shipped
     // (#1351), so that was false in a direction that changes behaviour: an
@@ -111,7 +111,7 @@ describe("documentation accuracy", () => {
     //
     // Pinned by PATH rather than by phrasing, so a rewrite that drops the
     // pointer fails while a rewrite that keeps it is free to reword.
-    const doc = readDoc("CLAUDE.md");
+    const doc = readDoc(".claude/CLAUDE.md");
     const guardPath = "app/src/lib/db/__tests__/tenant-scope.test.ts";
     expect(doc).toContain(guardPath);
     expect(existsSync(resolve(REPO_ROOT, guardPath))).toBe(true);
@@ -131,7 +131,7 @@ describe("documentation accuracy", () => {
   });
 
   it("the deploy skill does not send auditors looking for a flag that does not exist", () => {
-    // CLAUDE.md was corrected but the deploy skill still listed
+    // .claude/CLAUDE.md was corrected but the deploy skill still listed
     // "`--skip-migrations` flag missing or undocumented" as a gap to capture
     // — so the audit that produced #1222 was instructed to hunt a flag that
     // was never implemented. A prompt is documentation too (#1222).

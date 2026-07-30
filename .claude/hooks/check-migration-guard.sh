@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 # Hook: Prevent editing existing migration files (forward-only migrations)
-# Rule: "Forward-only. Idempotent." — CLAUDE.md
+# Rule: "Forward-only. Idempotent." — .claude/CLAUDE.md
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -er '.tool_input.file_path // .tool_input.filePath // empty') || {
   echo "BLOCKED: invalid hook payload (missing/invalid tool_input.file_path)" >&2
