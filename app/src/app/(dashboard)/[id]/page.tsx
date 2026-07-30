@@ -19,11 +19,16 @@ import {
 } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { useParameterStore } from "@/stores/parameter-store";
+import type { ParameterEntry } from "@/stores/parameter-store";
 import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import { ShortcutHint } from "@/components/shortcut-hint";
-import { parseUrlParams, buildUrlParams } from "@/lib/shared/url-params";
+import {
+  parseUrlParams,
+  buildParamsUrl,
+  extractSyncParams,
+} from "@/lib/shared/url-params";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { PageTabs } from "@/components/page-tabs";
@@ -105,27 +110,6 @@ export default function DashboardViewerPage({
     }
   }, [searchParams]);
 
-  // Sync parameter store changes → URL (shallow replace, no navigation)
-  useEffect(() => {
-    return useParameterStore.subscribe((state) => {
-      const values: Record<string, unknown> = {};
-      for (const [key, entry] of Object.entries(state.parameters)) {
-        if (
-          entry?.value !== undefined &&
-          entry.value !== null &&
-          String(entry.value) !== ""
-        ) {
-          values[key] = entry.value;
-        }
-      }
-      const newParams = buildUrlParams(values);
-      const newUrl = newParams.toString()
-        ? `${pathname}?${newParams.toString()}`
-        : pathname;
-      router.replace(newUrl, { scroll: false });
-    });
-  }, [pathname, router]);
-
   const { data: dashboard, isLoading, isFetching } = useDashboard(id);
   const updateDashboard = useUpdateDashboard();
 
@@ -199,6 +183,26 @@ export default function DashboardViewerPage({
     () => (dashboard ? migrateLayout(dashboard.layoutJson) : null),
     [dashboard],
   );
+
+  // Parameters whose widget opted in to URL sync — the only ones allowed in
+  // the address bar. `null` until the layout loads, because we can't tell yet.
+  const syncParams = useMemo(
+    () => (layout ? extractSyncParams(layout) : null),
+    [layout],
+  );
+
+  // Sync parameter store changes → URL (shallow replace, no navigation)
+  useEffect(() => {
+    if (!syncParams) return;
+    const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) =>
+      router.replace(buildParamsUrl(pathname, state.parameters, syncParams), {
+        scroll: false,
+      });
+    // Run once up front so a param that never opted in is stripped from an
+    // inbound URL, not merely omitted from later updates.
+    syncUrl(useParameterStore.getState());
+    return useParameterStore.subscribe(syncUrl);
+  }, [pathname, router, syncParams]);
 
   // Auto-refresh: local override (null = use persisted settings from layout).
   // Keyed by dashboard id so navigating to a different dashboard resets the override.
