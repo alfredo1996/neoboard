@@ -117,6 +117,12 @@ export async function reassignConnectionWidgets(
   // Single UPDATE rewrites layoutJson across all matching dashboards.
   // jsonb_set walks pages → widgets and swaps the connectionId in
   // place when it matches fromConnectionId.
+  //
+  // `version`/`updatedAt`/`updated_by` are bumped alongside layoutJson because
+  // PUT /api/dashboards/[id] bumps all three and clients send `expectedVersion`
+  // as an optimistic lock. Rewriting layoutJson alone leaves an open editor
+  // holding a still-matching version, so its next save silently REVERTS the
+  // reassign. Bumping turns that lost write into the 409 it should have been.
   await db.execute(sql`
     UPDATE "dashboard" d
     SET "layoutJson" = jsonb_set(
@@ -145,7 +151,12 @@ export async function reassignConnectionWidgets(
         )
         FROM jsonb_array_elements(d."layoutJson"->'pages') WITH ORDINALITY AS t(page, page_ord)
       )
-    )
+    ),
+      -- Bumping version is what makes the rewrite visible to the optimistic
+      -- lock -- see the note above db.execute.
+      "version" = d."version" + 1,
+      "updatedAt" = now(),
+      updated_by = ${userId}
     WHERE ${editableDashboardsScope(userId, isAdmin, tenantId)}
       AND EXISTS (
         SELECT 1
