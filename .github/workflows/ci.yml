@@ -183,7 +183,8 @@ jobs:
           NEO4J_PASSWORD: neoboard123
 
       # Real-browser geometry assertions that jsdom cannot make: no layout
-      # engine, no getAnimations(). Currently the dialog-centring scrub (#1373).
+      # engine, no getAnimations(). Currently the centring scrub for both modals,
+      # Dialog and AlertDialog (#1373).
       # Deliberately NOT in `npm run verify` — a chromium download does not
       # belong in the default local loop.
       - name: Install Chromium for the browser test project

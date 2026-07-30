@@ -13,69 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/**
- * #1373 — DialogContent is centred with `translate(-50%,-50%)`, but
- * tailwindcss-animate's `enter` keyframe is `from`-only and `exit` is `to`-only,
- * so without the `slide-*-1/2` compensation the browser interpolates the whole
- * transform from `translate3d(0,0,0)` and the dialog flies in from the
- * bottom-right. A class-presence assertion cannot see that (it shipped twice:
- * `d723a127`, then PR #1173), so these stories scrub the real animation in a
- * real browser and assert the box centre never leaves the viewport centre.
- *
- * jsdom cannot host these: no layout engine, no `getAnimations()`.
- */
-const CENTRE_TOLERANCE_PX = 1.5;
-
-/** Freeze every animation so the scrub below is deterministic — no sleeps, no
- * race against the 200ms entrance finishing before the assertion runs. */
-function freezeAnimations() {
-  const style = document.createElement("style");
-  style.textContent =
-    "*, *::before, *::after { animation-play-state: paused !important; }";
-  document.head.append(style);
-  return () => style.remove();
-}
-
-/**
- * Scrub the element's animation across its whole active duration and assert its
- * bounding-box centre stays on the viewport centre the entire time. On failure
- * the message carries every sample, so the report says how far it drifted.
- */
-function expectCentredThroughoutAnimation(el: HTMLElement) {
-  const [anim] = el.getAnimations();
-  expect(anim, "DialogContent should have an animation to scrub").toBeDefined();
-  anim.pause();
-
-  const total = Number(anim.effect?.getComputedTiming().activeDuration ?? 0);
-  expect(total, "animation should have a non-zero duration").toBeGreaterThan(0);
-
-  const samples = [0, 0.2, 0.4, 0.6, 0.8, 0.999].map((fraction) => {
-    const t = total * fraction;
-    anim.currentTime = t;
-    const r = el.getBoundingClientRect();
-    return {
-      t,
-      dx: r.left + r.width / 2 - window.innerWidth / 2,
-      dy: r.top + r.height / 2 - window.innerHeight / 2,
-    };
-  });
-
-  const drift = (s: (typeof samples)[number]) =>
-    Math.max(Math.abs(s.dx), Math.abs(s.dy));
-  const worst = samples.reduce((a, b) => (drift(b) > drift(a) ? b : a));
-  const report = samples
-    .map(
-      (s) =>
-        `  t=${s.t.toFixed(0)}ms dx=${s.dx.toFixed(1)}px dy=${s.dy.toFixed(1)}px`,
-    )
-    .join("\n");
-
-  expect(
-    drift(worst),
-    `DialogContent left the viewport centre mid-animation (#1373).\n${report}\n`,
-  ).toBeLessThan(CENTRE_TOLERANCE_PX);
-}
+import {
+  expectCentredThroughoutAnimation,
+  freezeAnimations,
+} from "./animation-centring";
 
 const meta = {
   title: "UI/Dialog",
@@ -187,7 +128,10 @@ export const CentredOnEnter: Story = {
     const unfreeze = freezeAnimations();
     try {
       await userEvent.click(screen.getByRole("button", { name: "Open" }));
-      expectCentredThroughoutAnimation(await screen.findByRole("dialog"));
+      expectCentredThroughoutAnimation(
+        await screen.findByRole("dialog"),
+        "DialogContent",
+      );
     } finally {
       unfreeze();
     }
@@ -223,7 +167,7 @@ export const CentredOnExit: Story = {
         await screen.findByRole("button", { name: "Dismiss" }),
       );
       expect(content).toHaveAttribute("data-state", "closed");
-      expectCentredThroughoutAnimation(content);
+      expectCentredThroughoutAnimation(content, "DialogContent");
     } finally {
       unfreeze();
     }
@@ -259,7 +203,10 @@ export const CentredWhenLarge: Story = {
     const unfreeze = freezeAnimations();
     try {
       await userEvent.click(screen.getByRole("button", { name: "Open" }));
-      expectCentredThroughoutAnimation(await screen.findByRole("dialog"));
+      expectCentredThroughoutAnimation(
+        await screen.findByRole("dialog"),
+        "DialogContent",
+      );
     } finally {
       unfreeze();
     }
