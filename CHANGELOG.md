@@ -16,6 +16,8 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 
 ### Fixed
 
+- The "Sync to URL" toggle on a parameter-select widget did nothing. `buildUrlParams()` was called with no exclude set and `extractNoSyncParams()` — the helper written to supply one — had **zero production callers**, only its own unit tests. Switching the toggle off still put the value in the address bar. URL sync is now **opt-in**: only a parameter whose widget sets `syncToUrl: true` reaches the query string. **Breaking for shared links** — a URL carrying `?param_…` for a widget that never opted in will no longer reproduce those values, and the parameter is stripped from an inbound URL rather than silently ignored (#1388)
+- Leaflet's zoom-transition timer fired after the map was torn down, throwing `Cannot read properties of undefined (reading '_leaflet_pos')`. Four such unhandled errors made the entire Storybook browser project exit 1 even though every story passed, which is why the visual-regression gate could only be pointed at two files. The timer is now disarmed before teardown, so `test:visual` runs the whole project (#1384)
 - Connection reassignment was invisible to the optimistic lock: the update wrote `layoutJson` but never bumped `version`/`updatedAt`, so a browser with the editor open still held a matching version and its next save silently **reverted** the reassignment (#1376)
 - The import's "N widgets imported without a connection" count included markdown and iframe widgets, which are exported with an empty `connectionId` by design — so a correctly mapped import containing three text widgets reported three unassigned widgets (#1377)
 - Saving a dashboard on a window narrower than ~1500px permanently squashed its layout toward a single column. One layout is stored per page, but the grid was handed that layout with four different column counts (lg:12, md:10, sm:6, xs:4); below `lg` it clamped every item into the narrower count and the drag handler persisted the clamped result as _the_ layout. Each save ratcheted it further, irreversibly. The grid now scales instead of reflowing (#1375)
@@ -25,6 +27,12 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 - Leaving edit mode returned to the first page, discarding the page you were on. Saving while on a later page already did the same thing, independently (#1371)
 - `neoboard status` reported a healthy app as `unhealthy (HTTP 307)` — it probed `/`, which correctly redirects to `/login` for an unauthenticated request, and accepted only `200`. It now probes `/api/health`, the same endpoint the container healthcheck uses (#1368)
 - `neoboard status` always reported "1 containers". `docker compose ps --format json` emits a single line containing a JSON array, not one object per line, so the whole array parsed as one entry with empty fields (#1369)
+
+### Changed
+
+- `AlertDialog` now uses the same exact-centre animation as `Dialog`. It had kept upstream shadcn's `top-[48%]`, a deliberate 2%-of-height rise, so the two sibling modals animated differently and its centring classes carried no comment protecting them. Both now use `top-1/2` on both axes, and the geometry scrub is shared by both story files (#1373)
+- `CLAUDE.md` moved to `.claude/CLAUDE.md`, alongside the hooks, skills and agents it belongs with, and out of the repo root where every visitor saw it. Claude Code reads both paths, so nothing changed about how it loads
+- `npm run review:local` targets the active release branch instead of the previous one
 
 ### Added
 
