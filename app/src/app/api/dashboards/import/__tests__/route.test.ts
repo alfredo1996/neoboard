@@ -90,6 +90,36 @@ const VALID_PAYLOAD = {
   },
 };
 
+/**
+ * Same as VALID_PAYLOAD plus two content-only widgets. dashboard-export.ts
+ * writes `connectionId: ""` for markdown/iframe widgets because they never had
+ * a connection, so they land in the same empty bucket as import-skipped
+ * widgets — and must not be counted as "missing a connection" (#1377).
+ */
+const PAYLOAD_WITH_CONTENT_ONLY = {
+  ...VALID_PAYLOAD,
+  layout: {
+    version: 2,
+    pages: [
+      {
+        id: "p1",
+        title: "Page 1",
+        widgets: [
+          {
+            id: "w1",
+            chartType: "bar",
+            connectionId: "conn_0",
+            query: "MATCH (n) RETURN n",
+          },
+          { id: "w2", chartType: "markdown", connectionId: "", query: "" },
+          { id: "w3", chartType: "iframe", connectionId: "", query: "" },
+        ],
+        gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
+      },
+    ],
+  },
+};
+
 const NEODASH_PAYLOAD = {
   title: "NeoDash Dashboard",
   version: "2.4",
@@ -315,6 +345,78 @@ describe("POST /api/dashboards/import", () => {
         /imported without a connection/i.test(n),
       ),
     ).toBe(true);
+  });
+
+  // ── unassignedWidgetCount (#1377) ──────────────────────────────────────
+  // The count is returned, not just described in prose, so the bulk-fix offer
+  // in the UI and the note the user reads come from the same number.
+  it("returns unassignedWidgetCount matching the number named in the note", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // No mapped connections to validate — only the name-existence check runs.
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain([{ id: "skip-dash" }]));
+
+    const res = await POST(
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: {},
+        skippedConnections: ["conn_0"],
+      }),
+    );
+
+    const body = await res.json();
+    expect(body.data.unassignedWidgetCount).toBe(1);
+    const note = body.data.notes.find((n: string) =>
+      /imported without a connection/i.test(n),
+    );
+    expect(note).toContain("1 widget");
+  });
+
+  // The false-alarm fix: importing a correctly-mapped dashboard that happens to
+  // contain text widgets used to report "2 widgets imported without a
+  // connection" because the count had no chart-type filter.
+  it("excludes content-only widgets from unassignedWidgetCount and emits no note", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([{ id: "real-conn-id" }]),
+    );
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain([{ id: "md-dash" }]));
+
+    const res = await POST(
+      makeRequest({
+        payload: PAYLOAD_WITH_CONTENT_ONLY,
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data.unassignedWidgetCount).toBe(0);
+    expect(
+      body.data.notes.some((n: string) =>
+        /imported without a connection/i.test(n),
+      ),
+    ).toBe(false);
+  });
+
+  it("counts only the real widgets when a skip and content-only widgets mix", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // No mapped connections to validate — only the name-existence check runs.
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain([{ id: "mix-dash" }]));
+
+    const res = await POST(
+      makeRequest({
+        payload: PAYLOAD_WITH_CONTENT_ONLY,
+        connectionMapping: {},
+        skippedConnections: ["conn_0"],
+      }),
+    );
+
+    const body = await res.json();
+    // w1 was skipped; w2/w3 are markdown+iframe and never wanted a connection.
+    expect(body.data.unassignedWidgetCount).toBe(1);
   });
 
   it("rejects cross-tenant mapping (connection ownership check fails)", async () => {

@@ -23,6 +23,13 @@ export interface ImportDashboardInput {
  */
 export interface ImportDashboardResult extends DashboardDetail {
   notes: string[];
+  /**
+   * Widgets that need a connection and don't have one — i.e. a skipped
+   * mapping. Content-only widgets (markdown, iframe) are excluded server-side.
+   * Returned rather than parsed out of `notes` so the bulk-fix offer and the
+   * note the user reads carry the same number by construction (#1377).
+   */
+  unassignedWidgetCount: number;
 }
 
 export interface DashboardListItem {
@@ -192,6 +199,52 @@ export function useDuplicateDashboard() {
       return unwrapResponse<DashboardDetail>(res);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+  });
+}
+
+export interface ReassignDashboardConnectionInput {
+  dashboardId: string;
+  /** Empty string targets widgets that have no connection (#1377). */
+  fromConnectionId: string;
+  targetConnectionId: string;
+}
+
+export interface ReassignDashboardConnectionResult {
+  dashboardsUpdated: number;
+  widgetsReassigned: number;
+}
+
+/**
+ * Re-point the widgets on ONE dashboard to another connection (#1376), or fill
+ * in widgets left without one by an import that skipped a connection (#1377).
+ *
+ * Distinct from `useReassignConnection`, which is connection-scoped and rewrites
+ * every dashboard the caller can edit.
+ */
+export function useReassignDashboardConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      dashboardId,
+      ...body
+    }: ReassignDashboardConnectionInput) => {
+      const res = await fetch(
+        `/api/dashboards/${dashboardId}/reassign-connection`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      return unwrapResponse<ReassignDashboardConnectionResult>(res);
+    },
+    onSuccess: (_result, { dashboardId }) => {
+      // The layout changed, so the cached dashboard detail is stale — and its
+      // `version` moved, which the editor uses as an optimistic lock.
+      queryClient.invalidateQueries({ queryKey: ["dashboards", dashboardId] });
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
