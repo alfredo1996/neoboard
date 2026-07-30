@@ -113,7 +113,6 @@ export function DashboardWorkspace({
     }
   }, [searchParams]);
 
-
   // `?page=` is honoured once, on first load, so existing /[id]/edit?page=N
   // links keep working. After that the store owns the index — this rebuild
   // drops `page` from the query string, so re-reading it would reset the page.
@@ -187,16 +186,31 @@ export function DashboardWorkspace({
     [serverLayout],
   );
 
+  // Seeded from the URL we arrived on, so the first sync is a no-op unless it
+  // actually has something to strip.
+  const lastSyncedUrlRef = useRef<string | null>(null);
+  if (lastSyncedUrlRef.current === null) {
+    lastSyncedUrlRef.current = `${pathname}${typeof window === "undefined" ? "" : window.location.search}`;
+  }
+
   // Sync parameter store changes → URL (shallow replace, no navigation).
   // Lives here rather than beside the inbound-param effect because it needs
   // `dashboard`, which is fetched below that point (#1370 moved this body out
   // of [id]/page.tsx).
   useEffect(() => {
     if (!syncParams) return;
-    const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) =>
-      router.replace(buildParamsUrl(pathname, state.parameters, syncParams), {
-        scroll: false,
-      });
+    const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) => {
+      const next = buildParamsUrl(pathname, state.parameters, syncParams);
+      // Only navigate when the URL actually changes. Compared against what we
+      // last wrote, NOT window.location: a mocked router never updates the
+      // location, so reading it would make "clearing every parameter drops the
+      // query string" silently untestable. Without the guard at all, the
+      // initial strip replaces the URL we are already on — indistinguishable
+      // from a redirect, which made the reader test unfalsifiable.
+      if (next === lastSyncedUrlRef.current) return;
+      lastSyncedUrlRef.current = next;
+      router.replace(next, { scroll: false });
+    };
     // Run once up front so a param that never opted in is stripped from an
     // inbound URL, not merely omitted from later updates.
     syncUrl(useParameterStore.getState());
