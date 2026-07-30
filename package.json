@@ -20,7 +20,7 @@
     "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
     "test:app": "npm -w app run test",
     "test:components": "npm -w component run test",
-    "test:visual": "npm -w component exec -- vitest run --project storybook stories/ui/dialog.stories.tsx",
+    "test:visual": "npm -w component run test:storybook",
     "test:cli": "npm -w cli run test",
     "test:e2e": "npm -w app run test:e2e",
     "storybook": "npm -w component run storybook",
