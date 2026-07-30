@@ -16,6 +16,7 @@ import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { formatImportError } from "@/lib/dashboard/format-import-error";
 import { auditRequest } from "@/lib/audit/audit";
+import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
 
 const importRequestSchema = z.object({
   payload: z.unknown(),
@@ -130,17 +131,24 @@ export async function POST(request: Request) {
           effectiveMapping,
         );
 
-    // Count widgets without a connection so the user knows what to fix.
-    const unmappedWidgetCount = mappedLayout.pages.reduce(
+    // Count widgets that need a connection and don't have one.
+    //
+    // Content-only widgets (markdown, iframe) are excluded: dashboard-export.ts
+    // writes them with connectionId:"" because they never had a connection, so
+    // counting them reported work that did not exist — importing a correctly
+    // mapped dashboard containing 3 text widgets claimed "3 widgets imported
+    // without a connection" (#1377).
+    const unassignedWidgetCount = mappedLayout.pages.reduce(
       (sum, page) =>
         sum +
-        page.widgets.filter((w) => !w.connectionId || w.connectionId === "")
-          .length,
+        page.widgets.filter(
+          (w) => !w.connectionId && !isContentOnlyChartType(w.chartType),
+        ).length,
       0,
     );
-    if (!isNeoDash && unmappedWidgetCount > 0) {
+    if (!isNeoDash && unassignedWidgetCount > 0) {
       importNotes.push(
-        pluralWidgets(unmappedWidgetCount) +
+        pluralWidgets(unassignedWidgetCount) +
           " imported without a connection — assign one in the widget editor before they will load data.",
       );
     }
@@ -185,7 +193,13 @@ export async function POST(request: Request) {
       },
     });
 
-    return apiSuccess({ ...created, notes: importNotes }, 201);
+    // unassignedWidgetCount is returned, not merely described in a note, so the
+    // bulk-fix offer in the UI and the count the user reads are the same number
+    // by construction (#1377).
+    return apiSuccess(
+      { ...created, notes: importNotes, unassignedWidgetCount },
+      201,
+    );
   } catch (e) {
     return handleRouteError(e);
   }
