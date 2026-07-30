@@ -20,7 +20,7 @@
     "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
     "test:app": "npm -w app run test",
     "test:components": "npm -w component run test",
-    "test:visual": "npm -w component exec -- vitest run --project storybook stories/ui/dialog.stories.tsx",
+    "test:visual": "npm -w component run test:storybook",
     "test:cli": "npm -w cli run test",
     "test:e2e": "npm -w app run test:e2e",
     "storybook": "npm -w component run storybook",
@@ -39,7 +39,7 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run test:scripts",
     "typecheck": "npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
     "sonar:local": "node scripts/sonar-local.mjs",
-    "review:local": "coderabbit review --base release/1.4 --committed -c CLAUDE.md -c .coderabbit.yaml",
+    "review:local": "coderabbit review --base release/1.5 --committed -c CLAUDE.md -c .coderabbit.yaml",
     "test:scripts": "vitest run scripts/__tests__ --exclude '**/.claude/**' && node --test 'scripts/__tests__/*.node-test.mjs'"
   },
   "lint-staged": {

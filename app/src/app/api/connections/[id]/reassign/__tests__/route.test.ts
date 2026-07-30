@@ -156,13 +156,13 @@ describe("POST /api/connections/[id]/reassign", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual({ dashboardsUpdated: 3, widgetsReassigned: 7 });
-    expect(mockReassignConnectionWidgets).toHaveBeenCalledWith(
-      "c1",
-      "c2",
-      "user-1",
-      false,
-      "t1",
-    );
+    expect(mockReassignConnectionWidgets).toHaveBeenCalledWith({
+      fromConnectionId: "c1",
+      toConnectionId: "c2",
+      userId: "user-1",
+      isAdmin: false,
+      tenantId: "t1",
+    });
   });
 
   it("records a connection.reassign audit entry (#1234)", async () => {
@@ -223,13 +223,13 @@ describe("POST /api/connections/[id]/reassign", () => {
       makeParams("c1"),
     );
     expect(res.status).toBe(200);
-    expect(mockReassignConnectionWidgets).toHaveBeenCalledWith(
-      "c1",
-      "c2",
-      "admin-1",
-      true,
-      "t1",
-    );
+    expect(mockReassignConnectionWidgets).toHaveBeenCalledWith({
+      fromConnectionId: "c1",
+      toConnectionId: "c2",
+      userId: "admin-1",
+      isAdmin: true,
+      tenantId: "t1",
+    });
   });
 
   it("returns zero counts when nothing uses the source connection", async () => {

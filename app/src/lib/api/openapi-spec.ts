@@ -324,6 +324,66 @@ const SPEC = {
         },
       },
     },
+    "/api/dashboards/{id}/reassign-connection": {
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      post: {
+        tags: ["Dashboards"],
+        summary: "Re-assign this dashboard's widgets to another connection",
+        description:
+          "Re-points widgets on THIS dashboard from one connection to another, " +
+          "leaving other dashboards using the same source untouched. Omit " +
+          "fromConnectionId (or pass an empty string) to fill in widgets that " +
+          "have no connection — e.g. after an import that skipped one. " +
+          "Content-only widgets (markdown, iframe) are never re-assigned. " +
+          "Requires editor access to the dashboard; the target connection must " +
+          "be one the caller can query, and must share the source's connector " +
+          "type when a real source is given. Widget queries are NOT validated " +
+          "against the target schema — incompatible queries fail at render time.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["targetConnectionId"],
+                properties: {
+                  fromConnectionId: {
+                    type: "string",
+                    description:
+                      "Source connection id. Empty or omitted targets widgets with no connection.",
+                  },
+                  targetConnectionId: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Connection to re-point the widgets to.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Widgets re-assigned",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    dashboardsUpdated: { type: "integer" },
+                    widgetsReassigned: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+        },
+      },
+    },
     "/api/dashboards/{id}/export": {
       parameters: [{ $ref: "#/components/parameters/IdPath" }],
       get: {

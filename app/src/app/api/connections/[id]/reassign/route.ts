@@ -94,13 +94,13 @@ export async function POST(
       );
     }
 
-    const result = await reassignConnectionWidgets(
-      id,
-      targetConnectionId,
+    const result = await reassignConnectionWidgets({
+      fromConnectionId: id,
+      toConnectionId: targetConnectionId,
       userId,
       isAdmin,
       tenantId,
-    );
+    });
 
     auditRequest(request, {
       tenantId,
