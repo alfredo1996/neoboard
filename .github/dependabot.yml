@@ -1,7 +1,44 @@
 version: 2
 updates:
+  # ── npm workspaces ────────────────────────────────────────────────────────
+  # This is an npm-workspaces monorepo: the root package.json declares
+  # ["app", "component", "connector-sdk", "connection", "cli"] and there is
+  # exactly ONE package-lock.json, at the repo root.
+  #
+  # Dependabot must therefore run from `/`. Pointing it at /app or /component
+  # (as it did until #1427) let it edit a workspace package.json without being
+  # able to regenerate the root lock, so every PR it opened died at `npm ci`:
+  #
+  #   npm error `npm ci` can only install packages when your package.json and
+  #   npm error package-lock.json are in sync.
+  #   npm error Missing: typescript@7.0.2 from lock file
+  #
+  # One entry at the root also covers connector-sdk and cli, which the
+  # per-package entries never watched at all.
   - package-ecosystem: npm
-    directory: /app
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    # Five workspaces now share one entry, so the previous per-package limit of
+    # 5 would be a tighter budget than before, not a looser one.
+    open-pull-requests-limit: 10
+    ignore:
+      # Tailwind v4 is a framework migration, not a dependency bump: new config
+      # model, and NeoBoard ships a custom tailwind-preset.cjs consumed by both
+      # app/ and component/. It is scheduled as its own work item with a visual
+      # review in both themes — see the "Tailwind v4 deferred" decision.
+      # Without this ignore the same PR returns every week (#1231, #1232).
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
+
+  # ── docs site ─────────────────────────────────────────────────────────────
+  # docs/ is NOT a workspace — it has its own package-lock.json, so it needs its
+  # own entry. It was unwatched entirely before #1427.
+  - package-ecosystem: npm
+    directory: /docs
     schedule:
       interval: weekly
     groups:
@@ -9,24 +46,9 @@ updates:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
 
-  - package-ecosystem: npm
-    directory: /component
-    schedule:
-      interval: weekly
-    groups:
-      minor-and-patch:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: npm
-    directory: /connection
-    schedule:
-      interval: weekly
-    groups:
-      minor-and-patch:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 5
-
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  # Unchanged. Action bumps touch no lockfile, which is why they are the only
+  # dependabot PRs that currently reach a green build.
   - package-ecosystem: github-actions
     directory: /
     schedule:
