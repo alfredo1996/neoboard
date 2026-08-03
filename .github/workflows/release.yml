@@ -230,6 +230,7 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       # App and CLI versions are independent — a CLI mismatch should SKIP
       # the npm publish, not FAIL the whole release (#982). Releasing app
