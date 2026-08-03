@@ -28,15 +28,21 @@ export function scrollAndHighlight(widgetId: string): boolean {
     // the 1.5s pulse in globals.css with margin.
     const clear = () => {
       clearTimeout(timer);
-      el.removeEventListener("animationend", clear);
-      el.removeEventListener("animationcancel", clear);
+      el.removeEventListener("animationend", onOwnAnimationDone);
+      el.removeEventListener("animationcancel", onOwnAnimationDone);
       el.classList.remove("widget-highlight");
     };
-    // Declared after `clear` so it can be `const`; `clear` only reads it when
+    // Both events bubble, and a widget card is full of things that animate on
+    // their own (skeletons, spinners, ECharts). Without the target check, the
+    // first descendant animation to finish would strip the highlight.
+    const onOwnAnimationDone = (event: Event) => {
+      if (event.target === el) clear();
+    };
+    // Declared after the handlers so it can be `const`; they only read it when
     // invoked, which is always after this line has run.
     const timer = setTimeout(clear, 2000);
-    el.addEventListener("animationend", clear);
-    el.addEventListener("animationcancel", clear);
+    el.addEventListener("animationend", onOwnAnimationDone);
+    el.addEventListener("animationcancel", onOwnAnimationDone);
 
     return true;
   }

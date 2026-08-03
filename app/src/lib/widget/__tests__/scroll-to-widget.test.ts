@@ -13,10 +13,11 @@ function makeFakeElement(hidden = false) {
     scrollIntoView: vi.fn(),
     classList: { add: vi.fn(), remove: vi.fn() },
     closest: vi.fn(() => (hidden ? {} : null)),
-    addEventListener: vi.fn((_event: string, cb: () => void) => {
-      // Immediately fire animationend for deterministic tests
-      cb();
-    }),
+    // Record only. This stub used to invoke the callback immediately with no
+    // argument, which no real listener ever does — the handler now reads
+    // `event.target`, and nothing here needs the event to fire. The highlight
+    // lifecycle is asserted against a real DOM in the sibling `.test.tsx`.
+    addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   };
 }

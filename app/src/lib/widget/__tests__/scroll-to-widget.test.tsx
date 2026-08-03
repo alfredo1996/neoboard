@@ -66,6 +66,26 @@ describe("scrollAndHighlight", () => {
     expect(el.classList.contains("widget-highlight")).toBe(false);
   });
 
+  // Animation events bubble. A widget card contains chart content that
+  // animates in its own right (skeletons, spinners, ECharts), and any one of
+  // those finishing would otherwise clear the highlight the moment it landed.
+  it("ignores animation events bubbling up from descendants", () => {
+    const el = mountWidget();
+    const child = document.createElement("div");
+    el.appendChild(child);
+    scrollAndHighlight("w-1");
+
+    child.dispatchEvent(new Event("animationend", { bubbles: true }));
+    expect(el.classList.contains("widget-highlight")).toBe(true);
+
+    child.dispatchEvent(new Event("animationcancel", { bubbles: true }));
+    expect(el.classList.contains("widget-highlight")).toBe(true);
+
+    // The widget's own animation still clears it.
+    el.dispatchEvent(new Event("animationend"));
+    expect(el.classList.contains("widget-highlight")).toBe(false);
+  });
+
   it("does not leave a pending timer once the animation has ended", () => {
     const el = mountWidget();
     scrollAndHighlight("w-1");
