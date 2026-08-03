@@ -47,9 +47,24 @@ updates:
     open-pull-requests-limit: 5
 
   # ── GitHub Actions ────────────────────────────────────────────────────────
-  # Unchanged. Action bumps touch no lockfile, which is why they are the only
-  # dependabot PRs that currently reach a green build.
+  # Action bumps touch no lockfile, which is why they were the only dependabot
+  # PRs that reached a green build before #1427.
+  #
+  # Majors only. This repo pins actions by FLOATING MAJOR TAG — 43 of 45 uses
+  # are `@vN` — so a `@v4` reference already receives every patch and minor
+  # automatically. Left unfiltered, dependabot still proposes `@v4` -> `@v4.5.2`
+  # (#1429, #1432), which would pin two actions out of 45 to an exact patch,
+  # break the convention, and open a PR on every future patch release.
+  #
+  # It buys nothing in return: `@v4.5.2` is a mutable git tag exactly like
+  # `@v4`. Real supply-chain pinning needs a full commit SHA, which would be a
+  # deliberate pass across all 45 references, not a drive-by on two.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-patch
+          - version-update:semver-minor
