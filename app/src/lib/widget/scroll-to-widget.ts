@@ -19,11 +19,25 @@ export function scrollAndHighlight(widgetId: string): boolean {
   if (el && !el.closest(".hidden")) {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("widget-highlight");
-    el.addEventListener(
-      "animationend",
-      () => el.classList.remove("widget-highlight"),
-      { once: true },
-    );
+
+    // `animationend` alone leaks the class: it never fires when the pulse is
+    // interrupted (that dispatches `animationcancel`) and never fires at all
+    // under `prefers-reduced-motion`, where the global reset in
+    // design-tokens.css sets `animation: none` (#1458). Listen for both events
+    // and keep a timer as the backstop for the no-animation case — 2s clears
+    // the 1.5s pulse in globals.css with margin.
+    const clear = () => {
+      clearTimeout(timer);
+      el.removeEventListener("animationend", clear);
+      el.removeEventListener("animationcancel", clear);
+      el.classList.remove("widget-highlight");
+    };
+    // Declared after `clear` so it can be `const`; `clear` only reads it when
+    // invoked, which is always after this line has run.
+    const timer = setTimeout(clear, 2000);
+    el.addEventListener("animationend", clear);
+    el.addEventListener("animationcancel", clear);
+
     return true;
   }
   return false;
