@@ -13,11 +13,27 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
+    # Dependabot PRs are always reshipped as first-party branches before
+    # they can merge (they cannot pass SonarCloud — no SONAR_TOKEN on
+    # bot-triggered runs), so the reship gets the review and reviewing the
+    # bot PR too is duplicate work. 15 of 60 PRs in the last six days were
+    # dependabot's.
+    ignore_usernames:
+      - "dependabot[bot]"
+    # Default is 5. Every push re-reviews, so a PR that takes a couple of
+    # fix commits burns several reviews against a per-developer budget.
+    # Re-request explicitly with `@coderabbitai review` when ready.
+    auto_pause_after_reviewed_commits: 3
     base_branches:
       - "main"
       - "dev"
       - "release/.*"
   path_filters:
+    # Generated lockfiles carry nothing reviewable and dominate the diff:
+    # #1449 handed the reviewer 7 files and ~24,900 changed lines, almost
+    # all of it the root lockfile. docs/ was already excluded; the root one
+    # was not.
+    - "!package-lock.json"
     - "!docs/package-lock.json"
     - "!docs/content/**/*.mdx"
     - "!docs/.source/**"
