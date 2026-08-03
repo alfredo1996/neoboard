@@ -56,6 +56,29 @@ export function getPreview(dialog: import("@playwright/test").Locator) {
 }
 
 /**
+ * Click Save on the dashboard editor and wait for the save to actually land.
+ *
+ * The long-standing `await expect(Save).toBeEnabled()` idiom is not a wait at
+ * all: the button is enabled both before and after the mutation, so the
+ * assertion passes on its first poll and the test races on while the store is
+ * still dirty. Clicking "Back" then trips the unsaved-changes guard, whose
+ * AlertDialog overlay swallows pointer events — which is what
+ * `parameters.spec.ts` and `form-widget.spec.ts` were each working around
+ * locally by clicking "Leave" if it happened to appear.
+ *
+ * `dashboard-workspace.tsx` calls `markSaved()` and only then raises this
+ * toast, so the toast is the first observable moment at which the store is
+ * genuinely clean. Waiting for it means the dialog never appears rather than
+ * being dismissed after the fact.
+ */
+export async function saveDashboard(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Dashboard saved", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
+/**
  * Safely type text into the CodeMirror editor inside a dialog.
  *
  * Uses CM6's `view.dispatch()` API via `page.evaluate()` to bypass the

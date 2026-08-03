@@ -1,4 +1,12 @@
-import { test, expect, ALICE, createTestDashboard, typeInEditor, getPreview } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+  getPreview,
+  saveDashboard,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Styling rules editor — table widget
@@ -26,7 +34,9 @@ test.describe("Styling rules — table widget", () => {
    * Helper: add a table widget, run a query, and navigate to the Advanced tab.
    * Returns the scoped dialog locator.
    */
-  async function addTableAndGoToAdvanced(page: import("@playwright/test").Page) {
+  async function addTableAndGoToAdvanced(
+    page: import("@playwright/test").Page,
+  ) {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
@@ -37,7 +47,9 @@ test.describe("Styling rules — table widget", () => {
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Wait for editor to be ready (connection selection may cause re-render)
-    await expect(dialog.locator("[data-testid='codemirror-container']")).toBeVisible({
+    await expect(
+      dialog.locator("[data-testid='codemirror-container']"),
+    ).toBeVisible({
       timeout: 5_000,
     });
 
@@ -47,7 +59,9 @@ test.describe("Styling rules — table widget", () => {
       page,
       "MATCH (m:Movie) RETURN m.title AS title, m.released AS released LIMIT 10",
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({
+    await expect(
+      dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
@@ -59,19 +73,25 @@ test.describe("Styling rules — table widget", () => {
     return dialog;
   }
 
-  test("should enable styling, add a rule, and see rule count", async ({ page }) => {
+  test("should enable styling, add a rule, and see rule count", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     const dialog = await addTableAndGoToAdvanced(page);
 
     // Enable styling
     await dialog.getByLabel("Enable rule-based styling").click();
-    await expect(dialog.getByText("No styling rules configured.")).toBeVisible();
+    await expect(
+      dialog.getByText("No styling rules configured."),
+    ).toBeVisible();
 
     // Open Styling Rules editor
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
 
     // Should now show the Styling Rules heading
-    await expect(page.getByRole("heading", { name: "Styling Rules" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Styling Rules" }),
+    ).toBeVisible();
     await expect(page.getByText("No styling rules yet")).toBeVisible();
 
     // Add a rule
@@ -95,10 +115,14 @@ test.describe("Styling rules — table widget", () => {
     // Should return to the main dialog and show rule count
     // Navigate back to Advanced tab
     await dialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(dialog.getByText("1 styling rule(s) configured.")).toBeVisible();
+    await expect(
+      dialog.getByText("1 styling rule(s) configured."),
+    ).toBeVisible();
   });
 
-  test("should show between operator with two bound inputs", async ({ page }) => {
+  test("should show between operator with two bound inputs", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     const dialog = await addTableAndGoToAdvanced(page);
 
@@ -121,7 +145,9 @@ test.describe("Styling rules — table widget", () => {
     await page.getByRole("button", { name: "Done" }).click();
   });
 
-  test("should show per-rule column selector for table type", async ({ page }) => {
+  test("should show per-rule column selector for table type", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     const dialog = await addTableAndGoToAdvanced(page);
 
@@ -164,10 +190,14 @@ test.describe("Styling rules — table widget", () => {
 
     // Verify rule count
     await dialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(dialog.getByText("1 styling rule(s) configured.")).toBeVisible();
+    await expect(
+      dialog.getByText("1 styling rule(s) configured."),
+    ).toBeVisible();
   });
 
-  test("should save widget with styling and verify colored rows", async ({ page }) => {
+  test("should save widget with styling and verify colored rows", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     const dialog = await addTableAndGoToAdvanced(page);
 
@@ -190,8 +220,7 @@ test.describe("Styling rules — table widget", () => {
     await expect(dialog).not.toBeVisible({ timeout: 5_000 });
 
     // Save dashboard
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 10_000 });
+    await saveDashboard(page);
 
     // Navigate to view mode
     await page.getByRole("button", { name: "Back" }).click();
@@ -200,7 +229,9 @@ test.describe("Styling rules — table widget", () => {
     // Wait for the table to render with styled rows
     // The table should have at least one row with inline background-color style
     await expect(async () => {
-      const styledRows = page.locator("[data-testid='widget-card'] tr[style*='background']");
+      const styledRows = page.locator(
+        "[data-testid='widget-card'] tr[style*='background']",
+      );
       await expect(styledRows.first()).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 30_000 });
   });
@@ -244,7 +275,9 @@ test.describe("Styling rules — bar chart", () => {
       page,
       "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5",
     );
-    await expect(dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)")).toBeEnabled({
+    await expect(
+      dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+    ).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
@@ -255,7 +288,9 @@ test.describe("Styling rules — bar chart", () => {
 
     // Enable styling
     await dialog.getByLabel("Enable rule-based styling").click();
-    await expect(dialog.getByText("No styling rules configured.")).toBeVisible();
+    await expect(
+      dialog.getByText("No styling rules configured."),
+    ).toBeVisible();
 
     // Open Styling Rules editor
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
@@ -272,7 +307,9 @@ test.describe("Styling rules — bar chart", () => {
 
     // Verify rule count
     await dialog.getByRole("tab", { name: "Advanced" }).click();
-    await expect(dialog.getByText("1 styling rule(s) configured.")).toBeVisible();
+    await expect(
+      dialog.getByText("1 styling rule(s) configured."),
+    ).toBeVisible();
 
     // Save without errors
     await dialog.getByRole("button", { name: "Add Widget" }).click();

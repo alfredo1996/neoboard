@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   getPreview,
+  saveDashboard,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -875,10 +876,7 @@ test.describe("Graph chart exploration", () => {
     await addGraphWidget(page);
 
     // Save and navigate to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
-    });
+    await saveDashboard(page);
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
@@ -951,10 +949,7 @@ test.describe("Graph chart exploration", () => {
     // Save and go to view mode.
     // waitForURL(/\/[\w-]+$/) would match /${id}/edit too (the word "edit" matches \w+),
     // so we explicitly wait for a URL that does NOT end with /edit.
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
-    });
+    await saveDashboard(page);
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
       timeout: 10_000,
