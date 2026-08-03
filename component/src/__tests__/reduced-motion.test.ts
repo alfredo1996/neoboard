@@ -21,9 +21,25 @@ import tokens from "../../design-tokens.css?raw";
  * is deleted or defanged. It cannot prove the cascade resolves as intended;
  * that is what the E2E suite exercises with `reducedMotion: "reduce"`.
  */
+/**
+ * The media block alone. Asserting against the whole stylesheet would let a
+ * declaration sitting anywhere else satisfy these checks — including one that
+ * disabled animation unconditionally, which is the opposite of the intent.
+ *
+ * Every rule inside the block is indented, so the media query's own closing
+ * brace is the first `}` at column 0.
+ */
+const reducedMotionBlock = (() => {
+  const start = tokens.search(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  if (start === -1) return null;
+  const rest = tokens.slice(start);
+  const end = rest.search(/\n\}/);
+  return end === -1 ? null : rest.slice(0, end);
+})();
+
 describe("prefers-reduced-motion reset", () => {
   it("declares a reduced-motion media block", () => {
-    expect(tokens).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    expect(reducedMotionBlock).not.toBeNull();
   });
 
   it("disables animation outright rather than merely shortening it", () => {
@@ -32,19 +48,23 @@ describe("prefers-reduced-motion reset", () => {
     // an `animationend` that a starved or dropped animation may never deliver.
     // `animation: none` makes Radix unmount synchronously — the property that
     // actually fixes the stuck-dialog flake.
-    expect(tokens).toMatch(/animation:\s*none\s*!important/);
+    expect(reducedMotionBlock).toMatch(/animation:\s*none\s*!important/);
   });
 
   it("disables transitions and smooth scrolling too", () => {
-    expect(tokens).toMatch(/transition:\s*none\s*!important/);
-    expect(tokens).toMatch(/scroll-behavior:\s*auto\s*!important/);
+    expect(reducedMotionBlock).toMatch(/transition:\s*none\s*!important/);
+    expect(reducedMotionBlock).toMatch(/scroll-behavior:\s*auto\s*!important/);
   });
 
   it("applies to pseudo-elements, not just elements", () => {
-    const block = tokens.slice(
-      tokens.search(/@media\s*\(prefers-reduced-motion:\s*reduce\)/),
-    );
-    expect(block).toContain("*::before");
-    expect(block).toContain("*::after");
+    expect(reducedMotionBlock).toContain("*::before");
+    expect(reducedMotionBlock).toContain("*::after");
+  });
+
+  it("scopes nothing outside the media block", () => {
+    // The guard on the guard: if the extraction ever silently captured the
+    // whole file, every assertion above would pass vacuously.
+    expect(reducedMotionBlock).not.toContain("--chart-1");
+    expect(tokens.length).toBeGreaterThan((reducedMotionBlock ?? "").length);
   });
 });
