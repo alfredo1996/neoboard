@@ -5,6 +5,7 @@ import {
   resolveValueKeys,
   collectAllKeys,
   toSeriesNumber,
+  validateNumericValueColumns,
 } from "../shared-utils";
 
 describe("toRecords", () => {
@@ -124,5 +125,98 @@ describe("toSeriesNumber", () => {
   it("returns null for Infinity / NaN", () => {
     expect(toSeriesNumber(Number.POSITIVE_INFINITY)).toBeNull();
     expect(toSeriesNumber(Number.NaN)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1400 — long-format rejection
+// ---------------------------------------------------------------------------
+
+describe("validateNumericValueColumns (#1400)", () => {
+  // The natural shape of `GROUP BY a, b`. Every non-label column was treated
+  // as a value series, so `series` became a series of its own whose cells all
+  // coerced to null — a ghost legend entry, duplicated x labels, and a chart
+  // that looked like data.
+  const longFormat = [
+    { category: "Apparel", series: "delivered", revenue: 100 },
+    { category: "Apparel", series: "shipped", revenue: 50 },
+    { category: "Home", series: "delivered", revenue: 80 },
+  ];
+
+  it("rejects a value column whose every non-null cell is non-numeric", () => {
+    const msg = validateNumericValueColumns(longFormat, "Bar chart");
+    expect(msg).not.toBeNull();
+  });
+
+  it("names the offending column", () => {
+    const msg = validateNumericValueColumns(longFormat, "Bar chart");
+    expect(msg).toContain("series");
+  });
+
+  it("accepts a wide-format result", () => {
+    const wide = [
+      { category: "Apparel", delivered: 100, shipped: 50 },
+      { category: "Home", delivered: 80, shipped: 20 },
+    ];
+    expect(validateNumericValueColumns(wide, "Bar chart")).toBeNull();
+  });
+
+  it("accepts numeric strings", () => {
+    const rows = [
+      { month: "Jan", revenue: "100" },
+      { month: "Feb", revenue: "200" },
+    ];
+    expect(validateNumericValueColumns(rows, "Line chart")).toBeNull();
+  });
+
+  // An all-null column is a legitimate sparse series — what a LEFT JOIN
+  // produces — and `collectAllKeys` exists specifically to keep it. Rejecting
+  // it would re-break the case the union-of-keys logic was written for.
+  it("accepts an entirely null column as a sparse series", () => {
+    const sparse = [
+      { month: "Jan", revenue: 100, forecast: null },
+      { month: "Feb", revenue: 200, forecast: null },
+    ];
+    expect(validateNumericValueColumns(sparse, "Line chart")).toBeNull();
+  });
+
+  it("accepts a column that is only partly populated", () => {
+    const partial = [
+      { month: "Jan", revenue: 100, forecast: null },
+      { month: "Feb", revenue: 200, forecast: 250 },
+    ];
+    expect(validateNumericValueColumns(partial, "Line chart")).toBeNull();
+  });
+
+  it("respects an explicit yAxis mapping and ignores unmapped text columns", () => {
+    // The user mapped the value column themselves; `series` is not plotted,
+    // so it must not be flagged.
+    const msg = validateNumericValueColumns(longFormat, "Bar chart", {
+      xAxis: "category",
+      yAxis: ["revenue"],
+    });
+    expect(msg).toBeNull();
+  });
+
+  it("flags an explicitly mapped column that is non-numeric", () => {
+    const msg = validateNumericValueColumns(longFormat, "Bar chart", {
+      xAxis: "category",
+      yAxis: ["series"],
+    });
+    expect(msg).toContain("series");
+  });
+
+  it("names every offending column when there is more than one", () => {
+    const rows = [
+      { category: "A", series: "x", label: "p", revenue: 1 },
+      { category: "B", series: "y", label: "q", revenue: 2 },
+    ];
+    const msg = validateNumericValueColumns(rows, "Bar chart") ?? "";
+    expect(msg).toContain("series");
+    expect(msg).toContain("label");
+  });
+
+  it("returns null for empty data", () => {
+    expect(validateNumericValueColumns([], "Bar chart")).toBeNull();
   });
 });

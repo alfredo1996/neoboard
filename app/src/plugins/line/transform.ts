@@ -9,6 +9,7 @@ import {
   normalizeValue,
   collectAllKeys,
   toSeriesNumber,
+  validateNumericValueColumns,
   type ColumnMapping,
 } from "../transforms/shared-utils";
 
@@ -47,11 +48,14 @@ export function transformToLineData(
  * Validates raw data shape for line charts.
  * Returns null if valid or empty, error string if rows exist but shape is wrong.
  */
-export function validateLineData(data: unknown): string | null {
+export function validateLineData(
+  data: unknown,
+  mapping?: ColumnMapping,
+): string | null {
   const records = toRecords(data);
   if (!records.length) return null;
   const cols = collectAllKeys(records).length;
   if (cols < 2)
     return `Line chart requires at least 2 columns: first column for x-axis values (dates, numbers, or labels) and one or more columns for numeric series. Your query returned only ${cols} column(s). Example: \`SELECT date, revenue FROM ...\``;
-  return null;
+  return validateNumericValueColumns(records, "Line chart", mapping);
 }
