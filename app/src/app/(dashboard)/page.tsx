@@ -31,6 +31,8 @@ import {
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import {
+  Alert,
+  AlertDescription,
   Button,
   Input,
   Badge,
@@ -66,6 +68,11 @@ import {
   TimeAgo,
   useToast,
 } from "@neoboard/components";
+import { DashboardConnectionDialog } from "@/components/dashboard-connection-dialog";
+import {
+  importFollowUp,
+  type ImportFollowUp,
+} from "@/lib/dashboard/import-follow-up";
 import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
 import { dashboardListSubtitle } from "./dashboard-list-subtitle";
@@ -117,6 +124,12 @@ async function triggerExport(id: string, name: string) {
 interface ImportDashboardDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  /**
+   * Offered after an import that left widgets without a connection (#1377).
+   * Hands the new dashboard to the page-level connection dialog rather than
+   * mounting a second copy of it here.
+   */
+  readonly onFixConnections: (dashboard: { id: string; name: string }) => void;
 }
 
 /**
@@ -128,11 +141,14 @@ const NEODASH_PLACEHOLDER_KEY = "neodash-default";
 interface ImportSuccessState {
   id: string;
   notes: string[];
+  /** Whether to offer the bulk connection fix, and for how many widgets (#1377). */
+  followUp: ImportFollowUp;
 }
 
 function ImportDashboardDialog({
   open,
   onOpenChange,
+  onFixConnections,
 }: ImportDashboardDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -268,7 +284,14 @@ function ImportDashboardDialog({
         skippedConnections: Array.from(skipped),
       });
       // Don't redirect — replace the form with notes + View/Stay buttons.
-      setSuccessState({ id: result.id, notes: result.notes ?? [] });
+      setSuccessState({
+        id: result.id,
+        notes: result.notes ?? [],
+        followUp: importFollowUp(
+          result.unassignedWidgetCount ?? 0,
+          Array.from(skipped).map((key) => parsed.connections[key]?.type),
+        ),
+      });
     } catch (error) {
       // Contents/validation error — show it by the preview, not the picker.
       setSubmitError(
@@ -308,6 +331,44 @@ function ImportDashboardDialog({
                   ))}
                 </ul>
               </div>
+            )}
+            {/* Bulk remedy for the gap the import just created (#1377). The
+                count comes from the response, so it always matches the note. */}
+            {successState.followUp.kind === "manual" && (
+              <Alert>
+                <AlertDescription>
+                  The skipped connections use different connector types, so they
+                  can’t all be re-pointed at one connection. Assign these in the
+                  widget editor.
+                </AlertDescription>
+              </Alert>
+            )}
+            {successState.followUp.kind === "bulk" && (
+              <Alert>
+                <AlertDescription className="space-y-2">
+                  <span className="block">
+                    {successState.followUp.count === 1
+                      ? "1 widget has"
+                      : `${successState.followUp.count} widgets have`}{" "}
+                    no connection. Assign one to all of them now instead of
+                    opening each widget.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const target = {
+                        id: successState.id,
+                        name: parsed?.dashboardName ?? "Imported dashboard",
+                      };
+                      handleOpenChange(false);
+                      onFixConnections(target);
+                    }}
+                  >
+                    Assign a connection
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
           </div>
           <DialogFooter>
@@ -634,6 +695,12 @@ export default function DashboardListPage() {
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  // Bulk connection-change dialog (#1376), also the post-import remedy (#1377).
+  // One dialog serves both entry points because both live on this page.
+  const [connectionTarget, setConnectionTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [search, setSearch] = useState("");
 
   const canCreate = systemRole === "admin" || systemRole === "creator";
@@ -873,7 +940,21 @@ export default function DashboardListPage() {
         }}
       />
 
-      <ImportDashboardDialog open={showImport} onOpenChange={setShowImport} />
+      <ImportDashboardDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        onFixConnections={setConnectionTarget}
+      />
+
+      <DashboardConnectionDialog
+        open={connectionTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setConnectionTarget(null);
+        }}
+        // "" while closed keeps useDashboard disabled.
+        dashboardId={connectionTarget?.id ?? ""}
+        dashboardName={connectionTarget?.name ?? ""}
+      />
 
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading dashboards...">
@@ -986,6 +1067,19 @@ export default function DashboardListPage() {
                                       >
                                         <Copy className="mr-2 h-4 w-4" />
                                         Duplicate
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canEdit && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          setConnectionTarget({
+                                            id: d.id,
+                                            name: d.name,
+                                          })
+                                        }
+                                      >
+                                        <Database className="mr-2 h-4 w-4" />
+                                        Change connection…
                                       </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem

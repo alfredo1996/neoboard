@@ -29,7 +29,15 @@ export interface CreateConnectionInput {
   };
 }
 
-export function useConnections(limit = 100, offset = 0) {
+export interface UseConnectionsOptions {
+  limit?: number;
+  offset?: number;
+  /** Skip the request entirely — e.g. dashboard view mode has no use for it. */
+  enabled?: boolean;
+}
+
+export function useConnections(options?: UseConnectionsOptions) {
+  const { limit = 100, offset = 0, enabled = true } = options ?? {};
   return useQuery<ConnectionListItem[]>({
     queryKey: ["connections", limit, offset],
     queryFn: async () => {
@@ -38,6 +46,7 @@ export function useConnections(limit = 100, offset = 0) {
       );
       return unwrapResponse<ConnectionListItem[]>(res);
     },
+    enabled,
   });
 }
 

@@ -13,10 +13,12 @@ function makeFakeElement(hidden = false) {
     scrollIntoView: vi.fn(),
     classList: { add: vi.fn(), remove: vi.fn() },
     closest: vi.fn(() => (hidden ? {} : null)),
-    addEventListener: vi.fn((_event: string, cb: () => void) => {
-      // Immediately fire animationend for deterministic tests
-      cb();
-    }),
+    // Record only. This stub used to invoke the callback immediately with no
+    // argument, which no real listener ever does — the handler now reads
+    // `event.target`, and nothing here needs the event to fire. The highlight
+    // lifecycle is asserted against a real DOM in the sibling `.test.tsx`.
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
   };
 }
 
@@ -35,30 +37,12 @@ afterEach(() => {
 // ── scrollAndHighlight ───────────────────────────────────────────────────────
 
 describe("scrollAndHighlight", () => {
-  it("returns false when the element is not found", () => {
-    vi.stubGlobal("document", { querySelector: vi.fn(() => null) });
-    expect(scrollAndHighlight("w1")).toBe(false);
-  });
-
-  it("returns false when the element is inside a hidden container", () => {
-    const el = makeFakeElement(true);
-    vi.stubGlobal("document", { querySelector: vi.fn(() => el) });
-    expect(scrollAndHighlight("w1")).toBe(false);
-  });
-
-  it("scrolls, highlights, and returns true for a visible element", () => {
-    const el = makeFakeElement();
-    vi.stubGlobal("document", { querySelector: vi.fn(() => el) });
-
-    expect(scrollAndHighlight("w1")).toBe(true);
-    expect(el.scrollIntoView).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "center",
-    });
-    expect(el.classList.add).toHaveBeenCalledWith("widget-highlight");
-    // animationend fires immediately in mock -> remove called
-    expect(el.classList.remove).toHaveBeenCalledWith("widget-highlight");
-  });
+  // The scroll/highlight/cleanup behaviour is asserted against a real DOM in
+  // `src/lib/widget/__tests__/scroll-to-widget.test.tsx` (jsdom project). The
+  // mock-based versions that used to live here asserted only that a stubbed
+  // `addEventListener` had invoked its own callback, which stayed green
+  // whether or not the highlight was ever cleared (#1458). What remains here
+  // is the part that genuinely needs no DOM: selector construction.
 
   it("uses CSS.escape on the widgetId to handle special characters", () => {
     const qsa = vi.fn<(selector: string) => Element | null>(() => null);

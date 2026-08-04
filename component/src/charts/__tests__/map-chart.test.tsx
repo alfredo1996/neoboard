@@ -423,4 +423,29 @@ describe("MapChart", () => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
   });
+
+  // Leaflet's zoom animation arms a bare `setTimeout(_onZoomTransitionEnd, 250)`
+  // that `map.remove()` never cancels. If the map is unmounted mid-zoom, that
+  // callback fires against a map whose `_mapPane` has been deleted and throws
+  // "Cannot read properties of undefined (reading '_leaflet_pos')" — an
+  // unhandled error that failed the whole Storybook browser run even though
+  // every story passed. `_onZoomTransitionEnd` early-returns on a falsy
+  // `_animatingZoom`, so clearing the flag before removal disarms it.
+  describe("teardown during a zoom animation", () => {
+    it("clears the pending zoom transition before removing the map", () => {
+      const { unmount } = render(<MapChart />);
+      const map = (L.map as unknown as ReturnType<typeof vi.fn>).mock.results[0]
+        .value as { _animatingZoom?: boolean };
+      map._animatingZoom = true;
+
+      let animatingAtRemoval: boolean | undefined;
+      mockRemove.mockImplementation(() => {
+        animatingAtRemoval = map._animatingZoom;
+      });
+      unmount();
+
+      expect(mockRemove).toHaveBeenCalled();
+      expect(animatingAtRemoval).toBe(false);
+    });
+  });
 });

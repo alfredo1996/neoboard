@@ -26,16 +26,19 @@ export function parseUrlParams(
 
 /**
  * Build URL search params from parameter store values.
- * Only non-empty values are included, prefixed with "param_".
- * e.g., { year: "1999", dept: "" } → ?param_year=1999
+ * Only non-empty values of params in `syncable` are included, prefixed with
+ * "param_". e.g., { year: "1999", dept: "" } → ?param_year=1999
+ *
+ * `syncable` is required, not optional: URL sync is opt-in per widget, and an
+ * omitted allow-list would silently publish every parameter.
  */
 export function buildUrlParams(
   params: Record<string, unknown>,
-  excludeFromUrl?: Set<string>,
+  syncable: ReadonlySet<string>,
 ): URLSearchParams {
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (excludeFromUrl?.has(key)) continue;
+    if (!syncable.has(key)) continue;
     if (value !== undefined && value !== null && String(value) !== "") {
       sp.set(`${PARAM_PREFIX}${key}`, String(value));
     }
@@ -45,12 +48,38 @@ export function buildUrlParams(
 }
 
 /**
- * Extract parameter names that have `syncToUrl: false` in their widget settings.
- * Returns a Set of parameter names that should NOT be synced to the URL.
- * By default (when syncToUrl is omitted or true), params ARE synced.
+ * Build the dashboard URL for the current parameter store values.
+ * Returns the bare pathname when nothing is left to sync.
  */
-export function extractNoSyncParams(layout: DashboardLayoutV2): Set<string> {
-  const noSync = new Set<string>();
+export function buildParamsUrl(
+  pathname: string,
+  parameters: Record<string, { value: unknown } | undefined>,
+  syncable: ReadonlySet<string>,
+): string {
+  const sp = buildUrlParams(
+    Object.fromEntries(
+      Object.entries(parameters).map(([key, entry]) => [key, entry?.value]),
+    ),
+    syncable,
+  );
+  const qs = sp.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
+/**
+ * Suffixes that range widgets append to their parameter name
+ * (see `useParamActions.setCompanion`).
+ */
+const COMPANION_SUFFIXES = ["from", "to", "min", "max"];
+
+/**
+ * Extract the parameter names allowed in the URL — those whose widget turned
+ * "Sync to URL" on. Sync is opt-in: the chart option defaults to false and is
+ * absent until the author toggles it, so anything else (an untouched widget, a
+ * click-action or form parameter) stays out of the address bar.
+ */
+export function extractSyncParams(layout: DashboardLayoutV2): Set<string> {
+  const sync = new Set<string>();
   for (const page of layout.pages) {
     for (const widget of page.widgets) {
       if (widget.chartType !== "parameter-select") continue;
@@ -59,10 +88,15 @@ export function extractNoSyncParams(layout: DashboardLayoutV2): Set<string> {
         unknown
       >;
       const paramName = opts.parameterName as string | undefined;
-      if (paramName && opts.syncToUrl === false) {
-        noSync.add(paramName);
+      if (paramName && opts.syncToUrl === true) {
+        sync.add(paramName);
+        // ponytail: add every companion key regardless of parameterType —
+        // a `select` simply never writes them, so the extra entries are inert.
+        for (const suffix of COMPANION_SUFFIXES) {
+          sync.add(`${paramName}_${suffix}`);
+        }
       }
     }
   }
-  return noSync;
+  return sync;
 }
