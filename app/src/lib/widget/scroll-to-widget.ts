@@ -19,11 +19,31 @@ export function scrollAndHighlight(widgetId: string): boolean {
   if (el && !el.closest(".hidden")) {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("widget-highlight");
-    el.addEventListener(
-      "animationend",
-      () => el.classList.remove("widget-highlight"),
-      { once: true },
-    );
+
+    // `animationend` alone leaks the class: it never fires when the pulse is
+    // interrupted (that dispatches `animationcancel`) and never fires at all
+    // under `prefers-reduced-motion`, where the global reset in
+    // design-tokens.css sets `animation: none` (#1458). Listen for both events
+    // and keep a timer as the backstop for the no-animation case — 2s clears
+    // the 1.5s pulse in globals.css with margin.
+    const clear = () => {
+      clearTimeout(timer);
+      el.removeEventListener("animationend", onOwnAnimationDone);
+      el.removeEventListener("animationcancel", onOwnAnimationDone);
+      el.classList.remove("widget-highlight");
+    };
+    // Both events bubble, and a widget card is full of things that animate on
+    // their own (skeletons, spinners, ECharts). Without the target check, the
+    // first descendant animation to finish would strip the highlight.
+    const onOwnAnimationDone = (event: Event) => {
+      if (event.target === el) clear();
+    };
+    // Declared after the handlers so it can be `const`; they only read it when
+    // invoked, which is always after this line has run.
+    const timer = setTimeout(clear, 2000);
+    el.addEventListener("animationend", onOwnAnimationDone);
+    el.addEventListener("animationcancel", onOwnAnimationDone);
+
     return true;
   }
   return false;
