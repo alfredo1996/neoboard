@@ -97,8 +97,10 @@ describe("SingleValueChart", () => {
     expect(screen.getByText(/1\.5M/i)).toBeInTheDocument();
   });
 
-  it("appends percent sign when numberFormat is percent", () => {
-    render(<SingleValueChart value={75} numberFormat="percent" />);
+  // #1396 — percent takes a ratio and scales it, so the KPI showing
+  // "401 / 2000" now reads 20.05% rather than 0.2%.
+  it("scales a ratio when numberFormat is percent", () => {
+    render(<SingleValueChart value={0.75} numberFormat="percent" />);
     expect(screen.getByText("75%")).toBeInTheDocument();
   });
 

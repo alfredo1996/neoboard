@@ -62,14 +62,53 @@ describe("formatNumber", () => {
     expect(result).toMatch(/1\.2K/i);
   });
 
-  it("applies percent format", () => {
-    expect(formatNumber(75, { numberFormat: "percent" })).toBe("75%");
-  });
+  // #1396 — `percent` takes a RATIO and scales it, matching Intl's own
+  // `style: "percent"` and every spreadsheet. It used to append a bare "%"
+  // and scale nothing, so 0.2005 rendered as "0.2%" instead of "20.05%" —
+  // a plausible wrong number on the most prominent widget in the product.
+  describe("percent (#1396)", () => {
+    it("scales a ratio to a percentage", () => {
+      expect(formatNumber(0.2005, { numberFormat: "percent" })).toBe("20.05%");
+    });
 
-  it("applies percent format with decimalPlaces", () => {
-    expect(
-      formatNumber(75.678, { numberFormat: "percent", decimalPlaces: 1 }),
-    ).toBe("75.7%");
+    // Pins the convention: under the old "already 0-100" reading this was "1%".
+    it("renders 1 as 100%, not 1%", () => {
+      expect(formatNumber(1, { numberFormat: "percent" })).toBe("100%");
+    });
+
+    it("applies decimalPlaces after scaling", () => {
+      expect(
+        formatNumber(0.75678, { numberFormat: "percent", decimalPlaces: 1 }),
+      ).toBe("75.7%");
+    });
+
+    it("pads to decimalPlaces when asked", () => {
+      expect(
+        formatNumber(0.42, { numberFormat: "percent", decimalPlaces: 1 }),
+      ).toBe("42.0%");
+    });
+
+    it("does not pad when decimalPlaces is unset", () => {
+      expect(formatNumber(0.5, { numberFormat: "percent" })).toBe("50%");
+    });
+
+    it("groups thousands for ratios above 10", () => {
+      expect(formatNumber(12.5, { numberFormat: "percent" })).toBe("1,250%");
+    });
+
+    it("handles negative ratios", () => {
+      expect(formatNumber(-0.035, { numberFormat: "percent" })).toBe("-3.5%");
+    });
+
+    it("still applies prefix and suffix", () => {
+      expect(
+        formatNumber(0.2, {
+          numberFormat: "percent",
+          prefix: "~",
+          suffix: " YoY",
+        }),
+      ).toBe("~20% YoY");
+    });
   });
 
   it("adds prefix (and applies new defaults — prefix doesn't count as set)", () => {
