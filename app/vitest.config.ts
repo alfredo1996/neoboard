@@ -10,10 +10,11 @@ export default defineConfig({
     // headroom before it runs out of cores and workers start failing to boot
     // ("Timeout waiting for worker to respond"), taking whole test files with
     // them. Measured on a 10-core box: default = 889s with 96 failures and 9
-    // files never collected; capped = 28s, everything green.
+    // files never collected; at this setting = 37s, everything green.
     //
     // A percentage rather than a fixed number so CI runners (fewer vCPUs)
     // scale down with it instead of inheriting a value tuned for a laptop.
+    // Confirmed harmless on CI: the unit job went 8m08s -> 8m20s.
     maxWorkers: "50%",
     coverage: {
       provider: "v8",
