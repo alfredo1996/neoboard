@@ -60,6 +60,7 @@ storybook-static
 playwright-report/
 test-results/
 app/e2e/.containers-state.json
+app/e2e/.server-pid
 
 # Coverage reports (generated — never commit)
 coverage/

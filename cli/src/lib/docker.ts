@@ -118,6 +118,34 @@ export interface ContainerInfo {
   status: string;
 }
 
+/** A row of `docker compose ps --format json`, either casing. */
+type ComposePsRow = Partial<
+  Record<"Name" | "name" | "State" | "state" | "Status" | "status", string>
+>;
+
+/**
+ * `docker compose ps --format json` emits either shape depending on version
+ * (#1369): current Compose prints a single line holding a JSON ARRAY, older
+ * versions print one JSON object per line.
+ *
+ * Only the per-line shape was handled, and it failed silently on the other:
+ * an array is valid JSON, so `JSON.parse` of the whole line succeeded, `.map`
+ * over the single "line" returned exactly ONE entry, and `Name`/`State`/
+ * `Status` were `undefined` on an array — so status always read
+ * "running (1 containers)" with empty fields, whatever was actually up.
+ */
+function parseComposePs(out: string): ComposePsRow[] {
+  try {
+    const parsed = JSON.parse(out);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return out
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  }
+}
+
 export function composePs(): ContainerInfo[] {
   const file = composeFile();
   // Quote the path — a checkout under a directory with a space (e.g.
@@ -128,18 +156,11 @@ export function composePs(): ContainerInfo[] {
   });
   if (!out) return [];
   try {
-    // docker compose ps --format json outputs one JSON object per line
-    return out
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        const obj = JSON.parse(line);
-        return {
-          name: obj.Name ?? obj.name ?? "",
-          state: obj.State ?? obj.state ?? "",
-          status: obj.Status ?? obj.status ?? "",
-        };
-      });
+    return parseComposePs(out).map((row) => ({
+      name: row.Name ?? row.name ?? "",
+      state: row.State ?? row.state ?? "",
+      status: row.Status ?? row.status ?? "",
+    }));
   } catch {
     return [];
   }

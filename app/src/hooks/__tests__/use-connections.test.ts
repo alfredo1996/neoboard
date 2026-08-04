@@ -64,7 +64,7 @@ describe("use-connections", () => {
 
     it("passes custom limit and offset", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse([]));
-      const config = useConnections(50, 10) as unknown as {
+      const config = useConnections({ limit: 50, offset: 10 }) as unknown as {
         queryFn: () => Promise<unknown>;
       };
       await config.queryFn();

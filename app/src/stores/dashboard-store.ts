@@ -13,11 +13,9 @@ interface DashboardState {
    *  Avoids O(n) JSON.stringify comparison on every check. */
   _dirty: boolean;
   activePageIndex: number;
-  editMode: boolean;
 
   // Layout
   setLayout: (layout: DashboardLayoutV2, initialPageIndex?: number) => void;
-  setEditMode: (editMode: boolean) => void;
   reset: () => void;
 
   // Unsaved changes tracking
@@ -92,26 +90,28 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   savedLayout: null,
   _dirty: false,
   activePageIndex: 0,
-  editMode: false,
 
   setLayout: (layout, initialPageIndex = 0) =>
     set({
       layout,
       savedLayout: JSON.parse(JSON.stringify(layout)) as DashboardLayoutV2,
       _dirty: false,
-      activePageIndex: Math.min(
-        isNaN(initialPageIndex) ? 0 : initialPageIndex,
-        layout.pages.length - 1,
+      // Clamp both ends: `?page=` arrives as an arbitrary string, and a
+      // negative index rendered a blank dashboard instead of page 1 (#1371).
+      activePageIndex: Math.max(
+        0,
+        Math.min(
+          isNaN(initialPageIndex) ? 0 : initialPageIndex,
+          layout.pages.length - 1,
+        ),
       ),
     }),
-  setEditMode: (editMode) => set({ editMode }),
   reset: () =>
     set({
       layout: emptyLayout,
       savedLayout: null,
       _dirty: false,
       activePageIndex: 0,
-      editMode: false,
     }),
 
   // Unsaved changes tracking — uses dirty flag for O(1) checks

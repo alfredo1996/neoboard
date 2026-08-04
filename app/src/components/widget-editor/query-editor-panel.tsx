@@ -2,7 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { AlertCircle, Info, RefreshCw, Clock } from "lucide-react";
+import {
+  AlertCircle,
+  Info,
+  RefreshCw,
+  Clock,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 import {
   Alert,
   AlertDescription,
@@ -122,12 +129,18 @@ export interface QueryEditorPanelProps {
   editorLanguage: string;
   /** When true, shows a running/loading indicator on the query editor. */
   running?: boolean;
+  /** #1374 — when true the editor is expanded and the preview pane is unmounted. */
+  maximized?: boolean;
+  /** When omitted, the expand/collapse toggle is not rendered. */
+  onToggleMaximized?: () => void;
 }
 
 export function QueryEditorPanel({
   onRun,
   editorLanguage,
   running,
+  maximized = false,
+  onToggleMaximized,
 }: QueryEditorPanelProps) {
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const query = useWidgetEditorStore((s) => s.query);
@@ -248,6 +261,35 @@ export function QueryEditorPanel({
             )}
           </>
         )}
+        {/* #1374 — lives in the *editor* header, not the preview header: the
+            preview header disappears when maximized, which would leave no way
+            back (and #1372 adds its own toggle there). */}
+        {onToggleMaximized && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="ml-auto h-5 w-5"
+                onClick={onToggleMaximized}
+                aria-pressed={maximized}
+                aria-label={maximized ? "Collapse editor" : "Expand editor"}
+              >
+                {maximized ? (
+                  <Minimize2 className="h-3 w-3" />
+                ) : (
+                  <Maximize2 className="h-3 w-3" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {maximized
+                ? "Restore the preview alongside the editor"
+                : "Hide the preview and give the editor the full modal width"}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
       {!connectionId && query.trim() && (
         <Alert
@@ -273,7 +315,15 @@ export function QueryEditorPanel({
             ? "SELECT * FROM users LIMIT 10"
             : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
         }
-        className="min-h-[220px]"
+        // Collapsed, the editor has NO definite height: `.cm-editor { height:
+        // 100% }` resolves against an indefinite flex parent, so it computes to
+        // `auto` and the column grows with the document (measured 220px empty →
+        // 2391px at 120 lines). What scrolls then is the whole settings column,
+        // toolbar and chart selectors and all. Maximized we give it a definite
+        // height so it scrolls itself with the Run toolbar pinned. 70vh is the
+        // practical ceiling — the modal body is capped at calc(90vh - 180px),
+        // so anything larger just spills back into the column (#1374).
+        className={maximized ? "h-[70vh] min-h-[220px]" : "min-h-[220px]"}
       />
     </div>
   );

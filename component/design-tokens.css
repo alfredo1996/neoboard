@@ -190,3 +190,36 @@
   --chart-9: 172 60% 44%;
   --chart-10: 150 50% 68%;
 }
+
+/**
+ * Global reduced-motion reset (#1458).
+ *
+ * This file is the only stylesheet that both `component/src/index.css` and
+ * `app/src/app/globals.css` import, so it is the single point that reaches
+ * every surface in both packages.
+ *
+ * Why not `motion-reduce:animate-none` per component: the ten Radix overlay
+ * primitives animate through data-attribute variants such as
+ * `data-[state=open]:animate-in`, which compile to `.class[data-state=open]`
+ * — specificity (0,2,0). The `motion-reduce:` utility is (0,1,0) and a media
+ * query contributes no specificity, so the per-component variant loses the
+ * cascade outright. `!important` here wins once instead of losing fourteen
+ * times.
+ *
+ * Why `animation: none` and not the usual `animation-duration: 0.01ms`:
+ * Radix's presence machinery reads `getComputedStyle(node).animationName` and
+ * unmounts synchronously when it is `none`, but waits for an `animationend`
+ * when it is not. A starved or dropped animation may never deliver that event
+ * — which is precisely the stuck-dialog flake this fixes. Code that relies on
+ * `animationend` to clean up must therefore carry its own fallback; see
+ * `app/src/lib/widget/scroll-to-widget.ts`.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

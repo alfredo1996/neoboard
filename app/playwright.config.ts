@@ -51,6 +51,16 @@ export default defineConfig({
     // unresolved. 1280×1024 fits every dialog in the suite without
     // changing per-test code, and never auto-resizes during a run.
     viewport: { width: 1280, height: 1024 },
+    // Run the suite as a reduced-motion user (#1458). Radix keeps an overlay
+    // mounted until its CSS exit animation reports `animationend`; when a
+    // heavy widget (NVL/WebGL) mounts alongside the close, that animation can
+    // stall and the dialog stays in the DOM long past any sane budget — the
+    // `expect(dialog).not.toBeVisible()` flake across the graph tests. The
+    // reduced-motion reset in design-tokens.css sets `animation: none`, which
+    // makes Radix unmount synchronously, so the stall cannot occur. This also
+    // means the suite exercises the reduced-motion path in CI, which is the
+    // accessibility branch that otherwise gets no coverage at all.
+    contextOptions: { reducedMotion: "reduce" },
   },
 
   projects: [
