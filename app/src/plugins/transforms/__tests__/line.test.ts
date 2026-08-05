@@ -94,3 +94,35 @@ describe("validateLineData", () => {
     expect(err).toContain("Line chart");
   });
 });
+
+// #1400 — line was the worse of the two: one revenue line drawn across
+// duplicated x values, interleaving delivered -> shipped -> delivered, which
+// reads as a violently spiky time series but is pure artifact.
+describe("validateLineData — long format (#1400)", () => {
+  const longFormat = [
+    { week: "2026-01-05", series: "delivered", revenue: 100 },
+    { week: "2026-01-05", series: "shipped", revenue: 50 },
+    { week: "2026-01-12", series: "delivered", revenue: 80 },
+  ];
+
+  it("rejects a long-format result naming the offending column", () => {
+    const err = validateLineData(longFormat);
+    expect(err).not.toBeNull();
+    expect(err).toContain("series");
+  });
+
+  it("accepts the wide-format equivalent", () => {
+    expect(
+      validateLineData([
+        { week: "2026-01-05", delivered: 100, shipped: 50 },
+        { week: "2026-01-12", delivered: 80, shipped: 20 },
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts long format once the value column is mapped explicitly", () => {
+    expect(
+      validateLineData(longFormat, { xAxis: "week", yAxis: ["revenue"] }),
+    ).toBeNull();
+  });
+});
