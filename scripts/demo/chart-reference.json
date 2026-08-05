@@ -1519,7 +1519,7 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT (COUNT(*) FILTER (WHERE status='delivered') * 1.0 / NULLIF(COUNT(*),0))::float AS value FROM neoboard_demo_public.orders",
             "settings": {
-              "title": "numberFormat = percent (0.42)",
+              "title": "numberFormat = percent (ratio 0.42 → 42.0%)",
               "chartOptions": {
                 "numberFormat": "percent",
                 "decimalPlaces": 1

@@ -5,14 +5,7 @@
 type Row = Record<string, unknown>;
 
 export type FilterOperator =
-  | ">"
-  | ">="
-  | "<"
-  | "<="
-  | "=="
-  | "!="
-  | "contains"
-  | "not_contains";
+  ">" | ">=" | "<" | "<=" | "==" | "!=" | "contains" | "not_contains";
 
 export interface FilterTransform {
   type: "filter";
@@ -195,7 +188,10 @@ function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
 
       switch (agg.fn) {
         case "count":
-          aggregated[outKey] = rows.length;
+          // SQL's COUNT(col), not COUNT(*) — the output key is named for the
+          // column, and every other aggregation here already skips nulls.
+          // Counting rows made `sum / count` disagree with `avg` (#1414).
+          aggregated[outKey] = values.length;
           break;
         case "sum":
           aggregated[outKey] = nums.reduce((a, b) => a + b, 0);
