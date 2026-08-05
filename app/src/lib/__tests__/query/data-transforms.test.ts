@@ -199,6 +199,73 @@ describe("applyTransforms", () => {
       expect(eng?.salary_min).toBe(110000);
       expect(eng?.salary_max).toBe(130000);
     });
+
+    // #1414 — `count` used to count rows while every other aggregation skipped
+    // nulls, so `sum / count` disagreed with `avg` on any column a LEFT JOIN
+    // had left holes in. It now counts non-null values, i.e. SQL's COUNT(col).
+    describe("count over nulls (#1414)", () => {
+      const withNulls = [
+        { region: "EU", revenue: 100 },
+        { region: "EU", revenue: 200 },
+        { region: "EU", revenue: null },
+      ];
+
+      const groupByRegion = (
+        fns: Array<"count" | "sum" | "avg">,
+      ): Transform[] => [
+        {
+          type: "groupBy",
+          column: "region",
+          aggregations: fns.map((fn) => ({ column: "revenue", fn })),
+        },
+      ];
+
+      it("counts non-null values, not rows", () => {
+        const [eu] = applyTransforms(withNulls, groupByRegion(["count"]));
+        expect(eu.revenue_count).toBe(2);
+      });
+
+      it("holds the invariant sum / count === avg for every group", () => {
+        const result = applyTransforms(
+          [
+            ...withNulls,
+            { region: "US", revenue: 50 },
+            { region: "US", revenue: null },
+          ],
+          groupByRegion(["count", "sum", "avg"]),
+        );
+        expect(result).toHaveLength(2);
+        for (const group of result) {
+          const count = group.revenue_count as number;
+          expect(count).toBeGreaterThan(0);
+          expect((group.revenue_sum as number) / count).toBe(group.revenue_avg);
+        }
+      });
+
+      it("yields count 0 for an entirely null column, not the group size", () => {
+        const [eu] = applyTransforms(
+          [
+            { region: "EU", revenue: null },
+            { region: "EU", revenue: null },
+          ],
+          groupByRegion(["count"]),
+        );
+        expect(eu.revenue_count).toBe(0);
+      });
+
+      it("counts non-numeric non-null values but excludes them from sum and avg", () => {
+        const [eu] = applyTransforms(
+          [
+            { region: "EU", revenue: 100 },
+            { region: "EU", revenue: "N/A" },
+          ],
+          groupByRegion(["count", "sum", "avg"]),
+        );
+        expect(eu.revenue_count).toBe(2);
+        expect(eu.revenue_sum).toBe(100);
+        expect(eu.revenue_avg).toBe(100);
+      });
+    });
   });
 
   describe("calculatedColumn", () => {
