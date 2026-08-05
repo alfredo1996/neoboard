@@ -43,7 +43,7 @@ ORDER BY total DESC
 | Suffix | text | (empty) | Text appended to the value (e.g., "%", " items") |
 | Decimal Places | number | -1 (auto) | Fixed decimal places (0-6). -1 for automatic |
 | Font Size | select | lg | Size of the displayed value: Small, Medium, Large, Extra Large |
-| Number Format | select | plain | Plain, Comma (1,234), Compact (1.2k), or Percent |
+| Number Format | select | plain | Plain, Comma (1,234), Compact (1.2k), or Percent. Percent expects a **ratio** and scales it — return 0.42 to render 42% |
 | Show Trend Indicator | boolean | false | Show a trend arrow comparing current to previous period (requires 2 rows) |
 
 ## Tips
@@ -51,3 +51,4 @@ ORDER BY total DESC
 - Combine Prefix and Number Format for currency displays: set Prefix to "$" and Number Format to "Comma" for values like "$1,234,567".
 - Enable Show Trend Indicator and return two rows to add an up/down arrow showing period-over-period change.
 - Use Compact number format for large numbers that would otherwise be hard to read at a glance.
+- Percent takes the ratio, not the percentage. `SELECT delivered::float / total AS value` with Number Format set to Percent renders 42%; pre-multiplying by 100 in the query renders 4,200%.
