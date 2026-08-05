@@ -34,6 +34,7 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 - `AlertDialog` now uses the same exact-centre animation as `Dialog`. It had kept upstream shadcn's `top-[48%]`, a deliberate 2%-of-height rise, so the two sibling modals animated differently and its centring classes carried no comment protecting them. Both now use `top-1/2` on both axes, and the geometry scrub is shared by both story files (#1373)
 - `CLAUDE.md` moved to `.claude/CLAUDE.md`, alongside the hooks, skills and agents it belongs with, and out of the repo root where every visitor saw it. Claude Code reads both paths, so nothing changed about how it loads
 - `npm run review:local` targets the active release branch instead of the previous one
+- Vitest caps worker forks at 50% of available parallelism in `app` and `component`. The default is roughly one fork per core, and each fork loads jsdom + React + the component library, so on a many-core machine the suite ran out of headroom before it ran out of cores: workers began failing to boot with `Timeout waiting for worker to respond`, taking whole test files down with them. Measured on a 10-core machine, the `app` suite went from **889s with 96 failures and 9 files never collected** to **37s with 3480/3480 passing** — and a run that silently collects nine fewer files still prints a summary that looks complete, so the lost coverage was invisible. Expressed as a percentage rather than a fixed count so CI runners scale down with it (#1240)
 
 ### Added
 
