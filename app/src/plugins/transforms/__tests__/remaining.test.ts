@@ -38,20 +38,68 @@ describe("transformToTableData", () => {
 
 describe("transformToValueData", () => {
   it("extracts the first value from the first record", () => {
-    expect(transformToValueData([{ count: 42 }])).toBe(42);
+    expect(transformToValueData([{ count: 42 }]).value).toBe(42);
   });
 
   it("passes through raw number", () => {
-    expect(transformToValueData(7)).toBe(7);
+    expect(transformToValueData(7).value).toBe(7);
   });
 
   it("returns 0 for null/undefined", () => {
-    expect(transformToValueData(null)).toBe(0);
-    expect(transformToValueData(undefined)).toBe(0);
+    expect(transformToValueData(null).value).toBe(0);
+    expect(transformToValueData(undefined).value).toBe(0);
   });
 
   it("returns 0 for empty array", () => {
-    expect(transformToValueData([])).toBe(0);
+    expect(transformToValueData([]).value).toBe(0);
+  });
+
+  // #1397 — the editor tells you trend "requires 2 rows in the query result",
+  // so the reference tile is queried as `label, value`. Taking the first column
+  // positionally then rendered the *date* as the headline metric: `$2026-03`.
+  describe("column selection (#1397)", () => {
+    it("picks the numeric column, not the positionally first one", () => {
+      expect(
+        transformToValueData([{ label: "2026-03", value: 48210.5 }]).value,
+      ).toBe(48210.5);
+    });
+
+    it("still returns a lone non-numeric column when there is no numeric one", () => {
+      expect(transformToValueData([{ status: "healthy" }]).value).toBe(
+        "healthy",
+      );
+    });
+
+    it("prefers the first numeric column when several are numeric", () => {
+      expect(transformToValueData([{ a: 1, b: 2 }]).value).toBe(1);
+    });
+
+    it("treats a numeric string as the numeric column", () => {
+      expect(
+        transformToValueData([{ label: "2026-03", value: "48210.5" }]).value,
+      ).toBe(48210.5);
+    });
+  });
+
+  describe("previous value for trend (#1397)", () => {
+    it("exposes the second row's value as `previous`", () => {
+      const out = transformToValueData([
+        { label: "2026-03", value: 100 },
+        { label: "2026-02", value: 80 },
+      ]);
+      expect(out.value).toBe(100);
+      expect(out.previous).toBe(80);
+    });
+
+    it("leaves `previous` undefined for a single row", () => {
+      expect(transformToValueData([{ value: 100 }]).previous).toBeUndefined();
+    });
+
+    it("leaves `previous` undefined when the second row is non-numeric", () => {
+      expect(
+        transformToValueData([{ value: 100 }, { value: "n/a" }]).previous,
+      ).toBeUndefined();
+    });
   });
 });
 

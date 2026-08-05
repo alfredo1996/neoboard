@@ -13,6 +13,9 @@ export const singleValueSettingsSchema = z
       .enum(["plain", "comma", "compact", "percent"])
       .default("plain"),
     decimalPlaces: z.coerce.number().optional(),
+    // Declared for typing — `.passthrough()` never stripped it; the plugin
+    // simply did not forward it (#1397).
+    trendEnabled: z.boolean().optional(),
   })
   .passthrough();
 
