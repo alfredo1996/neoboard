@@ -1124,6 +1124,115 @@ describe("DashboardWorkspace", () => {
     expect(useDashboardStore.getState().layout.pages).toHaveLength(3);
   });
 
+  // ── Parameter defaults (#1421) ──────────────────────────────────────
+  // `extractParamDefaults` walked the layout correctly and had its own unit
+  // test, but zero production callers — so the editor's "Default value" field
+  // wrote into the saved layout and was read only by a test. The seeded Chart
+  // Playground carries 21 defaults and rendered "Waiting for parameters…" on
+  // every chart until the user configured each knob by hand.
+  describe("parameter defaults are applied on load (#1421)", () => {
+    function withDefaults() {
+      const d = makeDashboard(1);
+      d.layoutJson.pages[0].widgets.push({
+        id: "pw1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "",
+        settings: {
+          chartOptions: {
+            parameterName: "dimension",
+            parameterType: "select",
+            defaultValue: "category",
+          },
+        },
+      } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+      return d;
+    }
+
+    function renderWithDefaults() {
+      mockUseDashboard.mockReturnValue({
+        data: withDefaults(),
+        isLoading: false,
+        isFetching: false,
+      });
+      return render(<DashboardWorkspace id="d1" editMode={false} />);
+    }
+
+    it("seeds the store from a widget's configured default", () => {
+      renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "category",
+      );
+    });
+
+    it("a URL parameter beats the default", () => {
+      searchParams = new URLSearchParams("param_dimension=revenue");
+      renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "revenue",
+      );
+    });
+
+    it("a restored session value beats the default", () => {
+      // Must go through localStorage, not the store: `restoreFromDashboard`
+      // runs on mount and *replaces* the store wholesale, so anything set
+      // beforehand is wiped before the defaults effect ever runs.
+      // Shape matters: `restoreFromDashboard` drops any entry missing a string
+      // `source`, `field` or `type`, so a near-miss fixture would restore
+      // nothing and this test would "pass" against a broken implementation.
+      localStorage.setItem(
+        "nb-params:d1",
+        JSON.stringify({
+          dimension: {
+            value: "region",
+            source: "Dimension",
+            field: "dimension",
+            type: "text",
+            sourceType: "selector-widget",
+            sourceWidgetId: "pw1",
+          },
+        }),
+      );
+      renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "region",
+      );
+    });
+
+    // The dangerous regression: re-seeding on every render would make a
+    // parameter impossible to clear — it would snap back instantly.
+    it("does not re-apply the default after the user clears it", () => {
+      const { rerender } = renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "category",
+      );
+
+      useParameterStore.getState().clearParameter("dimension");
+      rerender(<DashboardWorkspace id="d1" editMode={false} />);
+
+      expect(useParameterStore.getState().parameters.dimension).toBeUndefined();
+    });
+
+    it("leaves a parameter-select with no default alone", () => {
+      const d = makeDashboard(1);
+      d.layoutJson.pages[0].widgets.push({
+        id: "pw2",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "",
+        settings: { chartOptions: { parameterName: "unset" } },
+      } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+      mockUseDashboard.mockReturnValue({
+        data: d,
+        isLoading: false,
+        isFetching: false,
+      });
+
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      expect(useParameterStore.getState().parameters.unset).toBeUndefined();
+    });
+  });
+
   // ── Parameters ↔ URL ────────────────────────────────────────────────
   it("applies param_ values from the URL on mount", () => {
     searchParams = new URLSearchParams("param_year=1999");

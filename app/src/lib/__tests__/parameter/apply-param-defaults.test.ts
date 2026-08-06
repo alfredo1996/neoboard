@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { extractParamDefaults } from "@/lib/parameter/apply-param-defaults";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
@@ -102,5 +104,52 @@ describe("extractParamDefaults", () => {
       year: "2024",
       dept: "Sales",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1421 — the helper below was written, unit-tested, and never called.
+// ---------------------------------------------------------------------------
+
+describe("extractParamDefaults has a production caller (#1421)", () => {
+  /**
+   * This function was correct and fully covered while doing nothing, because
+   * nothing invoked it: the editor's "Default value" field wrote into the saved
+   * layout and was read only by this test file. The seeded Chart Playground
+   * carries 21 defaults and showed "Waiting for parameters…" on every chart.
+   *
+   * A unit test proving a function works is not evidence that anything calls
+   * it. This is the third instance of that shape — #1388 (`extractNoSyncParams`)
+   * and #1234 (the audit trail) were the first two.
+   *
+   * Deliberately narrow. The general form — "any `lib/` export reachable only
+   * from `__tests__` fails the build" — was measured at ~69 current matches,
+   * the great majority legitimate (`_reset*` test hooks, Zod fragments composed
+   * in-file, Drizzle enums). Shipping that would mean shipping an allowlist
+   * bigger than the signal, so it is filed separately as a tooling change.
+   */
+  it("is imported by non-test source", () => {
+    const appSrc = join(__dirname, "../../..");
+    const hits = execFileSync(
+      "grep",
+      [
+        "-rl",
+        "extractParamDefaults",
+        appSrc,
+        "--include=*.ts",
+        "--include=*.tsx",
+      ],
+      { encoding: "utf8" },
+    )
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .filter((f) => !f.includes("apply-param-defaults.ts"))
+      .filter((f) => !f.includes("__tests__") && !f.includes(".test."));
+
+    expect(
+      hits,
+      "extractParamDefaults has no production caller — the Default value field would silently do nothing",
+    ).not.toEqual([]);
   });
 });

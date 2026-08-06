@@ -29,7 +29,10 @@ export type ParameterSource =
   | "click-action"
   | "selector-widget"
   | "url"
-  | "cross-dashboard";
+  | "cross-dashboard"
+  // Seeded from a parameter widget's configured Default value on load (#1421).
+  // Distinct from "selector-widget": the user never picked this.
+  | "default";
 
 export interface ParameterEntry {
   value: unknown;
